@@ -1,0 +1,12 @@
+{
+  "uniks": {
+    "title": "Uniks",
+    "create": "Create Unik",
+    "name": "Name",
+    "description": "Description",
+    "save": "Save",
+    "delete": "Delete",
+    "conflict": "Another user is editing this Flow. Please wait or coordinate.",
+    "multipleEditors": "Multiple users are editing this Unik."
+  }
+}
