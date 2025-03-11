@@ -12,6 +12,11 @@ import { UpsertHistory } from './UpsertHistory'
 import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
 
+// Новые сущности
+import { Unik } from './Unik'
+import { User } from './User'
+import { UserUnik } from './UserUnik'
+
 export const entities = {
     ChatFlow,
     ChatMessage,
@@ -25,5 +30,9 @@ export const entities = {
     Lead,
     UpsertHistory,
     ApiKey,
-    CustomTemplate
+    CustomTemplate,
+    // Новые сущности
+    Unik,
+    User,
+    UserUnik
 }

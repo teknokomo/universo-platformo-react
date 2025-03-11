@@ -83,7 +83,7 @@ export const availableDependencies = [
     'd3-dsv',
     'faiss-node',
     'form-data',
-    'google-auth-library',
+    'google-up-auth-library',
     'graphql',
     'html-to-text',
     'ioredis',

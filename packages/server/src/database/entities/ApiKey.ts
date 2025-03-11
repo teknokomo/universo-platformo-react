@@ -1,5 +1,6 @@
-import { Column, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm'
+import { Column, Entity, PrimaryColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { IApiKey } from '../../Interface'
+import { Unik } from './Unik'
 
 @Entity('apikey')
 export class ApiKey implements IApiKey {
@@ -18,4 +19,9 @@ export class ApiKey implements IApiKey {
     @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
+
+    // Новый внешний ключ для привязки к рабочему пространству (Unik)
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }

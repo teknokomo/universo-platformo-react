@@ -3,7 +3,9 @@ import { Request, Response } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
-import basicAuth from 'express-basic-auth'
+// Удалён импорт express-basic-auth – Basic Auth больше не используется
+// import basicAuth from 'express-basic-auth'
+import jwt from 'jsonwebtoken' // Новый импорт для проверки JWT
 import { DataSource } from 'typeorm'
 import { MODE } from './Interface'
 import { getNodeModulesPackagePath, getEncryptionKey } from './utils'
@@ -156,66 +158,53 @@ export class App {
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
         const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
 
-        if (process.env.FLOWISE_USERNAME && process.env.FLOWISE_PASSWORD) {
-            const username = process.env.FLOWISE_USERNAME
-            const password = process.env.FLOWISE_PASSWORD
-            const basicAuthMiddleware = basicAuth({
-                users: { [username]: password }
-            })
-            this.app.use(async (req, res, next) => {
-                // Step 1: Check if the req path contains /api/v1 regardless of case
-                if (URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
-                    // Step 2: Check if the req path is case sensitive
-                    if (URL_CASE_SENSITIVE_REGEX.test(req.path)) {
-                        // Step 3: Check if the req path is in the whitelist
-                        const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-                        if (isWhitelisted) {
-                            next()
-                        } else if (req.headers['x-request-from'] === 'internal') {
-                            basicAuthMiddleware(req, res, next)
-                        } else {
-                            const isKeyValidated = await validateAPIKey(req)
-                            if (!isKeyValidated) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-                            next()
-                        }
-                    } else {
-                        return res.status(401).json({ error: 'Unauthorized Access' })
+        // ======= NEW AUTHENTICATION MIDDLEWARE (Supabase JWT) =======
+        // Этот middleware заменяет старую логику Basic Auth и проверяет все запросы к API.
+        this.app.use('/api/v1', async (req: Request, res: Response, next) => {
+            // Если путь не содержит /api/v1, пропускаем
+            if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
+                return next()
+            }
+            // Если регистр пути не совпадает, отклоняем
+            if (!URL_CASE_SENSITIVE_REGEX.test(req.path)) {
+                return res.status(401).json({ error: 'Unauthorized Access' })
+            }
+            // Если URL в белом списке, пропускаем
+            const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
+            if (isWhitelisted) {
+                return next()
+            }
+            // Извлекаем заголовок Authorization
+            const authHeader = req.headers['authorization'] || req.headers['Authorization']
+            let supabaseUserId: string | null = null
+            if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7)
+                try {
+                    // Верифицируем JWT с помощью секретного ключа Supabase
+                    const decoded: any = jwt.verify(token, process.env.SUPABASE_JWT_SECRET as string)
+                    supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
+                    if (supabaseUserId) {
+                        // Сохраняем данные пользователя в req.user для дальнейшего использования
+                        ;(req as any).user = { id: supabaseUserId, ...decoded }
                     }
-                } else {
-                    // If the req path does not contain /api/v1, then allow the request to pass through, example: /assets, /canvas
-                    next()
+                } catch (err) {
+                    supabaseUserId = null
                 }
-            })
-        } else {
-            this.app.use(async (req, res, next) => {
-                // Step 1: Check if the req path contains /api/v1 regardless of case
-                if (URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
-                    // Step 2: Check if the req path is case sensitive
-                    if (URL_CASE_SENSITIVE_REGEX.test(req.path)) {
-                        // Step 3: Check if the req path is in the whitelist
-                        const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-                        if (isWhitelisted) {
-                            next()
-                        } else if (req.headers['x-request-from'] === 'internal') {
-                            next()
-                        } else {
-                            const isKeyValidated = await validateAPIKey(req)
-                            if (!isKeyValidated) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-                            next()
-                        }
-                    } else {
-                        return res.status(401).json({ error: 'Unauthorized Access' })
-                    }
-                } else {
-                    // If the req path does not contain /api/v1, then allow the request to pass through, example: /assets, /canvas
-                    next()
+            }
+            // Если JWT отсутствует или недействителен, проверяем API-ключ
+            if (!supabaseUserId) {
+                const apiKeyValid = await validateAPIKey(req)
+                if (!apiKeyValid) {
+                    return res.status(401).json({ error: 'Unauthorized Access' })
                 }
-            })
-        }
+                return next()
+            }
+            return next()
+        })
+        // ======= END NEW AUTHENTICATION MIDDLEWARE =======
+
+        // --- Old Basic Auth blocks are removed ---
+        // (Ветвь, основанная на FLOWISE_USERNAME / FLOWISE_PASSWORD, полностью удалена)
 
         if (process.env.ENABLE_METRICS === 'true') {
             switch (process.env.METRICS_PROVIDER) {
@@ -227,7 +216,6 @@ export class App {
                 case 'open_telemetry':
                     this.metricsProvider = new OpenTelemetry(this.app)
                     break
-                // add more cases for other metrics providers here
             }
             if (this.metricsProvider) {
                 await this.metricsProvider.initializeCounters()

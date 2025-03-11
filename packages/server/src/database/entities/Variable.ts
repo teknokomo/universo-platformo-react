@@ -1,8 +1,9 @@
 /* eslint-disable */
-import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm'
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { IVariable } from '../../Interface'
+import { Unik } from './Unik'
 
-@Entity()
+@Entity('variable')
 export class Variable implements IVariable {
     @PrimaryGeneratedColumn('uuid')
     id: string
@@ -23,4 +24,9 @@ export class Variable implements IVariable {
     @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
+
+    // Новый внешний ключ для привязки к рабочему пространству (Unik)
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }

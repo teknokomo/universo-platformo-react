@@ -1,8 +1,9 @@
 /* eslint-disable */
-import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm'
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { ITool } from '../../Interface'
+import { Unik } from './Unik'
 
-@Entity()
+@Entity('tool')
 export class Tool implements ITool {
     @PrimaryGeneratedColumn('uuid')
     id: string
@@ -32,4 +33,9 @@ export class Tool implements ITool {
     @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
+
+    // Новый внешний ключ для привязки инструмента к рабочему пространству (Unik)
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }

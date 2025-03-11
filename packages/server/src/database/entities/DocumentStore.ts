@@ -1,7 +1,8 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { DocumentStoreStatus, IDocumentStore } from '../../Interface'
+import { Unik } from './Unik'
 
-@Entity()
+@Entity('document_store')
 export class DocumentStore implements IDocumentStore {
     @PrimaryGeneratedColumn('uuid')
     id: string
@@ -37,4 +38,9 @@ export class DocumentStore implements IDocumentStore {
 
     @Column({ nullable: true, type: 'text' })
     recordManagerConfig: string | null
+
+    // Новый внешний ключ для привязки к рабочему пространству (Unik)
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }

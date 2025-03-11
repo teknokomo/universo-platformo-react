@@ -9,6 +9,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar'
 import { BrowserView, MobileView } from 'react-device-detect'
 
 // project imports
+// Импортируем обновленные пункты меню
 import MenuList from './MenuList'
 import LogoSection from '../LogoSection'
 import { drawerWidth, headerHeight } from '@/store/constant'
@@ -60,7 +61,7 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
                 flexShrink: { md: 0 },
                 width: matchUpMd ? drawerWidth : 'auto'
             }}
-            aria-label='mailbox folders'
+            aria-label='sidebar navigation'
         >
             <Drawer
                 container={container}

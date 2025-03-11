@@ -44,6 +44,10 @@ import verifyRouter from './verify'
 import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 
+// Импорт новых роутов
+import upAuthRouter from './up-auth'
+import upUniksRouter from './up-uniks/uniks'
+
 const router = express.Router()
 
 router.use('/ping', pingRouter)
@@ -90,5 +94,9 @@ router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
+
+// Подключаем новые роуты:
+router.use('/auth', upAuthRouter)
+router.use('/uniks', upUniksRouter)
 
 export default router

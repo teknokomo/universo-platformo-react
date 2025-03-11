@@ -1,8 +1,9 @@
 /* eslint-disable */
-import { Entity, Column, PrimaryGeneratedColumn, Index, CreateDateColumn, UpdateDateColumn } from 'typeorm'
+import { Entity, Column, PrimaryGeneratedColumn, Index, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { ICredential } from '../../Interface'
+import { Unik } from './Unik'
 
-@Entity()
+@Entity('credential')
 export class Credential implements ICredential {
     @PrimaryGeneratedColumn('uuid')
     id: string
@@ -23,4 +24,9 @@ export class Credential implements ICredential {
     @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
+
+    // Новый внешний ключ для привязки к рабочему пространству (Unik)
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }

@@ -1,8 +1,9 @@
 /* eslint-disable */
-import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm'
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { ChatflowType, IChatFlow } from '../../Interface'
+import { Unik } from './Unik'
 
-@Entity()
+@Entity('chat_flow')
 export class ChatFlow implements IChatFlow {
     @PrimaryGeneratedColumn('uuid')
     id: string
@@ -43,11 +44,14 @@ export class ChatFlow implements IChatFlow {
     @Column({ nullable: true, type: 'text' })
     type?: ChatflowType
 
-    @Column({ type: 'timestamp' })
     @CreateDateColumn()
     createdDate: Date
 
-    @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
+
+    // Новый внешний ключ для привязки к рабочему пространству (Unik)
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }
