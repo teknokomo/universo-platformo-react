@@ -29,7 +29,7 @@ import useApi from '@/hooks/useApi'
 // utils
 import { generateExportFlowData } from '@/utils/genericHelper'
 import { uiBaseURL } from '@/store/constant'
-import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CHATFLOW, REMOVE_DIRTY } from '@/store/actions'
 
 // ==============================|| CANVAS HEADER ||============================== //
 
@@ -122,7 +122,10 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 const parsedFlowData = JSON.parse(flowData)
                 flowData = JSON.stringify(parsedFlowData)
                 localStorage.setItem('duplicatedFlowData', flowData)
-                window.open(`${uiBaseURL}/${isAgentCanvas ? 'agentcanvas' : 'canvas'}`, '_blank')
+
+                const parentUnikId = localStorage.getItem('parentUnikId')
+
+                window.open(`${uiBaseURL}/uniks/${parentUnikId}/${isAgentCanvas ? 'agentcanvas' : 'chatflows'}/new`, '_blank')
             } catch (e) {
                 console.error(e)
             }
@@ -152,12 +155,9 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
     }
 
     const submitFlowName = () => {
-        if (chatflow.id) {
-            const updateBody = {
-                name: flowNameRef.current.value
-            }
-            updateChatflowApi.request(chatflow.id, updateBody)
-        }
+        const newName = flowNameRef.current.value
+        handleSaveFlow(newName)
+        setEditingFlowName(false)
     }
 
     const onAPIDialogClick = () => {
@@ -210,6 +210,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
     const onConfirmSaveName = (flowName) => {
         setFlowDialogOpen(false)
         handleSaveFlow(flowName)
+        dispatch({ type: REMOVE_DIRTY })
     }
 
     useEffect(() => {

@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import apiKeyService from '../../services/apikey'
 import { ChatFlow } from '../../database/entities/ChatFlow'
+import { Unik } from '../../database/entities/Unik'
 import { RateLimiterManager } from '../../utils/rateLimit'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { ChatflowType } from '../../Interface'
@@ -98,6 +99,12 @@ const saveChatflow = async (req: Request, res: Response, next: NextFunction) => 
         const body = req.body
         const newChatFlow = new ChatFlow()
         Object.assign(newChatFlow, body)
+        // If the unik_id field is passed in the body, create a Unik object and assign it to the unik property
+        if (body.unik_id) {
+            const unik = new Unik()
+            unik.id = body.unik_id
+            newChatFlow.unik = unik
+        }
         const apiResponse = await chatflowsService.saveChatflow(newChatFlow)
         return res.json(apiResponse)
     } catch (error) {

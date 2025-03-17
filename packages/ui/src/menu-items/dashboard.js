@@ -22,6 +22,15 @@ const dashboard = {
     type: 'group',
     children: [
         {
+            id: 'unik-dashboard',
+            title: 'Dashboard',
+            type: 'item',
+            // Относительный URL для главной страницы Уника – получится /uniks/{unikId}
+            url: '',
+            icon: icons.IconBuildingStore,
+            breadcrumbs: false
+        },
+        {
             id: 'chatflows',
             title: 'Chatflows',
             type: 'item',
@@ -35,8 +44,7 @@ const dashboard = {
             type: 'item',
             url: '/agentflows',
             icon: icons.IconUsersGroup,
-            breadcrumbs: true,
-            isBeta: true
+            breadcrumbs: true
         },
         {
             id: 'assistants',
@@ -44,14 +52,6 @@ const dashboard = {
             type: 'item',
             url: '/assistants',
             icon: icons.IconRobot,
-            breadcrumbs: true
-        },
-        {
-            id: 'marketplaces',
-            title: 'Marketplaces',
-            type: 'item',
-            url: '/marketplaces',
-            icon: icons.IconBuildingStore,
             breadcrumbs: true
         },
         {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 // material-ui
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -34,7 +34,7 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const Chatflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-
+    const { unikId } = useParams() // Получение ID Уника
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
@@ -42,7 +42,7 @@ const Chatflows = () => {
     const [loginDialogOpen, setLoginDialogOpen] = useState(false)
     const [loginDialogProps, setLoginDialogProps] = useState({})
 
-    const getAllChatflowsApi = useApi(chatflowsApi.getAllChatflows)
+    const getAllChatflowsApi = useApi(() => chatflowsApi.getAllChatflows(unikId))
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
 
     const handleChange = (event, nextView) => {
@@ -70,18 +70,21 @@ const Chatflows = () => {
     }
 
     const addNew = () => {
-        navigate('/canvas')
+        localStorage.setItem('parentUnikId', unikId)
+        navigate(`/uniks/${unikId}/chatflows/new`)
     }
 
     const goToCanvas = (selectedChatflow) => {
-        navigate(`/canvas/${selectedChatflow.id}`)
+        navigate(`/uniks/${unikId}/chatflows/${selectedChatflow.id}`)
     }
 
     useEffect(() => {
-        getAllChatflowsApi.request()
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        if (unikId) {
+            getAllChatflowsApi.request()
+        } else {
+            console.error('Unik ID is missing in URL')
+        }
+    }, [unikId])
 
     useEffect(() => {
         if (getAllChatflowsApi.error) {

@@ -11,27 +11,31 @@ const MarketplaceCanvas = Loadable(lazy(() => import('@/views/marketplaces/Marke
 // ==============================|| CANVAS ROUTING ||============================== //
 
 const CanvasRoutes = {
-    path: '/',
+    path: '/uniks/:unikId',
     element: <MinimalLayout />,
     children: [
         {
-            path: '/canvas',
+            path: 'chatflows',
             element: <Canvas />
         },
         {
-            path: '/canvas/:id',
+            path: 'chatflows/new',
             element: <Canvas />
         },
         {
-            path: '/agentcanvas',
+            path: 'chatflows/:id',
             element: <Canvas />
         },
         {
-            path: '/agentcanvas/:id',
+            path: 'agentcanvas',
             element: <Canvas />
         },
         {
-            path: '/marketplace/:id',
+            path: 'agentcanvas/:id',
+            element: <Canvas />
+        },
+        {
+            path: 'marketplace/:id',
             element: <MarketplaceCanvas />
         }
     ]

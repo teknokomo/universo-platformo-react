@@ -1,19 +1,45 @@
 import { lazy } from 'react'
-import Loadable from '@/ui-component/loading/Loadable'
-import MainLayout from '@/layout/MainLayout'
+import { Outlet } from 'react-router-dom'
 
-// Основные компоненты Flowise
+// project imports
+import MainLayout from '@/layout/MainLayout'
+import Loadable from '@/ui-component/loading/Loadable'
+
+// Компоненты для аутентификации / списков
+const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
+const UnikList = Loadable(lazy(() => import('@/views/up-uniks/UnikList')))
+
+// Компонент дашборда рабочего пространства
+const UnikDetail = Loadable(lazy(() => import('@/views/up-uniks/UnikDetail')))
+
+// chatflows routing
 const Chatflows = Loadable(lazy(() => import('@/views/chatflows')))
+
+// agents routing
 const Agentflows = Loadable(lazy(() => import('@/views/agentflows')))
+
+// marketplaces routing
 const Marketplaces = Loadable(lazy(() => import('@/views/marketplaces')))
+
+// apikey routing
 const APIKey = Loadable(lazy(() => import('@/views/apikey')))
+
+// tools routing
 const Tools = Loadable(lazy(() => import('@/views/tools')))
+
+// assistants routing
 const Assistants = Loadable(lazy(() => import('@/views/assistants')))
 const OpenAIAssistantLayout = Loadable(lazy(() => import('@/views/assistants/openai/OpenAIAssistantLayout')))
 const CustomAssistantLayout = Loadable(lazy(() => import('@/views/assistants/custom/CustomAssistantLayout')))
 const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@/views/assistants/custom/CustomAssistantConfigurePreview')))
+
+// credentials routing
 const Credentials = Loadable(lazy(() => import('@/views/credentials')))
+
+// variables routing
 const Variables = Loadable(lazy(() => import('@/views/variables')))
+
+// documents routing
 const Documents = Loadable(lazy(() => import('@/views/docstore')))
 const DocumentStoreDetail = Loadable(lazy(() => import('@/views/docstore/DocumentStoreDetail')))
 const ShowStoredChunks = Loadable(lazy(() => import('@/views/docstore/ShowStoredChunks')))
@@ -21,93 +47,20 @@ const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@/views/docstore/L
 const VectorStoreConfigure = Loadable(lazy(() => import('@/views/docstore/VectorStoreConfigure')))
 const VectorStoreQuery = Loadable(lazy(() => import('@/views/docstore/VectorStoreQuery')))
 
-// Новые компоненты для многопользовательского режима
-const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
-const UnikList = Loadable(lazy(() => import('@/views/up-uniks/UnikList')))
-const UnikDetailWrapper = Loadable(lazy(() => import('@/views/up-uniks/UnikDetailWrapper')))
+// Пример для других общих страниц
 const CommonPage = Loadable(lazy(() => import('@/views/up-uniks/CommonPage')))
 const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
+
+const UniksContainer = () => <Outlet />
 
 const MainRoutes = {
     path: '/',
     element: <MainLayout />,
     children: [
-        // Индексный маршрут: когда пользователь заходит на "/" - показываем UnikList
         {
             index: true,
             element: <UnikList />
         },
-        // Остальные маршруты Flowise
-        {
-            path: '/chatflows',
-            element: <Chatflows />
-        },
-        {
-            path: '/agentflows',
-            element: <Agentflows />
-        },
-        {
-            path: '/apikey',
-            element: <APIKey />
-        },
-        {
-            path: '/tools',
-            element: <Tools />
-        },
-        {
-            path: '/assistants',
-            element: <Assistants />
-        },
-        {
-            path: '/assistants/custom',
-            element: <CustomAssistantLayout />
-        },
-        {
-            path: '/assistants/custom/:id',
-            element: <CustomAssistantConfigurePreview />
-        },
-        {
-            path: '/assistants/openai',
-            element: <OpenAIAssistantLayout />
-        },
-        {
-            path: '/credentials',
-            element: <Credentials />
-        },
-        {
-            path: '/variables',
-            element: <Variables />
-        },
-        {
-            path: '/document-stores',
-            element: <Documents />
-        },
-        {
-            path: '/document-stores/:storeId',
-            element: <DocumentStoreDetail />
-        },
-        {
-            path: '/document-stores/chunks/:storeId/:fileId',
-            element: <ShowStoredChunks />
-        },
-        {
-            path: '/document-stores/:storeId/:name',
-            element: <LoaderConfigPreviewChunks />
-        },
-        {
-            path: '/document-stores/vector/:storeId',
-            element: <VectorStoreConfigure />
-        },
-        {
-            path: '/document-stores/vector/:storeId/:docId',
-            element: <VectorStoreConfigure />
-        },
-        {
-            path: '/document-stores/query/:storeId',
-            element: <VectorStoreQuery />
-        },
-
-        // Новые маршруты для мультипользовательского функционала
         {
             path: '/auth',
             element: <Auth />
@@ -117,11 +70,22 @@ const MainRoutes = {
             children: [
                 {
                     index: true,
-                    element: <UnikList /> // Список рабочих пространств по маршруту /uniks
+                    element: <UnikList />
                 },
                 {
                     path: ':unikId',
-                    element: <UnikDetailWrapper /> // Детальная страница для конкретного рабочего пространства
+                    element: <UniksContainer />,
+                    children: [
+                        {
+                            index: true,
+                            element: <UnikDetail />
+                        },
+                        {
+                            path: 'chatflows',
+                            element: <Chatflows />
+                        }
+                        // Можно добавить другие вложенные маршруты, например: agentflows, assistants и т.д.
+                    ]
                 }
             ]
         },
@@ -130,14 +94,9 @@ const MainRoutes = {
             element: <CommonPage />
         },
         {
-            path: '/marketplace',
-            element: <Marketplaces />
-        },
-        {
             path: '/admin',
             element: <AdminPanel />
         },
-        // Перенаправление всех неопределённых маршрутов на страницу авторизации
         {
             path: '*',
             element: <Auth />

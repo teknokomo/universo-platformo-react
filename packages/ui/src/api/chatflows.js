@@ -1,20 +1,20 @@
 import client from './client'
 
-const getAllChatflows = () => client.get('/chatflows?type=CHATFLOW')
+const getAllChatflows = (unikId) => client.get(`/uniks/${unikId}/chatflows?type=CHATFLOW`)
 
-const getAllAgentflows = () => client.get('/chatflows?type=MULTIAGENT')
+const getAllAgentflows = (unikId) => client.get(`/uniks/${unikId}/chatflows?type=MULTIAGENT`)
 
-const getSpecificChatflow = (id) => client.get(`/chatflows/${id}`)
+const getSpecificChatflow = (unikId, id) => client.get(`/uniks/${unikId}/chatflows/${id}`)
 
 const getSpecificChatflowFromPublicEndpoint = (id) => client.get(`/public-chatflows/${id}`)
 
-const createNewChatflow = (body) => client.post(`/chatflows`, body)
+const createNewChatflow = (unikId, body) => client.post(`/uniks/${unikId}/chatflows`, body)
 
-const importChatflows = (body) => client.post(`/chatflows/importchatflows`, body)
+const importChatflows = (unikId, body) => client.post(`/uniks/${unikId}/chatflows/importchatflows`, body)
 
-const updateChatflow = (id, body) => client.put(`/chatflows/${id}`, body)
+const updateChatflow = (unikId, id, body) => client.put(`/uniks/${unikId}/chatflows/${id}`, body)
 
-const deleteChatflow = (id) => client.delete(`/chatflows/${id}`)
+const deleteChatflow = (unikId, id) => client.delete(`/uniks/${unikId}/chatflows/${id}`)
 
 const getIsChatflowStreaming = (id) => client.get(`/chatflows-streaming/${id}`)
 

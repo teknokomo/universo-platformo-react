@@ -1,35 +1,35 @@
 import PropTypes from 'prop-types'
-import { forwardRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { useDispatch, useSelector } from 'react-redux'
+import React, { forwardRef } from 'react'
+import { NavLink, useMatch } from 'react-router-dom'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
 import { Avatar, Chip, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery } from '@mui/material'
-
-// project imports
-import { MENU_OPEN, SET_MENU } from '@/store/actions'
-import config from '@/config'
-
-// assets
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react'
+import config from '@/config'
 
 // ==============================|| SIDEBAR MENU LIST ITEMS ||============================== //
 
 const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     const theme = useTheme()
-    const dispatch = useDispatch()
-    const customization = useSelector((state) => state.customization)
     const matchesSM = useMediaQuery(theme.breakpoints.down('lg'))
 
+    // Полный URL пункта меню: config.basename + item.url
+    const fullPath = `${config.basename}${item.url}`
+
+    // Определяем, совпадает ли текущий путь с полным URL (точное совпадение)
+    const match = useMatch({ path: fullPath, end: true })
+
+    // Если иконка задана – используем её, иначе маленький кружок
     const Icon = item.icon
     const itemIcon = item?.icon ? (
         <Icon stroke={1.5} size='1.3rem' />
     ) : (
         <FiberManualRecordIcon
             sx={{
-                width: customization.isOpen.findIndex((id) => id === item?.id) > -1 ? 8 : 6,
-                height: customization.isOpen.findIndex((id) => id === item?.id) > -1 ? 8 : 6
+                width: match ? 8 : 6,
+                height: match ? 8 : 6
             }}
             fontSize={level > 0 ? 'inherit' : 'medium'}
         />
@@ -40,13 +40,17 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
         itemTarget = '_blank'
     }
 
-    let listItemProps = {
+    // Создаем ссылку с использованием NavLink и forwardRef;
+    // проп end гарантирует, что ссылка активна только при точном совпадении
+    const listItemProps = {
         component: forwardRef(function ListItemPropsComponent(props, ref) {
-            return <Link ref={ref} {...props} to={`${config.basename}${item.url}`} target={itemTarget} />
+            return <NavLink ref={ref} {...props} to={fullPath} target={itemTarget} end />
         })
     }
     if (item?.external) {
-        listItemProps = { component: 'a', href: item.url, target: itemTarget }
+        listItemProps.component = 'a'
+        listItemProps.href = item.url
+        listItemProps.target = itemTarget
     }
     if (item?.id === 'loadChatflow') {
         listItemProps.component = 'label'
@@ -59,11 +63,8 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
 
         const reader = new FileReader()
         reader.onload = (evt) => {
-            if (!evt?.target?.result) {
-                return
-            }
-            const { result } = evt.target
-            onUploadFile(result)
+            if (!evt?.target?.result) return
+            onUploadFile(evt.target.result)
         }
         reader.readAsText(file)
     }
@@ -72,53 +73,31 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
         if (navType === 'SETTINGS' && id !== 'loadChatflow') {
             onClick(id)
         } else {
-            dispatch({ type: MENU_OPEN, id })
-            if (matchesSM) dispatch({ type: SET_MENU, opened: false })
+            // Дополнительная логика, если требуется
         }
     }
-
-    // active menu item on page load
-    useEffect(() => {
-        if (navType === 'MENU') {
-            const currentIndex = document.location.pathname
-                .toString()
-                .split('/')
-                .findIndex((id) => id === item.id)
-            if (currentIndex > -1) {
-                dispatch({ type: MENU_OPEN, id: item.id })
-            }
-            if (!document.location.pathname.toString().split('/')[1]) {
-                itemHandler('chatflows')
-            }
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [navType])
 
     return (
         <ListItemButton
             {...listItemProps}
             disabled={item.disabled}
             sx={{
-                borderRadius: `${customization.borderRadius}px`,
+                borderRadius: `${theme.shape.borderRadius}px`,
                 mb: 0.5,
                 alignItems: 'flex-start',
                 backgroundColor: level > 1 ? 'transparent !important' : 'inherit',
                 py: level > 1 ? 1 : 1.25,
                 pl: `${level * 24}px`
             }}
-            selected={customization.isOpen.findIndex((id) => id === item.id) > -1}
+            // Используем значение match для определения активного состояния
+            selected={Boolean(match)}
             onClick={() => itemHandler(item.id)}
         >
             {item.id === 'loadChatflow' && <input type='file' hidden accept='.json' onChange={(e) => handleFileUpload(e)} />}
             <ListItemIcon sx={{ my: 'auto', minWidth: !item?.icon ? 18 : 36 }}>{itemIcon}</ListItemIcon>
             <ListItemText
                 primary={
-                    <Typography
-                        variant={customization.isOpen.findIndex((id) => id === item.id) > -1 ? 'h5' : 'body1'}
-                        color='inherit'
-                        sx={{ my: 0.5 }}
-                    >
+                    <Typography variant={Boolean(match) ? 'h5' : 'body1'} color='inherit' sx={{ my: 0.5 }}>
                         {item.title}
                     </Typography>
                 }
@@ -166,3 +145,4 @@ NavItem.propTypes = {
 }
 
 export default NavItem
+

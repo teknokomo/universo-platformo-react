@@ -3,7 +3,8 @@ import apikeyRouter from './apikey'
 import assistantsRouter from './assistants'
 import attachmentsRouter from './attachments'
 import chatMessageRouter from './chat-messages'
-import chatflowsRouter from './chatflows'
+// Remove global mounting of chatflowsRouter as chatflows are now accessible via /uniks/:unikId/chatflows
+// import chatflowsRouter from './chatflows'
 import chatflowsStreamingRouter from './chatflows-streaming'
 import chatflowsUploadsRouter from './chatflows-uploads'
 import componentsCredentialsRouter from './components-credentials'
@@ -43,8 +44,6 @@ import vectorRouter from './vectors'
 import verifyRouter from './verify'
 import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
-
-// Импорт новых роутов
 import upAuthRouter from './up-auth'
 import upUniksRouter from './up-uniks/uniks'
 
@@ -54,7 +53,8 @@ router.use('/ping', pingRouter)
 router.use('/apikey', apikeyRouter)
 router.use('/assistants', assistantsRouter)
 router.use('/attachments', attachmentsRouter)
-router.use('/chatflows', chatflowsRouter)
+// Global route for chatflows has been removed
+// router.use('/chatflows', chatflowsRouter)
 router.use('/chatflows-streaming', chatflowsStreamingRouter)
 router.use('/chatmessage', chatMessageRouter)
 router.use('/components-credentials', componentsCredentialsRouter)
@@ -94,8 +94,6 @@ router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
-
-// Подключаем новые роуты:
 router.use('/auth', upAuthRouter)
 router.use('/uniks', upUniksRouter)
 
