@@ -21,16 +21,16 @@ const UnikDetail = () => {
     return (
         <Box sx={{ padding: 2 }}>
             <Typography variant='h4' gutterBottom>
-                {t('Workspace Dashboard')}
+                {t('Uniks Dashboard')}
             </Typography>
             <Typography variant='body1' sx={{ mb: 2 }}>
-                {t('Welcome to your workspace:')} <strong>{unik.name}</strong>
+                {t('Welcome to your unik:')} <strong>{unik.name}</strong>
             </Typography>
             <Typography variant='body2' sx={{ mb: 2 }}>
                 {t('Use the left menu to navigate to Chatflows, Agentflows, etc.')}
             </Typography>
             <Button variant='outlined' onClick={() => navigate('/uniks')}>
-                {t('Back to Workspaces')}
+                {t('Back to Uniks')}
             </Button>
         </Box>
     )
