@@ -1,35 +1,36 @@
 import PropTypes from 'prop-types'
-import React, { forwardRef } from 'react'
-import { NavLink, useMatch } from 'react-router-dom'
+import { forwardRef, useEffect } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
 import { Avatar, Chip, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery } from '@mui/material'
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react'
+
+// project imports
+import { MENU_OPEN, SET_MENU } from '@/store/actions'
 import config from '@/config'
+
+// assets
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 
 // ==============================|| SIDEBAR MENU LIST ITEMS ||============================== //
 
 const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     const theme = useTheme()
+    const dispatch = useDispatch()
+    const customization = useSelector((state) => state.customization)
     const matchesSM = useMediaQuery(theme.breakpoints.down('lg'))
+    const location = useLocation()
 
-    // Полный URL пункта меню: config.basename + item.url
-    const fullPath = `${config.basename}${item.url}`
-
-    // Определяем, совпадает ли текущий путь с полным URL (точное совпадение)
-    const match = useMatch({ path: fullPath, end: true })
-
-    // Если иконка задана – используем её, иначе маленький кружок
     const Icon = item.icon
     const itemIcon = item?.icon ? (
         <Icon stroke={1.5} size='1.3rem' />
     ) : (
         <FiberManualRecordIcon
             sx={{
-                width: match ? 8 : 6,
-                height: match ? 8 : 6
+                width: customization.isOpen.findIndex((id) => id === item?.id) > -1 ? 8 : 6,
+                height: customization.isOpen.findIndex((id) => id === item?.id) > -1 ? 8 : 6
             }}
             fontSize={level > 0 ? 'inherit' : 'medium'}
         />
@@ -40,17 +41,13 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
         itemTarget = '_blank'
     }
 
-    // Создаем ссылку с использованием NavLink и forwardRef;
-    // проп end гарантирует, что ссылка активна только при точном совпадении
-    const listItemProps = {
+    let listItemProps = {
         component: forwardRef(function ListItemPropsComponent(props, ref) {
-            return <NavLink ref={ref} {...props} to={fullPath} target={itemTarget} end />
+            return <NavLink ref={ref} {...props} to={`${config.basename}${item.url}`} target={itemTarget} />
         })
     }
     if (item?.external) {
-        listItemProps.component = 'a'
-        listItemProps.href = item.url
-        listItemProps.target = itemTarget
+        listItemProps = { component: 'a', href: item.url, target: itemTarget }
     }
     if (item?.id === 'loadChatflow') {
         listItemProps.component = 'label'
@@ -63,8 +60,11 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
 
         const reader = new FileReader()
         reader.onload = (evt) => {
-            if (!evt?.target?.result) return
-            onUploadFile(evt.target.result)
+            if (!evt?.target?.result) {
+                return
+            }
+            const { result } = evt.target
+            onUploadFile(result)
         }
         reader.readAsText(file)
     }
@@ -73,31 +73,72 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
         if (navType === 'SETTINGS' && id !== 'loadChatflow') {
             onClick(id)
         } else {
-            // Дополнительная логика, если требуется
+            dispatch({ type: MENU_OPEN, id })
+            if (matchesSM) dispatch({ type: SET_MENU, opened: false })
         }
     }
+
+    // active menu item on page load
+    useEffect(() => {
+        if (navType === 'MENU') {
+            // Check if the current path is the Unik dashboard
+            const isUnikDashboard = /^\/uniks\/[^\/]+$/.test(location.pathname)
+
+            // If this is a Unique dashboard and the current menu item is dashboard, activate it
+            if (isUnikDashboard && item.id === 'dashboard') {
+                dispatch({ type: MENU_OPEN, id: item.id })
+                return
+            }
+
+            // Check if the current path contains the menu item's URL
+            // For chatflows type items, check for /chatflows in the path
+            if (item.url && location.pathname.includes(item.url)) {
+                dispatch({ type: MENU_OPEN, id: item.id })
+                return
+            }
+
+            // Standard check by ID
+            const currentIndex = location.pathname
+                .toString()
+                .split('/')
+                .findIndex((id) => id === item.id)
+            if (currentIndex > -1) {
+                dispatch({ type: MENU_OPEN, id: item.id })
+            }
+
+            // Fallback option for the root page
+            if (!location.pathname.toString().split('/')[1]) {
+                itemHandler('chatflows')
+            }
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navType, location.pathname, item.id, item.url])
 
     return (
         <ListItemButton
             {...listItemProps}
             disabled={item.disabled}
             sx={{
-                borderRadius: `${theme.shape.borderRadius}px`,
+                borderRadius: `${customization.borderRadius}px`,
                 mb: 0.5,
                 alignItems: 'flex-start',
                 backgroundColor: level > 1 ? 'transparent !important' : 'inherit',
                 py: level > 1 ? 1 : 1.25,
                 pl: `${level * 24}px`
             }}
-            // Используем значение match для определения активного состояния
-            selected={Boolean(match)}
+            selected={customization.isOpen.findIndex((id) => id === item.id) > -1}
             onClick={() => itemHandler(item.id)}
         >
             {item.id === 'loadChatflow' && <input type='file' hidden accept='.json' onChange={(e) => handleFileUpload(e)} />}
             <ListItemIcon sx={{ my: 'auto', minWidth: !item?.icon ? 18 : 36 }}>{itemIcon}</ListItemIcon>
             <ListItemText
                 primary={
-                    <Typography variant={Boolean(match) ? 'h5' : 'body1'} color='inherit' sx={{ my: 0.5 }}>
+                    <Typography
+                        variant={customization.isOpen.findIndex((id) => id === item.id) > -1 ? 'h5' : 'body1'}
+                        color='inherit'
+                        sx={{ my: 0.5 }}
+                    >
                         {item.title}
                     </Typography>
                 }
@@ -145,4 +186,3 @@ NavItem.propTypes = {
 }
 
 export default NavItem
-
