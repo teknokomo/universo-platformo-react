@@ -20,9 +20,11 @@ export class Assistant implements IAssistant {
     @Column({ nullable: true, type: 'text' })
     type?: AssistantType
 
+    @Column({ type: 'timestamp' })
     @CreateDateColumn()
     createdDate: Date
 
+    @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
 

@@ -216,6 +216,7 @@ export class App {
                 case 'open_telemetry':
                     this.metricsProvider = new OpenTelemetry(this.app)
                     break
+                // add more cases for other metrics providers here
             }
             if (this.metricsProvider) {
                 await this.metricsProvider.initializeCounters()

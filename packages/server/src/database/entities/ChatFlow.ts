@@ -44,9 +44,11 @@ export class ChatFlow implements IChatFlow {
     @Column({ nullable: true, type: 'text' })
     type?: ChatflowType
 
+    @Column({ type: 'timestamp' })
     @CreateDateColumn()
     createdDate: Date
 
+    @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
 
