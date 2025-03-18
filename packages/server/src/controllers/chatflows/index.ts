@@ -52,7 +52,8 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
 
 const getAllChatflows = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const apiResponse = await chatflowsService.getAllChatflows(req.query?.type as ChatflowType)
+        const unikId = req.params.unikId as string
+        const apiResponse = await chatflowsService.getAllChatflows(req.query?.type as ChatflowType, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

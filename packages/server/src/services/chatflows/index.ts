@@ -114,17 +114,24 @@ const deleteChatflow = async (chatflowId: string): Promise<any> => {
     }
 }
 
-const getAllChatflows = async (type?: ChatflowType): Promise<ChatFlow[]> => {
+const getAllChatflows = async (type?: ChatflowType, unikId?: string): Promise<ChatFlow[]> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).find()
-        if (type === 'MULTIAGENT') {
-            return dbResponse.filter((chatflow) => chatflow.type === 'MULTIAGENT')
-        } else if (type === 'CHATFLOW') {
-            // fetch all chatflows that are not agentflow
-            return dbResponse.filter((chatflow) => chatflow.type === 'CHATFLOW' || !chatflow.type)
+        let queryBuilder = appServer.AppDataSource.getRepository(ChatFlow)
+            .createQueryBuilder('chatflow')
+
+        // Apply filter by unikId if provided
+        if (unikId) {
+            queryBuilder = queryBuilder.where('chatflow.unik_id = :unikId', { unikId })
         }
-        return dbResponse
+
+        // Filter by type at the database level
+        if (type === 'MULTIAGENT') {
+            queryBuilder = queryBuilder.andWhere('chatflow.type = :type', { type: 'MULTIAGENT' })
+        } else if (type === 'CHATFLOW') {
+            queryBuilder = queryBuilder.andWhere('(chatflow.type = :type OR chatflow.type IS NULL)', { type: 'CHATFLOW' })
+        }
+        return await queryBuilder.getMany()
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
