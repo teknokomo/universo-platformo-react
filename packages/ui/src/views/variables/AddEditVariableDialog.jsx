@@ -94,7 +94,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
                 value: variableValue,
                 type: variableType
             }
-            const createResp = await variablesApi.createVariable(obj)
+            const createResp = await variablesApi.createVariable(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New Variable added',
@@ -139,7 +139,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
                 type: variableType
             }
 
-            const saveResp = await variablesApi.updateVariable(variable.id, saveObj)
+            const saveResp = await variablesApi.updateVariable(dialogProps.unikId, variable.id, saveObj)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Variable saved',

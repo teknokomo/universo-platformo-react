@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useParams } from 'react-router-dom'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 import moment from 'moment'
 
@@ -67,12 +68,13 @@ const StyledTableRow = styled(TableRow)(() => ({
     }
 }))
 
-// ==============================|| Credentials ||============================== //
+// ==============================|| Variables ||============================== //
 
 const Variables = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
+    const { unikId } = useParams()
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -87,7 +89,7 @@ const Variables = () => {
 
     const { confirm } = useConfirm()
 
-    const getAllVariables = useApi(variablesApi.getAllVariables)
+    const getAllVariables = useApi(() => variablesApi.getAllVariables(unikId))
 
     const [search, setSearch] = useState('')
     const onSearchChange = (event) => {
@@ -103,7 +105,8 @@ const Variables = () => {
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Add',
             customBtnId: 'btn_confirmAddingVariable',
-            data: {}
+            data: {},
+            unikId: unikId
         }
         setVariableDialogProps(dialogProp)
         setShowVariableDialog(true)
@@ -114,7 +117,8 @@ const Variables = () => {
             type: 'EDIT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Save',
-            data: variable
+            data: variable,
+            unikId: unikId
         }
         setVariableDialogProps(dialogProp)
         setShowVariableDialog(true)
@@ -131,7 +135,7 @@ const Variables = () => {
 
         if (isConfirmed) {
             try {
-                const deleteResp = await variablesApi.deleteVariable(variable.id)
+                const deleteResp = await variablesApi.deleteVariable(unikId, variable.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
                         message: 'Variable deleted',
@@ -173,9 +177,13 @@ const Variables = () => {
     }
 
     useEffect(() => {
-        getAllVariables.request()
+        if (unikId) {
+            getAllVariables.request()
+        } else {
+            console.error('Unik ID is missing in URL')
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [unikId])
 
     useEffect(() => {
         setLoading(getAllVariables.loading)

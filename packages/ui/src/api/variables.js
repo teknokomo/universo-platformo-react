@@ -1,12 +1,12 @@
 import client from './client'
 
-const getAllVariables = () => client.get('/variables')
+const getAllVariables = (unikId) => client.get(`/uniks/${unikId}/variables`)
 
-const createVariable = (body) => client.post(`/variables`, body)
+const createVariable = (unikId, body) => client.post(`/uniks/${unikId}/variables`, body)
 
-const updateVariable = (id, body) => client.put(`/variables/${id}`, body)
+const updateVariable = (unikId, id, body) => client.put(`/uniks/${unikId}/variables/${id}`, body)
 
-const deleteVariable = (id) => client.delete(`/variables/${id}`)
+const deleteVariable = (unikId, id) => client.delete(`/uniks/${unikId}/variables/${id}`)
 
 export default {
     getAllVariables,

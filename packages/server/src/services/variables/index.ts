@@ -5,9 +5,11 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { QueryRunner } from 'typeorm'
 
-const createVariable = async (newVariable: Variable) => {
+const createVariable = async (newVariable: Variable, unikId: string) => {
     try {
         const appServer = getRunningExpressApp()
+        // Set relationship with Unik
+        newVariable.unik = { id: unikId } as any
         const variable = await appServer.AppDataSource.getRepository(Variable).create(newVariable)
         const dbResponse = await appServer.AppDataSource.getRepository(Variable).save(variable)
         return dbResponse
@@ -19,10 +21,13 @@ const createVariable = async (newVariable: Variable) => {
     }
 }
 
-const deleteVariable = async (variableId: string): Promise<any> => {
+const deleteVariable = async (variableId: string, unikId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Variable).delete({ id: variableId })
+        const dbResponse = await appServer.AppDataSource.getRepository(Variable).delete({ 
+            id: variableId,
+            unik: { id: unikId }
+        })
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(
@@ -32,10 +37,13 @@ const deleteVariable = async (variableId: string): Promise<any> => {
     }
 }
 
-const getAllVariables = async () => {
+const getAllVariables = async (unikId: string) => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Variable).find()
+        const dbResponse = await appServer.AppDataSource.getRepository(Variable)
+            .createQueryBuilder('variable')
+            .where('variable.unik_id = :unikId', { unikId })
+            .getMany()
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(
@@ -45,11 +53,12 @@ const getAllVariables = async () => {
     }
 }
 
-const getVariableById = async (variableId: string) => {
+const getVariableById = async (variableId: string, unikId: string) => {
     try {
         const appServer = getRunningExpressApp()
         const dbResponse = await appServer.AppDataSource.getRepository(Variable).findOneBy({
-            id: variableId
+            id: variableId,
+            unik: { id: unikId }
         })
         return dbResponse
     } catch (error) {
@@ -60,9 +69,13 @@ const getVariableById = async (variableId: string) => {
     }
 }
 
-const updateVariable = async (variable: Variable, updatedVariable: Variable) => {
+const updateVariable = async (variable: Variable, updatedVariable: Variable, unikId: string) => {
     try {
         const appServer = getRunningExpressApp()
+        // Ensure unikId is not set directly
+        if ('unikId' in updatedVariable) {
+            delete (updatedVariable as any).unikId
+        }
         const tmpUpdatedVariable = await appServer.AppDataSource.getRepository(Variable).merge(variable, updatedVariable)
         const dbResponse = await appServer.AppDataSource.getRepository(Variable).save(tmpUpdatedVariable)
         return dbResponse
