@@ -81,7 +81,7 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 importMode: importMode,
                 jsonFile: selectedFile
             }
-            const createResp = await apikeyAPI.importAPI(obj)
+            const createResp = await apikeyAPI.importAPI(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'Imported keys successfully!',
