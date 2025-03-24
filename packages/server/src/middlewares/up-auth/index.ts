@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 
 /**
- * Middleware для проверки JWT-токена, полученного от Supabase.
- * Если токен корректный, его декодированный пейлоуд сохраняется в req.user.
- * При отсутствии токена или ошибке верификации возвращается ответ с кодом 401.
+ * Middleware to verify JWT token received from Supabase.
+ * If token is valid, its decoded payload is saved in req.user.
+ * Returns 401 response if token is missing or verification fails.
  */
 export const ensureAuth = (req: Request, res: Response, next: NextFunction) => {
     console.log('[up-auth] ensureAuth middleware triggered.')
@@ -25,14 +25,14 @@ export const ensureAuth = (req: Request, res: Response, next: NextFunction) => {
             throw new Error('Supabase JWT secret not configured')
         }
 
-        // Проверяем и декодируем токен
+        // Verify token
         const decoded = jwt.verify(token, secret)
         console.log('[up-auth] JWT token successfully verified. Decoded payload:', decoded)
 
-        // Сохраняем данные из токена в req.user
+        // Save token payload to req.user
         ;(req as any).user = decoded
 
-        // Переходим к следующему middleware или маршруту
+        // Proceed to next middleware or route
         next()
     } catch (error) {
         console.error('[up-auth] JWT verification error:', error)
