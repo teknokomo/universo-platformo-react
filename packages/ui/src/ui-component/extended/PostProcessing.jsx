@@ -70,7 +70,7 @@ const PostProcessing = ({ dialogProps }) => {
                 }
             }
             chatbotConfig.postProcessing = value.postProcessing
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
                 chatbotConfig: JSON.stringify(chatbotConfig)
             })
             if (saveResp.data) {

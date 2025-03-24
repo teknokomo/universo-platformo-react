@@ -8,9 +8,6 @@ export class Unik {
     @Column()
     name: string
 
-    @Column({ default: false })
-    is_common: boolean
-
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date
 }

@@ -204,7 +204,7 @@ const AnalyseFlow = ({ dialogProps }) => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
                 analytic: JSON.stringify(analytic)
             })
             if (saveResp.data) {

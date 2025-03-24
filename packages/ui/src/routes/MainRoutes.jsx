@@ -83,8 +83,75 @@ const MainRoutes = {
                         {
                             path: 'chatflows',
                             element: <Chatflows />
+                        },
+                        {
+                            path: 'agentflows',
+                            element: <Agentflows />
+                        },
+                        {
+                            path: 'apikey',
+                            element: <APIKey />
+                        },
+                        {
+                            path: 'tools',
+                            element: <Tools />
+                        },
+                        {
+                            path: 'assistants',
+                            element: <Assistants />
+                        },
+                        {
+                            path: 'assistants/openai',
+                            element: <OpenAIAssistantLayout />
+                        },
+                        {
+                            path: 'assistants/custom',
+                            element: <CustomAssistantLayout />
+                        },
+                        {
+                            path: 'assistants/custom/:id',
+                            element: <CustomAssistantConfigurePreview />
+                        },
+                        {
+                            path: 'assistants/custom/preview',
+                            element: <CustomAssistantConfigurePreview />
+                        },
+                        {
+                            path: 'credentials',
+                            element: <Credentials />
+                        },
+                        {
+                            path: 'variables',
+                            element: <Variables />
+                        },
+                        {
+                            path: 'document-stores',
+                            element: <Documents />
+                        },
+                        {
+                            path: 'document-stores/:storeId',
+                            element: <DocumentStoreDetail />
+                        },
+                        {
+                            path: 'document-stores/chunks/:storeId/:fileId',
+                            element: <ShowStoredChunks />
+                        },
+                        {
+                            path: 'document-stores/:storeId/:name',
+                            element: <LoaderConfigPreviewChunks />
+                        },
+                        {
+                            path: 'document-stores/vector/:storeId',
+                            element: <VectorStoreConfigure />
+                        },
+                        {
+                            path: 'document-stores/vector/:storeId/:docId',
+                            element: <VectorStoreConfigure />
+                        },
+                        {
+                            path: 'document-stores/query/:storeId',
+                            element: <VectorStoreQuery />
                         }
-                        // Можно добавить другие вложенные маршруты, например: agentflows, assistants и т.д.
                     ]
                 }
             ]

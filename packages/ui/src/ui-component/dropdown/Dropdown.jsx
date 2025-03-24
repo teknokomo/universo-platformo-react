@@ -20,7 +20,9 @@ const StyledPopper = styled(Popper)({
 
 export const Dropdown = ({ name, value, loading, options, onSelect, disabled = false, freeSolo = false, disableClearable = false }) => {
     const customization = useSelector((state) => state.customization)
-    const findMatchingOptions = (options = [], value) => options.find((option) => option.name === value)
+    const findMatchingOptions = (options = [], value) => {
+        return options.find((option) => option.name === value)
+    }
     const getDefaultOptionValue = () => ''
     let [internalValue, setInternalValue] = useState(value ?? 'choose an option')
 
@@ -107,3 +109,4 @@ Dropdown.propTypes = {
     disabled: PropTypes.bool,
     disableClearable: PropTypes.bool
 }
+

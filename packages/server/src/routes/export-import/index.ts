@@ -1,6 +1,6 @@
 import express from 'express'
 import exportImportController from '../../controllers/export-import'
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 router.post('/export', exportImportController.exportData)
 

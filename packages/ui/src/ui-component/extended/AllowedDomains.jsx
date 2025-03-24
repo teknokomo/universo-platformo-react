@@ -55,7 +55,8 @@ const AllowedDomains = ({ dialogProps }) => {
             chatbotConfig.allowedOrigins = value.allowedOrigins
             chatbotConfig.allowedOriginsError = value.allowedOriginsError
 
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
+            chatbotConfig.allowedDomains = value.allowedOrigins
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
                 chatbotConfig: JSON.stringify(chatbotConfig)
             })
             if (saveResp.data) {

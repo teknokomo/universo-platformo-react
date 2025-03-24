@@ -91,7 +91,12 @@ export const AsyncDropdown = ({
             } else {
                 names = credentialNames[0]
             }
-            const resp = await credentialsApi.getCredentialsByName(names)
+            // Universo Platformo | Extract unikId from URL path
+            const pathSegments = window.location.pathname.split('/')
+            const unikIdIndex = pathSegments.findIndex(segment => segment === 'uniks') + 1
+            const unikId = pathSegments[unikIdIndex] || ''
+            
+            const resp = await credentialsApi.getCredentialsByName(unikId, names)
             if (resp.data) {
                 const returnList = []
                 for (let i = 0; i < resp.data.length; i += 1) {
@@ -208,3 +213,4 @@ AsyncDropdown.propTypes = {
     isCreateNewOption: PropTypes.bool,
     multiple: PropTypes.bool
 }
+

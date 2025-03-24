@@ -378,9 +378,8 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 }
             }
 
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
-                chatbotConfig: JSON.stringify(chatbotConfig),
-                followUpPrompts: JSON.stringify(followUpPromptsConfig)
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
+                chatbotConfig: JSON.stringify(chatbotConfig)
             })
             if (saveResp.data) {
                 enqueueSnackbar({

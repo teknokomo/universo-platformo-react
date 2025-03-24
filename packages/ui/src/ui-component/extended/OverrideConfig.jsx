@@ -262,8 +262,8 @@ const OverrideConfig = ({ dialogProps }) => {
 
     const onOverrideConfigSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflowid, {
-                apiConfig: JSON.stringify(formatObj())
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, chatflowid, {
+                overrideConfig: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
                 enqueueSnackbar({

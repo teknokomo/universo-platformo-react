@@ -1,6 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { getSupabaseClientWithAuth } from '../../utils/supabase'
 import chatflowsRouter from '../chatflows' // Импорт вложенного роутера для Chatflows
+import toolsRouter from '../tools'
+import variablesRouter from '../variables'
+import exportImportRouter from '../export-import'
+import credentialsRouter from '../credentials'
+import assistantsRouter from '../assistants'
+import apikeyRouter from '../apikey'
+import documentStoreRouter from '../documentstore'
 
 const router = Router()
 
@@ -199,8 +206,28 @@ router.post('/members', async (req: Request, res: Response) => {
     }
 })
 
-// Монтируем вложенные роуты для Chatflows
-// Ключевое изменение: используем '/:unikId/chatflows' для явного указания, что Chatflows связаны с Unik.
+// Mount nested routes for Chatflows
 router.use('/:unikId/chatflows', chatflowsRouter)
+
+// Mount nested routes for Tools
+router.use('/:unikId/tools', toolsRouter)
+
+// Mount nested routes for Variables
+router.use('/:unikId/variables', variablesRouter)
+
+// Mount nested routes for export/import
+router.use('/:unikId/export-import', exportImportRouter)
+
+// Mount nested routes for Credentials
+router.use('/:unikId/credentials', credentialsRouter)
+
+// Mount nested routes for Assistants
+router.use('/:unikId/assistants', assistantsRouter)
+
+// Mount nested routes for API Keys
+router.use('/:unikId/apikey', apikeyRouter)
+
+// Mount nested routes for Document Stores
+router.use('/:unikId/document-stores', documentStoreRouter)
 
 export default router

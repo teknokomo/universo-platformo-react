@@ -40,7 +40,7 @@ const ChatFeedback = ({ dialogProps }) => {
                 }
             }
             chatbotConfig.chatFeedback = value.chatFeedback
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
                 chatbotConfig: JSON.stringify(chatbotConfig)
             })
             if (saveResp.data) {

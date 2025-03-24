@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { createPortal } from 'react-dom'
+import { useParams } from 'react-router-dom'
 
 // material-ui
 import {
@@ -155,7 +156,7 @@ ExportDialog.propTypes = {
 
 const ProfileSection = ({ username, handleLogout }) => {
     const theme = useTheme()
-
+    const { unikId } = useParams()
     const customization = useSelector((state) => state.customization)
 
     const [open, setOpen] = useState(false)
@@ -216,7 +217,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                 return
             }
             const body = JSON.parse(evt.target.result)
-            importAllApi.request(body)
+            importAllApi.request(unikId, body)
         }
         reader.readAsText(file)
     }
@@ -249,7 +250,7 @@ const ProfileSection = ({ username, handleLogout }) => {
         if (data.includes('Variables')) body.variable = true
         if (data.includes('Assistants')) body.assistant = true
 
-        exportAllApi.request(body)
+        exportAllApi.request(unikId, body)
     }
 
     useEffect(() => {

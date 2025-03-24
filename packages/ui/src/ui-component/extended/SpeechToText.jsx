@@ -252,8 +252,10 @@ const SpeechToText = ({ dialogProps }) => {
     const onSave = async () => {
         const speechToText = setValue(true, selectedProvider, 'status')
         try {
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
-                speechToText: JSON.stringify(speechToText)
+            const chatbotConfig = { ...dialogProps.chatflow }
+            chatbotConfig.speechToText = speechToText
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
+                chatbotConfig: JSON.stringify(chatbotConfig)
             })
             if (saveResp.data) {
                 enqueueSnackbar({

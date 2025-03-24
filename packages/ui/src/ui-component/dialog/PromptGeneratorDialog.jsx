@@ -56,7 +56,7 @@ const AssistantPromptGenerator = ({ show, dialogProps, onCancel, onConfirm }) =>
                 name: dialogProps.data.selectedChatModel.name,
                 inputs: dialogProps.data.selectedChatModel.inputs
             }
-            const resp = await assistantsApi.generateAssistantInstruction({
+            const resp = await assistantsApi.generateAssistantInstruction(dialogProps.data.unikId, {
                 selectedChatModel: selectedChatModelObj,
                 task: customAssistantInstruction
             })

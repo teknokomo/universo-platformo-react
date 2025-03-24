@@ -73,8 +73,8 @@ const RateLimit = () => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflowid, {
-                apiConfig: JSON.stringify(formatObj())
+            const saveResp = await chatflowsApi.updateChatflow(chatflow.unik_id, chatflowid, {
+                rateLimit: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
                 enqueueSnackbar({

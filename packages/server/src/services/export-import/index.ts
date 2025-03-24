@@ -45,7 +45,7 @@ const convertExportInput = (body: any): ExportInput => {
 }
 
 const FileDefaultName = 'ExportData.json'
-const exportData = async (exportInput: ExportInput): Promise<{ FileDefaultName: string } & ExportData> => {
+const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ FileDefaultName: string } & ExportData> => {
     try {
         // step 1 - get all Tool
         let allTool: Tool[] = []
@@ -60,7 +60,7 @@ const exportData = async (exportInput: ExportInput): Promise<{ FileDefaultName: 
         if (exportInput.agentflow === true) allMultiAgent = await chatflowService.getAllChatflows('MULTIAGENT')
 
         let allVars: Variable[] = []
-        if (exportInput.variable === true) allVars = await variableService.getAllVariables()
+        if (exportInput.variable === true) allVars = await variableService.getAllVariables(unikId)
 
         let allAssistants: Assistant[] = []
         if (exportInput.assistant === true) allAssistants = await assistantService.getAllAssistants()
