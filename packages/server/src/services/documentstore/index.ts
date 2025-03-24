@@ -68,10 +68,17 @@ const createDocumentStore = async (newDocumentStore: DocumentStore) => {
     }
 }
 
-const getAllDocumentStores = async () => {
+const getAllDocumentStores = async (unikId?: string) => {
     try {
         const appServer = getRunningExpressApp()
-        const entities = await appServer.AppDataSource.getRepository(DocumentStore).find()
+        let query = appServer.AppDataSource.getRepository(DocumentStore).createQueryBuilder('docstore')
+        
+        // Universo Platformo | Добавлена фильтрация по unikId
+        if (unikId) {
+            query = query.where('docstore.unik_id = :unikId', { unikId })
+        }
+        
+        const entities = await query.getMany()
         return entities
     } catch (error) {
         throw new InternalFlowiseError(
@@ -141,12 +148,24 @@ const deleteLoaderFromDocumentStore = async (storeId: string, docId: string) => 
     }
 }
 
-const getDocumentStoreById = async (storeId: string) => {
+const getDocumentStoreById = async (storeId: string, unikId?: string) => {
     try {
         const appServer = getRunningExpressApp()
-        const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOneBy({
-            id: storeId
+        let whereClause: any = { id: storeId }
+        
+        // Universo Platformo | Добавлена фильтрация по unikId
+        if (unikId) {
+            whereClause = { 
+                id: storeId,
+                unik: { id: unikId } 
+            }
+        }
+        
+        const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOne({
+            where: whereClause,
+            relations: ['unik']
         })
+        
         if (!entity) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -271,20 +290,35 @@ const getDocumentStoreFileChunks = async (appDataSource: DataSource, storeId: st
     }
 }
 
-const deleteDocumentStore = async (storeId: string) => {
+const deleteDocumentStore = async (storeId: string, unikId?: string) => {
     try {
         const appServer = getRunningExpressApp()
+        let whereClause: any = { id: storeId }
+        
+        // Universo Platform | Added unikId filtering
+        if (unikId) {
+            whereClause = { 
+                id: storeId,
+                unik: { id: unikId } 
+            }
+        }
+        
+        // Find document with unikId filter
+        const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOne({
+            where: whereClause,
+            relations: ['unik']
+        })
+        
+        if (!entity) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Document store ${storeId} not found`)
+        }
+        
         // delete all the chunks associated with the store
         await appServer.AppDataSource.getRepository(DocumentStoreFileChunk).delete({
             storeId: storeId
         })
+        
         // now delete the files associated with the store
-        const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOneBy({
-            id: storeId
-        })
-        if (!entity) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Document store ${storeId} not found`)
-        }
         await removeFilesFromStorage(DOCUMENT_STORE_BASE_FOLDER, entity.id)
 
         // delete upsert history
@@ -292,10 +326,8 @@ const deleteDocumentStore = async (storeId: string) => {
             chatflowid: storeId
         })
 
-        // now delete the store
-        const tbd = await appServer.AppDataSource.getRepository(DocumentStore).delete({
-            id: storeId
-        })
+        // now delete the store with unikId filter if provided
+        const tbd = await appServer.AppDataSource.getRepository(DocumentStore).delete(whereClause)
 
         return { deleted: tbd.affected }
     } catch (error) {

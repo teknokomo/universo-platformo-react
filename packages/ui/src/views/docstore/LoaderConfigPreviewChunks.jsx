@@ -66,7 +66,7 @@ const LoaderConfigPreviewChunks = () => {
     const getNodesByCategoryApi = useApi(nodesApi.getNodesByCategory)
     const getSpecificDocumentStoreApi = useApi(documentsApi.getSpecificDocumentStore)
 
-    const { storeId, name: docLoaderNodeName } = useParams()
+    const { storeId, name: docLoaderNodeName, unikId } = useParams()
 
     const [selectedDocumentLoader, setSelectedDocumentLoader] = useState({})
 
@@ -153,7 +153,7 @@ const LoaderConfigPreviewChunks = () => {
             config.previewChunkCount = previewChunkCount
 
             try {
-                const previewResp = await documentStoreApi.previewChunks(config)
+                const previewResp = await documentStoreApi.previewChunks(unikId, config)
                 if (previewResp.data) {
                     setTotalChunks(previewResp.data.totalChunks)
                     setDocumentChunks(previewResp.data.chunks)
@@ -185,7 +185,7 @@ const LoaderConfigPreviewChunks = () => {
             setLoading(true)
             const config = prepareConfig()
             try {
-                const saveResp = await documentStoreApi.saveProcessingLoader(config)
+                const saveResp = await documentStoreApi.saveProcessingLoader(unikId, config)
                 setLoading(false)
                 if (saveResp.data) {
                     enqueueSnackbar({
@@ -201,8 +201,8 @@ const LoaderConfigPreviewChunks = () => {
                         }
                     })
                     // don't wait for the process to complete, redirect to document store
-                    documentStoreApi.processLoader(config, saveResp.data?.id)
-                    navigate('/document-stores/' + storeId)
+                    documentStoreApi.processLoader(unikId, config, saveResp.data?.id)
+                    navigate(`/uniks/${unikId}/document-stores/${storeId}`)
                 }
             } catch (error) {
                 setLoading(false)

@@ -71,7 +71,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 name: documentStoreName,
                 description: documentStoreDesc
             }
-            const createResp = await documentStoreApi.createDocumentStore(obj)
+            const createResp = await documentStoreApi.createDocumentStore(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New Document Store created.',
@@ -113,7 +113,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 description: documentStoreDesc
             }
 
-            const saveResp = await documentStoreApi.updateDocumentStore(docStoreId, saveObj)
+            const saveResp = await documentStoreApi.updateDocumentStore(dialogProps.unikId, docStoreId, saveObj)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Document Store Updated!',
@@ -146,6 +146,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             })
             onCancel()
         }
+
     }
 
     const component = show ? (
@@ -226,3 +227,4 @@ AddDocStoreDialog.propTypes = {
 }
 
 export default AddDocStoreDialog
+

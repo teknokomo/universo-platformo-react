@@ -1,8 +1,8 @@
 import express from 'express'
-import documentStoreController from '../../controllers/documentstore'
+import documentStoreController from '../../controllers/documentstore/index'
 import { getMulterStorage } from '../../utils'
 
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 router.post(['/upsert/', '/upsert/:id'], getMulterStorage().array('files'), documentStoreController.upsertDocStoreMiddleware)
 
@@ -29,7 +29,7 @@ router.get('/components/loaders', documentStoreController.getDocumentLoaders)
 // delete loader from document store
 router.delete('/loader/:id/:loaderId', documentStoreController.deleteLoaderFromDocumentStore)
 // chunking preview
-router.post('/loader/preview', documentStoreController.previewFileChunks)
+router.post('/uniks/:unikId/document-stores/loader/preview', documentStoreController.previewFileChunks)
 // saving process
 router.post('/loader/save', documentStoreController.saveProcessingLoader)
 // chunking process

@@ -16,6 +16,10 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
             )
         }
         const body = req.body
+        const unikId = req.params.unikId
+        if (unikId) {
+            body.unik = { id: unikId }
+        }
         const docStore = DocumentStoreDTO.toEntity(body)
         const apiResponse = await documentStoreService.createDocumentStore(docStore)
         return res.json(apiResponse)
@@ -26,7 +30,8 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
 
 const getAllDocumentStores = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const apiResponse = await documentStoreService.getAllDocumentStores()
+        const unikId = req.params.unikId
+        const apiResponse = await documentStoreService.getAllDocumentStores(unikId)
         return res.json(DocumentStoreDTO.fromEntities(apiResponse))
     } catch (error) {
         next(error)
@@ -59,7 +64,8 @@ const getDocumentStoreById = async (req: Request, res: Response, next: NextFunct
                 `Error: documentStoreController.getDocumentStoreById - id not provided!`
             )
         }
-        const apiResponse = await documentStoreService.getDocumentStoreById(req.params.id)
+        const unikId = req.params.unikId
+        const apiResponse = await documentStoreService.getDocumentStoreById(req.params.id, unikId)
         if (apiResponse && apiResponse.whereUsed) {
             apiResponse.whereUsed = JSON.stringify(await documentStoreService.getUsedChatflowNames(apiResponse))
         }
@@ -222,14 +228,21 @@ const updateDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.updateDocumentStore - body not provided!`
             )
         }
-        const store = await documentStoreService.getDocumentStoreById(req.params.id)
+        
+        const unikId = req.params.unikId
+        const store = await documentStoreService.getDocumentStoreById(req.params.id, unikId)
         if (!store) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: documentStoreController.updateDocumentStore - DocumentStore ${req.params.id} not found in the database`
             )
         }
+        
         const body = req.body
+        if (unikId) {
+            body.unik = { id: unikId }
+        }
+        
         const updateDocStore = new DocumentStore()
         Object.assign(updateDocStore, body)
         const apiResponse = await documentStoreService.updateDocumentStore(store, updateDocStore)
@@ -247,7 +260,9 @@ const deleteDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.deleteDocumentStore - storeId not provided!`
             )
         }
-        const apiResponse = await documentStoreService.deleteDocumentStore(req.params.id)
+        
+        const unikId = req.params.unikId
+        const apiResponse = await documentStoreService.deleteDocumentStore(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -263,7 +278,9 @@ const previewFileChunks = async (req: Request, res: Response, next: NextFunction
             )
         }
         const body = req.body
+        const { unikId } = req.params
         body.preview = true
+        body.unikId = unikId
         const apiResponse = await documentStoreService.previewChunksMiddleware(body)
         return res.json(apiResponse)
     } catch (error) {

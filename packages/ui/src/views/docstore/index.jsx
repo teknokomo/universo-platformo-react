@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 
 // material-ui
@@ -45,9 +45,10 @@ import { baseURL, gridSpacing } from '@/store/constant'
 const Documents = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
+    const { unikId } = useParams()
 
     const navigate = useNavigate()
-    const getAllDocumentStores = useApi(documentsApi.getAllDocumentStores)
+    const getAllDocumentStores = useApi(() => documentsApi.getAllDocumentStores(unikId))
 
     const [error, setError] = useState(null)
     const [isLoading, setLoading] = useState(true)
@@ -73,7 +74,7 @@ const Documents = () => {
     }
 
     const goToDocumentStore = (id) => {
-        navigate('/document-stores/' + id)
+        navigate(`/uniks/${unikId}/document-stores/${id}`)
     }
 
     const addNew = () => {
@@ -81,7 +82,8 @@ const Documents = () => {
             title: 'Add New Document Store',
             type: 'ADD',
             cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add'
+            confirmButtonName: 'Add',
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -93,10 +95,11 @@ const Documents = () => {
     }
 
     useEffect(() => {
-        getAllDocumentStores.request()
-
+        if (unikId) {
+            getAllDocumentStores.request()
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [unikId])
 
     useEffect(() => {
         if (getAllDocumentStores.data) {

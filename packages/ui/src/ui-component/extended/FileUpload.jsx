@@ -43,8 +43,8 @@ const FileUpload = ({ dialogProps }) => {
                 status: fullFileUpload
             }
             chatbotConfig.fullFileUpload = value
-
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.id, {
+            chatbotConfig.fileConfig = value.fileConfig
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
                 chatbotConfig: JSON.stringify(chatbotConfig)
             })
             if (saveResp.data) {

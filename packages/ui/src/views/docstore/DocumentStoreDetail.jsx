@@ -150,32 +150,33 @@ const DocumentStoreDetails = () => {
     const [anchorEl, setAnchorEl] = useState(null)
     const open = Boolean(anchorEl)
 
-    const { storeId } = useParams()
+    const { storeId, unikId } = useParams()
 
     const openPreviewSettings = (id) => {
-        navigate('/document-stores/' + storeId + '/' + id)
+        navigate(`/uniks/${unikId}/document-stores/${storeId}/${id}`)
     }
 
     const showStoredChunks = (id) => {
-        navigate('/document-stores/chunks/' + storeId + '/' + id)
+        navigate(`/uniks/${unikId}/document-stores/chunks/${storeId}/${id}`)
     }
 
     const showVectorStoreQuery = (id) => {
-        navigate('/document-stores/query/' + id)
+        navigate(`/uniks/${unikId}/document-stores/query/${id}`)
     }
 
     const onDocLoaderSelected = (docLoaderComponentName) => {
         setShowDocumentLoaderListDialog(false)
-        navigate('/document-stores/' + storeId + '/' + docLoaderComponentName)
+        navigate(`/uniks/${unikId}/document-stores/${storeId}/${docLoaderComponentName}`)
     }
 
     const showVectorStore = (id) => {
-        navigate('/document-stores/vector/' + id)
+        navigate(`/uniks/${unikId}/document-stores/vector/${id}`)
     }
 
     const listLoaders = () => {
         const dialogProp = {
-            title: 'Select Document Loader'
+            title: 'Select Document Loader',
+            unikId
         }
         setDocumentLoaderListDialogProps(dialogProp)
         setShowDocumentLoaderListDialog(true)
@@ -369,7 +370,7 @@ const DocumentStoreDetails = () => {
 
     const onConfirm = () => {
         setShowDialog(false)
-        getSpecificDocumentStore.request(storeId)
+        getSpecificDocumentStore.request(unikId, storeId)
     }
 
     const handleClick = (event) => {
@@ -393,8 +394,7 @@ const DocumentStoreDetails = () => {
     }
 
     useEffect(() => {
-        getSpecificDocumentStore.request(storeId)
-
+        getSpecificDocumentStore.request(unikId, storeId)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -431,7 +431,7 @@ const DocumentStoreDetails = () => {
                             search={false}
                             title={documentStore?.name}
                             description={documentStore?.description}
-                            onBack={() => navigate('/document-stores')}
+                            onBack={() => navigate(`/uniks/${unikId}/document-stores`)}
                             onEdit={() => onEditClicked()}
                         >
                             {(documentStore?.status === 'STALE' || documentStore?.status === 'UPSERTING') && (
@@ -662,7 +662,7 @@ const DocumentStoreDetails = () => {
                                                                 )
                                                             }
                                                             onChunkUpsert={() =>
-                                                                navigate(`/document-stores/vector/${documentStore.id}/${loader.id}`)
+                                                                navigate(`/uniks/${unikId}/document-stores/vector/${documentStore.id}/${loader.id}`)
                                                             }
                                                             onViewUpsertAPI={() => onViewUpsertAPI(documentStore.id, loader.id)}
                                                         />

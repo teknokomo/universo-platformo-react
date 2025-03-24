@@ -21,7 +21,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
     const [searchValue, setSearchValue] = useState('')
     const [documentLoaders, setDocumentLoaders] = useState([])
 
-    const getDocumentLoadersApi = useApi(documentStoreApi.getDocumentLoaders)
+    const getDocumentLoadersApi = useApi((unikId) => documentStoreApi.getDocumentLoaders(unikId))
 
     const onSearchChange = (val) => {
         setSearchValue(val)
@@ -38,7 +38,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
     }, [dialogProps])
 
     useEffect(() => {
-        getDocumentLoadersApi.request()
+        getDocumentLoadersApi.request(dialogProps.unikId)
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
