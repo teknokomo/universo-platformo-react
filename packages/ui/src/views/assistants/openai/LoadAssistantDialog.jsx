@@ -7,9 +7,11 @@ import { Dropdown } from '@/ui-component/dropdown/Dropdown'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import assistantsApi from '@/api/assistants'
 import useApi from '@/hooks/useApi'
+import { useParams } from 'react-router-dom'
 
 const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected, setError }) => {
     const portalElement = document.getElementById('portal')
+    const { unikId } = useParams()
 
     const getAllAvailableAssistantsApi = useApi(assistantsApi.getAllAvailableAssistants)
 
@@ -77,7 +79,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                         }}
                         onSelect={(newValue) => {
                             setCredentialId(newValue)
-                            if (newValue) getAllAvailableAssistantsApi.request(newValue)
+                            if (newValue && unikId) getAllAvailableAssistantsApi.request(newValue, unikId)
                         }}
                     />
                 </Box>

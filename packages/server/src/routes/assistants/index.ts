@@ -1,20 +1,20 @@
 import express from 'express'
 import assistantsController from '../../controllers/assistants'
 
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 // CREATE
 router.post('/', assistantsController.createAssistant)
 
 // READ
 router.get('/', assistantsController.getAllAssistants)
-router.get(['/', '/:id'], assistantsController.getAssistantById)
+router.get('/:id', assistantsController.getAssistantById)
 
 // UPDATE
-router.put(['/', '/:id'], assistantsController.updateAssistant)
+router.put('/:id', assistantsController.updateAssistant)
 
 // DELETE
-router.delete(['/', '/:id'], assistantsController.deleteAssistant)
+router.delete('/:id', assistantsController.deleteAssistant)
 
 router.get('/components/chatmodels', assistantsController.getChatModels)
 router.get('/components/docstores', assistantsController.getDocumentStores)

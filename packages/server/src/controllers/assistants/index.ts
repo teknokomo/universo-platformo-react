@@ -12,7 +12,14 @@ const createAssistant = async (req: Request, res: Response, next: NextFunction) 
                 `Error: assistantsController.createAssistant - body not provided!`
             )
         }
-        const apiResponse = await assistantsService.createAssistant(req.body)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.createAssistant - unikId not provided!`
+            )
+        }
+        const apiResponse = await assistantsService.createAssistant({...req.body, unikId})
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -27,7 +34,14 @@ const deleteAssistant = async (req: Request, res: Response, next: NextFunction) 
                 `Error: assistantsController.deleteAssistant - id not provided!`
             )
         }
-        const apiResponse = await assistantsService.deleteAssistant(req.params.id, req.query.isDeleteBoth)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.deleteAssistant - unikId not provided!`
+            )
+        }
+        const apiResponse = await assistantsService.deleteAssistant(req.params.id, req.query.isDeleteBoth, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -37,7 +51,9 @@ const deleteAssistant = async (req: Request, res: Response, next: NextFunction) 
 const getAllAssistants = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const type = req.query.type as AssistantType
-        const apiResponse = await assistantsService.getAllAssistants(type)
+        const unikId = req.params.unikId as string
+
+        const apiResponse = await assistantsService.getAllAssistants(type, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -52,7 +68,14 @@ const getAssistantById = async (req: Request, res: Response, next: NextFunction)
                 `Error: assistantsController.getAssistantById - id not provided!`
             )
         }
-        const apiResponse = await assistantsService.getAssistantById(req.params.id)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.getAssistantById - unikId not provided!`
+            )
+        }
+        const apiResponse = await assistantsService.getAssistantById(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -73,7 +96,14 @@ const updateAssistant = async (req: Request, res: Response, next: NextFunction) 
                 `Error: assistantsController.updateAssistant - body not provided!`
             )
         }
-        const apiResponse = await assistantsService.updateAssistant(req.params.id, req.body)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.updateAssistant - unikId not provided!`
+            )
+        }
+        const apiResponse = await assistantsService.updateAssistant(req.params.id, req.body, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -82,6 +112,13 @@ const updateAssistant = async (req: Request, res: Response, next: NextFunction) 
 
 const getChatModels = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.getChatModels - unikId not provided!`
+            )
+        }
         const apiResponse = await assistantsService.getChatModels()
         return res.json(apiResponse)
     } catch (error) {
@@ -91,6 +128,13 @@ const getChatModels = async (req: Request, res: Response, next: NextFunction) =>
 
 const getDocumentStores = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.getDocumentStores - unikId not provided!`
+            )
+        }
         const apiResponse = await assistantsService.getDocumentStores()
         return res.json(apiResponse)
     } catch (error) {
@@ -100,6 +144,13 @@ const getDocumentStores = async (req: Request, res: Response, next: NextFunction
 
 const getTools = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.getTools - unikId not provided!`
+            )
+        }
         const apiResponse = await assistantsService.getTools()
         return res.json(apiResponse)
     } catch (error) {
@@ -113,6 +164,13 @@ const generateAssistantInstruction = async (req: Request, res: Response, next: N
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: assistantsController.generateAssistantInstruction - body not provided!`
+            )
+        }
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: assistantsController.generateAssistantInstruction - unikId not provided!`
             )
         }
         const apiResponse = await assistantsService.generateAssistantInstruction(req.body.task, req.body.selectedChatModel)

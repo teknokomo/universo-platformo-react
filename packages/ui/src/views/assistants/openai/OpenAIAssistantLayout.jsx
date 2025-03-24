@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 // material-ui
 import { Box, Stack, Button, Skeleton } from '@mui/material'
@@ -28,6 +28,7 @@ import { gridSpacing } from '@/store/constant'
 
 const OpenAIAssistantLayout = () => {
     const navigate = useNavigate()
+    const { unikId } = useParams()
 
     const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
@@ -40,7 +41,8 @@ const OpenAIAssistantLayout = () => {
 
     const loadExisting = () => {
         const dialogProp = {
-            title: 'Load Existing Assistant'
+            title: 'Load Existing Assistant',
+            unikId
         }
         setLoadDialogProps(dialogProp)
         setShowLoadDialog(true)
@@ -63,7 +65,8 @@ const OpenAIAssistantLayout = () => {
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Add',
             selectedOpenAIAssistantId,
-            credential
+            credential,
+            unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -75,7 +78,8 @@ const OpenAIAssistantLayout = () => {
             type: 'EDIT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Save',
-            data: selectedAssistant
+            data: selectedAssistant,
+            unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -83,7 +87,7 @@ const OpenAIAssistantLayout = () => {
 
     const onConfirm = () => {
         setShowDialog(false)
-        getAllAssistantsApi.request('OPENAI')
+        getAllAssistantsApi.request('OPENAI', unikId)
     }
 
     function filterAssistants(data) {
@@ -92,10 +96,11 @@ const OpenAIAssistantLayout = () => {
     }
 
     useEffect(() => {
-        getAllAssistantsApi.request('OPENAI')
-
+        if (unikId) {
+            getAllAssistantsApi.request('OPENAI', unikId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [unikId])
 
     useEffect(() => {
         setLoading(getAllAssistantsApi.loading)
@@ -133,7 +138,7 @@ const OpenAIAssistantLayout = () => {
                             <StyledButton
                                 variant='contained'
                                 sx={{ borderRadius: 2, height: 40 }}
-                                onClick={addNew}
+                                onClick={() => addNew()}
                                 startIcon={<IconPlus />}
                             >
                                 Add
@@ -156,7 +161,7 @@ const OpenAIAssistantLayout = () => {
                                                 iconSrc: data.iconSrc
                                             }}
                                             key={index}
-                                            onClick={() => edit(data)}
+                                            onClick={() => navigate(`/uniks/${unikId}/assistants/openai/${data.id}`)}
                                         />
                                     ))}
                             </Box>

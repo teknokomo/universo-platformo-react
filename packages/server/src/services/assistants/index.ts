@@ -25,9 +25,17 @@ const createAssistant = async (requestBody: any): Promise<Assistant> => {
         }
         const assistantDetails = JSON.parse(requestBody.details)
 
+        // Ensure unikId is properly passed to the database
+        if (requestBody.unikId) {
+            requestBody.unik_id = requestBody.unikId
+            delete requestBody.unikId
+        }
+
         if (requestBody.type === 'CUSTOM') {
             const newAssistant = new Assistant()
             Object.assign(newAssistant, requestBody)
+            // Set relationship with Unik
+            newAssistant.unik = { id: requestBody.unik_id } as any
 
             const assistant = appServer.AppDataSource.getRepository(Assistant).create(newAssistant)
             const dbResponse = await appServer.AppDataSource.getRepository(Assistant).save(assistant)
@@ -147,12 +155,14 @@ const createAssistant = async (requestBody: any): Promise<Assistant> => {
     }
 }
 
-const deleteAssistant = async (assistantId: string, isDeleteBoth: any): Promise<DeleteResult> => {
+const deleteAssistant = async (assistantId: string, isDeleteBoth: any, unikId?: string): Promise<DeleteResult> => {
     try {
         const appServer = getRunningExpressApp()
-        const assistant = await appServer.AppDataSource.getRepository(Assistant).findOneBy({
-            id: assistantId
-        })
+        let whereClause: any = { id: assistantId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const assistant = await appServer.AppDataSource.getRepository(Assistant).findOneBy(whereClause)
         if (!assistant) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Assistant ${assistantId} not found`)
         }
@@ -192,17 +202,27 @@ const deleteAssistant = async (assistantId: string, isDeleteBoth: any): Promise<
     }
 }
 
-const getAllAssistants = async (type?: AssistantType): Promise<Assistant[]> => {
+const getAllAssistants = async (type?: AssistantType, unikId?: string): Promise<Assistant[]> => {
     try {
         const appServer = getRunningExpressApp()
+        let queryBuilder = appServer.AppDataSource.getRepository(Assistant)
+            .createQueryBuilder('assistant')
+
         if (type) {
-            const dbResponse = await appServer.AppDataSource.getRepository(Assistant).findBy({
-                type
-            })
-            return dbResponse
+            queryBuilder = queryBuilder.where('assistant.type = :type', { type })
         }
-        const dbResponse = await appServer.AppDataSource.getRepository(Assistant).find()
-        return dbResponse
+
+        // Apply filter by unikId if provided
+        if (unikId) {
+            if (type) {
+                queryBuilder = queryBuilder.andWhere('assistant.unik_id = :unikId', { unikId })
+            } else {
+                queryBuilder = queryBuilder.where('assistant.unik_id = :unikId', { unikId })
+            }
+        }
+
+        const result = await queryBuilder.getMany()
+        return result
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
@@ -211,12 +231,14 @@ const getAllAssistants = async (type?: AssistantType): Promise<Assistant[]> => {
     }
 }
 
-const getAssistantById = async (assistantId: string): Promise<Assistant> => {
+const getAssistantById = async (assistantId: string, unikId?: string): Promise<Assistant> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Assistant).findOneBy({
-            id: assistantId
-        })
+        let whereClause: any = { id: assistantId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const dbResponse = await appServer.AppDataSource.getRepository(Assistant).findOneBy(whereClause)
         if (!dbResponse) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Assistant ${assistantId} not found`)
         }
@@ -229,12 +251,14 @@ const getAssistantById = async (assistantId: string): Promise<Assistant> => {
     }
 }
 
-const updateAssistant = async (assistantId: string, requestBody: any): Promise<Assistant> => {
+const updateAssistant = async (assistantId: string, requestBody: any, unikId?: string): Promise<Assistant> => {
     try {
         const appServer = getRunningExpressApp()
-        const assistant = await appServer.AppDataSource.getRepository(Assistant).findOneBy({
-            id: assistantId
-        })
+        let whereClause: any = { id: assistantId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const assistant = await appServer.AppDataSource.getRepository(Assistant).findOneBy(whereClause)
 
         if (!assistant) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Assistant ${assistantId} not found`)

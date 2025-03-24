@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { useState, useEffect } from 'react'
 import { omit } from 'lodash'
 import { useDispatch } from 'react-redux'
+import { useParams } from 'react-router-dom'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 
 // Material
@@ -33,6 +34,7 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 
 const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, onDelete, setError }) => {
     const portalElement = document.getElementById('portal')
+    const { unikId } = useParams()
 
     const dispatch = useDispatch()
 
@@ -108,10 +110,10 @@ const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, on
 
     useEffect(() => {
         if (dialogProps.type === 'EDIT' && dialogProps.data) {
-            getAssistantVectorStoreApi.request(dialogProps.data.id, dialogProps.credential)
-            listAssistantVectorStoreApi.request(dialogProps.credential)
+            getAssistantVectorStoreApi.request(dialogProps.data.id, dialogProps.credential, unikId)
+            listAssistantVectorStoreApi.request(dialogProps.credential, unikId)
         } else if (dialogProps.type === 'ADD') {
-            listAssistantVectorStoreApi.request(dialogProps.credential)
+            listAssistantVectorStoreApi.request(dialogProps.credential, unikId)
         }
 
         return () => {
@@ -123,7 +125,7 @@ const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, on
             setLoading(false)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogProps])
+    }, [dialogProps, unikId])
 
     useEffect(() => {
         if (show) dispatch({ type: SHOW_CANVAS_DIALOG })
@@ -134,7 +136,7 @@ const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, on
     const deleteVectorStore = async () => {
         setLoading(true)
         try {
-            const deleteResp = await assistantsApi.deleteAssistantVectorStore(selectedVectorStore, dialogProps.credential)
+            const deleteResp = await assistantsApi.deleteAssistantVectorStore(selectedVectorStore, dialogProps.credential, unikId)
             if (deleteResp.data) {
                 enqueueSnackbar({
                     message: 'Vector Store deleted',
@@ -180,7 +182,7 @@ const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, on
                 name: name !== '' ? name : null,
                 expires_after: isExpirationOn ? { anchor: 'last_active_at', days: parseFloat(expirationDays) } : null
             }
-            const createResp = await assistantsApi.createAssistantVectorStore(dialogProps.credential, obj)
+            const createResp = await assistantsApi.createAssistantVectorStore(dialogProps.credential, unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New Vector Store added',
@@ -226,7 +228,7 @@ const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, on
                 name: name !== '' ? name : null,
                 expires_after: isExpirationOn ? { anchor: 'last_active_at', days: parseFloat(expirationDays) } : null
             }
-            const saveResp = await assistantsApi.updateAssistantVectorStore(selectedVectorStoreId, dialogProps.credential, saveObj)
+            const saveResp = await assistantsApi.updateAssistantVectorStore(selectedVectorStoreId, dialogProps.credential, unikId, saveObj)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Vector Store saved',

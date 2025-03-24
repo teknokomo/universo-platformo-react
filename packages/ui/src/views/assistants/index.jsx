@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 
 // material-ui
@@ -60,12 +60,13 @@ const FeatureIcon = styled('div')(() => ({
 
 const FeatureCards = () => {
     const navigate = useNavigate()
+    const { unikId } = useParams()
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
 
     const onCardClick = (index) => {
-        if (index === 0) navigate('/assistants/custom')
-        if (index === 1) navigate('/assistants/openai')
+        if (index === 0) navigate(`/uniks/${unikId}/assistants/custom`)
+        if (index === 1) navigate(`/uniks/${unikId}/assistants/openai`)
         if (index === 2) alert('Under Development')
     }
 
@@ -118,6 +119,13 @@ const FeatureCards = () => {
 // ==============================|| ASSISTANTS ||============================== //
 
 const Assistants = () => {
+    const { unikId } = useParams()
+
+    if (!unikId) {
+        console.error('Unik ID is missing in URL')
+        return null
+    }
+
     return (
         <>
             <MainCard>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 // material-ui
 import { Box, Stack, Skeleton } from '@mui/material'
@@ -27,6 +27,7 @@ import { IconPlus } from '@tabler/icons-react'
 
 const CustomAssistantLayout = () => {
     const navigate = useNavigate()
+    const { unikId } = useParams()
 
     const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
@@ -45,7 +46,8 @@ const CustomAssistantLayout = () => {
             title: 'Add New Custom Assistant',
             type: 'ADD',
             cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add'
+            confirmButtonName: 'Add',
+            unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -53,34 +55,47 @@ const CustomAssistantLayout = () => {
 
     const onConfirm = (assistantId) => {
         setShowDialog(false)
-        navigate(`/assistants/custom/${assistantId}`)
+        navigate(`/uniks/${unikId}/assistants/custom/${assistantId}`)
     }
 
     function filterAssistants(data) {
-        const parsedData = JSON.parse(data.details)
-        return parsedData && parsedData.name && parsedData.name.toLowerCase().indexOf(search.toLowerCase()) > -1
+        try {
+            const parsedData = JSON.parse(data.details)
+            return parsedData && parsedData.name && parsedData.name.toLowerCase().indexOf(search.toLowerCase()) > -1
+        } catch (error) {
+            return false;
+        }
     }
 
     const getImages = (details) => {
-        const images = []
-        if (details && details.chatModel && details.chatModel.name) {
-            images.push(`${baseURL}/api/v1/node-icon/${details.chatModel.name}`)
+        try {
+            const images = []
+            if (details && details.chatModel && details.chatModel.name) {
+                images.push(`${baseURL}/api/v1/node-icon/${details.chatModel.name}`)
+            }
+            return images
+        } catch (error) {
+            console.error('Ошибка при получении изображений:', error);
+            return [];
         }
-        return images
     }
 
     useEffect(() => {
-        getAllAssistantsApi.request('CUSTOM')
-
+        if (unikId) {
+            getAllAssistantsApi.request('CUSTOM', unikId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [unikId])
 
     useEffect(() => {
-        setLoading(getAllAssistantsApi.loading)
-    }, [getAllAssistantsApi.loading])
+        if (getAllAssistantsApi.data) {
+            setLoading(false)
+        }
+    }, [getAllAssistantsApi.data])
 
     useEffect(() => {
         if (getAllAssistantsApi.error) {
+            console.error('Ошибка получения ассистентов:', getAllAssistantsApi.error);
             setError(getAllAssistantsApi.error)
         }
     }, [getAllAssistantsApi.error])
@@ -117,18 +132,26 @@ const CustomAssistantLayout = () => {
                             </Box>
                         ) : (
                             <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
-                                {getAllAssistantsApi.data &&
-                                    getAllAssistantsApi.data?.filter(filterAssistants).map((data, index) => (
-                                        <ItemCard
-                                            data={{
-                                                name: JSON.parse(data.details)?.name,
-                                                description: JSON.parse(data.details)?.instruction
-                                            }}
-                                            images={getImages(JSON.parse(data.details))}
-                                            key={index}
-                                            onClick={() => navigate('/assistants/custom/' + data.id)}
-                                        />
-                                    ))}
+                                {getAllAssistantsApi.data && Array.isArray(getAllAssistantsApi.data) &&
+                                    getAllAssistantsApi.data.filter(filterAssistants).map((data, index) => {
+                                        try {
+                                            const parsedDetails = JSON.parse(data.details);
+                                            return (
+                                                <ItemCard
+                                                    data={{
+                                                        name: parsedDetails?.name,
+                                                        description: parsedDetails?.instruction
+                                                    }}
+                                                    images={getImages(parsedDetails)}
+                                                    key={index}
+                                                    onClick={() => navigate(`/uniks/${unikId}/assistants/custom/${data.id}`)}
+                                                />
+                                            );
+                                        } catch (error) {
+                                            console.error('Ошибка при рендеринге карточки ассистента:', error);
+                                            return null;
+                                        }
+                                    })}
                             </Box>
                         )}
                         {!isLoading && (!getAllAssistantsApi.data || getAllAssistantsApi.data.length === 0) && (

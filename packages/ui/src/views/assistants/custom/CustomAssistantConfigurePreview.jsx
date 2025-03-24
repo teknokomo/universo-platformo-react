@@ -85,8 +85,9 @@ const CustomAssistantConfigurePreview = () => {
     const getDocStoresApi = useApi(assistantsApi.getDocStores)
     const getToolsApi = useApi(assistantsApi.getTools)
     const getSpecificChatflowApi = useApi(chatflowsApi.getSpecificChatflow)
+    const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
-    const { id: customAssistantId } = useParams()
+    const { id: customAssistantId, unikId } = useParams()
 
     const [chatModelsComponents, setChatModelsComponents] = useState([])
     const [chatModelsOptions, setChatModelsOptions] = useState([])
@@ -212,14 +213,15 @@ const CustomAssistantConfigurePreview = () => {
                 id: customAssistantId,
                 name: selectedCustomAssistant.name,
                 flowData: JSON.stringify(flowData),
-                type: 'ASSISTANT'
+                type: 'ASSISTANT',
+                unik_id: unikId
             }
             try {
                 let saveResp
                 if (!customAssistantFlowId) {
-                    saveResp = await chatflowsApi.createNewChatflow(saveObj)
+                    saveResp = await chatflowsApi.createNewChatflow(unikId, saveObj)
                 } else {
-                    saveResp = await chatflowsApi.updateChatflow(customAssistantFlowId, saveObj)
+                    saveResp = await chatflowsApi.updateChatflow(unikId, customAssistantFlowId, saveObj)
                 }
 
                 if (saveResp.data) {
@@ -235,7 +237,7 @@ const CustomAssistantConfigurePreview = () => {
                         tools: selectedTools
                     }
 
-                    const saveAssistantResp = await assistantsApi.updateAssistant(customAssistantId, {
+                    const saveAssistantResp = await assistantsApi.updateAssistant(unikId, customAssistantId, {
                         details: JSON.stringify(assistantDetails)
                     })
 
@@ -497,7 +499,9 @@ const CustomAssistantConfigurePreview = () => {
         } else if (setting === 'chatflowConfiguration') {
             setChatflowConfigurationDialogProps({
                 title: `Assistant Configuration`,
-                chatflow: canvas.chatflow
+                chatflow: canvas.chatflow,
+                unikId: unikId,
+                flowId: customAssistantFlowId
             })
             setChatflowConfigurationDialogOpen(true)
         }
@@ -514,9 +518,9 @@ const CustomAssistantConfigurePreview = () => {
 
         if (isConfirmed && customAssistantId) {
             try {
-                const resp = await assistantsApi.deleteAssistant(customAssistantId)
+                const resp = await assistantsApi.deleteAssistant(unikId, customAssistantId)
                 if (resp.data && customAssistantFlowId) {
-                    await chatflowsApi.deleteChatflow(customAssistantFlowId)
+                    await chatflowsApi.deleteChatflow(unikId, customAssistantFlowId)
                 }
                 navigate(-1)
             } catch (error) {
@@ -713,7 +717,7 @@ const CustomAssistantConfigurePreview = () => {
 
             if (customAssistantId) {
                 setLoadingAssistant(true)
-                getSpecificAssistantApi.request(customAssistantId)
+                getSpecificAssistantApi.request(unikId, customAssistantId)
             }
         }
 
@@ -737,7 +741,7 @@ const CustomAssistantConfigurePreview = () => {
 
                 if (assistantDetails.flowId) {
                     setCustomAssistantFlowId(assistantDetails.flowId)
-                    getSpecificChatflowApi.request(assistantDetails.flowId)
+                    getSpecificChatflowApi.request(unikId, assistantDetails.flowId)
                 }
 
                 if (assistantDetails.documentStores) {

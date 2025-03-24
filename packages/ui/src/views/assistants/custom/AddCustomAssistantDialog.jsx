@@ -28,7 +28,6 @@ import useNotifier from '@/utils/useNotifier'
 
 const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
-
     const dispatch = useDispatch()
 
     // ==============================|| Snackbar ||============================== //
@@ -55,7 +54,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
                 credential: uuidv4(),
                 type: 'CUSTOM'
             }
-            const createResp = await assistantsApi.createNewAssistant(obj)
+            const createResp = await assistantsApi.createNewAssistant(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New Custom Assistant created.',
