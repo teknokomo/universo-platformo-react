@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { useEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 
 // material-ui
 import { IconButton } from '@mui/material'
@@ -17,6 +18,7 @@ import credentialsApi from '@/api/credentials'
 
 const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }) => {
     const ref = useRef(null)
+    const { unikId } = useParams()
     const [credentialId, setCredentialId] = useState(data?.credential ?? '')
     const [showCredentialListDialog, setShowCredentialListDialog] = useState(false)
     const [credentialListDialogProps, setCredentialListDialogProps] = useState({})
@@ -29,7 +31,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
             type: 'EDIT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Save',
-            credentialId
+            credentialId,
+            unikId
         }
         setSpecificCredentialDialogProps(dialogProp)
         setShowSpecificCredentialDialog(true)
@@ -57,7 +60,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                         type: 'ADD',
                         cancelButtonName: 'Cancel',
                         confirmButtonName: 'Add',
-                        credentialComponent: componentCredentialsResp.data
+                        credentialComponent: componentCredentialsResp.data,
+                        unikId
                     }
                     setSpecificCredentialDialogProps(dialogProp)
                     setShowSpecificCredentialDialog(true)
@@ -82,7 +86,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
             type: 'ADD',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Add',
-            credentialComponent
+            credentialComponent,
+            unikId
         }
         setSpecificCredentialDialogProps(dialogProp)
         setShowSpecificCredentialDialog(true)
@@ -110,6 +115,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                     onSelect(newValue)
                                 }}
                                 onCreateNew={() => addAsyncOption(inputParam.name)}
+                                unikId={unikId}
                             />
                             {credentialId && (
                                 <IconButton title='Edit' color='primary' size='small' onClick={() => editCredential(credentialId)}>

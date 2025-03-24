@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 import moment from 'moment'
+import { useParams } from 'react-router-dom'
 
 // material-ui
 import { styled } from '@mui/material/styles'
@@ -75,6 +76,7 @@ const Credentials = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
+    const { unikId } = useParams()
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -91,7 +93,7 @@ const Credentials = () => {
 
     const { confirm } = useConfirm()
 
-    const getAllCredentialsApi = useApi(credentialsApi.getAllCredentials)
+    const getAllCredentialsApi = useApi(() => credentialsApi.getAllCredentials(unikId))
     const getAllComponentsCredentialsApi = useApi(credentialsApi.getAllComponentsCredentials)
 
     const [search, setSearch] = useState('')
@@ -116,7 +118,8 @@ const Credentials = () => {
             type: 'ADD',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Add',
-            credentialComponent
+            credentialComponent,
+            unikId
         }
         setSpecificCredentialDialogProps(dialogProp)
         setShowSpecificCredentialDialog(true)
@@ -127,7 +130,8 @@ const Credentials = () => {
             type: 'EDIT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Save',
-            data: credential
+            data: credential,
+            unikId
         }
         setSpecificCredentialDialogProps(dialogProp)
         setShowSpecificCredentialDialog(true)
@@ -144,7 +148,7 @@ const Credentials = () => {
 
         if (isConfirmed) {
             try {
-                const deleteResp = await credentialsApi.deleteCredential(credential.id)
+                const deleteResp = await credentialsApi.deleteCredential(unikId, credential.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
                         message: 'Credential deleted',
@@ -193,10 +197,12 @@ const Credentials = () => {
     }
 
     useEffect(() => {
-        getAllCredentialsApi.request()
-        getAllComponentsCredentialsApi.request()
+        if (unikId) {
+            getAllCredentialsApi.request()
+            getAllComponentsCredentialsApi.request()
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [unikId])
 
     useEffect(() => {
         setLoading(getAllCredentialsApi.loading)

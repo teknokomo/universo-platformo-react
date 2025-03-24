@@ -88,10 +88,10 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
     useEffect(() => {
         if (dialogProps.type === 'EDIT' && dialogProps.data) {
             // When credential dialog is opened from Credentials dashboard
-            getSpecificCredentialApi.request(dialogProps.data.id)
+            getSpecificCredentialApi.request(dialogProps.unikId, dialogProps.data.id)
         } else if (dialogProps.type === 'EDIT' && dialogProps.credentialId) {
             // When credential dialog is opened from node in canvas
-            getSpecificCredentialApi.request(dialogProps.credentialId)
+            getSpecificCredentialApi.request(dialogProps.unikId, dialogProps.credentialId)
         } else if (dialogProps.type === 'ADD' && dialogProps.credentialComponent) {
             // When credential dialog is to add a new credential
             setName('')
@@ -117,7 +117,7 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
                 credentialName: componentCredential.name,
                 plainDataObj: credentialData
             }
-            const createResp = await credentialsApi.createCredential(obj)
+            const createResp = await credentialsApi.createCredential(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New Credential added',
@@ -169,7 +169,7 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
             }
             if (Object.keys(plainDataObj).length) saveObj.plainDataObj = plainDataObj
 
-            const saveResp = await credentialsApi.updateCredential(credential.id, saveObj)
+            const saveResp = await credentialsApi.updateCredential(dialogProps.unikId, credential.id, saveObj)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Credential saved',

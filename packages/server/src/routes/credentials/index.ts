@@ -1,18 +1,19 @@
 import express from 'express'
 import credentialsController from '../../controllers/credentials'
-const router = express.Router()
+
+const router = express.Router({ mergeParams: true })
 
 // CREATE
 router.post('/', credentialsController.createCredential)
 
 // READ
 router.get('/', credentialsController.getAllCredentials)
-router.get(['/', '/:id'], credentialsController.getCredentialById)
+router.get('/:id', credentialsController.getCredentialById)
 
 // UPDATE
-router.put(['/', '/:id'], credentialsController.updateCredential)
+router.put('/:id', credentialsController.updateCredential)
 
 // DELETE
-router.delete(['/', '/:id'], credentialsController.deleteCredentials)
+router.delete('/:id', credentialsController.deleteCredentials)
 
 export default router
