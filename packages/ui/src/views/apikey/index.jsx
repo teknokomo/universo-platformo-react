@@ -2,6 +2,7 @@ import * as PropTypes from 'prop-types'
 import moment from 'moment/moment'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useParams } from 'react-router-dom'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 
 // material-ui
@@ -196,6 +197,7 @@ APIKeyRow.propTypes = {
 const APIKey = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
+    const { unikId } = useParams()
 
     const dispatch = useDispatch()
     useNotifier()
@@ -250,7 +252,8 @@ const APIKey = () => {
             type: 'ADD',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Add',
-            customBtnId: 'btn_confirmAddingApiKey'
+            customBtnId: 'btn_confirmAddingApiKey',
+            unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -263,7 +266,8 @@ const APIKey = () => {
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Save',
             customBtnId: 'btn_confirmEditingApiKey',
-            key
+            key,
+            unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -274,7 +278,8 @@ const APIKey = () => {
             type: 'ADD',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Upload',
-            data: {}
+            data: {},
+            unikId
         }
         setUploadDialogProps(dialogProp)
         setShowUploadDialog(true)
@@ -295,7 +300,7 @@ const APIKey = () => {
 
         if (isConfirmed) {
             try {
-                const deleteResp = await apiKeyApi.deleteAPI(key.id)
+                const deleteResp = await apiKeyApi.deleteAPI(unikId, key.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
                         message: 'API key deleted',
@@ -335,14 +340,15 @@ const APIKey = () => {
     const onConfirm = () => {
         setShowDialog(false)
         setShowUploadDialog(false)
-        getAllAPIKeysApi.request()
+        getAllAPIKeysApi.request(unikId)
     }
 
     useEffect(() => {
-        getAllAPIKeysApi.request()
-
+        if (unikId) {
+            getAllAPIKeysApi.request(unikId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [unikId])
 
     useEffect(() => {
         setLoading(getAllAPIKeysApi.loading)

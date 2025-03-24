@@ -60,7 +60,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
 
     const addNewKey = async () => {
         try {
-            const createResp = await apikeyApi.createNewAPI({ keyName })
+            const createResp = await apikeyApi.createNewAPI(dialogProps.unikId, { keyName })
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New API key added',
@@ -99,7 +99,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
 
     const saveKey = async () => {
         try {
-            const saveResp = await apikeyApi.updateAPI(dialogProps.key.id, { keyName })
+            const saveResp = await apikeyApi.updateAPI(dialogProps.unikId, dialogProps.key.id, { keyName })
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'API Key saved',

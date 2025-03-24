@@ -27,18 +27,31 @@ const _apikeysStoredInDb = (): boolean => {
     return appConfig.apiKeys.storageType === 'db'
 }
 
-const getAllApiKeys = async () => {
+const getAllApiKeys = async (unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await getAPIKeys_json()
             return await addChatflowsCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
-            let keys = await appServer.AppDataSource.getRepository(ApiKey).find()
-            if (keys.length === 0) {
-                await createApiKey('DefaultKey')
-                keys = await appServer.AppDataSource.getRepository(ApiKey).find()
+            
+            // В режиме БД unikId обязателен
+            if (!unikId) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
+            
+            let queryBuilder = appServer.AppDataSource.getRepository(ApiKey)
+                .createQueryBuilder('apikey')
+                .where('apikey.unik_id = :unikId', { unikId })
+            
+            let keys = await queryBuilder.getMany()
+            
+            // Если ключей нет, создаем дефолтный ключ
+            if (keys.length === 0) {
+                await createApiKey('DefaultKey', unikId)
+                keys = await queryBuilder.getMany()
+            }
+            
             return await addChatflowsCount(keys)
         } else {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `UNKNOWN APIKEY_STORAGE_TYPE`)
@@ -69,7 +82,7 @@ const getApiKey = async (apiKey: string) => {
     }
 }
 
-const createApiKey = async (keyName: string) => {
+const createApiKey = async (keyName: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await addAPIKey_json(keyName)
@@ -83,9 +96,19 @@ const createApiKey = async (keyName: string) => {
             newKey.apiKey = apiKey
             newKey.apiSecret = apiSecret
             newKey.keyName = keyName
+            
+            // Проверяем, что unikId существует, он обязателен для таблицы
+            if (!unikId) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
+            }
+            
+            // Устанавливаем связь с Unik через объект
+            newKey.unik = { id: unikId } as any
+            
             const key = appServer.AppDataSource.getRepository(ApiKey).create(newKey)
             await appServer.AppDataSource.getRepository(ApiKey).save(key)
-            return getAllApiKeys()
+            
+            return getAllApiKeys(unikId)
         } else {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `UNKNOWN APIKEY_STORAGE_TYPE`)
         }
@@ -95,22 +118,32 @@ const createApiKey = async (keyName: string) => {
 }
 
 // Update api key
-const updateApiKey = async (id: string, keyName: string) => {
+const updateApiKey = async (id: string, keyName: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await updateAPIKey_json(id, keyName)
             return await addChatflowsCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
-            const currentKey = await appServer.AppDataSource.getRepository(ApiKey).findOneBy({
-                id: id
-            })
-            if (!currentKey) {
-                throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `ApiKey ${currentKey} not found`)
+            
+            // В режиме БД unikId обязателен
+            if (!unikId) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
+            
+            const currentKey = await appServer.AppDataSource.getRepository(ApiKey).findOne({
+                where: { id: id, unik: { id: unikId } },
+                relations: ['unik']
+            })
+            
+            if (!currentKey) {
+                throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `ApiKey ${id} not found`)
+            }
+            
             currentKey.keyName = keyName
             await appServer.AppDataSource.getRepository(ApiKey).save(currentKey)
-            return getAllApiKeys()
+            
+            return getAllApiKeys(unikId)
         } else {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `UNKNOWN APIKEY_STORAGE_TYPE`)
         }
@@ -119,18 +152,28 @@ const updateApiKey = async (id: string, keyName: string) => {
     }
 }
 
-const deleteApiKey = async (id: string) => {
+const deleteApiKey = async (id: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await deleteAPIKey_json(id)
             return await addChatflowsCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
-            const dbResponse = await appServer.AppDataSource.getRepository(ApiKey).delete({ id: id })
-            if (!dbResponse) {
+            
+            // В режиме БД unikId обязателен
+            if (!unikId) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
+            }
+            
+            const whereClause = { id: id, unik: { id: unikId } }
+            
+            const dbResponse = await appServer.AppDataSource.getRepository(ApiKey).delete(whereClause)
+            
+            if (!dbResponse.affected || dbResponse.affected === 0) {
                 throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `ApiKey ${id} not found`)
             }
-            return getAllApiKeys()
+            
+            return getAllApiKeys(unikId)
         } else {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `UNKNOWN APIKEY_STORAGE_TYPE`)
         }
@@ -139,7 +182,7 @@ const deleteApiKey = async (id: string) => {
     }
 }
 
-const importKeys = async (body: any) => {
+const importKeys = async (body: any, unikId?: string) => {
     try {
         const jsonFile = body.jsonFile
         const splitDataURI = jsonFile.split(',')
@@ -158,10 +201,22 @@ const importKeys = async (body: any) => {
             return await addChatflowsCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
-            const allApiKeys = await appServer.AppDataSource.getRepository(ApiKey).find()
+            
+            // В режиме БД unikId обязателен
+            if (!unikId) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
+            }
+            
+            // Получаем все API ключи для данного Unik
+            let allApiKeys = await appServer.AppDataSource.getRepository(ApiKey)
+                .createQueryBuilder('apikey')
+                .where('apikey.unik_id = :unikId', { unikId })
+                .getMany()
+            
             if (body.importMode === 'replaceAll') {
+                // Удаляем все существующие ключи для данного Unik
                 await appServer.AppDataSource.getRepository(ApiKey).delete({
-                    id: Not(IsNull())
+                    unik: { id: unikId }
                 })
             }
             if (body.importMode === 'errorIfExist') {
@@ -192,24 +247,24 @@ const importKeys = async (body: any) => {
                             continue
                         }
                         case 'errorIfExist': {
-                            // should not reach here as we have already checked for existing keys
-                            throw new Error(`Key with name ${key.keyName} already exists`)
-                        }
-                        default: {
-                            throw new Error(`Unknown overwrite option ${body.importMode}`)
+                            // we already checked for errors above, skip
+                            break
                         }
                     }
                 } else {
+                    // Add the key to the database
                     const newKey = new ApiKey()
-                    newKey.id = key.id
+                    newKey.id = key.id || randomBytes(16).toString('hex')
                     newKey.apiKey = key.apiKey
                     newKey.apiSecret = key.apiSecret
                     newKey.keyName = key.keyName
-                    const newKeyEntity = appServer.AppDataSource.getRepository(ApiKey).create(newKey)
-                    await appServer.AppDataSource.getRepository(ApiKey).save(newKeyEntity)
+                    // Устанавливаем связь с Unik
+                    newKey.unik = { id: unikId } as any
+                    
+                    await appServer.AppDataSource.getRepository(ApiKey).save(newKey)
                 }
             }
-            return getAllApiKeys()
+            return getAllApiKeys(unikId)
         } else {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `UNKNOWN APIKEY_STORAGE_TYPE`)
         }
@@ -218,7 +273,7 @@ const importKeys = async (body: any) => {
     }
 }
 
-const verifyApiKey = async (paramApiKey: string): Promise<string> => {
+const verifyApiKey = async (paramApiKey: string, unikId?: string): Promise<string> => {
     try {
         if (_apikeysStoredInJson()) {
             const apiKey = await getApiKey_json(paramApiKey)
@@ -228,9 +283,19 @@ const verifyApiKey = async (paramApiKey: string): Promise<string> => {
             return 'OK'
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
-            const apiKey = await appServer.AppDataSource.getRepository(ApiKey).findOneBy({
-                apiKey: paramApiKey
+            
+            // В режиме БД unikId обязателен
+            if (!unikId) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
+            }
+            
+            const whereClause = { apiKey: paramApiKey, unik: { id: unikId } }
+            
+            const apiKey = await appServer.AppDataSource.getRepository(ApiKey).findOne({
+                where: whereClause,
+                relations: ['unik']
             })
+            
             if (!apiKey) {
                 throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Unauthorized`)
             }

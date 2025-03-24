@@ -1,14 +1,14 @@
 import client from './client'
 
-const getAllAPIKeys = () => client.get('/apikey')
+const getAllAPIKeys = (unikId) => client.get(`/uniks/${unikId}/apikey`)
 
-const createNewAPI = (body) => client.post(`/apikey`, body)
+const createNewAPI = (unikId, body) => client.post(`/uniks/${unikId}/apikey`, body)
 
-const updateAPI = (id, body) => client.put(`/apikey/${id}`, body)
+const updateAPI = (unikId, id, body) => client.put(`/uniks/${unikId}/apikey/${id}`, body)
 
-const deleteAPI = (id) => client.delete(`/apikey/${id}`)
+const deleteAPI = (unikId, id) => client.delete(`/uniks/${unikId}/apikey/${id}`)
 
-const importAPI = (body) => client.post(`/apikey/import`, body)
+const importAPI = (unikId, body) => client.post(`/uniks/${unikId}/apikey/import`, body)
 
 export default {
     getAllAPIKeys,

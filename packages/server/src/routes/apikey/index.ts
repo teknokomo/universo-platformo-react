@@ -1,6 +1,6 @@
 import express from 'express'
 import apikeyController from '../../controllers/apikey'
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 // CREATE
 router.post('/', apikeyController.createApiKey)
@@ -10,9 +10,9 @@ router.post('/import', apikeyController.importKeys)
 router.get('/', apikeyController.getAllApiKeys)
 
 // UPDATE
-router.put(['/', '/:id'], apikeyController.updateApiKey)
+router.put('/:id', apikeyController.updateApiKey)
 
 // DELETE
-router.delete(['/', '/:id'], apikeyController.deleteApiKey)
+router.delete('/:id', apikeyController.deleteApiKey)
 
 export default router
