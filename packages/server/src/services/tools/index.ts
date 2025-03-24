@@ -10,8 +10,21 @@ import { QueryRunner } from 'typeorm'
 const createTool = async (requestBody: any): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
+        
+        // Ensure unikId is properly passed to the database
+        if (requestBody.unikId) {
+            // TypeORM expects unik_id instead of unikId
+            requestBody.unik_id = requestBody.unikId
+            // Remove unikId to avoid duplication
+            delete requestBody.unikId
+        }
+        
         const newTool = new Tool()
+        // Set relationship with Unik
+        newTool.unik = { id: requestBody.unik_id } as any
+        // Copy other fields
         Object.assign(newTool, requestBody)
+        
         const tool = await appServer.AppDataSource.getRepository(Tool).create(newTool)
         const dbResponse = await appServer.AppDataSource.getRepository(Tool).save(tool)
         await appServer.telemetry.sendTelemetry('tool_created', {
@@ -26,34 +39,45 @@ const createTool = async (requestBody: any): Promise<any> => {
     }
 }
 
-const deleteTool = async (toolId: string): Promise<any> => {
+const deleteTool = async (toolId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Tool).delete({
-            id: toolId
-        })
+        let whereClause: any = { id: toolId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const dbResponse = await appServer.AppDataSource.getRepository(Tool).delete(whereClause)
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: toolsService.deleteTool - ${getErrorMessage(error)}`)
     }
 }
 
-const getAllTools = async (): Promise<Tool[]> => {
+const getAllTools = async (unikId?: string): Promise<Tool[]> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Tool).find()
-        return dbResponse
+        let queryBuilder = appServer.AppDataSource.getRepository(Tool)
+            .createQueryBuilder('tool')
+
+        // Apply filter by unikId if provided
+        if (unikId) {
+            queryBuilder = queryBuilder.where('tool.unik_id = :unikId', { unikId })
+        }
+
+        return await queryBuilder.getMany()
     } catch (error) {
         throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: toolsService.getAllTools - ${getErrorMessage(error)}`)
     }
 }
 
-const getToolById = async (toolId: string): Promise<any> => {
+const getToolById = async (toolId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Tool).findOneBy({
-            id: toolId
-        })
+        let whereClause: any = { id: toolId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const dbResponse = await appServer.AppDataSource.getRepository(Tool).findOneBy(whereClause)
         if (!dbResponse) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Tool ${toolId} not found`)
         }
@@ -66,9 +90,15 @@ const getToolById = async (toolId: string): Promise<any> => {
 const updateTool = async (toolId: string, toolBody: any): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const tool = await appServer.AppDataSource.getRepository(Tool).findOneBy({
-            id: toolId
-        })
+        let whereClause: any = { id: toolId }
+        if (toolBody.unikId) {
+            whereClause.unik = { id: toolBody.unikId }
+            // Remove unikId from toolBody to avoid setting it directly
+            const { unikId, ...restBody } = toolBody
+            toolBody = restBody
+        }
+        
+        const tool = await appServer.AppDataSource.getRepository(Tool).findOneBy(whereClause)
         if (!tool) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Tool ${toolId} not found`)
         }

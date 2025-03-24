@@ -200,7 +200,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             else setToolFunc('')
         } else if (dialogProps.type === 'EDIT' && dialogProps.toolId) {
             // When tool dialog is opened from CustomTool node in canvas
-            getSpecificToolApi.request(dialogProps.toolId)
+            getSpecificToolApi.request(dialogProps.unikId, dialogProps.toolId)
         } else if (dialogProps.type === 'IMPORT' && dialogProps.data) {
             // When tool dialog is to import existing tool
             setToolName(dialogProps.data.name)
@@ -236,7 +236,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const exportTool = async () => {
         try {
-            const toolResp = await toolsApi.getSpecificTool(toolId)
+            const toolResp = await toolsApi.getSpecificTool(dialogProps.unikId, toolId)
             if (toolResp.data) {
                 const toolData = toolResp.data
                 delete toolData.id
@@ -284,7 +284,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 func: toolFunc,
                 iconSrc: toolIcon
             }
-            const createResp = await toolsApi.createNewTool(obj)
+            
+            const createResp = await toolsApi.createNewTool(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
                     message: 'New Tool added',
@@ -303,7 +304,9 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
         } catch (error) {
             enqueueSnackbar({
                 message: `Failed to add new Tool: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error.response && typeof error.response.data === 'object' 
+                        ? error.response.data.message 
+                        : error.response ? error.response.data : error.message
                 }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
@@ -322,7 +325,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const saveTool = async () => {
         try {
-            const saveResp = await toolsApi.updateTool(toolId, {
+            const saveResp = await toolsApi.updateTool(dialogProps.unikId, toolId, {
                 name: toolName,
                 description: toolDesc,
                 schema: JSON.stringify(toolSchema),
@@ -375,7 +378,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
         if (isConfirmed) {
             try {
-                const delResp = await toolsApi.deleteTool(toolId)
+                const delResp = await toolsApi.deleteTool(dialogProps.unikId, toolId)
                 if (delResp.data) {
                     enqueueSnackbar({
                         message: 'Tool deleted',

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
 // material-ui
 import { Box, Stack, Button, ButtonGroup, Skeleton, ToggleButtonGroup, ToggleButton } from '@mui/material'
@@ -24,11 +25,13 @@ import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
 import { useTheme } from '@mui/material/styles'
 
-// ==============================|| CHATFLOWS ||============================== //
+// ==============================|| TOOLS ||============================== //
 
 const Tools = () => {
+    const navigate = useNavigate()
+    const { unikId } = useParams()
     const theme = useTheme()
-    const getAllToolsApi = useApi(toolsApi.getAllTools)
+    const getAllToolsApi = useApi(() => toolsApi.getAllTools(unikId))
 
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -81,7 +84,8 @@ const Tools = () => {
             title: 'Add New Tool',
             type: 'ADD',
             cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add'
+            confirmButtonName: 'Add',
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -93,7 +97,8 @@ const Tools = () => {
             type: 'EDIT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Save',
-            data: selectedTool
+            data: selectedTool,
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)
@@ -116,10 +121,12 @@ const Tools = () => {
     }
 
     useEffect(() => {
-        getAllToolsApi.request()
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        if (unikId) {
+            getAllToolsApi.request()
+        } else {
+            console.error('Unik ID is missing in URL')
+        }
+    }, [unikId])
 
     useEffect(() => {
         setLoading(getAllToolsApi.loading)
