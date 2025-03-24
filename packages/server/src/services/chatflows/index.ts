@@ -85,9 +85,17 @@ const checkIfChatflowIsValidForUploads = async (chatflowId: string): Promise<any
     }
 }
 
-const deleteChatflow = async (chatflowId: string): Promise<any> => {
+const deleteChatflow = async (chatflowId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
+        let whereClause: any = { id: chatflowId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy(whereClause)
+        if (!chatflow) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
+        }
         const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).delete({ id: chatflowId })
         try {
             // Delete all uploads corresponding to this chatflow
@@ -164,12 +172,14 @@ const getChatflowByApiKey = async (apiKeyId: string, keyonly?: unknown): Promise
     }
 }
 
-const getChatflowById = async (chatflowId: string): Promise<any> => {
+const getChatflowById = async (chatflowId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowId
-        })
+        let whereClause: any = { id: chatflowId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy(whereClause)
         if (!dbResponse) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
         }
@@ -273,7 +283,7 @@ const importChatflows = async (newChatflows: Partial<ChatFlow>[], queryRunner?: 
     }
 }
 
-const updateChatflow = async (chatflow: ChatFlow, updateChatFlow: ChatFlow): Promise<any> => {
+const updateChatflow = async (chatflow: ChatFlow, updateChatFlow: ChatFlow, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
         if (updateChatFlow.flowData && containsBase64File(updateChatFlow)) {

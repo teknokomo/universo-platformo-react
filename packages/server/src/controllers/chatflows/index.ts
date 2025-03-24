@@ -43,7 +43,14 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.deleteChatflow - id not provided!`)
         }
-        const apiResponse = await chatflowsService.deleteChatflow(req.params.id)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatflowsRouter.deleteChatflow - unikId not provided!`
+            )
+        }
+        const apiResponse = await chatflowsService.deleteChatflow(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -85,7 +92,14 @@ const getChatflowById = async (req: Request, res: Response, next: NextFunction) 
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getChatflowById - id not provided!`)
         }
-        const apiResponse = await chatflowsService.getChatflowById(req.params.id)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatflowsRouter.getChatflowById - unikId not provided!`
+            )
+        }
+        const apiResponse = await chatflowsService.getChatflowById(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -128,7 +142,14 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - id not provided!`)
         }
-        const chatflow = await chatflowsService.getChatflowById(req.params.id)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatflowsRouter.updateChatflow - unikId not provided!`
+            )
+        }
+        const chatflow = await chatflowsService.getChatflowById(req.params.id, unikId)
         if (!chatflow) {
             return res.status(404).send(`Chatflow ${req.params.id} not found`)
         }
@@ -141,7 +162,7 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         const rateLimiterManager = RateLimiterManager.getInstance()
         await rateLimiterManager.updateRateLimiter(updateChatFlow)
 
-        const apiResponse = await chatflowsService.updateChatflow(chatflow, updateChatFlow)
+        const apiResponse = await chatflowsService.updateChatflow(chatflow, updateChatFlow, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
