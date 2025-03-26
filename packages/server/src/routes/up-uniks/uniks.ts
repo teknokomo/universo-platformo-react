@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { getSupabaseClientWithAuth } from '../../utils/supabase'
-import chatflowsRouter from '../chatflows' // Импорт вложенного роутера для Chatflows
+import chatflowsRouter from '../chatflows'
 import toolsRouter from '../tools'
 import variablesRouter from '../variables'
 import exportImportRouter from '../export-import'
@@ -8,10 +8,11 @@ import credentialsRouter from '../credentials'
 import assistantsRouter from '../assistants'
 import apikeyRouter from '../apikey'
 import documentStoreRouter from '../documentstore'
+import marketplacesRouter from '../marketplaces'
 
 const router = Router()
 
-// GET /uniks — Получение списка Уников для текущего пользователя через таблицу user_uniks
+// GET /uniks — Get list of Uniks for current user through user_uniks table
 router.get('/', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1]
@@ -38,7 +39,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 })
 
-// GET /uniks/:id — Получение деталей конкретного Unik по его ID
+// GET /uniks/:id — Get details of specific Unik by its ID
 router.get('/:id', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1]
@@ -60,7 +61,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 })
 
-// POST /uniks — Создание нового Unik
+// POST /uniks — Create new Unik
 router.post('/', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1]
@@ -96,7 +97,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 })
 
-// PUT /uniks/:id — Обновление Unik (только поле name)
+// PUT /uniks/:id — Update Unik (only name field)
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1]
@@ -111,7 +112,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         const userId = user.user.id
         const unikId = req.params.id
         const { name } = req.body
-        // Проверяем, что у пользователя есть связь с этим Unik (owner / editor)
+        // Check if user has a connection with this Unik (owner / editor)
         const { data: relationData, error: relationError } = await supabaseClient
             .from('user_uniks')
             .select('role')
@@ -138,7 +139,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 })
 
-// DELETE /uniks/:id — Удаление Unik (только владелец)
+// DELETE /uniks/:id — Delete Unik (only owner)
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1]
@@ -152,7 +153,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         }
         const userId = user.user.id
         const unikId = req.params.id
-        // Проверяем, что в user_uniks есть роль 'owner'
+        // Check if user_uniks has role 'owner'
         const { data: relationData, error: relationError } = await supabaseClient
             .from('user_uniks')
             .select('role')
@@ -172,7 +173,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 })
 
-// POST /uniks/members — Добавление участника в Unik (только владелец)
+// POST /uniks/members — Add member to Unik (only owner)
 router.post('/members', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1]
@@ -186,7 +187,7 @@ router.post('/members', async (req: Request, res: Response) => {
         }
         const { unik_id, user_id: memberUserId, role } = req.body
         const ownerId = user.user.id
-        // Проверяем, что текущий пользователь — владелец Unik
+        // Check if current user is the owner of the Unik
         const { data: relationData, error: relationError } = await supabaseClient
             .from('user_uniks')
             .select('role')
@@ -229,5 +230,8 @@ router.use('/:unikId/apikey', apikeyRouter)
 
 // Mount nested routes for Document Stores
 router.use('/:unikId/document-stores', documentStoreRouter)
+
+// Mount nested routes for Templates (Marketplaces)
+router.use('/:unikId/templates', marketplacesRouter)
 
 export default router

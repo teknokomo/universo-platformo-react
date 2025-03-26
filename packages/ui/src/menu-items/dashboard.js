@@ -25,7 +25,7 @@ const dashboard = {
             id: 'unik-dashboard',
             title: 'Dashboard',
             type: 'item',
-            // Относительный URL для главной страницы Уника – получится /uniks/{unikId}
+            // Relative URL for the main page of the Unik – will be /uniks/{unikId}
             url: '',
             icon: icons.IconBuildingStore,
             breadcrumbs: false
@@ -92,6 +92,14 @@ const dashboard = {
             type: 'item',
             url: '/document-stores',
             icon: icons.IconFiles,
+            breadcrumbs: true
+        },
+        {
+            id: 'templates',
+            title: 'Templates',
+            type: 'item',
+            url: '/templates',
+            icon: icons.IconBuildingStore,
             breadcrumbs: true
         }
     ]

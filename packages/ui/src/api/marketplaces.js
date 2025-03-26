@@ -1,12 +1,12 @@
 import client from './client'
 
-const getAllChatflowsMarketplaces = () => client.get('/marketplaces/chatflows')
-const getAllToolsMarketplaces = () => client.get('/marketplaces/tools')
-const getAllTemplatesFromMarketplaces = () => client.get('/marketplaces/templates')
+const getAllChatflowsMarketplaces = (unikId) => client.get(`/uniks/${unikId}/marketplaces/chatflows`)
+const getAllToolsMarketplaces = (unikId) => client.get(`/uniks/${unikId}/marketplaces/tools`)
+const getAllTemplatesFromMarketplaces = (unikId) => client.get(`/uniks/${unikId}/templates`)
 
-const getAllCustomTemplates = () => client.get('/marketplaces/custom')
-const saveAsCustomTemplate = (body) => client.post('/marketplaces/custom', body)
-const deleteCustomTemplate = (id) => client.delete(`/marketplaces/custom/${id}`)
+const getAllCustomTemplates = (unikId) => client.get(`/uniks/${unikId}/templates/custom`)
+const saveAsCustomTemplate = (unikId, body) => client.post(`/uniks/${unikId}/templates/custom`, body)
+const deleteCustomTemplate = (unikId, id) => client.delete(`/uniks/${unikId}/templates/custom/${id}`)
 
 export default {
     getAllChatflowsMarketplaces,

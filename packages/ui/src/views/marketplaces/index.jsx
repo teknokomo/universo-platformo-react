@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 
 // material-ui
@@ -72,6 +72,8 @@ const Marketplace = () => {
     const dispatch = useDispatch()
     useNotifier()
 
+    const { unikId } = useParams()
+
     const theme = useTheme()
 
     const [isLoading, setLoading] = useState(true)
@@ -102,9 +104,9 @@ const Marketplace = () => {
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
     const { confirm } = useConfirm()
 
-    const handleTabChange = (event, newValue) => {
+    const activeTabChange = (event, newValue) => {
         if (newValue === 1 && !getAllCustomTemplatesApi.data) {
-            getAllCustomTemplatesApi.request()
+            getAllCustomTemplatesApi.request(unikId)
         }
         setActiveTabValue(newValue)
     }
@@ -189,7 +191,7 @@ const Marketplace = () => {
 
         if (isConfirmed) {
             try {
-                const deleteResp = await marketplacesApi.deleteCustomTemplate(template.id)
+                const deleteResp = await marketplacesApi.deleteCustomTemplate(unikId, template.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
                         message: 'Custom Template deleted successfully!',
@@ -203,7 +205,7 @@ const Marketplace = () => {
                             )
                         }
                     })
-                    getAllCustomTemplatesApi.request()
+                    getAllCustomTemplatesApi.request(unikId)
                 }
             } catch (error) {
                 enqueueSnackbar({
@@ -287,7 +289,8 @@ const Marketplace = () => {
             type: 'IMPORT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Add',
-            data: selectedTool
+            data: selectedTool,
+            unikId: unikId
         }
         setToolDialogProps(dialogProp)
         setShowToolDialog(true)
@@ -297,19 +300,19 @@ const Marketplace = () => {
         const dialogProp = {
             title: selectedTool.templateName,
             type: 'TEMPLATE',
-            data: selectedTool
+            data: selectedTool,
+            unikId: unikId
         }
         setToolDialogProps(dialogProp)
         setShowToolDialog(true)
     }
 
     const goToCanvas = (selectedChatflow) => {
-        navigate(`/marketplace/${selectedChatflow.id}`, { state: selectedChatflow })
+        navigate(`/uniks/${unikId}/templates/${selectedChatflow.id}`, { state: selectedChatflow })
     }
 
     useEffect(() => {
-        getAllTemplatesMarketplacesApi.request()
-
+        getAllTemplatesMarketplacesApi.request(unikId)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -520,7 +523,7 @@ const Marketplace = () => {
                             onSearchChange={onSearchChange}
                             search={true}
                             searchPlaceholder='Search Name/Description/Node'
-                            title='Marketplace'
+                            title='Templates'
                         >
                             <ToggleButtonGroup
                                 sx={{ borderRadius: 2, height: '100%' }}
@@ -555,7 +558,7 @@ const Marketplace = () => {
                                 </ToggleButton>
                             </ToggleButtonGroup>
                         </ViewHeader>
-                        <Tabs value={activeTabValue} onChange={handleTabChange} textColor='primary' aria-label='tabs' centered>
+                        <Tabs value={activeTabValue} onChange={activeTabChange} textColor='primary' aria-label='tabs' centered>
                             <Tab value={0} label='Community Templates'></Tab>
                             <Tab value={1} label='My Templates' />
                         </Tabs>
@@ -675,7 +678,7 @@ const Marketplace = () => {
                                             alt='WorkflowEmptySVG'
                                         />
                                     </Box>
-                                    <div>No Marketplace Yet</div>
+                                    <div>No Templates Yet</div>
                                 </Stack>
                             )}
                         </TabPanel>
@@ -809,7 +812,14 @@ const Marketplace = () => {
                 show={showToolDialog}
                 dialogProps={toolDialogProps}
                 onCancel={() => setShowToolDialog(false)}
-                onConfirm={() => setShowToolDialog(false)}
+                onConfirm={(toolId) => {
+                    setShowToolDialog(false)
+                    
+                    // After successful creation of the tool, redirect to the Tools page
+                    if (toolId) {
+                        navigate(`/uniks/${unikId}/tools`)
+                    }
+                }}
                 onUseTemplate={(tool) => onUseTemplate(tool)}
             ></ToolDialog>
             <ConfirmDialog />

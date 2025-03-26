@@ -6,7 +6,15 @@ import { StatusCodes } from 'http-status-codes'
 // Get all templates for marketplaces
 const getAllTemplates = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const apiResponse = await marketplacesService.getAllTemplates()
+        // Extract unikId from URL if not in params
+        let unikId = req.params.unikId;
+        if (!unikId) {
+            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            if (urlMatch && urlMatch[1]) {
+                unikId = urlMatch[1];
+            }
+        }
+        const apiResponse = await marketplacesService.getAllTemplates(unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -21,7 +29,23 @@ const deleteCustomTemplate = async (req: Request, res: Response, next: NextFunct
                 `Error: marketplacesService.deleteCustomTemplate - id not provided!`
             )
         }
-        const apiResponse = await marketplacesService.deleteCustomTemplate(req.params.id)
+        
+        // Extract unikId from URL if not in params
+        let unikId = req.params.unikId;
+        if (!unikId) {
+            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            if (urlMatch && urlMatch[1]) {
+                unikId = urlMatch[1];
+            }
+        }
+        
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: marketplacesService.deleteCustomTemplate - unikId not provided!`
+            )
+        }
+        const apiResponse = await marketplacesService.deleteCustomTemplate(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -30,7 +54,22 @@ const deleteCustomTemplate = async (req: Request, res: Response, next: NextFunct
 
 const getAllCustomTemplates = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const apiResponse = await marketplacesService.getAllCustomTemplates()
+        // Extract unikId from URL if not in params
+        let unikId = req.params.unikId;
+        if (!unikId) {
+            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            if (urlMatch && urlMatch[1]) {
+                unikId = urlMatch[1];
+            }
+        }
+        
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: marketplacesService.getAllCustomTemplates - unikId not provided!`
+            )
+        }
+        const apiResponse = await marketplacesService.getAllCustomTemplates(unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -39,13 +78,43 @@ const getAllCustomTemplates = async (req: Request, res: Response, next: NextFunc
 
 const saveCustomTemplate = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if ((!req.body && !(req.body.chatflowId || req.body.tool)) || !req.body.name) {
+        if (!req.body) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: marketplacesService.saveCustomTemplate - body not provided!`
+                `Error: marketplacesService.saveCustomTemplate - request body is empty!`
             )
         }
-        const apiResponse = await marketplacesService.saveCustomTemplate(req.body)
+        
+        if (!req.body.name) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: marketplacesService.saveCustomTemplate - 'name' field is required!`
+            )
+        }
+        
+        if (!req.body.chatflowId && !req.body.tool) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: marketplacesService.saveCustomTemplate - either 'chatflowId' or 'tool' must be provided!`
+            )
+        }
+        
+        // Extract unikId from URL if not in params
+        let unikId = req.params.unikId;
+        if (!unikId) {
+            const urlMatch = req.originalUrl.match(/\/uniks\/([^\/]+)\/templates/);
+            if (urlMatch && urlMatch[1]) {
+                unikId = urlMatch[1];
+            }
+        }
+        
+        if (!unikId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: marketplacesService.saveCustomTemplate - unikId not provided!`
+            )
+        }
+        const apiResponse = await marketplacesService.saveCustomTemplate({...req.body, unikId})
         return res.json(apiResponse)
     } catch (error) {
         next(error)

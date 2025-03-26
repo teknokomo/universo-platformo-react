@@ -38,10 +38,11 @@ const ComponentsListDialog = ({ show, dialogProps, onCancel, apiCall, onSelected
     }, [dialogProps])
 
     useEffect(() => {
-        getProvidersApi.request()
-
+        if (show && dialogProps) {
+            getProvidersApi.request(dialogProps.unikId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [show, dialogProps])
 
     useEffect(() => {
         if (getProvidersApi.data) {

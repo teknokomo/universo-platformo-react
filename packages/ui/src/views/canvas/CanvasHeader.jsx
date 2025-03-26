@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { useEffect, useRef, useState } from 'react'
 
@@ -37,6 +37,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
     const theme = useTheme()
     const dispatch = useDispatch()
     const navigate = useNavigate()
+    const location = useLocation()
     const flowNameRef = useRef()
     const settingsRef = useRef()
 
@@ -99,9 +100,34 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 })
                 return
             }
+            
+            // Check if chatflow has an ID
+            if (!chatflow || !chatflow.id) {
+                enqueueSnackbar({
+                    message: 'Cannot export: Chatflow ID is missing!',
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'error',
+                        persist: true,
+                        action: (key) => (
+                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                                <IconX />
+                            </Button>
+                        )
+                    }
+                })
+                return
+            }
+            
+            // Get unikId from URL using useLocation hook
+            const pathParts = location.pathname.split('/');
+            const unikIdIndex = pathParts.indexOf('uniks') + 1;
+            const currentUnikId = unikIdIndex > 0 && unikIdIndex < pathParts.length ? pathParts[unikIdIndex] : '';
+            
             setExportAsTemplateDialogProps({
                 title: 'Export As Template',
-                chatflow: chatflow
+                chatflow: chatflow,
+                unikId: currentUnikId
             })
             setExportAsTemplateDialogOpen(true)
         } else if (setting === 'viewUpsertHistory') {
@@ -256,9 +282,30 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                                     }
                                 }}
                                 color='inherit'
-                                onClick={() =>
-                                    window.history.state && window.history.state.idx > 0 ? navigate(-1) : navigate('/', { replace: true })
-                                }
+                                onClick={() => {
+                                    // Get current path using useLocation hook
+                                    const currentPath = location.pathname;
+                                    
+                                    // Determine the type of canvas based on the path
+                                    const isAgentCanvasUrl = currentPath.includes('/agentcanvas');
+                                    
+                                    // Extract unikId from URL
+                                    const pathParts = currentPath.split('/');
+                                    const unikIdIndex = pathParts.indexOf('uniks') + 1;
+                                    
+                                    if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
+                                        const unikId = pathParts[unikIdIndex];
+                                        // Redirect to the corresponding list based on URL
+                                        const targetPath = isAgentCanvasUrl ? 
+                                            `/uniks/${unikId}/agentflows` : 
+                                            `/uniks/${unikId}/chatflows`;
+                                        
+                                        navigate(targetPath);
+                                    } else {
+                                        // If we couldn't extract unikId, redirect to the main page
+                                        navigate('/', { replace: true });
+                                    }
+                                }}
                             >
                                 <IconChevronLeft stroke={1.5} size='1.3rem' />
                             </Avatar>

@@ -306,6 +306,7 @@ export interface ICustomTemplate {
     badge?: string
     framework?: string
     usecases?: string
+    unik?: any
 }
 
 export interface IFlowConfig {

@@ -121,7 +121,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 iconSrc: toolIcon,
                 schema: toolSchema,
                 func: toolFunc
-            }
+            },
+            unikId: dialogProps.unikId
         })
         setExportAsTemplateDialogOpen(true)
     }

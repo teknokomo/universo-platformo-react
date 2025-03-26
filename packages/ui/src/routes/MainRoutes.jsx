@@ -5,11 +5,11 @@ import { Outlet } from 'react-router-dom'
 import MainLayout from '@/layout/MainLayout'
 import Loadable from '@/ui-component/loading/Loadable'
 
-// Компоненты для аутентификации / списков
+// Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@/views/up-uniks/UnikList')))
 
-// Компонент дашборда рабочего пространства
+// Workspace dashboard component
 const UnikDetail = Loadable(lazy(() => import('@/views/up-uniks/UnikDetail')))
 
 // chatflows routing
@@ -20,6 +20,7 @@ const Agentflows = Loadable(lazy(() => import('@/views/agentflows')))
 
 // marketplaces routing
 const Marketplaces = Loadable(lazy(() => import('@/views/marketplaces')))
+const MarketplaceCanvas = Loadable(lazy(() => import('@/views/marketplaces/MarketplaceCanvas')))
 
 // apikey routing
 const APIKey = Loadable(lazy(() => import('@/views/apikey')))
@@ -47,7 +48,7 @@ const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@/views/docstore/L
 const VectorStoreConfigure = Loadable(lazy(() => import('@/views/docstore/VectorStoreConfigure')))
 const VectorStoreQuery = Loadable(lazy(() => import('@/views/docstore/VectorStoreQuery')))
 
-// Пример для других общих страниц
+// Example for other common pages
 const CommonPage = Loadable(lazy(() => import('@/views/up-uniks/CommonPage')))
 const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
 
@@ -151,6 +152,14 @@ const MainRoutes = {
                         {
                             path: 'document-stores/query/:storeId',
                             element: <VectorStoreQuery />
+                        },
+                        {
+                            path: 'templates',
+                            element: <Marketplaces />
+                        },
+                        {
+                            path: 'templates/:id',
+                            element: <MarketplaceCanvas />
                         }
                     ]
                 }

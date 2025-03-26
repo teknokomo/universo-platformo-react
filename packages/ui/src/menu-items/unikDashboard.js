@@ -1,10 +1,10 @@
-// Импортируем нужные иконки из @tabler/icons-react
+// Import required icons from @tabler/icons-react
 import {
     IconFiles,
     IconBuildingStore
 } from '@tabler/icons-react'
 
-// Собираем их в объект icons
+// Collect them in an icons object
 const icons = { IconFiles, IconBuildingStore }
 
 // ==============================|| UNIK DASHBOARD MENU ITEMS ||============================== //
@@ -19,26 +19,9 @@ const unikDashboard = {
             title: 'Uniks',
             type: 'item',
             url: '/uniks',
-            icon: icons.IconFiles,       // <-- используем icons.IconFiles
-            breadcrumbs: false
-        },
-        {
-            id: 'marketplace',
-            title: 'Marketplace',
-            type: 'item',
-            url: '/marketplace',
-            icon: icons.IconBuildingStore, // <-- используем icons.IconBuildingStore
+            icon: icons.IconFiles,
             breadcrumbs: false
         }
-        // При необходимости можно добавить «Common» или другие пункты
-        // {
-        //   id: 'common',
-        //   title: 'Common',
-        //   type: 'item',
-        //   url: '/common',
-        //   icon: icons.IconSomeOther,
-        //   breadcrumbs: false
-        // }
     ]
 }
 

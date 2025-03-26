@@ -192,7 +192,12 @@ const Canvas = () => {
             try {
                 await chatflowsApi.deleteChatflow(parentUnikId, chatflow.id)
                 localStorage.removeItem(`${chatflow.id}_INTERNAL`)
-                navigate(`/uniks/${parentUnikId}/chatflows`)
+                
+                // Consider the type of canvas when redirecting after deletion
+                const redirectPath = isAgentCanvas
+                    ? `/uniks/${parentUnikId}/agentflows`
+                    : `/uniks/${parentUnikId}/chatflows`;
+                navigate(redirectPath)
             } catch (error) {
                 enqueueSnackbar({
                     message: typeof error.response?.data === 'object' ? error.response.data.message : error.message,
@@ -436,7 +441,11 @@ const Canvas = () => {
             const chatflow = createNewChatflowApi.data
             dispatch({ type: SET_CHATFLOW, chatflow })
             saveChatflowSuccess()
-            navigate(`/uniks/${parentUnikId}/chatflows/${chatflow.id}`, { replace: true })
+            // Consider the type of canvas when redirecting
+            const redirectPath = isAgentCanvas 
+                ? `/uniks/${parentUnikId}/agentcanvas/${chatflow.id}` 
+                : `/uniks/${parentUnikId}/chatflows/${chatflow.id}`;
+            navigate(redirectPath, { replace: true })
         } else if (createNewChatflowApi.error) {
             errorFailed(
                 `Failed to save ${canvasTitle}: ${createNewChatflowApi.error.response?.data?.message || createNewChatflowApi.error.message}`

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 
 // material-ui
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -34,7 +34,8 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const Chatflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { unikId } = useParams() // Получение ID Уника
+    const { unikId } = useParams() // Get Unik ID
+    const location = useLocation() // Get location object for access to state
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
@@ -79,12 +80,18 @@ const Chatflows = () => {
     }
 
     useEffect(() => {
+        // Check if location.state has templateFlowData - redirect to the new chatflow page
+        if (location.state && location.state.templateFlowData) {
+            navigate(`/uniks/${unikId}/chatflows/new`, { state: { templateFlowData: location.state.templateFlowData } })
+            return
+        }
+        
         if (unikId) {
             getAllChatflowsApi.request()
         } else {
             console.error('Unik ID is missing in URL')
         }
-    }, [unikId])
+    }, [unikId, location.state, navigate])
 
     useEffect(() => {
         if (getAllChatflowsApi.error) {

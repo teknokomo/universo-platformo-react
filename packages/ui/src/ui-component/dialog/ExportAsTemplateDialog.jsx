@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
+import { useParams } from 'react-router-dom'
 
 // material-ui
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, OutlinedInput, Typography } from '@mui/material'
@@ -33,6 +34,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const [badge, setBadge] = useState('')
     const [usecases, setUsecases] = useState([])
     const [usecaseInput, setUsecaseInput] = useState('')
+    const { unikId } = useParams()
 
     const saveCustomTemplateApi = useApi(marketplacesApi.saveAsCustomTemplate)
 
@@ -112,7 +114,8 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
             description,
             badge: badge ? badge.toUpperCase() : undefined,
             usecases,
-            type: flowType
+            type: flowType,
+            unikId
         }
         if (dialogProps.chatflow) {
             template.chatflowId = dialogProps.chatflow.id
@@ -124,7 +127,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 func: dialogProps.tool.func
             }
         }
-        saveCustomTemplateApi.request(template)
+        saveCustomTemplateApi.request(unikId, template)
     }
 
     useEffect(() => {
@@ -280,3 +283,4 @@ ExportAsTemplateDialog.propTypes = {
 }
 
 export default ExportAsTemplateDialog
+

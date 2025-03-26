@@ -3,7 +3,7 @@ import ReactFlow, { Controls, Background, useNodesState, useEdgesState } from 'r
 import 'reactflow/dist/style.css'
 import '@/views/canvas/index.css'
 
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 // material-ui
 import { Toolbar, Box, AppBar } from '@mui/material'
@@ -22,6 +22,7 @@ const edgeTypes = { buttonedge: '' }
 const MarketplaceCanvas = () => {
     const theme = useTheme()
     const navigate = useNavigate()
+    const { unikId } = useParams()
 
     const { state } = useLocation()
     const { flowData, name } = state
@@ -50,7 +51,7 @@ const MarketplaceCanvas = () => {
             (node) => node.data.category === 'Multi Agents' || node.data.category === 'Sequential Agents'
         )
         const templateFlowData = JSON.stringify(flowData)
-        navigate(`/${isAgentCanvas ? 'agentcanvas' : 'canvas'}`, { state: { templateFlowData } })
+        navigate(`/uniks/${unikId}/${isAgentCanvas ? 'agentcanvas' : 'chatflows'}`, { state: { templateFlowData } })
     }
 
     return (

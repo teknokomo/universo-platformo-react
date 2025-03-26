@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
@@ -14,6 +14,7 @@ import { IconCopy, IconChevronLeft } from '@tabler/icons-react'
 const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
     const theme = useTheme()
     const navigate = useNavigate()
+    const location = useLocation()
 
     return (
         <>
@@ -33,7 +34,23 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                             }
                         }}
                         color='inherit'
-                        onClick={() => navigate(-1)}
+                        onClick={() => {
+                            // Get current path using useLocation hook
+                            const currentPath = location.pathname;
+                            
+                            // Extract unikId from URL
+                            const pathParts = currentPath.split('/');
+                            const unikIdIndex = pathParts.indexOf('uniks') + 1;
+                            
+                            if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
+                                const unikId = pathParts[unikIdIndex];
+                                // Redirect to the list of templates
+                                navigate(`/uniks/${unikId}/templates`);
+                            } else {
+                                // If we couldn't extract unikId, use standard behavior
+                                navigate(-1);
+                            }
+                        }}
                     >
                         <IconChevronLeft stroke={1.5} size='1.3rem' />
                     </Avatar>

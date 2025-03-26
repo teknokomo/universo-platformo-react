@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 
 // material-ui
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -35,6 +35,7 @@ const Agentflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
     const { unikId } = useParams()
+    const location = useLocation()
 
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -79,11 +80,16 @@ const Agentflows = () => {
     }
 
     useEffect(() => {
+        if (location.state && location.state.templateFlowData) {
+            navigate(`/uniks/${unikId}/agentcanvas`, { state: { templateFlowData: location.state.templateFlowData } })
+            return
+        }
+
         if (unikId) {
             getAllAgentflows.request(unikId)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [unikId])
+    }, [unikId, location.state, navigate])
 
     useEffect(() => {
         if (getAllAgentflows.error) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useSelector } from 'react-redux'
+import { useParams } from 'react-router-dom'
 import PropTypes from 'prop-types'
 import axios from 'axios'
 
@@ -63,6 +64,7 @@ export const AsyncDropdown = ({
     multiple = false
 }) => {
     const customization = useSelector((state) => state.customization)
+    const { unikId } = useParams()
 
     const [open, setOpen] = useState(false)
     const [options, setOptions] = useState([])
@@ -91,12 +93,8 @@ export const AsyncDropdown = ({
             } else {
                 names = credentialNames[0]
             }
-            // Universo Platformo | Extract unikId from URL path
-            const pathSegments = window.location.pathname.split('/')
-            const unikIdIndex = pathSegments.findIndex(segment => segment === 'uniks') + 1
-            const unikId = pathSegments[unikIdIndex] || ''
             
-            const resp = await credentialsApi.getCredentialsByName(unikId, names)
+            const resp = await credentialsApi.getCredentialsByName(unikId || '', names)
             if (resp.data) {
                 const returnList = []
                 for (let i = 0; i < resp.data.length; i += 1) {

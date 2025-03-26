@@ -1,6 +1,6 @@
 import { ICustomTemplate } from '../../Interface'
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
-
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
+import { Unik } from './Unik'
 @Entity('custom_template')
 export class CustomTemplate implements ICustomTemplate {
     @PrimaryGeneratedColumn('uuid')
@@ -34,4 +34,9 @@ export class CustomTemplate implements ICustomTemplate {
     @Column({ type: 'timestamp' })
     @UpdateDateColumn()
     updatedDate: Date
+
+    // New foreign key to link with Unik
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @JoinColumn({ name: 'unik_id' })
+    unik: Unik
 }

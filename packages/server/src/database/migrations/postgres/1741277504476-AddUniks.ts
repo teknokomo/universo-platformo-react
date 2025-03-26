@@ -4,7 +4,7 @@ export class AddUniks1741277504476 implements MigrationInterface {
     name = 'AddUniks1741277504476'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // 1. Создаем таблицу "uniks" (рабочие пространства)
+        // 1. Create "uniks" (workspace) table
         await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "uniks" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -14,7 +14,7 @@ export class AddUniks1741277504476 implements MigrationInterface {
       )
     `)
 
-        // 2. Создаем таблицу "user_uniks" для связывания пользователей с рабочими пространствами
+        // 2. Create "user_uniks" table for linking users with workspaces
         await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "user_uniks" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -28,7 +28,7 @@ export class AddUniks1741277504476 implements MigrationInterface {
       )
     `)
 
-        // Пытаемся добавить внешний ключ для "user_id", ссылающийся на таблицу auth.users
+        // Try to add foreign key for "user_id", referencing auth.users table
         try {
             await queryRunner.query(`
         ALTER TABLE "user_uniks"
@@ -39,7 +39,7 @@ export class AddUniks1741277504476 implements MigrationInterface {
             console.warn('Warning: Unable to add FK constraint on user_uniks.user_id referencing auth.users. Continuing without it.', error)
         }
 
-        // Добавляем внешний ключ для "unik_id", ссылающийся на таблицу "uniks"
+        // Add foreign key for "unik_id", referencing "uniks" table
         try {
             await queryRunner.query(`
         ALTER TABLE "user_uniks"
@@ -50,7 +50,7 @@ export class AddUniks1741277504476 implements MigrationInterface {
             console.warn('Warning: Unable to add FK constraint on user_uniks.unik_id referencing uniks. Continuing without it.', error)
         }
 
-        // 3. Для каждой основной таблицы добавляем столбец "unik_id" (NOT NULL) и внешний ключ на таблицу "uniks"
+        // 3. For each main table, add "unik_id" (NOT NULL) column and foreign key on "uniks" table
         const tables = [
             { name: 'chat_flow', tableName: 'chat_flow' },
             { name: 'credential', tableName: 'credential' },
@@ -58,7 +58,8 @@ export class AddUniks1741277504476 implements MigrationInterface {
             { name: 'assistant', tableName: 'assistant' },
             { name: 'variable', tableName: 'variable' },
             { name: 'apikey', tableName: 'apikey' },
-            { name: 'document_store', tableName: 'document_store' }
+            { name: 'document_store', tableName: 'document_store' },
+            { name: 'custom_template', tableName: 'custom_template' }
         ]
 
         for (const tbl of tables) {
@@ -74,14 +75,14 @@ export class AddUniks1741277504476 implements MigrationInterface {
       `)
         }
 
-        // 4. Включаем Row-Level Security (RLS) для созданных таблиц
+        // 4. Enable Row-Level Security (RLS) for created tables
         await queryRunner.query(`ALTER TABLE "uniks" ENABLE ROW LEVEL SECURITY;`)
         await queryRunner.query(`ALTER TABLE "user_uniks" ENABLE ROW LEVEL SECURITY;`)
         for (const tbl of tables) {
             await queryRunner.query(`ALTER TABLE "${tbl.tableName}" ENABLE ROW LEVEL SECURITY;`)
         }
 
-        // 5. Добавляем политики для таблицы "uniks"
+        // 5. Add policies for "uniks" table
         await queryRunner.query(`
       CREATE POLICY "Allow select uniks for authenticated users"
       ON "uniks"
@@ -107,7 +108,7 @@ export class AddUniks1741277504476 implements MigrationInterface {
       USING (auth.role() = 'authenticated')
     `)
 
-        // 6. Добавляем политики для таблицы "user_uniks"
+        // 6. Add policies for "user_uniks" table
         await queryRunner.query(`
       CREATE POLICY "Allow select user_uniks for authenticated users"
       ON "user_uniks"
@@ -142,10 +143,11 @@ export class AddUniks1741277504476 implements MigrationInterface {
             { name: 'assistant', tableName: 'assistant' },
             { name: 'variable', tableName: 'variable' },
             { name: 'apikey', tableName: 'apikey' },
-            { name: 'document_store', tableName: 'document_store' }
+            { name: 'document_store', tableName: 'document_store' },
+            { name: 'custom_template', tableName: 'custom_template' }
         ]
 
-        // Удаляем политики для таблиц "uniks" и "user_uniks"
+        // Drop policies for "uniks" and "user_uniks" tables
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow select uniks for authenticated users" ON "uniks";`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow insert uniks for authenticated users" ON "uniks";`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow update uniks for authenticated users" ON "uniks";`)

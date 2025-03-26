@@ -24,7 +24,7 @@ const getCategories = (fileDataObj: ITemplate) => {
 }
 
 // Get all templates for marketplaces
-const getAllTemplates = async () => {
+const getAllTemplates = async (unikId?: string) => {
     try {
         let marketplaceDir = path.join(__dirname, '..', '..', '..', 'marketplaces', 'chatflows')
         let jsonsInDir = fs.readdirSync(marketplaceDir).filter((file) => path.extname(file) === '.json')
@@ -101,10 +101,13 @@ const getAllTemplates = async () => {
     }
 }
 
-const deleteCustomTemplate = async (templateId: string): Promise<DeleteResult> => {
+const deleteCustomTemplate = async (templateId: string, unikId: string): Promise<DeleteResult> => {
     try {
         const appServer = getRunningExpressApp()
-        return await appServer.AppDataSource.getRepository(CustomTemplate).delete({ id: templateId })
+        return await appServer.AppDataSource.getRepository(CustomTemplate).delete({ 
+            id: templateId,
+            unik: { id: unikId }
+        })
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
@@ -113,10 +116,15 @@ const deleteCustomTemplate = async (templateId: string): Promise<DeleteResult> =
     }
 }
 
-const getAllCustomTemplates = async (): Promise<any> => {
+const getAllCustomTemplates = async (unikId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const templates: any[] = await appServer.AppDataSource.getRepository(CustomTemplate).find()
+        const templates: any[] = await appServer.AppDataSource.getRepository(CustomTemplate).find({
+            where: {
+                unik: { id: unikId }
+            }
+        })
+        
         templates.map((template) => {
             template.usecases = template.usecases ? JSON.parse(template.usecases) : ''
             if (template.type === 'Tool') {
@@ -152,6 +160,12 @@ const saveCustomTemplate = async (body: any): Promise<any> => {
         let derivedFramework = ''
         const customTemplate = new CustomTemplate()
         Object.assign(customTemplate, body)
+        
+        // Set Unik relation
+        if (body.unikId) {
+            customTemplate.unik = { id: body.unikId } as any
+            delete body.unikId
+        }
 
         if (body.chatflowId) {
             const chatflow = await chatflowsService.getChatflowById(body.chatflowId)
