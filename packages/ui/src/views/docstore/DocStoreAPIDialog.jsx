@@ -288,7 +288,7 @@ curl -X POST http://localhost:3000/api/v1/document-store/upsert/${dialogProps.st
 
     useEffect(() => {
         if (show && dialogProps) {
-            getConfigApi.request(dialogProps.storeId, dialogProps.loaderId)
+            getConfigApi.request(dialogProps.unikId, dialogProps.storeId, dialogProps.loaderId)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show, dialogProps])

@@ -25,7 +25,7 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
     const getUpsertHistoryApi = useApi(vectorstoreApi.getUpsertHistory)
 
     useEffect(() => {
-        getUpsertHistoryApi.request(dialogProps.id)
+        getUpsertHistoryApi.request(dialogProps.unikId, dialogProps.id)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dialogProps])
 

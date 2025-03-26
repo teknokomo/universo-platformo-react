@@ -73,7 +73,7 @@ const getAllDocumentStores = async (unikId?: string) => {
         const appServer = getRunningExpressApp()
         let query = appServer.AppDataSource.getRepository(DocumentStore).createQueryBuilder('docstore')
         
-        // Universo Platformo | Добавлена фильтрация по unikId
+        // Universo Platformo | Added filtering by unikId
         if (unikId) {
             query = query.where('docstore.unik_id = :unikId', { unikId })
         }
@@ -153,7 +153,7 @@ const getDocumentStoreById = async (storeId: string, unikId?: string) => {
         const appServer = getRunningExpressApp()
         let whereClause: any = { id: storeId }
         
-        // Universo Platformo | Добавлена фильтрация по unikId
+        // Universo Platformo | Added filtering by unikId
         if (unikId) {
             whereClause = { 
                 id: storeId,

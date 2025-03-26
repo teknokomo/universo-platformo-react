@@ -29,7 +29,7 @@ router.get('/components/loaders', documentStoreController.getDocumentLoaders)
 // delete loader from document store
 router.delete('/loader/:id/:loaderId', documentStoreController.deleteLoaderFromDocumentStore)
 // chunking preview
-router.post('/uniks/:unikId/document-stores/loader/preview', documentStoreController.previewFileChunks)
+router.post('/loader/preview', documentStoreController.previewFileChunks)
 // saving process
 router.post('/loader/save', documentStoreController.saveProcessingLoader)
 // chunking process
@@ -65,3 +65,4 @@ router.post('/vectorstore/update', documentStoreController.updateVectorStoreConf
 router.post('/generate-tool-desc/:id', documentStoreController.generateDocStoreToolDesc)
 
 export default router
+

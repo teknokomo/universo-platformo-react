@@ -52,11 +52,11 @@ const DeleteDocStoreDialog = ({ show, dialogProps, onCancel, onDelete }) => {
     useEffect(() => {
         if (dialogProps.recordManagerConfig) {
             const nodeName = dialogProps.recordManagerConfig.name
-            if (nodeName) getSpecificNodeApi.request(nodeName)
+            if (nodeName) getSpecificNodeApi.request(nodeName, dialogProps.unikId)
 
             if (dialogProps.vectorStoreConfig) {
                 const nodeName = dialogProps.vectorStoreConfig.name
-                if (nodeName) getSpecificNodeApi.request(nodeName)
+                if (nodeName) getSpecificNodeApi.request(nodeName, dialogProps.unikId)
             }
         }
 

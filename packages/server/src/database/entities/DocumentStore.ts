@@ -39,7 +39,7 @@ export class DocumentStore implements IDocumentStore {
     @Column({ nullable: true, type: 'text' })
     recordManagerConfig: string | null
 
-    // Новый внешний ключ для привязки к рабочему пространству (Unik)
+    // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
     unik: Unik

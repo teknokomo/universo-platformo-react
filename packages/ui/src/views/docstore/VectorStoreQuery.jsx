@@ -63,7 +63,7 @@ const VectorStoreQuery = () => {
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
-    const { storeId } = useParams()
+    const { storeId, unikId } = useParams()
 
     const [documentChunks, setDocumentChunks] = useState([])
     const [loading, setLoading] = useState(false)
@@ -115,7 +115,7 @@ const VectorStoreQuery = () => {
             storeId: storeId,
             inputs: selectedVectorStoreProvider.inputs
         }
-        queryVectorStoreApi.request(data)
+        queryVectorStoreApi.request(unikId, data)
     }
 
     const saveConfig = async () => {
@@ -137,7 +137,7 @@ const VectorStoreQuery = () => {
         }
 
         try {
-            const updateResp = await documentsApi.updateVectorStoreConfig(data)
+            const updateResp = await documentsApi.updateVectorStoreConfig(unikId, data)
             setLoading(false)
             if (updateResp.data) {
                 enqueueSnackbar({
@@ -220,7 +220,7 @@ const VectorStoreQuery = () => {
     }
 
     useEffect(() => {
-        getSpecificDocumentStoreApi.request(storeId)
+        getSpecificDocumentStoreApi.request(unikId, storeId)
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])

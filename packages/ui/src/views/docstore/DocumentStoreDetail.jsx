@@ -184,7 +184,7 @@ const DocumentStoreDetails = () => {
 
     const deleteVectorStoreDataFromStore = async (storeId) => {
         try {
-            await documentsApi.deleteVectorStoreDataFromStore(storeId)
+            await documentsApi.deleteVectorStoreDataFromStore(unikId, storeId)
         } catch (error) {
             console.error(error)
         }
@@ -198,7 +198,7 @@ const DocumentStoreDetails = () => {
                 await deleteVectorStoreDataFromStore(storeId)
             }
             try {
-                const deleteResp = await documentsApi.deleteDocumentStore(storeId)
+                const deleteResp = await documentsApi.deleteDocumentStore(unikId, storeId)
                 setBackdropLoading(false)
                 if (deleteResp.data) {
                     enqueueSnackbar({
@@ -213,7 +213,7 @@ const DocumentStoreDetails = () => {
                             )
                         }
                     })
-                    navigate('/document-stores/')
+                    navigate(`/uniks/${unikId}/document-stores`)
                 }
             } catch (error) {
                 setBackdropLoading(false)
@@ -236,7 +236,7 @@ const DocumentStoreDetails = () => {
             }
         } else if (type === 'LOADER') {
             try {
-                const deleteResp = await documentsApi.deleteLoaderFromStore(storeId, file.id)
+                const deleteResp = await documentsApi.deleteLoaderFromStore(unikId, storeId, file.id)
                 setBackdropLoading(false)
                 if (deleteResp.data) {
                     enqueueSnackbar({
@@ -315,7 +315,7 @@ const DocumentStoreDetails = () => {
             setAnchorEl(null)
             setBackdropLoading(true)
             try {
-                const resp = await documentsApi.refreshLoader(storeId)
+                const resp = await documentsApi.refreshLoader(unikId, storeId)
                 if (resp.data) {
                     enqueueSnackbar({
                         message: 'Document store refresh successfully!',
@@ -362,7 +362,8 @@ const DocumentStoreDetails = () => {
             type: 'EDIT',
             cancelButtonName: 'Cancel',
             confirmButtonName: 'Update',
-            data: data
+            data: data,
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowDialog(true)

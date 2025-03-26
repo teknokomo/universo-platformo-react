@@ -50,7 +50,7 @@ const VectorStoreConfigure = () => {
     useNotifier()
     const customization = useSelector((state) => state.customization)
 
-    const { storeId, docId } = useParams()
+    const { storeId, docId, unikId } = useParams()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
@@ -99,7 +99,8 @@ const VectorStoreConfigure = () => {
 
     const showEmbeddingsList = () => {
         const dialogProp = {
-            title: 'Select Embeddings Provider'
+            title: 'Select Embeddings Provider',
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowEmbeddingsListDialog(true)
@@ -123,7 +124,8 @@ const VectorStoreConfigure = () => {
 
     const showVectorStoreList = () => {
         const dialogProp = {
-            title: 'Select a Vector Store Provider'
+            title: 'Select a Vector Store Provider',
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowVectorStoreListDialog(true)
@@ -141,7 +143,8 @@ const VectorStoreConfigure = () => {
 
     const showRecordManagerList = () => {
         const dialogProp = {
-            title: 'Select a Record Manager'
+            title: 'Select a Record Manager',
+            unikId: unikId
         }
         setDialogProps(dialogProp)
         setShowRecordManagerListDialog(true)
@@ -149,7 +152,8 @@ const VectorStoreConfigure = () => {
 
     const showUpsertHistoryDrawer = () => {
         const dialogProp = {
-            id: storeId
+            id: storeId,
+            unikId: unikId
         }
         setUpsertHistoryDrawerDialogProps(dialogProp)
         setShowUpsertHistorySideDrawer(true)
@@ -216,7 +220,8 @@ const VectorStoreConfigure = () => {
     const prepareConfigData = () => {
         const data = {
             storeId: storeId,
-            docId: docId
+            docId: docId,
+            unikId: unikId
         }
         // Set embedding config
         if (selectedEmbeddingsProvider.inputs) {
@@ -273,14 +278,14 @@ const VectorStoreConfigure = () => {
         if (checkMandatoryFields()) {
             setLoading(true)
             const data = prepareConfigData()
-            insertIntoVectorStoreApi.request(data)
+            insertIntoVectorStoreApi.request(unikId, data)
         }
     }
 
     const saveVectorStoreConfig = () => {
         setLoading(true)
         const data = prepareConfigData()
-        saveVectorStoreConfigApi.request(data)
+        saveVectorStoreConfigApi.request(unikId, data)
     }
 
     const resetVectorStoreConfig = () => {
@@ -369,7 +374,7 @@ const VectorStoreConfigure = () => {
     }, [saveVectorStoreConfigApi.error])
 
     useEffect(() => {
-        getSpecificDocumentStoreApi.request(storeId)
+        getSpecificDocumentStoreApi.request(unikId, storeId)
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -890,7 +895,7 @@ const VectorStoreConfigure = () => {
                     onCancel={() => {
                         setShowUpsertHistoryDialog(false)
                     }}
-                    onGoToRetrievalQuery={() => navigate('/document-stores/query/' + storeId)}
+                    onGoToRetrievalQuery={() => navigate(`/uniks/${unikId}/document-stores/query/${storeId}`)}
                 ></UpsertResultDialog>
             )}
             {showUpsertHistorySideDrawer && (

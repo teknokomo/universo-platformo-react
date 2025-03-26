@@ -60,7 +60,7 @@ const ShowStoredChunks = () => {
 
     const getChunksApi = useApi(documentsApi.getFileChunks)
 
-    const { storeId, fileId } = useParams()
+    const { storeId, fileId, unikId } = useParams()
 
     const [documentChunks, setDocumentChunks] = useState([])
     const [totalChunks, setTotalChunks] = useState(0)
@@ -90,6 +90,7 @@ const ShowStoredChunks = () => {
         setShowExpandedChunkDialog(false)
         try {
             const editResp = await documentsApi.editChunkFromStore(
+                unikId,
                 chunk.storeId,
                 chunk.docId,
                 chunk.id,
@@ -109,7 +110,7 @@ const ShowStoredChunks = () => {
                         )
                     }
                 })
-                getChunksApi.request(storeId, fileId, currentPage)
+                getChunksApi.request(unikId, storeId, fileId, currentPage)
             }
             setLoading(false)
         } catch (error) {
@@ -144,7 +145,7 @@ const ShowStoredChunks = () => {
             setLoading(true)
             setShowExpandedChunkDialog(false)
             try {
-                const delResp = await documentsApi.deleteChunkFromStore(chunk.storeId, chunk.docId, chunk.id)
+                const delResp = await documentsApi.deleteChunkFromStore(unikId, chunk.storeId, chunk.docId, chunk.id)
                 if (delResp.data) {
                     enqueueSnackbar({
                         message: 'Document chunk successfully deleted!',
@@ -158,7 +159,7 @@ const ShowStoredChunks = () => {
                             )
                         }
                     })
-                    getChunksApi.request(storeId, fileId, currentPage)
+                    getChunksApi.request(unikId, storeId, fileId, currentPage)
                 }
                 setLoading(false)
             } catch (error) {
@@ -183,14 +184,14 @@ const ShowStoredChunks = () => {
 
     useEffect(() => {
         setLoading(true)
-        getChunksApi.request(storeId, fileId, currentPage)
+        getChunksApi.request(unikId, storeId, fileId, currentPage)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const changePage = (newPage) => {
         setLoading(true)
         setCurrentPage(newPage)
-        getChunksApi.request(storeId, fileId, newPage)
+        getChunksApi.request(unikId, storeId, fileId, newPage)
     }
 
     useEffect(() => {
