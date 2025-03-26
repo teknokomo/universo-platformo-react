@@ -12,7 +12,7 @@ import { UpsertHistory } from './UpsertHistory'
 import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
 
-// Новые сущности
+// New entities
 import { Unik } from './Unik'
 import { User } from './User'
 import { UserUnik } from './UserUnik'
@@ -31,7 +31,7 @@ export const entities = {
     UpsertHistory,
     ApiKey,
     CustomTemplate,
-    // Новые сущности
+    // New entities
     Unik,
     User,
     UserUnik

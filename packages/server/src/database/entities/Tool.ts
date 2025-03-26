@@ -34,7 +34,7 @@ export class Tool implements ITool {
     @UpdateDateColumn()
     updatedDate: Date
 
-    // Новый внешний ключ для привязки инструмента к рабочему пространству (Unik)
+    // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
     unik: Unik

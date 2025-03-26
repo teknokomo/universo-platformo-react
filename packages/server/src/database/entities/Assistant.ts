@@ -28,7 +28,7 @@ export class Assistant implements IAssistant {
     @UpdateDateColumn()
     updatedDate: Date
 
-    // Новый внешний ключ для привязки ассистента к рабочему пространству (Unik)
+    // New foreign key to link assistant to Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
     unik: Unik

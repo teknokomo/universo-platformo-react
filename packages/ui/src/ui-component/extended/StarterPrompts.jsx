@@ -62,7 +62,7 @@ const StarterPrompts = ({ dialogProps }) => {
             }
             chatbotConfig.starterPrompts = value.starterPrompts
             
-            // Используем unikId и flowId из параметров или из chatflow
+            // Use unikId and flowId from parameters or from chatflow
             const unikId = dialogProps.unikId || dialogProps.chatflow?.unik_id;
             const flowId = dialogProps.flowId || dialogProps.chatflow?.id;
             
