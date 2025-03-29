@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import {
@@ -46,6 +47,7 @@ const Documents = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { unikId } = useParams()
+    const { t } = useTranslation()
 
     const navigate = useNavigate()
     const getAllDocumentStores = useApi(() => documentsApi.getAllDocumentStores(unikId))
@@ -79,10 +81,10 @@ const Documents = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: 'Add New Document Store',
+            title: t('documentStore.addDocumentStore'),
             type: 'ADD',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.add'),
             unikId: unikId
         }
         setDialogProps(dialogProp)
@@ -148,7 +150,7 @@ const Documents = () => {
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder='Search Name' title='Document Store'>
+                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('documentStore.searchPlaceholder')} title={t('documentStore.title')}>
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -164,7 +166,7 @@ const Documents = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title='Card View'
+                                title={t('common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -176,7 +178,7 @@ const Documents = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title='List View'
+                                title={t('common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
@@ -188,7 +190,7 @@ const Documents = () => {
                             startIcon={<IconPlus />}
                             id='btn_createVariable'
                         >
-                            Add New
+                            {t('documentStore.addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -223,12 +225,12 @@ const Documents = () => {
                                 >
                                     <TableRow>
                                         <TableCell>&nbsp;</TableCell>
-                                        <TableCell>Name</TableCell>
-                                        <TableCell>Description</TableCell>
-                                        <TableCell>Connected flows</TableCell>
-                                        <TableCell>Total characters</TableCell>
-                                        <TableCell>Total chunks</TableCell>
-                                        <TableCell>Loader types</TableCell>
+                                        <TableCell>{t('documentStore.table.name')}</TableCell>
+                                        <TableCell>{t('documentStore.table.description')}</TableCell>
+                                        <TableCell>{t('documentStore.table.connectedFlows')}</TableCell>
+                                        <TableCell>{t('documentStore.table.totalCharacters')}</TableCell>
+                                        <TableCell>{t('documentStore.table.totalChunks')}</TableCell>
+                                        <TableCell>{t('documentStore.table.loaderTypes')}</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -314,7 +316,7 @@ const Documents = () => {
                                                                     fontWeight: 200
                                                                 }}
                                                             >
-                                                                + {images.length - 3} More
+                                                                + {images.length - 3} {t('documentStore.table.more')}
                                                             </Typography>
                                                         )}
                                                     </Box>
@@ -335,7 +337,7 @@ const Documents = () => {
                                     alt='doc_store_empty'
                                 />
                             </Box>
-                            <div>No Document Stores Created Yet</div>
+                            <div>{t('documentStore.noDocumentStoresYet')}</div>
                         </Stack>
                     )}
                 </Stack>

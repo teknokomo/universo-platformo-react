@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useContext, useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
@@ -27,6 +28,7 @@ const CanvasNode = ({ data }) => {
     const theme = useTheme()
     const canvas = useSelector((state) => state.canvas)
     const { deleteNode, duplicateNode } = useContext(flowContext)
+    const { t } = useTranslation()
 
     const [showDialog, setShowDialog] = useState(false)
     const [dialogProps, setDialogProps] = useState({})
@@ -57,8 +59,8 @@ const CanvasNode = ({ data }) => {
         const dialogProps = {
             data,
             inputParams: data.inputParams.filter((inputParam) => !inputParam.hidden).filter((param) => param.additionalParams),
-            confirmButtonName: 'Save',
-            cancelButtonName: 'Cancel'
+            confirmButtonName: t('common.save'),
+            cancelButtonName: t('common.cancel')
         }
         setDialogProps(dialogProps)
         setShowDialog(true)
@@ -106,7 +108,7 @@ const CanvasNode = ({ data }) => {
                             }}
                         >
                             <IconButton
-                                title='Duplicate'
+                                title={t('common.edit')}
                                 onClick={() => {
                                     duplicateNode(data.id)
                                 }}
@@ -116,7 +118,7 @@ const CanvasNode = ({ data }) => {
                                 <IconCopy />
                             </IconButton>
                             <IconButton
-                                title='Delete'
+                                title={t('common.delete')}
                                 onClick={() => {
                                     deleteNode(data.id)
                                 }}
@@ -207,7 +209,7 @@ const CanvasNode = ({ data }) => {
                                             textAlign: 'center'
                                         }}
                                     >
-                                        Inputs
+                                        {t('canvas.nodeConfig.inputs')}
                                     </Typography>
                                 </Box>
                                 <Divider />
@@ -244,7 +246,7 @@ const CanvasNode = ({ data }) => {
                                 }}
                             >
                                 <Button sx={{ borderRadius: 25, width: '90%', mb: 2 }} variant='outlined' onClick={onDialogClicked}>
-                                    Additional Parameters
+                                    {t('canvas.nodeConfig.flowControl')}
                                 </Button>
                             </div>
                         )}
@@ -257,7 +259,7 @@ const CanvasNode = ({ data }) => {
                                         textAlign: 'center'
                                     }}
                                 >
-                                    Output
+                                    {t('canvas.nodeConfig.outputs')}
                                 </Typography>
                             </Box>
                         )}

@@ -6,9 +6,11 @@ import { Dialog, DialogContent, DialogTitle } from '@mui/material'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import { JsonEditorInput } from '@/ui-component/json/JsonEditor'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
+import { useTranslation } from 'react-i18next'
 
 const FormatPromptValuesDialog = ({ show, dialogProps, onChange, onCancel }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
 
@@ -28,7 +30,7 @@ const FormatPromptValuesDialog = ({ show, dialogProps, onChange, onCancel }) => 
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.inputParam.label ?? 'Format Prompt Values'}
+                {dialogProps.inputParam.label ?? t('dialog.formatPrompt.title')}
             </DialogTitle>
             <DialogContent>
                 <PerfectScrollbar

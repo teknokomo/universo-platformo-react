@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
     Box,
@@ -35,6 +36,7 @@ import {
 
 const ManageScrapedLinksDialog = ({ show, dialogProps, onCancel, onSave }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
     const dispatch = useDispatch()
 
     useNotifier()
@@ -69,7 +71,7 @@ const ManageScrapedLinksDialog = ({ show, dialogProps, onCancel, onSave }) => {
             if (fetchLinksResp.data) {
                 setSelectedLinks(fetchLinksResp.data.links)
                 enqueueSnackbar({
-                    message: 'Successfully fetched links',
+                    message: t('dialog.manageLinks.fetchSuccess'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -130,7 +132,7 @@ const ManageScrapedLinksDialog = ({ show, dialogProps, onCancel, onSave }) => {
             aria-describedby='manage-scraped-links-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='manage-scraped-links-dialog-title'>
-                {dialogProps.title || `Manage Scraped Links - ${url}`}
+                {dialogProps.title || t('dialog.manageLinks.title')}
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ mb: 4 }}>
@@ -154,12 +156,12 @@ const ManageScrapedLinksDialog = ({ show, dialogProps, onCancel, onSave }) => {
                             variant='contained'
                             onClick={handleFetchLinks}
                         >
-                            Fetch Links
+                            {t('dialog.manageLinks.fetchLinks')}
                         </Button>
                     </Stack>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                    <Typography sx={{ fontWeight: 500 }}>Scraped Links</Typography>
+                    <Typography sx={{ fontWeight: 500 }}>{t('dialog.manageLinks.scrapedLinks')}</Typography>
                     {selectedLinks.length > 0 ? (
                         <Button
                             sx={{ height: 'max-content', width: 'max-content' }}
@@ -169,7 +171,7 @@ const ManageScrapedLinksDialog = ({ show, dialogProps, onCancel, onSave }) => {
                             onClick={handleRemoveAllLinks}
                             startIcon={<IconEraser />}
                         >
-                            Clear All
+                            {t('dialog.manageLinks.clearAll')}
                         </Button>
                     ) : null}
                 </Box>
@@ -215,15 +217,15 @@ const ManageScrapedLinksDialog = ({ show, dialogProps, onCancel, onSave }) => {
                         </PerfectScrollbar>
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ my: 2 }}>Links scraped from the URL will appear here</Typography>
+                            <Typography sx={{ my: 2 }}>{t('dialog.manageLinks.emptyState')}</Typography>
                         </div>
                     )}
                 </>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>Cancel</Button>
+                <Button onClick={onCancel}>{t('dialog.manageLinks.cancel')}</Button>
                 <StyledButton variant='contained' onClick={handleSaveLinks}>
-                    Save
+                    {t('dialog.manageLinks.save')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

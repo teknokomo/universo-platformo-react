@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { Stack, Typography, Dialog, DialogContent, DialogTitle, DialogActions, Box } from '@mui/material'
 import CredentialInputHandler from '@/views/canvas/CredentialInputHandler'
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
@@ -12,6 +13,7 @@ import { useParams } from 'react-router-dom'
 const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected, setError }) => {
     const portalElement = document.getElementById('portal')
     const { unikId } = useParams()
+    const { t } = useTranslation()
 
     const getAllAvailableAssistantsApi = useApi(assistantsApi.getAllAvailableAssistants)
 
@@ -64,7 +66,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
                         <Typography variant='overline'>
-                            OpenAI Credential
+                            {t('assistants.openai.credential')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                     </Stack>
@@ -72,7 +74,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                         key={credentialId}
                         data={credentialId ? { credential: credentialId } : {}}
                         inputParam={{
-                            label: 'Connect Credential',
+                            label: t('vectorStore.formFields.connectCredential'),
                             name: 'credential',
                             type: 'credential',
                             credentialNames: ['openAIApi']
@@ -87,7 +89,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                     <Box sx={{ p: 2 }}>
                         <Stack sx={{ position: 'relative' }} direction='row'>
                             <Typography variant='overline'>
-                                Assistants
+                                {t('assistants.title')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                         </Stack>
@@ -103,7 +105,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
             {selectedOpenAIAssistantId && (
                 <DialogActions>
                     <StyledButton variant='contained' onClick={() => onAssistantSelected(selectedOpenAIAssistantId, credentialId)}>
-                        Load
+                        {t('assistants.openai.load')}
                     </StyledButton>
                 </DialogActions>
             )}

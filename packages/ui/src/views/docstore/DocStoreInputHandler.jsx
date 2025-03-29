@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Typography, IconButton, Button } from '@mui/material'
@@ -28,6 +29,7 @@ import { FLOWISE_CREDENTIAL_ID } from '@/store/constant'
 
 const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
     const customization = useSelector((state) => state.customization)
+    const { t } = useTranslation()
 
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -40,8 +42,8 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
             value,
             inputParam,
             disabled,
-            confirmButtonName: 'Save',
-            cancelButtonName: 'Cancel'
+            confirmButtonName: t('common.save'),
+            cancelButtonName: t('common.cancel')
         }
         setExpandDialogProps(dialogProps)
         setShowExpandDialog(true)
@@ -53,8 +55,8 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
             relativeLinksMethod,
             limit,
             selectedLinks,
-            confirmButtonName: 'Save',
-            cancelButtonName: 'Cancel'
+            confirmButtonName: t('common.save'),
+            cancelButtonName: t('common.cancel')
         }
         setManageScrapedLinksDialogProps(dialogProps)
         setShowManageScrapedLinksDialog(true)
@@ -79,6 +81,34 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
         return {}
     }
 
+    // Form field translations
+    const getTranslatedLabel = (label) => {
+        // PDF-specific translations
+        if (label === 'PDF File') return t('documentStore.loaders.pdf.file')
+        if (label === 'Usage') return t('documentStore.loaders.pdf.usage')
+        if (label === 'One document per page') return t('documentStore.loaders.pdf.oneDocumentPerPage')
+        if (label === 'Use Legacy Build') return t('documentStore.loaders.pdf.useLegacyBuild')
+        if (label === 'Additional Metadata') return t('documentStore.loaders.pdf.additionalMetadata')
+        if (label === 'Omit Metadata Keys') return t('documentStore.loaders.pdf.omitMetadataKeys')
+        
+        // Vector Store fields
+        if (label === 'Connect Credential') return t('vectorStore.formFields.connectCredential')
+        if (label === 'Model') return t('vectorStore.formFields.model')
+        if (label === 'Endpoint') return t('vectorStore.formFields.endpoint')
+        if (label === 'Table Name') return t('vectorStore.formFields.tableName')
+        if (label === 'Namespace') return t('vectorStore.formFields.namespace')
+        if (label === 'Cleanup') return t('vectorStore.formFields.cleanup')
+        if (label === 'None') return t('vectorStore.formFields.none')
+        if (label === 'SourceId Key') return t('vectorStore.formFields.sourceIdKey')
+        if (label === 'Additional Connection Configuration') return t('vectorStore.formFields.additionalConnection')
+        if (label === 'Project URL') return t('vectorStore.formFields.projectUrl')
+        if (label === 'Query Name') return t('vectorStore.formFields.queryName')
+        if (label === 'Metadata Filter') return t('vectorStore.formFields.metadataFilter')
+        if (label === 'RPC Filter') return t('vectorStore.formFields.rpcFilter')
+        
+        return label
+    }
+
     return (
         <div>
             {inputParam && (
@@ -86,7 +116,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                     <Box sx={{ p: 2 }}>
                         <div style={{ display: 'flex', flexDirection: 'row' }}>
                             <Typography>
-                                {inputParam.label}
+                                {getTranslatedLabel(inputParam.label)}
                                 {!inputParam.optional && <span style={{ color: 'red' }}>&nbsp;*</span>}
                                 {inputParam.description && <TooltipWithParser style={{ marginLeft: 10 }} title={inputParam.description} />}
                             </Typography>
@@ -98,7 +128,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                         height: 25,
                                         width: 25
                                     }}
-                                    title='Expand'
+                                    title={t('common.expand')}
                                     color='primary'
                                     onClick={() =>
                                         onExpandDialogClicked(data.inputs[inputParam.name] ?? inputParam.default ?? '', inputParam)
@@ -143,7 +173,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                 disabled={disabled}
                                 fileType={inputParam.fileType || '*'}
                                 onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
-                                value={data.inputs[inputParam.name] ?? inputParam.default ?? 'Choose a file to upload'}
+                                value={data.inputs[inputParam.name] ?? inputParam.default ?? t('documentStore.loaders.common.chooseFile')}
                             />
                         )}
                         {inputParam.type === 'boolean' && (
@@ -270,7 +300,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                             )
                                         }
                                     >
-                                        Manage Links
+                                        {t('documentStore.actions.manageLinks')}
                                     </Button>
                                     <ManageScrapedLinksDialog
                                         show={showManageScrapedLinksDialog}
@@ -287,7 +317,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                 show={showExpandDialog}
                 dialogProps={expandDialogProps}
                 onCancel={() => setShowExpandDialog(false)}
-                onConfirm={(newValue, inputParamName) => onExpandDialogSave(newValue, inputParamName)}
+                onConfirm={onExpandDialogSave}
             ></ExpandTextDialog>
         </div>
     )

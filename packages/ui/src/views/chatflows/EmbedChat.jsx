@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 import { Tabs, Tab, Box } from '@mui/material'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
@@ -289,6 +290,7 @@ const EmbedChat = ({ chatflowid }) => {
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedChatCheckboxVal, setEmbedChatCheckbox] = useState(false)
+    const { t } = useTranslation()
 
     const onCheckBoxEmbedChatChanged = (newVal) => {
         setEmbedChatCheckbox(newVal)
@@ -345,15 +347,15 @@ const EmbedChat = ({ chatflowid }) => {
                     {(value === 0 || value === 1) && (
                         <>
                             <span>
-                                Paste this anywhere in the <code>{`<body>`}</code> tag of your html file.
+                                {t('embedChat.pasteHtmlBody')}
                                 <p>
-                                    You can also specify a&nbsp;
+                                    {t('embedChat.specifyVersion')}&nbsp;
                                     <a
                                         rel='noreferrer'
                                         target='_blank'
                                         href='https://www.npmjs.com/package/flowise-embed?activeTab=versions'
                                     >
-                                        version
+                                        {t('common.version')}
                                     </a>
                                     :&nbsp;<code>{`https://cdn.jsdelivr.net/npm/flowise-embed@<version>/dist/web.js`}</code>
                                 </p>
@@ -363,7 +365,7 @@ const EmbedChat = ({ chatflowid }) => {
                     )}
                     <CopyBlock theme={atomOneDark} text={getCode(codeLang)} language='javascript' showLineNumbers={false} wrapLines />
 
-                    <CheckboxInput label='Show Embed Chat Config' value={embedChatCheckboxVal} onChange={onCheckBoxEmbedChatChanged} />
+                    <CheckboxInput label={t('embedChat.showConfig')} value={embedChatCheckboxVal} onChange={onCheckBoxEmbedChatChanged} />
 
                     {embedChatCheckboxVal && (
                         <CopyBlock

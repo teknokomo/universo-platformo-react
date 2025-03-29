@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import {
     Accordion,
     AccordionDetails,
@@ -89,6 +90,7 @@ const OverrideConfig = ({ dialogProps }) => {
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const chatflowid = chatflow.id
     const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+    const { t } = useTranslation()
 
     useNotifier()
     const theme = useTheme()
@@ -326,16 +328,18 @@ const OverrideConfig = ({ dialogProps }) => {
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>
             <Typography variant='h3'>
-                Override Configuration
+                {t('canvas.configuration.security.overrideConfig.title')}
                 <TooltipWithParser
                     style={{ mb: 1, mt: 2, marginLeft: 10 }}
-                    title={
-                        'Enable or disable which properties of the flow configuration can be overridden. Refer to the <a href="https://docs.flowiseai.com/using-flowise/api#override-config" target="_blank">documentation</a> for more information.'
-                    }
+                    title={t('canvas.configuration.security.overrideConfig.tooltip')}
                 />
             </Typography>
             <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
-                <SwitchInput label='Enable Override Configuration' onChange={setOverrideConfigStatus} value={overrideConfigStatus} />
+                <SwitchInput
+                    label={t('canvas.configuration.security.overrideConfig.enable')}
+                    onChange={(newValue) => setOverrideConfigStatus(newValue)}
+                    value={overrideConfigStatus}
+                />
                 {overrideConfigStatus && (
                     <>
                         {nodeOverrides && nodeConfig && (
@@ -423,7 +427,7 @@ const OverrideConfig = ({ dialogProps }) => {
                 )}
             </Stack>
             <StyledButton variant='contained' onClick={onOverrideConfigSave}>
-                Save
+                {t('canvas.configuration.security.overrideConfig.save')}
             </StyledButton>
         </Stack>
     )

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ReactJson from 'flowise-react-json-view'
 import { cloneDeep } from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
@@ -57,6 +58,7 @@ const VectorStoreQuery = () => {
     const theme = useTheme()
     const dispatch = useDispatch()
     const inputRef = useRef(null)
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -141,7 +143,7 @@ const VectorStoreQuery = () => {
             setLoading(false)
             if (updateResp.data) {
                 enqueueSnackbar({
-                    message: 'Vector Store Config Successfully Updated',
+                    message: t('vectorStore.query.configSuccess'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -157,7 +159,7 @@ const VectorStoreQuery = () => {
             setLoading(false)
             const errorData = error.response?.data || `${error.response?.status}: ${error.response?.statusText}`
             enqueueSnackbar({
-                message: `Failed to update vector store config: ${errorData}`,
+                message: t('vectorStore.query.configError', { error: errorData }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -245,8 +247,8 @@ const VectorStoreQuery = () => {
                     <ViewHeader
                         isBackButton={true}
                         search={false}
-                        title={documentStore?.name || 'Document Store'}
-                        description='Retrieval Playground - Test your vector store retrieval settings'
+                        title={documentStore?.name || t('vectorStore.query.documentStore')}
+                        description={t('vectorStore.query.description')}
                         onBack={() => navigate(-1)}
                     >
                         <Button
@@ -256,7 +258,7 @@ const VectorStoreQuery = () => {
                             startIcon={<IconDeviceFloppy />}
                             onClick={saveConfig}
                         >
-                            Save Config
+                            {t('vectorStore.actions.saveConfig')}
                         </Button>
                     </ViewHeader>
                     <div style={{ width: '100%' }}></div>
@@ -266,7 +268,7 @@ const VectorStoreQuery = () => {
                                 <Box>
                                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                                         <Typography variant='overline'>
-                                            Enter your Query<span style={{ color: 'red' }}>&nbsp;*</span>
+                                            {t('vectorStore.query.enterQuery')}<span style={{ color: 'red' }}>&nbsp;*</span>
                                         </Typography>
 
                                         <div style={{ flexGrow: 1 }}></div>
@@ -395,10 +397,10 @@ const VectorStoreQuery = () => {
                                             />
                                         </div>
                                         <Typography sx={{ ml: 2 }} variant='h3'>
-                                            Retrieved Documents
+                                            {t('vectorStore.query.retrievedDocuments')}
                                             {timeTaken > -1 && (
                                                 <Typography variant='body2' sx={{ color: 'gray' }}>
-                                                    Count: {documentChunks.length}. Time taken: {timeTaken} millis.
+                                                    {t('vectorStore.query.countAndTime', { count: documentChunks.length, time: timeTaken })}
                                                 </Typography>
                                             )}
                                             {retrievalError && (
@@ -425,7 +427,7 @@ const VectorStoreQuery = () => {
                                                     alt='chunks_emptySVG'
                                                 />
                                             </Box>
-                                            <div>No Documents Retrieved</div>
+                                            <div>{t('vectorStore.query.noDocuments')}</div>
                                         </div>
                                     )}
                                     <Grid container spacing={2}>
@@ -440,7 +442,7 @@ const VectorStoreQuery = () => {
                                                         <Card>
                                                             <CardContent sx={{ p: 2 }}>
                                                                 <Typography sx={{ wordWrap: 'break-word', mb: 1 }} variant='h5'>
-                                                                    {`#${row.chunkNo}. Characters: ${row.pageContent.length}`}
+                                                                    {`#${row.chunkNo}. ${t('documentStore.chunks.charactersCount', { count: row.pageContent.length })}`}
                                                                 </Typography>
                                                                 <Typography sx={{ wordWrap: 'break-word' }} variant='body2'>
                                                                     {row.pageContent}

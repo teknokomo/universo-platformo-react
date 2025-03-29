@@ -1,9 +1,10 @@
-import { createPortal } from 'react-dom'
+    import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useDispatch } from 'react-redux'
 import { useContext, useState, useEffect } from 'react'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
+import { useTranslation } from 'react-i18next'
 
 import {
     Dialog,
@@ -82,6 +83,7 @@ const VectorStoreDialog = ({ show, dialogProps, onCancel, onIndexResult }) => {
     const portalElement = document.getElementById('portal')
     const { reactFlowInstance } = useContext(flowContext)
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -308,7 +310,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
         try {
             const res = await vectorstoreApi.upsertVectorStore(dialogProps.chatflowid, { stopNodeId: vectorStoreNode.data.id })
             enqueueSnackbar({
-                message: 'Succesfully upserted vector store. You can start chatting now!',
+                message: t('vectorStore.upsertSuccess', 'Successfully upserted vector store. You can start chatting now!'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'success',
@@ -323,7 +325,9 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
             if (res && res.data && typeof res.data === 'object') onIndexResult(res.data)
         } catch (error) {
             enqueueSnackbar({
-                message: typeof error.response.data === 'object' ? error.response.data.message : error.response.data,
+                message: t('vectorStore.upsertError', '{{error}}', {
+                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -491,7 +495,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                     <Box sx={{ p: 2 }}>
                                         <CheckboxInput
                                             key={JSON.stringify(nodeCheckboxExpanded)}
-                                            label='Show API'
+                                            label={t('vectorStore.showAPI', 'Show API')}
                                             value={nodeCheckboxExpanded[data.vectorNode.data.id]}
                                             onChange={() => onCheckBoxChanged(data.vectorNode.data.id)}
                                         />
@@ -571,18 +575,16 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                                                                 fontWeight: 500
                                                                             }}
                                                                         >
-                                                                            {
-                                                                                'For security reason, override config is disabled by default. You can change this by going into Chatflow Configuration -> Security tab, and enable the property you want to override.'
-                                                                            }
-                                                                            &nbsp;Refer{' '}
+                                                                            {t('vectorStore.securityWarning', 'For security reason, override config is disabled by default. You can change this by going into Chatflow Configuration -> Security tab, and enable the property you want to override.')}{' '}
+                                                                            {t('common.refer', 'Refer')}{' '}
                                                                             <a
                                                                                 rel='noreferrer'
                                                                                 target='_blank'
                                                                                 href='https://docs.flowiseai.com/using-flowise/api#override-config'
                                                                             >
-                                                                                here
+                                                                                {t('common.here', 'here')}
                                                                             </a>{' '}
-                                                                            for more details
+                                                                            {t('common.forMoreDetails', 'for more details')}
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -606,8 +608,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                                                     >
                                                                         <IconBulb size={30} color='#2d6a4f' />
                                                                         <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>
-                                                                            You can also specify multiple values for a config parameter by
-                                                                            specifying the node id
+                                                                            {t('vectorStore.multiValuesNote', 'You can also specify multiple values for a config parameter by specifying the node id')}
                                                                         </span>
                                                                     </div>
                                                                     <div style={{ padding: 10 }}>

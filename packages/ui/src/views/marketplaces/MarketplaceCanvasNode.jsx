@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { styled, useTheme } from '@mui/material/styles'
@@ -33,6 +34,7 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
 
 const MarketplaceCanvasNode = ({ data }) => {
     const theme = useTheme()
+    const { t } = useTranslation()
 
     const [showDialog, setShowDialog] = useState(false)
     const [dialogProps, setDialogProps] = useState({})
@@ -42,8 +44,8 @@ const MarketplaceCanvasNode = ({ data }) => {
             data,
             inputParams: data.inputParams.filter((param) => param.additionalParams),
             disabled: true,
-            confirmButtonName: 'Save',
-            cancelButtonName: 'Cancel'
+            confirmButtonName: t('common.save', 'Save'),
+            cancelButtonName: t('common.cancel', 'Cancel')
         }
         setDialogProps(dialogProps)
         setShowDialog(true)
@@ -116,7 +118,7 @@ const MarketplaceCanvasNode = ({ data }) => {
                                         textAlign: 'center'
                                     }}
                                 >
-                                    Inputs
+                                    {t('marketplaceCanvas.inputs', 'Inputs')}
                                 </Typography>
                             </Box>
                             <Divider />
@@ -140,7 +142,7 @@ const MarketplaceCanvasNode = ({ data }) => {
                             }}
                         >
                             <Button sx={{ borderRadius: 25, width: '90%', mb: 2 }} variant='outlined' onClick={onDialogClicked}>
-                                Additional Parameters
+                                {t('marketplaceCanvas.additionalParameters', 'Additional Parameters')}
                             </Button>
                         </div>
                     )}
@@ -152,7 +154,7 @@ const MarketplaceCanvasNode = ({ data }) => {
                                 textAlign: 'center'
                             }}
                         >
-                            Output
+                            {t('marketplaceCanvas.output', 'Output')}
                         </Typography>
                     </Box>
                     <Divider />

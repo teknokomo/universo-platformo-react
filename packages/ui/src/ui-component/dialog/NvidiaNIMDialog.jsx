@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import axios from 'axios'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import {
     Dialog,
     DialogTitle,
@@ -20,6 +21,7 @@ import {
 
 const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const modelOptions = {
         'nv-mistralai/mistral-nemo-12b-instruct:latest': {
@@ -37,7 +39,7 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
     const [imageTag, setImageTag] = useState('')
     const [pollInterval, setPollInterval] = useState(null)
 
-    const steps = ['Download Installer', 'Pull Image', 'Start Container']
+    const steps = [t('dialog.nvidiaNIM.steps.download'), t('dialog.nvidiaNIM.steps.pullImage'), t('dialog.nvidiaNIM.steps.startContainer')]
 
     const handleDownloadInstaller = async () => {
         try {
@@ -235,7 +237,7 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
 
     const component = open ? (
         <Dialog open={open}>
-            <DialogTitle>NIM Setup</DialogTitle>
+            <DialogTitle>{t('dialog.nvidiaNIM.title')}</DialogTitle>
             <DialogContent>
                 <Stepper activeStep={activeStep}>
                     {steps.map((label) => (
@@ -248,7 +250,7 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
                 {activeStep === 0 && (
                     <div style={{ marginTop: 20 }}>
                         <p style={{ marginBottom: 20 }}>
-                            Would you like to download the NIM installer? Click Next if it has been installed
+                            {t('dialog.nvidiaNIM.downloadPrompt')}
                         </p>
                         {loading && <CircularProgress />}
                     </div>
@@ -257,8 +259,8 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
                 {activeStep === 1 && (
                     <div>
                         <FormControl fullWidth sx={{ mt: 2 }}>
-                            <InputLabel>Model</InputLabel>
-                            <Select label='Model' value={imageTag} onChange={(e) => setImageTag(e.target.value)}>
+                            <InputLabel>{t('dialog.nvidiaNIM.model')}</InputLabel>
+                            <Select label={t('dialog.nvidiaNIM.model')} value={imageTag} onChange={(e) => setImageTag(e.target.value)}>
                                 {Object.entries(modelOptions).map(([value, { label }]) => (
                                     <MenuItem key={value} value={value}>
                                         {label}
@@ -273,14 +275,14 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
                                 sx={{ mt: 1 }}
                                 onClick={() => window.open(modelOptions[imageTag].licenseUrl, '_blank')}
                             >
-                                View License
+                                {t('dialog.nvidiaNIM.viewLicense')}
                             </Button>
                         )}
                         {loading && (
                             <div>
                                 <div style={{ marginBottom: 20 }} />
                                 <CircularProgress />
-                                <p>Pulling image...</p>
+                                <p>{t('dialog.nvidiaNIM.pullingImage')}</p>
                             </div>
                         )}
                     </div>
@@ -292,25 +294,25 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
                             <>
                                 <div style={{ marginBottom: 20 }} />
                                 <CircularProgress />
-                                <p>Starting container...</p>
+                                <p>{t('dialog.nvidiaNIM.startingContainer')}</p>
                             </>
                         ) : (
-                            <p>Image is ready! Click Next to start the container.</p>
+                            <p>{t('dialog.nvidiaNIM.imageReady')}</p>
                         )}
                     </div>
                 )}
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} variant='outline'>
-                    Cancel
+                    {t('dialog.nvidiaNIM.cancel')}
                 </Button>
                 {activeStep === 0 && (
                     <Button onClick={handleNext} variant='outline' color='secondary'>
-                        Next
+                        {t('dialog.nvidiaNIM.next')}
                     </Button>
                 )}
                 <Button onClick={activeStep === 0 ? handleDownloadInstaller : handleNext} disabled={loading}>
-                    {activeStep === 0 ? 'Download' : 'Next'}
+                    {activeStep === 0 ? t('dialog.nvidiaNIM.download') : t('dialog.nvidiaNIM.next')}
                 </Button>
             </DialogActions>
         </Dialog>

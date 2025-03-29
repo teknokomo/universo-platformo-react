@@ -5,11 +5,13 @@ import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import Chip from '@mui/material/Chip'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
 
 const TagDialog = ({ isOpen, dialogProps, onClose, onSubmit }) => {
     const [inputValue, setInputValue] = useState('')
     const [categoryValues, setCategoryValues] = useState([])
+    const { t } = useTranslation()
 
     const handleInputChange = (event) => {
         setInputValue(event.target.value)
@@ -58,7 +60,7 @@ const TagDialog = ({ isOpen, dialogProps, onClose, onSubmit }) => {
             aria-describedby='category-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                Set Chatflow Category Tags
+                {t('dialog.tag.title')}
             </DialogTitle>
             <DialogContent>
                 <Box>
@@ -81,19 +83,19 @@ const TagDialog = ({ isOpen, dialogProps, onClose, onSubmit }) => {
                             value={inputValue}
                             onChange={handleInputChange}
                             onKeyDown={handleInputKeyDown}
-                            label='Add a tag'
+                            label={t('dialog.tag.addTag')}
                             variant='outlined'
                         />
                         <Typography variant='body2' sx={{ fontStyle: 'italic', mt: 1 }} color='text.secondary'>
-                            Enter a tag and press enter to add it to the list. You can add as many tags as you want.
+                            {t('dialog.tag.tagHelp')}
                         </Typography>
                     </form>
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
+                <Button onClick={onClose}>{t('dialog.tag.cancel')}</Button>
                 <Button variant='contained' onClick={handleSubmit}>
-                    Submit
+                    {t('dialog.tag.submit')}
                 </Button>
             </DialogActions>
         </Dialog>

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 import moment from 'moment'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { styled } from '@mui/material/styles'
@@ -75,6 +76,7 @@ const Variables = () => {
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const { unikId } = useParams()
+    const { t } = useTranslation()
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -102,8 +104,8 @@ const Variables = () => {
     const addNew = () => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.add'),
             customBtnId: 'btn_confirmAddingVariable',
             data: {},
             unikId: unikId
@@ -115,8 +117,8 @@ const Variables = () => {
     const edit = (variable) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Save',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.save'),
             data: variable,
             unikId: unikId
         }
@@ -126,10 +128,10 @@ const Variables = () => {
 
     const deleteVariable = async (variable) => {
         const confirmPayload = {
-            title: `Delete`,
-            description: `Delete variable ${variable.name}?`,
-            confirmButtonName: 'Delete',
-            cancelButtonName: 'Cancel'
+            title: t('common.delete'),
+            description: t('variables.deleteConfirm', { name: variable.name }),
+            confirmButtonName: t('common.delete'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -138,7 +140,7 @@ const Variables = () => {
                 const deleteResp = await variablesApi.deleteVariable(unikId, variable.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: 'Variable deleted',
+                        message: t('variables.deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -153,9 +155,9 @@ const Variables = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: `Failed to delete Variable: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('variables.deleteError', { 
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -208,9 +210,9 @@ const Variables = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder='Search Variables' title='Variables'>
+                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('variables.searchPlaceholder')} title={t('variables.title')}>
                             <Button variant='outlined' sx={{ borderRadius: 2, height: '100%' }} onClick={() => setShowHowToDialog(true)}>
-                                How To Use
+                                {t('variables.howToUse')}
                             </Button>
                             <StyledButton
                                 variant='contained'
@@ -219,7 +221,7 @@ const Variables = () => {
                                 startIcon={<IconPlus />}
                                 id='btn_createVariable'
                             >
-                                Add Variable
+                                {t('variables.addVariable')}
                             </StyledButton>
                         </ViewHeader>
                         {!isLoading && variables.length === 0 ? (
@@ -231,7 +233,7 @@ const Variables = () => {
                                         alt='VariablesEmptySVG'
                                     />
                                 </Box>
-                                <div>No Variables Yet</div>
+                                <div>{t('variables.noVariablesYet')}</div>
                             </Stack>
                         ) : (
                             <TableContainer
@@ -248,11 +250,11 @@ const Variables = () => {
                                         }}
                                     >
                                         <TableRow>
-                                            <StyledTableCell>Name</StyledTableCell>
-                                            <StyledTableCell>Value</StyledTableCell>
-                                            <StyledTableCell>Type</StyledTableCell>
-                                            <StyledTableCell>Last Updated</StyledTableCell>
-                                            <StyledTableCell>Created</StyledTableCell>
+                                            <StyledTableCell>{t('variables.grid.name')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables.grid.value')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables.grid.type')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables.grid.lastUpdated')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables.grid.created')}</StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                         </TableRow>

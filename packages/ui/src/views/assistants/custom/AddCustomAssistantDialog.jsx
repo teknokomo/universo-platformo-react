@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useState, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import {
     HIDE_CANVAS_DIALOG,
     SHOW_CANVAS_DIALOG,
@@ -29,6 +30,7 @@ import useNotifier from '@/utils/useNotifier'
 const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     // ==============================|| Snackbar ||============================== //
 
@@ -57,7 +59,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
             const createResp = await assistantsApi.createNewAssistant(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: 'New Custom Assistant created.',
+                    message: t('assistants.messages.customAssistantCreated'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -73,7 +75,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
         } catch (err) {
             const errorData = typeof err === 'string' ? err : err.response?.data || `${err.response.data.message}`
             enqueueSnackbar({
-                message: `Failed to add new Custom Assistant: ${errorData}`,
+                message: t('assistants.messages.customAssistantCreateError', { error: errorData }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -108,7 +110,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                         <Typography>
-                            Name<span style={{ color: 'red' }}>&nbsp;*</span>
+                            {t('common.name')}<span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
 
                         <div style={{ flexGrow: 1 }}></div>
@@ -125,7 +127,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => onCancel()}>Cancel</Button>
+                <Button onClick={() => onCancel()}>{t('common.cancel')}</Button>
                 <StyledButton disabled={!customAssistantName} variant='contained' onClick={() => createCustomAssistant()}>
                     {dialogProps.confirmButtonName}
                 </StyledButton>

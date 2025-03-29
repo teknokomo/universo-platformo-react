@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useContext } from 'react'
 import ReactFlow, { addEdge, Controls, Background, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
+import { useTranslation } from 'react-i18next'
 
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -66,6 +67,7 @@ const Canvas = () => {
     const chatflowId = id === 'new' ? undefined : id
     const location = useLocation()
     const templateFlowData = location.state ? location.state.templateFlowData : ''
+    const { t } = useTranslation()
 
     // Get unikId from URL params or state
     let parentUnikId = location.state?.unikId || unikId || localStorage.getItem('parentUnikId') || ''
@@ -181,10 +183,10 @@ const Canvas = () => {
     const handleDeleteFlow = async () => {
         if (!chatflow?.id) return
         const confirmPayload = {
-            title: `Delete`,
-            description: `Delete ${canvasTitle} ${chatflow.name}?`,
-            confirmButtonName: 'Delete',
-            cancelButtonName: 'Cancel'
+            title: t('canvas.confirmDelete'),
+            description: t('canvas.confirmDeleteDescription') + ' ' + canvasTitle + ' ' + chatflow.name + '?',
+            confirmButtonName: t('canvas.confirmDelete'),
+            cancelButtonName: t('canvas.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -360,7 +362,7 @@ const Canvas = () => {
     const saveChatflowSuccess = () => {
         dispatch({ type: REMOVE_DIRTY })
         enqueueSnackbar({
-            message: `${canvasTitle} saved`,
+            message: t('canvas.messages.saveSuccess') + ' ' + canvasTitle,
             options: {
                 key: new Date().getTime() + Math.random(),
                 variant: 'success',
@@ -552,7 +554,7 @@ const Canvas = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [templateFlowData])
 
-    usePrompt('You have unsaved changes! Do you want to navigate away?', canvasDataStore.isDirty)
+    usePrompt(t('canvas.dirty'), canvas.isDirty)
 
     return (
         <>
@@ -624,7 +626,7 @@ const Canvas = () => {
                                         title='Sync Nodes'
                                         onClick={() => syncNodes()}
                                     >
-                                        <IconRefreshAlert />
+                                        <IconRefreshAlert style={{ marginRight: 8 }} /> {t('canvas.syncNodes')}
                                     </Fab>
                                 )}
                                 {isUpsertButtonEnabled && <VectorStorePopUp chatflowid={chatflowId} />}

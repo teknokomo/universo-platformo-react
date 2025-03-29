@@ -43,14 +43,14 @@ const AdminPanel = () => {
 
     return (
         <Box sx={{ padding: 2 }}>
-            <h1>{t('Admin Panel')}</h1>
+            <h1>{t('admin.title')}</h1>
             <Table>
                 <TableHead>
                     <TableRow>
-                        <TableCell>{t('Email')}</TableCell>
-                        <TableCell>{t('Super Admin')}</TableCell>
-                        <TableCell>{t('Banned')}</TableCell>
-                        <TableCell>{t('Actions')}</TableCell>
+                        <TableCell>{t('admin.email')}</TableCell>
+                        <TableCell>{t('admin.superAdmin')}</TableCell>
+                        <TableCell>{t('admin.banned')}</TableCell>
+                        <TableCell>{t('admin.actions')}</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -68,7 +68,7 @@ const AdminPanel = () => {
                             </TableCell>
                             <TableCell>
                                 <Button variant='outlined' color='error' onClick={() => handleDelete(user.id)}>
-                                    {t('Delete')}
+                                    {t('admin.delete')}
                                 </Button>
                             </TableCell>
                         </TableRow>

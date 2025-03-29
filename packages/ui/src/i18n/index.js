@@ -5,7 +5,9 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 import enTranslation from './locales/en.json'
 import ruTranslation from './locales/ru.json'
 
-i18n.use(LanguageDetector)
+// i18next initialization with error handling
+i18n
+    .use(LanguageDetector)
     .use(initReactI18next)
     .init({
         resources: {
@@ -13,7 +15,15 @@ i18n.use(LanguageDetector)
             ru: { translation: ruTranslation }
         },
         fallbackLng: 'en',
-        interpolation: { escapeValue: false }
-    })
+        interpolation: { escapeValue: false },
+        debug: process.env.NODE_ENV === 'development',
+        react: {
+            useSuspense: false
+        }
+    }, (err) => {
+        if (err) {
+            console.error('i18next initialization error:', err);
+        }
+    });
 
 export default i18n

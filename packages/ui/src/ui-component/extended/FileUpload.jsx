@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
 import parser from 'html-react-parser'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Button, Box } from '@mui/material'
@@ -18,14 +19,15 @@ import useNotifier from '@/utils/useNotifier'
 // API
 import chatflowsApi from '@/api/chatflows'
 
-const message = `Uploaded files will be parsed as strings and sent to the LLM. If file upload is enabled on the Vector Store as well, this will override and take precedence.
-<br />
-Refer <a href='https://docs.flowiseai.com/using-flowise/uploads#files' target='_blank'>docs</a> for more details.`
-
 const FileUpload = ({ dialogProps }) => {
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
+
+    const message = `${t('canvas.configuration.fileUpload.info')}
+<br /><br />
+${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.com/using-flowise/uploads#files' target='_blank'>${t('canvas.configuration.fileUpload.docs')}</a> ${t('canvas.configuration.fileUpload.moreDetails')}`
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
@@ -49,7 +51,7 @@ const FileUpload = ({ dialogProps }) => {
             })
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: 'File Upload Configuration Saved',
+                    message: t('canvas.configuration.fileUpload.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -64,7 +66,7 @@ const FileUpload = ({ dialogProps }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save File Upload Configuration: ${
+                message: `${t('canvas.configuration.fileUpload.failedToSave')}: ${
                     typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }`,
                 options: {
@@ -133,11 +135,11 @@ const FileUpload = ({ dialogProps }) => {
                         <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>{parser(message)}</span>
                     </div>
                 </div>
-                <SwitchInput label='Enable Full File Upload' onChange={handleChange} value={fullFileUpload} />
+                <SwitchInput label={t('canvas.configuration.fileUpload.enable')} onChange={handleChange} value={fullFileUpload} />
             </Box>
             {/* TODO: Allow selection of allowed file types*/}
             <StyledButton style={{ marginBottom: 10, marginTop: 10 }} variant='contained' onClick={onSave}>
-                Save
+                {t('canvas.configuration.fileUpload.save')}
             </StyledButton>
         </>
     )

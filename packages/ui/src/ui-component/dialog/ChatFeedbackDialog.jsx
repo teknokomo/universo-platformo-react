@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
 import { useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Dialog, DialogContent, DialogTitle } from '@mui/material'
@@ -16,6 +17,7 @@ import ChatFeedback from '@/ui-component/extended/ChatFeedback'
 const ChatFeedbackDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -35,7 +37,7 @@ const ChatFeedbackDialog = ({ show, dialogProps, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.title || 'Allowed Domains'}
+                {dialogProps.title || t('dialog.chatFeedback.title')}
             </DialogTitle>
             <DialogContent>
                 <ChatFeedback dialogProps={dialogProps} />

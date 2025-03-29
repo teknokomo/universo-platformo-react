@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 import { cloneDeep } from 'lodash'
+import { useTranslation } from 'react-i18next'
 
 import { Box, Button, Typography, Dialog, DialogActions, DialogContent, DialogTitle, Stack, OutlinedInput } from '@mui/material'
 import { StyledButton } from '@/ui-component/button/StyledButton'
@@ -62,6 +63,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     // ==============================|| Snackbar ||============================== //
 
@@ -114,7 +116,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const onSaveAsTemplate = () => {
         setExportAsTemplateDialogProps({
-            title: 'Export As Template',
+            title: t('tools.dialog.exportAsTemplate'),
             tool: {
                 name: toolName,
                 description: toolDesc,
@@ -142,27 +144,27 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const columns = useMemo(
         () => [
-            { field: 'property', headerName: 'Property', editable: true, flex: 1 },
+            { field: 'property', headerName: t('tools.dialog.grid.property'), editable: true, flex: 1 },
             {
                 field: 'type',
-                headerName: 'Type',
+                headerName: t('tools.dialog.grid.type'),
                 type: 'singleSelect',
                 valueOptions: ['string', 'number', 'boolean', 'date'],
                 editable: true,
                 width: 120
             },
-            { field: 'description', headerName: 'Description', editable: true, flex: 1 },
-            { field: 'required', headerName: 'Required', type: 'boolean', editable: true, width: 80 },
+            { field: 'description', headerName: t('tools.dialog.grid.description'), editable: true, flex: 1 },
+            { field: 'required', headerName: t('tools.dialog.grid.required'), type: 'boolean', editable: true, width: 80 },
             {
                 field: 'actions',
                 type: 'actions',
                 width: 80,
                 getActions: (params) => [
-                    <GridActionsCellItem key={'Delete'} icon={<DeleteIcon />} label='Delete' onClick={deleteItem(params.id)} />
+                    <GridActionsCellItem key={'Delete'} icon={<DeleteIcon />} label={t('tools.dialog.delete')} onClick={deleteItem(params.id)} />
                 ]
             }
         ],
-        [deleteItem]
+        [deleteItem, t]
     )
 
     useEffect(() => {
@@ -370,10 +372,10 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const deleteTool = async () => {
         const confirmPayload = {
-            title: `Delete Tool`,
-            description: `Delete tool ${toolName}?`,
-            confirmButtonName: 'Delete',
-            cancelButtonName: 'Cancel'
+            title: t('tools.dialog.deleteTool'),
+            description: t('tools.dialog.deleteToolConfirm', { name: toolName }),
+            confirmButtonName: t('tools.dialog.delete'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -443,10 +445,10 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                                     startIcon={<IconTemplate />}
                                     color='secondary'
                                 >
-                                    Save As Template
+                                    {t('tools.dialog.saveAsTemplate')}
                                 </Button>
                                 <Button variant='outlined' onClick={() => exportTool()} startIcon={<IconFileDownload />}>
-                                    Export
+                                    {t('tools.dialog.export')}
                                 </Button>
                             </>
                         )}
@@ -458,10 +460,10 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
                             <Typography variant='overline'>
-                                Tool Name
+                                {t('tools.dialog.toolName')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
-                            <TooltipWithParser title={'Tool name must be small capital letter with underscore. Ex: my_tool'} />
+                            <TooltipWithParser title={t('tools.dialog.tooltips.toolName')} />
                         </Stack>
                         <OutlinedInput
                             id='toolName'
@@ -477,11 +479,11 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
                             <Typography variant='overline'>
-                                Tool description
+                                {t('tools.dialog.toolDescription')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                             <TooltipWithParser
-                                title={'Description of what the tool does. This is for ChatGPT to determine when to use this tool.'}
+                                title={t('tools.dialog.tooltips.toolDescription')}
                             />
                         </Stack>
                         <OutlinedInput
@@ -499,7 +501,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative' }} direction='row'>
-                            <Typography variant='overline'>Tool Icon Source</Typography>
+                            <Typography variant='overline'>{t('tools.dialog.toolIconSource')}</Typography>
                         </Stack>
                         <OutlinedInput
                             id='toolIcon'
@@ -515,16 +517,16 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                     <Box>
                         <Stack sx={{ position: 'relative', justifyContent: 'space-between' }} direction='row'>
                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                <Typography variant='overline'>Input Schema</Typography>
-                                <TooltipWithParser title={'What is the input format in JSON?'} />
+                                <Typography variant='overline'>{t('tools.dialog.inputSchema')}</Typography>
+                                <TooltipWithParser title={t('tools.dialog.tooltips.inputSchema')} />
                             </Stack>
                             {dialogProps.type !== 'TEMPLATE' && (
                                 <Stack direction='row' spacing={1}>
                                     <Button variant='outlined' onClick={() => setShowPasteJSONDialog(true)} startIcon={<IconCode />}>
-                                        Paste JSON
+                                        {t('tools.dialog.pasteJSON')}
                                     </Button>
                                     <Button variant='outlined' onClick={addNewRow} startIcon={<IconPlus />}>
-                                        Add Item
+                                        {t('tools.dialog.addItem')}
                                     </Button>
                                 </Stack>
                             )}
@@ -534,8 +536,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                     <Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                <Typography variant='overline'>Javascript Function</Typography>
-                                <TooltipWithParser title='Function to execute when tool is being used. You can use properties specified in Input Schema as variables. For example, if the property is <code>userid</code>, you can use as <code>$userid</code>. Return value must be a string. You can also override the code from API by following this <a target="_blank" href="https://docs.flowiseai.com/tools/custom-tool#override-function-from-api">guide</a>' />
+                                <Typography variant='overline'>{t('tools.dialog.javascriptFunction')}</Typography>
+                                <TooltipWithParser title={t('tools.dialog.tooltips.javascriptFunction')} />
                             </Stack>
                             <Stack direction='row'>
                                 <Button
@@ -544,11 +546,11 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                                     variant='text'
                                     onClick={() => setShowHowToDialog(true)}
                                 >
-                                    How to use Function
+                                    {t('tools.dialog.howToUseFunction')}
                                 </Button>
                                 {dialogProps.type !== 'TEMPLATE' && (
                                     <Button style={{ marginBottom: 10 }} variant='outlined' onClick={() => setToolFunc(exampleAPIFunc)}>
-                                        See Example
+                                        {t('tools.dialog.seeExample')}
                                     </Button>
                                 )}
                             </Stack>
@@ -566,12 +568,12 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             <DialogActions sx={{ p: 3 }}>
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='error' variant='contained' onClick={() => deleteTool()}>
-                        Delete
+                        {t('tools.dialog.delete')}
                     </StyledButton>
                 )}
                 {dialogProps.type === 'TEMPLATE' && (
                     <StyledButton color='secondary' variant='contained' onClick={useToolTemplate}>
-                        Use Template
+                        {t('tools.dialog.useTemplate')}
                     </StyledButton>
                 )}
                 {dialogProps.type !== 'TEMPLATE' && (
@@ -580,7 +582,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                         variant='contained'
                         onClick={() => (dialogProps.type === 'ADD' || dialogProps.type === 'IMPORT' ? addNewTool() : saveTool())}
                     >
-                        {dialogProps.confirmButtonName}
+                        {t(dialogProps.confirmButtonName) || t('common.save')}
                     </StyledButton>
                 )}
             </DialogActions>

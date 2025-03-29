@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 import { Dialog, DialogContent, DialogTitle, Button } from '@mui/material'
 import { ChatMessage } from './ChatMessage'
@@ -10,6 +11,7 @@ import { IconEraser } from '@tabler/icons-react'
 const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel, previews, setPreviews }) => {
     const portalElement = document.getElementById('portal')
     const customization = useSelector((state) => state.customization)
+    const { t } = useTranslation()
 
     const component = show ? (
         <Dialog
@@ -29,16 +31,16 @@ const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel,
                         <StyledButton
                             variant='outlined'
                             color='error'
-                            title='Clear Conversation'
+                            title={t('chat.clearConversation')}
                             onClick={onClear}
                             startIcon={<IconEraser />}
                         >
-                            Clear Chat
+                            {t('chat.clearChat')}
                         </StyledButton>
                     )}
                     {!customization.isDarkMode && (
-                        <Button variant='outlined' color='error' title='Clear Conversation' onClick={onClear} startIcon={<IconEraser />}>
-                            Clear Chat
+                        <Button variant='outlined' color='error' title={t('chat.clearConversation')} onClick={onClear} startIcon={<IconEraser />}>
+                            {t('chat.clearChat')}
                         </Button>
                     )}
                 </div>

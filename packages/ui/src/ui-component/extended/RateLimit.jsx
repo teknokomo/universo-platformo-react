@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 import { Typography, Button, OutlinedInput, Stack } from '@mui/material'
 
@@ -24,6 +25,7 @@ const RateLimit = () => {
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const chatflowid = chatflow.id
     const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -147,7 +149,7 @@ const RateLimit = () => {
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>
             <Typography variant='h3'>
-                Rate Limit{' '}
+                {t('canvas.configuration.security.rateLimit.title')}{' '}
                 <TooltipWithParser
                     style={{ marginLeft: 10 }}
                     title={
@@ -156,7 +158,7 @@ const RateLimit = () => {
                 />
             </Typography>
             <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
-                <SwitchInput label='Enable Rate Limit' onChange={handleChange} value={rateLimitStatus} />
+                <SwitchInput label={t('canvas.configuration.security.rateLimit.enable')} onChange={handleChange} value={rateLimitStatus} />
                 {rateLimitStatus && (
                     <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
                         {textField(limitMax, 'limitMax', 'Message Limit per Duration', 'number', '5')}
@@ -166,7 +168,7 @@ const RateLimit = () => {
                 )}
             </Stack>
             <StyledButton disabled={checkDisabled()} variant='contained' onClick={() => onSave()} sx={{ width: 'auto' }}>
-                Save
+                {t('canvas.configuration.security.rateLimit.save')}
             </StyledButton>
         </Stack>
     )

@@ -1,11 +1,13 @@
 // Import required icons from @tabler/icons-react
 import {
     IconFiles,
-    IconBuildingStore
+    IconBuildingStore,
+    IconFileText,
+    IconUser
 } from '@tabler/icons-react'
 
 // Collect them in an icons object
-const icons = { IconFiles, IconBuildingStore }
+const icons = { IconFiles, IconBuildingStore, IconFileText, IconUser }
 
 // ==============================|| UNIK DASHBOARD MENU ITEMS ||============================== //
 
@@ -16,10 +18,26 @@ const unikDashboard = {
     children: [
         {
             id: 'uniks',
-            title: 'Uniks',
+            title: 'menu.uniks',
             type: 'item',
             url: '/uniks',
             icon: icons.IconFiles,
+            breadcrumbs: false
+        },
+        {
+            id: 'docs',
+            title: 'menu.docs',
+            type: 'item',
+            url: '/docs',
+            icon: icons.IconFileText,
+            breadcrumbs: false
+        },
+        {
+            id: 'profile',
+            title: 'menu.profile',
+            type: 'item',
+            url: '/profile',
+            icon: icons.IconUser,
             breadcrumbs: false
         }
     ]

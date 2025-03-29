@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useEffect, useState, forwardRef } from 'react'
 import DatePicker from 'react-datepicker'
 import moment from 'moment/moment'
+import { useTranslation } from 'react-i18next'
 
 // MUI
 import {
@@ -65,6 +66,7 @@ DatePickerCustomInput.propTypes = {
 function UpsertHistoryRow(props) {
     const [open, setOpen] = useState(false)
     const [nodeConfigExpanded, setNodeConfigExpanded] = useState({})
+    const { t } = useTranslation()
 
     const handleAccordionChange = (nodeLabel) => (event, isExpanded) => {
         const accordianNodes = { ...nodeConfigExpanded }
@@ -191,6 +193,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
     const customization = useSelector((state) => state.customization)
     const theme = useTheme()
     const getUpsertHistoryApi = useApi(vectorstoreApi.getUpsertHistory)
+    const { t } = useTranslation()
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -250,7 +253,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
         try {
             await vectorstoreApi.deleteUpsertHistory(selected)
             enqueueSnackbar({
-                message: 'Succesfully deleted upsert history',
+                message: t('vectorStore.upsertHistory.deleteSuccess', 'Successfully deleted upsert history'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'success',
@@ -265,9 +268,9 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
             setSelected([])
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to delete Upsert History: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: t('vectorStore.upsertHistory.deleteError', 'Failed to delete Upsert History: {{error}}', {
+                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -326,7 +329,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                 <>
                     <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 10 }}>
                         <div style={{ marginRight: 10 }}>
-                            <b style={{ marginRight: 10 }}>From Date</b>
+                            <b style={{ marginRight: 10 }}>{t('vectorStore.upsertHistory.fromDate', 'From Date')}</b>
                             <DatePicker
                                 selected={startDate}
                                 onChange={(date) => onStartDateSelected(date)}
@@ -337,7 +340,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                             />
                         </div>
                         <div style={{ marginRight: 10 }}>
-                            <b style={{ marginRight: 10 }}>To Date</b>
+                            <b style={{ marginRight: 10 }}>{t('vectorStore.upsertHistory.toDate', 'To Date')}</b>
                             <DatePicker
                                 selected={endDate}
                                 onChange={(date) => onEndDateSelected(date)}
@@ -358,7 +361,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                             color='error'
                             startIcon={<IconTrash />}
                         >
-                            Delete {selected.length} {selected.length === 1 ? 'row' : 'rows'}
+                            {t('vectorStore.upsertHistory.delete', 'Delete')} {selected.length} {selected.length === 1 ? t('vectorStore.upsertHistory.row', 'row') : t('vectorStore.upsertHistory.rows', 'rows')}
                         </Button>
                     )}
                     {chatflowUpsertHistory.length <= 0 && (
@@ -370,7 +373,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                                     alt='HistoryEmptySVG'
                                 />
                             </Box>
-                            <div>No Upsert History Yet</div>
+                            <div>{t('vectorStore.upsertHistory.noHistory', 'No Upsert History Yet')}</div>
                         </Stack>
                     )}
                     {chatflowUpsertHistory.length > 0 && (
@@ -388,42 +391,36 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                                                 }}
                                             />
                                         </TableCell>
-                                        <TableCell>Date</TableCell>
+                                        <TableCell>{t('vectorStore.upsertHistory.date', 'Date')}</TableCell>
                                         <TableCell>
-                                            Added{' '}
+                                            {t('vectorStore.upsertHistory.added', 'Added')}{' '}
                                             <TooltipWithParser
                                                 style={{ marginBottom: 2, marginLeft: 10 }}
-                                                title={'Number of vector embeddings added to Vector Store'}
+                                                title={t('vectorStore.upsertHistory.tooltips.added', 'Number of vector embeddings added to Vector Store')}
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            Updated{' '}
+                                            {t('vectorStore.upsertHistory.updated', 'Updated')}{' '}
                                             <TooltipWithParser
                                                 style={{ marginBottom: 2, marginLeft: 10 }}
-                                                title={
-                                                    'Updated existing vector embeddings. Only works when a Record Manager is connected to the Vector Store'
-                                                }
+                                                title={t('vectorStore.upsertHistory.tooltips.updated', 'Updated existing vector embeddings. Only works when a Record Manager is connected to the Vector Store')}
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            Skipped{' '}
+                                            {t('vectorStore.upsertHistory.skipped', 'Skipped')}{' '}
                                             <TooltipWithParser
                                                 style={{ marginBottom: 2, marginLeft: 10 }}
-                                                title={
-                                                    'Number of same vector embeddings that exists, and were skipped re-upserting again. Only works when a Record Manager is connected to the Vector Store'
-                                                }
+                                                title={t('vectorStore.upsertHistory.tooltips.skipped', 'Number of same vector embeddings that exists, and were skipped re-upserting again. Only works when a Record Manager is connected to the Vector Store')}
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            Deleted{' '}
+                                            {t('vectorStore.upsertHistory.deleted', 'Deleted')}{' '}
                                             <TooltipWithParser
                                                 style={{ marginBottom: 2, marginLeft: 10 }}
-                                                title={
-                                                    'Deleted vector embeddings. Only works when a Record Manager with a Cleanup method is connected to the Vector Store'
-                                                }
+                                                title={t('vectorStore.upsertHistory.tooltips.deleted', 'Deleted vector embeddings. Only works when a Record Manager with a Cleanup method is connected to the Vector Store')}
                                             />
                                         </TableCell>
-                                        <TableCell>Details</TableCell>
+                                        <TableCell>{t('vectorStore.upsertHistory.details', 'Details')}</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -444,7 +441,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                 </>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>Close</Button>
+                <Button onClick={onCancel}>{t('common.close', 'Close')}</Button>
             </DialogActions>
         </Dialog>
     ) : null

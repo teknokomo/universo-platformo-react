@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { IconButton } from '@mui/material'
@@ -19,6 +20,7 @@ import credentialsApi from '@/api/credentials'
 const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }) => {
     const ref = useRef(null)
     const { unikId } = useParams()
+    const { t } = useTranslation()
     const [credentialId, setCredentialId] = useState(data?.credential ?? '')
     const [showCredentialListDialog, setShowCredentialListDialog] = useState(false)
     const [credentialListDialogProps, setCredentialListDialogProps] = useState({})
@@ -29,8 +31,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
     const editCredential = (credentialId) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Save',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.save'),
             credentialId,
             unikId
         }
@@ -50,7 +52,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
             if (componentCredentialsResp.data) {
                 if (Array.isArray(componentCredentialsResp.data)) {
                     const dialogProp = {
-                        title: 'Add New Credential',
+                        title: t('credentials.addNew'),
                         componentsCredentials: componentCredentialsResp.data
                     }
                     setCredentialListDialogProps(dialogProp)
@@ -58,8 +60,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                 } else {
                     const dialogProp = {
                         type: 'ADD',
-                        cancelButtonName: 'Cancel',
-                        confirmButtonName: 'Add',
+                        cancelButtonName: t('common.cancel'),
+                        confirmButtonName: t('common.add'),
                         credentialComponent: componentCredentialsResp.data,
                         unikId
                     }
@@ -107,7 +109,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                 disabled={disabled}
                                 name={inputParam.name}
                                 nodeData={data}
-                                value={credentialId ?? 'choose an option'}
+                                value={credentialId ?? t('credentials.chooseAnOption')}
                                 isCreateNewOption={true}
                                 credentialNames={inputParam.credentialNames}
                                 onSelect={(newValue) => {
@@ -118,7 +120,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                 unikId={unikId}
                             />
                             {credentialId && (
-                                <IconButton title='Edit' color='primary' size='small' onClick={() => editCredential(credentialId)}>
+                                <IconButton title={t('common.edit')} color='primary' size='small' onClick={() => editCredential(credentialId)}>
                                     <IconEdit />
                                 </IconButton>
                             )}

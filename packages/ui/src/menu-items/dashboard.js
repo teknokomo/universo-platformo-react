@@ -23,7 +23,7 @@ const dashboard = {
     children: [
         {
             id: 'unik-dashboard',
-            title: 'Dashboard',
+            title: 'menu.dashboard',
             type: 'item',
             // Relative URL for the main page of the Unik – will be /uniks/{unikId}
             url: '',
@@ -32,7 +32,7 @@ const dashboard = {
         },
         {
             id: 'chatflows',
-            title: 'Chatflows',
+            title: 'menu.chatflows',
             type: 'item',
             url: '/chatflows',
             icon: icons.IconHierarchy,
@@ -40,7 +40,7 @@ const dashboard = {
         },
         {
             id: 'agentflows',
-            title: 'Agentflows',
+            title: 'menu.agentflows',
             type: 'item',
             url: '/agentflows',
             icon: icons.IconUsersGroup,
@@ -48,7 +48,7 @@ const dashboard = {
         },
         {
             id: 'assistants',
-            title: 'Assistants',
+            title: 'menu.assistants',
             type: 'item',
             url: '/assistants',
             icon: icons.IconRobot,
@@ -56,7 +56,7 @@ const dashboard = {
         },
         {
             id: 'tools',
-            title: 'Tools',
+            title: 'menu.tools',
             type: 'item',
             url: '/tools',
             icon: icons.IconTool,
@@ -64,7 +64,7 @@ const dashboard = {
         },
         {
             id: 'credentials',
-            title: 'Credentials',
+            title: 'menu.credentials',
             type: 'item',
             url: '/credentials',
             icon: icons.IconLock,
@@ -72,7 +72,7 @@ const dashboard = {
         },
         {
             id: 'variables',
-            title: 'Variables',
+            title: 'menu.variables',
             type: 'item',
             url: '/variables',
             icon: icons.IconVariable,
@@ -80,7 +80,7 @@ const dashboard = {
         },
         {
             id: 'apikey',
-            title: 'API Keys',
+            title: 'menu.apiKeys',
             type: 'item',
             url: '/apikey',
             icon: icons.IconKey,
@@ -88,7 +88,7 @@ const dashboard = {
         },
         {
             id: 'document-stores',
-            title: 'Document Stores',
+            title: 'menu.documentStores',
             type: 'item',
             url: '/document-stores',
             icon: icons.IconFiles,
@@ -96,7 +96,7 @@ const dashboard = {
         },
         {
             id: 'templates',
-            title: 'Templates',
+            title: 'menu.templates',
             type: 'item',
             url: '/templates',
             icon: icons.IconBuildingStore,

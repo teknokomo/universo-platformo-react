@@ -9,35 +9,38 @@ import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackba
 import { IconX, IconWand, IconArrowLeft, IconNotebook, IconLanguage, IconMail, IconCode, IconReport, IconWorld } from '@tabler/icons-react'
 import useNotifier from '@/utils/useNotifier'
 import { LoadingButton } from '@mui/lab'
+import { useTranslation } from 'react-i18next'
 
-const defaultInstructions = [
+const getDefaultInstructions = (t) => [
     {
-        text: 'Summarize a document',
+        text: t('promptGenerator.summarize'),
         img: <IconNotebook />
     },
     {
-        text: 'Translate the language',
+        text: t('promptGenerator.translate'),
         img: <IconLanguage />
     },
     {
-        text: 'Write me an email',
+        text: t('promptGenerator.email'),
         img: <IconMail />
     },
     {
-        text: 'Convert the code to another language',
+        text: t('promptGenerator.convertCode'),
         img: <IconCode />
     },
     {
-        text: 'Research and generate a report',
+        text: t('promptGenerator.research'),
         img: <IconReport />
     },
     {
-        text: 'Plan a trip',
+        text: t('promptGenerator.planTrip'),
         img: <IconWorld />
     }
 ]
 
 const AssistantPromptGenerator = ({ show, dialogProps, onCancel, onConfirm }) => {
+    const { t } = useTranslation()
+    const defaultInstructions = getDefaultInstructions(t)
     const portalElement = document.getElementById('portal')
     const [customAssistantInstruction, setCustomAssistantInstruction] = useState('')
     const [generatedInstruction, setGeneratedInstruction] = useState('')
@@ -143,7 +146,7 @@ const AssistantPromptGenerator = ({ show, dialogProps, onCancel, onConfirm }) =>
                             rows={12}
                             disabled={loading}
                             value={customAssistantInstruction}
-                            placeholder={'Describe your task here'}
+                            placeholder={t('promptGenerator.taskPlaceholder')}
                             onChange={(event) => setCustomAssistantInstruction(event.target.value)}
                         />
                     )}
@@ -168,7 +171,7 @@ const AssistantPromptGenerator = ({ show, dialogProps, onCancel, onConfirm }) =>
                             }}
                             startIcon={<IconWand size={20} />}
                         >
-                            Generate
+                            {t('promptGenerator.generate')}
                         </LoadingButton>
                     )}
                     {generatedInstruction && (
@@ -179,12 +182,12 @@ const AssistantPromptGenerator = ({ show, dialogProps, onCancel, onConfirm }) =>
                                 setGeneratedInstruction('')
                             }}
                         >
-                            Back
+                            {t('promptGenerator.back')}
                         </Button>
                     )}
                     {generatedInstruction && (
                         <StyledButton variant='contained' onClick={() => onConfirm(generatedInstruction)}>
-                            Apply
+                            {t('promptGenerator.apply')}
                         </StyledButton>
                     )}
                 </DialogActions>

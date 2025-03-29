@@ -2,6 +2,7 @@ import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import {
@@ -193,6 +194,7 @@ const analyticProviders = [
 
 const AnalyseFlow = ({ dialogProps }) => {
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -209,7 +211,7 @@ const AnalyseFlow = ({ dialogProps }) => {
             })
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: 'Analytic Configuration Saved',
+                    message: t('canvas.configuration.analyseChatflow.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -224,7 +226,7 @@ const AnalyseFlow = ({ dialogProps }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save Analytic Configuration: ${
+                message: `${t('canvas.configuration.analyseChatflow.failedToSave')}: ${
                     typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }`,
                 options: {
@@ -339,7 +341,7 @@ const AnalyseFlow = ({ dialogProps }) => {
                                             backgroundColor: '#70e000'
                                         }}
                                     />
-                                    <span style={{ color: '#006400', marginLeft: 10 }}>ON</span>
+                                    <span style={{ color: '#006400', marginLeft: 10 }}>{t('canvas.configuration.analyseChatflow.status.on')}</span>
                                 </div>
                             )}
                         </ListItem>
@@ -389,7 +391,7 @@ const AnalyseFlow = ({ dialogProps }) => {
                 </Accordion>
             ))}
             <StyledButton style={{ marginBottom: 10, marginTop: 10 }} variant='contained' onClick={onSave}>
-                Save
+                {t('canvas.configuration.analyseChatflow.save')}
             </StyledButton>
         </>
     )

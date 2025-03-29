@@ -2,10 +2,12 @@ import { createPortal } from 'react-dom'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
 import useConfirm from '@/hooks/useConfirm'
 import { StyledButton } from '@/ui-component/button/StyledButton'
+import { useTranslation } from 'react-i18next'
 
 const ConfirmDialog = () => {
     const { onConfirm, onCancel, confirmState } = useConfirm()
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const component = confirmState.show ? (
         <Dialog
@@ -17,15 +19,15 @@ const ConfirmDialog = () => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {confirmState.title}
+                {confirmState.title || t('dialog.confirm.title')}
             </DialogTitle>
             <DialogContent>
                 <span>{confirmState.description}</span>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{confirmState.cancelButtonName}</Button>
+                <Button onClick={onCancel}>{confirmState.cancelButtonName || t('dialog.confirm.cancelButtonText')}</Button>
                 <StyledButton variant='contained' onClick={onConfirm}>
-                    {confirmState.confirmButtonName}
+                    {confirmState.confirmButtonName || t('dialog.confirm.confirmButtonText')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

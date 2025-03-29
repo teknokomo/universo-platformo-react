@@ -2,11 +2,13 @@ import { createPortal } from 'react-dom'
 import { useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { Box, Dialog, DialogContent, DialogTitle, Typography } from '@mui/material'
 import ReactJson from 'flowise-react-json-view'
 
 const SourceDocDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
     const customization = useSelector((state) => state.customization)
 
     const [data, setData] = useState({})
@@ -29,7 +31,7 @@ const SourceDocDialog = ({ show, dialogProps, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.title ?? 'Source Documents'}
+                {dialogProps.title ?? t('dialog.sourceDoc.title')}
             </DialogTitle>
             <DialogContent>
                 {data.error && (
@@ -44,7 +46,7 @@ const SourceDocDialog = ({ show, dialogProps, onCancel }) => {
                         }}
                     >
                         <Typography variant='body2' fontWeight='medium'>
-                            Error:
+                            {t('dialog.sourceDoc.error')}
                         </Typography>
                         <Typography variant='body2' sx={{ whiteSpace: 'pre-wrap' }}>
                             {data.error}

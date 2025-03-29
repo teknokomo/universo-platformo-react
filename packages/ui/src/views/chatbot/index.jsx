@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FullPageChat } from 'flowise-embed-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // Project import
 import LoginDialog from '@/ui-component/dialog/LoginDialog'
@@ -20,6 +21,7 @@ const ChatbotFull = () => {
     const URLpath = document.location.pathname.toString().split('/')
     const chatflowId = URLpath[URLpath.length - 1] === 'chatbot' ? '' : URLpath[URLpath.length - 1]
     const navigate = useNavigate()
+    const { t } = useTranslation()
 
     const [chatflow, setChatflow] = useState(null)
     const [chatbotTheme, setChatbotTheme] = useState({})
@@ -50,8 +52,8 @@ const ChatbotFull = () => {
                     getSpecificChatflowApi.request(chatflowId)
                 } else {
                     setLoginDialogProps({
-                        title: 'Login',
-                        confirmButtonName: 'Login'
+                        title: t('common.login'),
+                        confirmButtonName: t('common.login')
                     })
                     setLoginDialogOpen(true)
                 }
@@ -64,13 +66,13 @@ const ChatbotFull = () => {
         if (getSpecificChatflowApi.error) {
             if (getSpecificChatflowApi.error?.response?.status === 401) {
                 setLoginDialogProps({
-                    title: 'Login',
-                    confirmButtonName: 'Login'
+                    title: t('common.login'),
+                    confirmButtonName: t('common.login')
                 })
                 setLoginDialogOpen(true)
             }
         }
-    }, [getSpecificChatflowApi.error])
+    }, [getSpecificChatflowApi.error, t])
 
     useEffect(() => {
         if (getSpecificChatflowFromPublicApi.data || getSpecificChatflowApi.data) {
@@ -114,7 +116,7 @@ const ChatbotFull = () => {
             {!isLoading ? (
                 <>
                     {!chatflow || chatflow.apikeyid ? (
-                        <p>Invalid Chatbot</p>
+                        <p>{t('chatbot.invalid')}</p>
                     ) : (
                         <FullPageChat
                             chatflowid={chatflow.id}

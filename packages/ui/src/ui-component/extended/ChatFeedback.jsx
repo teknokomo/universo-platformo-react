@@ -1,6 +1,7 @@
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Button, Box } from '@mui/material'
@@ -19,6 +20,7 @@ import chatflowsApi from '@/api/chatflows'
 
 const ChatFeedback = ({ dialogProps }) => {
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -45,7 +47,7 @@ const ChatFeedback = ({ dialogProps }) => {
             })
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: 'Chat Feedback Settings Saved',
+                    message: t('canvas.configuration.chatFeedback.settingsSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -60,7 +62,7 @@ const ChatFeedback = ({ dialogProps }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save Chat Feedback Settings: ${
+                message: `${t('canvas.configuration.chatFeedback.failedToSave')}: ${
                     typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }`,
                 options: {
@@ -92,10 +94,10 @@ const ChatFeedback = ({ dialogProps }) => {
     return (
         <>
             <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <SwitchInput label='Enable chat feedback' onChange={handleChange} value={chatFeedbackStatus} />
+                <SwitchInput label={t('canvas.configuration.chatFeedback.enable')} onChange={handleChange} value={chatFeedbackStatus} />
             </Box>
             <StyledButton style={{ marginBottom: 10, marginTop: 10 }} variant='contained' onClick={onSave}>
-                Save
+                {t('canvas.configuration.chatFeedback.save')}
             </StyledButton>
         </>
     )

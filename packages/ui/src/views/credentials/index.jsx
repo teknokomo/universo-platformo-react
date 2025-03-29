@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 import moment from 'moment'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { styled } from '@mui/material/styles'
@@ -77,6 +78,7 @@ const Credentials = () => {
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const { unikId } = useParams()
+    const { t } = useTranslation()
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -106,7 +108,7 @@ const Credentials = () => {
 
     const listCredential = () => {
         const dialogProp = {
-            title: 'Add New Credential',
+            title: t('credentials.addNew'),
             componentsCredentials
         }
         setCredentialListDialogProps(dialogProp)
@@ -116,8 +118,8 @@ const Credentials = () => {
     const addNew = (credentialComponent) => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.add'),
             credentialComponent,
             unikId
         }
@@ -128,8 +130,8 @@ const Credentials = () => {
     const edit = (credential) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Save',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.save'),
             data: credential,
             unikId
         }
@@ -139,10 +141,10 @@ const Credentials = () => {
 
     const deleteCredential = async (credential) => {
         const confirmPayload = {
-            title: `Delete`,
-            description: `Delete credential ${credential.name}?`,
-            confirmButtonName: 'Delete',
-            cancelButtonName: 'Cancel'
+            title: t('common.delete'),
+            description: t('credentials.deleteConfirm', { name: credential.name }),
+            confirmButtonName: t('common.delete'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -151,7 +153,7 @@ const Credentials = () => {
                 const deleteResp = await credentialsApi.deleteCredential(unikId, credential.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: 'Credential deleted',
+                        message: t('credentials.deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -166,9 +168,9 @@ const Credentials = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: `Failed to delete Credential: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('credentials.deleteError', { 
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -237,8 +239,8 @@ const Credentials = () => {
                         <ViewHeader
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder='Search Credentials'
-                            title='Credentials'
+                            searchPlaceholder={t('credentials.searchPlaceholder')}
+                            title={t('credentials.title')}
                         >
                             <StyledButton
                                 variant='contained'
@@ -246,7 +248,7 @@ const Credentials = () => {
                                 onClick={listCredential}
                                 startIcon={<IconPlus />}
                             >
-                                Add Credential
+                                {t('credentials.addCredential')}
                             </StyledButton>
                         </ViewHeader>
                         {!isLoading && credentials.length <= 0 ? (
@@ -258,7 +260,7 @@ const Credentials = () => {
                                         alt='CredentialEmptySVG'
                                     />
                                 </Box>
-                                <div>No Credentials Yet</div>
+                                <div>{t('credentials.noCredentialsYet')}</div>
                             </Stack>
                         ) : (
                             <TableContainer
@@ -275,9 +277,9 @@ const Credentials = () => {
                                         }}
                                     >
                                         <TableRow>
-                                            <StyledTableCell>Name</StyledTableCell>
-                                            <StyledTableCell>Last Updated</StyledTableCell>
-                                            <StyledTableCell>Created</StyledTableCell>
+                                            <StyledTableCell>{t('credentials.grid.name')}</StyledTableCell>
+                                            <StyledTableCell>{t('credentials.grid.lastUpdated')}</StyledTableCell>
+                                            <StyledTableCell>{t('credentials.grid.created')}</StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                         </TableRow>

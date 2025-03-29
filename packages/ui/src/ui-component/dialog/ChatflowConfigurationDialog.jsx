@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { Box, Dialog, DialogContent, DialogTitle, Tabs, Tab } from '@mui/material'
 import { tabsClasses } from '@mui/material/Tabs'
 import SpeechToText from '@/ui-component/extended/SpeechToText'
@@ -15,39 +16,39 @@ import PostProcessing from '@/ui-component/extended/PostProcessing'
 
 const CHATFLOW_CONFIGURATION_TABS = [
     {
-        label: 'Security',
+        label: 'security',
         id: 'security'
     },
     {
-        label: 'Starter Prompts',
+        label: 'starterPrompts',
         id: 'conversationStarters'
     },
     {
-        label: 'Follow-up Prompts',
+        label: 'followUpPrompts',
         id: 'followUpPrompts'
     },
     {
-        label: 'Speech to Text',
+        label: 'speechToText',
         id: 'speechToText'
     },
     {
-        label: 'Chat Feedback',
+        label: 'chatFeedback',
         id: 'chatFeedback'
     },
     {
-        label: 'Analyse Chatflow',
+        label: 'analyseChatflow',
         id: 'analyseChatflow'
     },
     {
-        label: 'Leads',
+        label: 'leads',
         id: 'leads'
     },
     {
-        label: 'File Upload',
+        label: 'fileUpload',
         id: 'fileUpload'
     },
     {
-        label: 'Post Processing',
+        label: 'postProcessing',
         id: 'postProcessing',
         hideInAgentFlow: true
     }
@@ -85,6 +86,7 @@ function a11yProps(index) {
 const ChatflowConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const [tabValue, setTabValue] = useState(0)
+    const { t } = useTranslation()
 
     const filteredTabs = CHATFLOW_CONFIGURATION_TABS.filter((tab) => !isAgentCanvas || !tab.hideInAgentFlow)
 
@@ -98,7 +100,7 @@ const ChatflowConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCance
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1.25rem' }} id='alert-dialog-title'>
-                {dialogProps.title}
+                {t('canvas.configuration.title')}
             </DialogTitle>
             <DialogContent>
                 <Tabs
@@ -126,7 +128,7 @@ const ChatflowConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCance
                                 mb: 1
                             }}
                             key={index}
-                            label={item.label}
+                            label={t(`canvas.configuration.tabs.${item.label}`)}
                             {...a11yProps(index)}
                         ></Tab>
                     ))}

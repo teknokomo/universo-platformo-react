@@ -9,6 +9,7 @@ import remarkMath from 'remark-math'
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import { EventStreamContentType, fetchEventSource } from '@microsoft/fetch-event-source'
+import { useTranslation } from 'react-i18next'
 
 import {
     Box,
@@ -162,6 +163,7 @@ CardWithDeleteOverlay.propTypes = {
 export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, previews, setPreviews }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
+    const { t } = useTranslation()
 
     const ps = useRef()
 
@@ -175,7 +177,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const [loading, setLoading] = useState(false)
     const [messages, setMessages] = useState([
         {
-            message: 'Hi there! How can I help?',
+            message: t('chatMessage.initialGreeting', 'Hi there! How can I help?'),
             type: 'apiMessage'
         }
     ])
@@ -631,15 +633,14 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     }
 
     // Handle errors
-    const handleError = (message = 'Oops! There seems to be an error. Please try again.') => {
-        message = message.replace(`Unable to parse JSON response from chat agent.\n\n`, '')
-        setMessages((prevMessages) => [...prevMessages, { message, type: 'apiMessage' }])
+    const handleError = (message = t('chatMessage.defaultError', 'Oops! There seems to be an error. Please try again.')) => {
         setLoading(false)
+        setMessages((prevMessages) => [
+            ...prevMessages,
+            { message, type: 'apiMessage', sourceDocs: [], agentReasoning: [], usedTools: [] }
+        ])
         setUserInput('')
-        setUploadedFiles([])
-        setTimeout(() => {
-            inputRef.current?.focus()
-        }, 100)
+        inputRef.current?.focus()
     }
 
     const handlePromptClick = async (promptStarterInput) => {
@@ -1174,7 +1175,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             setLoading(false)
             setMessages([
                 {
-                    message: 'Hi there! How can I help?',
+                    message: t('chatMessage.initialGreeting', 'Hi there! How can I help?'),
                     type: 'apiMessage'
                 }
             ])

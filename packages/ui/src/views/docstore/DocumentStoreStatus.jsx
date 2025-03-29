@@ -1,10 +1,12 @@
 import { useTheme } from '@mui/material'
 import { useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 const DocumentStoreStatus = ({ status, isTableView }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
+    const { t } = useTranslation()
 
     const getColor = (status) => {
         switch (status) {
@@ -43,6 +45,11 @@ const DocumentStoreStatus = ({ status, isTableView }) => {
         }
     }
 
+    const getTranslatedStatus = (status) => {
+        if (!status) return '';
+        return t(`documentStore.status.${status.toLowerCase()}`, status)
+    }
+
     return (
         <>
             {!isTableView && (
@@ -73,7 +80,9 @@ const DocumentStoreStatus = ({ status, isTableView }) => {
                             borderColor: status === 'EMPTY' ? getColor(status)[1] : 'transparent'
                         }}
                     />
-                    <span style={{ fontSize: '0.7rem', color: getColor(status)[2], marginLeft: 5 }}>{status}</span>
+                    <span style={{ fontSize: '0.7rem', color: getColor(status)[2], marginLeft: 5 }}>
+                        {getTranslatedStatus(status)}
+                    </span>
                 </div>
             )}
             {isTableView && (
@@ -87,7 +96,7 @@ const DocumentStoreStatus = ({ status, isTableView }) => {
                         border: status === 'EMPTY' ? '3px solid' : 'none',
                         borderColor: status === 'EMPTY' ? getColor(status)[1] : 'transparent'
                     }}
-                    title={status}
+                    title={getTranslatedStatus(status)}
                 ></div>
             )}
         </>

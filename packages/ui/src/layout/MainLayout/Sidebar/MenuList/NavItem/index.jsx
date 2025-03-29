@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { forwardRef, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
@@ -19,6 +20,7 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     const theme = useTheme()
     const dispatch = useDispatch()
+    const { t } = useTranslation()
     const customization = useSelector((state) => state.customization)
     const matchesSM = useMediaQuery(theme.breakpoints.down('lg'))
     const location = useLocation()
@@ -76,6 +78,33 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             dispatch({ type: MENU_OPEN, id })
             if (matchesSM) dispatch({ type: SET_MENU, opened: false })
         }
+    }
+
+    // Get translated title from key depending on menu item ID
+    const getTranslatedTitle = (id, title) => {
+        // First check if the title is already a localization key
+        if (title && title.startsWith('menu.')) {
+            return t(title)
+        }
+        
+        // If not, try to find a match for ID in the menu
+        const menuKeys = {
+            'unik-dashboard': 'menu.dashboard',
+            'chatflows': 'menu.chatflows',
+            'agentflows': 'menu.agentflows',
+            'assistants': 'menu.assistants',
+            'tools': 'menu.tools',
+            'credentials': 'menu.credentials',
+            'variables': 'menu.variables',
+            'apikey': 'menu.apiKeys',
+            'document-stores': 'menu.documentStores',
+            'templates': 'menu.templates',
+            'uniks': 'menu.uniks',
+            'docs': 'menu.docs',
+            'profile': 'menu.profile'
+        }
+        
+        return menuKeys[id] ? t(menuKeys[id]) : title
     }
 
     // active menu item on page load
@@ -139,7 +168,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
                         color='inherit'
                         sx={{ my: 0.5 }}
                     >
-                        {item.title}
+                        {getTranslatedTitle(item.id, item.title)}
                     </Typography>
                 }
                 secondary={

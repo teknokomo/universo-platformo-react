@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -17,10 +18,10 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
 
-// Используем уже существующий API helper
+// Use existing API helper
 import api from '@/api'
 
-// Создаём локальный API-модуль для uniks с использованием базового axios‑инстанса
+// Create local API module for uniks using base axios instance
 const uniksApi = {
     getAllUniks: () => api.get('/uniks'),
     createUnik: (data) => api.post('/uniks', data),
@@ -30,7 +31,7 @@ const uniksApi = {
 // Hooks
 import useApi from '@/hooks/useApi'
 
-// Additional: импорт модального окна для создания/редактирования Unik
+// Additional: import UnikDialog modal for creating/editing Unik
 import UnikDialog from '@/views/up-uniks/UnikDialog'
 
 // icons
@@ -39,6 +40,7 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const UnikList = () => {
     const navigate = useNavigate()
     const theme = useTheme()
+    const { t } = useTranslation()
 
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -75,17 +77,17 @@ const UnikList = () => {
         navigate(0)
     }
 
-    // Открытие модального окна для добавления нового Unik
+    // Open modal for adding new Unik
     const openAddUnikDialog = () => {
         setUnikDialogProps({
-            title: 'Add New Unik',
-            confirmButtonName: 'Add Unik',
+            title: t('unikList.addNewUnik'),
+            confirmButtonName: t('unikList.addUnik'),
             type: 'ADD'
         })
         setUnikDialogOpen(true)
     }
 
-    // Callback после успешного создания Unik через диалог
+    // Callback after successful creation of Unik through dialog
     const handleDialogConfirm = (newUnik) => {
         setUniks((prev) => [...prev, newUnik])
         setUnikDialogOpen(false)
@@ -127,7 +129,7 @@ const UnikList = () => {
         }
     }, [getAllUniks.data])
 
-    // Для uniks можно не рассчитывать изображения – передаём пустой массив для каждого unik
+    // For uniks we don't need to calculate images – pass empty array for each unik
     const images = {}
     uniks.forEach((unik) => {
         images[unik.id] = []
@@ -142,8 +144,8 @@ const UnikList = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={true}
-                        searchPlaceholder='Search by name or ID'
-                        title='Your Uniks'
+                        searchPlaceholder={t('unikList.searchPlaceholder')}
+                        title={t('unikList.title')}
                     >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -160,7 +162,7 @@ const UnikList = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title='Card View'
+                                title={t('unikList.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -172,7 +174,7 @@ const UnikList = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title='List View'
+                                title={t('unikList.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
@@ -183,7 +185,7 @@ const UnikList = () => {
                             startIcon={<IconPlus />}
                             sx={{ borderRadius: 2, height: 40 }}
                         >
-                            Add Unik
+                            {t('unikList.addUnik')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -218,7 +220,7 @@ const UnikList = () => {
                             <Box sx={{ p: 2, height: 'auto' }}>
                                 <img style={{ objectFit: 'cover', height: '25vh', width: 'auto' }} src={APIEmptySVG} alt='No Uniks' />
                             </Box>
-                            <div>No Uniks Found</div>
+                            <div>{t('unikList.noUniksFound')}</div>
                         </Stack>
                     )}
                 </Stack>

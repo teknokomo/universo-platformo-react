@@ -4,6 +4,7 @@ import { validate as uuidValidate, v4 as uuidv4 } from 'uuid'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import ReactJson from 'flowise-react-json-view'
+import { useTranslation } from 'react-i18next'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -61,6 +62,7 @@ const LoaderConfigPreviewChunks = () => {
     const customization = useSelector((state) => state.customization)
     const navigate = useNavigate()
     const theme = useTheme()
+    const { t } = useTranslation()
 
     const getNodeDetailsApi = useApi(nodesApi.getSpecificNode)
     const getNodesByCategoryApi = useApi(nodesApi.getNodesByCategory)
@@ -131,7 +133,7 @@ const LoaderConfigPreviewChunks = () => {
         }
         if (!canSubmit) {
             enqueueSnackbar({
-                message: 'Please fill in all mandatory fields.',
+                message: t('documentStore.loaders.common.fillMandatoryFields'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'warning',
@@ -163,9 +165,9 @@ const LoaderConfigPreviewChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: `Failed to preview chunks: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('documentStore.loaders.common.previewError', { 
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -189,7 +191,7 @@ const LoaderConfigPreviewChunks = () => {
                 setLoading(false)
                 if (saveResp.data) {
                     enqueueSnackbar({
-                        message: 'File submitted for processing. Redirecting to Document Store..',
+                        message: t('documentStore.loaders.common.processingSubmitted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -207,9 +209,9 @@ const LoaderConfigPreviewChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: `Failed to process chunking: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('documentStore.loaders.common.processingError', { 
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -389,11 +391,11 @@ const LoaderConfigPreviewChunks = () => {
                                 }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row' }}>
-                                    <StyledFab size='small' color='secondary' aria-label='back' title='Back' onClick={() => navigate(-1)}>
+                                    <StyledFab size='small' color='secondary' aria-label='back' title={t('documentStore.loaders.common.back')} onClick={() => navigate(-1)}>
                                         <IconArrowLeft />
                                     </StyledFab>
                                     <Typography sx={{ ml: 2, mr: 2 }} variant='h3'>
-                                        {selectedDocumentLoader?.label}
+                                        {selectedDocumentLoader?.label ? t(`documentStore.loaders.pdf.title`) : ''}
                                     </Typography>
                                     <div
                                         style={{
@@ -431,7 +433,7 @@ const LoaderConfigPreviewChunks = () => {
                                         sx={{ borderRadius: 2, height: '100%' }}
                                         startIcon={<IconDatabaseImport />}
                                     >
-                                        Process
+                                        {t('documentStore.loaders.common.process')}
                                     </StyledButton>
                                 </Box>
                             </Toolbar>
@@ -451,11 +453,7 @@ const LoaderConfigPreviewChunks = () => {
                                                 fullWidth
                                                 sx={{ mt: 1 }}
                                                 size='small'
-                                                label={
-                                                    selectedDocumentLoader?.label?.toLowerCase().includes('loader')
-                                                        ? selectedDocumentLoader.label + ' name'
-                                                        : selectedDocumentLoader?.label + ' Loader Name'
-                                                }
+                                                label={t('documentStore.loaders.pdf.loaderName')}
                                                 value={loaderName}
                                                 onChange={(e) => setLoaderName(e.target.value)}
                                             />
@@ -477,7 +475,7 @@ const LoaderConfigPreviewChunks = () => {
                                                     <Typography sx={{ mr: 2 }} variant='h3'>
                                                         {(splitterOptions ?? []).find(
                                                             (splitter) => splitter.name === selectedTextSplitter?.name
-                                                        )?.label ?? 'Select Text Splitter'}
+                                                        )?.label ?? t('documentStore.loaders.common.selectTextSplitter')}
                                                     </Typography>
                                                     <div
                                                         style={{
@@ -509,7 +507,7 @@ const LoaderConfigPreviewChunks = () => {
                                                     </div>
                                                 </Box>
                                                 <Box sx={{ p: 2 }}>
-                                                    <Typography>Splitter</Typography>
+                                                    <Typography>{t('documentStore.loaders.common.splitter')}</Typography>
                                                     <Dropdown
                                                         key={JSON.stringify(selectedTextSplitter)}
                                                         name='textSplitter'
@@ -587,12 +585,12 @@ const LoaderConfigPreviewChunks = () => {
                                                     <StyledFab
                                                         color='secondary'
                                                         aria-label='preview'
-                                                        title='Preview'
+                                                        title={t('documentStore.loaders.common.preview')}
                                                         variant='extended'
                                                         onClick={onPreviewChunks}
                                                     >
                                                         <IconEye style={{ marginRight: '5px' }} />
-                                                        Preview Chunks
+                                                        {t('documentStore.loaders.common.previewChunks')}
                                                     </StyledFab>
                                                 </div>
                                             </div>
@@ -600,10 +598,10 @@ const LoaderConfigPreviewChunks = () => {
                                     {documentChunks && documentChunks.length > 0 && (
                                         <>
                                             <Typography sx={{ wordWrap: 'break-word', textAlign: 'left', mb: 2 }} variant='h3'>
-                                                {currentPreviewCount} of {totalChunks} Chunks
+                                                {currentPreviewCount} {t('documentStore.loaders.common.ofChunks', { total: totalChunks })}
                                             </Typography>
                                             <Box sx={{ mb: 3 }}>
-                                                <Typography>Show Chunks in Preview</Typography>
+                                                <Typography>{t('documentStore.loaders.common.showChunksInPreview')}</Typography>
                                                 <div style={{ display: 'flex', flexDirection: 'row' }}>
                                                     <OutlinedInput
                                                         size='small'
@@ -617,12 +615,12 @@ const LoaderConfigPreviewChunks = () => {
                                                     <StyledFab
                                                         color='secondary'
                                                         aria-label='preview'
-                                                        title='Preview'
+                                                        title={t('documentStore.loaders.common.preview')}
                                                         variant='extended'
                                                         onClick={onPreviewChunks}
                                                     >
                                                         <IconEye style={{ marginRight: '5px' }} />
-                                                        Preview
+                                                        {t('documentStore.loaders.common.preview')}
                                                     </StyledFab>
                                                 </div>
                                             </Box>
@@ -642,7 +640,7 @@ const LoaderConfigPreviewChunks = () => {
                                                                 <Card>
                                                                     <CardContent sx={{ p: 1 }}>
                                                                         <Typography sx={{ wordWrap: 'break-word', mb: 1 }} variant='h5'>
-                                                                            {`#${index + 1}. Characters: ${row.pageContent.length}`}
+                                                                            {`#${index + 1}. ${t('documentStore.loaders.common.characters')}: ${row.pageContent.length}`}
                                                                         </Typography>
                                                                         <Typography sx={{ wordWrap: 'break-word' }} variant='body2'>
                                                                             {row.pageContent}

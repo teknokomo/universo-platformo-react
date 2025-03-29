@@ -1,6 +1,7 @@
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
 
 // material-ui
@@ -18,6 +19,7 @@ import chatflowsApi from '@/api/chatflows'
 
 const StarterPrompts = ({ dialogProps }) => {
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -156,7 +158,7 @@ const StarterPrompts = ({ dialogProps }) => {
                 >
                     <IconBulb size={30} color='#2d6a4f' />
                     <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>
-                        Starter prompts will only be shown when there is no messages on the chat
+                        {t('canvas.configuration.starterPrompts.info')}
                     </span>
                 </div>
             </div>
@@ -205,7 +207,7 @@ const StarterPrompts = ({ dialogProps }) => {
                 </List>
             </Box>
             <StyledButton variant='contained' onClick={onSave}>
-                Save
+                {t('canvas.configuration.starterPrompts.save')}
             </StyledButton>
         </>
     )

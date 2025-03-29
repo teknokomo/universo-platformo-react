@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material'
@@ -34,6 +35,7 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const Agentflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
+    const { t } = useTranslation()
     const { unikId } = useParams()
     const location = useLocation()
 
@@ -95,15 +97,15 @@ const Agentflows = () => {
         if (getAllAgentflows.error) {
             if (getAllAgentflows.error?.response?.status === 401) {
                 setLoginDialogProps({
-                    title: 'Login',
-                    confirmButtonName: 'Login'
+                    title: t('common.login'),
+                    confirmButtonName: t('common.login')
                 })
                 setLoginDialogOpen(true)
             } else {
                 setError(getAllAgentflows.error)
             }
         }
-    }, [getAllAgentflows.error])
+    }, [getAllAgentflows.error, t])
 
     useEffect(() => {
         setLoading(getAllAgentflows.loading)
@@ -139,7 +141,7 @@ const Agentflows = () => {
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder='Search Name or Category' title='Agents'>
+                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('agents.searchPlaceholder')} title={t('agents.title')}>
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -155,7 +157,7 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title='Card View'
+                                title={t('common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -167,13 +169,13 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title='List View'
+                                title={t('common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
                         <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-                            Add New
+                            {t('common.addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -218,7 +220,14 @@ const Agentflows = () => {
                 </Stack>
             )}
 
-            <LoginDialog show={loginDialogOpen} dialogProps={loginDialogProps} onConfirm={onLoginClick} />
+            {loginDialogOpen && (
+                <LoginDialog
+                    show={loginDialogOpen}
+                    dialogProps={loginDialogProps}
+                    onConfirm={onLoginClick}
+                    onCancel={() => setLoginDialogOpen(false)}
+                />
+            )}
             <ConfirmDialog />
         </MainCard>
     )

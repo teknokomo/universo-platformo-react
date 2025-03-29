@@ -26,11 +26,11 @@ const CommonPage = () => {
     }, [])
 
     if (loading) {
-        return <div>{t('Loading...')}</div>
+        return <div>{t('common.loading')}</div>
     }
 
     if (!commonUnik) {
-        return <div>{t('Common workspace not found')}</div>
+        return <div>{t('common.notFound')}</div>
     }
 
     return <UnikDetail unik={commonUnik} />

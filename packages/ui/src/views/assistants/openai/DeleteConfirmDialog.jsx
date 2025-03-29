@@ -1,10 +1,12 @@
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { Button, Dialog, DialogContent, DialogTitle } from '@mui/material'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 
 const DeleteConfirmDialog = ({ show, dialogProps, onCancel, onDelete, onDeleteBoth }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const component = show ? (
         <Dialog
@@ -22,10 +24,10 @@ const DeleteConfirmDialog = ({ show, dialogProps, onCancel, onDelete, onDeleteBo
                 <span>{dialogProps.description}</span>
                 <div style={{ display: 'flex', flexDirection: 'row', marginTop: 20 }}>
                     <Button sx={{ flex: 1, mb: 1, mr: 1 }} color='error' variant='outlined' onClick={onDelete}>
-                        Only Flowise
+                        {t('assistants.openai.deleteConfirm.onlyFlowise')}
                     </Button>
                     <StyledButton sx={{ flex: 1, mb: 1, ml: 1 }} color='error' variant='contained' onClick={onDeleteBoth}>
-                        OpenAI and Flowise
+                        {t('assistants.openai.deleteConfirm.openaiAndFlowise')}
                     </StyledButton>
                 </div>
             </DialogContent>

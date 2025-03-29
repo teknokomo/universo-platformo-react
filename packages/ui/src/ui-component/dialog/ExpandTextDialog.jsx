@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
 import PerfectScrollbar from 'react-perfect-scrollbar'
+import { useTranslation } from 'react-i18next'
 
 // MUI
 import { Button, Dialog, DialogActions, DialogContent, Typography } from '@mui/material'
@@ -24,6 +25,7 @@ import './ExpandTextDialog.css'
 
 const ExpandTextDialog = ({ show, dialogProps, onCancel, onInputHintDialogClicked, onConfirm }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const theme = useTheme()
     const dispatch = useDispatch()
@@ -168,7 +170,7 @@ const ExpandTextDialog = ({ show, dialogProps, onCancel, onInputHintDialogClicke
                             executeCustomFunctionNodeApi.request({ javascriptFunction: inputValue })
                         }}
                     >
-                        Execute
+                        {t('dialog.expandText.execute')}
                     </LoadingButton>
                 )}
                 {codeExecutedResult && (
@@ -185,9 +187,9 @@ const ExpandTextDialog = ({ show, dialogProps, onCancel, onInputHintDialogClicke
                 )}
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('common.cancel')}</Button>
                 <StyledButton disabled={dialogProps.disabled} variant='contained' onClick={() => onConfirm(inputValue, inputParam.name)}>
-                    {dialogProps.confirmButtonName}
+                    {dialogProps.confirmButtonName || t('common.submit')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

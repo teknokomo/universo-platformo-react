@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Stack, Skeleton } from '@mui/material'
@@ -28,6 +29,7 @@ import { IconPlus } from '@tabler/icons-react'
 const CustomAssistantLayout = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
+    const { t } = useTranslation()
 
     const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
@@ -43,10 +45,10 @@ const CustomAssistantLayout = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: 'Add New Custom Assistant',
+            title: t('assistants.custom.addNew'),
             type: 'ADD',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.add'),
             unikId
         }
         setDialogProps(dialogProp)
@@ -111,8 +113,8 @@ const CustomAssistantLayout = () => {
                             isBackButton={true}
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder='Search Assistants'
-                            title='Custom Assistant'
+                            searchPlaceholder={t('assistants.searchPlaceholder')}
+                            title={t('assistants.custom.title')}
                             onBack={() => navigate(-1)}
                         >
                             <StyledButton
@@ -121,7 +123,7 @@ const CustomAssistantLayout = () => {
                                 onClick={addNew}
                                 startIcon={<IconPlus />}
                             >
-                                Add
+                                {t('common.add')}
                             </StyledButton>
                         </ViewHeader>
                         {isLoading ? (
@@ -163,7 +165,7 @@ const CustomAssistantLayout = () => {
                                         alt='AssistantEmptySVG'
                                     />
                                 </Box>
-                                <div>No Custom Assistants Added Yet</div>
+                                <div>{t('assistants.noAssistantsYet', { type: 'Custom' })}</div>
                             </Stack>
                         )}
                     </Stack>

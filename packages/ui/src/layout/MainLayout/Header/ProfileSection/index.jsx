@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import {
@@ -57,6 +58,7 @@ const dataToExport = ['Chatflows', 'Agentflows', 'Tools', 'Variables', 'Assistan
 
 const ExportDialog = ({ show, onCancel, onExport }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const [selectedData, setSelectedData] = useState(['Chatflows', 'Agentflows', 'Tools', 'Variables', 'Assistants'])
     const [isExporting, setIsExporting] = useState(false)
@@ -81,7 +83,7 @@ const ExportDialog = ({ show, onCancel, onExport }) => {
             aria-describedby='export-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='export-dialog-title'>
-                {!isExporting ? 'Select Data to Export' : 'Exporting..'}
+                {!isExporting ? t('profileMenu.exportDialog.title') : t('profileMenu.exportDialog.exporting')}
             </DialogTitle>
             <DialogContent>
                 {!isExporting && (
@@ -120,14 +122,14 @@ const ExportDialog = ({ show, onCancel, onExport }) => {
                                 src={ExportingGIF}
                                 alt='ExportingGIF'
                             />
-                            <span>Exporting data might takes a while</span>
+                            <span>{t('profileMenu.exportDialog.exportingInfo')}</span>
                         </div>
                     </Box>
                 )}
             </DialogContent>
             {!isExporting && (
                 <DialogActions>
-                    <Button onClick={onCancel}>Cancel</Button>
+                    <Button onClick={onCancel}>{t('common.cancel')}</Button>
                     <Button
                         disabled={selectedData.length === 0}
                         variant='contained'
@@ -136,7 +138,7 @@ const ExportDialog = ({ show, onCancel, onExport }) => {
                             onExport(selectedData)
                         }}
                     >
-                        Export
+                        {t('common.export')}
                     </Button>
                 </DialogActions>
             )}
@@ -158,6 +160,7 @@ const ProfileSection = ({ username, handleLogout }) => {
     const theme = useTheme()
     const { unikId } = useParams()
     const customization = useSelector((state) => state.customization)
+    const { t } = useTranslation()
 
     const [open, setOpen] = useState(false)
     const [aboutDialogOpen, setAboutDialogOpen] = useState(false)
@@ -394,7 +397,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     <ListItemIcon>
                                                         <IconFileExport stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>Export</Typography>} />
+                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.export')}</Typography>} />
                                                 </ListItemButton>
                                                 <ListItemButton
                                                     sx={{ borderRadius: `${customization.borderRadius}px` }}
@@ -405,7 +408,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     <ListItemIcon>
                                                         <IconFileUpload stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>Import</Typography>} />
+                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.import')}</Typography>} />
                                                 </ListItemButton>
                                                 <input ref={inputRef} type='file' hidden onChange={fileChange} accept='.json' />
                                                 <ListItemButton
@@ -418,7 +421,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     <ListItemIcon>
                                                         <IconInfoCircle stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>About Flowise</Typography>} />
+                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.aboutFlowise')}</Typography>} />
                                                 </ListItemButton>
                                                 {localStorage.getItem('username') && localStorage.getItem('password') && (
                                                     <ListItemButton
@@ -428,7 +431,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                         <ListItemIcon>
                                                             <IconLogout stroke={1.5} size='1.3rem' />
                                                         </ListItemIcon>
-                                                        <ListItemText primary={<Typography variant='body2'>Logout</Typography>} />
+                                                        <ListItemText primary={<Typography variant='body2'>{t('profileMenu.logout')}</Typography>} />
                                                     </ListItemButton>
                                                 )}
                                             </List>

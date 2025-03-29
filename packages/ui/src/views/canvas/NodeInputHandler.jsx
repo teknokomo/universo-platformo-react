@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { Handle, Position, useUpdateNodeInternals } from 'reactflow'
 import { useEffect, useRef, useState, useContext } from 'react'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { useTheme, styled } from '@mui/material/styles'
@@ -81,6 +82,7 @@ const NodeInputHandler = ({
     const ref = useRef(null)
     const { reactFlowInstance, deleteEdge } = useContext(flowContext)
     const updateNodeInternals = useUpdateNodeInternals()
+    const { t } = useTranslation()
     const [position, setPosition] = useState(0)
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -697,7 +699,7 @@ const NodeInputHandler = ({
                                                 data.inputs[inputParam.name] = inputParam.codeExample
                                             }}
                                         >
-                                            See Example
+                                            {t('canvas.seeExample')}
                                         </Button>
                                     )}
                                 </div>
@@ -873,7 +875,7 @@ const NodeInputHandler = ({
                                             )
                                         }
                                     >
-                                        Manage Links
+                                        {t('canvas.manageLinks')}
                                     </Button>
                                     <ManageScrapedLinksDialog
                                         show={showManageScrapedLinksDialog}

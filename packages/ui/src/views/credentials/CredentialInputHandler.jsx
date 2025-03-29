@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Typography, IconButton } from '@mui/material'
@@ -18,6 +19,7 @@ import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
     const customization = useSelector((state) => state.customization)
     const ref = useRef(null)
+    const { t } = useTranslation()
 
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -27,8 +29,8 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
             value,
             inputParam,
             disabled,
-            confirmButtonName: 'Save',
-            cancelButtonName: 'Cancel'
+            confirmButtonName: t('common.save', 'Save'),
+            cancelButtonName: t('common.cancel', 'Cancel')
         }
         setExpandDialogProps(dialogProp)
         setShowExpandDialog(true)
@@ -58,7 +60,7 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
                                         height: 25,
                                         width: 25
                                     }}
-                                    title='Expand'
+                                    title={t('common.expand', 'Expand')}
                                     color='primary'
                                     onClick={() => onExpandDialogClicked(data[inputParam.name] ?? inputParam.default ?? '', inputParam)}
                                 >
@@ -117,7 +119,7 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
                                 name={inputParam.name}
                                 options={inputParam.options}
                                 onSelect={(newValue) => (data[inputParam.name] = newValue)}
-                                value={data[inputParam.name] ?? inputParam.default ?? 'choose an option'}
+                                value={data[inputParam.name] ?? inputParam.default ?? t('credentials.chooseAnOption', 'choose an option')}
                             />
                         )}
                     </Box>

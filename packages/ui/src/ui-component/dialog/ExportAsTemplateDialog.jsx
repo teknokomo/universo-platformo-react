@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux'
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, OutlinedInput, Typography } from '@mui/material'
@@ -27,6 +28,7 @@ import useApi from '@/hooks/useApi'
 
 const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
     const dispatch = useDispatch()
     const [name, setName] = useState('')
     const [flowType, setFlowType] = useState('')
@@ -94,7 +96,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const onConfirm = () => {
         if (name.trim() === '') {
             enqueueSnackbar({
-                message: 'Template Name is mandatory!',
+                message: t('dialog.exportTemplate.nameRequired'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -133,7 +135,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     useEffect(() => {
         if (saveCustomTemplateApi.data) {
             enqueueSnackbar({
-                message: 'Saved as template successfully!',
+                message: t('dialog.exportTemplate.saveSuccess'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'success',
@@ -153,7 +155,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     useEffect(() => {
         if (saveCustomTemplateApi.error) {
             enqueueSnackbar({
-                message: 'Failed to save as template!',
+                message: t('dialog.exportTemplate.saveError'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -180,13 +182,13 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.title || 'Export As Template'}
+                {dialogProps.title || t('dialog.exportTemplate.title')}
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                         <Typography sx={{ mb: 1 }}>
-                            Name<span style={{ color: 'red' }}>&nbsp;*</span>
+                            {t('dialog.exportTemplate.name')}<span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                         <OutlinedInput
                             id={'name'}
@@ -203,7 +205,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 </Box>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography sx={{ mb: 1 }}>Description</Typography>
+                        <Typography sx={{ mb: 1 }}>{t('dialog.exportTemplate.description')}</Typography>
                         <OutlinedInput
                             id={'description'}
                             type={'string'}
@@ -221,7 +223,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 </Box>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography sx={{ mb: 1 }}>Badge</Typography>
+                        <Typography sx={{ mb: 1 }}>{t('dialog.exportTemplate.badge')}</Typography>
                         <OutlinedInput
                             id={'badge'}
                             type={'string'}
@@ -237,7 +239,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                 </Box>
                 <Box sx={{ pt: 2, pb: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography sx={{ mb: 1 }}>Usecases</Typography>
+                        <Typography sx={{ mb: 1 }}>{t('dialog.exportTemplate.usecases')}</Typography>
                         {usecases.length > 0 && (
                             <div style={{ marginBottom: 10 }}>
                                 {usecases.map((uc, index) => (
@@ -258,15 +260,15 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
                             variant='outlined'
                         />
                         <Typography variant='body2' sx={{ fontStyle: 'italic', mt: 1 }} color='text.secondary'>
-                            Type a usecase and press enter to add it to the list. You can add as many items as you want.
+                            {t('dialog.exportTemplate.usecaseHelp')}
                         </Typography>
                     </div>
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName || 'Cancel'}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('dialog.exportTemplate.cancel')}</Button>
                 <StyledButton disabled={dialogProps.disabled} variant='contained' onClick={onConfirm}>
-                    {dialogProps.confirmButtonName || 'Save Template'}
+                    {dialogProps.confirmButtonName || t('dialog.exportTemplate.save')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

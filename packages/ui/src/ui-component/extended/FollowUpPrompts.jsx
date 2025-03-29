@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { Box, Button, FormControl, ListItem, ListItemAvatar, ListItemText, MenuItem, Select, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // Project Imports
 import { StyledButton } from '@/ui-component/button/StyledButton'
@@ -308,6 +309,7 @@ const followUpPromptsOptions = {
 
 const FollowUpPrompts = ({ dialogProps }) => {
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -383,7 +385,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
             })
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: 'Follow-up Prompts configuration saved',
+                    message: t('canvas.configuration.followUpPrompts.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -399,7 +401,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
         } catch (error) {
             const errorData = error.response.data || `${error.response.status}: ${error.response.statusText}`
             enqueueSnackbar({
-                message: `Failed to save follow-up prompts configuration: ${errorData}`,
+                message: `${t('canvas.configuration.followUpPrompts.failedToSave')}: ${errorData}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -464,13 +466,13 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 }}
             >
                 <SwitchInput
-                    label='Enable Follow-up Prompts'
+                    label={t('canvas.configuration.followUpPrompts.enable')}
                     onChange={(value) => handleChange('status', value)}
                     value={followUpPromptsConfig.status}
                 />
                 {followUpPromptsConfig && followUpPromptsConfig.status && (
                     <>
-                        <Typography variant='h5'>Providers</Typography>
+                        <Typography variant='h5'>{t('canvas.configuration.followUpPrompts.providers')}</Typography>
                         <FormControl fullWidth>
                             <Select size='small' value={selectedProvider} onChange={handleSelectedProviderChange}>
                                 {Object.values(followUpPromptsOptions).map((provider) => (
@@ -596,7 +598,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 )}
             </Box>
             <StyledButton disabled={checkDisabled()} variant='contained' onClick={onSave}>
-                Save
+                {t('canvas.configuration.followUpPrompts.save')}
             </StyledButton>
         </>
     )

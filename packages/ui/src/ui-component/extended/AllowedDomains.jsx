@@ -1,6 +1,7 @@
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
 
 // material-ui
@@ -19,6 +20,7 @@ import chatflowsApi from '@/api/chatflows'
 
 const AllowedDomains = ({ dialogProps }) => {
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
 
@@ -121,7 +123,7 @@ const AllowedDomains = ({ dialogProps }) => {
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>
             <Typography variant='h3'>
-                Allowed Domains
+                {t('canvas.configuration.security.allowedDomains.title')}
                 <TooltipWithParser
                     style={{ mb: 1, mt: 2, marginLeft: 10 }}
                     title={'Your chatbot will only work when used from the following domains.'}
@@ -129,7 +131,7 @@ const AllowedDomains = ({ dialogProps }) => {
             </Typography>
             <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
                 <Stack direction='column' spacing={2}>
-                    <Typography>Domains</Typography>
+                    <Typography>{t('canvas.configuration.security.allowedDomains.domains')}</Typography>
                     {inputFields.map((origin, index) => {
                         return (
                             <div key={index} style={{ display: 'flex', width: '100%' }}>
@@ -142,7 +144,7 @@ const AllowedDomains = ({ dialogProps }) => {
                                         size='small'
                                         value={origin}
                                         name='origin'
-                                        placeholder='https://example.com'
+                                        placeholder={t('canvas.configuration.security.allowedDomains.placeholder')}
                                         endAdornment={
                                             <InputAdornment position='end' sx={{ padding: '2px' }}>
                                                 {inputFields.length > 1 && (
@@ -174,7 +176,7 @@ const AllowedDomains = ({ dialogProps }) => {
                 </Stack>
                 <Stack direction='column' spacing={1}>
                     <Typography>
-                        Error Message
+                        {t('canvas.configuration.security.allowedDomains.errorMessage')}
                         <TooltipWithParser
                             style={{ mb: 1, mt: 2, marginLeft: 10 }}
                             title={'Custom error message that will be shown when for unauthorized domain'}
@@ -194,7 +196,7 @@ const AllowedDomains = ({ dialogProps }) => {
                 </Stack>
             </Stack>
             <StyledButton variant='contained' onClick={onSave}>
-                Save
+                {t('canvas.configuration.security.allowedDomains.save')}
             </StyledButton>
         </Stack>
     )

@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
@@ -15,11 +16,12 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
     const theme = useTheme()
     const navigate = useNavigate()
     const location = useLocation()
+    const { t } = useTranslation()
 
     return (
         <>
             <Box>
-                <ButtonBase title='Back' sx={{ borderRadius: '50%' }}>
+                <ButtonBase title={t('common.back', 'Back')} sx={{ borderRadius: '50%' }}>
                     <Avatar
                         variant='rounded'
                         sx={{
@@ -73,11 +75,11 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                 <StyledButton
                     color='secondary'
                     variant='contained'
-                    title='Use Chatflow'
+                    title={t('marketplaceCanvas.useChatflow', 'Use Chatflow')}
                     onClick={() => onChatflowCopy(flowData)}
                     startIcon={<IconCopy />}
                 >
-                    Use Template
+                    {t('marketplaceCanvas.useTemplate', 'Use Template')}
                 </StyledButton>
             </Box>
         </>

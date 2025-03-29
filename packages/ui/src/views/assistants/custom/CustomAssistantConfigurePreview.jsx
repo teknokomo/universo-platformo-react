@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FullPageChat } from 'flowise-embed-react'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -79,6 +80,7 @@ const CustomAssistantConfigurePreview = () => {
     const settingsRef = useRef()
     const canvas = useSelector((state) => state.canvas)
     const customization = useSelector((state) => state.customization)
+    const { t } = useTranslation()
 
     const getSpecificAssistantApi = useApi(assistantsApi.getSpecificAssistant)
     const getChatModelsApi = useApi(assistantsApi.getChatModels)
@@ -129,7 +131,7 @@ const CustomAssistantConfigurePreview = () => {
 
     const displayWarning = () => {
         enqueueSnackbar({
-            message: 'Please fill in all mandatory fields.',
+            message: t('assistants.messages.mandatoryFields'),
             options: {
                 key: new Date().getTime() + Math.random(),
                 variant: 'warning',
@@ -946,7 +948,7 @@ const CustomAssistantConfigurePreview = () => {
                                         >
                                             <div style={{ display: 'flex', flexDirection: 'row' }}>
                                                 <Typography>
-                                                    Select Model<span style={{ color: 'red' }}>&nbsp;*</span>
+                                                    {t('assistants.fields.selectModel')}<span style={{ color: 'red' }}>&nbsp;*</span>
                                                 </Typography>
                                             </div>
                                             <Dropdown
@@ -983,7 +985,7 @@ const CustomAssistantConfigurePreview = () => {
                                         >
                                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
                                                 <Typography>
-                                                    Instructions<span style={{ color: 'red' }}>&nbsp;*</span>
+                                                    {t('assistants.fields.instructions')}<span style={{ color: 'red' }}>&nbsp;*</span>
                                                 </Typography>
                                                 <div style={{ flex: 1 }}></div>
                                                 <IconButton
@@ -992,7 +994,7 @@ const CustomAssistantConfigurePreview = () => {
                                                         height: 25,
                                                         width: 25
                                                     }}
-                                                    title='Expand'
+                                                    title={t('assistants.fields.expand')}
                                                     color='secondary'
                                                     onClick={() => onExpandDialogClicked(customAssistantInstruction)}
                                                 >
@@ -1000,14 +1002,14 @@ const CustomAssistantConfigurePreview = () => {
                                                 </IconButton>
                                                 {selectedChatModel?.name && (
                                                     <Button
-                                                        title='Generate instructions using model'
+                                                        title={t('assistants.fields.generate')}
                                                         sx={{ borderRadius: 20 }}
                                                         size='small'
                                                         variant='text'
                                                         onClick={() => generateInstruction(customAssistantInstruction)}
                                                         startIcon={<IconWand size={20} />}
                                                     >
-                                                        Generate
+                                                        {t('assistants.fields.generate')}
                                                     </Button>
                                                 )}
                                             </Stack>
@@ -1031,8 +1033,8 @@ const CustomAssistantConfigurePreview = () => {
                                             }}
                                         >
                                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                                <Typography>Knowledge (Document Stores)</Typography>
-                                                <TooltipWithParser title='Give your assistant context about different document sources. Document stores must be upserted in advance.' />
+                                                <Typography>{t('assistants.fields.knowledge')}</Typography>
+                                                <TooltipWithParser title={t('assistants.tooltips.documentStores')} />
                                             </Stack>
                                             <MultiDropdown
                                                 key={JSON.stringify(selectedDocumentStores)}
@@ -1050,9 +1052,9 @@ const CustomAssistantConfigurePreview = () => {
                                             {selectedDocumentStores.length > 0 && (
                                                 <Stack sx={{ mt: 3, position: 'relative', alignItems: 'center' }} direction='row'>
                                                     <Typography>
-                                                        Describe Knowledge<span style={{ color: 'red' }}>&nbsp;*</span>
+                                                        {t('assistants.fields.describeKnowledge')}<span style={{ color: 'red' }}>&nbsp;*</span>
                                                     </Typography>
-                                                    <TooltipWithParser title='Describe what the knowledge base is about, this is useful for the AI to know when and how to search for correct information' />
+                                                    <TooltipWithParser title={t('assistants.tooltips.knowledgeDescription')} />
                                                 </Stack>
                                             )}
                                             {selectedDocumentStores.map((ds, index) => {
@@ -1087,14 +1089,14 @@ const CustomAssistantConfigurePreview = () => {
                                                             <div style={{ flex: 1 }}></div>
                                                             {selectedChatModel?.name && (
                                                                 <Button
-                                                                    title='Generate description using model'
+                                                                    title={t('assistants.fields.generate')}
                                                                     sx={{ borderRadius: 20 }}
                                                                     size='small'
                                                                     variant='text'
                                                                     onClick={() => generateDocStoreToolDesc(ds.id)}
                                                                     startIcon={<IconWand size={20} />}
                                                                 >
-                                                                    Generate
+                                                                    {t('assistants.fields.generate')}
                                                                 </Button>
                                                             )}
                                                         </Stack>
@@ -1147,8 +1149,8 @@ const CustomAssistantConfigurePreview = () => {
                                             }}
                                         >
                                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                                <Typography>Tools</Typography>
-                                                <TooltipWithParser title='Tools are actions that your assistant can perform' />
+                                                <Typography>{t('assistants.fields.tools')}</Typography>
+                                                <TooltipWithParser title={t('assistants.tooltips.tools')} />
                                             </Stack>
                                             {selectedTools.map((tool, index) => {
                                                 return (
@@ -1165,7 +1167,7 @@ const CustomAssistantConfigurePreview = () => {
                                                         <Box sx={{ pl: 2, pr: 2, pt: 2, pb: 0 }}>
                                                             <div style={{ display: 'flex', flexDirection: 'row' }}>
                                                                 <Typography>
-                                                                    Tool<span style={{ color: 'red' }}>&nbsp;*</span>
+                                                                    {t('assistants.fields.tool')}<span style={{ color: 'red' }}>&nbsp;*</span>
                                                                 </Typography>
                                                                 <div style={{ flex: 1 }}></div>
                                                                 <IconButton

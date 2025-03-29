@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import { List, ListItemButton, Dialog, DialogContent, DialogTitle, Box, OutlinedInput, InputAdornment, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { IconSearch, IconX } from '@tabler/icons-react'
@@ -18,6 +19,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
     const theme = useTheme()
+    const { t } = useTranslation()
     const [searchValue, setSearchValue] = useState('')
     const [documentLoaders, setDocumentLoaders] = useState([])
 
@@ -66,7 +68,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem', p: 3, pb: 0 }} id='alert-dialog-title'>
-                {dialogProps.title}
+                {dialogProps.title || t('documentStore.loaders.common.selectLoader')}
             </DialogTitle>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '75vh', position: 'relative', px: 3, pb: 3 }}>
                 <Box
@@ -83,7 +85,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
                         id='input-search-credential'
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder='Search'
+                        placeholder={t('common.search')}
                         startAdornment={
                             <InputAdornment position='start'>
                                 <IconSearch stroke={1.5} size='1rem' color={theme.palette.grey[500]} />
@@ -99,7 +101,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
                                         color: theme.palette.grey[900]
                                     }
                                 }}
-                                title='Clear Search'
+                                title={t('documentStore.loaders.common.clearSearch')}
                             >
                                 <IconX
                                     stroke={1.5}

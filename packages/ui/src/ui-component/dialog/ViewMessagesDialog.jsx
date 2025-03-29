@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import axios from 'axios'
 import { cloneDeep } from 'lodash'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import {
@@ -90,6 +91,7 @@ const messageImageStyle = {
 const ConfirmDeleteMessageDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
     const [hardDelete, setHardDelete] = useState(false)
+    const { t } = useTranslation()
 
     const onSubmit = () => {
         onConfirm(hardDelete)
@@ -115,9 +117,9 @@ const ConfirmDeleteMessageDialog = ({ show, dialogProps, onCancel, onConfirm }) 
                 />
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('dialog.viewMessages.cancel')}</Button>
                 <StyledButton variant='contained' onClick={onSubmit}>
-                    {dialogProps.confirmButtonName}
+                    {dialogProps.confirmButtonName || t('dialog.viewMessages.confirm')}
                 </StyledButton>
             </DialogActions>
         </Dialog>
@@ -139,6 +141,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { confirm } = useConfirm()
+    const { t } = useTranslation()
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -238,10 +241,10 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
 
     const onDeleteMessages = () => {
         setHardDeleteDialogProps({
-            title: 'Delete Messages',
-            description: 'Are you sure you want to delete messages? This action cannot be undone.',
-            confirmButtonName: 'Delete',
-            cancelButtonName: 'Cancel'
+            title: t('dialog.viewMessages.delete'),
+            description: t('dialog.viewMessages.deleteAllConfirm'),
+            confirmButtonName: t('dialog.viewMessages.delete'),
+            cancelButtonName: t('dialog.viewMessages.cancel')
         })
         setHardDeleteDialogOpen(true)
     }
@@ -850,7 +853,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                     {dialogProps.title}
                     <div style={{ flex: 1 }} />
                     <Button variant='outlined' onClick={() => exportMessages()} startIcon={<IconFileExport />}>
-                        Export
+                        {t('dialog.viewMessages.export')}
                     </Button>
                 </div>
             </DialogTitle>
@@ -867,7 +870,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                         }}
                     >
                         <div style={{ marginRight: 10 }}>
-                            <b style={{ marginRight: 10 }}>From Date</b>
+                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.startDate')}</b>
                             <DatePicker
                                 selected={startDate}
                                 onChange={(date) => onStartDateSelected(date)}
@@ -878,7 +881,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                             />
                         </div>
                         <div style={{ marginRight: 10 }}>
-                            <b style={{ marginRight: 10 }}>To Date</b>
+                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.endDate')}</b>
                             <DatePicker
                                 selected={endDate}
                                 onChange={(date) => onEndDateSelected(date)}
@@ -899,7 +902,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                 marginRight: 10
                             }}
                         >
-                            <b style={{ marginRight: 10 }}>Source</b>
+                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.chatType')}</b>
                             <MultiDropdown
                                 key={JSON.stringify(chatTypeFilter)}
                                 name='chatType'
@@ -927,7 +930,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                 marginRight: 10
                             }}
                         >
-                            <b style={{ marginRight: 10 }}>Feedback</b>
+                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.feedback')}</b>
                             <MultiDropdown
                                 key={JSON.stringify(feedbackTypeFilter)}
                                 name='chatType'
@@ -949,7 +952,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                         <div style={{ flex: 1 }}></div>
                         {stats.totalMessages > 0 && (
                             <Button color='error' variant='outlined' onClick={() => onDeleteMessages()} startIcon={<IconEraser />}>
-                                Delete Messages
+                                {t('dialog.viewMessages.delete')}
                             </Button>
                         )}
                     </div>
@@ -980,7 +983,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                         alt='msgEmptySVG'
                                     />
                                 </Box>
-                                <div>No Messages</div>
+                                <div>{t('dialog.viewMessages.noMessages')}</div>
                             </Stack>
                         )}
                         {chatlogs && chatlogs.length > 0 && (
@@ -1397,14 +1400,8 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                                                                                     clickable
                                                                                                                     onClick={() =>
                                                                                                                         URL
-                                                                                                                            ? onURLClick(
-                                                                                                                                  source
-                                                                                                                                      .metadata
-                                                                                                                                      .source
-                                                                                                                              )
-                                                                                                                            : onSourceDialogClick(
-                                                                                                                                  source
-                                                                                                                              )
+                                                                                                                            ? onURLClick(source.metadata.source)
+                                                                                                                            : onSourceDialogClick(source)
                                                                                                                     }
                                                                                                                 />
                                                                                                             )

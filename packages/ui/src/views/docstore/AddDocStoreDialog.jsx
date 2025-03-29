@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useState, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import {
     HIDE_CANVAS_DIALOG,
     SHOW_CANVAS_DIALOG,
@@ -27,6 +28,7 @@ import useNotifier from '@/utils/useNotifier'
 
 const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const dispatch = useDispatch()
 
@@ -74,7 +76,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             const createResp = await documentStoreApi.createDocumentStore(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: 'New Document Store created.',
+                    message: t('New Document Store created.'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -90,7 +92,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
         } catch (err) {
             const errorData = typeof err === 'string' ? err : err.response?.data || `${err.response.data.message}`
             enqueueSnackbar({
-                message: `Failed to add new Document Store: ${errorData}`,
+                message: t('Failed to add new Document Store: {error}', { error: errorData }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -116,7 +118,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             const saveResp = await documentStoreApi.updateDocumentStore(dialogProps.unikId, docStoreId, saveObj)
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: 'Document Store Updated!',
+                    message: t('Document Store Updated!'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -132,7 +134,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
         } catch (error) {
             const errorData = error.response?.data || `${error.response?.status}: ${error.response?.statusText}`
             enqueueSnackbar({
-                message: `Failed to update Document Store: ${errorData}`,
+                message: t('Failed to update Document Store: {error}', { error: errorData }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -168,7 +170,8 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                         <Typography>
-                            Name<span style={{ color: 'red' }}>&nbsp;*</span>
+                            {t('documentStore.form.name')}
+                            <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
 
                         <div style={{ flexGrow: 1 }}></div>
@@ -185,7 +188,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 </Box>
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
-                        <Typography>Description</Typography>
+                        <Typography>{t('documentStore.form.description')}</Typography>
 
                         <div style={{ flexGrow: 1 }}></div>
                     </div>
@@ -203,13 +206,13 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => onCancel()}>Cancel</Button>
+                <Button onClick={() => onCancel()}>{t('documentStore.form.cancel')}</Button>
                 <StyledButton
                     disabled={!documentStoreName}
                     variant='contained'
                     onClick={() => (dialogType === 'ADD' ? createDocumentStore() : updateDocumentStore())}
                 >
-                    {dialogProps.confirmButtonName}
+                    {dialogProps.confirmButtonName || t('documentStore.form.add')}
                 </StyledButton>
             </DialogActions>
             <ConfirmDialog />

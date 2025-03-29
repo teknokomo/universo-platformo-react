@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Stack, Button, ButtonGroup, Skeleton, ToggleButtonGroup, ToggleButton } from '@mui/material'
@@ -31,6 +32,7 @@ const Tools = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
     const theme = useTheme()
+    const { t } = useTranslation()
     const getAllToolsApi = useApi(() => toolsApi.getAllTools(unikId))
 
     const [isLoading, setLoading] = useState(true)
@@ -50,10 +52,10 @@ const Tools = () => {
     const onUploadFile = (file) => {
         try {
             const dialogProp = {
-                title: 'Add New Tool',
+                title: t('tools.dialog.addNewTool'),
                 type: 'IMPORT',
-                cancelButtonName: 'Cancel',
-                confirmButtonName: 'Save',
+                cancelButtonName: t('common.cancel'),
+                confirmButtonName: t('common.save'),
                 data: JSON.parse(file)
             }
             setDialogProps(dialogProp)
@@ -81,10 +83,10 @@ const Tools = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: 'Add New Tool',
+            title: t('tools.dialog.addNewTool'),
             type: 'ADD',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.add'),
             unikId: unikId
         }
         setDialogProps(dialogProp)
@@ -93,10 +95,10 @@ const Tools = () => {
 
     const edit = (selectedTool) => {
         const dialogProp = {
-            title: 'Edit Tool',
+            title: t('tools.dialog.editTool'),
             type: 'EDIT',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Save',
+            cancelButtonName: t('common.cancel'),
+            confirmButtonName: t('common.save'),
             data: selectedTool,
             unikId: unikId
         }
@@ -145,7 +147,7 @@ const Tools = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder='Search Tools' title='Tools'>
+                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('tools.searchPlaceholder')} title={t('tools.title')}>
                             <ToggleButtonGroup
                                 sx={{ borderRadius: 2, maxHeight: 40 }}
                                 value={view}
@@ -161,7 +163,7 @@ const Tools = () => {
                                     }}
                                     variant='contained'
                                     value='card'
-                                    title='Card View'
+                                    title={t('common.cardView')}
                                 >
                                     <IconLayoutGrid />
                                 </ToggleButton>
@@ -173,7 +175,7 @@ const Tools = () => {
                                     }}
                                     variant='contained'
                                     value='list'
-                                    title='List View'
+                                    title={t('common.listView')}
                                 >
                                     <IconList />
                                 </ToggleButton>
@@ -185,7 +187,7 @@ const Tools = () => {
                                     startIcon={<IconFileUpload />}
                                     sx={{ borderRadius: 2, height: 40 }}
                                 >
-                                    Load
+                                    {t('tools.load')}
                                 </Button>
                                 <input
                                     style={{ display: 'none' }}
@@ -203,7 +205,7 @@ const Tools = () => {
                                     startIcon={<IconPlus />}
                                     sx={{ borderRadius: 2, height: 40 }}
                                 >
-                                    Create
+                                    {t('tools.create')}
                                 </StyledButton>
                             </ButtonGroup>
                         </ViewHeader>
@@ -236,19 +238,21 @@ const Tools = () => {
                                         alt='ToolEmptySVG'
                                     />
                                 </Box>
-                                <div>No Tools Created Yet</div>
+                                <div>{t('tools.noToolsCreatedYet')}</div>
                             </Stack>
                         )}
                     </Stack>
                 )}
             </MainCard>
-            <ToolDialog
-                show={showDialog}
-                dialogProps={dialogProps}
-                onCancel={() => setShowDialog(false)}
-                onConfirm={onConfirm}
-                setError={setError}
-            ></ToolDialog>
+            {showDialog && (
+                <ToolDialog
+                    show={showDialog}
+                    dialogProps={dialogProps}
+                    onCancel={() => setShowDialog(false)}
+                    onConfirm={onConfirm}
+                    setError={setError}
+                />
+            )}
         </>
     )
 }

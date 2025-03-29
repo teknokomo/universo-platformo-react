@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useState, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 
 // Material
@@ -50,6 +51,7 @@ const importModes = [
 
 const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
+    const { t } = useTranslation()
 
     const dispatch = useDispatch()
 
@@ -84,7 +86,7 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             const createResp = await apikeyAPI.importAPI(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: 'Imported keys successfully!',
+                    message: t('apiKeys.messages.importSuccess'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -99,9 +101,9 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to import keys: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: t('apiKeys.messages.importError', {
+                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -129,14 +131,14 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <IconFileUpload style={{ marginRight: '10px' }} />
-                    Import API Keys
+                    {t('apiKeys.import')}
                 </div>
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
                         <Typography variant='overline'>
-                            Import api.json file
+                            {t('apiKeys.importFile')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                     </Stack>
@@ -144,13 +146,13 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                         disabled={false}
                         fileType='.json'
                         onChange={(newValue) => setSelectedFile(newValue)}
-                        value={selectedFile ?? 'Choose a file to upload'}
+                        value={selectedFile ?? t('apiKeys.chooseFile')}
                     />
                 </Box>
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
                         <Typography variant='overline'>
-                            Import Mode
+                            {t('apiKeys.importMode')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                     </Stack>
@@ -159,7 +161,7 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                         name={importMode}
                         options={importModes}
                         onSelect={(newValue) => setImportMode(newValue)}
-                        value={importMode ?? 'choose an option'}
+                        value={importMode ?? t('apiKeys.chooseOption')}
                     />
                 </Box>
             </DialogContent>

@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useContext, useState } from 'react'
 import { useSelector } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
@@ -20,6 +21,7 @@ const StickyNote = ({ data }) => {
     const canvas = useSelector((state) => state.canvas)
     const { deleteNode, duplicateNode } = useContext(flowContext)
     const [inputParam] = data.inputParams
+    const { t } = useTranslation()
 
     const [open, setOpen] = useState(false)
 
@@ -56,7 +58,7 @@ const StickyNote = ({ data }) => {
                             }}
                         >
                             <IconButton
-                                title='Duplicate'
+                                title={t('common.edit')}
                                 onClick={() => {
                                     duplicateNode(data.id)
                                 }}
@@ -66,7 +68,7 @@ const StickyNote = ({ data }) => {
                                 <IconCopy />
                             </IconButton>
                             <IconButton
-                                title='Delete'
+                                title={t('common.delete')}
                                 onClick={() => {
                                     deleteNode(data.id)
                                 }}

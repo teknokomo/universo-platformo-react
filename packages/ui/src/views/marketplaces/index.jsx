@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import {
@@ -70,6 +71,7 @@ const SelectStyles = {
 const Marketplace = () => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
+    const { t } = useTranslation()
     useNotifier()
 
     const { unikId } = useParams()
@@ -182,10 +184,10 @@ const Marketplace = () => {
 
     const onDeleteCustomTemplate = async (template) => {
         const confirmPayload = {
-            title: `Delete`,
-            description: `Delete Custom Template ${template.name}?`,
-            confirmButtonName: 'Delete',
-            cancelButtonName: 'Cancel'
+            title: t('templates.confirmDelete'),
+            description: t('templates.confirmDeleteDescription', { name: template.name }),
+            confirmButtonName: t('templates.confirmDelete'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -194,7 +196,7 @@ const Marketplace = () => {
                 const deleteResp = await marketplacesApi.deleteCustomTemplate(unikId, template.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: 'Custom Template deleted successfully!',
+                        message: t('templates.deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -209,9 +211,9 @@ const Marketplace = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: `Failed to delete custom template: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('templates.deleteError', {
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -420,7 +422,7 @@ const Marketplace = () => {
                                         }}
                                     >
                                         <InputLabel size='small' id='filter-badge-label'>
-                                            Tag
+                                            {t('templates.tag')}
                                         </InputLabel>
                                         <Select
                                             labelId='filter-badge-label'
@@ -429,7 +431,7 @@ const Marketplace = () => {
                                             multiple
                                             value={badgeFilter}
                                             onChange={handleBadgeFilterChange}
-                                            input={<OutlinedInput label='Badge' />}
+                                            input={<OutlinedInput label={t('templates.tag')} />}
                                             renderValue={(selected) => selected.join(', ')}
                                             MenuProps={MenuProps}
                                             sx={SelectStyles}
@@ -456,7 +458,7 @@ const Marketplace = () => {
                                         }}
                                     >
                                         <InputLabel size='small' id='type-badge-label'>
-                                            Type
+                                            {t('templates.type')}
                                         </InputLabel>
                                         <Select
                                             size='small'
@@ -465,7 +467,7 @@ const Marketplace = () => {
                                             multiple
                                             value={typeFilter}
                                             onChange={handleTypeFilterChange}
-                                            input={<OutlinedInput label='Badge' />}
+                                            input={<OutlinedInput label={t('templates.type')} />}
                                             renderValue={(selected) => selected.join(', ')}
                                             MenuProps={MenuProps}
                                             sx={SelectStyles}
@@ -492,7 +494,7 @@ const Marketplace = () => {
                                         }}
                                     >
                                         <InputLabel size='small' id='type-fw-label'>
-                                            Framework
+                                            {t('templates.framework')}
                                         </InputLabel>
                                         <Select
                                             size='small'
@@ -501,7 +503,7 @@ const Marketplace = () => {
                                             multiple
                                             value={frameworkFilter}
                                             onChange={handleFrameworkFilterChange}
-                                            input={<OutlinedInput label='Badge' />}
+                                            input={<OutlinedInput label={t('templates.framework')} />}
                                             renderValue={(selected) => selected.join(', ')}
                                             MenuProps={MenuProps}
                                             sx={SelectStyles}
@@ -522,8 +524,8 @@ const Marketplace = () => {
                             }
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder='Search Name/Description/Node'
-                            title='Templates'
+                            searchPlaceholder={t('templates.search')}
+                            title={t('templates.title')}
                         >
                             <ToggleButtonGroup
                                 sx={{ borderRadius: 2, height: '100%' }}
@@ -559,8 +561,8 @@ const Marketplace = () => {
                             </ToggleButtonGroup>
                         </ViewHeader>
                         <Tabs value={activeTabValue} onChange={activeTabChange} textColor='primary' aria-label='tabs' centered>
-                            <Tab value={0} label='Community Templates'></Tab>
-                            <Tab value={1} label='My Templates' />
+                            <Tab value={0} label={t('templates.communityTemplates')}></Tab>
+                            <Tab value={1} label={t('templates.myTemplates')} />
                         </Tabs>
                         <TabPanel value={activeTabValue} index={0}>
                             <Stack direction='row' sx={{ gap: 2, my: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -678,7 +680,7 @@ const Marketplace = () => {
                                             alt='WorkflowEmptySVG'
                                         />
                                     </Box>
-                                    <div>No Templates Yet</div>
+                                    <div>{t('templates.noTemplatesYet')}</div>
                                 </Stack>
                             )}
                         </TabPanel>
@@ -801,7 +803,7 @@ const Marketplace = () => {
                                             alt='WorkflowEmptySVG'
                                         />
                                     </Box>
-                                    <div>No Saved Custom Templates</div>
+                                    <div>{t('templates.noSavedCustomTemplates')}</div>
                                 </Stack>
                             )}
                         </TabPanel>

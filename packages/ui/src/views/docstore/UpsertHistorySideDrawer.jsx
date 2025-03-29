@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import moment from 'moment/moment'
+import { useTranslation } from 'react-i18next'
 
 import { Stack, Button, Box, SwipeableDrawer } from '@mui/material'
 import { IconSquareRoundedChevronsRight } from '@tabler/icons-react'
@@ -21,6 +22,7 @@ import useApi from '@/hooks/useApi'
 const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectHistoryDetails }) => {
     const onOpen = () => {}
     const [upsertHistory, setUpsertHistory] = useState([])
+    const { t } = useTranslation()
 
     const getUpsertHistoryApi = useApi(vectorstoreApi.getUpsertHistory)
 
@@ -40,7 +42,7 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
         <>
             <SwipeableDrawer anchor='right' open={show} onClose={() => onClickFunction()} onOpen={onOpen}>
                 <Button startIcon={<IconSquareRoundedChevronsRight />} onClick={() => onClickFunction()}>
-                    Close
+                    {t('common.close')}
                 </Button>
                 <Box style={{ width: 350, margin: 10 }} role='presentation' onClick={onClickFunction}>
                     <Timeline
@@ -62,16 +64,24 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
                                     </TimelineSeparator>
                                     <TimelineContent>
                                         {history.result.numAdded !== undefined && history.result.numAdded > 0 && (
-                                            <Box sx={{ fontWeight: 500 }}>Added: {history.result.numAdded}</Box>
+                                            <Box sx={{ fontWeight: 500 }}>
+                                                {t('vectorStore.upsertResult.added')}: {history.result.numAdded}
+                                            </Box>
                                         )}
                                         {history.result.numUpdated !== undefined && history.result.numUpdated > 0 && (
-                                            <Box sx={{ fontWeight: 500 }}>Updated: {history.result.numUpdated}</Box>
+                                            <Box sx={{ fontWeight: 500 }}>
+                                                {t('vectorStore.upsertResult.updated')}: {history.result.numUpdated}
+                                            </Box>
                                         )}
                                         {history.result.numSkipped !== undefined && history.result.numSkipped > 0 && (
-                                            <Box sx={{ fontWeight: 500 }}>Skipped: {history.result.numSkipped}</Box>
+                                            <Box sx={{ fontWeight: 500 }}>
+                                                {t('vectorStore.upsertResult.skipped')}: {history.result.numSkipped}
+                                            </Box>
                                         )}
                                         {history.result.numDeleted !== undefined && history.result.numDeleted > 0 && (
-                                            <Box sx={{ fontWeight: 500 }}>Deleted: {history.result.numDeleted}</Box>
+                                            <Box sx={{ fontWeight: 500 }}>
+                                                {t('vectorStore.upsertResult.deleted')}: {history.result.numDeleted}
+                                            </Box>
                                         )}
                                         <Button
                                             size='small'
@@ -79,7 +89,7 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
                                             variant='outlined'
                                             onClick={() => onSelectHistoryDetails(history)}
                                         >
-                                            Details
+                                            {t('vectorStore.upsertHistory.details')}
                                         </Button>
                                     </TimelineContent>
                                 </TimelineItem>
@@ -93,7 +103,7 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
                                         alt='HistoryEmptySVG'
                                     />
                                 </Box>
-                                <div>No Upsert History Yet</div>
+                                <div>{t('vectorStore.upsertHistory.empty')}</div>
                             </Stack>
                         )}
                     </Timeline>

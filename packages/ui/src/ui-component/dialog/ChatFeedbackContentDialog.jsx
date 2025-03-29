@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
+import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Button, Dialog, DialogContent, DialogTitle, DialogActions, Box, OutlinedInput } from '@mui/material'
@@ -15,6 +16,7 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 const ChatFeedbackContentDialog = ({ show, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     const [feedbackContent, setFeedbackContent] = useState('')
 
@@ -43,7 +45,7 @@ const ChatFeedbackContentDialog = ({ show, onCancel, onConfirm }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                Provide additional feedback
+                {t('dialog.chatFeedback.provideFeedback')}
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -54,7 +56,7 @@ const ChatFeedbackContentDialog = ({ show, onCancel, onConfirm }) => {
                         multiline={true}
                         name='feedbackContentInput'
                         onChange={onChange}
-                        placeholder='What do you think of the response?'
+                        placeholder={t('dialog.chatFeedback.feedbackPlaceholder')}
                         rows={4}
                         value={feedbackContent}
                         sx={{ width: '100%' }}
@@ -62,9 +64,9 @@ const ChatFeedbackContentDialog = ({ show, onCancel, onConfirm }) => {
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>Cancel</Button>
+                <Button onClick={onCancel}>{t('common.cancel')}</Button>
                 <StyledButton variant='contained' onClick={onSave}>
-                    Submit Feedback
+                    {t('dialog.chatFeedback.submitFeedback')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

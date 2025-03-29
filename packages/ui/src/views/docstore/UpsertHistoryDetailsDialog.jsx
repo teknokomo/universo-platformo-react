@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 import {
     Box,
     Paper,
@@ -27,6 +28,7 @@ import { baseURL } from '@/store/constant'
 const UpsertHistoryDetailsDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const [nodeConfigExpanded, setNodeConfigExpanded] = useState({})
+    const { t } = useTranslation()
 
     const handleAccordionChange = (nodeLabel) => (event, isExpanded) => {
         const accordianNodes = { ...nodeConfigExpanded }
@@ -54,10 +56,10 @@ const UpsertHistoryDetailsDialog = ({ show, dialogProps, onCancel }) => {
                         marginTop: '10px'
                     }}
                 >
-                    <StatsCard title='Added' stat={dialogProps.numAdded ?? 0} />
-                    <StatsCard title='Updated' stat={dialogProps.numUpdated ?? 0} />
-                    <StatsCard title='Skipped' stat={dialogProps.numSkipped ?? 0} />
-                    <StatsCard title='Deleted' stat={dialogProps.numDeleted ?? 0} />
+                    <StatsCard title={t('vectorStore.upsertResult.added')} stat={dialogProps.numAdded ?? 0} />
+                    <StatsCard title={t('vectorStore.upsertResult.updated')} stat={dialogProps.numUpdated ?? 0} />
+                    <StatsCard title={t('vectorStore.upsertResult.skipped')} stat={dialogProps.numSkipped ?? 0} />
+                    <StatsCard title={t('vectorStore.upsertResult.deleted')} stat={dialogProps.numDeleted ?? 0} />
                 </div>
                 <div>
                     <TableContainer component={Paper}>

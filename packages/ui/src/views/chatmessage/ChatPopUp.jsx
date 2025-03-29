@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
 
 import { ClickAwayListener, Paper, Popper, Button } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
@@ -30,6 +31,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
     const theme = useTheme()
     const { confirm } = useConfirm()
     const dispatch = useDispatch()
+    const { t } = useTranslation()
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -80,10 +82,10 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
 
     const clearChat = async () => {
         const confirmPayload = {
-            title: `Clear Chat History`,
-            description: `Are you sure you want to clear all chat history?`,
-            confirmButtonName: 'Clear',
-            cancelButtonName: 'Cancel'
+            title: t('chat.clearChatHistory'),
+            description: t('chat.clearChatHistoryConfirm'),
+            confirmButtonName: t('chat.clear'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -95,7 +97,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
                 removeLocalStorageChatHistory(chatflowid)
                 resetChatDialog()
                 enqueueSnackbar({
-                    message: 'Succesfully cleared all chat history',
+                    message: t('chat.clearedChatHistory'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -141,7 +143,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
                 size='small'
                 color='secondary'
                 aria-label='chat'
-                title='Chat'
+                title={t('chat.chat')}
                 onClick={handleToggle}
             >
                 {open ? <IconX /> : <IconMessage />}
@@ -153,7 +155,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
                     size='small'
                     color='error'
                     aria-label='clear'
-                    title='Clear Chat History'
+                    title={t('chat.clearChatHistory')}
                 >
                     <IconEraser />
                 </StyledFab>
@@ -165,7 +167,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
                     size='small'
                     color='primary'
                     aria-label='expand'
-                    title='Expand Chat'
+                    title={t('chat.expandChat')}
                 >
                     <IconArrowsMaximize />
                 </StyledFab>
