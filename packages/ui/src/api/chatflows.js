@@ -16,9 +16,9 @@ const updateChatflow = (unikId, id, body) => client.put(`/uniks/${unikId}/chatfl
 
 const deleteChatflow = (unikId, id) => client.delete(`/uniks/${unikId}/chatflows/${id}`)
 
-const getIsChatflowStreaming = (id) => client.get(`/chatflows-streaming/${id}`)
+const getIsChatflowStreaming = (unikId, id) => client.get(`/uniks/${unikId}/chatflows-streaming/${id}`)
 
-const getAllowChatflowUploads = (id) => client.get(`/chatflows-uploads/${id}`)
+const getAllowChatflowUploads = (unikId, id) => client.get(`/uniks/${unikId}/chatflows-uploads/${id}`)
 
 export default {
     getAllChatflows,

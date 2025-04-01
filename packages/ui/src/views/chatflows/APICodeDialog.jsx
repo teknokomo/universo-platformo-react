@@ -1,9 +1,9 @@
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 
 import {
     Tabs,
@@ -88,6 +88,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
     const theme = useTheme()
+    const { unikId } = useParams()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const apiConfig = chatflow?.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
     const overrideConfigStatus = apiConfig?.overrideConfig?.status !== undefined ? apiConfig.overrideConfig.status : false
@@ -114,8 +115,8 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const onCheckBoxChanged = (newVal) => {
         setCheckbox(newVal)
         if (newVal) {
-            getConfigApi.request(dialogProps.chatflowid)
-            getAllVariablesApi.request()
+            getConfigApi.request(unikId, dialogProps.chatflowid)
+            getAllVariablesApi.request(unikId)
         }
     }
 
@@ -129,7 +130,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
         const updateBody = {
             apikeyid: keyValue
         }
-        updateChatflowApi.request(dialogProps.chatflowid, updateBody)
+        updateChatflowApi.request(unikId, dialogProps.chatflowid, updateBody)
     }
 
     const groupByNodeLabel = (nodes) => {
@@ -593,8 +594,7 @@ query({
      -X POST \\
      -d '{"question": "Hey, how are you?", "overrideConfig": {${getConfigExamplesForCurl(configData, 'json')}}' \\
      -H "Content-Type: application/json" \\
-     -H "Authorization: Bearer ${selectedApiKey?.apiKey}"`
-        }
+     -H "Authorization: Bearer ${selectedApiKey?.apiKey}"`        }
         return ''
     }
 
@@ -658,8 +658,8 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
 
     useEffect(() => {
         if (show) {
-            getAllAPIKeysApi.request()
-            getIsChatflowStreamingApi.request(dialogProps.chatflowid)
+            getAllAPIKeysApi.request(unikId)
+            getIsChatflowStreamingApi.request(unikId, dialogProps.chatflowid)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -711,9 +711,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                             <>
                                 <p>{t('apiCodeDialog.cannotUseApiKey')}</p>
                                 <p>
-                                    {t('apiCodeDialog.selectNoAuthorization', {
-                                        option: <b>&quot;{t('apiCodeDialog.noAuthorization')}&quot;</b>
-                                    })}
+                                    <Trans i18nKey="apiCodeDialog.selectNoAuthorization" components={{ b: <b /> }} />
                                 </p>
                             </>
                         )}
@@ -905,7 +903,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                             </>
                         )}
                         {codeLang === 'Share Chatbot' && !chatflowApiKeyId && (
-                            <ShareChatbot isSessionMemory={dialogProps.isSessionMemory} isAgentCanvas={dialogProps.isAgentCanvas} />
+                            <ShareChatbot isSessionMemory={dialogProps.isSessionMemory} isAgentCanvas={dialogProps.isAgentCanvas} chatflowid={dialogProps.chatflowid} unikId={unikId} />
                         )}
                     </TabPanel>
                 ))}

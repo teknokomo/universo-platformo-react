@@ -7,8 +7,10 @@ import attachmentsRouter from './attachments'
 import chatMessageRouter from './chat-messages'
 // Remove global mounting of chatflowsRouter as chatflows are now accessible via /uniks/:unikId/chatflows
 // import chatflowsRouter from './chatflows'
-import chatflowsStreamingRouter from './chatflows-streaming'
-import chatflowsUploadsRouter from './chatflows-uploads'
+// Remove global mounting of chatflowsStreamingRouter as it's now accessible via /uniks/:unikId/chatflows-streaming
+// import chatflowsStreamingRouter from './chatflows-streaming'
+// Remove global mounting of chatflowsUploadsRouter as it's now accessible via /uniks/:unikId/chatflows-uploads
+// import chatflowsUploadsRouter from './chatflows-uploads'
 import componentsCredentialsRouter from './components-credentials'
 import componentsCredentialsIconRouter from './components-credentials-icon'
 // Remove global mounting of credentialsRouter as credentials are now accessible via /uniks/:unikId/credentials
@@ -18,7 +20,8 @@ import componentsCredentialsIconRouter from './components-credentials-icon'
 import exportImportRouter from './export-import'
 import feedbackRouter from './feedback'
 import fetchLinksRouter from './fetch-links'
-import flowConfigRouter from './flow-config'
+// Remove global mounting of flowConfigRouter as it's now accessible via /uniks/:unikId/flow-config
+// import flowConfigRouter from './flow-config'
 import getUploadFileRouter from './get-upload-file'
 import getUploadPathRouter from './get-upload-path'
 import internalChatmessagesRouter from './internal-chat-messages'
@@ -63,11 +66,13 @@ router.use('/ping', pingRouter)
 router.use('/attachments', attachmentsRouter)
 // Global route for chatflows has been removed
 // router.use('/chatflows', chatflowsRouter)
-router.use('/chatflows-streaming', chatflowsStreamingRouter)
+// Global route for chatflows-streaming has been removed
+// router.use('/chatflows-streaming', chatflowsStreamingRouter)
 router.use('/chatmessage', chatMessageRouter)
 router.use('/components-credentials', componentsCredentialsRouter)
 router.use('/components-credentials-icon', componentsCredentialsIconRouter)
-router.use('/chatflows-uploads', chatflowsUploadsRouter)
+// Global route for chatflows-uploads has been removed
+// router.use('/chatflows-uploads', chatflowsUploadsRouter)
 // Global route for credentials has been removed
 // router.use('/credentials', credentialsRouter)
 // Global route for document-store has been removed
@@ -75,7 +80,8 @@ router.use('/chatflows-uploads', chatflowsUploadsRouter)
 router.use('/export-import', exportImportRouter)
 router.use('/feedback', feedbackRouter)
 router.use('/fetch-links', fetchLinksRouter)
-router.use('/flow-config', flowConfigRouter)
+// Global route for flow-config has been removed
+// router.use('/flow-config', flowConfigRouter)
 router.use('/internal-chatmessage', internalChatmessagesRouter)
 router.use('/internal-prediction', internalPredictionRouter)
 router.use('/get-upload-file', getUploadFileRouter)

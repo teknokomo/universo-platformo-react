@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
 import { SketchPicker } from 'react-color'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
 
 import { Card, Box, Typography, Button, Switch, OutlinedInput, Popover, Stack, IconButton } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
@@ -45,13 +46,14 @@ const defaultConfig = {
     }
 }
 
-const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
+const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: propUnikId }) => {
     const dispatch = useDispatch()
     const theme = useTheme()
     const chatflow = useSelector((state) => state.canvas.chatflow)
-    const chatflowid = chatflow.id
     const chatbotConfig = chatflow.chatbotConfig ? JSON.parse(chatflow.chatbotConfig) : {}
     const { t } = useTranslation()
+    const { unikId: paramsUnikId } = useParams()
+    const unikId = propUnikId || paramsUnikId
 
     useNotifier()
 
@@ -180,7 +182,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflowid, {
+            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, {
                 chatbotConfig: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
@@ -219,7 +221,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
 
     const onSwitchChange = async (checked) => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflowid, { isPublic: checked })
+            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, { isPublic: checked })
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('shareChatbot.configSaved'),
@@ -414,6 +416,23 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
         )
     }
 
+    useEffect(() => {
+        const fetchChatflow = async () => {
+            try {
+                const resp = await chatflowsApi.getSpecificChatflow(unikId, chatflowid)
+                if (resp.data) {
+                    dispatch({ type: SET_CHATFLOW, chatflow: resp.data })
+                }
+            } catch (error) {
+                console.error('Error fetching chatflow:', error)
+            }
+        }
+
+        if (chatflowid !== chatflow.id) {
+            fetchChatflow()
+        }
+    }, [chatflowid, chatflow.id, dispatch, unikId])
+
     return (
         <>
             <Stack direction='row'>
@@ -586,7 +605,9 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
 
 ShareChatbot.propTypes = {
     isSessionMemory: PropTypes.bool,
-    isAgentCanvas: PropTypes.bool
+    isAgentCanvas: PropTypes.bool,
+    chatflowid: PropTypes.string.isRequired,
+    unikId: PropTypes.string
 }
 
 export default ShareChatbot

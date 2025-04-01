@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express'
 import { getSupabaseClientWithAuth } from '../../utils/supabase'
 import chatflowsRouter from '../chatflows'
+import chatflowsStreamingRouter from '../chatflows-streaming'
+import chatflowsUploadsRouter from '../chatflows-uploads'
+import flowConfigRouter from '../flow-config'
 import toolsRouter from '../tools'
 import variablesRouter from '../variables'
 import exportImportRouter from '../export-import'
@@ -209,6 +212,15 @@ router.post('/members', async (req: Request, res: Response) => {
 
 // Mount nested routes for Chatflows
 router.use('/:unikId/chatflows', chatflowsRouter)
+
+// Mount nested routes for Chatflows Streaming
+router.use('/:unikId/chatflows-streaming', chatflowsStreamingRouter)
+
+// Mount nested routes for Chatflows Uploads
+router.use('/:unikId/chatflows-uploads', chatflowsUploadsRouter)
+
+// Mount nested routes for Flow Config
+router.use('/:unikId/flow-config', flowConfigRouter)
 
 // Mount nested routes for Tools
 router.use('/:unikId/tools', toolsRouter)
