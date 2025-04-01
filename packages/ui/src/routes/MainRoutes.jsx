@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 
 // project imports
 import MainLayout from '@/layout/MainLayout'
+import MinimalLayout from '@/layout/MinimalLayout'
 import Loadable from '@/ui-component/loading/Loadable'
 
 // Components for authentication / lists
@@ -61,10 +62,6 @@ const MainRoutes = {
         {
             index: true,
             element: <UnikList />
-        },
-        {
-            path: '/auth',
-            element: <Auth />
         },
         {
             path: '/uniks',
@@ -180,4 +177,17 @@ const MainRoutes = {
     ]
 }
 
+// Universo Platformo | Auth routes using MinimalLayout
+const AuthRoutes = {
+    path: '/auth',
+    element: <MinimalLayout />,
+    children: [
+        {
+            index: true,
+            element: <Auth />
+        }
+    ]
+}
+
+export { AuthRoutes }
 export default MainRoutes
