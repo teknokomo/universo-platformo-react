@@ -115,7 +115,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
     const customization = useSelector((state) => state.customization)
     const dialogRef = useRef()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     const getSpecificAssistantApi = useApi(assistantsApi.getSpecificAssistant)
     const getAssistantObjApi = useApi(assistantsApi.getAssistantObj)
@@ -306,10 +306,10 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
     const onEditAssistantVectorStoreClick = (vectorStoreObject) => {
         const dialogProp = {
-            title: `${t('common.edit')} ${vectorStoreObject.name ? vectorStoreObject.name : vectorStoreObject.id}`,
+            title: `${t('assistants.common.edit')} ${vectorStoreObject.name ? vectorStoreObject.name : vectorStoreObject.id}`,
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('assistants.common.cancel'),
+            confirmButtonName: t('assistants.common.save'),
             data: vectorStoreObject,
             credential: assistantCredential
         }
@@ -319,10 +319,10 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
     const onAddAssistantVectorStoreClick = () => {
         const dialogProp = {
-            title: t('common.add') + ' Vector Store',
+            title: t('assistants.common.add') + ' Vector Store',
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('assistants.common.cancel'),
+            confirmButtonName: t('assistants.common.add'),
             credential: assistantCredential
         }
         setAssistantVectorStoreDialogProps(dialogProp)
@@ -599,8 +599,8 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
     const onDeleteClick = () => {
         setDeleteDialogProps({
             title: t('assistants.openai.deleteAssistant'),
-            description: t('assistants.openai.deleteMethod', { name: assistantName }),
-            cancelButtonName: t('common.cancel')
+            description: t('assistants.openai.deleteMethod').replace('{name}', assistantName),
+            cancelButtonName: t('assistants.common.cancel')
         })
         setDeleteDialogOpen(true)
     }
@@ -703,7 +703,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                             key={assistantCredential}
                             data={assistantCredential ? { credential: assistantCredential } : {}}
                             inputParam={{
-                                label: t('vectorStore.formFields.connectCredential'),
+                                label: t('assistants.vectorStore.credential'),
                                 name: 'credential',
                                 type: 'credential',
                                 credentialNames: ['openAIApi']
@@ -728,7 +728,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('common.name')}</Typography>
+                            <Typography variant='overline'>{t('assistants.common.name')}</Typography>
                             <TooltipWithParser title={t('assistants.tooltips.name')} />
                         </Stack>
                         <OutlinedInput
@@ -744,7 +744,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('common.description')}</Typography>
+                            <Typography variant='overline'>{t('assistants.common.description')}</Typography>
                             <TooltipWithParser title={t('assistants.tooltips.description')} />
                         </Stack>
                         <OutlinedInput
@@ -1024,12 +1024,12 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             <DialogActions sx={{ p: 3, pt: 0 }}>
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='secondary' variant='contained' onClick={() => onSyncClick()}>
-                        Sync
+                        {t('assistants.common.update')}
                     </StyledButton>
                 )}
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='error' variant='contained' onClick={() => onDeleteClick()}>
-                        Delete
+                        {t('assistants.common.delete')}
                     </StyledButton>
                 )}
                 <StyledButton

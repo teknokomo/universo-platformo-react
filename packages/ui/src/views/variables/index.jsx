@@ -76,7 +76,7 @@ const Variables = () => {
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['variables', 'common'])
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -104,8 +104,8 @@ const Variables = () => {
     const addNew = () => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('variables.common.cancel'),
+            confirmButtonName: t('variables.common.add'),
             customBtnId: 'btn_confirmAddingVariable',
             data: {},
             unikId: unikId
@@ -117,8 +117,8 @@ const Variables = () => {
     const edit = (variable) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('variables.common.cancel'),
+            confirmButtonName: t('variables.common.save'),
             data: variable,
             unikId: unikId
         }
@@ -128,10 +128,10 @@ const Variables = () => {
 
     const deleteVariable = async (variable) => {
         const confirmPayload = {
-            title: t('common.delete'),
-            description: t('variables.deleteConfirm', { name: variable.name }),
-            confirmButtonName: t('common.delete'),
-            cancelButtonName: t('common.cancel')
+            title: t('variables.common.delete'),
+            description: t('variables.deleteConfirm').replace('{name}', variable.name),
+            confirmButtonName: t('variables.common.delete'),
+            cancelButtonName: t('variables.common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 

@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from 'react'
 import UnikDetail from './UnikDetail'
 import { useTranslation } from 'react-i18next'
-import api from '@/api' // ваш API helper, который прикрепляет JWT-токен к запросам
+import api from '@/api'
 
 const CommonPage = () => {
-    const { t } = useTranslation()
+    const { t } = useTranslation('uniks')
     const [commonUnik, setCommonUnik] = useState(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Запрашиваем объект общего рабочего пространства.
-        // Предполагается, что API поддерживает параметр common=true
+        // Request the common workspace object
+        // Assuming the API supports the common=true parameter
         api.get('/api/v1/uniks?common=true')
             .then((res) => {
-                // Если API возвращает массив, можно взять первый элемент
-                // Например: setCommonUnik(res.data[0])
+                // If the API returns an array, you can take the first element
+                // For example: setCommonUnik(res.data[0])
                 setCommonUnik(res.data)
             })
             .catch((err) => {
-                console.error('Ошибка при загрузке общего Unik:', err)
+                console.error('Error loading common Unik:', err)
             })
             .finally(() => {
                 setLoading(false)
@@ -26,11 +26,11 @@ const CommonPage = () => {
     }, [])
 
     if (loading) {
-        return <div>{t('common.loading')}</div>
+        return <div>{t('uniks.loading')}</div>
     }
 
     if (!commonUnik) {
-        return <div>{t('common.notFound')}</div>
+        return <div>{t('uniks.notFound')}</div>
     }
 
     return <UnikDetail unik={commonUnik} />

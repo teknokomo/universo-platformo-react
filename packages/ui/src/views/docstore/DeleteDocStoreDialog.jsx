@@ -37,7 +37,7 @@ import { initNode } from '@/utils/genericHelper'
 
 const DeleteDocStoreDialog = ({ show, dialogProps, onCancel, onDelete }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
     const [nodeConfigExpanded, setNodeConfigExpanded] = useState({})
     const [removeFromVS, setRemoveFromVS] = useState(false)
     const [vsFlowData, setVSFlowData] = useState([])
@@ -226,10 +226,10 @@ const DeleteDocStoreDialog = ({ show, dialogProps, onCancel, onDelete }) => {
             </DialogContent>
             <DialogActions sx={{ pr: 3, pb: 3 }}>
                 <Button onClick={onCancel} color='primary'>
-                    {t('common.cancel')}
+                    {t('documentStore.common.cancel')}
                 </Button>
                 <Button variant='contained' onClick={() => onDelete(dialogProps.type, dialogProps.file, removeFromVS)} color='error'>
-                    {t('common.delete')}
+                    {t('documentStore.common.delete')}
                 </Button>
             </DialogActions>
         </Dialog>

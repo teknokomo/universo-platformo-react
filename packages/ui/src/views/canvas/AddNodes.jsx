@@ -74,7 +74,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
 
     const [searchValue, setSearchValue] = useState('')
     const [nodes, setNodes] = useState({})
@@ -342,7 +342,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                             color: theme.palette.grey[900]
                                                         }
                                                     }}
-                                                    title={t('documentStore.loaders.common.clearSearch')}
+                                                    title={t('canvas.clearSearch')}
                                                 >
                                                     <IconX
                                                         stroke={1.5}
@@ -452,7 +452,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                                             alignItems: 'center'
                                                                         }}
                                                                     >
-                                                                        <Typography variant='h5'>{t('nodeCategories.' + category.split(';')[0])}</Typography>
+                                                                        <Typography variant='h5'>{t('canvas.nodeCategories.' + category.split(';')[0])}</Typography>
                                                                         &nbsp;
                                                                         <Chip
                                                                             sx={{
@@ -473,7 +473,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                                         />
                                                                     </div>
                                                                 ) : (
-                                                                    <Typography variant='h5'>{t('nodeCategories.' + category)}</Typography>
+                                                                    <Typography variant='h5'>{t('canvas.nodeCategories.' + category)}</Typography>
                                                                 )}
                                                             </AccordionSummary>
                                                             <AccordionDetails>

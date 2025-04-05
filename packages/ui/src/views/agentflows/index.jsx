@@ -35,7 +35,7 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const Agentflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatflows')
     const { unikId } = useParams()
     const location = useLocation()
 
@@ -97,8 +97,8 @@ const Agentflows = () => {
         if (getAllAgentflows.error) {
             if (getAllAgentflows.error?.response?.status === 401) {
                 setLoginDialogProps({
-                    title: t('common.login'),
-                    confirmButtonName: t('common.login')
+                    title: t('chatflows.common.login'),
+                    confirmButtonName: t('chatflows.common.login')
                 })
                 setLoginDialogOpen(true)
             } else {
@@ -141,7 +141,7 @@ const Agentflows = () => {
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('agents.searchPlaceholder')} title={t('agents.title')}>
+                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('chatflows.agents.searchPlaceholder')} title={t('chatflows.agents.title')}>
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -157,7 +157,7 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('common.cardView')}
+                                title={t('chatflows.common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -169,13 +169,13 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('common.listView')}
+                                title={t('chatflows.common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
                         <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-                            {t('common.addNew')}
+                            {t('chatflows.common.addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -214,7 +214,7 @@ const Agentflows = () => {
                                     alt='AgentsEmptySVG'
                                 />
                             </Box>
-                            <div>No Agents Yet</div>
+                            <div>{t('chatflows.agents.noAgentsYet')}</div>
                         </Stack>
                     )}
                 </Stack>

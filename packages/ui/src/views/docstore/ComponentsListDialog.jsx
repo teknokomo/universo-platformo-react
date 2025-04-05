@@ -19,7 +19,7 @@ const ComponentsListDialog = ({ show, dialogProps, onCancel, apiCall, onSelected
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
     const [searchValue, setSearchValue] = useState('')
     const [provider, setProvider] = useState([])
 
@@ -86,7 +86,7 @@ const ComponentsListDialog = ({ show, dialogProps, onCancel, apiCall, onSelected
                         id='input-search-credential'
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder={t('common.search')}
+                        placeholder={t('documentStore.common.search')}
                         startAdornment={
                             <InputAdornment position='start'>
                                 <IconSearch stroke={1.5} size='1rem' color={theme.palette.grey[500]} />
@@ -102,7 +102,7 @@ const ComponentsListDialog = ({ show, dialogProps, onCancel, apiCall, onSelected
                                         color: theme.palette.grey[900]
                                     }
                                 }}
-                                title={t('vectorStore.clearSearch')}
+                                title={t('vector-store:vectorStore.clearSearch')}
                             >
                                 <IconX
                                     stroke={1.5}

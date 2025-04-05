@@ -19,7 +19,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
     const [searchValue, setSearchValue] = useState('')
     const [documentLoaders, setDocumentLoaders] = useState([])
 
@@ -85,7 +85,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
                         id='input-search-credential'
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder={t('common.search')}
+                        placeholder={t('documentStore.common.search')}
                         startAdornment={
                             <InputAdornment position='start'>
                                 <IconSearch stroke={1.5} size='1rem' color={theme.palette.grey[500]} />

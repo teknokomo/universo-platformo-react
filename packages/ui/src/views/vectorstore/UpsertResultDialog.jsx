@@ -13,7 +13,7 @@ const UpsertResultDialog = ({ show, dialogProps, onCancel, onGoToRetrievalQuery 
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
     const customization = useSelector((state) => state.customization)
-    const { t } = useTranslation()
+    const { t } = useTranslation('vector-store')
 
     useEffect(() => {
         if (show) dispatch({ type: SHOW_CANVAS_DIALOG })
@@ -101,11 +101,11 @@ const UpsertResultDialog = ({ show, dialogProps, onCancel, onGoToRetrievalQuery 
                             {t('vectorStore.upsertResult.testRetrieval')}
                         </Button>
                         <Button fullWidth onClick={onCancel}>
-                            {t('common.close')}
+                            {t('vectorStore.common.close')}
                         </Button>
                     </div>
                 )}
-                {!dialogProps.goToRetrievalQuery && <Button onClick={onCancel}>{t('common.close')}</Button>}
+                {!dialogProps.goToRetrievalQuery && <Button onClick={onCancel}>{t('vectorStore.common.close')}</Button>}
             </DialogActions>
         </Dialog>
     ) : null

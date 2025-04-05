@@ -29,7 +29,7 @@ import { IconPlus } from '@tabler/icons-react'
 const CustomAssistantLayout = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
@@ -47,8 +47,8 @@ const CustomAssistantLayout = () => {
         const dialogProp = {
             title: t('assistants.custom.addNew'),
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('assistants.common.cancel'),
+            confirmButtonName: t('assistants.common.add'),
             unikId
         }
         setDialogProps(dialogProp)
@@ -123,7 +123,7 @@ const CustomAssistantLayout = () => {
                                 onClick={addNew}
                                 startIcon={<IconPlus />}
                             >
-                                {t('common.add')}
+                                {t('assistants.common.add')}
                             </StyledButton>
                         </ViewHeader>
                         {isLoading ? (

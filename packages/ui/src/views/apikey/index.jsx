@@ -86,7 +86,7 @@ const StyledTableRow = styled(TableRow)(() => ({
 function APIKeyRow(props) {
     const [open, setOpen] = useState(false)
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('api-keys')
 
     return (
         <>
@@ -200,7 +200,7 @@ const APIKey = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('api-keys')
 
     const dispatch = useDispatch()
     useNotifier()
@@ -251,10 +251,10 @@ const APIKey = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: t('apiKeys.title'),
+            title: t('apiKeys.createKey'),
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('apiKeys.common.cancel'),
+            confirmButtonName: t('apiKeys.common.add'),
             customBtnId: 'btn_confirmAddingApiKey',
             unikId
         }
@@ -264,10 +264,10 @@ const APIKey = () => {
 
     const edit = (key) => {
         const dialogProp = {
-            title: t('common.edit'),
+            title: t('apiKeys.common.edit'),
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('apiKeys.common.cancel'),
+            confirmButtonName: t('apiKeys.common.save'),
             customBtnId: 'btn_confirmEditingApiKey',
             key,
             unikId
@@ -279,7 +279,7 @@ const APIKey = () => {
     const uploadDialog = () => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
+            cancelButtonName: t('apiKeys.common.cancel'),
             confirmButtonName: t('apiKeys.import'),
             data: {},
             unikId
@@ -290,13 +290,13 @@ const APIKey = () => {
 
     const deleteKey = async (key) => {
         const confirmPayload = {
-            title: t('common.delete'),
+            title: t('apiKeys.common.delete'),
             description:
                 key.chatFlows.length === 0
-                    ? t('apiKeys.deleteToolConfirm', { name: key.keyName })
-                    : `${t('common.delete')} ${key.keyName}? ${t('apiKeys.thereAre')} ${key.chatFlows.length} ${t('apiKeys.chatflowsUsingKey')}`,
-            confirmButtonName: t('common.delete'),
-            cancelButtonName: t('common.cancel'),
+                    ? t('apiKeys.deleteToolConfirm').replace('{name}', key.keyName)
+                    : `${t('apiKeys.common.delete')} ${key.keyName}? ${t('apiKeys.thereAre')} ${key.chatFlows.length} ${t('apiKeys.chatflowsUsingKey')}`,
+            confirmButtonName: t('apiKeys.common.delete'),
+            cancelButtonName: t('apiKeys.common.cancel'),
             customBtnId: 'btn_initiateDeleteApiKey'
         }
         const isConfirmed = await confirm(confirmPayload)
@@ -350,6 +350,7 @@ const APIKey = () => {
         if (unikId) {
             getAllAPIKeysApi.request(unikId)
         }
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unikId])
 

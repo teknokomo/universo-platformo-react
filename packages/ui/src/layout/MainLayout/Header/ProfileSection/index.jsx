@@ -58,7 +58,7 @@ const dataToExport = ['Chatflows', 'Agentflows', 'Tools', 'Variables', 'Assistan
 
 const ExportDialog = ({ show, onCancel, onExport }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation('menu')
 
     const [selectedData, setSelectedData] = useState(['Chatflows', 'Agentflows', 'Tools', 'Variables', 'Assistants'])
     const [isExporting, setIsExporting] = useState(false)
@@ -160,7 +160,7 @@ const ProfileSection = ({ username, handleLogout }) => {
     const theme = useTheme()
     const { unikId } = useParams()
     const customization = useSelector((state) => state.customization)
-    const { t } = useTranslation()
+    const { t } = useTranslation(['menu', 'common'])
 
     const [open, setOpen] = useState(false)
     const [aboutDialogOpen, setAboutDialogOpen] = useState(false)

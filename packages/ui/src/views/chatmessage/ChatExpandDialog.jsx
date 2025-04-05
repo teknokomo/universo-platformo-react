@@ -11,7 +11,7 @@ import { IconEraser } from '@tabler/icons-react'
 const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel, previews, setPreviews }) => {
     const portalElement = document.getElementById('portal')
     const customization = useSelector((state) => state.customization)
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatmessage')
 
     const component = show ? (
         <Dialog
@@ -31,16 +31,16 @@ const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel,
                         <StyledButton
                             variant='outlined'
                             color='error'
-                            title={t('chat.clearConversation')}
+                            title={t('chatMessage.chat.clearConversation')}
                             onClick={onClear}
                             startIcon={<IconEraser />}
                         >
-                            {t('chat.clearChat')}
+                            {t('chatMessage.chat.clearChat')}
                         </StyledButton>
                     )}
                     {!customization.isDarkMode && (
-                        <Button variant='outlined' color='error' title={t('chat.clearConversation')} onClick={onClear} startIcon={<IconEraser />}>
-                            {t('chat.clearChat')}
+                        <Button variant='outlined' color='error' title={t('chatMessage.chat.clearConversation')} onClick={onClear} startIcon={<IconEraser />}>
+                            {t('chatMessage.chat.clearChat')}
                         </Button>
                     )}
                 </div>

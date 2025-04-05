@@ -1,4 +1,4 @@
-    import { createPortal } from 'react-dom'
+import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useDispatch } from 'react-redux'
 import { useContext, useState, useEffect } from 'react'
@@ -83,7 +83,7 @@ const VectorStoreDialog = ({ show, dialogProps, onCancel, onIndexResult }) => {
     const portalElement = document.getElementById('portal')
     const { reactFlowInstance } = useContext(flowContext)
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation('vector-store')
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -310,7 +310,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
         try {
             const res = await vectorstoreApi.upsertVectorStore(dialogProps.chatflowid, { stopNodeId: vectorStoreNode.data.id })
             enqueueSnackbar({
-                message: t('vectorStore.upsertSuccess', 'Successfully upserted vector store. You can start chatting now!'),
+                message: t('vectorStore.upsertSuccess'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'success',
@@ -495,7 +495,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                     <Box sx={{ p: 2 }}>
                                         <CheckboxInput
                                             key={JSON.stringify(nodeCheckboxExpanded)}
-                                            label={t('vectorStore.showAPI', 'Show API')}
+                                            label={t('vectorStore.showAPI')}
                                             value={nodeCheckboxExpanded[data.vectorNode.data.id]}
                                             onChange={() => onCheckBoxChanged(data.vectorNode.data.id)}
                                         />
@@ -575,16 +575,16 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                                                                 fontWeight: 500
                                                                             }}
                                                                         >
-                                                                            {t('vectorStore.securityWarning', 'For security reason, override config is disabled by default. You can change this by going into Chatflow Configuration -> Security tab, and enable the property you want to override.')}{' '}
-                                                                            {t('common.refer', 'Refer')}{' '}
+                                                                            {t('vectorStore.securityWarning')}{' '}
+                                                                            {t('vectorStore.common.refer')}{' '}
                                                                             <a
                                                                                 rel='noreferrer'
                                                                                 target='_blank'
                                                                                 href='https://docs.flowiseai.com/using-flowise/api#override-config'
                                                                             >
-                                                                                {t('common.here', 'here')}
+                                                                                {t('vectorStore.common.here')}
                                                                             </a>{' '}
-                                                                            {t('common.forMoreDetails', 'for more details')}
+                                                                            {t('vectorStore.common.forMoreDetails')}
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -608,7 +608,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                                                     >
                                                                         <IconBulb size={30} color='#2d6a4f' />
                                                                         <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>
-                                                                            {t('vectorStore.multiValuesNote', 'You can also specify multiple values for a config parameter by specifying the node id')}
+                                                                            {t('vectorStore.multiValuesNote')}
                                                                         </span>
                                                                     </div>
                                                                     <div style={{ padding: 10 }}>

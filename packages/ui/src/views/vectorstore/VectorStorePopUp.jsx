@@ -15,7 +15,7 @@ export const VectorStorePopUp = ({ chatflowid }) => {
     const [expandDialogProps, setExpandDialogProps] = useState({})
     const [showUpsertResultDialog, setShowUpsertResultDialog] = useState(false)
     const [upsertResultDialogProps, setUpsertResultDialogProps] = useState({})
-    const { t } = useTranslation()
+    const { t } = useTranslation('vector-store')
 
     const anchorRef = useRef(null)
     const prevOpen = useRef(open)
@@ -24,7 +24,7 @@ export const VectorStorePopUp = ({ chatflowid }) => {
         setOpen((prevopen) => !prevopen)
         const props = {
             open: true,
-            title: t('vectorStore.upsertTitle', 'Upsert Vector Store'),
+            title: t('vectorStore.upsertTitle'),
             chatflowid
         }
         setExpandDialogProps(props)
@@ -48,7 +48,7 @@ export const VectorStorePopUp = ({ chatflowid }) => {
                 size='small'
                 color='teal'
                 aria-label='upsert'
-                title={t('vectorStore.upsertDatabase', 'Upsert Vector Database')}
+                title={t('vectorStore.upsertDatabase')}
                 onClick={handleToggle}
             >
                 {open ? <IconX /> : <IconDatabaseImport />}

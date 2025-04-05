@@ -36,7 +36,7 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, onDelete, setError }) => {
     const portalElement = document.getElementById('portal')
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     const dispatch = useDispatch()
 
@@ -358,7 +358,7 @@ const AssistantVectorStoreDialog = ({ show, dialogProps, onCancel, onConfirm, on
             <DialogActions>
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='error' variant='contained' onClick={() => deleteVectorStore()}>
-                        {t('common.delete')}
+                        {t('assistants.common.delete')}
                     </StyledButton>
                 )}
                 <StyledButton

@@ -47,7 +47,7 @@ const Documents = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     const navigate = useNavigate()
     const getAllDocumentStores = useApi(() => documentsApi.getAllDocumentStores(unikId))
@@ -83,8 +83,8 @@ const Documents = () => {
         const dialogProp = {
             title: t('documentStore.addDocumentStore'),
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('documentStore.common.cancel'),
+            confirmButtonName: t('documentStore.common.add'),
             unikId: unikId
         }
         setDialogProps(dialogProp)
@@ -166,7 +166,7 @@ const Documents = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('common.cardView')}
+                                title={t('documentStore.common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -178,7 +178,7 @@ const Documents = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('common.listView')}
+                                title={t('documentStore.common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>

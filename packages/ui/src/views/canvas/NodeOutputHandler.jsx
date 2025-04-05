@@ -23,7 +23,7 @@ const NodeOutputHandler = ({ outputAnchor, data, disabled = false }) => {
     const theme = useTheme()
     const ref = useRef(null)
     const updateNodeInternals = useUpdateNodeInternals()
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
     const [position, setPosition] = useState(0)
     const [clientHeight, setClientHeight] = useState(0)
     const [offsetTop, setOffsetTop] = useState(0)

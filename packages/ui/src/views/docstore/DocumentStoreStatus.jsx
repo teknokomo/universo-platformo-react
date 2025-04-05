@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 const DocumentStoreStatus = ({ status, isTableView }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
-    const { t } = useTranslation()
+    const { t } = useTranslation('document-store')
 
     const getColor = (status) => {
         switch (status) {

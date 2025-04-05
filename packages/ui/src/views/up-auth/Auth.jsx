@@ -33,7 +33,7 @@ const mapSupabaseError = (errorMessage) => {
 // Universo Platformo | Login & Registration component
 const Auth = () => {
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('auth')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')

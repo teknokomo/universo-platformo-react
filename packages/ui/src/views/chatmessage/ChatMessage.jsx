@@ -163,7 +163,7 @@ CardWithDeleteOverlay.propTypes = {
 export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, previews, setPreviews }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatmessage')
 
     const ps = useRef()
 
@@ -177,7 +177,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const [loading, setLoading] = useState(false)
     const [messages, setMessages] = useState([
         {
-            message: t('chatMessage.initialGreeting', 'Hi there! How can I help?'),
+            message: t('chatMessage.initialGreeting'),
             type: 'apiMessage'
         }
     ])
@@ -633,7 +633,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     }
 
     // Handle errors
-    const handleError = (message = t('chatMessage.defaultError', 'Oops! There seems to be an error. Please try again.')) => {
+    const handleError = (message = t('chatMessage.defaultError')) => {
         setLoading(false)
         setMessages((prevMessages) => [
             ...prevMessages,

@@ -78,7 +78,7 @@ const Credentials = () => {
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('credentials')
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -108,7 +108,7 @@ const Credentials = () => {
 
     const listCredential = () => {
         const dialogProp = {
-            title: t('credentials.addNew'),
+            title: t('credentials.addCredential'),
             componentsCredentials
         }
         setCredentialListDialogProps(dialogProp)
@@ -118,8 +118,8 @@ const Credentials = () => {
     const addNew = (credentialComponent) => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('credentials.common.cancel'),
+            confirmButtonName: t('credentials.common.add'),
             credentialComponent,
             unikId
         }
@@ -130,8 +130,8 @@ const Credentials = () => {
     const edit = (credential) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('credentials.common.cancel'),
+            confirmButtonName: t('credentials.common.save'),
             data: credential,
             unikId
         }
@@ -141,10 +141,10 @@ const Credentials = () => {
 
     const deleteCredential = async (credential) => {
         const confirmPayload = {
-            title: t('common.delete'),
-            description: t('credentials.deleteConfirm', { name: credential.name }),
-            confirmButtonName: t('common.delete'),
-            cancelButtonName: t('common.cancel')
+            title: t('credentials.common.delete'),
+            description: t('credentials.deleteConfirm').replace('{name}', credential.name),
+            confirmButtonName: t('credentials.common.delete'),
+            cancelButtonName: t('credentials.common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 

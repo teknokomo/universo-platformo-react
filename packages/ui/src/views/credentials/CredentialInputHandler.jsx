@@ -19,7 +19,7 @@ import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
     const customization = useSelector((state) => state.customization)
     const ref = useRef(null)
-    const { t } = useTranslation()
+    const { t } = useTranslation('credentials')
 
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -29,8 +29,8 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
             value,
             inputParam,
             disabled,
-            confirmButtonName: t('common.save', 'Save'),
-            cancelButtonName: t('common.cancel', 'Cancel')
+            confirmButtonName: t('credentials.common.save'),
+            cancelButtonName: t('credentials.common.cancel')
         }
         setExpandDialogProps(dialogProp)
         setShowExpandDialog(true)
@@ -60,7 +60,7 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
                                         height: 25,
                                         width: 25
                                     }}
-                                    title={t('common.expand', 'Expand')}
+                                    title={t('credentials.common.expand')}
                                     color='primary'
                                     onClick={() => onExpandDialogClicked(data[inputParam.name] ?? inputParam.default ?? '', inputParam)}
                                 >
@@ -119,7 +119,7 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
                                 name={inputParam.name}
                                 options={inputParam.options}
                                 onSelect={(newValue) => (data[inputParam.name] = newValue)}
-                                value={data[inputParam.name] ?? inputParam.default ?? t('credentials.chooseAnOption', 'choose an option')}
+                                value={data[inputParam.name] ?? inputParam.default ?? t('credentials.chooseAnOption')}
                             />
                         )}
                     </Box>

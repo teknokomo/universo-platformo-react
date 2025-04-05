@@ -40,7 +40,7 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const UnikList = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('uniks')
 
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -49,7 +49,7 @@ const UnikList = () => {
     const [loginDialogOpen, setLoginDialogOpen] = useState(false)
     const [loginDialogProps, setLoginDialogProps] = useState({})
 
-    // Состояние для модального окна создания/редактирования Unik
+    // State for modal window for creating/editing Unik
     const [unikDialogOpen, setUnikDialogOpen] = useState(false)
     const [unikDialogProps, setUnikDialogProps] = useState({})
 
@@ -66,7 +66,7 @@ const UnikList = () => {
         setSearch(event.target.value)
     }
 
-    // Фильтр для поиска по имени и ID
+    // Filter for searching by name and ID
     function filterUniks(data) {
         return data.name.toLowerCase().includes(search.toLowerCase()) || (data.id && data.id.toLowerCase().includes(search.toLowerCase()))
     }
@@ -80,8 +80,8 @@ const UnikList = () => {
     // Open modal for adding new Unik
     const openAddUnikDialog = () => {
         setUnikDialogProps({
-            title: t('unikList.addNewUnik'),
-            confirmButtonName: t('unikList.addUnik'),
+            title: t('uniks.unikList.addNewUnik'),
+            confirmButtonName: t('uniks.unikList.addUnik'),
             type: 'ADD'
         })
         setUnikDialogOpen(true)
@@ -144,8 +144,8 @@ const UnikList = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={true}
-                        searchPlaceholder={t('unikList.searchPlaceholder')}
-                        title={t('unikList.title')}
+                        searchPlaceholder={t('uniks.unikList.searchPlaceholder')}
+                        title={t('uniks.unikList.title')}
                     >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -162,7 +162,7 @@ const UnikList = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('unikList.cardView')}
+                                title={t('uniks.unikList.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -174,7 +174,7 @@ const UnikList = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('unikList.listView')}
+                                title={t('uniks.unikList.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
@@ -185,7 +185,7 @@ const UnikList = () => {
                             startIcon={<IconPlus />}
                             sx={{ borderRadius: 2, height: 40 }}
                         >
-                            {t('unikList.addUnik')}
+                            {t('uniks.unikList.addUnik')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -220,7 +220,7 @@ const UnikList = () => {
                             <Box sx={{ p: 2, height: 'auto' }}>
                                 <img style={{ objectFit: 'cover', height: '25vh', width: 'auto' }} src={APIEmptySVG} alt='No Uniks' />
                             </Box>
-                            <div>{t('unikList.noUniksFound')}</div>
+                            <div>{t('uniks.unikList.noUniksFound')}</div>
                         </Stack>
                     )}
                 </Stack>

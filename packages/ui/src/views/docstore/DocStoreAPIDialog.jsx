@@ -20,7 +20,7 @@ const DocStoreAPIDialog = ({ show, dialogProps, onCancel }) => {
     const [values, setValues] = useState('')
     const theme = useTheme()
     const [nodeConfigExpanded, setNodeConfigExpanded] = useState({})
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     const getConfigApi = useApi(documentstoreApi.getDocumentStoreConfig)
 

@@ -28,7 +28,7 @@ const CanvasNode = ({ data }) => {
     const theme = useTheme()
     const canvas = useSelector((state) => state.canvas)
     const { deleteNode, duplicateNode } = useContext(flowContext)
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
 
     const [showDialog, setShowDialog] = useState(false)
     const [dialogProps, setDialogProps] = useState({})
@@ -59,8 +59,8 @@ const CanvasNode = ({ data }) => {
         const dialogProps = {
             data,
             inputParams: data.inputParams.filter((inputParam) => !inputParam.hidden).filter((param) => param.additionalParams),
-            confirmButtonName: t('common.save'),
-            cancelButtonName: t('common.cancel')
+            confirmButtonName: t('canvas.common.save'),
+            cancelButtonName: t('canvas.common.cancel')
         }
         setDialogProps(dialogProps)
         setShowDialog(true)
@@ -108,7 +108,7 @@ const CanvasNode = ({ data }) => {
                             }}
                         >
                             <IconButton
-                                title={t('common.edit')}
+                                title={t('canvas.common.edit')}
                                 onClick={() => {
                                     duplicateNode(data.id)
                                 }}
@@ -118,7 +118,7 @@ const CanvasNode = ({ data }) => {
                                 <IconCopy />
                             </IconButton>
                             <IconButton
-                                title={t('common.delete')}
+                                title={t('canvas.common.delete')}
                                 onClick={() => {
                                     deleteNode(data.id)
                                 }}
@@ -128,7 +128,7 @@ const CanvasNode = ({ data }) => {
                                 <IconTrash />
                             </IconButton>
                             <IconButton
-                                title='Info'
+                                title={t('canvas.common.info')}
                                 onClick={() => {
                                     setInfoDialogProps({ data })
                                     setShowInfoDialog(true)

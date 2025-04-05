@@ -71,7 +71,7 @@ const SelectStyles = {
 const Marketplace = () => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation('templates')
     useNotifier()
 
     const { unikId } = useParams()
@@ -185,9 +185,9 @@ const Marketplace = () => {
     const onDeleteCustomTemplate = async (template) => {
         const confirmPayload = {
             title: t('templates.confirmDelete'),
-            description: t('templates.confirmDeleteDescription', { name: template.name }),
+            description: t('templates.confirmDeleteDescription').replace('{name}', template.name),
             confirmButtonName: t('templates.confirmDelete'),
-            cancelButtonName: t('common.cancel')
+            cancelButtonName: t('templates.common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 

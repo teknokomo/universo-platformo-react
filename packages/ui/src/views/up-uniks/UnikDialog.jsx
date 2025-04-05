@@ -5,6 +5,7 @@ import { Box, Typography, Dialog, DialogActions, DialogContent, DialogTitle, Out
 import { useTheme } from '@mui/material/styles'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import api from '@/api'
+import { useTranslation } from 'react-i18next'
 
 // Локальный API-модуль для Unik, использующий базовый axios-инстанс
 const uniksApi = {
@@ -15,6 +16,7 @@ const uniksApi = {
 const UnikDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
     const portalElement = document.getElementById('portal')
     const theme = useTheme()
+    const { t } = useTranslation('uniks')
     const [unikName, setUnikName] = useState('')
 
     useEffect(() => {
@@ -64,12 +66,12 @@ const UnikDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ p: 2 }}>
-                    <Typography variant='overline'>Unik Name</Typography>
+                    <Typography variant='overline'>{t('uniks.name')}</Typography>
                     <OutlinedInput
                         id='unikName'
                         type='text'
                         fullWidth
-                        placeholder='Enter Unik name'
+                        placeholder={t('uniks.namePlaceholder')}
                         value={unikName}
                         onChange={(e) => setUnikName(e.target.value)}
                     />

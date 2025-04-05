@@ -58,7 +58,7 @@ const VectorStoreQuery = () => {
     const theme = useTheme()
     const dispatch = useDispatch()
     const inputRef = useRef(null)
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     useNotifier()
 
@@ -143,7 +143,7 @@ const VectorStoreQuery = () => {
             setLoading(false)
             if (updateResp.data) {
                 enqueueSnackbar({
-                    message: t('vectorStore.query.configSuccess'),
+                    message: t('vector-store:vectorStore.query.configSuccess'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -159,7 +159,7 @@ const VectorStoreQuery = () => {
             setLoading(false)
             const errorData = error.response?.data || `${error.response?.status}: ${error.response?.statusText}`
             enqueueSnackbar({
-                message: t('vectorStore.query.configError', { error: errorData }),
+                message: t('vector-store:vectorStore.query.configError', { error: errorData }),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -247,8 +247,8 @@ const VectorStoreQuery = () => {
                     <ViewHeader
                         isBackButton={true}
                         search={false}
-                        title={documentStore?.name || t('vectorStore.query.documentStore')}
-                        description={t('vectorStore.query.description')}
+                        title={documentStore?.name || t('vector-store:vectorStore.query.documentStore')}
+                        description={t('vector-store:vectorStore.query.description')}
                         onBack={() => navigate(-1)}
                     >
                         <Button
@@ -258,7 +258,7 @@ const VectorStoreQuery = () => {
                             startIcon={<IconDeviceFloppy />}
                             onClick={saveConfig}
                         >
-                            {t('vectorStore.actions.saveConfig')}
+                            {t('vector-store:vectorStore.actions.saveConfig')}
                         </Button>
                     </ViewHeader>
                     <div style={{ width: '100%' }}></div>
@@ -268,7 +268,7 @@ const VectorStoreQuery = () => {
                                 <Box>
                                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                                         <Typography variant='overline'>
-                                            {t('vectorStore.query.enterQuery')}<span style={{ color: 'red' }}>&nbsp;*</span>
+                                            {t('vector-store:vectorStore.query.enterQuery')}<span style={{ color: 'red' }}>&nbsp;*</span>
                                         </Typography>
 
                                         <div style={{ flexGrow: 1 }}></div>
@@ -397,10 +397,10 @@ const VectorStoreQuery = () => {
                                             />
                                         </div>
                                         <Typography sx={{ ml: 2 }} variant='h3'>
-                                            {t('vectorStore.query.retrievedDocuments')}
+                                            {t('vector-store:vectorStore.query.retrievedDocuments')}
                                             {timeTaken > -1 && (
                                                 <Typography variant='body2' sx={{ color: 'gray' }}>
-                                                    {t('vectorStore.query.countAndTime', { count: documentChunks.length, time: timeTaken })}
+                                                    {t('vector-store:vectorStore.query.countAndTime', { count: documentChunks.length, time: timeTaken })}
                                                 </Typography>
                                             )}
                                             {retrievalError && (
@@ -427,7 +427,7 @@ const VectorStoreQuery = () => {
                                                     alt='chunks_emptySVG'
                                                 />
                                             </Box>
-                                            <div>{t('vectorStore.query.noDocuments')}</div>
+                                            <div>{t('vector-store:vectorStore.query.noDocuments')}</div>
                                         </div>
                                     )}
                                     <Grid container spacing={2}>

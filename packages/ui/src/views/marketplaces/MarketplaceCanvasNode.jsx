@@ -34,7 +34,7 @@ const CardWrapper = styled(MainCard)(({ theme }) => ({
 
 const MarketplaceCanvasNode = ({ data }) => {
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('templates')
 
     const [showDialog, setShowDialog] = useState(false)
     const [dialogProps, setDialogProps] = useState({})
@@ -44,8 +44,8 @@ const MarketplaceCanvasNode = ({ data }) => {
             data,
             inputParams: data.inputParams.filter((param) => param.additionalParams),
             disabled: true,
-            confirmButtonName: t('common.save', 'Save'),
-            cancelButtonName: t('common.cancel', 'Cancel')
+            confirmButtonName: t('templates.common.save'),
+            cancelButtonName: t('templates.common.cancel')
         }
         setDialogProps(dialogProps)
         setShowDialog(true)
@@ -118,7 +118,7 @@ const MarketplaceCanvasNode = ({ data }) => {
                                         textAlign: 'center'
                                     }}
                                 >
-                                    {t('marketplaceCanvas.inputs', 'Inputs')}
+                                    {t('templates.canvas.inputs')}
                                 </Typography>
                             </Box>
                             <Divider />
@@ -142,7 +142,7 @@ const MarketplaceCanvasNode = ({ data }) => {
                             }}
                         >
                             <Button sx={{ borderRadius: 25, width: '90%', mb: 2 }} variant='outlined' onClick={onDialogClicked}>
-                                {t('marketplaceCanvas.additionalParameters', 'Additional Parameters')}
+                                {t('templates.canvas.additionalParameters')}
                             </Button>
                         </div>
                     )}
@@ -154,7 +154,7 @@ const MarketplaceCanvasNode = ({ data }) => {
                                 textAlign: 'center'
                             }}
                         >
-                            {t('marketplaceCanvas.output', 'Output')}
+                            {t('templates.canvas.output')}
                         </Typography>
                     </Box>
                     <Divider />

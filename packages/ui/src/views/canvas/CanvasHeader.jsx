@@ -41,7 +41,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
     const location = useLocation()
     const flowNameRef = useRef()
     const settingsRef = useRef()
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
 
     const [isEditingFlowName, setEditingFlowName] = useState(null)
     const [flowName, setFlowName] = useState('')

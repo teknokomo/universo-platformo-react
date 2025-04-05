@@ -6,7 +6,7 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 
 const DeleteConfirmDialog = ({ show, dialogProps, onCancel, onDelete, onDeleteBoth }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     const component = show ? (
         <Dialog

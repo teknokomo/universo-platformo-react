@@ -153,10 +153,6 @@ const MainRoutes = {
                         {
                             path: 'templates',
                             element: <Marketplaces />
-                        },
-                        {
-                            path: 'templates/:id',
-                            element: <MarketplaceCanvas />
                         }
                     ]
                 }

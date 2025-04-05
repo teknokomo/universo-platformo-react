@@ -127,7 +127,7 @@ const DocumentStoreDetails = () => {
     const customization = useSelector((state) => state.customization)
     const navigate = useNavigate()
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
     useNotifier()
     const { confirm } = useConfirm()
 
@@ -204,7 +204,7 @@ const DocumentStoreDetails = () => {
                 setBackdropLoading(false)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('Store, Loader and associated document chunks deleted'),
+                        message: t('documentStore.messages.storeDeleted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -221,7 +221,7 @@ const DocumentStoreDetails = () => {
                 setBackdropLoading(false)
                 setError(error)
                 enqueueSnackbar({
-                    message: t('Failed to delete Document Store: {error}', { 
+                    message: t('documentStore.messages.deleteError', { 
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -242,7 +242,7 @@ const DocumentStoreDetails = () => {
                 setBackdropLoading(false)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: 'Loader and associated document chunks deleted',
+                        message: t('documentStore.messages.loaderDeleted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -259,9 +259,9 @@ const DocumentStoreDetails = () => {
                 setError(error)
                 setBackdropLoading(false)
                 enqueueSnackbar({
-                    message: `Failed to delete Document Loader: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('documentStore.messages.deleteError', { 
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -279,8 +279,8 @@ const DocumentStoreDetails = () => {
 
     const onLoaderDelete = (file, vectorStoreConfig, recordManagerConfig) => {
         const props = {
-            title: `Delete`,
-            description: `Delete Loader ${file.loaderName} ? This will delete all the associated document chunks.`,
+            title: t('documentStore.deleteDialog.title'),
+            description: t('documentStore.loaders.deleteDescription', { name: file.loaderName }),
             vectorStoreConfig,
             recordManagerConfig,
             type: 'LOADER',
@@ -293,8 +293,8 @@ const DocumentStoreDetails = () => {
 
     const onStoreDelete = (vectorStoreConfig, recordManagerConfig) => {
         const props = {
-            title: `Delete`,
-            description: `Delete Store ${getSpecificDocumentStore.data?.name} ? This will delete all the associated loaders and document chunks.`,
+            title: t('documentStore.deleteDialog.title'),
+            description: t('documentStore.deleteDialog.description').replace('{name}', getSpecificDocumentStore.data?.name),
             vectorStoreConfig,
             recordManagerConfig,
             type: 'STORE'
@@ -306,10 +306,10 @@ const DocumentStoreDetails = () => {
 
     const onStoreRefresh = async (storeId) => {
         const confirmPayload = {
-            title: `Refresh all loaders and upsert all chunks?`,
-            description: `This will re-process all loaders and upsert all chunks. This action might take some time.`,
-            confirmButtonName: 'Refresh',
-            cancelButtonName: 'Cancel'
+            title: t('documentStore.refreshDialog.title'),
+            description: t('documentStore.refreshDialog.description'),
+            confirmButtonName: t('documentStore.common.refresh'),
+            cancelButtonName: t('documentStore.common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -320,7 +320,7 @@ const DocumentStoreDetails = () => {
                 const resp = await documentsApi.refreshLoader(unikId, storeId)
                 if (resp.data) {
                     enqueueSnackbar({
-                        message: 'Document store refresh successfully!',
+                        message: t('documentStore.messages.storeRefreshed'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -336,9 +336,9 @@ const DocumentStoreDetails = () => {
             } catch (error) {
                 setBackdropLoading(false)
                 enqueueSnackbar({
-                    message: `Failed to refresh document store: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: t('documentStore.messages.refreshError', {
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -356,10 +356,10 @@ const DocumentStoreDetails = () => {
     const onEditClicked = () => {
         setAnchorEl(null)
         const dialogProp = {
-            title: t('common.edit'),
+            title: t('documentStore.common.edit'),
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('documentStore.common.cancel'),
+            confirmButtonName: t('documentStore.common.save'),
             data: {
                 id: storeId,
                 name: documentStore?.name,
@@ -729,7 +729,7 @@ const DocumentStoreDetails = () => {
 function LoaderRow(props) {
     const [anchorEl, setAnchorEl] = useState(null)
     const open = Boolean(anchorEl)
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     const handleClick = (event) => {
         event.preventDefault()

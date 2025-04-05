@@ -54,7 +54,7 @@ const ShowStoredChunks = () => {
     const dispatch = useDispatch()
     const theme = useTheme()
     const { confirm } = useConfirm()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -137,9 +137,9 @@ const ShowStoredChunks = () => {
     const onDeleteChunk = async (chunk) => {
         const confirmPayload = {
             title: t('documentStore.chunks.delete'),
-            description: t('documentStore.chunks.deleteConfirm', { id: chunk.id }),
-            confirmButtonName: t('common.delete'),
-            cancelButtonName: t('common.cancel')
+            description: t('documentStore.chunks.deleteConfirm').replace('{{id}}', chunk.id),
+            confirmButtonName: t('documentStore.common.delete'),
+            cancelButtonName: t('documentStore.common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 

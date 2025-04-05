@@ -21,7 +21,7 @@ const ChatbotFull = () => {
     const URLpath = document.location.pathname.toString().split('/')
     const chatflowId = URLpath[URLpath.length - 1] === 'chatbot' ? '' : URLpath[URLpath.length - 1]
     const navigate = useNavigate()
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatmessage')
 
     const [chatflow, setChatflow] = useState(null)
     const [chatbotTheme, setChatbotTheme] = useState({})
@@ -52,8 +52,8 @@ const ChatbotFull = () => {
                     getSpecificChatflowApi.request(chatflowId)
                 } else {
                     setLoginDialogProps({
-                        title: t('common.login'),
-                        confirmButtonName: t('common.login')
+                        title: t('chatMessage.common.login'),
+                        confirmButtonName: t('chatMessage.common.login')
                     })
                     setLoginDialogOpen(true)
                 }
@@ -66,8 +66,8 @@ const ChatbotFull = () => {
         if (getSpecificChatflowApi.error) {
             if (getSpecificChatflowApi.error?.response?.status === 401) {
                 setLoginDialogProps({
-                    title: t('common.login'),
-                    confirmButtonName: t('common.login')
+                    title: t('chatMessage.common.login'),
+                    confirmButtonName: t('chatMessage.common.login')
                 })
                 setLoginDialogOpen(true)
             }

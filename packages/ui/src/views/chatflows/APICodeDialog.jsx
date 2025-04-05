@@ -92,7 +92,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const apiConfig = chatflow?.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
     const overrideConfigStatus = apiConfig?.overrideConfig?.status !== undefined ? apiConfig.overrideConfig.status : false
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatflows')
 
     const codes = ['Embed', 'Python', 'JavaScript', 'cURL', 'Share Chatbot']
     const [value, setValue] = useState(0)
@@ -632,7 +632,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
         if (getAllAPIKeysApi.data) {
             const options = [
                 {
-                    label: t('apiCodeDialog.noAuthorization'),
+                    label: t('chatflows.apiCodeDialog.noAuthorization'),
                     name: ''
                 }
             ]
@@ -643,7 +643,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                 })
             }
             options.push({
-                label: t('apiCodeDialog.addNewKey'),
+                label: t('chatflows.apiCodeDialog.addNewKey'),
                 name: 'addnewkey'
             })
             setKeyOptions(options)
@@ -700,7 +700,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                             disableClearable={true}
                             options={keyOptions}
                             onSelect={(newValue) => onApiKeySelected(newValue)}
-                            value={dialogProps.chatflowApiKeyId ?? chatflowApiKeyId ?? t('apiCodeDialog.chooseApiKey')}
+                            value={dialogProps.chatflowApiKeyId ?? chatflowApiKeyId ?? t('chatflows.apiCodeDialog.chooseApiKey')}
                         />
                     </div>
                 </div>
@@ -709,9 +709,9 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                     <TabPanel key={index} value={value} index={index}>
                         {(codeLang === 'Embed' || codeLang === 'Share Chatbot') && chatflowApiKeyId && (
                             <>
-                                <p>{t('apiCodeDialog.cannotUseApiKey')}</p>
+                                <p>{t('chatflows.apiCodeDialog.cannotUseApiKey')}</p>
                                 <p>
-                                    <Trans i18nKey="apiCodeDialog.selectNoAuthorization" components={{ b: <b /> }} />
+                                    <Trans i18nKey="chatflows.apiCodeDialog.selectNoAuthorization" components={{ b: <b /> }} />
                                 </p>
                             </>
                         )}
@@ -725,11 +725,11 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                     showLineNumbers={false}
                                     wrapLines
                                 />
-                                <CheckboxInput label={t('apiCodeDialog.showOverrideConfig')} value={checkboxVal} onChange={onCheckBoxChanged} />
+                                <CheckboxInput label={t('chatflows.apiCodeDialog.showOverrideConfig')} value={checkboxVal} onChange={onCheckBoxChanged} />
                                 {checkboxVal && getConfigApi.data && getConfigApi.data.length > 0 && (
                                     <>
                                         <Typography sx={{ mt: 2 }}>
-                                            {t('apiCodeDialog.overrideConfigDescription')}
+                                            {t('chatflows.apiCodeDialog.overrideConfigDescription')}
                                         </Typography>
                                         <div
                                             style={{
@@ -751,16 +751,16 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             >
                                                 <IconExclamationCircle size={30} color='rgb(116,66,16)' />
                                                 <span style={{ color: 'rgb(116,66,16)', marginLeft: 10, fontWeight: 500 }}>
-                                                    {t('apiCodeDialog.securityNote')}
-                                                    &nbsp;{t('apiCodeDialog.refer')}{' '}
+                                                    {t('chatflows.apiCodeDialog.securityNote')}
+                                                    &nbsp;{t('chatflows.apiCodeDialog.refer')}{' '}
                                                     <a
                                                         rel='noreferrer'
                                                         target='_blank'
                                                         href='https://docs.flowiseai.com/using-flowise/api#override-config'
                                                     >
-                                                        {t('apiCodeDialog.here')}
+                                                        {t('chatflows.apiCodeDialog.here')}
                                                     </a>{' '}
-                                                    {t('apiCodeDialog.forMoreDetails')}
+                                                    {t('chatflows.apiCodeDialog.forMoreDetails')}
                                                 </span>
                                             </div>
                                         </div>
@@ -768,7 +768,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 2 }} variant='outlined'>
                                                 <Stack sx={{ mt: 1, mb: 2, ml: 1, alignItems: 'center' }} direction='row' spacing={2}>
                                                     <IconBox />
-                                                    <Typography variant='h4'>{t('apiCodeDialog.nodes')}</Typography>
+                                                    <Typography variant='h4'>{t('chatflows.apiCodeDialog.nodes')}</Typography>
                                                 </Stack>
                                                 {Object.keys(nodeConfig)
                                                     .sort()
@@ -832,7 +832,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 2 }} variant='outlined'>
                                                 <Stack sx={{ mt: 1, mb: 2, ml: 1, alignItems: 'center' }} direction='row' spacing={2}>
                                                     <IconVariable />
-                                                    <Typography variant='h4'>{t('apiCodeDialog.variables')}</Typography>
+                                                    <Typography variant='h4'>{t('chatflows.apiCodeDialog.variables')}</Typography>
                                                 </Stack>
                                                 <TableViewOnly rows={variableOverrides} columns={['name', 'type', 'enabled']} />
                                             </Card>
@@ -872,7 +872,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             >
                                                 <IconBulb size={30} color='#2d6a4f' />
                                                 <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>
-                                                    {t('apiCodeDialog.multipleValuesNote')}
+                                                    {t('chatflows.apiCodeDialog.multipleValuesNote')}
                                                 </span>
                                             </div>
                                             <div style={{ padding: 10 }}>
@@ -893,11 +893,11 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                 )}
                                 {getIsChatflowStreamingApi.data?.isStreaming && (
                                     <p>
-                                        {t('apiCodeDialog.readHere')}&nbsp;
+                                        {t('chatflows.apiCodeDialog.readHere')}&nbsp;
                                         <a rel='noreferrer' target='_blank' href='https://docs.flowiseai.com/using-flowise/streaming'>
-                                            {t('apiCodeDialog.here')}
+                                            {t('chatflows.apiCodeDialog.here')}
                                         </a>
-                                        &nbsp;{t('apiCodeDialog.streamingNote')}
+                                        &nbsp;{t('chatflows.apiCodeDialog.streamingNote')}
                                     </p>
                                 )}
                             </>

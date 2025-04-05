@@ -21,7 +21,7 @@ const StickyNote = ({ data }) => {
     const canvas = useSelector((state) => state.canvas)
     const { deleteNode, duplicateNode } = useContext(flowContext)
     const [inputParam] = data.inputParams
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
 
     const [open, setOpen] = useState(false)
 
@@ -58,7 +58,7 @@ const StickyNote = ({ data }) => {
                             }}
                         >
                             <IconButton
-                                title={t('common.edit')}
+                                title={t('canvas.common.edit')}
                                 onClick={() => {
                                     duplicateNode(data.id)
                                 }}
@@ -68,7 +68,7 @@ const StickyNote = ({ data }) => {
                                 <IconCopy />
                             </IconButton>
                             <IconButton
-                                title={t('common.delete')}
+                                title={t('canvas.common.delete')}
                                 onClick={() => {
                                     deleteNode(data.id)
                                 }}

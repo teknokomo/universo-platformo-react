@@ -32,7 +32,7 @@ import useNotifier from '@/utils/useNotifier'
 
 const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation('api-keys')
 
     const theme = useTheme()
     const dispatch = useDispatch()

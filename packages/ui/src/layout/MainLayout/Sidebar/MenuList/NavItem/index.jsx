@@ -20,7 +20,7 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     const theme = useTheme()
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation('menu')
     const customization = useSelector((state) => state.customization)
     const matchesSM = useMediaQuery(theme.breakpoints.down('lg'))
     const location = useLocation()

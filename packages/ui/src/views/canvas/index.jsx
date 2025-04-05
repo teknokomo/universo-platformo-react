@@ -67,7 +67,7 @@ const Canvas = () => {
     const chatflowId = id === 'new' ? undefined : id
     const location = useLocation()
     const templateFlowData = location.state ? location.state.templateFlowData : ''
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
 
     // Get unikId from URL params or state
     let parentUnikId = location.state?.unikId || unikId || localStorage.getItem('parentUnikId') || ''

@@ -63,7 +63,7 @@ const FeatureCards = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
     const customization = useSelector((state) => state.customization)
 
     const onCardClick = (index) => {
@@ -122,7 +122,7 @@ const FeatureCards = () => {
 
 const Assistants = () => {
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     if (!unikId) {
         console.error('Unik ID is missing in URL')

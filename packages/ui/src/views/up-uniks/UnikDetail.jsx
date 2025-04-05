@@ -6,7 +6,7 @@ import api from '@/api'
 
 const UnikDetail = () => {
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('uniks')
     const navigate = useNavigate()
     const [unik, setUnik] = useState(null)
 
@@ -21,16 +21,16 @@ const UnikDetail = () => {
     return (
         <Box sx={{ padding: 2 }}>
             <Typography variant='h4' gutterBottom>
-                {t('unikDetail.dashboard')}
+                {t('uniks.unikDetail.dashboard')}
             </Typography>
             <Typography variant='body1' sx={{ mb: 2 }}>
-                {t('unikDetail.welcome')} <strong>{unik.name}</strong>
+                {t('uniks.unikDetail.welcome')} <strong>{unik.name}</strong>
             </Typography>
             <Typography variant='body2' sx={{ mb: 2 }}>
-                {t('unikDetail.navigation')}
+                {t('uniks.unikDetail.navigation')}
             </Typography>
             <Button variant='outlined' onClick={() => navigate('/uniks')}>
-                {t('unikDetail.back')}
+                {t('uniks.unikDetail.back')}
             </Button>
         </Box>
     )

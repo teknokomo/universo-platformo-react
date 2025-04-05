@@ -30,7 +30,7 @@ import useNotifier from '@/utils/useNotifier'
 const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     // ==============================|| Snackbar ||============================== //
 
@@ -110,7 +110,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                         <Typography>
-                            {t('common.name')}<span style={{ color: 'red' }}>&nbsp;*</span>
+                            {t('assistants.common.name')}<span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
 
                         <div style={{ flexGrow: 1 }}></div>
@@ -127,7 +127,7 @@ const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) =>
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => onCancel()}>{t('common.cancel')}</Button>
+                <Button onClick={() => onCancel()}>{t('assistants.common.cancel')}</Button>
                 <StyledButton disabled={!customAssistantName} variant='contained' onClick={() => createCustomAssistant()}>
                     {dialogProps.confirmButtonName}
                 </StyledButton>

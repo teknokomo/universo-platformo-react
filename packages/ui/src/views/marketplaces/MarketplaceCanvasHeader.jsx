@@ -16,12 +16,12 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
     const theme = useTheme()
     const navigate = useNavigate()
     const location = useLocation()
-    const { t } = useTranslation()
+    const { t } = useTranslation('templates')
 
     return (
         <>
             <Box>
-                <ButtonBase title={t('common.back', 'Back')} sx={{ borderRadius: '50%' }}>
+                <ButtonBase title={t('templates.common.back')} sx={{ borderRadius: '50%' }}>
                     <Avatar
                         variant='rounded'
                         sx={{
@@ -75,11 +75,11 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                 <StyledButton
                     color='secondary'
                     variant='contained'
-                    title={t('marketplaceCanvas.useChatflow', 'Use Chatflow')}
+                    title={t('templates.canvas.useChatflow')}
                     onClick={() => onChatflowCopy(flowData)}
                     startIcon={<IconCopy />}
                 >
-                    {t('marketplaceCanvas.useTemplate', 'Use Template')}
+                    {t('templates.canvas.useTemplate')}
                 </StyledButton>
             </Box>
         </>

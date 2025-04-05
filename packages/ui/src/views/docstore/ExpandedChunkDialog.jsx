@@ -18,7 +18,7 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
 
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     const [selectedChunk, setSelectedChunk] = useState()
     const [selectedChunkNumber, setSelectedChunkNumber] = useState()
@@ -94,19 +94,19 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                             </IconButton>
                         )}
                         {isEdit && !isReadOnly && (
-                            <Button onClick={() => onEditCancel()} color='primary' title={t('common.cancel')} sx={{ ml: 2 }}>
-                                {t('common.cancel')}
+                            <Button onClick={() => onEditCancel()} color='primary' title={t('documentStore.common.cancel')} sx={{ ml: 2 }}>
+                                {t('documentStore.common.cancel')}
                             </Button>
                         )}
                         {isEdit && !isReadOnly && (
                             <Button
                                 onClick={() => onEditSaved(true)}
                                 color='primary'
-                                title={t('common.save')}
+                                title={t('documentStore.common.save')}
                                 variant='contained'
                                 sx={{ ml: 2, mr: 1 }}
                             >
-                                {t('common.save')}
+                                {t('documentStore.common.save')}
                             </Button>
                         )}
                         {!isEdit && !isReadOnly && (
@@ -120,7 +120,7 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                                 <IconTrash />
                             </IconButton>
                         )}
-                        <IconButton onClick={onCancel} size='small' color='inherit' title={t('common.close')} sx={{ ml: 1 }}>
+                        <IconButton onClick={onCancel} size='small' color='inherit' title={t('documentStore.common.close')} sx={{ ml: 1 }}>
                             <IconX />
                         </IconButton>
                     </div>

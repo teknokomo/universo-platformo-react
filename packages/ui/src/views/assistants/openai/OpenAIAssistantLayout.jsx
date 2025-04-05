@@ -30,7 +30,7 @@ import { gridSpacing } from '@/store/constant'
 const OpenAIAssistantLayout = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
@@ -64,8 +64,8 @@ const OpenAIAssistantLayout = () => {
         const dialogProp = {
             title: t('assistants.addNewAssistant'),
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('assistants.common.cancel'),
+            confirmButtonName: t('assistants.common.add'),
             selectedOpenAIAssistantId,
             credential,
             unikId
@@ -78,8 +78,8 @@ const OpenAIAssistantLayout = () => {
         const dialogProp = {
             title: t('assistants.editAssistant'),
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('assistants.common.cancel'),
+            confirmButtonName: t('assistants.common.save'),
             data: selectedAssistant,
             unikId
         }
@@ -143,7 +143,7 @@ const OpenAIAssistantLayout = () => {
                                 onClick={() => addNew()}
                                 startIcon={<IconPlus />}
                             >
-                                {t('common.add')}
+                                {t('assistants.common.add')}
                             </StyledButton>
                         </ViewHeader>
                         {isLoading ? (

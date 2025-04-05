@@ -4,11 +4,11 @@ import api from '@/api'
 import { Box, Table, TableHead, TableRow, TableCell, TableBody, Button, Checkbox } from '@mui/material'
 
 const AdminPanel = () => {
-    const { t } = useTranslation()
+    const { t } = useTranslation('admin')
     const [users, setUsers] = useState([])
 
     useEffect(() => {
-        // Запрос списка пользователей через API
+        // Fetch list of users through API
         api.get('/api/v1/users')
             .then((res) => setUsers(res.data))
             .catch((err) => console.error('Error fetching users:', err))
@@ -43,14 +43,14 @@ const AdminPanel = () => {
 
     return (
         <Box sx={{ padding: 2 }}>
-            <h1>{t('admin.title')}</h1>
+            <h1>{t('title')}</h1>
             <Table>
                 <TableHead>
                     <TableRow>
-                        <TableCell>{t('admin.email')}</TableCell>
-                        <TableCell>{t('admin.superAdmin')}</TableCell>
-                        <TableCell>{t('admin.banned')}</TableCell>
-                        <TableCell>{t('admin.actions')}</TableCell>
+                        <TableCell>{t('email')}</TableCell>
+                        <TableCell>{t('superAdmin')}</TableCell>
+                        <TableCell>{t('banned')}</TableCell>
+                        <TableCell>{t('actions')}</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -68,7 +68,7 @@ const AdminPanel = () => {
                             </TableCell>
                             <TableCell>
                                 <Button variant='outlined' color='error' onClick={() => handleDelete(user.id)}>
-                                    {t('admin.delete')}
+                                    {t('delete')}
                                 </Button>
                             </TableCell>
                         </TableRow>

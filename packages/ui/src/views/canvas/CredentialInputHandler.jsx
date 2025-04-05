@@ -20,7 +20,7 @@ import credentialsApi from '@/api/credentials'
 const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }) => {
     const ref = useRef(null)
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('canvas')
     const [credentialId, setCredentialId] = useState(data?.credential ?? '')
     const [showCredentialListDialog, setShowCredentialListDialog] = useState(false)
     const [credentialListDialogProps, setCredentialListDialogProps] = useState({})
@@ -31,8 +31,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
     const editCredential = (credentialId) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('canvas.common.cancel'),
+            confirmButtonName: t('canvas.common.save'),
             credentialId,
             unikId
         }
@@ -52,7 +52,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
             if (componentCredentialsResp.data) {
                 if (Array.isArray(componentCredentialsResp.data)) {
                     const dialogProp = {
-                        title: t('credentials.addNew'),
+                        title: t('canvas.credentials.addNew'),
                         componentsCredentials: componentCredentialsResp.data
                     }
                     setCredentialListDialogProps(dialogProp)
@@ -60,8 +60,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                 } else {
                     const dialogProp = {
                         type: 'ADD',
-                        cancelButtonName: t('common.cancel'),
-                        confirmButtonName: t('common.add'),
+                        cancelButtonName: t('canvas.common.cancel'),
+                        confirmButtonName: t('canvas.common.add'),
                         credentialComponent: componentCredentialsResp.data,
                         unikId
                     }
@@ -86,8 +86,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
         setShowCredentialListDialog(false)
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: 'Cancel',
-            confirmButtonName: 'Add',
+            cancelButtonName: t('canvas.common.cancel'),
+            confirmButtonName: t('canvas.common.add'),
             credentialComponent,
             unikId
         }
@@ -109,7 +109,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                 disabled={disabled}
                                 name={inputParam.name}
                                 nodeData={data}
-                                value={credentialId ?? t('credentials.chooseAnOption')}
+                                value={credentialId ?? t('canvas.credentials.chooseAnOption')}
                                 isCreateNewOption={true}
                                 credentialNames={inputParam.credentialNames}
                                 onSelect={(newValue) => {
@@ -120,7 +120,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                 unikId={unikId}
                             />
                             {credentialId && (
-                                <IconButton title={t('common.edit')} color='primary' size='small' onClick={() => editCredential(credentialId)}>
+                                <IconButton title={t('canvas.common.edit')} color='primary' size='small' onClick={() => editCredential(credentialId)}>
                                     <IconEdit />
                                 </IconButton>
                             )}

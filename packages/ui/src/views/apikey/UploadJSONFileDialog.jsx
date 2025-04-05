@@ -51,7 +51,7 @@ const importModes = [
 
 const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation('api-keys')
 
     const dispatch = useDispatch()
 

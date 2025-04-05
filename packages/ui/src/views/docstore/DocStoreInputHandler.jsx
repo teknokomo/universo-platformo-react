@@ -29,7 +29,7 @@ import { FLOWISE_CREDENTIAL_ID } from '@/store/constant'
 
 const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
     const customization = useSelector((state) => state.customization)
-    const { t } = useTranslation()
+    const { t } = useTranslation(['document-store', 'vector-store'])
 
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -42,8 +42,8 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
             value,
             inputParam,
             disabled,
-            confirmButtonName: t('common.save'),
-            cancelButtonName: t('common.cancel')
+            confirmButtonName: t('documentStore.common.save'),
+            cancelButtonName: t('documentStore.common.cancel')
         }
         setExpandDialogProps(dialogProps)
         setShowExpandDialog(true)
@@ -55,8 +55,8 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
             relativeLinksMethod,
             limit,
             selectedLinks,
-            confirmButtonName: t('common.save'),
-            cancelButtonName: t('common.cancel')
+            confirmButtonName: t('documentStore.common.save'),
+            cancelButtonName: t('documentStore.common.cancel')
         }
         setManageScrapedLinksDialogProps(dialogProps)
         setShowManageScrapedLinksDialog(true)
@@ -92,19 +92,19 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
         if (label === 'Omit Metadata Keys') return t('documentStore.loaders.pdf.omitMetadataKeys')
         
         // Vector Store fields
-        if (label === 'Connect Credential') return t('vectorStore.formFields.connectCredential')
-        if (label === 'Model') return t('vectorStore.formFields.model')
-        if (label === 'Endpoint') return t('vectorStore.formFields.endpoint')
-        if (label === 'Table Name') return t('vectorStore.formFields.tableName')
-        if (label === 'Namespace') return t('vectorStore.formFields.namespace')
-        if (label === 'Cleanup') return t('vectorStore.formFields.cleanup')
-        if (label === 'None') return t('vectorStore.formFields.none')
-        if (label === 'SourceId Key') return t('vectorStore.formFields.sourceIdKey')
-        if (label === 'Additional Connection Configuration') return t('vectorStore.formFields.additionalConnection')
-        if (label === 'Project URL') return t('vectorStore.formFields.projectUrl')
-        if (label === 'Query Name') return t('vectorStore.formFields.queryName')
-        if (label === 'Metadata Filter') return t('vectorStore.formFields.metadataFilter')
-        if (label === 'RPC Filter') return t('vectorStore.formFields.rpcFilter')
+        if (label === 'Connect Credential') return t('vector-store:vectorStore.formFields.connectCredential')
+        if (label === 'Model') return t('vector-store:vectorStore.formFields.model')
+        if (label === 'Endpoint') return t('vector-store:vectorStore.formFields.endpoint')
+        if (label === 'Table Name') return t('vector-store:vectorStore.formFields.tableName')
+        if (label === 'Namespace') return t('vector-store:vectorStore.formFields.namespace')
+        if (label === 'Cleanup') return t('vector-store:vectorStore.formFields.cleanup')
+        if (label === 'None') return t('vector-store:vectorStore.formFields.none')
+        if (label === 'SourceId Key') return t('vector-store:vectorStore.formFields.sourceIdKey')
+        if (label === 'Additional Connection Configuration') return t('vector-store:vectorStore.formFields.additionalConnection')
+        if (label === 'Project URL') return t('vector-store:vectorStore.formFields.projectUrl')
+        if (label === 'Query Name') return t('vector-store:vectorStore.formFields.queryName')
+        if (label === 'Metadata Filter') return t('vector-store:vectorStore.formFields.metadataFilter')
+        if (label === 'RPC Filter') return t('vector-store:vectorStore.formFields.rpcFilter')
         
         return label
     }
@@ -128,7 +128,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                         height: 25,
                                         width: 25
                                     }}
-                                    title={t('common.expand')}
+                                    title={t('documentStore.common.expand')}
                                     color='primary'
                                     onClick={() =>
                                         onExpandDialogClicked(data.inputs[inputParam.name] ?? inputParam.default ?? '', inputParam)

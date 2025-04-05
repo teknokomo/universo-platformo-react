@@ -35,7 +35,7 @@ import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 const Chatflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatflows')
     const { unikId } = useParams() // Get Unik ID
     const location = useLocation() // Get location object for access to state
     const [isLoading, setLoading] = useState(true)
@@ -99,8 +99,8 @@ const Chatflows = () => {
         if (getAllChatflowsApi.error) {
             if (getAllChatflowsApi.error?.response?.status === 401) {
                 setLoginDialogProps({
-                    title: t('common.login'),
-                    confirmButtonName: t('common.login')
+                    title: t('chatflows.common.login'),
+                    confirmButtonName: t('chatflows.common.login')
                 })
                 setLoginDialogOpen(true)
             } else {
@@ -159,7 +159,7 @@ const Chatflows = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('common.cardView')}
+                                title={t('chatflows.common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -171,13 +171,13 @@ const Chatflows = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('common.listView')}
+                                title={t('chatflows.common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
                         <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-                            {t('common.addNew')}
+                            {t('chatflows.common.addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -215,7 +215,7 @@ const Chatflows = () => {
                                     alt='WorkflowEmptySVG'
                                 />
                             </Box>
-                            <div>No Chatflows Yet</div>
+                            <div>{t('chatflows.noChatflowsYet')}</div>
                         </Stack>
                     )}
                 </Stack>

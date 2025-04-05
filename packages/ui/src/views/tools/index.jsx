@@ -32,7 +32,7 @@ const Tools = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['tools'])
     const getAllToolsApi = useApi(() => toolsApi.getAllTools(unikId))
 
     const [isLoading, setLoading] = useState(true)
@@ -54,8 +54,8 @@ const Tools = () => {
             const dialogProp = {
                 title: t('tools.dialog.addNewTool'),
                 type: 'IMPORT',
-                cancelButtonName: t('common.cancel'),
-                confirmButtonName: t('common.save'),
+                cancelButtonName: t('tools.common.cancel'),
+                confirmButtonName: t('tools.common.save'),
                 data: JSON.parse(file)
             }
             setDialogProps(dialogProp)
@@ -85,8 +85,8 @@ const Tools = () => {
         const dialogProp = {
             title: t('tools.dialog.addNewTool'),
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('tools.common.cancel'),
+            confirmButtonName: t('tools.common.add'),
             unikId: unikId
         }
         setDialogProps(dialogProp)
@@ -97,8 +97,8 @@ const Tools = () => {
         const dialogProp = {
             title: t('tools.dialog.editTool'),
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('tools.common.cancel'),
+            confirmButtonName: t('tools.common.save'),
             data: selectedTool,
             unikId: unikId
         }
@@ -163,7 +163,7 @@ const Tools = () => {
                                     }}
                                     variant='contained'
                                     value='card'
-                                    title={t('common.cardView')}
+                                    title={t('tools.common.cardView')}
                                 >
                                     <IconLayoutGrid />
                                 </ToggleButton>
@@ -175,7 +175,7 @@ const Tools = () => {
                                     }}
                                     variant='contained'
                                     value='list'
-                                    title={t('common.listView')}
+                                    title={t('tools.common.listView')}
                                 >
                                     <IconList />
                                 </ToggleButton>

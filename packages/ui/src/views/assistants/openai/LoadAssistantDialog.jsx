@@ -13,7 +13,7 @@ import { useParams } from 'react-router-dom'
 const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected, setError }) => {
     const portalElement = document.getElementById('portal')
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation('assistants')
 
     const getAllAvailableAssistantsApi = useApi(assistantsApi.getAllAvailableAssistants)
 
@@ -74,7 +74,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                         key={credentialId}
                         data={credentialId ? { credential: credentialId } : {}}
                         inputParam={{
-                            label: t('vectorStore.formFields.connectCredential'),
+                            label: t('assistants.vectorStore.credential'),
                             name: 'credential',
                             type: 'credential',
                             credentialNames: ['openAIApi']

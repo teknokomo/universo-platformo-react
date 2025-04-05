@@ -63,7 +63,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
 
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['tools'])
 
     // ==============================|| Snackbar ||============================== //
 
@@ -160,7 +160,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 type: 'actions',
                 width: 80,
                 getActions: (params) => [
-                    <GridActionsCellItem key={'Delete'} icon={<DeleteIcon />} label={t('tools.dialog.delete')} onClick={deleteItem(params.id)} />
+                    <GridActionsCellItem key={'Delete'} icon={<DeleteIcon />} label={t('tools.common.delete')} onClick={deleteItem(params.id)} />
                 ]
             }
         ],
@@ -259,7 +259,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to export Tool: ${
+                message: `${t('tools.errors.failedToExport')}: ${
                     typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }`,
                 options: {
@@ -291,7 +291,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             const createResp = await toolsApi.createNewTool(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: 'New Tool added',
+                    message: t('tools.notifications.toolAdded'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -306,7 +306,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to add new Tool: ${
+                message: `${t('tools.errors.failedToAdd')}: ${
                     error.response && typeof error.response.data === 'object' 
                         ? error.response.data.message 
                         : error.response ? error.response.data : error.message
@@ -337,7 +337,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             })
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: 'Tool saved',
+                    message: t('tools.notifications.toolSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -352,7 +352,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save Tool: ${
+                message: `${t('tools.errors.failedToSave')}: ${
                     typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }`,
                 options: {
@@ -373,7 +373,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
     const deleteTool = async () => {
         const confirmPayload = {
             title: t('tools.dialog.deleteTool'),
-            description: t('tools.dialog.deleteToolConfirm', { name: toolName }),
+            description: t('tools.dialog.deleteToolConfirm').replace('{name}', toolName),
             confirmButtonName: t('tools.dialog.delete'),
             cancelButtonName: t('common.cancel')
         }
@@ -384,7 +384,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 const delResp = await toolsApi.deleteTool(dialogProps.unikId, toolId)
                 if (delResp.data) {
                     enqueueSnackbar({
-                        message: 'Tool deleted',
+                        message: t('tools.notifications.toolDeleted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -399,7 +399,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: `Failed to delete Tool: ${
+                    message: `${t('tools.errors.failedToDelete')}: ${
                         typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }`,
                     options: {
@@ -470,7 +470,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                             type='string'
                             fullWidth
                             disabled={dialogProps.type === 'TEMPLATE'}
-                            placeholder='My New Tool'
+                            placeholder={t('tools.dialog.placeholders.toolName')}
                             value={toolName}
                             name='toolName'
                             onChange={(e) => setToolName(e.target.value)}
@@ -491,7 +491,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                             type='string'
                             fullWidth
                             disabled={dialogProps.type === 'TEMPLATE'}
-                            placeholder='Description of what the tool does. This is for ChatGPT to determine when to use this tool.'
+                            placeholder={t('tools.dialog.placeholders.toolDescription')}
                             multiline={true}
                             rows={3}
                             value={toolDesc}
@@ -568,7 +568,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             <DialogActions sx={{ p: 3 }}>
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='error' variant='contained' onClick={() => deleteTool()}>
-                        {t('tools.dialog.delete')}
+                        {t('tools.common.delete')}
                     </StyledButton>
                 )}
                 {dialogProps.type === 'TEMPLATE' && (
@@ -582,7 +582,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                         variant='contained'
                         onClick={() => (dialogProps.type === 'ADD' || dialogProps.type === 'IMPORT' ? addNewTool() : saveTool())}
                     >
-                        {t(dialogProps.confirmButtonName) || t('common.save')}
+                        {t(dialogProps.confirmButtonName) || t('tools.common.save')}
                     </StyledButton>
                 )}
             </DialogActions>
