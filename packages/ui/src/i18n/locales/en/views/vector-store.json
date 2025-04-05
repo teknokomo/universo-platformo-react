@@ -1,0 +1,151 @@
+{
+  "vectorStore": {
+    "title": "Vector Store",
+    "createNew": "Create New",
+    "table": {
+      "loader": "Loader",
+      "splitter": "Splitter",
+      "sources": "Sources",
+      "chunks": "Chunks",
+      "chars": "Characters",
+      "actions": "Actions"
+    },
+    "files": "files",
+    "name": "Store Name",
+    "myVectorStore": "My vector store",
+    "expiration": "Expiration",
+    "expirationDays": "Days Until Expiration",
+    "selectVectorStore": "Select Vector Store",
+    "addSuccess": "Vector Store successfully added",
+    "addError": "Failed to add Vector Store: {{error}}",
+    "saveSuccess": "Vector Store successfully saved",
+    "saveError": "Failed to save Vector Store: {{error}}",
+    "deleteSuccess": "Vector Store successfully deleted",
+    "deleteError": "Failed to delete Vector Store: {{error}}",
+    "formFields": {
+      "connectCredential": "Connect Credential",
+      "model": "Model",
+      "endpoint": "Endpoint",
+      "tableName": "Table Name",
+      "namespace": "Namespace",
+      "cleanup": "Cleanup",
+      "none": "None",
+      "sourceIdKey": "Source ID Key",
+      "additionalConnection": "Additional Connection Setting",
+      "items": "items",
+      "projectUrl": "Project URL",
+      "queryName": "Query Name",
+      "metadataFilter": "Metadata Filter",
+      "rpcFilter": "RPC Filter"
+    },
+    "configureDescription": "Configure Embeddings, Vector Store and Record Manager",
+    "clearSearch": "Clear Search",
+    "selectProvider": "Select Vector Store Provider",
+    "messages": {
+      "configSaved": "Configuration saved successfully",
+      "mandatoryFields": "Please fill in all mandatory fields."
+    },
+    "actions": {
+      "reset": "Reset",
+      "saveConfig": "Save Configuration",
+      "upsert": "Upsert",
+      "upsertHistory": "Upsert History"
+    },
+    "steps": {
+      "embeddings": "Embeddings",
+      "vector_store": "Vector Store",
+      "record_manager": "Record Manager"
+    },
+    "embeddings": {
+      "selectProvider": "Select Embeddings Provider",
+      "selectEmbeddings": "Select Embeddings"
+    },
+    "recordManager": {
+      "selectProvider": "Select Record Manager",
+      "selectRecordManager": "Select Record Manager",
+      "notApplicable": "Record Manager not applicable for selected Vector Store"
+    },
+    "upsertResult": {
+      "title": "Upsert Records",
+      "added": "Added",
+      "updated": "Updated",
+      "skipped": "Skipped",
+      "deleted": "Deleted",
+      "addedDocuments": "Added Documents: {count}",
+      "testRetrieval": "Test Retrieval"
+    },
+    "query": {
+      "documentStore": "Document Store",
+      "description": "Test Retrieval - Verify Vector Store Settings",
+      "enterQuery": "Enter Query",
+      "retrievedDocuments": "Retrieved Documents",
+      "countAndTime": "Count: {{count}}. Execution Time: {{time}} ms.",
+      "noDocuments": "No documents found",
+      "configSuccess": "Vector Store Configuration updated successfully",
+      "configError": "Failed to update Vector Store Configuration: {{error}}"
+    },
+    "index": "Index",
+    "nodeId": "Node ID",
+    "content": "Content",
+    "addedVectors": "Added Vectors",
+    "updatedVectors": "Updated Vectors",
+    "deletedVectors": "Deleted Vectors",
+    "skippedVectors": "Skipped Vectors",
+    "date": "Date",
+    "action": "Action",
+    "search": "Search",
+    "clearHistory": "Clear History",
+    "clearHistoryConfirm": "Are you sure you want to clear all history?",
+    "historyClearSuccess": "History cleared successfully",
+    "historyClearError": "Failed to clear history",
+    "deleteRecord": "Delete Record",
+    "deleteRecordConfirm": "Are you sure you want to delete record from {{name}}?",
+    "historyDeleteSuccess": "Record deleted successfully",
+    "historyDeleteError": "Failed to delete record",
+    "noHistory": "No upsert history yet",
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "close": "Close",
+    "upsertHistory": {
+      "deleteSuccess": "Upsert History deleted successfully",
+      "deleteError": "Failed to delete upsert history: {{error}}",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "delete": "Delete",
+      "row": "row",
+      "rows": "rows",
+      "noHistory": "No upsert history yet",
+      "date": "Date",
+      "added": "Added",
+      "updated": "Updated",
+      "skipped": "Skipped",
+      "deleted": "Deleted",
+      "details": "Details",
+      "empty": "No Upsert History",
+      "tooltips": {
+        "added": "The number of vector embeddings added into the vector store",
+        "updated": "Updated existing vector embeddings. Only works when record manager is connected to vector store",
+        "skipped": "The number of same vector embeddings that exists and was skipped for re-upsert. Only works when record manager is connected to vector store",
+        "deleted": "Deleted vector embeddings. Only works when record manager is connected with cleanup method to vector store"
+      }
+    },
+    "upsertTitle": "Upsert Vector Store",
+    "upsertDatabase": "Upsert Vector Database",
+    "upsert": "Upsert",
+    "upsertSuccess": "Vector Store successfully upserted. You can start chatting now!",
+    "upsertError": "{{error}}",
+    "showAPI": "Show API",
+    "securityWarning": "For security reasons, the override of configuration is disabled by default. You can change that by going to Chatflow Configuration -> Security tab, and enable the property that you want to override.",
+    "multiValuesNote": "You can also specify multiple values for config parameter by specifying node id",
+    "common": {
+      "refer": "Refer",
+      "here": "here",
+      "forMoreDetails": "for more details",
+      "close": "Close"
+    },
+    "refer": "Refer",
+    "here": "here",
+    "forMoreDetails": "for more details"
+  }
+} 

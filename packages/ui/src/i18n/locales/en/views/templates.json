@@ -1,0 +1,45 @@
+{
+  "templates": {
+    "title": "Templates",
+    "search": "Search Name/Description/Node",
+    "tag": "Tag",
+    "type": "Type",
+    "framework": "Framework",
+    "communityTemplates": "Community Templates",
+    "myTemplates": "My Templates",
+    "saveAsTemplate": "Save As Template",
+    "export": "Export",
+    "noTemplatesYet": "No Templates Yet",
+    "noSavedCustomTemplates": "No Saved Custom Templates",
+    "confirmDelete": "Delete",
+    "confirmDeleteDescription": "Delete Custom Template {name}?",
+    "deleteSuccess": "Custom Template deleted successfully!",
+    "deleteError": "Failed to delete custom template: {error}",
+    "canvas": {
+      "useChatflow": "Use Chatflow",
+      "useTemplate": "Use Template",
+      "inputs": "Inputs",
+      "output": "Output",
+      "additionalParameters": "Additional Parameters"
+    },
+    "common": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "confirm": "Confirm",
+      "export": "Export",
+      "import": "Import",
+      "search": "Search",
+      "clearSearch": "Clear Search",
+      "loading": "Loading..."
+    },
+    "messages": {
+      "saveSuccess": "Template saved successfully!",
+      "saveError": "Failed to save template: {error}",
+      "importSuccess": "Template imported successfully!",
+      "importError": "Failed to import template: {error}"
+    }
+  }
+} 

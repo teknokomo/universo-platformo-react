@@ -1,0 +1,57 @@
+{
+  "apiKeys": {
+    "title": "API Keys",
+    "searchPlaceholder": "Search API keys",
+    "import": "Import API Keys",
+    "createKey": "Create Key",
+    "noApiKeysYet": "No API keys yet",
+    "deleteToolConfirm": "Delete key {name}?",
+    "deleteSuccess": "API key deleted",
+    "deleteError": "Failed to delete API key: {error}",
+    "thereAre": "There are",
+    "chatflowsUsingKey": "chatflows using this key",
+    "copied": "Copied!",
+    "buttonTitles": {
+      "copy": "Copy API Key",
+      "show": "Show",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "chatflowDetails": {
+      "name": "Chatflow Name",
+      "modifiedOn": "Modified On", 
+      "category": "Category"
+    },
+    "grid": {
+      "keyName": "Key Name",
+      "apiKey": "API Key",
+      "usage": "Usage",
+      "created": "Created"
+    },
+    "placeholders": {
+      "keyName": "My New Key"
+    },
+    "messages": {
+      "newKeyAdded": "New API key added",
+      "addKeyError": "Failed to add new API key: {{error}}",
+      "keySaved": "API Key saved",
+      "saveKeyError": "Failed to save API key: {{error}}",
+      "importSuccess": "Imported keys successfully!",
+      "importError": "Failed to import keys: {{error}}"
+    },
+    "importFile": "Import api.json file",
+    "chooseFile": "Choose a file to upload",
+    "importMode": "Import Mode",
+    "chooseOption": "choose an option",
+    "common": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "clearSearch": "Clear Search",
+      "expand": "Expand",
+      "copy": "Copy"
+    }
+  }
+} 

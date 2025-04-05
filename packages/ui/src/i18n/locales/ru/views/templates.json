@@ -1,0 +1,45 @@
+{
+  "templates": {
+    "title": "Шаблоны",
+    "search": "Поиск по имени/описанию/узлу",
+    "tag": "Тег",
+    "type": "Тип",
+    "framework": "Фреймворк",
+    "communityTemplates": "Шаблоны сообщества",
+    "myTemplates": "Мои шаблоны",
+    "saveAsTemplate": "Сохранить как шаблон",
+    "export": "Экспорт",
+    "noTemplatesYet": "Шаблонов пока нет",
+    "noSavedCustomTemplates": "Нет сохраненных пользовательских шаблонов",
+    "confirmDelete": "Удалить",
+    "confirmDeleteDescription": "Удалить пользовательский шаблон {name}?",
+    "deleteSuccess": "Пользовательский шаблон успешно удален!",
+    "deleteError": "Не удалось удалить пользовательский шаблон: {error}",
+    "canvas": {
+      "useChatflow": "Использовать чат-поток",
+      "useTemplate": "Использовать шаблон",
+      "inputs": "Входные данные",
+      "output": "Выходные данные",
+      "additionalParameters": "Дополнительные параметры"
+    },
+    "common": {
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "edit": "Редактировать",
+      "add": "Добавить",
+      "confirm": "Подтвердить",
+      "export": "Экспорт",
+      "import": "Импорт",
+      "search": "Поиск",
+      "clearSearch": "Очистить поиск",
+      "loading": "Загрузка..."
+    },
+    "messages": {
+      "saveSuccess": "Шаблон успешно сохранен!",
+      "saveError": "Не удалось сохранить шаблон: {error}",
+      "importSuccess": "Шаблон успешно импортирован!",
+      "importError": "Не удалось импортировать шаблон: {error}"
+    }
+  }
+} 

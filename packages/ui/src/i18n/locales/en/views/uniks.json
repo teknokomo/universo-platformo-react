@@ -1,0 +1,30 @@
+{
+  "uniks": {
+    "title": "Uniks",
+    "create": "Create Unik",
+    "name": "Name",
+    "description": "Description",
+    "save": "Save",
+    "delete": "Delete",
+    "conflict": "Another user is editing this Flow. Please wait or coordinate.",
+    "multipleEditors": "Multiple users are editing this Unik.",
+    "namePlaceholder": "Enter Unik name",
+    "loading": "Loading...",
+    "notFound": "Global Workspace Not Found",
+    "unikDetail": {
+      "dashboard": "Uniks Dashboard",
+      "welcome": "Welcome to your unik:",
+      "navigation": "Use the left menu to navigate to Chatflows, Agents, etc.",
+      "back": "Back to Uniks"
+    },
+    "unikList": {
+      "title": "Your Uniks",
+      "searchPlaceholder": "Search by name or ID",
+      "addUnik": "Add Unik",
+      "noUniksFound": "No Uniks Found",
+      "addNewUnik": "Add New Unik",
+      "cardView": "Card View", 
+      "listView": "List View"
+    }
+  }
+} 
