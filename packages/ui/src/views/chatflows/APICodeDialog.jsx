@@ -25,7 +25,9 @@ import { useTheme } from '@mui/material/styles'
 
 // Project import
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
-import ShareChatbot from './ShareChatbot'
+import Configuration from './Configuration'
+import ChatBotSettings from '@/views/publish/bots/ChatBotSettings'
+import ARBotSettings from '@/views/publish/bots/ARBotSettings'
 import EmbedChat from './EmbedChat'
 
 // Const
@@ -51,6 +53,7 @@ import variablesApi from '@/api/variables'
 import useApi from '@/hooks/useApi'
 import { CheckboxInput } from '@/ui-component/checkbox/Checkbox'
 import { TableViewOnly } from '@/ui-component/table/Table'
+import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 
 // Helpers
 import { unshiftFiles, getConfigExamplesForJS, getConfigExamplesForPython, getConfigExamplesForCurl } from '@/utils/genericHelper'
@@ -94,8 +97,8 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const overrideConfigStatus = apiConfig?.overrideConfig?.status !== undefined ? apiConfig.overrideConfig.status : false
     const { t } = useTranslation('chatflows')
 
-    const codes = ['Embed', 'Python', 'JavaScript', 'cURL', 'Share Chatbot']
     const [value, setValue] = useState(0)
+    const [codes, setCodes] = useState([])
     const [keyOptions, setKeyOptions] = useState([])
     const [apiKeys, setAPIKeys] = useState([])
     const [chatflowApiKeyId, setChatflowApiKeyId] = useState('')
@@ -105,6 +108,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const [nodeConfigExpanded, setNodeConfigExpanded] = useState({})
     const [nodeOverrides, setNodeOverrides] = useState(apiConfig?.overrideConfig?.nodes ?? null)
     const [variableOverrides, setVariableOverrides] = useState(apiConfig?.overrideConfig?.variables ?? [])
+    const [displayMode, setDisplayMode] = useState('chat')
 
     const getAllAPIKeysApi = useApi(apiKeyApi.getAllAPIKeys)
     const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
@@ -268,6 +272,13 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getAllVariablesApi.data])
 
+    useEffect(() => {
+        // Universo Platformo | Set the tabs in the correct order
+        if (show) {
+            setCodes(['Configuration', 'Embed', 'Python', 'JavaScript', 'cURL', 'Share Bot'])
+        }
+    }, [show])
+
     const handleChange = (event, newValue) => {
         setValue(newValue)
     }
@@ -381,10 +392,10 @@ query({"question": "Hey, how are you?"}).then((response) => {
             return EmbedSVG
         } else if (codeLang === 'cURL') {
             return cURLSVG
-        } else if (codeLang === 'Share Chatbot') {
-            return ShareChatbotSVG
         } else if (codeLang === 'Configuration') {
             return settingsSVG
+        } else if (codeLang === 'Share Bot') {
+            return ShareChatbotSVG
         }
         return pythonSVG
     }
@@ -594,7 +605,8 @@ query({
      -X POST \\
      -d '{"question": "Hey, how are you?", "overrideConfig": {${getConfigExamplesForCurl(configData, 'json')}}' \\
      -H "Content-Type: application/json" \\
-     -H "Authorization: Bearer ${selectedApiKey?.apiKey}"`        }
+     -H "Authorization: Bearer ${selectedApiKey?.apiKey}"`
+        }
         return ''
     }
 
@@ -707,16 +719,46 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                 <div style={{ marginTop: 10 }}></div>
                 {codes.map((codeLang, index) => (
                     <TabPanel key={index} value={value} index={index}>
-                        {(codeLang === 'Embed' || codeLang === 'Share Chatbot') && chatflowApiKeyId && (
+                        {(codeLang === 'Embed' || codeLang === 'Configuration' || codeLang === 'Share Bot') && chatflowApiKeyId && (
                             <>
                                 <p>{t('chatflows.apiCodeDialog.cannotUseApiKey')}</p>
-                                <p>
-                                    <Trans i18nKey="chatflows.apiCodeDialog.selectNoAuthorization" components={{ b: <b /> }} />
-                                </p>
+                                <p dangerouslySetInnerHTML={{ __html: t('chatflows.apiCodeDialog.selectNoAuthorization') }} />
                             </>
                         )}
                         {codeLang === 'Embed' && !chatflowApiKeyId && <EmbedChat chatflowid={dialogProps.chatflowid} />}
-                        {codeLang !== 'Embed' && codeLang !== 'Share Chatbot' && codeLang !== 'Configuration' && (
+                        {codeLang === 'Configuration' && !chatflowApiKeyId && (
+                            <>
+                                <div style={{ marginBottom: '10px', padding: '5px', background: '#f5f5f5', fontSize: '12px' }}>
+                                    <strong>Debug:</strong> chatflowid={dialogProps.chatflowid}, unikId={unikId}
+                                </div>
+                                <Configuration
+                                    isSessionMemory={dialogProps.isSessionMemory}
+                                    isAgentCanvas={dialogProps.isAgentCanvas}
+                                    chatflowid={dialogProps.chatflowid}
+                                    unikId={unikId}
+                                    displayMode={displayMode}
+                                    setDisplayMode={setDisplayMode}
+                                />
+                            </>
+                        )}
+                        {codeLang === 'Share Bot' && !chatflowApiKeyId && (
+                            <>
+                                <div style={{ marginBottom: '10px', padding: '5px', background: '#f5f5f5', fontSize: '12px' }}>
+                                    <strong>Debug:</strong> chatflowid={dialogProps.chatflowid}, unikId={unikId}, displayMode={displayMode}
+                                </div>
+                                {displayMode === 'ar' ? (
+                                    <ARBotSettings chatflowid={dialogProps.chatflowid} unikId={unikId} />
+                                ) : (
+                                    <ChatBotSettings
+                                        chatflowid={dialogProps.chatflowid}
+                                        unikId={unikId}
+                                        isSessionMemory={dialogProps.isSessionMemory}
+                                        isAgentCanvas={dialogProps.isAgentCanvas}
+                                    />
+                                )}
+                            </>
+                        )}
+                        {codeLang !== 'Embed' && codeLang !== 'Configuration' && codeLang !== 'Share Bot' && (
                             <>
                                 <CopyBlock
                                     theme={atomOneDark}
@@ -725,12 +767,14 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                     showLineNumbers={false}
                                     wrapLines
                                 />
-                                <CheckboxInput label={t('chatflows.apiCodeDialog.showOverrideConfig')} value={checkboxVal} onChange={onCheckBoxChanged} />
+                                <CheckboxInput
+                                    label={t('chatflows.apiCodeDialog.showOverrideConfig')}
+                                    value={checkboxVal}
+                                    onChange={onCheckBoxChanged}
+                                />
                                 {checkboxVal && getConfigApi.data && getConfigApi.data.length > 0 && (
                                     <>
-                                        <Typography sx={{ mt: 2 }}>
-                                            {t('chatflows.apiCodeDialog.overrideConfigDescription')}
-                                        </Typography>
+                                        <Typography sx={{ mt: 2 }}>{t('chatflows.apiCodeDialog.overrideConfigDescription')}</Typography>
                                         <div
                                             style={{
                                                 display: 'flex',
@@ -901,9 +945,6 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                     </p>
                                 )}
                             </>
-                        )}
-                        {codeLang === 'Share Chatbot' && !chatflowApiKeyId && (
-                            <ShareChatbot isSessionMemory={dialogProps.isSessionMemory} isAgentCanvas={dialogProps.isAgentCanvas} chatflowid={dialogProps.chatflowid} unikId={unikId} />
                         )}
                     </TabPanel>
                 ))}

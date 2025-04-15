@@ -68,6 +68,13 @@ export interface INodeOutputsValue {
     isAnchor?: boolean
 }
 
+export interface INodeAnchor {
+    name: string
+    type: string
+    label: string
+    description?: string
+}
+
 export interface INodeParams {
     label: string
     name: string

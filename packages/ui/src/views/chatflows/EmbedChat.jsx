@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
 
-import { Tabs, Tab, Box } from '@mui/material'
+import { Tabs, Tab, Box, Typography } from '@mui/material'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
 
 // Project import
@@ -39,17 +39,18 @@ function a11yProps(index) {
     }
 }
 
-const embedPopupHtmlCode = (chatflowid) => {
+const embedPopupHtmlCode = (chatflowid, mode = 'chat') => {
     return `<script type="module">
     import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
     Chatbot.init({
         chatflowid: "${chatflowid}",
         apiHost: "${baseURL}",
+        mode: "${mode}"
     })
 </script>`
 }
 
-const embedPopupReactCode = (chatflowid) => {
+const embedPopupReactCode = (chatflowid, mode = 'chat') => {
     return `import { BubbleChat } from 'flowise-embed-react'
 
 const App = () => {
@@ -57,23 +58,25 @@ const App = () => {
         <BubbleChat
             chatflowid="${chatflowid}"
             apiHost="${baseURL}"
+            mode="${mode}"
         />
     );
 };`
 }
 
-const embedFullpageHtmlCode = (chatflowid) => {
+const embedFullpageHtmlCode = (chatflowid, mode = 'chat') => {
     return `<flowise-fullchatbot></flowise-fullchatbot>
 <script type="module">
     import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
     Chatbot.initFull({
         chatflowid: "${chatflowid}",
         apiHost: "${baseURL}",
+        mode: "${mode}"
     })
 </script>`
 }
 
-const embedFullpageReactCode = (chatflowid) => {
+const embedFullpageReactCode = (chatflowid, mode = 'chat') => {
     return `import { FullPageChat } from "flowise-embed-react"
 
 const App = () => {
@@ -81,6 +84,7 @@ const App = () => {
         <FullPageChat
             chatflowid="${chatflowid}"
             apiHost="${baseURL}"
+            mode="${mode}"
         />
     );
 };`
@@ -286,7 +290,7 @@ const App = () => {
 }`
 }
 
-const EmbedChat = ({ chatflowid }) => {
+const EmbedChat = ({ chatflowid, mode = 'chat' }) => {
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedChatCheckboxVal, setEmbedChatCheckbox] = useState(false)
@@ -303,13 +307,13 @@ const EmbedChat = ({ chatflowid }) => {
     const getCode = (codeLang) => {
         switch (codeLang) {
             case 'Popup Html':
-                return embedPopupHtmlCode(chatflowid)
+                return embedPopupHtmlCode(chatflowid, mode)
             case 'Fullpage Html':
-                return embedFullpageHtmlCode(chatflowid)
+                return embedFullpageHtmlCode(chatflowid, mode)
             case 'Popup React':
-                return embedPopupReactCode(chatflowid)
+                return embedPopupReactCode(chatflowid, mode)
             case 'Fullpage React':
-                return embedFullpageReactCode(chatflowid)
+                return embedFullpageReactCode(chatflowid, mode)
             default:
                 return ''
         }
@@ -332,6 +336,11 @@ const EmbedChat = ({ chatflowid }) => {
 
     return (
         <>
+            <Typography variant="h5" gutterBottom>
+                {mode === 'chat' 
+                    ? t('chatflows.embeddingChatbot') 
+                    : t('chatflows.embeddingARbot')}
+            </Typography>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                 <div style={{ flex: 80 }}>
                     <Tabs value={value} onChange={handleChange} aria-label='tabs'>
@@ -383,7 +392,8 @@ const EmbedChat = ({ chatflowid }) => {
 }
 
 EmbedChat.propTypes = {
-    chatflowid: PropTypes.string
+    chatflowid: PropTypes.string,
+    mode: PropTypes.oneOf(['chat', 'ar'])
 }
 
 export default EmbedChat

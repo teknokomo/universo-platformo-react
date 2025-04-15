@@ -160,7 +160,7 @@ CardWithDeleteOverlay.propTypes = {
     onDelete: PropTypes.func
 }
 
-export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, previews, setPreviews }) => {
+export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, previews, setPreviews, chatConfig }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { t } = useTranslation('chatmessage')
@@ -196,7 +196,6 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const getChatmessageApi = useApi(chatmessageApi.getInternalChatmessageFromChatflow)
     const getIsChatflowStreamingApi = useApi(chatflowsApi.getIsChatflowStreaming)
     const getAllowChatFlowUploads = useApi(chatflowsApi.getAllowChatflowUploads)
-    const getChatflowConfig = useApi(chatflowsApi.getSpecificChatflow)
 
     const [starterPrompts, setStarterPrompts] = useState([])
 
@@ -635,10 +634,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     // Handle errors
     const handleError = (message = t('chatMessage.defaultError')) => {
         setLoading(false)
-        setMessages((prevMessages) => [
-            ...prevMessages,
-            { message, type: 'apiMessage', sourceDocs: [], agentReasoning: [], usedTools: [] }
-        ])
+        setMessages((prevMessages) => [...prevMessages, { message, type: 'apiMessage', sourceDocs: [], agentReasoning: [], usedTools: [] }])
         setUserInput('')
         inputRef.current?.focus()
     }
@@ -656,10 +652,15 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     const handleActionClick = async (elem, action) => {
         setUserInput(elem.label)
+        // Universo Platformo | Clear the action from the last message to avoid blocking input
         setMessages((prevMessages) => {
             let allMessages = [...cloneDeep(prevMessages)]
-            if (allMessages[allMessages.length - 1].type === 'userMessage') return allMessages
-            allMessages[allMessages.length - 1].action = null
+            const lastMsgIndex = allMessages.length - 1
+            if (lastMsgIndex >= 0 && allMessages[lastMsgIndex].type === 'apiMessage') {
+                allMessages[lastMsgIndex].action = null
+            } else {
+                console.warn('Не удалось найти последнее сообщение apiMessage для сброса action.')
+            }
             return allMessages
         })
         handleSubmit(undefined, elem.label, action)
@@ -1082,48 +1083,87 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getAllowChatFlowUploads.data])
 
+    // Universo Platformo | Use useEffect to handle chatConfig passed via props
     useEffect(() => {
-        if (getChatflowConfig.data) {
-            if (getChatflowConfig.data?.chatbotConfig && JSON.parse(getChatflowConfig.data?.chatbotConfig)) {
-                let config = JSON.parse(getChatflowConfig.data?.chatbotConfig)
-                if (config.starterPrompts) {
-                    let inputFields = []
-                    Object.getOwnPropertyNames(config.starterPrompts).forEach((key) => {
-                        if (config.starterPrompts[key]) {
-                            inputFields.push(config.starterPrompts[key])
-                        }
-                    })
-                    setStarterPrompts(inputFields.filter((field) => field.prompt !== ''))
-                }
-                if (config.chatFeedback) {
-                    setChatFeedbackStatus(config.chatFeedback.status)
-                }
 
-                if (config.leads) {
-                    setLeadsConfig(config.leads)
-                    if (config.leads.status && !getLocalStorageChatflow(chatflowid).lead) {
-                        setMessages((prevMessages) => {
-                            const leadCaptureMessage = {
-                                message: '',
-                                type: 'leadCaptureMessage'
-                            }
-
-                            return [...prevMessages, leadCaptureMessage]
-                        })
+        if (chatConfig) {
+            // Universo Platformo | ... (rest of the chatConfig handling logic remains the same)
+            if (chatConfig.starterPrompts) {
+                let inputFields = []
+                Object.getOwnPropertyNames(chatConfig.starterPrompts).forEach((key) => {
+                    if (chatConfig.starterPrompts[key]) {
+                        inputFields.push(chatConfig.starterPrompts[key])
                     }
-                }
-
-                if (config.followUpPrompts) {
-                    setFollowUpPromptsStatus(config.followUpPrompts.status)
-                }
-
-                if (config.fullFileUpload) {
-                    setFullFileUpload(config.fullFileUpload.status)
-                }
+                })
+                setStarterPrompts(inputFields.filter((field) => field.prompt !== ''))
+                console.log(
+                    'Set starterPrompts:',
+                    inputFields.filter((field) => field.prompt !== '')
+                )
+            } else {
+                setStarterPrompts([])
+                console.log('StarterPrompts not found in chatConfig.')
             }
+
+            if (chatConfig.chatFeedback) {
+                setChatFeedbackStatus(chatConfig.chatFeedback.status)
+                console.log('Set chatFeedbackStatus:', chatConfig.chatFeedback.status)
+            } else {
+                setChatFeedbackStatus(false)
+                console.log('ChatFeedback not found in chatConfig.')
+            }
+
+            if (chatConfig.leads) {
+                setLeadsConfig(chatConfig.leads)
+                console.log('Set leadsConfig:', chatConfig.leads)
+                if (chatConfig.leads.status && !getLocalStorageChatflow(chatflowid)?.lead) {
+                    console.log('Leads status is enabled and lead is not saved, showing form.')
+                    setMessages((prevMessages) => {
+                        // Universo Platformo | Check if a message for lead capture has already been added
+                        if (prevMessages.some((msg) => msg.type === 'leadCaptureMessage')) {
+                            console.log('leadCaptureMessage already exists, skipping addition.')
+                            return prevMessages
+                        }
+                        console.log('Adding leadCaptureMessage.')
+                        const leadCaptureMessage = {
+                            message: '', // Message will be set later by the renderer
+                            type: 'leadCaptureMessage'
+                        }
+                        return [...prevMessages, leadCaptureMessage]
+                    })
+                } else {
+                    console.log('Conditions for showing Leads form not met.')
+                }
+            } else {
+                setLeadsConfig(null)
+                console.log('Leads not found in chatConfig.')
+            }
+
+            if (chatConfig.followUpPrompts) {
+                setFollowUpPromptsStatus(chatConfig.followUpPrompts.status)
+                console.log('Set followUpPromptsStatus:', chatConfig.followUpPrompts.status)
+            } else {
+                setFollowUpPromptsStatus(false)
+                console.log('FollowUpPrompts not found in chatConfig.')
+            }
+
+            if (chatConfig.fullFileUpload) {
+                setFullFileUpload(chatConfig.fullFileUpload.status)
+                console.log('Set fullFileUpload:', chatConfig.fullFileUpload.status)
+            } else {
+                setFullFileUpload(false)
+                console.log('FullFileUpload not found in chatConfig.')
+            }
+        } else {
+            console.log('chatConfig is not passed or is empty. Resetting related states.')
+            setStarterPrompts([])
+            setChatFeedbackStatus(false)
+            setLeadsConfig(null)
+            setFollowUpPromptsStatus(false)
+            setFullFileUpload(false)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getChatflowConfig.data])
+        console.log('*** CHATMESSAGE: End useEffect [chatConfig, chatflowid] ***')
+    }, [chatConfig, chatflowid]) // Added chatflowid as a dependency
 
     useEffect(() => {
         if (fullFileUpload) {
@@ -1154,7 +1194,6 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             getChatmessageApi.request(chatflowid)
             getIsChatflowStreamingApi.request(chatflowid)
             getAllowChatFlowUploads.request(chatflowid)
-            getChatflowConfig.request(chatflowid)
 
             // Scroll to bottom
             scrollToBottom()
@@ -1166,6 +1205,9 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             if (savedLead) {
                 setIsLeadSaved(!!savedLead)
                 setLeadEmail(savedLead.email)
+            } else {
+                setIsLeadSaved(false)
+                setLeadEmail('')
             }
         }
 
@@ -1179,6 +1221,14 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                     type: 'apiMessage'
                 }
             ])
+            // Universo Platformo | Reset states dependent on config
+            setStarterPrompts([])
+            setChatFeedbackStatus(false)
+            setLeadsConfig(null)
+            setFollowUpPromptsStatus(false)
+            setFullFileUpload(false)
+            setIsLeadSaved(false)
+            setLeadEmail('')
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1314,12 +1364,16 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     }
 
     const getInputDisabled = () => {
-        return (
-            loading ||
-            !chatflowid ||
-            (leadsConfig?.status && !isLeadSaved) ||
-            (messages[messages.length - 1].action && Object.keys(messages[messages.length - 1].action).length > 0)
-        )
+        const isLoadingValue = loading // Renamed for logging
+        const isChatflowIdValue = !chatflowid // Renamed for logging
+        const leadsEnabled = leadsConfig?.status
+        const leadsSaved = isLeadSaved
+        const isLeadsValue = leadsEnabled && !leadsSaved // Renamed for logging
+        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
+        const lastMessageAction = lastMessage?.action
+        const hasActionValue = lastMessageAction && typeof lastMessageAction === 'object' && Object.keys(lastMessageAction).length > 0 // Renamed for logging
+
+        return isLoadingValue || isChatflowIdValue || isLeadsValue || hasActionValue
     }
 
     const previewDisplay = (item) => {
@@ -2407,5 +2461,8 @@ ChatMessage.propTypes = {
     isAgentCanvas: PropTypes.bool,
     isDialog: PropTypes.bool,
     previews: PropTypes.array,
-    setPreviews: PropTypes.func
+    setPreviews: PropTypes.func,
+    chatConfig: PropTypes.object // Added chatConfig to propTypes
 }
+
+export default ChatMessage

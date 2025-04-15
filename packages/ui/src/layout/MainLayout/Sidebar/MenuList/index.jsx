@@ -11,12 +11,12 @@ const MenuList = () => {
     let menuItems
     if (unikMatch) {
         const unikId = unikMatch[1]
-        // Обновляем ссылки каждого пункта меню из dashboard, добавляя префикс /uniks/{unikId}
+        // Universo Platformo | Update the links of each dashboard menu item, adding the prefix /uniks/{unikId}
         menuItems = {
             ...dashboard,
             children: dashboard.children.map((item) => ({
                 ...item,
-                // Предполагаем, что в dashboard.js ссылки начинаются с '/' (например, '/chatflows')
+                // Universo Platformo | Assume that links in dashboard.js start with '/' (e.g., '/chatflows')
                 url: `/uniks/${unikId}${item.url}`
             }))
         }

@@ -41,7 +41,6 @@ import openaiRealtimeRouter from './openai-realtime'
 import pingRouter from './ping'
 import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
-import publicChatbotRouter from './public-chatbots'
 import publicChatflowsRouter from './public-chatflows'
 import statsRouter from './stats'
 // Remove global mounting of toolsRouter as tools are now accessible via /uniks/:unikId/tools
@@ -55,6 +54,12 @@ import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import upAuthRouter from './up-auth'
 import upUniksRouter from './up-uniks/uniks'
+// Universo Platformo | Bots
+import botsRouter from './bots'
+// Universo Platformo | Chatflows Streaming
+import chatflowsStreamingRouter from './chatflows-streaming'
+// Universo Platformo | Logger
+import logger from '../utils/logger'
 
 const router = express.Router()
 
@@ -100,7 +105,6 @@ router.use('/openai-assistants-vector-store', openaiAssistantsVectorStoreRouter)
 router.use('/openai-realtime', openaiRealtimeRouter)
 router.use('/prediction', predictionRouter)
 router.use('/prompts-list', promptListsRouter)
-router.use('/public-chatbotConfig', publicChatbotRouter)
 router.use('/public-chatflows', publicChatflowsRouter)
 router.use('/stats', statsRouter)
 // Global route for tools has been removed
@@ -114,5 +118,20 @@ router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
 router.use('/uniks', upUniksRouter)
+// Universo Platformo | Chatflows Streaming
+router.use('/api/v1/chatflows-streaming', chatflowsStreamingRouter)
+// Universo Platformo | Bots
+router.use('/api/v1/bots', botsRouter)
+
+// Universo Platformo | Special route for AR bots
+router.use('/arbot/:id', (req, res, next) => {
+    const botId = req.params.id
+    req.url = `/api/v1/bots/ar/${botId}`
+    req.query.type = 'ar'
+    logger.debug(`[AR ROUTE] Redirecting /arbot/${botId} to bot API with AR type`)
+
+    // Universo Platformo | Don't use res.redirect to avoid changing the URL in the browser
+    req.app._router.handle(req, res, next)
+})
 
 export default router

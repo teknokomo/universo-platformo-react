@@ -628,35 +628,6 @@ export const buildFlow = async ({
                     outputResult = outputResult?.output
                 }
 
-                // Determine which nodes to route next when it comes to ifElse
-                if (reactFlowNode.data.name === 'ifElseFunction' && typeof outputResult === 'object') {
-                    let sourceHandle = ''
-                    if (outputResult.type === true) {
-                        // sourceHandle = `${nodeId}-output-returnFalse-string|number|boolean|json|array`
-                        sourceHandle = (
-                            reactFlowNode.data.outputAnchors.flatMap((n) => n.options).find((n) => n?.name === 'returnFalse') as any
-                        )?.id
-                    } else if (outputResult.type === false) {
-                        // sourceHandle = `${nodeId}-output-returnTrue-string|number|boolean|json|array`
-                        sourceHandle = (
-                            reactFlowNode.data.outputAnchors.flatMap((n) => n.options).find((n) => n?.name === 'returnTrue') as any
-                        )?.id
-                    }
-
-                    const ifElseEdge = reactFlowEdges.find((edg) => edg.source === nodeId && edg.sourceHandle === sourceHandle)
-                    if (ifElseEdge) {
-                        const { graph } = constructGraphs(
-                            reactFlowNodes,
-                            reactFlowEdges.filter((edg) => !(edg.source === nodeId && edg.sourceHandle === sourceHandle)),
-                            { isNonDirected: true }
-                        )
-                        ignoreNodeIds.push(ifElseEdge.target, ...getAllConnectedNodes(graph, ifElseEdge.target))
-                        ignoreNodeIds = [...new Set(ignoreNodeIds)]
-                    }
-
-                    outputResult = outputResult?.output
-                }
-
                 flowNodes[nodeIndex].data.instance = outputResult
 
                 logger.debug(`[server]: Finished initializing ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
@@ -900,7 +871,7 @@ export const getVariableValue = async (
             const variableNodeId = variableFullPathParts[0]
             const executedNode = reactFlowNodes.find((nd) => nd.id === variableNodeId)
             if (executedNode) {
-                let variableValue = get(executedNode.data, 'instance')
+                let variableValue = executedNode.data.instance
 
                 // Handle path such as `<variableNodeId>.data.instance.key`
                 if (variableFullPathParts.length > 3) {

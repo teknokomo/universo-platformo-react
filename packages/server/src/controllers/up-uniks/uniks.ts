@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import { getSupabaseClientWithAuth } from '../../utils/supabase'
 
-// Получение списка Uniks для текущего пользователя через таблицу user_uniks
+// Universo Platformo | Get list of Uniks for current user through user_uniks table
 export const getUniks = async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1]
     if (!token) return res.status(401).json({ error: 'Unauthorized' })
@@ -24,7 +24,7 @@ export const getUniks = async (req: Request, res: Response) => {
     res.json(uniks || [])
 }
 
-// Создание нового Unik + создание связи с пользователем (роль 'owner')
+// Universo Platformo | Create a new Unik + create relation with user (role 'owner')
 export const createUnik = async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1]
     if (!token) return res.status(401).json({ error: 'Unauthorized' })
@@ -56,7 +56,7 @@ export const createUnik = async (req: Request, res: Response) => {
     res.status(201).json(newUnik)
 }
 
-// Обновление Unik (доступно, если роль 'owner' или 'editor')
+// Universo Platformo | Update Unik (available if role is 'owner' or 'editor')
 export const updateUnik = async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1]
     if (!token) return res.status(401).json({ error: 'Unauthorized' })
@@ -94,7 +94,7 @@ export const updateUnik = async (req: Request, res: Response) => {
     res.json(updateData[0])
 }
 
-// Удаление Unik (доступно, если роль 'owner')
+// Universo Platformo | Delete Unik (available if role is 'owner')
 export const deleteUnik = async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1]
     if (!token) return res.status(401).json({ error: 'Unauthorized' })

@@ -35,7 +35,7 @@ const getAllApiKeys = async (unikId?: string) => {
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
-            // В режиме БД unikId обязателен
+            // Universo Platformo | In DB mode, unikId is mandatory
             if (!unikId) {
                 throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
@@ -46,7 +46,7 @@ const getAllApiKeys = async (unikId?: string) => {
             
             let keys = await queryBuilder.getMany()
             
-            // Если ключей нет, создаем дефолтный ключ
+            // Universo Platformo | If no keys exist, create a default key
             if (keys.length === 0) {
                 await createApiKey('DefaultKey', unikId)
                 keys = await queryBuilder.getMany()
@@ -97,12 +97,12 @@ const createApiKey = async (keyName: string, unikId?: string) => {
             newKey.apiSecret = apiSecret
             newKey.keyName = keyName
             
-            // Проверяем, что unikId существует, он обязателен для таблицы
+            // Universo Platformo | Check if unikId exists, it is mandatory for the table
             if (!unikId) {
                 throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
             
-            // Устанавливаем связь с Unik через объект
+            // Universo Platformo | Establish relation with Unik via object
             newKey.unik = { id: unikId } as any
             
             const key = appServer.AppDataSource.getRepository(ApiKey).create(newKey)
@@ -117,7 +117,7 @@ const createApiKey = async (keyName: string, unikId?: string) => {
     }
 }
 
-// Update api key
+// Universo Platformo | Update api key
 const updateApiKey = async (id: string, keyName: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
@@ -126,7 +126,7 @@ const updateApiKey = async (id: string, keyName: string, unikId?: string) => {
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
-            // В режиме БД unikId обязателен
+            // Universo Platformo | In DB mode, unikId is mandatory
             if (!unikId) {
                 throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
@@ -160,7 +160,7 @@ const deleteApiKey = async (id: string, unikId?: string) => {
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
-            // В режиме БД unikId обязателен
+            // Universo Platformo | In DB mode, unikId is mandatory
             if (!unikId) {
                 throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
@@ -202,25 +202,25 @@ const importKeys = async (body: any, unikId?: string) => {
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
-            // В режиме БД unikId обязателен
+            // Universo Platformo | In DB mode, unikId is mandatory
             if (!unikId) {
                 throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }
             
-            // Получаем все API ключи для данного Unik
+            // Universo Platformo | Get all API keys for this Unik
             let allApiKeys = await appServer.AppDataSource.getRepository(ApiKey)
                 .createQueryBuilder('apikey')
                 .where('apikey.unik_id = :unikId', { unikId })
                 .getMany()
             
             if (body.importMode === 'replaceAll') {
-                // Удаляем все существующие ключи для данного Unik
+                // Universo Platformo | Delete all existing keys for this Unik
                 await appServer.AppDataSource.getRepository(ApiKey).delete({
                     unik: { id: unikId }
                 })
             }
             if (body.importMode === 'errorIfExist') {
-                // if importMode is errorIfExist, check for existing keys and raise error before any modification to the DB
+                // Universo Platformo | If importMode is errorIfExist, check for existing keys and raise error before any modification to the DB
                 for (const key of keys) {
                     const keyNameExists = allApiKeys.find((k) => k.keyName === key.keyName)
                     if (keyNameExists) {
@@ -258,7 +258,7 @@ const importKeys = async (body: any, unikId?: string) => {
                     newKey.apiKey = key.apiKey
                     newKey.apiSecret = key.apiSecret
                     newKey.keyName = key.keyName
-                    // Устанавливаем связь с Unik
+                    // Universo Platformo | Establish relation with Unik
                     newKey.unik = { id: unikId } as any
                     
                     await appServer.AppDataSource.getRepository(ApiKey).save(newKey)
@@ -284,7 +284,7 @@ const verifyApiKey = async (paramApiKey: string, unikId?: string): Promise<strin
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
-            // В режиме БД unikId обязателен
+            // Universo Platformo | In DB mode, unikId is mandatory
             if (!unikId) {
                 throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `unikId is required when APIKEY_STORAGE_TYPE=db`)
             }

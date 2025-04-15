@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// Если переменная задана, то ожидается, что она не содержит '/api/v1', и мы добавляем его сами.
-// Если переменная не задана, используем '/api/v1' по умолчанию.
+// Universo Platformo | If the variable is set, it is expected not to contain '/api/v1', and we add it ourselves.
+// If the variable is not set, use '/api/v1' by default.
 const base = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL : ''
 const baseURL = `${base}/api/v1`
 
@@ -24,7 +24,7 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response && error.response.status === 401) {
-            // Можно добавить обработку ошибки авторизации, например, перенаправление на страницу логина
+            // Universo Platformo | Authorization error handling can be added here, e.g., redirecting to the login page
             // window.location.href = '/auth'
         }
         return Promise.reject(error)

@@ -355,3 +355,6 @@ export interface IVariableOverride {
 
 // DocumentStore related
 export * from './Interface.DocumentStore'
+
+// AR.js related
+export * from './Interface.AR'

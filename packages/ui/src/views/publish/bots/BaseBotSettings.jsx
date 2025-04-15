@@ -1,0 +1,416 @@
+// Universo Platformo | Base Bot Settings component for all bot types
+import { useState, useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { SketchPicker } from 'react-color'
+import PropTypes from 'prop-types'
+import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
+
+import { Card, Box, Typography, Button, Switch, OutlinedInput, Popover, Stack, IconButton } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+
+// Project import
+import { StyledButton } from '@/ui-component/button/StyledButton'
+import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
+
+// Icons
+import { IconX, IconCopy, IconArrowUpRightCircle } from '@tabler/icons-react'
+
+// API
+import chatflowsApi from '@/api/chatflows'
+
+// utils
+import useNotifier from '@/utils/useNotifier'
+
+// Const
+import { baseURL } from '@/store/constant'
+
+// ==============================|| Base Bot Settings ||============================== //
+
+const BaseBotSettings = ({
+    chatflowid,
+    unikId: propUnikId,
+    configKey,
+    formatConfig,
+    renderFields,
+    defaultConfig,
+    updateTranslationKey,
+    onColorChanged
+}) => {
+    const dispatch = useDispatch()
+    const theme = useTheme()
+    const chatflow = useSelector((state) => state.canvas.chatflow)
+    const botConfig = chatflow[configKey] ? JSON.parse(chatflow[configKey]) : defaultConfig
+    const { t } = useTranslation('chatflows')
+    const { unikId: paramsUnikId } = useParams()
+    const unikId = propUnikId || paramsUnikId
+
+    useNotifier()
+
+    const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
+    const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
+
+    const [isPublicChatflow, setChatflowIsPublic] = useState(chatflow.isPublic ?? false)
+    const [colorAnchorEl, setColorAnchorEl] = useState(null)
+    const [selectedColorConfig, setSelectedColorConfig] = useState('')
+    const [sketchPickerColor, setSketchPickerColor] = useState('')
+    const openColorPopOver = Boolean(colorAnchorEl)
+
+    // Shared methods for all bot settings
+    const onSave = async () => {
+        try {
+            // Universo Platformo | Safely get the configuration
+            let configJSON = null
+            try {
+                if (typeof formatConfig === 'function') {
+                    const configObj = formatConfig()
+                    configJSON = JSON.stringify(configObj)
+                    console.log('Форматированная конфигурация для сохранения:', configJSON)
+                } else {
+                    // Universo Platformo | If formatConfig is not a function, use an empty object
+                    configJSON = JSON.stringify({})
+                    console.warn('formatConfig не является функцией')
+                }
+            } catch (formatError) {
+                console.error('Ошибка при форматировании конфигурации:', formatError)
+                configJSON = JSON.stringify({})
+            }
+
+            if (!configJSON) {
+                throw new Error('Не удалось создать конфигурацию для сохранения')
+            }
+
+            const updateData = {
+                [configKey]: configJSON
+            }
+
+            console.log('Сохраняем конфигурацию:', updateData)
+
+            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, updateData)
+            if (saveResp.data) {
+                enqueueSnackbar({
+                    message: t(`chatflows.${updateTranslationKey}.configSaved`),
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'success',
+                        action: (key) => (
+                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                                <IconX />
+                            </Button>
+                        )
+                    }
+                })
+                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+            }
+        } catch (error) {
+            console.error('Ошибка при сохранении конфигурации:', error)
+            enqueueSnackbar({
+                message: t(`chatflows.${updateTranslationKey}.saveError`),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'error',
+                    persist: true,
+                    action: (key) => (
+                        <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                            <IconX />
+                        </Button>
+                    )
+                }
+            })
+        }
+    }
+
+    const onSwitchChange = async (checked) => {
+        try {
+            // Universo Platformo | For safety, check if formatConfig is available
+            let configJSON = null
+            try {
+                if (typeof formatConfig === 'function') {
+                    const configObj = formatConfig()
+                    configJSON = JSON.stringify(configObj)
+                    console.log('Форматированная конфигурация:', configJSON)
+                }
+            } catch (configFormatError) {
+                console.error('Ошибка при форматировании конфигурации:', configFormatError)
+                // Universo Platformo | Use an empty object if formatting failed
+                configJSON = JSON.stringify({})
+            }
+
+            // Universo Platformo | Data for update
+            const updateData = {
+                isPublic: checked
+            }
+
+            // Universo Platformo | Add configuration only if switching to public and no existing configuration
+            if (checked && !chatflow[configKey] && configJSON) {
+                updateData[configKey] = configJSON
+            }
+
+            console.log('Данные для обновления:', updateData)
+
+            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, updateData)
+            if (saveResp.data) {
+                enqueueSnackbar({
+                    message: t(`chatflows.${updateTranslationKey}.configSaved`),
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'success',
+                        action: (key) => (
+                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                                <IconX />
+                            </Button>
+                        )
+                    }
+                })
+                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                setChatflowIsPublic(checked)
+
+                // Universo Platformo | Separately save the configuration if publicity is enabled and configuration is not yet set
+                if (checked && !saveResp.data[configKey] && configJSON) {
+                    try {
+                        const configUpdateData = {
+                            [configKey]: configJSON
+                        }
+                        const configSaveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, configUpdateData)
+                        if (configSaveResp.data) {
+                            dispatch({ type: SET_CHATFLOW, chatflow: configSaveResp.data })
+                        }
+                    } catch (configSaveError) {
+                        console.error('Ошибка при сохранении конфигурации:', configSaveError)
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка при обновлении статуса публичности:', error)
+            enqueueSnackbar({
+                message: t(`chatflows.${updateTranslationKey}.saveError`),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'error',
+                    persist: true,
+                    action: (key) => (
+                        <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                            <IconX />
+                        </Button>
+                    )
+                }
+            })
+        }
+    }
+
+    const handleClosePopOver = () => {
+        setColorAnchorEl(null)
+    }
+
+    const onColorSelected = (hexColor) => {
+        try {
+            // Universo Platformo | Call the handler passed from the parent component
+            if (typeof onColorChanged === 'function') {
+                onColorChanged(hexColor.hex, selectedColorConfig)
+            }
+            setSketchPickerColor(hexColor.hex)
+        } catch (error) {
+            console.error('Ошибка при обработке выбора цвета:', error)
+        }
+    }
+
+    // Utility components for rendering common field types
+    const colorField = (color, fieldName, fieldLabel) => {
+        return (
+            <>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant='subtitle1'>{fieldLabel}</Typography>
+                    <Box
+                        id={fieldName}
+                        sx={{
+                            height: 24,
+                            width: 24,
+                            borderRadius: 1,
+                            border: '2px solid #ccc',
+                            backgroundColor: color,
+                            display: 'inline-block',
+                            cursor: 'pointer'
+                        }}
+                        onClick={(e) => {
+                            setSelectedColorConfig(fieldName)
+                            setSketchPickerColor(color)
+                            setColorAnchorEl(e.currentTarget)
+                        }}
+                    />
+                </Box>
+            </>
+        )
+    }
+
+    const booleanField = (value, fieldName, fieldLabel) => {
+        return (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant='subtitle1'>{fieldLabel}</Typography>
+                <Switch checked={value} onChange={(e) => onBooleanChanged(e.target.checked, fieldName)} />
+            </Box>
+        )
+    }
+
+    const textField = (message, fieldName, fieldLabel, fieldType = 'string', placeholder = '') => {
+        return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+                <Typography variant='subtitle1' sx={{ mb: 1 }}>
+                    {fieldLabel}
+                </Typography>
+                <OutlinedInput
+                    id={fieldName}
+                    type={fieldType}
+                    placeholder={placeholder}
+                    value={message}
+                    onChange={(e) => onTextChanged(e.target.value, fieldName)}
+                    sx={{ width: '100%' }}
+                />
+            </Box>
+        )
+    }
+
+    // The specific implementation of these handlers must be provided by the client component
+    const onTextChanged = (value, fieldName) => {
+        // This method will be overridden by the client component
+        console.warn('onTextChanged must be implemented by the client component')
+    }
+
+    const onBooleanChanged = (value, fieldName) => {
+        // This method will be overridden by the client component
+        console.warn('onBooleanChanged must be implemented by the client component')
+    }
+
+    // Render the base settings UI
+    return (
+        <Box sx={{ p: 2 }}>
+            <Stack direction='row' spacing={1} sx={{ display: 'flex', alignItems: 'center', mt: 3, mb: 3 }}>
+                <OutlinedInput
+                    sx={{ display: 'none' }}
+                    id='copy-bot-link'
+                    value={`${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`}
+                    aria-describedby='helper-text-copy-bot-link'
+                    readOnly={true}
+                />
+                <OutlinedInput
+                    id='outlined-adornment-bot-link'
+                    value={`${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`}
+                    aria-describedby='helper-text-bot-link'
+                    readOnly={true}
+                    disabled={!isPublicChatflow}
+                    sx={{ width: '100%' }}
+                    endAdornment={
+                        <IconButton
+                            aria-label='Copy'
+                            disabled={!isPublicChatflow}
+                            onClick={(e) => {
+                                try {
+                                    navigator.clipboard.writeText(
+                                        `${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`
+                                    )
+                                    enqueueSnackbar({
+                                        message: 'Ссылка скопирована',
+                                        options: {
+                                            key: new Date().getTime() + Math.random(),
+                                            variant: 'success',
+                                            action: (key) => (
+                                                <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                                                    <IconX />
+                                                </Button>
+                                            )
+                                        }
+                                    })
+                                } catch (err) {
+                                    console.error('Failed to copy:', err)
+                                    const copyText = document.getElementById('copy-bot-link')
+                                    copyText.select()
+                                    copyText.setSelectionRange(0, 99999)
+                                    document.execCommand('copy')
+                                }
+                            }}
+                            title='Копировать ссылку'
+                            edge='end'
+                        >
+                            <IconCopy />
+                        </IconButton>
+                    }
+                />
+                {isPublicChatflow && (
+                    <IconButton
+                        title='Открыть в новой вкладке'
+                        color='primary'
+                        onClick={() => {
+                            const url = `${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`
+                            window.open(url, '_blank')
+                        }}
+                    >
+                        <IconArrowUpRightCircle />
+                    </IconButton>
+                )}
+            </Stack>
+
+            <Card sx={{ p: 3, borderRadius: '8px' }}>
+                <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                        <Typography variant='h4'>{configKey === 'arbotConfig' ? 'Заголовок' : 'Заголовок'}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Typography variant='subtitle1' sx={{ mr: 2 }}>
+                                {configKey === 'arbotConfig' ? 'Сделать публичным' : 'Сделать публичным'}
+                            </Typography>
+                            <Switch checked={isPublicChatflow} onChange={(e) => onSwitchChange(e.target.checked)} />
+                        </Box>
+                    </Box>
+
+                    {renderFields({
+                        botConfig,
+                        colorField,
+                        booleanField,
+                        textField
+                    })}
+
+                    <Stack direction='row' spacing={1} sx={{ mt: 3 }}>
+                        <StyledButton
+                            variant='contained'
+                            onClick={onSave}
+                            sx={{
+                                backgroundColor: theme.palette.primary.main,
+                                '&:hover': {
+                                    backgroundColor: theme.palette.primary.dark
+                                }
+                            }}
+                        >
+                            {configKey === 'arbotConfig' ? 'Сохранить изменения' : 'Сохранить изменения'}
+                        </StyledButton>
+                    </Stack>
+                </Box>
+            </Card>
+
+            <Popover
+                open={openColorPopOver}
+                anchorEl={colorAnchorEl}
+                onClose={handleClosePopOver}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left'
+                }}
+            >
+                <SketchPicker color={sketchPickerColor} onChange={onColorSelected} />
+            </Popover>
+        </Box>
+    )
+}
+
+BaseBotSettings.propTypes = {
+    chatflowid: PropTypes.string,
+    unikId: PropTypes.string,
+    configKey: PropTypes.string.isRequired,
+    formatConfig: PropTypes.func.isRequired,
+    renderFields: PropTypes.func.isRequired,
+    defaultConfig: PropTypes.object.isRequired,
+    updateTranslationKey: PropTypes.string.isRequired,
+    onColorChanged: PropTypes.func,
+    onTextChanged: PropTypes.func,
+    onBooleanChanged: PropTypes.func
+}
+
+export default BaseBotSettings

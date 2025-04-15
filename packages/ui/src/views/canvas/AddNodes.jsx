@@ -42,6 +42,7 @@ import { IconPlus, IconSearch, IconMinus, IconX } from '@tabler/icons-react'
 import LlamaindexPNG from '@/assets/images/llamaindex.png'
 import LangChainPNG from '@/assets/images/langchain.png'
 import utilNodesPNG from '@/assets/images/utilNodes.png'
+import ArjsSVG from '@/assets/images/arjs.svg'
 
 // const
 import { baseURL } from '@/store/constant'
@@ -157,11 +158,14 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
     const groupByTags = (nodes, newTabValue = 0) => {
         const langchainNodes = nodes.filter((nd) => !nd.tags)
         const llmaindexNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('LlamaIndex'))
+        const arjsNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('AR.js'))
         const utilitiesNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('Utilities'))
         if (newTabValue === 0) {
             return langchainNodes
         } else if (newTabValue === 1) {
             return llmaindexNodes
+        } else if (newTabValue === 2) {
+            return arjsNodes
         } else {
             return utilitiesNodes
         }
@@ -252,6 +256,8 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
             return LangChainPNG
         } else if (tabValue === 1) {
             return LlamaindexPNG
+        } else if (tabValue === 2) {
+            return ArjsSVG
         } else {
             return utilNodesPNG
         }
@@ -367,7 +373,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                 onChange={handleTabChange}
                                                 aria-label='tabs'
                                             >
-                                                {['LangChain', 'LlamaIndex', 'Utilities'].map((item, index) => (
+                                                {['LangChain', 'LlamaIndex', 'AR.js', 'Utilities'].map((item, index) => (
                                                     <Tab
                                                         icon={
                                                             <div

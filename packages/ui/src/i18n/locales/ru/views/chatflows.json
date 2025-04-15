@@ -24,7 +24,10 @@
       "login": "Вход",
       "listView": "Списком",
       "cardView": "Карточками",
-      "addNew": "Добавить новый"
+      "addNew": "Добавить новый",
+      "enable": "Включить",
+      "disable": "Отключить",
+      "version": "Версия"
     },
     "addChatflow": "Добавить чат-поток",
     "addAgent": "Добавить агент",
@@ -83,7 +86,7 @@
     "embedChat": {
       "pasteHtmlBody": "Вставьте этот код в любое место внутри тега <code><body></code> вашего HTML-файла.",
       "specifyVersion": "Вы также можете указать",
-      "showConfig": "Показать настройки встраиваемого чата"
+      "showConfig": "Показать настройки отображения"
     },
     "shareChatbot": {
       "configSaved": "Конфигурация чат-бота сохранена",
@@ -93,6 +96,8 @@
       "openNewTab": "Открыть в новой вкладке",
       "makePublic": "Сделать публичным",
       "makePublicTooltip": "Публичные чат-боты будут доступны всем без имени пользователя и пароля",
+      "publicLink": "Ссылка на чат-бот",
+      "publicLinkInfo": "По этой ссылке пользователи могут получить доступ к чат-боту",
       "titleSettings": "Настройки заголовка",
       "title": "Заголовок",
       "titlePlaceholder": "Kiberplano-Ассистент",
@@ -120,6 +125,101 @@
       "typeQuestion": "Введите вопрос..",
       "textInputSendButtonColor": "Цвет кнопки отправки",
       "saveChanges": "Сохранить изменения"
-    }
+    },
+    "shareARbot": {
+      "configSaved": "Конфигурация AR-бота сохранена",
+      "saveError": "Не удалось сохранить конфигурацию AR-бота: {{error}}",
+      "copied": "Скопировано!",
+      "copyLink": "Копировать ссылку",
+      "openNewTab": "Открыть в новой вкладке",
+      "makePublic": "Сделать публичным",
+      "makePublicTooltip": "Публичные AR-боты будут доступны всем без имени пользователя и пароля",
+      "publicLink": "Ссылка на AR-бот",
+      "publicLinkInfo": "По этой ссылке пользователи могут получить доступ к AR-боту",
+      "generalSettings": "Общие настройки",
+      "title": "Заголовок",
+      "titlePlaceholder": "Мой AR опыт",
+      "backgroundColor": "Цвет фона",
+      "textColor": "Цвет текста",
+      "markerSettings": "Настройки маркера",
+      "markerColor": "Цвет маркера",
+      "markerPatternURL": "URL шаблона маркера",
+      "markerPatternURLPlaceholder": "https://example.com/marker-pattern.patt",
+      "modelSettings": "Настройки 3D модели",
+      "modelURL": "URL 3D модели",
+      "modelURLPlaceholder": "https://example.com/model.gltf",
+      "modelScale": "Масштаб модели",
+      "cameraControls": "Элементы управления камерой",
+      "saveChanges": "Сохранить изменения",
+      "defaultModelNote": "Если URL 3D модели не указан, будет показан красный куб по умолчанию. Вы можете использовать пример модели.",
+      "useExampleModel": "Использовать пример 3D модели"
+    },
+    "displaySettings": {
+      "loading": "Загрузка настроек отображения...",
+      "loadingStatic": "Загрузка настроек отображения...",
+      "errorLoading": "Ошибка загрузки настроек: {{error}}",
+      "modeSaved": "Режим отображения успешно сохранен",
+      "saveError": "Ошибка при сохранении режима отображения",
+      "title": "Настройки отображения",
+      "description": "Выберите, как должен отображаться ваш бот - как стандартный чат или как AR-опыт",
+      "chatMode": "Режим чата",
+      "chatModeDescription": "Стандартный чат-интерфейс для текстового взаимодействия с пользователями",
+      "arMode": "Режим дополненной реальности (AR)",
+      "arModeDescription": "Интерактивный AR-опыт с 3D-моделями и визуальными элементами",
+      "loadError": "Ошибка загрузки настроек",
+      "debugInfo": "Отладочная информация:",
+      "cancel": "Отменить и попробовать снова",
+      "tryAgain": "Попробовать снова"
+    },
+    "configuration": {
+      "title": "Конфигурация",
+      "description": "Выберите режим для вашего бота и настройте основные параметры",
+      "chooseMode": "Выберите режим бота",
+      "chatMode": "Режим чата",
+      "chatModeDescription": "Стандартный чат-интерфейс для текстового взаимодействия с пользователями",
+      "arMode": "Режим дополненной реальности (AR)",
+      "arModeDescription": "Интерактивный AR-опыт с 3D-моделями и визуальными элементами",
+      "saveMode": "Сохранить режим"
+    },
+    "botSettings": {
+      "title": "Настройки бота",
+      "description": "Настройте внешний вид и поведение вашего бота",
+      "chatSettings": "Настройки чат-бота",
+      "arSettings": "Настройки AR-бота"
+    },
+    "apiPython": {
+      "title": "Python код",
+      "description": "Используйте этот Python код для взаимодействия с API"
+    },
+    "apiJavaScript": {
+      "title": "JavaScript код",
+      "description": "Используйте этот JavaScript код для взаимодействия с API"
+    },
+    "apiLinks": {
+      "title": "API ссылки",
+      "description": "Используйте эти ссылки для взаимодействия с API",
+      "endpoints": "API эндпоинты",
+      "chatEndpointDescription": "Используйте этот эндпоинт для взаимодействия с чатботом",
+      "arEndpointDescription": "Используйте этот эндпоинт для взаимодействия с AR ботом",
+      "documentation": "Документация API",
+      "documentationDescription": "Просмотр полной документации API"
+    },
+    "embeddingChatbot": "Встраивание Чатбота",
+    "embeddingARbot": "Встраивание AR бота",
+    "copyToClipboard": "Копировать в буфер обмена",
+    "copy": "Копировать",
+    "sharePanel": {
+      "embed": "Встраивание",
+      "api": "API",
+      "display": "Отображение",
+      "shareBot": "Поделиться ботом",
+      "shareBotDescription": "Настройте внешний вид и поведение вашего бота",
+      "chatSettings": "Настройки чат-бота",
+      "arSettings": "Настройки AR-бота",
+      "loading": "Загрузка настроек бота...",
+      "privateAccess": "личный доступ",
+      "copy": "Копировать"
+    },
+    "openInNewTab": "Открыть в новой вкладке"
   }
 } 

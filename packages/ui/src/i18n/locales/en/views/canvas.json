@@ -226,6 +226,7 @@
     },
     "nodeCategories": {
       "Agents": "Agents",
+      "AR.js": "AR.js",
       "Cache": "Cache",
       "Chains": "Chains",
       "Chat Models": "Chat Models",

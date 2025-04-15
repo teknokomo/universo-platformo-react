@@ -15,6 +15,7 @@ import { utilGetUploadsConfig } from '../../utils/getUploadsConfig'
 import logger from '../../utils/logger'
 import { FLOWISE_METRIC_COUNTERS, FLOWISE_COUNTER_STATUS } from '../../Interface.Metrics'
 import { QueryRunner } from 'typeorm'
+import { getDataSource } from '../../DataSource'
 
 // Check if chatflow valid for streaming
 const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<any> => {
@@ -125,8 +126,7 @@ const deleteChatflow = async (chatflowId: string, unikId?: string): Promise<any>
 const getAllChatflows = async (type?: ChatflowType, unikId?: string): Promise<ChatFlow[]> => {
     try {
         const appServer = getRunningExpressApp()
-        let queryBuilder = appServer.AppDataSource.getRepository(ChatFlow)
-            .createQueryBuilder('chatflow')
+        let queryBuilder = appServer.AppDataSource.getRepository(ChatFlow).createQueryBuilder('chatflow')
 
         // Apply filter by unikId if provided
         if (unikId) {
@@ -327,34 +327,22 @@ const getSinglePublicChatflow = async (chatflowId: string): Promise<any> => {
     }
 }
 
-// Get specific chatflow chatbotConfig via id (PUBLIC endpoint, used to retrieve config for embedded chat)
-// Safe as public endpoint as chatbotConfig doesn't contain sensitive credential
-const getSinglePublicChatbotConfig = async (chatflowId: string): Promise<any> => {
+// Universo Platformo | Unified bot config service method
+const getSinglePublicBotConfig = async (chatflowId: string): Promise<any> => {
     try {
-        const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowId
-        })
-        if (!dbResponse) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
-        }
-        const uploadsConfig = await utilGetUploadsConfig(chatflowId)
-        // even if chatbotConfig is not set but uploads are enabled
-        // send uploadsConfig to the chatbot
-        if (dbResponse.chatbotConfig || uploadsConfig) {
-            try {
-                const parsedConfig = dbResponse.chatbotConfig ? JSON.parse(dbResponse.chatbotConfig) : {}
-                return { ...parsedConfig, uploads: uploadsConfig }
-            } catch (e) {
-                throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error parsing Chatbot Config for Chatflow ${chatflowId}`)
-            }
-        }
-        return 'OK'
+        logger.info(`Getting unified Bot config for chatflow: ${chatflowId}`)
+
+        // Universo Platformo | Use the new bot service factory
+        const botServiceFactory = require('../../services/bots').default
+
+        // Universo Platformo | Automatically determine the required service
+        const botService = await botServiceFactory.getServiceByChatflowId(chatflowId)
+
+        // Universo Platformo | Delegate work to the specialized service
+        return await botService.getBotConfig(chatflowId)
     } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatflowsService.getSinglePublicChatbotConfig - ${getErrorMessage(error)}`
-        )
+        logger.error(`Error getting unified bot config: ${getErrorMessage(error)}`)
+        return { error: getErrorMessage(error) }
     }
 }
 
@@ -381,5 +369,5 @@ export default {
     importChatflows,
     updateChatflow,
     getSinglePublicChatflow,
-    getSinglePublicChatbotConfig
+    getSinglePublicBotConfig
 }

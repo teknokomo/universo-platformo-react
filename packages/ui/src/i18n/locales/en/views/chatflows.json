@@ -24,7 +24,10 @@
       "login": "Login",
       "listView": "List View",
       "cardView": "Card View",
-      "addNew": "Add New"
+      "addNew": "Add New",
+      "enable": "Enable",
+      "disable": "Disable",
+      "version": "Version"
     },
     "addChatflow": "Add Chatflow",
     "addAgent": "Add Agent",
@@ -83,7 +86,7 @@
     "embedChat": {
       "pasteHtmlBody": "Paste this anywhere in the <code><body></code> tag of your html file.",
       "specifyVersion": "You can also specify a",
-      "showConfig": "Show Embed Chat Config"
+      "showConfig": "Show display settings"
     },
     "shareChatbot": {
       "configSaved": "Chatbot Configuration Saved",
@@ -93,6 +96,8 @@
       "openNewTab": "Open New Tab",
       "makePublic": "Make Public",
       "makePublicTooltip": "Making public will allow anyone to access the chatbot without username & password",
+      "publicLink": "Chatbot Link",
+      "publicLinkInfo": "Users can access the chatbot through this link",
       "titleSettings": "Title Settings",
       "title": "Title",
       "titlePlaceholder": "Kiberplano-Assistant",
@@ -120,6 +125,101 @@
       "typeQuestion": "Type question..",
       "textInputSendButtonColor": "TextInput Send Button Color",
       "saveChanges": "Save Changes"
-    }
+    },
+    "shareARbot": {
+      "configSaved": "AR bot configuration saved successfully",
+      "saveError": "Error saving AR bot configuration: {{error}}",
+      "copied": "Copied to clipboard",
+      "copyLink": "Copy link",
+      "openNewTab": "Open in new tab",
+      "makePublic": "Make AR Bot Public",
+      "makePublicTooltip": "When enabled, the AR bot will be accessible to anyone with the link",
+      "publicLink": "AR Bot Link",
+      "publicLinkInfo": "Users can access the AR bot through this link",
+      "generalSettings": "General Settings",
+      "title": "Title",
+      "titlePlaceholder": "My AR Bot",
+      "backgroundColor": "Background Color",
+      "textColor": "Text Color",
+      "markerSettings": "Marker Settings",
+      "markerColor": "Marker Color",
+      "markerPatternURL": "Marker Pattern URL",
+      "markerPatternURLPlaceholder": "https://example.com/marker-pattern.patt",
+      "modelSettings": "3D Model Settings",
+      "modelURL": "Model URL",
+      "modelURLPlaceholder": "https://example.com/model.gltf",
+      "modelScale": "Model Scale",
+      "cameraControls": "Enable Camera Controls",
+      "saveChanges": "Save Changes",
+      "defaultModelNote": "If Model URL is not specified, a default red cube will be shown. You can use an example model.",
+      "useExampleModel": "Use Example 3D Model"
+    },
+    "displaySettings": {
+      "loading": "Loading display settings...",
+      "loadingStatic": "Loading display settings...",
+      "errorLoading": "Error loading settings: {{error}}",
+      "modeSaved": "Display mode saved successfully",
+      "saveError": "Error saving display mode",
+      "title": "Display Settings",
+      "description": "Choose how your bot should be displayed - as a standard chat or as an AR experience",
+      "chatMode": "Chat Mode",
+      "chatModeDescription": "Standard chat interface for text-based interaction with users",
+      "arMode": "Augmented Reality (AR) Mode",
+      "arModeDescription": "Interactive AR experience with 3D models and visual elements",
+      "loadError": "Error loading settings",
+      "debugInfo": "Debug information:",
+      "cancel": "Cancel and try again",
+      "tryAgain": "Try again"
+    },
+    "configuration": {
+      "title": "Configuration",
+      "description": "Select the mode for your bot and configure basic settings",
+      "chooseMode": "Choose Bot Mode",
+      "chatMode": "Chat Mode",
+      "chatModeDescription": "Standard chat interface for text-based interaction with users",
+      "arMode": "Augmented Reality (AR) Mode",
+      "arModeDescription": "Interactive AR experience with 3D models and visual elements",
+      "saveMode": "Save Mode"
+    },
+    "botSettings": {
+      "title": "Bot Settings",
+      "description": "Configure appearance and behavior settings for your bot",
+      "chatSettings": "Chat Bot Settings",
+      "arSettings": "AR Bot Settings"
+    },
+    "apiPython": {
+      "title": "Python Code",
+      "description": "Use this Python code to interact with the API"
+    },
+    "apiJavaScript": {
+      "title": "JavaScript Code",
+      "description": "Use this JavaScript code to interact with the API"
+    },
+    "apiLinks": {
+      "title": "API Links",
+      "description": "Use these links to interact with the API",
+      "endpoints": "API Endpoints",
+      "chatEndpointDescription": "Use this endpoint to interact with the chatbot",
+      "arEndpointDescription": "Use this endpoint to interact with the AR bot",
+      "documentation": "API Documentation",
+      "documentationDescription": "View the complete API documentation"
+    },
+    "embeddingChatbot": "Embedding Chatbot",
+    "embeddingARbot": "Embedding ARbot",
+    "copyToClipboard": "Copy to Clipboard",
+    "copy": "Copy",
+    "sharePanel": {
+      "embed": "Embed",
+      "api": "API",
+      "display": "Display",
+      "shareBot": "Share Bot",
+      "shareBotDescription": "Configure appearance and behavior settings for your bot",
+      "chatSettings": "Chat Bot Settings",
+      "arSettings": "AR Bot Settings",
+      "loading": "Loading bot settings...",
+      "privateAccess": "restricted access",
+      "copy": "Copy"
+    },
+    "openInNewTab": "Open in new tab"
   }
 } 

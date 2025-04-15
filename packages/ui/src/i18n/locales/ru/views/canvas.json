@@ -226,6 +226,7 @@
     },
     "nodeCategories": {
         "Agents": "Агенты",
+        "AR.js": "AR.js",
         "Cache": "Кэш",
         "Chains": "Цепочки",
         "Chat Models": "Чат-модели",

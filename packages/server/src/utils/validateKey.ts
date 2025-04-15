@@ -5,12 +5,12 @@ import apikeyService from '../services/apikey'
 
 /**
  * Validate Chatflow API Key
- * Если в req.user уже присутствует пользователь, сразу возвращаем true.
+ * If req.user already has a user, return true immediately.
  * @param {Request} req
  * @param {ChatFlow} chatflow
  */
 export const validateChatflowAPIKey = async (req: Request, chatflow: ChatFlow): Promise<boolean> => {
-    if ((req as any).user) return true // Если JWT авторизация уже прошла, пропускаем проверку
+    if ((req as any).user) return true // Universo Platformo | If JWT authorization has already passed, skip the check
 
     const chatFlowApiKeyId = chatflow?.apikeyid
     if (!chatFlowApiKeyId) return true
@@ -30,11 +30,11 @@ export const validateChatflowAPIKey = async (req: Request, chatflow: ChatFlow): 
 
 /**
  * Validate API Key
- * Если в req.user уже присутствует пользователь (т.е. JWT прошёл), возвращаем true.
+ * If req.user already has a user (i.e. JWT passed), return true.
  * @param {Request} req
  */
 export const validateAPIKey = async (req: Request): Promise<boolean> => {
-    if ((req as any).user) return true // Если JWT авторизация уже прошла, пропускаем проверку
+    if ((req as any).user) return true // Universo Platformo | If JWT authorization has already passed, skip the check
 
     const authorizationHeader = (req.headers['Authorization'] as string) ?? (req.headers['authorization'] as string) ?? ''
     if (!authorizationHeader) return false

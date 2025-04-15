@@ -7,7 +7,7 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 import api from '@/api'
 import { useTranslation } from 'react-i18next'
 
-// Локальный API-модуль для Unik, использующий базовый axios-инстанс
+// Universo Platformo | Local API module for Unik, using the base axios instance
 const uniksApi = {
     createUnik: (data) => api.post('/uniks', data),
     updateUnik: (id, data) => api.put(`/uniks/${id}`, data)

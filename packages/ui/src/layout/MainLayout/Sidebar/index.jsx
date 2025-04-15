@@ -9,7 +9,8 @@ import PerfectScrollbar from 'react-perfect-scrollbar'
 import { BrowserView, MobileView } from 'react-device-detect'
 
 // project imports
-// Импортируем обновленные пункты меню
+// Import menu items
+// Universo Platformo | Import updated menu items
 import MenuList from './MenuList'
 import LogoSection from '../LogoSection'
 import { drawerWidth, headerHeight } from '@/store/constant'

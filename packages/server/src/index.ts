@@ -3,9 +3,9 @@ import { Request, Response } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
-// Удалён импорт express-basic-auth – Basic Auth больше не используется
+// Universo Platformo | Removed express-basic-auth import - Basic Auth is no longer used
 // import basicAuth from 'express-basic-auth'
-import jwt from 'jsonwebtoken' // Новый импорт для проверки JWT
+import jwt from 'jsonwebtoken' // Universo Platformo | New import for JWT verification
 import { DataSource } from 'typeorm'
 import { MODE } from './Interface'
 import { getNodeModulesPackagePath, getEncryptionKey } from './utils'
@@ -159,39 +159,39 @@ export class App {
         const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
 
         // ======= NEW AUTHENTICATION MIDDLEWARE (Supabase JWT) =======
-        // Этот middleware заменяет старую логику Basic Auth и проверяет все запросы к API.
+        // Universo Platformo | This middleware replaces the old Basic Auth logic and checks all requests to the API.
         this.app.use('/api/v1', async (req: Request, res: Response, next) => {
-            // Если путь не содержит /api/v1, пропускаем
+            // Universo Platformo | If the path does not contain /api/v1, skip
             if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
                 return next()
             }
-            // Если регистр пути не совпадает, отклоняем
+            // Universo Platformo | If the path case doesn't match, reject
             if (!URL_CASE_SENSITIVE_REGEX.test(req.path)) {
                 return res.status(401).json({ error: 'Unauthorized Access' })
             }
-            // Если URL в белом списке, пропускаем
+            // Universo Platformo | If URL in whitelist, skip
             const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
             if (isWhitelisted) {
                 return next()
             }
-            // Извлекаем заголовок Authorization
+            // Universo Platformo | Extract Authorization header
             const authHeader = req.headers['authorization'] || req.headers['Authorization']
             let supabaseUserId: string | null = null
             if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
                 const token = authHeader.substring(7)
                 try {
-                    // Верифицируем JWT с помощью секретного ключа Supabase
+                    // Universo Platformo | Verify JWT using Supabase secret key
                     const decoded: any = jwt.verify(token, process.env.SUPABASE_JWT_SECRET as string)
                     supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
                     if (supabaseUserId) {
-                        // Сохраняем данные пользователя в req.user для дальнейшего использования
+                        // Universo Platformo | Save user data in req.user for further use
                         ;(req as any).user = { id: supabaseUserId, ...decoded }
                     }
                 } catch (err) {
                     supabaseUserId = null
                 }
             }
-            // Если JWT отсутствует или недействителен, проверяем API-ключ
+            // Universo Platformo | If JWT is missing or invalid, check API key
             if (!supabaseUserId) {
                 const apiKeyValid = await validateAPIKey(req)
                 if (!apiKeyValid) {
@@ -204,7 +204,7 @@ export class App {
         // ======= END NEW AUTHENTICATION MIDDLEWARE =======
 
         // --- Old Basic Auth blocks are removed ---
-        // (Ветвь, основанная на FLOWISE_USERNAME / FLOWISE_PASSWORD, полностью удалена)
+        // Universo Platformo | (Branch based on FLOWISE_USERNAME / FLOWISE_PASSWORD completely removed)
 
         if (process.env.ENABLE_METRICS === 'true') {
             switch (process.env.METRICS_PROVIDER) {

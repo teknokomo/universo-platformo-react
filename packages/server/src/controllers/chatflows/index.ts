@@ -1,12 +1,16 @@
-import { NextFunction, Request, Response } from 'express'
+import { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import apiKeyService from '../../services/apikey'
 import { ChatFlow } from '../../database/entities/ChatFlow'
 import { Unik } from '../../database/entities/Unik'
 import { RateLimiterManager } from '../../utils/rateLimit'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
+import { getErrorMessage } from '../../errors/utils'
 import { ChatflowType } from '../../Interface'
+import { IARScene, IARMarker, IARCube, IARText, IARModel, ARObject } from '../../Interface.AR'
 import chatflowsService from '../../services/chatflows'
+import { getDataSource } from '../../DataSource'
+import logger from '../../utils/logger'
 
 const checkIfChatflowIsValidForStreaming = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -45,10 +49,7 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
         }
         const unikId = req.params.unikId as string
         if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.deleteChatflow - unikId not provided!`
-            )
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.deleteChatflow - unikId not provided!`)
         }
         const apiResponse = await chatflowsService.deleteChatflow(req.params.id, unikId)
         return res.json(apiResponse)
@@ -94,10 +95,7 @@ const getChatflowById = async (req: Request, res: Response, next: NextFunction) 
         }
         const unikId = req.params.unikId as string
         if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.getChatflowById - unikId not provided!`
-            )
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getChatflowById - unikId not provided!`)
         }
         const apiResponse = await chatflowsService.getChatflowById(req.params.id, unikId)
         return res.json(apiResponse)
@@ -144,10 +142,7 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         }
         const unikId = req.params.unikId as string
         if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.updateChatflow - unikId not provided!`
-            )
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - unikId not provided!`)
         }
         const chatflow = await chatflowsService.getChatflowById(req.params.id, unikId)
         if (!chatflow) {
@@ -184,18 +179,23 @@ const getSinglePublicChatflow = async (req: Request, res: Response, next: NextFu
     }
 }
 
-const getSinglePublicChatbotConfig = async (req: Request, res: Response, next: NextFunction) => {
+// Universo Platformo | Use the new bot controller that automatically determines the bot type
+const getSinglePublicBotConfig = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.getSinglePublicChatbotConfig - id not provided!`
+                `Error: chatflowsRouter.getSinglePublicBotConfig - id not provided!`
             )
         }
-        const apiResponse = await chatflowsService.getSinglePublicChatbotConfig(req.params.id)
-        return res.json(apiResponse)
+
+        // Universo Platformo | Call the corresponding method
+        const botsController = require('../bots').default
+
+        return botsController.getBotConfig(req, res, next)
     } catch (error) {
-        next(error)
+        logger.error(`Error getting unified bot config: ${getErrorMessage(error)}`)
+        return res.status(500).json({ error: getErrorMessage(error) })
     }
 }
 
@@ -210,5 +210,5 @@ export default {
     importChatflows,
     updateChatflow,
     getSinglePublicChatflow,
-    getSinglePublicChatbotConfig
+    getSinglePublicBotConfig
 }

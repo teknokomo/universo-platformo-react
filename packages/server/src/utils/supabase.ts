@@ -4,16 +4,16 @@ const supabaseUrl = process.env.SUPABASE_URL || ''
 const supabaseKey = process.env.SUPABASE_ANON_KEY || ''
 
 if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase URL и Anon Key обязательны')
+    throw new Error('Supabase URL and Anon Key are required')
 }
 
-// Глобальный клиент, если требуется для операций без специфической аутентификации
+// Universo Platformo | Global client, if needed for operations without specific authentication
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
- * Создаёт новый экземпляр SupabaseClient с установленным заголовком Authorization.
- * Это гарантирует, что каждый запрос будет выполняться с переданным токеном,
- * не затрагивая состояние глобального клиента.
+ * Creates a new SupabaseClient instance with the Authorization header set.
+ * This ensures that each request will be executed with the provided token,
+ * without affecting the state of the global client.
  */
 export const getSupabaseClientWithAuth = (token: string): SupabaseClient => {
     return createClient(supabaseUrl, supabaseKey, {
