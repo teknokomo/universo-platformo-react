@@ -5,6 +5,7 @@ import { Outlet } from 'react-router-dom'
 import MainLayout from '@/layout/MainLayout'
 import MinimalLayout from '@/layout/MinimalLayout'
 import Loadable from '@/ui-component/loading/Loadable'
+import AuthGuard from './AuthGuard'
 
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
@@ -61,7 +62,11 @@ const MainRoutes = {
     children: [
         {
             index: true,
-            element: <UnikList />
+            element: (
+                <AuthGuard>
+                    <UnikList />
+                </AuthGuard>
+            )
         },
         {
             path: '/uniks',

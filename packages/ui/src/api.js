@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // Universo Platformo | If the variable is set, it is expected not to contain '/api/v1', and we add it ourselves.
 // If the variable is not set, use '/api/v1' by default.
-const base = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL : ''
+const base = import.meta.env.VITE_API_BASE_URL || ''
 const baseURL = `${base}/api/v1`
 
 const api = axios.create({

@@ -5,6 +5,7 @@ import cors from 'cors'
 import http from 'http'
 // Universo Platformo | Removed express-basic-auth import - Basic Auth is no longer used
 // import basicAuth from 'express-basic-auth'
+import cookieParser from 'cookie-parser' // Universo Platformo | Add cookie-parser for refresh tokens
 import jwt from 'jsonwebtoken' // Universo Platformo | New import for JWT verification
 import { DataSource } from 'typeorm'
 import { MODE } from './Interface'
@@ -129,6 +130,9 @@ export class App {
         this.app.use(express.urlencoded({ limit: flowise_file_size_limit, extended: true }))
         if (process.env.NUMBER_OF_PROXIES && parseInt(process.env.NUMBER_OF_PROXIES) > 0)
             this.app.set('trust proxy', parseInt(process.env.NUMBER_OF_PROXIES))
+
+        // Universo Platformo | Add cookie-parser middleware
+        this.app.use(cookieParser())
 
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))

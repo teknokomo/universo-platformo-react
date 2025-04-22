@@ -2,6 +2,7 @@ import React from 'react'
 import App from '@/App'
 import { store } from '@/store'
 import { createRoot } from 'react-dom/client'
+import { AuthProvider } from '@/utils/authProvider'
 
 // i18n initialization
 import '@/i18n'
@@ -26,7 +27,9 @@ root.render(
                 <SnackbarProvider>
                     <ConfirmContextProvider>
                         <ReactFlowContext>
-                            <App />
+                            <AuthProvider>
+                                <App />
+                            </AuthProvider>
                         </ReactFlowContext>
                     </ConfirmContextProvider>
                 </SnackbarProvider>
