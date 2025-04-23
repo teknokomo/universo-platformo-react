@@ -120,6 +120,12 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
     const getSpecificAssistantApi = useApi(assistantsApi.getSpecificAssistant)
     const getAssistantObjApi = useApi(assistantsApi.getAssistantObj)
 
+    // Universo Platformo | Add reference to track API requests
+    const apiRequestMadeRef = useRef({
+        specificAssistant: false,
+        assistantObj: false
+    })
+
     const [assistantId, setAssistantId] = useState('')
     const [openAIAssistantId, setOpenAIAssistantId] = useState('')
     const [assistantName, setAssistantName] = useState('')
@@ -219,6 +225,14 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
     }, [getSpecificAssistantApi.error])
 
     useEffect(() => {
+        // Universo Platformo | Reset request tracking when dialog props change
+        if (dialogProps.type || dialogProps.assistantId || dialogProps.selectedOpenAIAssistantId) {
+            apiRequestMadeRef.current = {
+                specificAssistant: false,
+                assistantObj: false
+            }
+        }
+
         if (dialogProps.type === 'EDIT' && dialogProps.data) {
             // When assistant dialog is opened from Assistants dashboard
             setAssistantId(dialogProps.data.id)
@@ -235,16 +249,23 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setTopP(assistantDetails.top_p)
             setAssistantTools(assistantDetails.tools ?? [])
             setToolResources(assistantDetails.tool_resources ?? {})
-        } else if (dialogProps.type === 'EDIT' && dialogProps.assistantId) {
+        } else if (dialogProps.type === 'EDIT' && dialogProps.assistantId && !apiRequestMadeRef.current.specificAssistant) {
             // When assistant dialog is opened from OpenAIAssistant node in canvas
             getSpecificAssistantApi.request(dialogProps.assistantId, unikId)
-        } else if (dialogProps.type === 'ADD' && dialogProps.selectedOpenAIAssistantId && dialogProps.credential) {
+            apiRequestMadeRef.current.specificAssistant = true
+        } else if (
+            dialogProps.type === 'ADD' &&
+            dialogProps.selectedOpenAIAssistantId &&
+            dialogProps.credential &&
+            !apiRequestMadeRef.current.assistantObj
+        ) {
             // When assistant dialog is to add new assistant from existing
             setAssistantId('')
             setAssistantIcon(`https://api.dicebear.com/7.x/bottts/svg?seed=${uuidv4()}`)
             setAssistantCredential(dialogProps.credential)
 
             getAssistantObjApi.request(dialogProps.selectedOpenAIAssistantId, dialogProps.credential, unikId)
+            apiRequestMadeRef.current.assistantObj = true
         } else if (dialogProps.type === 'ADD' && !dialogProps.selectedOpenAIAssistantId) {
             // When assistant dialog is to add a blank new assistant
             setAssistantId('')
@@ -282,8 +303,8 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setToolResources({})
             setLoading(false)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogProps, getSpecificAssistantApi, getAssistantObjApi, unikId])
+        // Universo Platformo | Removed API objects from dependencies to prevent cyclical updates
+    }, [dialogProps, unikId])
 
     const syncData = (data) => {
         setOpenAIAssistantId(data.id)
@@ -798,9 +819,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
                             <Typography variant='overline'>{t('assistants.fields.instructions')}</Typography>
-                            <TooltipWithParser
-                                title={t('assistants.tooltips.instructions')}
-                            />
+                            <TooltipWithParser title={t('assistants.tooltips.instructions')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantInstructions'
@@ -818,9 +837,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
                             <Typography variant='overline'>{t('assistants.fields.temperature')}</Typography>
-                            <TooltipWithParser
-                                title={t('assistants.tooltips.temperature')}
-                            />
+                            <TooltipWithParser title={t('assistants.tooltips.temperature')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantTemp'
@@ -835,9 +852,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
                             <Typography variant='overline'>{t('assistants.fields.topProbability')}</Typography>
-                            <TooltipWithParser
-                                title={t('assistants.tooltips.topProbability')}
-                            />
+                            <TooltipWithParser title={t('assistants.tooltips.topProbability')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantTopP'

@@ -93,3 +93,26 @@ These items track the hands‑on technical work that is actively in progress:
 
 -   **PlayCanvas click events**: first release will inject a ray‑cast helper script to emulate OnClick in 3‑D scenes.
 -   **Flowise hierarchy UX**: no tree view; we currently prefix node names (`Parent:`) and may add a custom outline later.
+
+## React Component Performance Optimization
+
+When working with React components integrated with original Flowise code, follow these optimization patterns:
+
+1. **Avoid API Objects in useEffect Dependencies** - API objects created with hooks like useApi should not be added to useEffect dependencies as this can create cyclical updates.
+
+2. **Use useRef for API Request State Tracking** - When tracking whether API requests have been made, use useRef instead of useState to avoid re-renders:
+
+    ```javascript
+    const apiRequestMadeRef = useRef({
+        specificRequest: false
+    })
+
+    useEffect(() => {
+        if (!apiRequestMadeRef.current.specificRequest) {
+            apiService.request()
+            apiRequestMadeRef.current.specificRequest = true
+        }
+    }, [necessaryDepsOnly])
+    ```
+
+3. **Minimize useEffect Dependencies** - Only include truly necessary dependencies while keeping Unik-related dependencies (e.g. unikId).
