@@ -1,0 +1,119 @@
+{
+    "general": {
+        "publish": "Опубликовать",
+        "save": "Сохранить",
+        "cancel": "Отмена",
+        "delete": "Удалить",
+        "edit": "Редактировать",
+        "create": "Создать",
+        "update": "Обновить",
+        "loading": "Загрузка...",
+        "success": "Успешно",
+        "error": "Ошибка"
+    },
+    "navigation": {
+        "dashboard": "Панель управления",
+        "projects": "Проекты",
+        "settings": "Настройки",
+        "help": "Помощь",
+        "logout": "Выход"
+    },
+    "projects": {
+        "title": "Проекты",
+        "create": "Создать проект",
+        "edit": "Редактировать проект",
+        "delete": "Удалить проект",
+        "name": "Название проекта",
+        "description": "Описание",
+        "status": "Статус",
+        "lastModified": "Последнее изменение",
+        "createdAt": "Создан",
+        "author": "Автор",
+        "noProjects": "Проекты не найдены"
+    },
+    "publishing": {
+        "title": "Публикация",
+        "platform": "Платформа",
+        "version": "Версия",
+        "visibility": "Видимость",
+        "public": "Публичный",
+        "private": "Приватный",
+        "publishNow": "Опубликовать сейчас",
+        "scheduling": "Запланировать публикацию",
+        "scheduledFor": "Запланировано на",
+        "confirmPublish": "Вы уверены, что хотите опубликовать?",
+        "publishSuccess": "Успешно опубликовано",
+        "publishError": "Не удалось опубликовать",
+        "targetPlatforms": "Целевые платформы",
+        "publishSettings": "Настройки публикации"
+    },
+    "settings": {
+        "title": "Настройки",
+        "general": "Общие настройки",
+        "account": "Настройки аккаунта",
+        "notifications": "Уведомления",
+        "appearance": "Внешний вид",
+        "language": "Язык",
+        "theme": "Тема",
+        "dark": "Тёмная",
+        "light": "Светлая",
+        "system": "Системная"
+    },
+    "validation": {
+        "required": "Это поле обязательно",
+        "minLength": "Должно быть не менее {{min}} символов",
+        "maxLength": "Должно быть не более {{max}} символов",
+        "invalidFormat": "Неверный формат"
+    },
+    "errors": {
+        "generic": "Что-то пошло не так",
+        "network": "Ошибка сети",
+        "unauthorized": "Нет доступа",
+        "notFound": "Не найдено",
+        "serverError": "Ошибка сервера"
+    },
+    "publish": {
+        "title": "Публикация и экспорт",
+        "subtitle": "Поделитесь и экспортируйте ваши UPDL проекты",
+        "tabs": {
+            "configuration": "Конфигурация",
+            "publish": "Публикация",
+            "export": "Экспорт"
+        },
+        "technology": {
+            "label": "Технология",
+            "select": "Выберите технологию",
+            "arjs": "AR.js / A-Frame",
+            "playcanvas": "PlayCanvas",
+            "babylonjs": "Babylon.js",
+            "threejs": "Three.js",
+            "aframevr": "A-Frame VR"
+        },
+        "actions": {
+            "publish": "Опубликовать",
+            "export": "Экспортировать",
+            "download": "Скачать",
+            "copy": "Копировать ссылку",
+            "view": "Просмотр"
+        },
+        "marker": {
+            "type": "Тип маркера",
+            "hiro": "Hiro (по умолчанию)",
+            "kanji": "Kanji",
+            "pattern": "Шаблон",
+            "barcode": "Штрих-код"
+        },
+        "success": {
+            "published": "Успешно опубликовано!",
+            "copied": "Ссылка скопирована в буфер обмена"
+        },
+        "errors": {
+            "failed": "Не удалось опубликовать",
+            "noUPDL": "В этом потоке не найдено узлов UPDL"
+        },
+        "preview": {
+            "title": "Предпросмотр",
+            "camera": "Разрешите доступ к камере и покажите маркер Hiro для просмотра"
+        }
+    }
+}

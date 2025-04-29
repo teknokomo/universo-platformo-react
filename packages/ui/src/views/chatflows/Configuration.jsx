@@ -220,8 +220,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('chatflows.configuration.chatMode')}</Typography>
-                                    <TooltipWithParser title={t('chatflows.configuration.chatModeDescription')}>
+                                    <Typography variant='h5'>{t('publish.technologies.chat')}</Typography>
+                                    <TooltipWithParser title={t('publish.technologies.chatDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,
@@ -243,12 +243,93 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             }
                         />
                         <FormControlLabel
-                            value='ar'
+                            value='arjs'
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('chatflows.configuration.arMode')}</Typography>
-                                    <TooltipWithParser title={t('chatflows.configuration.arModeDescription')}>
+                                    <Typography variant='h5'>{t('publish.technologies.arjs')}</Typography>
+                                    <TooltipWithParser title={t('publish.technologies.arjsDescription')}>
+                                        <Box
+                                            sx={{
+                                                width: 16,
+                                                height: 16,
+                                                borderRadius: '50%',
+                                                bgcolor: 'info.main',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            ?
+                                        </Box>
+                                    </TooltipWithParser>
+                                </Stack>
+                            }
+                        />
+                        <FormControlLabel
+                            value='playcanvas'
+                            control={<Radio />}
+                            label={
+                                <Stack direction='row' spacing={1} alignItems='center'>
+                                    <Typography variant='h5'>{t('publish.technologies.playcanvas')}</Typography>
+                                    <TooltipWithParser title={t('publish.technologies.playcanvasDescription')}>
+                                        <Box
+                                            sx={{
+                                                width: 16,
+                                                height: 16,
+                                                borderRadius: '50%',
+                                                bgcolor: 'info.main',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            ?
+                                        </Box>
+                                    </TooltipWithParser>
+                                </Stack>
+                            }
+                        />
+                        <FormControlLabel
+                            value='babylonjs'
+                            control={<Radio />}
+                            label={
+                                <Stack direction='row' spacing={1} alignItems='center'>
+                                    <Typography variant='h5'>{t('publish.technologies.babylonjs')}</Typography>
+                                    <TooltipWithParser title={t('publish.technologies.babylonjsDescription')}>
+                                        <Box
+                                            sx={{
+                                                width: 16,
+                                                height: 16,
+                                                borderRadius: '50%',
+                                                bgcolor: 'info.main',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            ?
+                                        </Box>
+                                    </TooltipWithParser>
+                                </Stack>
+                            }
+                        />
+                        <FormControlLabel
+                            value='aframevr'
+                            control={<Radio />}
+                            label={
+                                <Stack direction='row' spacing={1} alignItems='center'>
+                                    <Typography variant='h5'>{t('publish.technologies.aframevr')}</Typography>
+                                    <TooltipWithParser title={t('publish.technologies.aframevrDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,
@@ -284,4 +365,3 @@ Configuration.propTypes = {
 }
 
 export default Configuration
-
