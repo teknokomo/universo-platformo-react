@@ -12,6 +12,8 @@
 
 ## Basic Information
 
+![image](https://github.com/user-attachments/assets/0be3687e-afe2-46be-a0f6-487ff03d9c80)
+
 Implementation of Universo Platformo / Universo MMOOMM / Universo Kiberplano built on React and related stack. This project is based on [Flowise AI](https://github.com/FlowiseAI/Flowise) (version 2.2.7-patch.1) with multi-user functionality through Supabase integration and extended with UPDL (Universal Platform Description Language) for creating 3D/AR/VR applications.
 
 **In this repository, public efforts are currently underway to create Universo Platformo / Universo MMOOMM, in order to launch a global teknokomization and save humanity from final enslavement and complete destruction by creating special mass multi-user virtual worlds, such as Universo MMOOMM, and a platform for their creation - Universo Platformo, initially with gaming functionality, and then with the addition of the Cyberplan functionality.**
