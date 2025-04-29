@@ -25,6 +25,9 @@ export default defineConfig(async ({ mode }) => {
         resolve: {
             alias: {
                 '@': resolve(__dirname, 'src'),
+                '@apps': resolve(__dirname, '../../apps'),
+                '@apps/updl': resolve(__dirname, '../../apps/updl'),
+                '@apps/publish': resolve(__dirname, '../../apps/publish'),
                 '@codemirror/state': resolve(__dirname, '../../node_modules/@codemirror/state'),
                 '@codemirror/view': resolve(__dirname, '../../node_modules/@codemirror/view'),
                 '@codemirror/language': resolve(__dirname, '../../node_modules/@codemirror/language'),
@@ -34,7 +37,8 @@ export default defineConfig(async ({ mode }) => {
                 '@uiw/codemirror-theme-vscode': resolve(__dirname, '../../node_modules/@uiw/codemirror-theme-vscode'),
                 '@uiw/codemirror-theme-sublime': resolve(__dirname, '../../node_modules/@uiw/codemirror-theme-sublime'),
                 '@lezer/common': resolve(__dirname, '../../node_modules/@lezer/common'),
-                '@lezer/highlight': resolve(__dirname, '../../node_modules/@lezer/highlight')
+                '@lezer/highlight': resolve(__dirname, '../../node_modules/@lezer/highlight'),
+                '@apps/publish/i18n': resolve(__dirname, '../../apps/publish/i18n')
             }
         },
         root: resolve(__dirname),

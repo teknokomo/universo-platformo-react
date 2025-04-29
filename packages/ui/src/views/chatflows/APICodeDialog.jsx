@@ -110,6 +110,14 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const [variableOverrides, setVariableOverrides] = useState(apiConfig?.overrideConfig?.variables ?? [])
     const [displayMode, setDisplayMode] = useState('chat')
 
+    const [tabVisibility, setTabVisibility] = useState({
+        chat: { embed: true, python: true, javascript: true, curl: true },
+        arjs: { embed: true, python: false, javascript: true, curl: false },
+        playcanvas: { embed: true, python: false, javascript: true, curl: false },
+        babylonjs: { embed: true, python: false, javascript: true, curl: false },
+        aframevr: { embed: true, python: false, javascript: true, curl: false }
+    })
+
     const getAllAPIKeysApi = useApi(apiKeyApi.getAllAPIKeys)
     const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
     const getIsChatflowStreamingApi = useApi(chatflowsApi.getIsChatflowStreaming)
@@ -273,10 +281,48 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     }, [getAllVariablesApi.data])
 
     useEffect(() => {
-        // Universo Platformo | Set the tabs in the correct order
-        if (show) {
-            setCodes(['Configuration', 'Embed', 'Python', 'JavaScript', 'cURL', 'Share Bot'])
+        // Universo Platformo | Set the tabs based on initial display mode
+        if (show && !displayMode) {
+            // Default to 'chat' if no display mode is set
+            setDisplayMode('chat')
         }
+    }, [show, displayMode, setDisplayMode])
+
+    useEffect(() => {
+        if (getAllAPIKeysApi.data) {
+            const options = [
+                {
+                    label: t('chatflows.apiCodeDialog.noAuthorization'),
+                    name: ''
+                }
+            ]
+            for (const key of getAllAPIKeysApi.data) {
+                options.push({
+                    label: key.keyName,
+                    name: key.id
+                })
+            }
+            options.push({
+                label: t('chatflows.apiCodeDialog.addNewKey'),
+                name: 'addnewkey'
+            })
+            setKeyOptions(options)
+            setAPIKeys(getAllAPIKeysApi.data)
+
+            if (dialogProps.chatflowApiKeyId) {
+                setChatflowApiKeyId(dialogProps.chatflowApiKeyId)
+                setSelectedApiKey(getAllAPIKeysApi.data.find((key) => key.id === dialogProps.chatflowApiKeyId))
+            }
+        }
+    }, [dialogProps, getAllAPIKeysApi.data, t])
+
+    useEffect(() => {
+        if (show) {
+            getAllAPIKeysApi.request(unikId)
+            getIsChatflowStreamingApi.request(unikId, dialogProps.chatflowid)
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show])
 
     const handleChange = (event, newValue) => {
@@ -394,7 +440,7 @@ query({"question": "Hey, how are you?"}).then((response) => {
             return cURLSVG
         } else if (codeLang === 'Configuration') {
             return settingsSVG
-        } else if (codeLang === 'Share Bot') {
+        } else if (codeLang === t('publish.tabs.publish')) {
             return ShareChatbotSVG
         }
         return pythonSVG
@@ -641,41 +687,24 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
     }
 
     useEffect(() => {
-        if (getAllAPIKeysApi.data) {
-            const options = [
-                {
-                    label: t('chatflows.apiCodeDialog.noAuthorization'),
-                    name: ''
-                }
-            ]
-            for (const key of getAllAPIKeysApi.data) {
-                options.push({
-                    label: key.keyName,
-                    name: key.id
-                })
-            }
-            options.push({
-                label: t('chatflows.apiCodeDialog.addNewKey'),
-                name: 'addnewkey'
-            })
-            setKeyOptions(options)
-            setAPIKeys(getAllAPIKeysApi.data)
+        // Update visible tabs when display mode changes
+        if (displayMode && show) {
+            const newTabs = ['Configuration']
 
-            if (dialogProps.chatflowApiKeyId) {
-                setChatflowApiKeyId(dialogProps.chatflowApiKeyId)
-                setSelectedApiKey(getAllAPIKeysApi.data.find((key) => key.id === dialogProps.chatflowApiKeyId))
-            }
+            // Add conditional tabs based on selected technology
+            if (tabVisibility[displayMode]?.embed) newTabs.push('Embed')
+            if (tabVisibility[displayMode]?.python) newTabs.push('Python')
+            if (tabVisibility[displayMode]?.javascript) newTabs.push('JavaScript')
+            if (tabVisibility[displayMode]?.curl) newTabs.push('cURL')
+
+            // Always add publish tab
+            newTabs.push(t('publish.tabs.publish'))
+
+            setCodes(newTabs)
+            // Reset to first tab when changing technologies
+            setValue(0)
         }
-    }, [dialogProps, getAllAPIKeysApi.data, t])
-
-    useEffect(() => {
-        if (show) {
-            getAllAPIKeysApi.request(unikId)
-            getIsChatflowStreamingApi.request(unikId, dialogProps.chatflowid)
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show])
+    }, [displayMode, show, t, tabVisibility])
 
     const component = show ? (
         <Dialog
@@ -687,7 +716,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.title}
+                {t('publish.title')}
             </DialogTitle>
             <DialogContent>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
@@ -741,21 +770,77 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                 />
                             </>
                         )}
-                        {codeLang === 'Share Bot' && !chatflowApiKeyId && (
+                        {codeLang === t('publish.tabs.publish') && !chatflowApiKeyId && (
                             <>
                                 <div style={{ marginBottom: '10px', padding: '5px', background: '#f5f5f5', fontSize: '12px' }}>
                                     <strong>Debug:</strong> chatflowid={dialogProps.chatflowid}, unikId={unikId}, displayMode={displayMode}
                                 </div>
-                                {displayMode === 'ar' ? (
-                                    <ARBotSettings chatflowid={dialogProps.chatflowid} unikId={unikId} />
-                                ) : (
-                                    <ChatBotSettings
-                                        chatflowid={dialogProps.chatflowid}
-                                        unikId={unikId}
-                                        isSessionMemory={dialogProps.isSessionMemory}
-                                        isAgentCanvas={dialogProps.isAgentCanvas}
-                                    />
-                                )}
+                                {(() => {
+                                    // Render appropriate settings component based on selected technology
+                                    switch (displayMode) {
+                                        case 'arjs':
+                                            return <ARBotSettings chatflowid={dialogProps.chatflowid} unikId={unikId} />
+                                        case 'chat':
+                                            return (
+                                                <ChatBotSettings
+                                                    chatflowid={dialogProps.chatflowid}
+                                                    unikId={unikId}
+                                                    isSessionMemory={dialogProps.isSessionMemory}
+                                                    isAgentCanvas={dialogProps.isAgentCanvas}
+                                                />
+                                            )
+                                        case 'playcanvas':
+                                            // Placeholder for PlayCanvas settings
+                                            return (
+                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
+                                                    <Typography variant='h4' gutterBottom>
+                                                        {t('publish.technologies.playcanvas')} {t('publishing.publishSettings')}
+                                                    </Typography>
+                                                    <Typography variant='body2' color='text.secondary'>
+                                                        {t('publish.technologies.playcanvasDescription')}
+                                                    </Typography>
+                                                    <Typography sx={{ mt: 2 }}>{t('publishing.targetPlatforms')}: Web, Mobile</Typography>
+                                                </Box>
+                                            )
+                                        case 'babylonjs':
+                                            // Placeholder for Babylon.js settings
+                                            return (
+                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
+                                                    <Typography variant='h4' gutterBottom>
+                                                        {t('publish.technologies.babylonjs')} {t('publishing.publishSettings')}
+                                                    </Typography>
+                                                    <Typography variant='body2' color='text.secondary'>
+                                                        {t('publish.technologies.babylonjsDescription')}
+                                                    </Typography>
+                                                    <Typography sx={{ mt: 2 }}>{t('publishing.targetPlatforms')}: Web, Mobile</Typography>
+                                                </Box>
+                                            )
+                                        case 'aframevr':
+                                            // Placeholder for A-Frame VR settings
+                                            return (
+                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
+                                                    <Typography variant='h4' gutterBottom>
+                                                        {t('publish.technologies.aframevr')} {t('publishing.publishSettings')}
+                                                    </Typography>
+                                                    <Typography variant='body2' color='text.secondary'>
+                                                        {t('publish.technologies.aframevrDescription')}
+                                                    </Typography>
+                                                    <Typography sx={{ mt: 2 }}>
+                                                        {t('publishing.targetPlatforms')}: Web VR, Mobile VR
+                                                    </Typography>
+                                                </Box>
+                                            )
+                                        default:
+                                            return (
+                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
+                                                    <Typography variant='h4' gutterBottom>
+                                                        {t('publishing.publishSettings')}
+                                                    </Typography>
+                                                    <Typography>{t('errors.generic')}</Typography>
+                                                </Box>
+                                            )
+                                    }
+                                })()}
                             </>
                         )}
                         {codeLang !== 'Embed' && codeLang !== 'Configuration' && codeLang !== 'Share Bot' && (

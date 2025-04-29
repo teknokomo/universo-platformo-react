@@ -1,0 +1,32 @@
+{
+    "name": "updl",
+    "version": "0.1.0",
+    "description": "Universo Platformo Definition Language for 3D/AR/VR scene definition",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc -w",
+        "clean": "rimraf dist",
+        "lint": "eslint --ext .ts,.js imp/"
+    },
+    "keywords": [
+        "updl",
+        "universo",
+        "platformo",
+        "3d",
+        "ar",
+        "vr",
+        "webxr"
+    ],
+    "author": "Universo Platformo Team",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "rimraf": "^5.0.5",
+        "eslint": "^8.56.0"
+    }
+}

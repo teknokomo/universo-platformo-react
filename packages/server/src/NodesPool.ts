@@ -28,7 +28,7 @@ export class NodesPool {
         const packagePath = getNodeModulesPackagePath('flowise-components')
         const nodesPath = path.join(packagePath, 'dist', 'nodes')
         const nodeFiles = await this.getFiles(nodesPath)
-        return Promise.all(
+        await Promise.all(
             nodeFiles.map(async (file) => {
                 if (file.endsWith('.js')) {
                     try {
@@ -78,6 +78,69 @@ export class NodesPool {
                 }
             })
         )
+
+        // Load UPDL nodes
+        try {
+            // Define path to UPDL nodes directory
+            const updlNodesPath = path.join(__dirname, '../../../apps/updl/dist/nodes')
+
+            // Check if directory exists
+            const fs = require('fs')
+            if (fs.existsSync(updlNodesPath)) {
+                // Get all files in UPDL nodes directory
+                const updlNodeFiles = await this.getFiles(updlNodesPath)
+
+                // Load each UPDL node
+                await Promise.all(
+                    updlNodeFiles.map(async (file) => {
+                        if (file.endsWith('.js')) {
+                            try {
+                                const nodeModule = await require(file)
+
+                                if (nodeModule.nodeClass) {
+                                    const newNodeInstance = new nodeModule.nodeClass()
+                                    newNodeInstance.filePath = file
+
+                                    // Replace file icon with absolute path
+                                    if (
+                                        newNodeInstance.icon &&
+                                        (newNodeInstance.icon.endsWith('.svg') ||
+                                            newNodeInstance.icon.endsWith('.png') ||
+                                            newNodeInstance.icon.endsWith('.jpg'))
+                                    ) {
+                                        const filePath = file.replace(/\\/g, '/').split('/')
+                                        filePath.pop()
+                                        const nodeIconAbsolutePath = `${filePath.join('/')}/${newNodeInstance.icon}`
+                                        newNodeInstance.icon = nodeIconAbsolutePath
+
+                                        // Store icon path for componentCredentials
+                                        if (newNodeInstance.credential) {
+                                            for (const credName of newNodeInstance.credential.credentialNames) {
+                                                this.credentialIconPath[credName] = nodeIconAbsolutePath
+                                            }
+                                        }
+                                    }
+
+                                    // Check if node is disabled
+                                    const isDisabled = disabled_nodes.includes(newNodeInstance.name)
+
+                                    if (!isDisabled) {
+                                        this.componentNodes[newNodeInstance.name] = newNodeInstance
+                                        logger.info(`✅ [server]: Registered UPDL node: ${newNodeInstance.name}`)
+                                    }
+                                }
+                            } catch (err) {
+                                logger.error(`❌ [server]: Error loading UPDL node from file ${file}:`, err)
+                            }
+                        }
+                    })
+                )
+            } else {
+                logger.warn(`⚠️ [server]: UPDL nodes directory not found at ${updlNodesPath}`)
+            }
+        } catch (err) {
+            logger.error('❌ [server]: Error loading UPDL nodes:', err)
+        }
     }
 
     /**

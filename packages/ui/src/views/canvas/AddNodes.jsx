@@ -158,14 +158,14 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
     const groupByTags = (nodes, newTabValue = 0) => {
         const langchainNodes = nodes.filter((nd) => !nd.tags)
         const llmaindexNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('LlamaIndex'))
-        const arjsNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('AR.js'))
+        const updlNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('UPDL'))
         const utilitiesNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('Utilities'))
         if (newTabValue === 0) {
             return langchainNodes
         } else if (newTabValue === 1) {
             return llmaindexNodes
         } else if (newTabValue === 2) {
-            return arjsNodes
+            return updlNodes
         } else {
             return utilitiesNodes
         }
@@ -373,7 +373,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                 onChange={handleTabChange}
                                                 aria-label='tabs'
                                             >
-                                                {['LangChain', 'LlamaIndex', 'AR.js', 'Utilities'].map((item, index) => (
+                                                {['LangChain', 'LlamaIndex', 'UPDL', 'Utilities'].map((item, index) => (
                                                     <Tab
                                                         icon={
                                                             <div
@@ -458,7 +458,9 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                                             alignItems: 'center'
                                                                         }}
                                                                     >
-                                                                        <Typography variant='h5'>{t('canvas.nodeCategories.' + category.split(';')[0])}</Typography>
+                                                                        <Typography variant='h5'>
+                                                                            {t('canvas.nodeCategories.' + category.split(';')[0])}
+                                                                        </Typography>
                                                                         &nbsp;
                                                                         <Chip
                                                                             sx={{
@@ -479,7 +481,9 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
                                                                         />
                                                                     </div>
                                                                 ) : (
-                                                                    <Typography variant='h5'>{t('canvas.nodeCategories.' + category)}</Typography>
+                                                                    <Typography variant='h5'>
+                                                                        {t('canvas.nodeCategories.' + category)}
+                                                                    </Typography>
                                                                 )}
                                                             </AccordionSummary>
                                                             <AccordionDetails>

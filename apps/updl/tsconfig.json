@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": false,
+        "skipLibCheck": true,
+        "rootDir": "imp",
+        "outDir": "dist",
+        "declaration": true,
+        "allowSyntheticDefaultImports": true,
+        "resolveJsonModule": true
+    },
+    "include": ["imp/**/*.ts", "imp/**/*.tsx", "imp/**/*.js"],
+    "exclude": ["node_modules", "dist"]
+}

@@ -66,62 +66,88 @@ import ruChatflowsTranslation from './locales/ru/views/chatflows.json'
 import enChatmessageTranslation from './locales/en/views/chatmessage.json'
 import ruChatmessageTranslation from './locales/ru/views/chatmessage.json'
 
+// Universo Platformo | Import publish module translations
+// Using alias @apps/publish/i18n for correct path resolution
+import { publishTranslations } from '@apps/publish/i18n'
+
 // Universo Platformo | i18next initialization with namespaces support
-i18n
-    .use(LanguageDetector)
+i18n.use(LanguageDetector)
     .use(initReactI18next)
-    .init({
-        resources: {
-            en: { 
-                translation: enTranslation,
-                auth: enAuthTranslation,
-                uniks: enUniksTranslation,
-                admin: enAdminTranslation,
-                menu: enMenuTranslation,
-                assistants: enAssistantsTranslation,
-                'vector-store': enVectorStoreTranslation,
-                'document-store': enDocumentStoreTranslation,
-                credentials: enCredentialsTranslation,
-                'api-keys': enApiKeysTranslation,
-                variables: enVariablesTranslation,
-                tools: enToolsTranslation,
-                templates: enTemplatesTranslation,
-                canvas: enCanvasTranslation,
-                chatflows: enChatflowsTranslation,
-                chatmessage: enChatmessageTranslation
+    .init(
+        {
+            resources: {
+                en: {
+                    translation: enTranslation,
+                    auth: enAuthTranslation,
+                    uniks: enUniksTranslation,
+                    admin: enAdminTranslation,
+                    menu: enMenuTranslation,
+                    assistants: enAssistantsTranslation,
+                    'vector-store': enVectorStoreTranslation,
+                    'document-store': enDocumentStoreTranslation,
+                    credentials: enCredentialsTranslation,
+                    'api-keys': enApiKeysTranslation,
+                    variables: enVariablesTranslation,
+                    tools: enToolsTranslation,
+                    templates: enTemplatesTranslation,
+                    canvas: enCanvasTranslation,
+                    chatflows: enChatflowsTranslation,
+                    chatmessage: enChatmessageTranslation,
+                    publish: publishTranslations.en.publish
+                },
+                ru: {
+                    translation: ruTranslation,
+                    auth: ruAuthTranslation,
+                    uniks: ruUniksTranslation,
+                    admin: ruAdminTranslation,
+                    menu: ruMenuTranslation,
+                    assistants: ruAssistantsTranslation,
+                    'vector-store': ruVectorStoreTranslation,
+                    'document-store': ruDocumentStoreTranslation,
+                    credentials: ruCredentialsTranslation,
+                    'api-keys': ruApiKeysTranslation,
+                    variables: ruVariablesTranslation,
+                    tools: ruToolsTranslation,
+                    templates: ruTemplatesTranslation,
+                    canvas: ruCanvasTranslation,
+                    chatflows: ruChatflowsTranslation,
+                    chatmessage: ruChatmessageTranslation,
+                    publish: publishTranslations.ru.publish
+                }
             },
-            ru: { 
-                translation: ruTranslation,
-                auth: ruAuthTranslation,
-                uniks: ruUniksTranslation,
-                admin: ruAdminTranslation,
-                menu: ruMenuTranslation,
-                assistants: ruAssistantsTranslation,
-                'vector-store': ruVectorStoreTranslation,
-                'document-store': ruDocumentStoreTranslation,
-                credentials: ruCredentialsTranslation,
-                'api-keys': ruApiKeysTranslation,
-                variables: ruVariablesTranslation,
-                tools: ruToolsTranslation,
-                templates: ruTemplatesTranslation,
-                canvas: ruCanvasTranslation,
-                chatflows: ruChatflowsTranslation,
-                chatmessage: ruChatmessageTranslation
+            fallbackLng: 'en',
+            ns: [
+                'translation',
+                'auth',
+                'uniks',
+                'admin',
+                'menu',
+                'assistants',
+                'vector-store',
+                'document-store',
+                'credentials',
+                'api-keys',
+                'variables',
+                'tools',
+                'templates',
+                'canvas',
+                'chatflows',
+                'chatmessage',
+                'publish'
+            ],
+            defaultNS: 'translation',
+            fallbackNS: 'translation',
+            interpolation: { escapeValue: false },
+            debug: process.env.NODE_ENV === 'development',
+            react: {
+                useSuspense: false
             }
         },
-        fallbackLng: 'en',
-        ns: ['translation', 'auth', 'uniks', 'admin', 'menu', 'assistants', 'vector-store', 'document-store', 'credentials', 'api-keys', 'variables', 'tools', 'templates', 'canvas', 'chatflows', 'chatmessage'],
-        defaultNS: 'translation',
-        fallbackNS: 'translation',
-        interpolation: { escapeValue: false },
-        debug: process.env.NODE_ENV === 'development',
-        react: {
-            useSuspense: false
+        (err) => {
+            if (err) {
+                console.error('i18next initialization error:', err)
+            }
         }
-    }, (err) => {
-        if (err) {
-            console.error('i18next initialization error:', err);
-        }
-    });
+    )
 
 export default i18n
