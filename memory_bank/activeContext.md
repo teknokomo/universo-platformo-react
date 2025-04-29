@@ -1,20 +1,38 @@
 # Active Context
 
-**Current Sprint**: 0.8.0 pre-alpha (Apr 2022)
+**Current Sprint**: 0.9.0 pre-alpha (Apr 2022)
 
 **Primary Focus**:
 
--   Enhanced Supabase authentication system with secure token handling
--   Memory Bank documentation structure creation
--   AR.js exporter implementation
--   UPDL node set integration into Flowise
+-   APPs architecture implementation with apps/updl and apps/publish
+-   Universal UPDL node system development
+-   AR.js and PlayCanvas React exporters
+-   Publication and export UI integration
 
-**Immediate Next Steps**: One-click publish flow integration
+**Immediate Next Steps**:
+
+1. Complete UI implementation for "Publish & Export" interface
+2. Finish UPDL node registration in Flowise editor
+3. Implement UPDL to AR.js/A-Frame conversion for publishing
+4. Create technology-specific publisher components
 
 ## Current Focus
 
-Initial Memory Bank setup and project exploration.
+UPDL architecture development and publication UI implementation.
 
 -   [x] Created Memory Bank files structure
--   [x] Initialize all Memory Bank files with core content
--   [ ] Run 'pnpm dev' to understand current project state
+-   [x] Analyzed existing AR.js test functionality
+-   [x] Created apps/ directory with base structure for updl and publish
+-   [~] Developed first set of UPDL nodes (Scene, Object, partial Camera and Light)
+-   [x] Implemented localization infrastructure for publish module
+-   [ ] Complete UI modifications for "Publish & Export" dialog
+-   [ ] Implement first exporter for AR.js with full functionality
+
+## Implementation Strategy
+
+-   Implement changes incrementally to avoid breaking existing functionality
+-   Complete UI modifications for publication interface first
+-   Register UPDL nodes in Flowise to enable editor integration
+-   Implement exporters following priority: AR.js > PlayCanvas > Babylon.js > Three.js
+-   Deprecate AR.js test nodes only after UPDL system is functional
+-   Apply careful refactoring when transitioning from test AR.js to UPDL system

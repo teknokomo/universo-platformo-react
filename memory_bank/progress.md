@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025‑04‑22**
+**As of 2025‑04‑28**
 
 ## Completed (chronological)
 
@@ -17,13 +17,40 @@
 
 ## In Progress
 
--   **UPDL node set in Flowise** — nodes visible; port wiring & save/load verification underway.
--   **AR.js exporter** — outputs HTML/A‑Frame; event binding & template cleanup in progress.
--   **Publish backend** — API endpoints stubbed; React UI work will start after exporter stabilises.
--   **Known risks** — PlayCanvas click‑handling helper script; hierarchical UX in Flowise under evaluation.
+-   **APPs architecture** — Enhancing apps/updl and apps/publish structure with clean modular design.
+-   **UPDL node system** — Completing implementation of universal nodes for scene building.
+-   **AR.js exporter** — Refining exporter for AR.js/A-Frame.
+-   **Publication interface** — Redesigning "Embed in website" UI into "Publish & Export".
+
+## Implementation Roadmap
+
+### Phase 1: Foundation (Current)
+
+-   APPs directory structure setup
+-   Base UPDL node interfaces
+-   First AR.js exporter implementation
+
+### Phase 2: Core Components
+
+-   Complete set of UPDL nodes
+-   Integration with Flowise editor
+-   Publication system UI redesign
+
+### Phase 3: Exporters Expansion
+
+-   PlayCanvas React and PlayCanvas exporter
+-   Babylon.js exporter
+-   Three.js and other exporters
+
+### Phase 4: Final Integration
+
+-   Removal of test AR.js nodes
+-   Full publication and export system
+-   Complete documentation
 
 ## Upcoming
 
--   Babylon.js and PlayCanvas React exporters (β versions).
--   Three.js, A‑Frame VR, PlayCanvas Engine exporters.
--   One‑click publish flow fully integrated into the editor UI.
+-   **0.9.0-pre-alpha** - Base UPDL node set, AR.js/A-Frame export, publication interface.
+-   **0.10.0-pre-alpha** - PlayCanvas React and PlayCanvas exporters, UPDL node enhancements.
+-   **0.11.0-pre-alpha** - Remaining exporters (Babylon.js, Three.js, A-Frame VR).
+-   **0.12.0-pre-alpha** - Test AR.js nodes removal, optimization, and complete documentation.

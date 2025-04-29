@@ -38,6 +38,225 @@ Added to implement multi‑user functionality. When creating Universo Platformo 
     - JWT validation and secure token storage
     - Compatible with future desktop app wrapping (Electron/Tauri)
 
+## APPs Architecture Implementation
+
+The project is transitioning to a modular APPs architecture that separates functionality into distinct applications while minimizing changes to the core Flowise codebase.
+
+### Directory Structure
+
+```
+universo-platformo-react/
+├── packages/                  # Original Flowise packages
+│   ├── components/            # Components and utilities
+│   ├── server/                # Server-side code
+│   └── ui/                    # Frontend
+├── apps/                      # New APPs architecture
+│   ├── updl/                  # UPDL node system
+│   │   ├── imp/               # Implementation
+│   │   │   ├── nodes/         # UPDL node definitions
+│   │   │   │   ├── base/      # Base node classes
+│   │   │   │   ├── scene/     # Scene nodes
+│   │   │   │   ├── object/    # Object nodes
+│   │   │   │   ├── camera/    # Camera nodes
+│   │   │   │   ├── light/     # Light nodes
+│   │   │   │   └── ...        # Other node types
+│   │   │   ├── icons/         # Common icons
+│   │   │   ├── interfaces/    # TypeScript interfaces
+│   │   │   ├── exporters/     # Platform exporters
+│   │   │   │   ├── base/      # Base exporter interface
+│   │   │   │   ├── arjs/      # AR.js exporter
+│   │   │   │   ├── playcanvas-react/ # PlayCanvas React exporter
+│   │   │   │   └── ...        # Other exporters
+│   │   │   ├── index.ts       # Entry point for UPDL API
+│   │   │   ├── initialize.ts  # Initialization functions for exporters
+│   │   │   └── utils/         # Utility functions
+│   │   ├── package.json       # Package dependencies
+│   │   └── README.md          # Documentation
+│   └── publish/               # Publication system
+│       ├── imp/               # Implementation
+│       │   ├── react/         # Frontend publication UI
+│       │   │   ├── components/ # UI components
+│       │   │   ├── pages/     # Publication pages
+│       │   │   ├── miniapps/   # Technology-specific handlers
+│       │   │   │   ├── arjs/   # AR.js publication handler
+│       │   │   │   ├── playcanvas-react/ # PlayCanvas React handler
+│       │   │   │   └── ...     # Other technology handlers
+│       │   │   └── utils/     # Frontend utilities
+│       │   └── express/       # Backend publication service
+│       │       ├── controllers/ # Request handlers
+│       │       ├── routes/    # API routes
+│       │       ├── services/  # Business logic
+│       │       └── utils/     # Backend utilities
+│       ├── package.json       # Package dependencies
+│       └── README.md          # Documentation
+```
+
+### Integration with Flowise
+
+1. **Package.json Configuration**:
+
+    - Added apps directory to workspaces in root package.json
+    - Configure dependencies for each app
+    - Update build scripts to include apps
+
+2. **Build Configuration**:
+
+    - Modify turbo.json to include apps in build pipeline
+    - Configure proper build order and dependencies
+    - Ensure output files are placed correctly
+
+3. **Node Registration**:
+
+    - Automatic node discovery through NodesPool.ts
+    - UPDL nodes are detected from apps/updl/dist/nodes directory
+    - Each node contains its own icon file in the same directory as the node file
+    - Nodes can be disabled via DISABLED_NODES environment variable
+
+4. **Server Integration**:
+
+    - Add API endpoints for UPDL flow handling
+    - Create buildUPDLflow.ts utility
+    - Implement publication endpoints
+
+5. **UI Integration**:
+    - Redesign "Embed in website" UI to "Publish & Export"
+    - Add technology selection options
+    - Create publication preview UI
+
+### Build and Deployment Process
+
+1. **Development**:
+
+    - `pnpm dev` starts both core Flowise and APPs modules
+    - Hot reloading applies to changes in both directories
+
+2. **Production Build**:
+
+    - `pnpm build` includes apps in the build process
+    - Compiled apps are included in the final distribution
+    - Frontend static assets are properly bundled
+
+3. **Deployment**:
+    - Docker image includes apps modules
+    - Environment variables configure publication paths
+    - Static assets for published projects are served from configurable location
+
+## UPDL Implementation Details
+
+### Core Node Components
+
+1. **BaseUPDLNode**:
+
+    - Abstract base class for all UPDL nodes
+    - Implements common functionality and interfaces
+    - Handles input/output port definitions
+    - Provides serialization/deserialization methods
+
+2. **Scene Node**:
+
+    - Root node for UPDL scene graph
+    - Contains global scene settings
+    - Manages environment and rendering options
+    - Can contain camera, lights, and objects
+
+3. **Object Node**:
+
+    - Represents 3D objects in the scene
+    - Supports primitives (cube, sphere, etc.)
+    - Handles 3D model loading
+    - Manages materials and textures
+    - Can contain child objects
+
+4. **Camera Node**:
+
+    - Defines view parameters
+    - Supports perspective and orthographic modes
+    - Configures AR/VR specific settings
+    - Can be attached to scene or objects
+
+5. **Light Node**:
+
+    - Implements various light types
+    - Configures intensity, color, range
+    - Handles shadows and other effects
+    - Can be global or attached to objects
+
+6. **Interaction Node**:
+
+    - Processes user input events
+    - Handles click/touch interactions
+    - Triggers actions based on input
+    - Configures raycasting for 3D object selection
+
+7. **Controller Node**:
+
+    - Manages object behaviors
+    - Implements rotation, orbit, movement patterns
+    - Processes input to control objects
+    - Links input events to animation triggers
+
+8. **Animation Node**:
+    - Controls property animations
+    - Manages timing and sequencing
+    - Supports looping and easing
+    - Handles playback control (play/pause/stop)
+
+### Export Process
+
+1. **Data Flow**:
+
+    - Flowise serializes UPDL node graph to JSON
+    - Export handler deserializes to UPDL objects
+    - Platform-specific exporter generates code
+    - Publication server saves and serves generated files
+
+2. **Default Value Handling**:
+
+    - Missing required components (camera, lights) are auto-created
+    - Platform-specific optimizations are applied
+    - Default values are used for missing properties
+    - Warnings are generated for unsupported features
+
+3. **Technology-Specific Export**:
+    - AR.js: Generates HTML with A-Frame tags and AR.js scripts
+    - PlayCanvas React: Creates JSX component hierarchy
+    - Babylon.js: Generates JavaScript using Babylon APIs
+    - Three.js: Creates core Three.js scene setup
+    - A-Frame VR: Produces A-Frame HTML for VR experiences
+    - PlayCanvas Engine: Outputs JavaScript using native PC APIs
+
+### Publication System
+
+1. **URL Structure**:
+
+    - `/p/{uuid}` - Published project with Universo Kiberplano frame
+    - `/e/p/{uuid}` - Embedded version without frame
+    - Replaces legacy paths like `/arbot/{id}` and `/chatbot/{id}`
+
+2. **Content Storage**:
+
+    - Generated files stored in configurable location
+    - Assets referenced from CDN or local storage
+    - Versioning support for project revisions
+
+3. **Access Control**:
+
+    - Integration with Supabase authentication
+    - Project visibility settings (public/private)
+    - Sharing and collaboration options
+
+4. **Technology-Specific Templates**:
+
+    - Clean HTML templates for each supported technology
+    - Minimal HTML nesting to avoid rendering issues
+    - Separation of publication logic from rendering templates
+
+5. **Flow Identification**:
+    - Mechanism to identify UPDL flows on the canvas
+    - Algorithm for selecting the appropriate flow when multiple flows exist
+    - Implementation of `buildUPDLflow.ts` to handle flow selection logic
+    - Compatibility with existing flow types (chatflows)
+
 ## Package Management
 
 Using **pnpm** for package management. All commands should be run from the project root directory.
