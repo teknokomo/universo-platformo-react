@@ -73,11 +73,19 @@ const MainRoutes = {
             children: [
                 {
                     index: true,
-                    element: <UnikList />
+                    element: (
+                        <AuthGuard>
+                            <UnikList />
+                        </AuthGuard>
+                    )
                 },
                 {
                     path: ':unikId',
-                    element: <UniksContainer />,
+                    element: (
+                        <AuthGuard>
+                            <UniksContainer />
+                        </AuthGuard>
+                    ),
                     children: [
                         {
                             index: true,

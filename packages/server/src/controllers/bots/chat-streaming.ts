@@ -11,6 +11,7 @@ import logger from '../../utils/logger'
 import chatflowsService from '../../services/chatflows'
 import { ChatFlow } from '../../database/entities/ChatFlow'
 import { ICommonObject } from 'flowise-components'
+import { accessControlService } from '../../services/access-control'
 
 // Universo Platformo | Helper function to safely parse JSON (copied from chat.ts)
 const safeParseJSON = (jsonString: string | null | undefined): ICommonObject => {
@@ -57,6 +58,24 @@ export class ChatStreamingController {
                     error: 'Chat Bot not found or not public'
                 })
             }
+
+            // Universo Platformo | Check user access to the Unik this chatflow belongs to
+            if (chatflow && chatflow.unik && chatflow.unik.id) {
+                const userId = (req as any).user?.sub
+                if (!userId) {
+                    return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+                }
+
+                // Get auth token from request
+                const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
+
+                // Check if user has access to this Unik using AccessControlService
+                const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unik.id, authToken)
+                if (!hasAccess) {
+                    return res.status(403).json({ error: 'Access denied: You do not have permission to access this chatflow' })
+                }
+            }
+
             const config = safeParseJSON(chatflow.chatbotConfig)
 
             // Universo Platformo | Verify that this is a chat bot

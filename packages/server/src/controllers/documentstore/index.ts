@@ -6,6 +6,7 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { DocumentStoreDTO } from '../../Interface'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../../Interface.Metrics'
+import { accessControlService } from '../../services/access-control'
 
 const createDocumentStore = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -19,6 +20,21 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
         const unikId = req.params.unikId
         if (unikId) {
             body.unik = { id: unikId }
+
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Get auth token from request
+            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
+            }
         }
         const docStore = DocumentStoreDTO.toEntity(body)
         const apiResponse = await documentStoreService.createDocumentStore(docStore)
@@ -31,6 +47,22 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
 const getAllDocumentStores = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const unikId = req.params.unikId
+        if (unikId) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Get auth token from request
+            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
+            }
+        }
         const apiResponse = await documentStoreService.getAllDocumentStores(unikId)
         return res.json(DocumentStoreDTO.fromEntities(apiResponse))
     } catch (error) {
@@ -65,6 +97,22 @@ const getDocumentStoreById = async (req: Request, res: Response, next: NextFunct
             )
         }
         const unikId = req.params.unikId
+        if (unikId) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Get auth token from request
+            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
+            }
+        }
         const apiResponse = await documentStoreService.getDocumentStoreById(req.params.id, unikId)
         if (apiResponse && apiResponse.whereUsed) {
             apiResponse.whereUsed = JSON.stringify(await documentStoreService.getUsedChatflowNames(apiResponse))
@@ -228,8 +276,25 @@ const updateDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.updateDocumentStore - body not provided!`
             )
         }
-        
+
         const unikId = req.params.unikId
+        if (unikId) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Get auth token from request
+            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
+            }
+        }
+
         const store = await documentStoreService.getDocumentStoreById(req.params.id, unikId)
         if (!store) {
             throw new InternalFlowiseError(
@@ -237,12 +302,12 @@ const updateDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.updateDocumentStore - DocumentStore ${req.params.id} not found in the database`
             )
         }
-        
+
         const body = req.body
         if (unikId) {
             body.unik = { id: unikId }
         }
-        
+
         const updateDocStore = new DocumentStore()
         Object.assign(updateDocStore, body)
         const apiResponse = await documentStoreService.updateDocumentStore(store, updateDocStore)
@@ -260,8 +325,25 @@ const deleteDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.deleteDocumentStore - storeId not provided!`
             )
         }
-        
+
         const unikId = req.params.unikId
+        if (unikId) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Get auth token from request
+            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
+            }
+        }
+
         const apiResponse = await documentStoreService.deleteDocumentStore(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {

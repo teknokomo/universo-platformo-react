@@ -6,6 +6,9 @@ import { StatusCodes } from 'http-status-codes'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import logger from '../../utils/logger'
+import { accessControlService } from '../../services/access-control'
+import { ChatFlow } from '../../database/entities/ChatFlow'
+import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 
 // Universo Platformo | Add global declaration
 declare global {
@@ -58,6 +61,25 @@ const getBotConfig = async (req: Request, res: Response, next: NextFunction): Pr
         }
 
         logger.info(`[BOT CONFIG] Getting bot config for ID: ${botId}`)
+
+        // Получаем chatflow, чтобы проверить его Unik ID
+        const appServer = getRunningExpressApp()
+        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
+
+        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        if (chatflow && chatflow.unik && chatflow.unik.id) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unik.id)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this bot' })
+            }
+        }
 
         const requestedType = req.query.type as string
         const url = req.originalUrl || req.url
@@ -120,6 +142,25 @@ const renderBot = async (req: Request, res: Response, next: NextFunction): Promi
 
         logger.info(`[BOT RENDER] Rendering bot for ID: ${botId}`)
 
+        // Получаем chatflow, чтобы проверить его Unik ID
+        const appServer = getRunningExpressApp()
+        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
+
+        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        if (chatflow && chatflow.unik && chatflow.unik.id) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unik.id)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this bot' })
+            }
+        }
+
         const requestedType = req.query.type as string
         const url = req.originalUrl || req.url
 
@@ -180,6 +221,27 @@ const streamBot = async (req: Request, res: Response, next: NextFunction): Promi
     try {
         if (!req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: botsController.streamBot - id not provided!')
+        }
+
+        const botId = req.params.id
+
+        // Получаем chatflow, чтобы проверить его Unik ID
+        const appServer = getRunningExpressApp()
+        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
+
+        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        if (chatflow && chatflow.unik && chatflow.unik.id) {
+            // Universo Platformo | Check user access to this Unik
+            const userId = (req as any).user?.sub
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+            }
+
+            // Check if user has access to this Unik using AccessControlService
+            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unik.id)
+            if (!hasAccess) {
+                return res.status(403).json({ error: 'Access denied: You do not have permission to access this bot' })
+            }
         }
 
         // Universo Platformo | Use existing streaming controller

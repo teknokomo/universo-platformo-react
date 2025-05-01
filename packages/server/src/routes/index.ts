@@ -60,6 +60,8 @@ import botsRouter from './bots'
 import chatflowsStreamingRouter from './chatflows-streaming'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
+// Universo Platformo | Import auth middleware
+import upAuth from '../middlewares/up-auth'
 
 const router = express.Router()
 
@@ -117,11 +119,12 @@ router.use('/version', versionRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
-router.use('/uniks', upUniksRouter)
+// Apply ensureAuth middleware to /uniks route
+router.use('/uniks', upAuth.ensureAuth, upUniksRouter)
 // Universo Platformo | Chatflows Streaming
-router.use('/api/v1/chatflows-streaming', chatflowsStreamingRouter)
+router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots
-router.use('/api/v1/bots', botsRouter)
+router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
 
 // Universo Platformo | Special route for AR bots
 router.use('/arbot/:id', (req, res, next) => {

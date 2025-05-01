@@ -12,6 +12,7 @@ import assistantsRouter from '../assistants'
 import apikeyRouter from '../apikey'
 import documentStoreRouter from '../documentstore'
 import marketplacesRouter from '../marketplaces'
+import upAuth from '../../middlewares/up-auth'
 
 const router = Router()
 
@@ -210,40 +211,40 @@ router.post('/members', async (req: Request, res: Response) => {
     }
 })
 
-// Mount nested routes for Chatflows
-router.use('/:unikId/chatflows', chatflowsRouter)
+// Mount nested routes for Chatflows with ensureAuth middleware
+router.use('/:unikId/chatflows', upAuth.ensureAuth, chatflowsRouter)
 
-// Mount nested routes for Chatflows Streaming
-router.use('/:unikId/chatflows-streaming', chatflowsStreamingRouter)
+// Mount nested routes for Chatflows Streaming with ensureAuth middleware
+router.use('/:unikId/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 
-// Mount nested routes for Chatflows Uploads
-router.use('/:unikId/chatflows-uploads', chatflowsUploadsRouter)
+// Mount nested routes for Chatflows Uploads with ensureAuth middleware
+router.use('/:unikId/chatflows-uploads', upAuth.ensureAuth, chatflowsUploadsRouter)
 
-// Mount nested routes for Flow Config
-router.use('/:unikId/flow-config', flowConfigRouter)
+// Mount nested routes for Flow Config with ensureAuth middleware
+router.use('/:unikId/flow-config', upAuth.ensureAuth, flowConfigRouter)
 
-// Mount nested routes for Tools
-router.use('/:unikId/tools', toolsRouter)
+// Mount nested routes for Tools with ensureAuth middleware
+router.use('/:unikId/tools', upAuth.ensureAuth, toolsRouter)
 
-// Mount nested routes for Variables
-router.use('/:unikId/variables', variablesRouter)
+// Mount nested routes for Variables with ensureAuth middleware
+router.use('/:unikId/variables', upAuth.ensureAuth, variablesRouter)
 
-// Mount nested routes for export/import
-router.use('/:unikId/export-import', exportImportRouter)
+// Mount nested routes for export/import with ensureAuth middleware
+router.use('/:unikId/export-import', upAuth.ensureAuth, exportImportRouter)
 
-// Mount nested routes for Credentials
-router.use('/:unikId/credentials', credentialsRouter)
+// Mount nested routes for Credentials with ensureAuth middleware
+router.use('/:unikId/credentials', upAuth.ensureAuth, credentialsRouter)
 
-// Mount nested routes for Assistants
-router.use('/:unikId/assistants', assistantsRouter)
+// Mount nested routes for Assistants with ensureAuth middleware
+router.use('/:unikId/assistants', upAuth.ensureAuth, assistantsRouter)
 
-// Mount nested routes for API Keys
-router.use('/:unikId/apikey', apikeyRouter)
+// Mount nested routes for API Keys with ensureAuth middleware
+router.use('/:unikId/apikey', upAuth.ensureAuth, apikeyRouter)
 
-// Mount nested routes for Document Stores
-router.use('/:unikId/document-stores', documentStoreRouter)
+// Mount nested routes for Document Stores with ensureAuth middleware
+router.use('/:unikId/document-stores', upAuth.ensureAuth, documentStoreRouter)
 
-// Mount nested routes for Templates (Marketplaces)
-router.use('/:unikId/templates', marketplacesRouter)
+// Mount nested routes for Templates (Marketplaces) with ensureAuth middleware
+router.use('/:unikId/templates', upAuth.ensureAuth, marketplacesRouter)
 
 export default router
