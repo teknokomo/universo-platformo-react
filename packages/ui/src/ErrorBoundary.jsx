@@ -6,8 +6,17 @@ import { IconCopy } from '@tabler/icons-react'
 const ErrorBoundary = ({ error }) => {
     const theme = useTheme()
 
+    // Universo Platformo | Improved error handling with safe access to error properties
+    const getErrorStatus = () => {
+        return error?.response?.status || error?.status || 'Unknown'
+    }
+
+    const getErrorMessage = () => {
+        return error?.response?.data?.message || error?.message || 'Unknown error occurred'
+    }
+
     const copyToClipboard = () => {
-        const errorMessage = `Status: ${error.response.status}\n${error.response.data.message}`
+        const errorMessage = `Status: ${getErrorStatus()}\n${getErrorMessage()}`
         navigator.clipboard.writeText(errorMessage)
     }
 
@@ -28,9 +37,9 @@ const ErrorBoundary = ({ error }) => {
                             <IconCopy />
                         </IconButton>
                         <pre style={{ margin: 0 }}>
-                            <code>{`Status: ${error.response.status}`}</code>
+                            <code>{`Status: ${getErrorStatus()}`}</code>
                             <br />
-                            <code>{error.response.data.message}</code>
+                            <code>{getErrorMessage()}</code>
                         </pre>
                     </Box>
                 </Card>
