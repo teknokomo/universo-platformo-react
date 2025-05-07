@@ -1,8 +1,8 @@
 {
-    "name": "flowise",
+    "name": "universo-platformo-react",
     "version": "2.2.7-patch.1",
     "private": true,
-    "homepage": "https://flowiseai.com",
+    "homepage": "https://funiverso.pro",
     "workspaces": [
         "apps/*",
         "packages/*",
@@ -76,7 +76,8 @@
             "semver": "7.7.1",
             "set-value": "4.1.0",
             "unset-value": "2.0.1",
-            "webpack-dev-middleware": "7.4.2"
+            "webpack-dev-middleware": "7.4.2",
+            "langchain": "0.0.212"
         }
     },
     "engines": {

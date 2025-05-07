@@ -1,7 +1,7 @@
 {
-    "name": "flowise-components",
+    "name": "universo-platformo-react-components",
     "version": "2.2.7-patch.1",
-    "description": "Flowiseai Components",
+    "description": "Universo Platformo React Components",
     "main": "dist/src/index",
     "types": "dist/src/index.d.ts",
     "scripts": {
@@ -12,10 +12,10 @@
         "nuke": "rimraf dist node_modules .turbo"
     },
     "keywords": [],
-    "homepage": "https://flowiseai.com",
+    "homepage": "https://funiverso.pro",
     "author": {
-        "name": "Henry Heng",
-        "email": "henryheng@flowiseai.com"
+        "name": "Vladimir Levadnij and Teknokomo",
+        "email": "info@universo.pro"
     },
     "license": "SEE LICENSE IN LICENSE.md",
     "dependencies": {
@@ -154,6 +154,6 @@
         "rimraf": "^5.0.5",
         "tsc-watch": "^6.0.4",
         "tslib": "^2.6.2",
-        "typescript": "^5.4.5"
+        "typescript": "^5.8.3"
     }
 }

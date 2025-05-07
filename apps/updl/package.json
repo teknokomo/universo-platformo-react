@@ -19,10 +19,10 @@
         "vr",
         "webxr"
     ],
-    "author": "Universo Platformo Team",
+    "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
-        "typescript": "^5.4.5"
+        "typescript": "^5.8.3"
     },
     "devDependencies": {
         "@types/node": "^20.11.17",

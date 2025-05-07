@@ -1,11 +1,11 @@
 {
-    "name": "flowise-ui",
-    "version": "2.2.7-patch.1",
+    "name": "universo-platformo-react-ui",
+    "version": "0.0.1",
     "license": "SEE LICENSE IN LICENSE.md",
-    "homepage": "https://flowiseai.com",
+    "homepage": "https://funiverso.pro",
     "author": {
-        "name": "HenryHeng",
-        "email": "henryheng@flowiseai.com"
+        "name": "Vladimir Levadnij and Teknokomo",
+        "email": "info@universo.pro"
     },
     "dependencies": {
         "@codemirror/lang-javascript": "^6.2.1",
@@ -99,7 +99,7 @@
         "react-scripts": "^5.0.1",
         "rimraf": "^5.0.5",
         "sass": "^1.42.1",
-        "typescript": "^5.4.5",
+        "typescript": "^5.8.3",
         "vite": "^5.0.2",
         "vite-plugin-pwa": "^0.17.0",
         "vite-plugin-react-js-support": "^1.0.7"
