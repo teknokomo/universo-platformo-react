@@ -227,35 +227,62 @@ universo-platformo-react/
 
 ### Publication System
 
-1. **URL Structure**:
+#### URL Scheme
 
-    - `/p/{uuid}` - Published project with Universo Kiberplano frame
-    - `/e/p/{uuid}` - Embedded version without frame
-    - Replaces legacy paths like `/arbot/{id}` and `/chatbot/{id}`
+The publication system implements a modern URL scheme to provide consistent access to published projects:
 
-2. **Content Storage**:
+```
+/p/{uuid}         # Main public view with Universo Platformo header/footer
+/e/p/{uuid}       # Embedded view (frameless) for external embedding
+```
 
-    - Generated files stored in configurable location
-    - Assets referenced from CDN or local storage
-    - Versioning support for project revisions
+This approach is inspired by PlayCanvas and other professional publishing platforms, providing:
+
+1. **Consistent access pattern** - All published content follows the same URL structure regardless of technology
+2. **Unique identifiers** - UUID ensures no collisions between different projects
+3. **Versioning support** - Future implementations can add version numbers (/p/{uuid}/v/{version})
+4. **Security through obscurity** - Hard-to-guess URLs prevent unauthorized access while public
+
+#### Publication Process
+
+1. **Client-Side Export**:
+
+    - User selects AR.js technology in "Configuration" tab
+    - They configure settings in "Publication" tab (title, marker type, etc.)
+    - UPDL flow is processed and converted to A-Frame model via `UPDLToAFrameConverter`
+    - HTML is generated client-side with `ARJSExporter`
+
+2. **Server-Side Storage**:
+
+    - Generated HTML is sent to server via `publishARJSProject` API
+    - `UPDLController` saves the HTML file with unique ID
+    - Metadata is stored for future reference
+    - Server returns public URL to the client
 
 3. **Access Control**:
+    - The "Make Public" toggle controls whether URL is accessible without authentication
+    - Future implementations will add more granular permissions
 
-    - Integration with Supabase authentication
-    - Project visibility settings (public/private)
-    - Sharing and collaboration options
+#### AR.js Publication Flow
 
-4. **Technology-Specific Templates**:
+The AR.js publication flow specifically handles:
 
-    - Clean HTML templates for each supported technology
-    - Minimal HTML nesting to avoid rendering issues
-    - Separation of publication logic from rendering templates
+1. **Marker Selection** - Preset markers (Hiro, Kanji) or custom marker URL
+2. **Scene Configuration** - Title, background color, text color
+3. **3D Model Settings** - Model URL for GLB/GLTF files, scale, position
+4. **HTML Generation** - A-Frame scene with AR.js integration
+5. **QR Code Display** - For easy access on mobile devices
 
-5. **Flow Identification**:
-    - Mechanism to identify UPDL flows on the canvas
-    - Algorithm for selecting the appropriate flow when multiple flows exist
-    - Implementation of `buildUPDLflow.ts` to handle flow selection logic
-    - Compatibility with existing flow types (chatflows)
+#### Project Sharing
+
+When a project is published:
+
+1. Public URL is generated in format `/p/{uuid}`
+2. QR code is displayed for scanning with mobile devices
+3. Copy button allows easy sharing of the URL
+4. Options for social media sharing are provided
+
+This implementation creates a professional publication flow similar to established platforms like PlayCanvas, while maintaining compatibility with the UPDL architecture.
 
 ## Package Management
 

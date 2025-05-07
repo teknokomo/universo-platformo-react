@@ -97,16 +97,18 @@
 
     -   [x] Set up `apps/publish/imp/react` for frontend
     -   [x] Set up `apps/publish/imp/express` for backend
-    -   [ ] Develop routing system for new publication URLs
+    -   [~] Develop routing system for new publication URLs
 
--   [x] **Develop Publication & Export UI**
+-   [~] **Develop Publication & Export UI**
 
     -   [x] Modify existing "Embed in website or use as API" UI into "Publish & Export"
     -   [x] Update Configuration tab with technology selection (Chatbot, AR.js, PlayCanvas, etc.)
-    -   [x] Rename "Share Bot" tab to "Publish" with technology-specific settings
+    -   [~] Update "Publication" tab with fields for AR.js settings (title, marker, colors, etc.)
+    -   [~] Add ability to select marker type and configure marker options
+    -   [ ] Implement QR code display for mobile access to AR.js scene
     -   [ ] Add option to export/download project for selected technology
 
--   [~] **AR.js / A‑Frame Exporter (Hybrid Approach)**
+-   [x] **AR.js / A‑Frame Exporter (Hybrid Approach)**
 
     -   [x] Create handler in `apps/publish/imp/react/miniapps/arjs/ARJSExporter.ts`
     -   [x] Implement client-side HTML generation for AR.js
@@ -116,12 +118,12 @@
     -   [ ] OnClick → cursor setup and raycaster logic in A-Frame (for click interactions)
     -   [ ] One-shot A-Frame animations (e.g., `<a-animation>` or `<a-entity animation="...">` for spin demo)
     -   [x] Include A-Frame & AR.js CDN scripts in the HTML output
-    -   [~] **AR.js Default Handlers**
+    -   [x] **AR.js Default Handlers**
         -   [x] Implement automatic camera addition if not specified
         -   [x] Add default lighting (ambient + directional)
         -   [x] Create default marker handler (Hiro)
         -   [x] Implement common HTML structure for A-Frame/AR.js
-    -   [~] **Architecture Benefits**
+    -   [x] **Architecture Benefits**
         -   [x] Client-side generation reduces server load
         -   [x] Support for offline project export
         -   [x] Centralized storage for published projects
@@ -130,11 +132,11 @@
         -   [x] Fix typing errors in `ARJSExporter.ts`
         -   [x] Add strong type checking for function parameters
         -   [ ] Develop and run tests for HTML generation
-        -   [ ] Complete UI integration with Flowise interface
+        -   [~] Complete UI integration with Flowise interface
         -   [ ] Add scene preview in editor
-    -   [ ] **Testing:** Run a webcam marker demo (ensure model appears and can spin on click)
+    -   [~] **Testing:** Run a webcam marker demo (ensure model appears on marker)
 
--   [~] **Server-side Integration**
+-   [x] **Server-side Integration**
 
     -   [x] Create API endpoints in `apps/publish/imp/express/src/routes`
     -   [x] Develop publication handlers in `apps/publish/imp/express/src/controllers/UPDLController.js`
@@ -144,14 +146,14 @@
         -   [ ] Add UPDL chain validation logic
         -   [x] Integrate with Express request handlers
     -   [x] Implement saving and accessing published projects
-    -   [ ] Create unified URL scheme (`/p/{uuid}`) for all published projects
+    -   [~] Create unified URL scheme (`/p/{uuid}`) for all published projects
 
--   [~] **HTML Generation Solution (Hybrid Approach)**
+-   [x] **HTML Generation Solution (Hybrid Approach)**
 
     -   [x] Create frontend API client in `apps/publish/imp/react/api/updlApi.ts`
     -   [x] Implement client-side HTML generation via `ARJSExporter`
     -   [x] Set up server-side HTML storage with `UPDLController.js`
-    -   [ ] Develop resource injection mechanism (scripts, styles)
+    -   [~] Develop resource injection mechanism (scripts, styles)
     -   [ ] Optimize resource loading for published AR.js projects
     -   [x] Develop AFrameModel object model for A-Frame elements representation
     -   [x] Create UPDLToAFrameConverter for transforming UPDL nodes to A-Frame model
@@ -180,9 +182,19 @@
 
     -   [x] Create handlers in `updlApi.ts` for API interaction
     -   [x] Implement HTML generation on client with `ARJSExporter.ts`
+    -   [~] Refine publication UI according to the screenshot with full functionality
+    -   [ ] Implement a test UPDL scene with a red cube analogous to marker.html
     -   [ ] Add export button to publication dialog
-    -   [ ] Implement AR.js project packaging with dependencies
-    -   [x] Add documentation for using exported projects
+    -   [~] Implement AR.js project publishing with proper URL generation (`/p/{uuid}`)
+    -   [x] Add documentation for using published projects
+
+-   [ ] **AR.js Publication Testing**
+
+    -   [ ] Create a simple UPDL scene using basic nodes (Scene, Box object, Camera)
+    -   [ ] Publish the test scene via the "Publication & Export" interface
+    -   [ ] Verify display of the AR.js scene using the generated URL
+    -   [ ] Test correct display of the marker and the 3D object on it
+    -   [ ] Compare the result with the marker.html test example
 
 -   [ ] **PlayCanvas React Exporter**
 
