@@ -102,7 +102,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 })
                 return
             }
-            
+
             // Check if chatflow has an ID
             if (!chatflow || !chatflow.id) {
                 enqueueSnackbar({
@@ -120,12 +120,12 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 })
                 return
             }
-            
+
             // Get unikId from URL using useLocation hook
-            const pathParts = location.pathname.split('/');
-            const unikIdIndex = pathParts.indexOf('uniks') + 1;
-            const currentUnikId = unikIdIndex > 0 && unikIdIndex < pathParts.length ? pathParts[unikIdIndex] : '';
-            
+            const pathParts = location.pathname.split('/')
+            const unikIdIndex = pathParts.indexOf('uniks') + 1
+            const currentUnikId = unikIdIndex > 0 && unikIdIndex < pathParts.length ? pathParts[unikIdIndex] : ''
+
             setExportAsTemplateDialogProps({
                 title: 'Export As Template',
                 chatflow: chatflow,
@@ -286,26 +286,24 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                                 color='inherit'
                                 onClick={() => {
                                     // Get current path using useLocation hook
-                                    const currentPath = location.pathname;
-                                    
+                                    const currentPath = location.pathname
+
                                     // Determine the type of canvas based on the path
-                                    const isAgentCanvasUrl = currentPath.includes('/agentcanvas');
-                                    
+                                    const isAgentCanvasUrl = currentPath.includes('/agentcanvas')
+
                                     // Extract unikId from URL
-                                    const pathParts = currentPath.split('/');
-                                    const unikIdIndex = pathParts.indexOf('uniks') + 1;
-                                    
+                                    const pathParts = currentPath.split('/')
+                                    const unikIdIndex = pathParts.indexOf('uniks') + 1
+
                                     if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
-                                        const unikId = pathParts[unikIdIndex];
+                                        const unikId = pathParts[unikIdIndex]
                                         // Redirect to the corresponding list based on URL
-                                        const targetPath = isAgentCanvasUrl ? 
-                                            `/uniks/${unikId}/agentflows` : 
-                                            `/uniks/${unikId}/chatflows`;
-                                        
-                                        navigate(targetPath);
+                                        const targetPath = isAgentCanvasUrl ? `/uniks/${unikId}/agentflows` : `/uniks/${unikId}/chatflows`
+
+                                        navigate(targetPath)
                                     } else {
                                         // If we couldn't extract unikId, redirect to the main page
-                                        navigate('/', { replace: true });
+                                        navigate('/', { replace: true })
                                     }
                                 }}
                             >
@@ -420,7 +418,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 </Stack>
                 <Box>
                     {chatflow?.id && (
-                        <ButtonBase title={t('canvas.apiEndpoint')} sx={{ borderRadius: '50%', mr: 2 }}>
+                        <ButtonBase title={t('canvas.publishAndExport')} sx={{ borderRadius: '50%', mr: 2 }}>
                             <Avatar
                                 variant='rounded'
                                 sx={{

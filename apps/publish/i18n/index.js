@@ -11,10 +11,10 @@ import ruMainTranslation from './locales/ru/main.json'
  */
 export const publishTranslations = {
     en: {
-        publish: enMainTranslation
+        publish: enMainTranslation.publish
     },
     ru: {
-        publish: ruMainTranslation
+        publish: ruMainTranslation.publish
     }
 }
 

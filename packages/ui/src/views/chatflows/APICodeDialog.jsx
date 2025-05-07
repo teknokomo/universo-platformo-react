@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
 import { useTranslation, Trans } from 'react-i18next'
+import { useSnackbar } from 'notistack'
 
 import {
     Tabs,
@@ -17,7 +18,8 @@ import {
     AccordionDetails,
     Typography,
     Stack,
-    Card
+    Card,
+    Button
 } from '@mui/material'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -27,7 +29,7 @@ import { useTheme } from '@mui/material/styles'
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
 import Configuration from './Configuration'
 import ChatBotSettings from '@/views/publish/bots/ChatBotSettings'
-import ARBotSettings from '@/views/publish/bots/ARBotSettings'
+import ARJSPublisher from '@apps/publish/imp/react/miniapps/arjs/ARJSPublisher.jsx'
 import EmbedChat from './EmbedChat'
 
 // Const
@@ -41,7 +43,7 @@ import cURLSVG from '@/assets/images/cURL.svg'
 import EmbedSVG from '@/assets/images/embed.svg'
 import ShareChatbotSVG from '@/assets/images/sharing.png'
 import settingsSVG from '@/assets/images/settings.svg'
-import { IconBulb, IconBox, IconVariable, IconExclamationCircle } from '@tabler/icons-react'
+import { IconBulb, IconBox, IconVariable, IconExclamationCircle, IconX } from '@tabler/icons-react'
 
 // API
 import apiKeyApi from '@/api/apikey'
@@ -96,6 +98,8 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const apiConfig = chatflow?.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
     const overrideConfigStatus = apiConfig?.overrideConfig?.status !== undefined ? apiConfig.overrideConfig.status : false
     const { t } = useTranslation('chatflows')
+    const { t: tPub } = useTranslation('publish')
+    const { enqueueSnackbar, closeSnackbar } = useSnackbar()
 
     const [value, setValue] = useState(0)
     const [codes, setCodes] = useState([])
@@ -440,7 +444,7 @@ query({"question": "Hey, how are you?"}).then((response) => {
             return cURLSVG
         } else if (codeLang === 'Configuration') {
             return settingsSVG
-        } else if (codeLang === t('publish.tabs.publish')) {
+        } else if (codeLang === tPub('tabs.publish')) {
             return ShareChatbotSVG
         }
         return pythonSVG
@@ -689,6 +693,16 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
     useEffect(() => {
         // Update visible tabs when display mode changes
         if (displayMode && show) {
+            // Tab visibility definition moved here to make it clear that only chatbots need all tabs
+            const tabVisibility = {
+                chat: { embed: true, python: true, javascript: true, curl: true },
+                arjs: { embed: false, python: false, javascript: false, curl: false },
+                playcanvas: { embed: false, python: false, javascript: false, curl: false },
+                babylonjs: { embed: false, python: false, javascript: false, curl: false },
+                aframevr: { embed: false, python: false, javascript: false, curl: false },
+                threejs: { embed: false, python: false, javascript: false, curl: false }
+            }
+
             const newTabs = ['Configuration']
 
             // Add conditional tabs based on selected technology
@@ -698,13 +712,26 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
             if (tabVisibility[displayMode]?.curl) newTabs.push('cURL')
 
             // Always add publish tab
-            newTabs.push(t('publish.tabs.publish'))
+            newTabs.push(tPub('tabs.publish'))
 
             setCodes(newTabs)
             // Reset to first tab when changing technologies
             setValue(0)
         }
-    }, [displayMode, show, t, tabVisibility])
+    }, [displayMode, show, t, tPub])
+
+    // Determine which tabs should show code blocks and override checkbox
+    const shouldShowCodeBlock = (tabIndex) => {
+        // Don't show on Configuration and Publish tabs regardless of mode
+        if (tabIndex === 0 || tabIndex === codes.length - 1) return false
+
+        // Don't show on Embed tab (it has its own code block)
+        if (codes[tabIndex] === 'Embed') return false
+
+        // In chat mode, show on all tabs except first (Configuration) and last (Publish)
+        // In other modes, don't show
+        return displayMode === 'chat'
+    }
 
     const component = show ? (
         <Dialog
@@ -716,7 +743,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {t('publish.title')}
+                {tPub('title')}
             </DialogTitle>
             <DialogContent>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
@@ -757,9 +784,6 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                         {codeLang === 'Embed' && !chatflowApiKeyId && <EmbedChat chatflowid={dialogProps.chatflowid} />}
                         {codeLang === 'Configuration' && !chatflowApiKeyId && (
                             <>
-                                <div style={{ marginBottom: '10px', padding: '5px', background: '#f5f5f5', fontSize: '12px' }}>
-                                    <strong>Debug:</strong> chatflowid={dialogProps.chatflowid}, unikId={unikId}
-                                </div>
                                 <Configuration
                                     isSessionMemory={dialogProps.isSessionMemory}
                                     isAgentCanvas={dialogProps.isAgentCanvas}
@@ -770,16 +794,31 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                 />
                             </>
                         )}
-                        {codeLang === t('publish.tabs.publish') && !chatflowApiKeyId && (
+                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && (
                             <>
-                                <div style={{ marginBottom: '10px', padding: '5px', background: '#f5f5f5', fontSize: '12px' }}>
-                                    <strong>Debug:</strong> chatflowid={dialogProps.chatflowid}, unikId={unikId}, displayMode={displayMode}
-                                </div>
                                 {(() => {
                                     // Render appropriate settings component based on selected technology
                                     switch (displayMode) {
                                         case 'arjs':
-                                            return <ARBotSettings chatflowid={dialogProps.chatflowid} unikId={unikId} />
+                                            return (
+                                                <ARJSPublisher
+                                                    flow={chatflow}
+                                                    unikId={unikId}
+                                                    onPublish={(result) => {
+                                                        if (result?.success) {
+                                                            enqueueSnackbar({
+                                                                message: 'AR.js проект успешно опубликован!',
+                                                                options: {
+                                                                    key: new Date().getTime() + Math.random(),
+                                                                    variant: 'success'
+                                                                }
+                                                            })
+                                                            onCancel()
+                                                        }
+                                                    }}
+                                                    onCancel={onCancel}
+                                                />
+                                            )
                                         case 'chat':
                                             return (
                                                 <ChatBotSettings
@@ -794,12 +833,14 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             return (
                                                 <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
                                                     <Typography variant='h4' gutterBottom>
-                                                        {t('publish.technologies.playcanvas')} {t('publishing.publishSettings')}
+                                                        {tPub('technologies.playcanvas')} {tPub('publishing.publishSettings')}
                                                     </Typography>
                                                     <Typography variant='body2' color='text.secondary'>
-                                                        {t('publish.technologies.playcanvasDescription')}
+                                                        {tPub('technologies.playcanvasDescription')}
                                                     </Typography>
-                                                    <Typography sx={{ mt: 2 }}>{t('publishing.targetPlatforms')}: Web, Mobile</Typography>
+                                                    <Typography sx={{ mt: 2 }}>
+                                                        {tPub('publishing.targetPlatforms')}: Web, Mobile
+                                                    </Typography>
                                                 </Box>
                                             )
                                         case 'babylonjs':
@@ -807,12 +848,14 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             return (
                                                 <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
                                                     <Typography variant='h4' gutterBottom>
-                                                        {t('publish.technologies.babylonjs')} {t('publishing.publishSettings')}
+                                                        {tPub('technologies.babylonjs')} {tPub('publishing.publishSettings')}
                                                     </Typography>
                                                     <Typography variant='body2' color='text.secondary'>
-                                                        {t('publish.technologies.babylonjsDescription')}
+                                                        {tPub('technologies.babylonjsDescription')}
                                                     </Typography>
-                                                    <Typography sx={{ mt: 2 }}>{t('publishing.targetPlatforms')}: Web, Mobile</Typography>
+                                                    <Typography sx={{ mt: 2 }}>
+                                                        {tPub('publishing.targetPlatforms')}: Web, Mobile
+                                                    </Typography>
                                                 </Box>
                                             )
                                         case 'aframevr':
@@ -820,13 +863,13 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             return (
                                                 <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
                                                     <Typography variant='h4' gutterBottom>
-                                                        {t('publish.technologies.aframevr')} {t('publishing.publishSettings')}
+                                                        {tPub('technologies.aframevr')} {tPub('publishing.publishSettings')}
                                                     </Typography>
                                                     <Typography variant='body2' color='text.secondary'>
-                                                        {t('publish.technologies.aframevrDescription')}
+                                                        {tPub('technologies.aframevrDescription')}
                                                     </Typography>
                                                     <Typography sx={{ mt: 2 }}>
-                                                        {t('publishing.targetPlatforms')}: Web VR, Mobile VR
+                                                        {tPub('publishing.targetPlatforms')}: Web VR, Mobile VR
                                                     </Typography>
                                                 </Box>
                                             )
@@ -834,7 +877,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                             return (
                                                 <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
                                                     <Typography variant='h4' gutterBottom>
-                                                        {t('publishing.publishSettings')}
+                                                        {tPub('publishing.publishSettings')}
                                                     </Typography>
                                                     <Typography>{t('errors.generic')}</Typography>
                                                 </Box>
@@ -843,7 +886,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                 })()}
                             </>
                         )}
-                        {codeLang !== 'Embed' && codeLang !== 'Configuration' && codeLang !== 'Share Bot' && (
+                        {shouldShowCodeBlock(index) && (
                             <>
                                 <CopyBlock
                                     theme={atomOneDark}

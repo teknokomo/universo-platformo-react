@@ -79,6 +79,7 @@ interface PublishARJSRequest {
     html: string
     markerType: string
     markerValue: string
+    unikId?: string
 }
 
 interface PublishARJSResponse {
@@ -111,7 +112,9 @@ export const fetchUPDLScene = async (sceneId: string): Promise<UPDLScene> => {
  */
 export const publishARJSProject = async (data: PublishARJSRequest): Promise<PublishARJSResponse> => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/updl/publish/arjs`, data)
+        // Build API URL with unikId if provided
+        const unikParam = data.unikId ? `/${data.unikId}` : ''
+        const response = await axios.post(`${API_BASE_URL}/updl/publish/arjs${unikParam}`, data)
         return response.data
     } catch (error: unknown) {
         const axiosError = error as AxiosError<ErrorResponse>

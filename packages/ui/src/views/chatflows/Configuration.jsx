@@ -23,7 +23,8 @@ import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDisplayMode, setDisplayMode: propSetDisplayMode }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
-    const { t } = useTranslation('chatflows')
+    const { t: tFlow } = useTranslation('chatflows')
+    const { t: tPub } = useTranslation('publish')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
 
@@ -148,7 +149,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
             if (saveResp.data) {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
                 enqueueSnackbar({
-                    message: t('chatflows.configuration.saveMode'),
+                    message: tFlow('chatflows.configuration.saveMode'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -163,7 +164,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         } catch (error) {
             console.error('Ошибка при сохранении режима отображения:', error)
             enqueueSnackbar({
-                message: t('chatflows.displaySettings.saveError'),
+                message: tFlow('chatflows.displaySettings.saveError'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -181,7 +182,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         return (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <CircularProgress />
-                <Typography>{t('chatflows.displaySettings.loading')}</Typography>
+                <Typography>{tFlow('chatflows.displaySettings.loading')}</Typography>
             </Box>
         )
     }
@@ -190,11 +191,11 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         return (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <Typography color='error' variant='h5'>
-                    {t('chatflows.displaySettings.loadError')}
+                    {tFlow('chatflows.displaySettings.loadError')}
                 </Typography>
                 <Typography color='textSecondary'>{error}</Typography>
                 <Button variant='contained' onClick={() => window.location.reload()}>
-                    {t('chatflows.displaySettings.tryAgain')}
+                    {tFlow('chatflows.displaySettings.tryAgain')}
                 </Button>
             </Box>
         )
@@ -204,15 +205,15 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         <Box sx={{ p: 2 }}>
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Typography variant='h4' gutterBottom>
-                    {t('chatflows.configuration.title')}
+                    {tPub('configuration.title')}
                 </Typography>
                 <Typography variant='body1' sx={{ mb: 2 }}>
-                    {t('chatflows.configuration.description')}
+                    {tPub('configuration.description')}
                 </Typography>
 
                 <FormControl component='fieldset' sx={{ my: 2 }}>
                     <Typography variant='subtitle1' gutterBottom sx={{ fontWeight: 'bold' }}>
-                        {t('chatflows.configuration.chooseMode')}
+                        {tPub('configuration.chooseMode')}
                     </Typography>
                     <RadioGroup aria-label='display-mode' name='display-mode' value={displayMode} onChange={handleDisplayModeChange}>
                         <FormControlLabel
@@ -220,8 +221,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('publish.technologies.chat')}</Typography>
-                                    <TooltipWithParser title={t('publish.technologies.chatDescription')}>
+                                    <Typography variant='h5'>{tPub('technologies.chat')}</Typography>
+                                    <TooltipWithParser title={tPub('technologies.chatDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,
@@ -247,8 +248,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('publish.technologies.arjs')}</Typography>
-                                    <TooltipWithParser title={t('publish.technologies.arjsDescription')}>
+                                    <Typography variant='h5'>{tPub('technologies.arjs')}</Typography>
+                                    <TooltipWithParser title={tPub('technologies.arjsDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,
@@ -274,8 +275,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('publish.technologies.playcanvas')}</Typography>
-                                    <TooltipWithParser title={t('publish.technologies.playcanvasDescription')}>
+                                    <Typography variant='h5'>{tPub('technologies.playcanvas')}</Typography>
+                                    <TooltipWithParser title={tPub('technologies.playcanvasDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,
@@ -301,8 +302,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('publish.technologies.babylonjs')}</Typography>
-                                    <TooltipWithParser title={t('publish.technologies.babylonjsDescription')}>
+                                    <Typography variant='h5'>{tPub('technologies.babylonjs')}</Typography>
+                                    <TooltipWithParser title={tPub('technologies.babylonjsDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,
@@ -328,8 +329,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                             control={<Radio />}
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{t('publish.technologies.aframevr')}</Typography>
-                                    <TooltipWithParser title={t('publish.technologies.aframevrDescription')}>
+                                    <Typography variant='h5'>{tPub('technologies.aframevr')}</Typography>
+                                    <TooltipWithParser title={tPub('technologies.aframevrDescription')}>
                                         <Box
                                             sx={{
                                                 width: 16,

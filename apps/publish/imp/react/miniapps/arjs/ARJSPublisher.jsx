@@ -1,568 +1,637 @@
+// Universo Platformo | AR.js Publisher
+// React component for publishing AR.js experiences
+
 import React, { useState, useEffect } from 'react'
-import { Button, Box, Typography, CircularProgress, TextField, MenuItem, Paper } from '@mui/material'
-import { fetchUPDLScene, publishARJSProject } from '../../api/updlApi'
+import { publishARJSFlow } from '../../services/api'
 import { ARJSExporter } from './ARJSExporter'
-import { message } from 'antd'
-import { Tabs } from 'antd'
-import { Spin } from 'antd'
-import { Space } from 'antd'
-import { Input } from 'antd'
-import { Alert } from 'antd'
-import { DownloadOutlined, CopyOutlined, QuestionCircleOutlined } from '@ant-design/icons'
-import styled from 'styled-components'
-import QRCode from 'qrcode.react'
 
-const { Title, Text, Paragraph } = Typography
-const { Option } = Select
-const { TabPane } = Tabs
+// MUI components
+import {
+    Button,
+    Box,
+    Typography,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Switch,
+    FormControlLabel,
+    Card,
+    CardContent,
+    CircularProgress,
+    Alert,
+    Tabs,
+    Tab,
+    Paper,
+    Snackbar,
+    Stack,
+    FormGroup
+} from '@mui/material'
 
-// Styled components
-const StyledCard = styled(Card)`
-    margin-bottom: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-`
+// Icons
+import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
 
-const Preview = styled.div`
-    border: 1px solid #d9d9d9;
-    border-radius: 8px;
-    padding: 16px;
-    margin-top: 16px;
-    background: #f0f2f5;
-    min-height: 300px;
-    overflow: auto;
-    font-family: 'Courier New', monospace;
-`
+// QR Code component (optional dependency)
+let QRCode
+try {
+    QRCode = require('qrcode.react')
+} catch (e) {
+    // QRCode component will be undefined if package not available
+}
 
-const QRContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 20px;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-`
+// Tab Panel component
+function TabPanel(props) {
+    const { children, value, index, ...other } = props
 
-const MarkerPreview = styled.div`
-    margin-top: 16px;
-    padding: 16px;
-    border: 1px dashed #d9d9d9;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 200px;
-    background: white;
-`
+    return (
+        <div role='tabpanel' hidden={value !== index} id={`ar-tabpanel-${index}`} aria-labelledby={`ar-tab-${index}`} {...other}>
+            {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+        </div>
+    )
+}
 
 /**
  * AR.js Publisher Component
- * This component allows users to:
- * 1. Select an UPDL scene
- * 2. Configure AR.js marker and settings
- * 3. Preview generated HTML
- * 4. Publish AR.js project
  */
-const ARJSPublisher = () => {
-    const [scenes, setScenes] = useState([])
-    const [selectedScene, setSelectedScene] = useState(null)
+const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
+    // State for selected scene data
     const [sceneData, setSceneData] = useState(null)
-    const [projectTitle, setProjectTitle] = useState('')
+    // State for project title
+    const [projectTitle, setProjectTitle] = useState(flow?.name || '')
+    // State for marker type
     const [markerType, setMarkerType] = useState('preset')
+    // State for marker value
     const [markerValue, setMarkerValue] = useState('hiro')
+    // State for loading indicator
     const [loading, setLoading] = useState(false)
+    // State for HTML preview
     const [htmlPreview, setHtmlPreview] = useState('')
+    // State for published URL
     const [publishedUrl, setPublishedUrl] = useState('')
-    const [activeTab, setActiveTab] = useState('1')
+    // State for active tab
+    const [tabValue, setTabValue] = useState(0)
+    // State for publishing status
+    const [isPublishing, setIsPublishing] = useState(false)
+    // State for public toggle
+    const [isPublic, setIsPublic] = useState(true)
+    // State for error message
+    const [error, setError] = useState(null)
+    // State for snackbar
+    const [snackbar, setSnackbar] = useState({ open: false, message: '' })
 
-    // Fetch available scenes on component mount
+    // Initialize with flow data when component mounts
     useEffect(() => {
-        const loadScenes = async () => {
-            setLoading(true)
-            try {
-                const data = await fetchScenes()
-                setScenes(data)
-            } catch (error) {
-                message.error('Failed to load scenes: ' + error.message)
-            } finally {
-                setLoading(false)
-            }
+        if (flow) {
+            setSceneData({
+                id: flow.id,
+                name: flow.name,
+                description: flow.description || '',
+                updatedAt: new Date().toISOString()
+            })
+            setProjectTitle(flow.name || 'AR.js Experience')
+            generateHtmlPreview()
         }
+    }, [flow])
 
-        loadScenes()
-    }, [])
-
-    // Generate HTML preview when scene and settings change
+    // Regenerate HTML preview when settings change
     useEffect(() => {
         if (sceneData) {
             generateHtmlPreview()
         }
-    }, [sceneData, markerType, markerValue, projectTitle])
+    }, [sceneData, projectTitle, markerType, markerValue])
 
-    // Handle scene selection
-    const handleSceneSelect = async (sceneId) => {
-        if (!sceneId) {
-            setSelectedScene(null)
-            setSceneData(null)
-            setHtmlPreview('')
-            return
-        }
-
-        setLoading(true)
-        try {
-            // In a real app, this would fetch the scene data from API
-            const selectedSceneData = scenes.find((scene) => scene.id === sceneId)
-            setSelectedScene(selectedSceneData)
-
-            // This would typically be an API call to fetch full scene data
-            // For demo purposes, we're using mock data from the controller
-            const response = await fetch(`/api/updl/scenes/${sceneId}`)
-            const result = await response.json()
-
-            if (result.status === 'success') {
-                setSceneData(result.data)
-                setProjectTitle(result.data.name)
-            } else {
-                throw new Error(result.message || 'Failed to load scene data')
-            }
-        } catch (error) {
-            message.error('Error loading scene: ' + error.message)
-            setSelectedScene(null)
-            setSceneData(null)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    // Generate HTML preview
+    /**
+     * Generate HTML preview using the ARJSExporter
+     */
     const generateHtmlPreview = () => {
-        if (!sceneData || !sceneData.data) return
+        try {
+            if (!sceneData) return
 
-        let markerAttributes = ''
+            const exporter = new ARJSExporter()
 
-        // Set marker attributes based on type and value
-        if (markerType === 'preset') {
-            markerAttributes = `type="pattern" preset="${markerValue}"`
-        } else if (markerType === 'pattern') {
-            markerAttributes = `type="pattern" url="${markerValue}"`
-        } else if (markerType === 'barcode') {
-            markerAttributes = `type="barcode" value="${markerValue}"`
-        }
+            // Determine marker settings based on UI selections
+            let markerTypeToUse = 'pattern' // Default pattern type
+            let markerValueToUse = markerValue
 
-        // Generate objects HTML
-        let objectsHTML = ''
-        const objects = sceneData.data.objects || []
-
-        objects.forEach((obj) => {
-            switch (obj.type) {
-                case 'box':
-                    objectsHTML += `  <a-box position="${obj.position}" rotation="${obj.rotation}" scale="${obj.scale}" color="${obj.color}"></a-box>\n`
-                    break
-                case 'sphere':
-                    objectsHTML += `  <a-sphere position="${obj.position}" radius="${obj.radius}" color="${obj.color}"></a-sphere>\n`
-                    break
-                case 'cylinder':
-                    objectsHTML += `  <a-cylinder position="${obj.position}" radius="${obj.radius}" height="${obj.height}" color="${obj.color}"></a-cylinder>\n`
-                    break
-                // Add more object types as needed
+            if (markerType === 'preset') {
+                markerTypeToUse = 'pattern'
+                markerValueToUse = markerValue
+            } else if (markerType === 'pattern') {
+                markerTypeToUse = 'pattern'
+                markerValueToUse = markerValue
+            } else if (markerType === 'barcode') {
+                markerTypeToUse = 'barcode'
+                markerValueToUse = markerValue
             }
-        })
 
-        // Generate lights HTML
-        let lightsHTML = ''
-        const lights = sceneData.data.lights || []
+            // Generate HTML with proper marker settings
+            const html = exporter.generateHTML(sceneData, {
+                title: projectTitle,
+                markerType: markerTypeToUse,
+                markerValue: markerValueToUse
+            })
 
-        lights.forEach((light) => {
-            switch (light.type) {
-                case 'ambient':
-                    lightsHTML += `<a-entity light="type: ambient; color: ${light.color}; intensity: ${light.intensity}"></a-entity>\n`
-                    break
-                case 'directional':
-                    lightsHTML += `<a-entity light="type: directional; color: ${light.color}; intensity: ${light.intensity}" position="${light.position}"></a-entity>\n`
-                    break
-                case 'point':
-                    lightsHTML += `<a-entity light="type: point; color: ${light.color}; intensity: ${light.intensity}" position="${light.position}"></a-entity>\n`
-                    break
-                // Add more light types as needed
-            }
-        })
-
-        // Simple HTML template for preview
-        const htmlTemplate = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${projectTitle || 'AR.js Scene'}</title>
-    <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1.4.2/dist/aframe-master.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.5/aframe/build/aframe-ar.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; }
-        .arjs-loader {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
-            z-index: 999; background-color: rgba(0, 0, 0, 0.8);
-            display: flex; justify-content: center; align-items: center; 
-            flex-direction: column; color: white;
+            setHtmlPreview(html)
+        } catch (error) {
+            console.error('Error generating HTML preview:', error)
+            setError(`Failed to generate preview: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
-        .instruction {
-            position: fixed; bottom: 20px; width: 100%; text-align: center;
-            color: white; background-color: rgba(0, 0, 0, 0.6);
-            padding: 10px 0; font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <div class="arjs-loader">
-        <div>Loading AR Experience...</div>
-    </div>
-
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" 
-             renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
-        
-        <a-marker ${markerAttributes}>
-${objectsHTML}
-        </a-marker>
-        
-        <a-entity camera></a-entity>
-        
-${lightsHTML}
-    </a-scene>
-    
-    <div class="instruction" id="instruction">
-        Point your camera at the marker
-    </div>
-    
-    <script>
-        // Hide loader when scene is loaded
-        const scene = document.querySelector('a-scene')
-        const loader = document.querySelector('.arjs-loader')
-        scene.addEventListener('loaded', () => {
-            loader.style.display = 'none'
-        })
-        
-        // Show/hide instruction based on marker detection
-        const marker = document.querySelector('a-marker')
-        const instruction = document.querySelector('#instruction')
-        marker.addEventListener('markerFound', () => {
-            instruction.innerHTML = 'Marker detected!'
-            setTimeout(() => { instruction.style.display = 'none' }, 3000)
-        })
-        marker.addEventListener('markerLost', () => {
-            instruction.style.display = 'block'
-            instruction.innerHTML = 'Point your camera at the marker'
-        })
-    </script>
-</body>
-</html>`
-
-        setHtmlPreview(htmlTemplate)
     }
 
-    // Download HTML file
+    /**
+     * Handle downloading HTML
+     */
     const handleDownload = () => {
-        if (!htmlPreview) {
-            message.error('No HTML content to download')
-            return
-        }
+        if (!htmlPreview) return
 
-        const blob = new Blob([htmlPreview], { type: 'text/html' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${projectTitle || 'ar-scene'}.html`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        const element = document.createElement('a')
+        const file = new Blob([htmlPreview], { type: 'text/html' })
+        element.href = URL.createObjectURL(file)
+        element.download = `${projectTitle || 'ar-scene'}.html`
+        document.body.appendChild(element)
+        element.click()
+        document.body.removeChild(element)
 
-        message.success('HTML file downloaded successfully')
+        setSnackbar({
+            open: true,
+            message: 'HTML файл успешно скачан'
+        })
     }
 
-    // Copy HTML to clipboard
+    /**
+     * Handle copying HTML to clipboard
+     */
     const handleCopy = () => {
-        if (!htmlPreview) {
-            message.error('No HTML content to copy')
-            return
-        }
+        if (!htmlPreview) return
 
         navigator.clipboard
             .writeText(htmlPreview)
-            .then(() => message.success('HTML copied to clipboard'))
-            .catch((err) => message.error('Failed to copy: ' + err.message))
-    }
-
-    // Publish AR.js project
-    const handlePublish = async () => {
-        if (!sceneData) {
-            message.error('Please select a scene first')
-            return
-        }
-
-        if (!projectTitle) {
-            message.error('Please enter a project title')
-            return
-        }
-
-        setLoading(true)
-        try {
-            const data = await publishARJSProject({
-                sceneId: sceneData.id,
-                title: projectTitle,
-                markerType,
-                markerValue
+            .then(() => {
+                setSnackbar({
+                    open: true,
+                    message: 'HTML скопирован в буфер обмена'
+                })
             })
+            .catch((error) => {
+                setSnackbar({
+                    open: true,
+                    message: `Не удалось скопировать HTML: ${error.message}`
+                })
+            })
+    }
 
-            setPublishedUrl(data.publicUrl)
-            setActiveTab('3') // Switch to Published tab
-            message.success('AR.js project published successfully')
-        } catch (error) {
-            message.error('Failed to publish project: ' + error.message)
-        } finally {
-            setLoading(false)
+    /**
+     * Handle marker type change
+     */
+    const handleMarkerTypeChange = (event) => {
+        setMarkerType(event.target.value)
+    }
+
+    /**
+     * Handle marker value change
+     */
+    const handleMarkerValueChange = (event) => {
+        setMarkerValue(event.target.value)
+    }
+
+    /**
+     * Handle public toggle change
+     */
+    const handlePublicChange = (event) => {
+        setIsPublic(event.target.checked)
+    }
+
+    /**
+     * Handle URL copying
+     */
+    const handleCopyUrl = () => {
+        if (publishedUrl) {
+            navigator.clipboard.writeText(window.location.origin + publishedUrl)
+            setSnackbar({
+                open: true,
+                message: 'URL скопирован в буфер обмена'
+            })
         }
     }
 
-    // Get marker image for preview
+    /**
+     * Get marker image for preview
+     */
     const getMarkerImage = () => {
         if (markerType === 'preset') {
             if (markerValue === 'hiro') {
                 return 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png'
             } else if (markerValue === 'kanji') {
                 return 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/kanji.png'
+            } else {
+                return `https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/pattern-${markerValue}.png`
             }
         }
 
-        // For custom patterns or barcodes, you would need to have the images available
+        // For other types, show a placeholder
         return 'https://via.placeholder.com/200?text=Marker+Preview'
     }
 
-    // Render
+    /**
+     * Handle tab change
+     */
+    const handleTabChange = (event, newValue) => {
+        setTabValue(newValue)
+    }
+
+    /**
+     * Handle snackbar close
+     */
+    const handleSnackbarClose = () => {
+        setSnackbar({
+            ...snackbar,
+            open: false
+        })
+    }
+
+    /**
+     * Handle publish button click
+     */
+    const handlePublish = async () => {
+        if (!flow || !flow.id) {
+            setError('No flow data available')
+            return
+        }
+
+        setIsPublishing(true)
+        setError(null)
+
+        try {
+            // Prepare options
+            const options = {
+                marker: markerValue,
+                markerType: markerType === 'preset' ? 'pattern' : markerType,
+                isPublic,
+                title: projectTitle,
+                unikId
+            }
+
+            // Call API to publish AR.js flow
+            const result = await publishARJSFlow(flow.id, options)
+
+            if (result.success) {
+                // Set published URL
+                setPublishedUrl(result.publishedUrl)
+                setSnackbar({
+                    open: true,
+                    message: 'Проект опубликован успешно!'
+                })
+
+                // Switch to Published tab
+                setTabValue(2)
+
+                // Notify parent component
+                if (onPublish) {
+                    onPublish(result)
+                }
+            } else {
+                throw new Error(result.error || 'Failed to publish AR.js experience')
+            }
+        } catch (err) {
+            setError(err?.message || 'Failed to publish AR.js experience')
+            console.error('Error publishing AR.js flow:', err)
+        } finally {
+            setIsPublishing(false)
+        }
+    }
+
+    /**
+     * Handle cancel button click
+     */
+    const handleCancel = () => {
+        if (onCancel) {
+            onCancel()
+        }
+    }
+
     return (
-        <div>
-            <Title level={2}>AR.js Publisher</Title>
-            <Text type='secondary'>Create augmented reality experiences with AR.js</Text>
+        <Box sx={{ width: '100%' }}>
+            <Typography variant='h4' gutterBottom>
+                AR.js Publisher
+            </Typography>
+            <Typography variant='body2' color='text.secondary' paragraph>
+                Создание AR опыта с помощью AR.js
+            </Typography>
 
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-                <TabPane tab='Configure' key='1'>
-                    <StyledCard title='Scene Selection'>
-                        <Spin spinning={loading && !scenes.length}>
-                            <Select
-                                placeholder='Select a UPDL scene'
-                                style={{ width: '100%' }}
-                                onChange={handleSceneSelect}
-                                loading={loading}
-                                disabled={loading}
-                            >
-                                <Option value=''>-- Select a scene --</Option>
-                                {scenes.map((scene) => (
-                                    <Option key={scene.id} value={scene.id}>
-                                        {scene.name}
-                                    </Option>
-                                ))}
-                            </Select>
-
-                            {selectedScene && (
-                                <div style={{ marginTop: '16px' }}>
-                                    <Text strong>Description: </Text>
-                                    <Text>{selectedScene.description}</Text>
-                                </div>
-                            )}
-                        </Spin>
-                    </StyledCard>
-
-                    {selectedScene && (
-                        <>
-                            <StyledCard title='Project Settings'>
-                                <Spin spinning={loading}>
-                                    <Space direction='vertical' style={{ width: '100%' }}>
-                                        <div>
-                                            <Text strong>Project Title:</Text>
-                                            <Input
-                                                placeholder='Enter a title for your AR project'
-                                                value={projectTitle}
-                                                onChange={(e) => setProjectTitle(e.target.value)}
-                                                style={{ marginTop: 8 }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Text strong>Marker Type:</Text>
-                                            <Select style={{ width: '100%', marginTop: 8 }} value={markerType} onChange={setMarkerType}>
-                                                <Option value='preset'>Preset Marker</Option>
-                                                <Option value='pattern'>Custom Pattern</Option>
-                                                <Option value='barcode'>Barcode</Option>
-                                            </Select>
-                                        </div>
-
-                                        {markerType === 'preset' && (
-                                            <div>
-                                                <Text strong>Preset Marker:</Text>
-                                                <Select
-                                                    style={{ width: '100%', marginTop: 8 }}
-                                                    value={markerValue}
-                                                    onChange={setMarkerValue}
-                                                >
-                                                    <Option value='hiro'>Hiro</Option>
-                                                    <Option value='kanji'>Kanji</Option>
-                                                </Select>
-                                            </div>
-                                        )}
-
-                                        {markerType === 'pattern' && (
-                                            <div>
-                                                <Text strong>Pattern URL:</Text>
-                                                <Input
-                                                    placeholder='Enter URL to pattern file'
-                                                    value={markerValue}
-                                                    onChange={(e) => setMarkerValue(e.target.value)}
-                                                    style={{ marginTop: 8 }}
-                                                />
-                                                <Text type='secondary' style={{ fontSize: '12px', marginTop: 4 }}>
-                                                    URL to a .patt file or image to use as marker
-                                                </Text>
-                                            </div>
-                                        )}
-
-                                        {markerType === 'barcode' && (
-                                            <div>
-                                                <Text strong>Barcode Value:</Text>
-                                                <Input
-                                                    placeholder='Enter barcode value (0-63)'
-                                                    value={markerValue}
-                                                    onChange={(e) => setMarkerValue(e.target.value)}
-                                                    style={{ marginTop: 8 }}
-                                                    type='number'
-                                                    min={0}
-                                                    max={63}
-                                                />
-                                            </div>
-                                        )}
-
-                                        <MarkerPreview>
-                                            <img
-                                                src={getMarkerImage()}
-                                                alt='Marker Preview'
-                                                style={{ maxWidth: '100%', maxHeight: '100%' }}
-                                            />
-                                        </MarkerPreview>
-                                    </Space>
-                                </Spin>
-                            </StyledCard>
-
-                            <Space style={{ marginTop: 16 }}>
-                                <Button type='primary' onClick={() => setActiveTab('2')} disabled={!sceneData}>
-                                    Next: Preview
-                                </Button>
-                            </Space>
-                        </>
-                    )}
-                </TabPane>
-
-                <TabPane tab='Preview' key='2'>
-                    {sceneData ? (
-                        <>
-                            <StyledCard title='HTML Preview'>
-                                <Space style={{ marginBottom: 16 }}>
-                                    <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={!htmlPreview}>
-                                        Download HTML
-                                    </Button>
-                                    <Button icon={<CopyOutlined />} onClick={handleCopy} disabled={!htmlPreview}>
-                                        Copy HTML
-                                    </Button>
-                                </Space>
-                                <Preview>
-                                    <pre>{htmlPreview}</pre>
-                                </Preview>
-                            </StyledCard>
-
-                            <Alert
-                                message='How to test this AR experience'
-                                description={
-                                    <Paragraph>
-                                        <ol>
-                                            <li>Download the HTML file</li>
-                                            <li>Host it on a web server with HTTPS</li>
-                                            <li>Open the URL on a mobile device with a camera</li>
-                                            <li>Point your camera at the marker shown in the preview above</li>
-                                        </ol>
-                                        <Text type='secondary'>For easier testing, you can publish the project and share the URL</Text>
-                                    </Paragraph>
-                                }
-                                type='info'
-                                showIcon
-                                icon={<QuestionCircleOutlined />}
-                                style={{ marginBottom: 16 }}
-                            />
-
-                            <Space>
-                                <Button onClick={() => setActiveTab('1')}>Back to Configure</Button>
-                                <Button type='primary' onClick={handlePublish} loading={loading}>
-                                    Publish Project
-                                </Button>
-                            </Space>
-                        </>
-                    ) : (
-                        <Alert
-                            message='No Scene Selected'
-                            description='Please select a scene in the Configure tab'
-                            type='warning'
-                            showIcon
-                        />
-                    )}
-                </TabPane>
-
-                <TabPane tab='Published' key='3'>
-                    {publishedUrl ? (
-                        <StyledCard title='Published Project'>
-                            <Alert
-                                message='AR.js Project Published Successfully'
-                                description='Your project is now available online. Share the URL or QR code to access it.'
-                                type='success'
-                                showIcon
-                                style={{ marginBottom: 16 }}
-                            />
-
-                            <div>
-                                <Text strong>Project URL:</Text>
-                                <Paragraph copyable={{ text: window.location.origin + publishedUrl }}>
-                                    {window.location.origin + publishedUrl}
-                                </Paragraph>
-                            </div>
-
-                            <QRContainer>
-                                <Text strong style={{ marginBottom: 8 }}>
-                                    Scan this QR code to open the AR experience
-                                </Text>
-                                <QRCode value={window.location.origin + publishedUrl} size={200} level='H' />
-                            </QRContainer>
-
-                            <div style={{ marginTop: 16 }}>
-                                <Text strong>Required Marker:</Text>
-                                <div style={{ marginTop: 8 }}>
-                                    <img src={getMarkerImage()} alt='Marker' style={{ maxWidth: 200, border: '1px solid #d9d9d9' }} />
-                                </div>
-                            </div>
-
-                            <Space style={{ marginTop: 16 }}>
-                                <Button onClick={() => setActiveTab('1')}>Create Another</Button>
-                                <Button type='primary' href={publishedUrl} target='_blank'>
-                                    Open Published Project
-                                </Button>
-                            </Space>
-                        </StyledCard>
-                    ) : (
-                        <Alert
-                            message='No Published Projects'
-                            description='Publish a project from the Preview tab to see it here'
-                            type='info'
-                            showIcon
-                        />
-                    )}
-                </TabPane>
+            <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                <Tab label='Настройка' />
+                <Tab label='Предпросмотр' />
+                <Tab label='Опубликовано' />
             </Tabs>
-        </div>
+
+            {/* Settings Tab */}
+            <TabPanel value={tabValue} index={0}>
+                <Card variant='outlined'>
+                    <CardContent>
+                        <Box sx={{ position: 'relative' }}>
+                            {loading && (
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        bgcolor: 'rgba(255,255,255,0.7)',
+                                        zIndex: 1
+                                    }}
+                                >
+                                    <CircularProgress />
+                                </Box>
+                            )}
+
+                            <Stack spacing={3}>
+                                <TextField
+                                    label='Название проекта'
+                                    variant='outlined'
+                                    fullWidth
+                                    value={projectTitle}
+                                    onChange={(e) => setProjectTitle(e.target.value)}
+                                />
+
+                                <FormControl fullWidth>
+                                    <InputLabel id='marker-type-label'>Тип маркера</InputLabel>
+                                    <Select
+                                        labelId='marker-type-label'
+                                        value={markerType}
+                                        label='Тип маркера'
+                                        onChange={handleMarkerTypeChange}
+                                    >
+                                        <MenuItem value='preset'>Стандартный маркер</MenuItem>
+                                        <MenuItem value='pattern'>Свой паттерн</MenuItem>
+                                        <MenuItem value='barcode'>Штрих-код</MenuItem>
+                                    </Select>
+                                </FormControl>
+
+                                {markerType === 'preset' && (
+                                    <FormControl fullWidth>
+                                        <InputLabel id='preset-marker-label'>Предустановленный маркер</InputLabel>
+                                        <Select
+                                            labelId='preset-marker-label'
+                                            value={markerValue}
+                                            label='Предустановленный маркер'
+                                            onChange={handleMarkerValueChange}
+                                        >
+                                            <MenuItem value='hiro'>Hiro (Стандартный)</MenuItem>
+                                            <MenuItem value='kanji'>Kanji</MenuItem>
+                                            <MenuItem value='a'>Буква A</MenuItem>
+                                            <MenuItem value='b'>Буква B</MenuItem>
+                                            <MenuItem value='c'>Буква C</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                )}
+
+                                {markerType === 'pattern' && (
+                                    <TextField
+                                        label='URL паттерна'
+                                        variant='outlined'
+                                        fullWidth
+                                        value={markerValue}
+                                        onChange={(e) => setMarkerValue(e.target.value)}
+                                        helperText='URL до .patt файла или изображения для использования в качестве маркера'
+                                    />
+                                )}
+
+                                {markerType === 'barcode' && (
+                                    <TextField
+                                        label='Значение штрих-кода'
+                                        variant='outlined'
+                                        fullWidth
+                                        value={markerValue}
+                                        onChange={(e) => setMarkerValue(e.target.value)}
+                                        type='number'
+                                        inputProps={{ min: 0, max: 63 }}
+                                        helperText='Введите значение от 0 до 63'
+                                    />
+                                )}
+
+                                <Paper
+                                    elevation={0}
+                                    variant='outlined'
+                                    sx={{
+                                        p: 2,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <img
+                                        src={getMarkerImage()}
+                                        alt='Маркер'
+                                        style={{
+                                            maxWidth: '200px',
+                                            maxHeight: '200px',
+                                            margin: '10px 0'
+                                        }}
+                                    />
+                                    <Typography variant='caption' color='text.secondary'>
+                                        Покажите этот маркер камере для активации AR
+                                    </Typography>
+                                </Paper>
+
+                                <FormGroup>
+                                    <FormControlLabel
+                                        control={<Switch checked={isPublic} onChange={handlePublicChange} />}
+                                        label='Сделать публичным'
+                                    />
+                                </FormGroup>
+                            </Stack>
+                        </Box>
+
+                        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+                            <Button variant='outlined' onClick={handleCancel}>
+                                Отмена
+                            </Button>
+                            <Button variant='contained' onClick={() => setTabValue(1)}>
+                                Далее: Предпросмотр
+                            </Button>
+                        </Box>
+                    </CardContent>
+                </Card>
+            </TabPanel>
+
+            {/* Preview Tab */}
+            <TabPanel value={tabValue} index={1}>
+                {sceneData ? (
+                    <>
+                        <Card variant='outlined' sx={{ mb: 3 }}>
+                            <CardContent>
+                                <Typography variant='h6' gutterBottom>
+                                    HTML предпросмотр
+                                </Typography>
+                                <Box sx={{ mb: 2 }}>
+                                    <Button
+                                        variant='outlined'
+                                        startIcon={<IconDownload size={18} />}
+                                        onClick={handleDownload}
+                                        disabled={!htmlPreview}
+                                        sx={{ mr: 1 }}
+                                    >
+                                        Скачать HTML
+                                    </Button>
+                                    <Button
+                                        variant='outlined'
+                                        startIcon={<IconCopy size={18} />}
+                                        onClick={handleCopy}
+                                        disabled={!htmlPreview}
+                                    >
+                                        Копировать HTML
+                                    </Button>
+                                </Box>
+                                <Alert severity='info' sx={{ mb: 2 }}>
+                                    HTML файл с AR.js приложением сгенерирован успешно. Вы можете скачать его или скопировать для размещения
+                                    на веб-сервере.
+                                </Alert>
+                            </CardContent>
+                        </Card>
+
+                        <Alert severity='info' sx={{ mb: 3 }}>
+                            <Typography variant='subtitle1' gutterBottom>
+                                Как протестировать AR опыт
+                            </Typography>
+                            <ol>
+                                <li>Скачайте HTML файл</li>
+                                <li>Разместите его на веб-сервере с HTTPS</li>
+                                <li>Откройте URL на мобильном устройстве с камерой</li>
+                                <li>Направьте камеру на маркер, показанный выше</li>
+                            </ol>
+                            <Typography variant='body2' color='text.secondary'>
+                                Для более простого тестирования вы можете опубликовать проект и поделиться URL
+                            </Typography>
+                        </Alert>
+
+                        {error && (
+                            <Alert severity='error' sx={{ mb: 3 }}>
+                                {error}
+                            </Alert>
+                        )}
+
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button variant='outlined' onClick={() => setTabValue(0)}>
+                                Назад к настройкам
+                            </Button>
+                            <Button
+                                variant='contained'
+                                onClick={handlePublish}
+                                disabled={isPublishing}
+                                startIcon={isPublishing ? <CircularProgress size={20} /> : null}
+                            >
+                                {isPublishing ? 'Публикация...' : 'Опубликовать AR.js проект'}
+                            </Button>
+                        </Box>
+                    </>
+                ) : (
+                    <Alert severity='warning'>Данные сцены не найдены</Alert>
+                )}
+            </TabPanel>
+
+            {/* Published Tab */}
+            <TabPanel value={tabValue} index={2}>
+                {publishedUrl ? (
+                    <Card variant='outlined'>
+                        <CardContent>
+                            <Stack spacing={3}>
+                                <div>
+                                    <Typography variant='subtitle2'>Название проекта:</Typography>
+                                    <Typography variant='body1'>{projectTitle}</Typography>
+                                </div>
+
+                                <div>
+                                    <Typography variant='subtitle2'>Публичный URL:</Typography>
+                                    <TextField
+                                        value={window.location.origin + publishedUrl}
+                                        fullWidth
+                                        InputProps={{
+                                            readOnly: true,
+                                            endAdornment: (
+                                                <Button onClick={handleCopyUrl} startIcon={<IconCopy size={18} />}>
+                                                    Копировать
+                                                </Button>
+                                            )
+                                        }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Typography variant='subtitle2'>QR-код:</Typography>
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            p: 3,
+                                            bgcolor: 'white',
+                                            border: '1px solid #e0e0e0',
+                                            borderRadius: 1,
+                                            mt: 1
+                                        }}
+                                    >
+                                        {QRCode ? (
+                                            <QRCode value={window.location.origin + publishedUrl} size={200} className='qrcode-container' />
+                                        ) : (
+                                            <Box
+                                                sx={{
+                                                    width: 200,
+                                                    height: 200,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                <IconQrcode size={100} color='text.secondary' />
+                                            </Box>
+                                        )}
+                                        <Button
+                                            variant='outlined'
+                                            startIcon={<IconDownload size={18} />}
+                                            sx={{ mt: 2 }}
+                                            // Скачивание QR-кода отключено, если библиотека не загружена
+                                            disabled={!QRCode}
+                                            onClick={() => {
+                                                const canvas = document.querySelector('.qrcode-container canvas')
+                                                if (canvas) {
+                                                    const link = document.createElement('a')
+                                                    link.download = `${projectTitle}-qrcode.png`
+                                                    link.href = canvas.toDataURL('image/png')
+                                                    link.click()
+                                                }
+                                            }}
+                                        >
+                                            Скачать QR-код
+                                        </Button>
+                                    </Box>
+                                </div>
+
+                                <Button
+                                    variant='contained'
+                                    href={window.location.origin + publishedUrl}
+                                    target='_blank'
+                                    rel='noopener noreferrer'
+                                >
+                                    Открыть публикацию
+                                </Button>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <Alert severity='info'>Проект еще не опубликован. Сначала опубликуйте ваш AR.js проект.</Alert>
+                )}
+            </TabPanel>
+
+            <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleSnackbarClose} message={snackbar.message} />
+        </Box>
     )
 }
 
+// Export as both default and named export
+export { ARJSPublisher }
 export default ARJSPublisher

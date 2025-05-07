@@ -5,6 +5,7 @@ import express from 'express'
 import path from 'path'
 import cors from 'cors'
 import publishRoutes from './routes/publishRoutes'
+import updlRoutes from './routes/updlRoutes'
 
 /**
  * Initialize the publish server
@@ -25,10 +26,16 @@ export function initializePublishServer(app?: express.Application): express.Appl
 
     // Set up routes
     expressApp.use('/api/v1/publish', publishRoutes)
+    expressApp.use('/api/updl', updlRoutes)
 
     // Serve published content
     expressApp.get('/p/:id', (req, res) => {
         res.sendFile(path.join(publicDir, 'p', req.params.id, 'index.html'))
+    })
+
+    // Serve UPDL published content
+    expressApp.get('/published/:id', (req, res) => {
+        res.sendFile(path.join(publicDir, 'published', req.params.id))
     })
 
     // Add error handler

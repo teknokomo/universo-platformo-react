@@ -80,14 +80,38 @@
             "publish": "Публикация",
             "export": "Экспорт"
         },
+        "configuration": {
+            "title": "Конфигурация",
+            "description": "Выберите режим для вашей публикации и настройте основные параметры",
+            "chooseMode": "Выберите режим публикации"
+        },
         "technology": {
             "label": "Технология",
             "select": "Выберите технологию",
-            "arjs": "AR.js / A-Frame",
+            "chat": "Чатбот",
+            "arjs": "AR.js",
             "playcanvas": "PlayCanvas",
             "babylonjs": "Babylon.js",
             "threejs": "Three.js",
-            "aframevr": "A-Frame VR"
+            "aframevr": "A-Frame",
+            "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
+            "babylonjsDescription": "3D экспортер на основе Babylon.js",
+            "aframevrDescription": "Экспортер VR на основе A-Frame"
+        },
+        "technologies": {
+            "label": "Технология",
+            "select": "Выберите технологию",
+            "chat": "Чатбот",
+            "arjs": "AR.js",
+            "playcanvas": "PlayCanvas",
+            "babylonjs": "Babylon.js",
+            "threejs": "Three.js",
+            "aframevr": "A-Frame",
+            "chatDescription": "Интерактивный интерфейс чатбота",
+            "arjsDescription": "Дополненная реальность с использованием AR.js и A-Frame",
+            "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
+            "babylonjsDescription": "3D экспортер на основе Babylon.js",
+            "aframevrDescription": "Экспортер VR на основе A-Frame"
         },
         "actions": {
             "publish": "Опубликовать",

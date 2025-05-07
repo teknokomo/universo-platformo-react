@@ -80,14 +80,38 @@
             "publish": "Publish",
             "export": "Export"
         },
+        "configuration": {
+            "title": "Configuration",
+            "description": "Select the mode for your publication and configure basic settings",
+            "chooseMode": "Choose Publication Mode"
+        },
         "technology": {
             "label": "Technology",
             "select": "Select technology",
-            "arjs": "AR.js / A-Frame",
+            "chat": "Chatbot",
+            "arjs": "AR.js",
             "playcanvas": "PlayCanvas",
             "babylonjs": "Babylon.js",
             "threejs": "Three.js",
-            "aframevr": "A-Frame VR"
+            "aframevr": "A-Frame",
+            "playcanvasDescription": "3D web exporter based on PlayCanvas",
+            "babylonjsDescription": "3D exporter based on Babylon.js",
+            "aframevrDescription": "VR exporter based on A-Frame"
+        },
+        "technologies": {
+            "label": "Technology",
+            "select": "Select technology",
+            "chat": "Chatbot",
+            "arjs": "AR.js",
+            "playcanvas": "PlayCanvas",
+            "babylonjs": "Babylon.js",
+            "threejs": "Three.js",
+            "aframevr": "A-Frame",
+            "chatDescription": "Interactive chatbot interface",
+            "arjsDescription": "Augmented reality using AR.js and A-Frame",
+            "playcanvasDescription": "3D web exporter based on PlayCanvas",
+            "babylonjsDescription": "3D exporter based on Babylon.js",
+            "aframevrDescription": "VR exporter based on A-Frame"
         },
         "actions": {
             "publish": "Publish",

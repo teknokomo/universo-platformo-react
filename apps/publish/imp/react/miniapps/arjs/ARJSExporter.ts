@@ -40,6 +40,8 @@ export const PATTERN_PRESETS = {
 export class ARJSExporter extends BaseAFrameExporter {
     private arjsVersion: string
     private converter: UPDLToAFrameConverter
+    private currentMarkerType: string = 'pattern'
+    private currentMarkerValue: string = 'hiro'
 
     /**
      * Create a new ARJSExporter
@@ -69,11 +71,67 @@ export class ARJSExporter extends BaseAFrameExporter {
     }
 
     /**
+     * Generates HTML from a UPDL scene with AR.js-specific options
+     * @param updlScene - The UPDL scene to export
+     * @param options - Export options including title and marker settings
+     * @returns Generated HTML string
+     */
+    generateHTML(updlScene: UPDLScene, options?: ARJSExportOptions): string {
+        // Extract and store marker settings if provided
+        if (options?.markerType) {
+            this.setMarkerOptions(options.markerType, options.markerValue)
+        }
+
+        // Call parent implementation
+        return super.generateHTML(updlScene, options)
+    }
+
+    /**
+     * Helper method for generating HTML with explicit title and marker parameters
+     * This is a convenience method that wraps the main generateHTML method
+     * @param scene - UPDL scene
+     * @param title - Document title
+     * @param options - Export options including marker settings
+     * @returns Complete HTML document
+     */
+    generateARHTML(scene: UPDLScene, title: string, options?: Omit<ARJSExportOptions, 'title'>): string {
+        // Create complete options object
+        const completeOptions: ARJSExportOptions = {
+            ...(options || {}),
+            title
+        }
+
+        // Call the main method
+        return this.generateHTML(scene, completeOptions)
+    }
+
+    /**
+     * Store marker settings for use during HTML generation
+     * @param markerType - Marker type (pattern, barcode, etc)
+     * @param markerValue - Marker value (hiro, kanji, etc)
+     */
+    private setMarkerOptions(markerType: string, markerValue?: string): void {
+        // Store marker settings for use during conversion
+        this.currentMarkerType = markerType
+        if (markerValue) {
+            this.currentMarkerValue = markerValue
+        } else if (markerType === 'pattern') {
+            this.currentMarkerValue = 'hiro' // Default pattern
+        } else {
+            this.currentMarkerValue = '0' // Default barcode
+        }
+
+        console.log(`Setting marker type: ${this.currentMarkerType}, value: ${this.currentMarkerValue}`)
+    }
+
+    /**
      * Convert UPDL scene to A-Frame model
      * @param updlScene - UPDL scene
      * @returns A-Frame scene model
      */
     protected convertToAFrameModel(updlScene: UPDLScene): AFrameScene {
+        // Here we can use this.currentMarkerType and this.currentMarkerValue
+        // to configure the A-Frame model appropriately
         return this.converter.convert(updlScene)
     }
 
@@ -84,6 +142,9 @@ export class ARJSExporter extends BaseAFrameExporter {
      * @returns Complete HTML document
      */
     protected generateHTMLFromModel(aframeScene: AFrameScene, title: string): string {
+        // Before generating HTML, ensure the scene has default components if needed
+        this.addDefaultComponentsIfNeeded(aframeScene)
+
         // Create HTML header with A-Frame script
         let html = this.getHtmlHeader(title)
 
@@ -100,6 +161,55 @@ export class ARJSExporter extends BaseAFrameExporter {
         html += this.getHtmlClosing()
 
         return html
+    }
+
+    /**
+     * Adds default components to the scene if they're missing
+     * This ensures the scene always has a camera, lights, and at least one object
+     * @param aframeScene - A-Frame scene to check and update
+     */
+    private addDefaultComponentsIfNeeded(aframeScene: AFrameScene): void {
+        console.log('Checking if default components are needed...')
+
+        // Add default camera if none exists
+        if (!aframeScene.hasCamera()) {
+            console.log('Adding default camera')
+            aframeScene.addCamera({
+                position: { x: 0, y: 1.5, z: 3 },
+                rotation: { x: 0, y: 0, z: 0 },
+                fov: 75
+            })
+        }
+
+        // Add default lights if none exist
+        if (!aframeScene.hasLights()) {
+            console.log('Adding default lights')
+            // Add ambient light
+            aframeScene.addLight({
+                type: 'ambient',
+                color: '#ffffff',
+                intensity: 0.5
+            })
+
+            // Add directional light
+            aframeScene.addLight({
+                type: 'directional',
+                position: { x: 1, y: 1, z: 1 },
+                color: '#ffffff',
+                intensity: 0.8
+            })
+        }
+
+        // Add default object (red box) if no objects exist
+        if (!aframeScene.hasObjects()) {
+            console.log('Adding default object (red box)')
+            aframeScene.addObject({
+                type: 'box',
+                position: { x: 0, y: 0.5, z: 0 },
+                scale: { x: 1, y: 1, z: 1 },
+                color: '#FF0000'
+            })
+        }
     }
 
     /**
@@ -142,7 +252,7 @@ export class ARJSExporter extends BaseAFrameExporter {
             ]
         }
 
-        // Ensure objects array exists
+        // Ensure objects array exists - add a default red box if needed
         if (!updatedScene.objects || updatedScene.objects.length === 0) {
             updatedScene.objects = [
                 {
@@ -165,19 +275,19 @@ export class ARJSExporter extends BaseAFrameExporter {
      * @returns Validation result object
      */
     validateScene(scene: UPDLScene): { valid: boolean; errors: string[] } {
-        // Сначала выполняем базовую валидацию из родительского класса
+        // First perform base validation from parent class
         const baseValidation = super.validateScene(scene)
 
-        // Если базовая валидация обнаружила ошибки, возвращаем их
+        // If base validation found errors, return them
         if (!baseValidation.valid) {
             return baseValidation
         }
 
-        // Дополнительные проверки, специфичные для AR.js
+        // Additional checks specific to AR.js
         const errors: string[] = [...baseValidation.errors]
 
-        // Проверка дополнительных требований AR.js
-        // Например, требование к маркеру или другие специфичные ограничения
+        // Check additional AR.js requirements
+        // For example, marker requirements or other specific constraints
 
         return {
             valid: errors.length === 0,
@@ -186,5 +296,5 @@ export class ARJSExporter extends BaseAFrameExporter {
     }
 }
 
-// Создаем экземпляр для экспорта
+// Create instance for export
 export const arjsExporter = new ARJSExporter()
