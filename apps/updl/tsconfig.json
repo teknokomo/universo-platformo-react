@@ -2,17 +2,19 @@
     "compilerOptions": {
         "target": "ES2020",
         "module": "CommonJS",
-        "moduleResolution": "node",
-        "esModuleInterop": true,
-        "forceConsistentCasingInFileNames": true,
-        "strict": false,
-        "skipLibCheck": true,
-        "rootDir": "imp",
-        "outDir": "dist",
+        "lib": ["ES2020"],
         "declaration": true,
+        "sourceMap": true,
+        "outDir": "./dist",
+        "rootDir": "./base",
+        "strict": false,
+        "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
-        "resolveJsonModule": true
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "skipLibCheck": true
     },
-    "include": ["imp/**/*.ts", "imp/**/*.tsx", "imp/**/*.js"],
+    "include": ["base/**/*"],
     "exclude": ["node_modules", "dist"]
 }

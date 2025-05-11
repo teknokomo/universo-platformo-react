@@ -358,3 +358,6 @@ export * from './Interface.DocumentStore'
 
 // AR.js related
 export * from './Interface.AR'
+
+// UPDL related
+export * from './Interface.UPDL'

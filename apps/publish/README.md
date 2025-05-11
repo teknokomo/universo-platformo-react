@@ -1,103 +1,123 @@
 # Publish Module
 
-This application provides the publication system for Universo Platformo React. It enables exporting and publishing UPDL flows via a REST API and client-side React components, supporting AR.js markers, content embedding, and future extensions for additional rendering engines.
+This module provides the publication system for Universo Platformo.
+It supports converting UPDL flows into deployable content via server-side APIs and client-side React components, with current focus on AR.js export and future extensibility for other rendering engines.
 
-## Overview
+## Features
 
--   **Purpose**: Offer a unified service and UI for publishing 3D/AR/VR scenes defined in UPDL.
--   **Capabilities**:
-    -   REST endpoints to list exporters, publish flows, and retrieve marker information
-    -   React UI components for embedding publication controls in applications
-    -   Support for AR.js marker-based publishing and content hosting
-    -   Extensible architecture for additional output formats (PlayCanvas, Babylon.js, Three.js)
-
-## Current Status
-
--   **Development Phase**: Foundation Phase (Phase 1)
--   **Implementation Progress**:
-
-    -   Core publication architecture - ✅ Complete
-    -   Express API endpoints - ✅ Complete
-    -   AR.js publication workflow - 🔄 In active development
-    -   Publication UI components - 🔄 In progress
-    -   QR code generation for mobile access - ⏳ Planned
-    -   Other technology exporters - ⏳ Planned
-
--   **Current Sprint Focus**:
-
-    -   Completing the publication UI according to design screenshots
-    -   Testing full publication flow from editor to public URL
-    -   Implementing the `/p/{uuid}` URL scheme for published content
-    -   Creating test scenarios with the AR.js red cube example
-
--   **Pending Tasks**:
-    -   Publication form UI refinement - In progress
-    -   QR code implementation for mobile access - Planned
-    -   Full end-to-end testing of publication workflow - In progress
-    -   Integration with PlayCanvas and other targets - Planned for future sprints
+-   Express REST API for publishing workflows and retrieving published assets
+-   React components for embedding publication UI in applications
+-   UPDL-to-AR.js conversion pipeline
+-   Static hosting of generated HTML under `/published/{uuid}` and `/p/{uuid}`
 
 ## Installation
 
-From the repository root, install dependencies and build the publish application:
+From the repository root, install dependencies and build the publish module:
 
 ```bash
 pnpm install
 pnpm build --filter publish
 ```
 
-To start development mode for TypeScript watch:
+To watch TypeScript changes in development:
 
 ```bash
 pnpm --filter publish dev
 ```
 
-## Usage
+## Development Server
 
-### REST API (Express Server)
+To start the Express API server (if applicable, usually part of a larger server structure or run via `pnpm dev` if it includes server start):
 
-Import and mount the router in your main server application:
-
-```ts
-import express from 'express'
-import publishRoutes from '@apps/publish/imp/express/routes/publishRoutes'
-
-const app = express()
-app.use(express.json())
-app.use('/api/v1/publish', publishRoutes)
-app.listen(3000)
+```bash
+# This might be integrated into the main server or require specific run scripts
+# For watching changes and rebuilding:
+pnpm --filter publish dev
+# To run a built version, you might need a separate start script or integrate into the main server app.
 ```
 
-Available endpoints:
+## Usage
 
-| Method | Path                           | Description                                             |
-| ------ | ------------------------------ | ------------------------------------------------------- |
-| GET    | `/api/v1/publish/exporters`    | List all available exporters                            |
-| POST   | `/api/v1/publish`              | Publish a UPDL flow (body: flowId, exporterId, options) |
-| GET    | `/api/v1/publish/arjs/markers` | Get supported AR.js marker presets                      |
-| POST   | `/api/v1/publish/arjs`         | Dedicated endpoint for AR.js publication                |
-| GET    | `/p/{uuid}`                    | Access published content with Universo Platformo header |
-| GET    | `/e/p/{uuid}`                  | Access embedded (frameless) published content           |
+### Express API Endpoints
+
+Mount the publish server in your application or run standalone via `startServer()`.
+
+Default routes:
+
+-   **GET** `/api/v1/publish/exporters` — List all available exporters
+-   **POST** `/api/v1/publish` — Publish a UPDL flow (body: `{ flowId, exporterId, options }`)
+-   **GET** `/api/v1/publish/arjs/markers` — Get supported AR.js marker presets
+-   **GET** `/api/updl/scene/:id` — Get raw UPDL scene data for a flow
+-   **POST** `/api/updl/publish/arjs` — Publish UPDL flow to AR.js (body: `{ sceneId, title, html, markerType, markerValue }`)
+-   **GET** `/api/updl/publication/arjs/:publishId` — Retrieve AR.js publication metadata
+-   **GET** `/api/updl/publications/arjs` — List all AR.js publications
+
+Static hosting:
+
+-   **GET** `/p/{uuid}` — Serve embedded (frameless) content
+-   **GET** `/published/{uuid}` — Serve full-page published content
 
 ### React Components
 
-Use the `ARJSPublisher` component or programmatic services:
+Import and use the `Publisher` component or specific miniapp:
 
 ```tsx
-import { ARJSPublisher } from '@apps/publish/imp/react/miniapps/arjs/ARJSPublisher'
-
-// In JSX
-;<ARJSPublisher flowId='abc123' />
+import { Publisher } from '@apps/publish/base/components/Publisher'
+// or micro-app:
+import { ARJSPublisher } from '@apps/publish/base/miniapps/arjs/ARJSPublisher'
 ```
 
-Service functions:
+Programmatic API services:
 
 ```ts
-import { getExporters, publishFlow, getARJSMarkers, publishARJSFlow } from '@apps/publish/imp/react/services/api'
-
-const exporters = await getExporters()
-const markers = await getARJSMarkers()
-const result = await publishFlow(flowId, exporterId, options)
+import { getExporters, publishFlow, getARJSMarkers, publishARJSFlow } from '@apps/publish/base/services/api'
 ```
+
+## Directory Structure
+
+```plain
+apps/publish/
+├── base/                  # Core publish functionality
+│   ├── package.json         # Metadata and scripts (moved to apps/publish/package.json)
+│   ├── tsconfig.json        # TypeScript configuration (moved to apps/publish/tsconfig.json)
+│   ├── gulpfile.ts          # Gulp tasks for build processes
+│   ├── index.ts             # Main entry point for the base module
+│   ├── common/              # Shared types, constants, etc.
+│   │   └── types.ts         # Type definitions
+│   ├── srv/                 # Backend API server (Express)
+│   │   ├── server.ts        # Initializes Express with routes and static assets
+│   │   ├── routes/          # Route definitions
+│   │   ├── controllers/     # Request handlers
+│   │   ├── utils/           # Backend utility modules
+│   │   └── layouts/         # HTML templates (if any for server-side rendering)
+│   ├── api/                 # Client-side Axios wrappers for backend API
+│   ├── components/          # React UI components
+│   ├── interfaces/          # TypeScript interfaces for React components and client-side logic
+│   ├── miniapps/            # Technology-specific publisher UIs or logic
+│   │   ├── aframe/          # A-Frame related components/logic
+│   │   └── arjs/            # AR.js related components/logic
+│   ├── services/            # Client-side service functions (e.g., consolidating API calls)
+│   └── i18n/                # Localization files
+├── dist/                    # Compiled output
+├── package.json             # Module dependencies and scripts for the Publish app
+├── tsconfig.json            # TypeScript configuration for the Publish app
+├── gulpfile.ts              # Gulp tasks for the Publish app (SVG icons copying, etc.)
+├── README.md                # This documentation
+└── node_modules/            # Dependencies
+```
+
+## Key Files
+
+-   **srv/server.ts**: Sets up Express with CORS, JSON, static serving, and mounts publish & UPDL routes.
+-   **srv/routes/**: Defines REST endpoints for publishing and UPDL operations.
+-   **srv/controllers/**: Implements business logic for publishing and UPDL scene construction.
+-   **srv/utils/updlToARJSBuilder.ts**: Builds UPDL scene data for AR.js HTML generation.
+-   **components/Publisher.tsx**: Main React component orchestrating publication flow.
+-   **miniapps/arjs/ARJSPublisher.jsx**: UI for AR.js publishing.
+-   **miniapps/aframe/models/AFrameModel.ts**: Core model definitions for A-Frame entities.
+-   **services/api.ts**: Wrappers around Axios for client-side API calls.
+
+For more details, explore each folder and file in the structure above.
 
 ## Integration with UPDL Module
 
@@ -131,150 +151,21 @@ The Publish module works closely with the UPDL module to transform flow graphs i
 7. **URL Generation**: A public URL is created and returned to the user (`/p/{uuid}`)
 8. **Access**: End users can access the published content through the generated URL
 
-## File Structure
-
-```
-apps/publish/
-├── package.json          # Application metadata and scripts
-├── tsconfig.json         # TypeScript configuration
-├── README.md             # This documentation file
-├── dist/                 # Compiled output
-├── node_modules/         # Dependencies
-└── imp/                  # Implementation source code
-    ├── common/           # Shared types and utilities
-    │   └── types.ts      # Type definitions for publish objects
-    ├── express/          # Backend API server
-    │   ├── server.ts     # Express server setup with routes and controllers
-    │   ├── routes/       # Route definitions
-    │   │   ├── publishRoutes.ts # Endpoints for publishing services
-    │   │   └── updlRoutes.ts    # Optional UPDL-specific routes
-    │   ├── controllers/  # Request handlers implementing business logic
-    │   │   ├── PublishController.ts # Handles publishFlow, getExporters, getARJSMarkers
-    │   │   └── UPDLController.ts    # Handles UPDL build endpoints
-    │   └── layouts/      # HTML or template layouts (if applicable)
-    │       ├── base.html     # Base HTML template with common structure
-    │       └── embedded.html # Minimalist template for embedded content
-    └── react/            # Frontend components and services
-        ├── api/          # API client wrappers for publication endpoints
-        │   ├── exporterApi.ts  # Functions to call /exporters endpoint
-        │   └── updlApi.ts      # Functions to call UPDL-specific endpoints
-        ├── components/   # Shared UI components for publish interface
-        │   ├── PublishButton.tsx     # Button that triggers publication process
-        │   ├── PublishDialog.tsx     # Main dialog for publication configuration
-        │   ├── ExporterSelector.tsx  # UI for selecting target technology
-        │   ├── PublishOptions.tsx    # Technology-specific options form
-        │   ├── MarkerSelector.tsx    # Component for AR.js marker selection
-        │   ├── SuccessDialog.tsx     # Result dialog with URL and QR code (in development)
-        │   └── QRCode.tsx            # QR code generator for mobile access (planned)
-        ├── interfaces/   # TypeScript interfaces for React props and results
-        │   ├── PublisherProps.ts     # Props, result types, error structures
-        │   └── PublishFormState.ts   # Form state for publication UI
-        ├── miniapps/     # Technology-specific publisher components
-        │   ├── arjs/     # AR.js publisher example (active development)
-        │   │   ├── ARJSPublisher.tsx   # React component for AR.js publication UI
-        │   │   └── arjsStyles.css      # Styles for AR.js publisher UI
-        │   ├── aframe-vr/  # A-Frame VR publisher (planned for Phase 3)
-        │   │   └── AFrameVRPublisher.tsx  # VR mode publisher without AR markers
-        │   └── playcanvas-react/  # PlayCanvas React publisher (planned for Phase 3)
-        │       └── PlayCanvasReactPublisher.tsx # Placeholder for future implementation
-        ├── pages/        # High-level UI pages or views
-        │   ├── PublishPage.tsx       # Standalone publication page
-        │   └── PublishedViewPage.tsx # Page for viewing published content
-        └── services/     # Programmatic publish functions
-            └── api.ts   # Consolidated API service functions (getExporters, publishFlow)
-```
-
-## Key Files
-
-### common/types.ts
-
-Defines shared TypeScript types such as:
-
--   `PublishResult`: Contains successful publication details (uuid, urls, etc.)
--   `PublishError`: Structured error information for failed publications
--   `ExporterInfo`: Metadata about available exporters
--   `MarkerInfo`: Information about AR.js marker presets
--   `PublishOptions`: Configuration options for publication process
-
-### express/server.ts
-
-Initializes an Express instance, applies middleware, and mounts route handlers from `routes/`. Key features:
-
--   Serves static files from published content directory
--   Sets up CORS policies for API calls
--   Configures JSON body parsing
--   Registers routes from publishRoutes and updlRoutes
-
-### controllers/PublishController.ts
-
-Implements methods:
-
--   `getExporters(req, res)`: Returns metadata about available exporters
--   `publishFlow(req, res)`: Validates payload, invokes UPDL build/publish logic, and returns result
--   `getARJSMarkers(req, res)`: Returns list of AR.js marker presets (e.g., `hiro`, `kanji`)
--   `publishARJSFlow(req, res)`: AR.js specific publication endpoint with specialized validation
-
-### controllers/UPDLController.ts
-
-Handles UPDL-specific operations:
-
--   `buildUPDLFlow(req, res)`: Constructs a UPDL scene graph from a Flowise node graph
--   `validateUPDLFlow(req, res)`: Checks if a UPDL flow is valid for publication
--   `getPublishedProject(req, res)`: Retrieves a previously published project by UUID
--   `listPublishedProjects(req, res)`: Lists all published projects with optional filtering
-
-### express/layouts/
-
-Contains HTML templates for serving published content:
-
--   `base.html`: Full template with Universo Platformo header and footer
--   `embedded.html`: Minimalist template for embedding in third-party sites
-
-### react/components/
-
-Contains shared UI components for the publication interface:
-
--   `PublishButton.tsx`: Entry point component that triggers the publication dialog
--   `PublishDialog.tsx`: Main dialog for configuring publication options
--   `ExporterSelector.tsx`: Dropdown for selecting the target technology
--   `PublishOptions.tsx`: Dynamic form that changes based on selected exporter
--   `MarkerSelector.tsx`: Component for AR.js marker selection
--   `SuccessDialog.tsx`: Dialog showing the published URL with QR code (in development)
--   `QRCode.tsx`: Component for generating QR codes for mobile access (planned)
-
-### react/miniapps/arjs/ARJSPublisher.tsx
-
-A complete React component that provides a publication UI for AR.js:
-
--   Includes forms for title, description, and marker selection
--   Handles submission to the publication API
--   Displays success/error state and provides the public URL
--   Shows a QR code for mobile access (planned functionality)
-
-### react/services/api.ts
-
-Exports functions:
-
--   `getExporters()`: Fetches exporter list with metadata
--   `publishFlow(flowId, exporterId, options)`: Posts a publish request
--   `getARJSMarkers()`: Fetches available AR.js marker presets
--   `publishARJSFlow(flowId, options)`: Specialized function for AR.js publication
-
 ## Exporters
 
 Currently implemented exporters:
 
-| Exporter ID | Target Platform | Description                                 | Status               |
-| ----------- | --------------- | ------------------------------------------- | -------------------- |
-| `arjs`      | AR.js/A-Frame   | Exports to web-based AR using AR.js/A-Frame | In development       |
-| `html`      | Web/HTML        | Simple HTML preview of the scene            | Basic implementation |
+| Exporter ID | Target Platform | Description                         | Status               |
+| ----------- | --------------- | ----------------------------------- | -------------------- |
+| `arjs`      | AR.js           | Exports to web-based AR using AR.js | In development       |
+| `html`      | Web/HTML        | Simple HTML preview of the scene    | Basic implementation |
 
 Planned exporters (scheduled for Phase 3):
 
 -   PlayCanvas (React & Engine) - Q2 2025
 -   Three.js - Q2 2025
 -   Babylon.js - Q3 2025
--   A-Frame VR - Q3 2025
+-   A-Frame - Q3 2025
 
 ## Interface Definitions
 
@@ -393,16 +284,42 @@ Contributions are welcome! To add new exporters or extend functionality:
 1. Add or update backend routes and controller methods.
 2. Create new React components under `miniapps/` for your technology.
 3. Update `common/types.ts` and React interfaces to include new types.
-4. Register new routes in `express/routes/` and corresponding services in `react/api`.
+4. Register new routes in `srv/routes/` and corresponding services in `services/api`.
 5. Run `pnpm --filter publish lint` and `pnpm --filter publish build` to verify.
 
 ### Adding a New Exporter
 
-1. Create a new directory in `react/miniapps/` for your technology
+1. Create a new directory in `miniapps/` for your technology
 2. Create a component that implements the `MiniAppPublisherProps` interface
 3. Add exporter-specific options to the `PublishOptions` interface in `common/types.ts`
 4. Register the exporter in the UPDL module's exporter registry
 5. Update `PublishController.ts` to support the new exporter type
 6. Add any necessary server-side handlers for the technology
+
+## Building and Development
+
+From the repository root, you can:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build the publish module
+pnpm build --filter publish
+```
+
+This will:
+
+1. Compile TypeScript code from `base/` to `dist/`
+2. Generate declaration files (.d.ts) and source maps (.js.map)
+3. Run Gulp tasks to copy SVG icons from source to dist directory
+
+For development with automatic rebuilding on changes:
+
+```bash
+pnpm --filter publish dev
+```
+
+Note: While the `dev` script watches TypeScript files for changes, it doesn't automatically copy SVG icons. If you add or modify SVG assets during development, run `pnpm build --filter publish` to ensure they're properly copied to the dist directory.
 
 _Universo Platformo | Publish Module Documentation_

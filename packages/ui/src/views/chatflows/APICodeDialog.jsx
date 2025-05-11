@@ -29,7 +29,7 @@ import { useTheme } from '@mui/material/styles'
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
 import Configuration from './Configuration'
 import ChatBotSettings from '@/views/publish/bots/ChatBotSettings'
-import ARJSPublisher from '@apps/publish/imp/react/miniapps/arjs/ARJSPublisher.jsx'
+import ARJSPublisher from '@apps/publish/base/miniapps/arjs/ARJSPublisher.jsx'
 import EmbedChat from './EmbedChat'
 
 // Const

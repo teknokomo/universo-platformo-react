@@ -1,5 +1,5 @@
 {
-    "name": "universo-platformo-react-components",
+    "name": "flowise-components",
     "version": "2.2.7-patch.1",
     "description": "Universo Platformo React Components",
     "main": "dist/src/index",
@@ -154,6 +154,6 @@
         "rimraf": "^5.0.5",
         "tsc-watch": "^6.0.4",
         "tslib": "^2.6.2",
-        "typescript": "^5.8.3"
+        "typescript": "^5.4.5"
     }
 }

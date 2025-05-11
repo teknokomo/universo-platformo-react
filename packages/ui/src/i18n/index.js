@@ -67,8 +67,8 @@ import enChatmessageTranslation from './locales/en/views/chatmessage.json'
 import ruChatmessageTranslation from './locales/ru/views/chatmessage.json'
 
 // Universo Platformo | Import publish module translations
-// Using alias @apps/publish/i18n for correct path resolution
-import { publishTranslations } from '@apps/publish/i18n'
+// Using alias @apps/publish/base/i18n for correct path resolution
+import { publishTranslations } from '@apps/publish/base/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)

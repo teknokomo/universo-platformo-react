@@ -25,10 +25,10 @@ This module provides the core implementation of the UPDL (Universal Platform Des
 
 -   **Current Sprint Focus**:
 
-    -   Completing the AR.js publication workflow
+    -   Simplifying export architecture (frontend-first approach)
+    -   Restructuring code to properly separate AR.js from A-Frame
+    -   Implementing correct integration between UPDL nodes and publication
     -   Testing marker-based scenes (red cube on Hiro marker)
-    -   Finalizing the publication UI
-    -   Implementing the `/p/{uuid}` URL scheme for published content
 
 -   **Pending Tasks**:
     -   AR.js System Complete Removal - In progress
@@ -42,8 +42,22 @@ From the repository root, install dependencies and build:
 
 ```bash
 pnpm install
-pnpm build --filter @universo-platformo/react-updl
+pnpm build --filter updl
 ```
+
+This will:
+
+1. Compile TypeScript code from `base/` to `dist/`
+2. Generate declaration files (.d.ts) and source maps (.js.map)
+3. Run Gulp tasks to copy SVG icons from source to dist directory
+
+For development with automatic rebuilding on changes:
+
+```bash
+pnpm --filter updl dev
+```
+
+**Note about icons:** During development, the `dev` script watches TypeScript files for changes but doesn't automatically copy SVG icons. If you add or modify SVG assets during development, run `pnpm build --filter updl` to ensure they're properly copied to the dist directory, where they can be accessed by the server.
 
 ## Usage
 
@@ -111,23 +125,44 @@ Converts a Flowise flow definition to UPDL format.
 
 ```
 apps/updl/
-├── package.json          # Module dependencies and scripts
-├── tsconfig.json         # TypeScript configuration
-├── i18n/                 # Localization files (en/ru)
-├── imp/                  # Implementation source code
+├── base/                 # Core UPDL functionality
+│   ├── package.json      # Module dependencies and scripts (moved to apps/updl/package.json)
+│   ├── tsconfig.json     # TypeScript configuration (moved to apps/updl/tsconfig.json)
+│   ├── gulpfile.ts       # Gulp tasks for build processes (e.g., copying icons)
+│   ├── i18n/             # Localization files (en/ru)
+│   │   └── locales/      # Language-specific string resources
 │   ├── index.ts          # Entry point and API exports
 │   ├── initialize.ts     # UPDL initialization and exporter manager setup
 │   ├── UPDLSceneBuilder.ts # Logic to build UPDL scene graphs
 │   ├── icons/            # Node icon assets
-│   ├── nodes/            # UPDL node definitions (scene, object, camera, light, etc.)
-│   ├── interfaces/       # TypeScript interfaces for UPDLFlow and exporters
-│   ├── api/              # REST or programmatic API wrappers
-│   ├── exporters/        # Platform-specific exporter implementations
-│   ├── miniapps/         # Example or minimal application consumers
-│   ├── builders/         # Helpers for constructing node graphs
-│   └── utils/            # Utility functions (formatters, validators)
-├── dist/                 # Compiled output (ignored in source control)
-├── .turbo/               # Turborepo cache and metadata
+│   ├── nodes/            # UPDL node definitions
+│   │   ├── base/         # Base node class
+│   │   ├── scene/        # Scene node types
+│   │   ├── object/       # 3D object node types
+│   │   ├── camera/       # Camera node types
+│   │   └── light/        # Light node types
+│   ├── interfaces/       # TypeScript interfaces for UPDL
+│   │   ├── UPDLFlow.ts   # Defines UPDL flow structure
+│   │   ├── UPDLNode.ts   # Base interfaces for nodes
+│   │   └── UPDLExporter.ts # Exporter interfaces
+│   ├── api/              # API integration
+│   │   ├── UPDLAPI.ts    # Main API surface
+│   │   ├── ExporterManager.ts # Manages exporters
+│   │   └── NodeRegistry.ts   # Registry of available nodes
+│   ├── exporters/        # Exporter implementations
+│   │   ├── utils/        # Shared exporter utilities
+│   │   └── extensions/   # Extension points for exporters
+│   ├── builders/         # Specific scene builders (if any, beyond UPDLSceneBuilder)
+│   ├── miniapps/         # Potential mini-applications or specific integrations
+│   └── utils/            # Utility functions
+│       ├── formatters.ts # Format conversion utilities
+│       ├── validators.ts # Validation functions
+│       └── helpers.ts    # General helper functions
+├── dist/                 # Compiled output
+├── package.json          # Module dependencies and scripts for the UPDL app
+├── tsconfig.json         # TypeScript configuration for the UPDL app
+├── gulpfile.ts           # Gulp tasks for the UPDL app (SVG icons copying, etc.)
+├── README.md             # This documentation
 └── node_modules/         # Dependencies
 ```
 
@@ -135,45 +170,45 @@ apps/updl/
 
 ### Core Files
 
--   **imp/index.ts**: Main entry point that exports public API functions
--   **imp/initialize.ts**: Sets up UPDL system and registers default exporters and nodes
--   **imp/UPDLSceneBuilder.ts**: Core logic for constructing UPDL scene graphs from node definitions
+-   **index.ts**: Main entry point that exports public API functions
+-   **initialize.ts**: Sets up UPDL system and registers default exporters and nodes
+-   **UPDLSceneBuilder.ts**: Core logic for constructing UPDL scene graphs from node definitions
 
 ### Interfaces
 
--   **imp/interfaces/UPDLFlow.ts**: TypeScript interface definitions for UPDL scene graph structure
--   **imp/interfaces/UPDLNode.ts**: Base interfaces for all node types
--   **imp/interfaces/UPDLExporter.ts**: Interfaces for exporter implementations
+-   **interfaces/UPDLFlow.ts**: TypeScript interface definitions for UPDL scene graph structure
+-   **interfaces/UPDLNode.ts**: Base interfaces for all node types
+-   **interfaces/UPDLExporter.ts**: Interfaces for exporter implementations
 
 ### Nodes
 
--   **imp/nodes/base/BaseNode.ts**: Abstract base class with common node functionality
--   **imp/nodes/scene/SceneNode.ts**: Root container for 3D scenes (required for all exports)
--   **imp/nodes/object/ObjectNode.ts**: Represents 3D objects with geometry and materials
-    -   **imp/nodes/object/CubeNode.ts**: Specialized object node for cube primitives
-    -   **imp/nodes/object/ModelNode.ts**: Node for importing external 3D models
--   **imp/nodes/camera/CameraNode.ts**: Defines viewpoints within the scene
--   **imp/nodes/light/LightNode.ts**: Various light source implementations
-    -   **imp/nodes/light/AmbientLightNode.ts**: Global ambient lighting
-    -   **imp/nodes/light/DirectionalLightNode.ts**: Directional light sources
+-   **nodes/base/BaseNode.ts**: Abstract base class with common node functionality
+-   **nodes/scene/SceneNode.ts**: Root container for 3D scenes (required for all exports)
+-   **nodes/object/ObjectNode.ts**: Represents 3D objects with geometry and materials
+-   **nodes/object/CubeNode.ts**: Specialized object node for cube primitives
+-   **nodes/object/ModelNode.ts**: Node for importing external 3D models
+-   **nodes/camera/CameraNode.ts**: Defines viewpoints within the scene
+-   **nodes/light/LightNode.ts**: Various light source implementations
+-   **nodes/light/AmbientLightNode.ts**: Global ambient lighting
+-   **nodes/light/DirectionalLightNode.ts**: Directional light sources
 
 ### Exporters
 
--   **imp/exporters/BaseExporter.ts**: Abstract base class for all exporters
--   **imp/exporters/ARJSExporter.ts**: Exports scenes to AR.js/A-Frame format
--   **imp/exporters/UPDLToAFrame.ts**: Utility for converting UPDL objects to A-Frame elements
--   **imp/exporters/AFrameModel.ts**: Representation of A-Frame scene elements
+-   **exporters/BaseExporter.ts**: Abstract base class for all exporters
+-   **exporters/ARJSExporter.ts**: Exports scenes to AR.js/A-Frame format
+-   **exporters/UPDLToAFrame.ts**: Utility for converting UPDL objects to A-Frame elements
+-   **exporters/AFrameModel.ts**: Representation of A-Frame scene elements
 
 ### API Integration
 
--   **imp/api/UPDLAPI.ts**: Client-facing API for consuming UPDL functionality
--   **imp/api/ExporterManager.ts**: Manages collection of registered exporters
--   **imp/api/NodeRegistry.ts**: Registry for available UPDL node types
+-   **api/UPDLAPI.ts**: Client-facing API for consuming UPDL functionality
+-   **api/ExporterManager.ts**: Manages collection of registered exporters
+-   **api/NodeRegistry.ts**: Registry for available UPDL node types
 
 ### Utilities
 
--   **imp/utils/formatters.ts**: Utilities for formatting UPDL and export output
--   **imp/utils/validators.ts**: Validation helpers for UPDL structures
+-   **utils/formatters.ts**: Utilities for formatting UPDL and export output
+-   **utils/validators.ts**: Validation helpers for UPDL structures
 
 ## Exporters
 
@@ -182,14 +217,15 @@ Currently implemented exporters:
 | Exporter ID | Target Platform | Description                                     | Status               |
 | ----------- | --------------- | ----------------------------------------------- | -------------------- |
 | `arjs`      | AR.js/A-Frame   | Exports to web-based AR using AR.js and A-Frame | In development       |
-| `html`      | Web/HTML        | Simple HTML preview of the scene (for testing)  | Basic implementation |
+| `aframe`    | A-Frame VR      | Exports to A-Frame for VR experiences           | Basic implementation |
 
-Planned exporters (scheduled for Phase 3):
+Planned exporters (Phase 3):
 
 -   PlayCanvas (React & Engine) - Q2 2025
 -   Three.js - Q2 2025
 -   Babylon.js - Q3 2025
--   A-Frame VR - Q3 2025
+
+> **Note**: The current implementation is moving to a frontend-focused approach, where HTML generation occurs in the browser for improved performance and easier debugging. Server-side generation will be added in a future phase.
 
 ## Node Types and Parameters
 

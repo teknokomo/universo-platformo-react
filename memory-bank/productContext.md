@@ -91,7 +91,7 @@ The project is moving to a modular APPs architecture that minimizes changes to t
 
 This architecture enables a clean transition from the existing test AR.js implementation to a comprehensive, extensible system while maintaining backward compatibility.
 
-## Current Phase & Roadmap (v0.7.0 prototype, April 2025)
+## Current Phase & Roadmap (v0.9.0 pre-alpha, May 2025)
 
 The project has shifted from design to **implementation**. Our end‑to‑end milestone:
 
@@ -99,11 +99,12 @@ The project has shifted from design to **implementation**. Our end‑to‑end mi
 
 ### Near‑term deliverables
 
-| Deliverable            | Definition of Done                                           |
-| ---------------------- | ------------------------------------------------------------ |
-| **UPDL core node set** | Nodes can be created, saved, and displayed in the editor     |
-| **AR.js exporter**     | A working HTML page with a 3D model on a marker is generated |
-| **Publish flow (MVP)** | CLI or API returns a URL for the generated build             |
+| Deliverable                    | Definition of Done                                              |
+| ------------------------------ | --------------------------------------------------------------- |
+| **UPDL core node set**         | Nodes can be created, saved, and displayed in the editor        |
+| **AR.js exporter**             | A working HTML page with a 3D model on a marker is generated    |
+| **Publish flow (MVP)**         | CLI or API returns a URL for the generated build                |
+| **AR.js / A-Frame separation** | Specialized AR.js files with ARJS prefix and updated API routes |
 
 ### Priorities
 

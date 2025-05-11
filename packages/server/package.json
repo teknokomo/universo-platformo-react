@@ -1,5 +1,5 @@
 {
-    "name": "universo-platformo-react-server",
+    "name": "flowise",
     "version": "2.2.7-patch.1",
     "description": "Universo Platformo React Server",
     "main": "dist/index",
@@ -132,6 +132,6 @@
         "start-server-and-test": "^2.0.3",
         "ts-node": "^10.7.0",
         "tsc-watch": "^6.0.4",
-        "typescript": "^5.8.3"
+        "typescript": "^5.4.5"
     }
 }

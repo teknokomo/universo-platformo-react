@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025‑04‑30**
+**As of 2025‑05‑05**
 
 ## Completed (chronological)
 
@@ -16,56 +16,70 @@
 | 0.8.0‑pre‑alpha | 2025‑04‑22 | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created |
 | 0.8.5‑pre‑alpha | 2025‑04‑29 | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                    |
 
+## Stage 2 Issues & Lessons Learned
+
+The initial AR.js implementation faced several challenges:
+
+1. **Complex architecture**: The hybrid approach with both client and server generation proved too complex for the initial MVP
+2. **Unclear separation**: AR.js and A-Frame technologies were not clearly separated in the codebase
+3. **Disconnected components**: UPDL nodes were not properly connected to the publication flow
+4. **Build process issues**: Publication worked in development mode but failed in production builds
+
+These insights have informed our revised approach for Stage 3.
+
 ## In Progress
 
--   **APPs architecture** — Enhancing apps/updl and apps/publish structure with clean modular design.
--   **UPDL node system** — Completing implementation of universal nodes for scene building.
--   **AR.js exporter** — Implementing and refining exporter for AR.js/A-Frame with publication functionality.
--   **Publication interface** — Redesigning "Publish & Export" UI with technology selection.
+-   **Simplified architecture** — Streamlining the apps/updl and apps/publish structure
+-   **Streaming AR.js generation** — Implementing client-side UPDL to AR.js conversion
+-   **UPDL-Publication connection** — Creating direct links between UPDL nodes and publication process
 
-## Implementation Roadmap
+## Implementation Roadmap (Revised)
 
-### Phase 1: Foundation (Current)
+### Phase 1: Streamlined Foundation (Current)
 
--   APPs directory structure setup ✅
--   Base UPDL node interfaces ✅
--   First AR.js exporter implementation ✅
--   Publication backend infrastructure ✅
--   A-Frame model structures ✅
--   Client-server flow integration 🔄
+-   APPs directory structure reorganization 🔄
+-   Simplified publication architecture 🔄
+-   Client-side "Streaming" generation mode 🔄
+-   UPDL nodes to publication connection 🔄
 
 ### Phase 2: Core Components
 
 -   Complete set of UPDL nodes 🔄
--   Publication system UI redesign 🔄
--   AR.js marker scene testing 🔄
--   Publication URL scheme implementation 🔄
+-   Working AR.js publication flow ⏳
+-   AR.js marker scene testing ⏳
+-   Publication URL scheme implementation ⏳
 
-### Phase 3: Exporters Expansion
+### Phase 3: Feature Enhancement
 
--   PlayCanvas React and PlayCanvas exporter ⏳
--   Babylon.js exporter ⏳
--   Three.js and other exporters ⏳
+-   QR code generation for mobile access ⏳
+-   UI improvements and better error handling ⏳
+-   Documentation and user guides ⏳
 
-### Phase 4: Final Integration
+### Phase 4: Advanced Features
 
--   Removal of test AR.js nodes ⏳
+-   Server-side "Pre-generation" mode ⏳
+-   Additional exporters (PlayCanvas, Babylon.js, etc.) ⏳
 -   Full publication and export system ⏳
 -   Complete documentation ⏳
 
-## Recent Accomplishments
+## Recent Status Update
 
--   Implemented complete model framework (`AFrameModel.ts`) with core A-Frame entity structures
--   Created `UPDLToAFrameConverter` for transforming UPDL scene objects into A-Frame components
--   Developed `ARJSExporter` with proper inheritance from `BaseAFrameExporter` for HTML generation
--   Implemented server-side handling of published projects via `UPDLController`
--   Created API endpoints for publication and listing of AR.js projects
--   Added support for scene validation, model format conversion, and Hiro marker generation
--   Designed client-side API service for publishing UPDL scenes to AR.js format
+-   Identified core issues with the AR.js publication implementation
+-   Restructured the apps directories to improve organization
+-   Created plan for simplified "Streaming" AR.js generation
+-   Updated Memory Bank with new tasks and approach for Stage 3
+
+## Current Focus
+
+-   Implementing "Streaming" mode for client-side AR.js generation
+-   Creating direct connection between UPDL nodes and publication
+-   Developing route handler for `/p/{uuid}` URL format
+-   Implementing loading screen with progress indicator
+-   Testing with simple red cube example
 
 ## Upcoming
 
--   **0.9.0-pre-alpha** - Finalize AR.js publication flow, implement QR code sharing, test marker scenes.
--   **0.10.0-pre-alpha** - PlayCanvas React and PlayCanvas exporters, UPDL node enhancements.
--   **0.11.0-pre-alpha** - Remaining exporters (Babylon.js, Three.js, A-Frame VR).
--   **0.12.0-pre-alpha** - Test AR.js nodes removal, optimization, and complete documentation.
+-   **0.9.0-pre-alpha** - Working client-side "Streaming" AR.js generation, basic UPDL scenes, test with marker.
+-   **0.10.0-pre-alpha** - QR code generation, improved UI, better error handling.
+-   **0.11.0-pre-alpha** - Server-side "Pre-generation" mode (optional), additional export options.
+-   **0.12.0-pre-alpha** - Complete documentation, optimizations, and finalization.

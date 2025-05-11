@@ -85,20 +85,38 @@ The project follows a modular APPs architecture that separates concerns while mi
 
 ### Directory Structure
 
-```
+```plain
 universo-platformo-react/
-├── packages/                  # Original Flowise packages
-│   ├── components/            # Components and utilities
-│   ├── server/                # Server-side code
-│   └── ui/                    # Frontend
-├── apps/                      # New APPs architecture
-│   ├── updl/                  # UPDL node system
-│   │   └── imp/               # Implementation
-│   └── publish/               # Publication system
-│       ├── imp/               # Implementation
-│       │   ├── react/         # Frontend
-│       │   │   └── miniapps/  # Technology-specific handlers
-│       │   └── express/       # Backend
+├── packages/                       # Original Flowise packages
+│   ├── components/                 # Components and utilities
+│   ├── server/                     # Server-side code
+│   └── ui/                         # Frontend
+├── apps/                           # New APPs architecture
+│   ├── updl/                       # UPDL node system
+│   │   ├── imp/                    # Implementation module
+│   │   │   ├── src/
+│   │   │   │   ├── nodes/          # UPDL node definitions
+│   │   │   │   ├── exporters/      # Platform-specific exporters
+│   │   │   │   └── index.ts        # Entry point
+│   │   │   ├── package.json        # Module metadata and scripts
+│   │   │   └── tsconfig.json       # TypeScript configuration
+│   │   └── README.md               # Documentation for UPDL module
+│   └── publish/                    # Publication system
+│       ├── imp/                    # Implementation module
+│       │   ├── express/            # Backend API service
+│       │   │   ├── controllers/    # Request handlers
+│       │   │   ├── routes/         # API route definitions
+│       │   │   └── server.ts       # Express app setup
+│       │   └── react/              # Frontend publication UI
+│       │       ├── api/            # Axios wrappers
+│       │       ├── components/     # Shared UI components
+│       │       ├── miniapps/       # Technology-specific handlers
+│       │       │   ├── arjs/       # AR.js export UI and logic
+│       │       │   ├── aframe-vr/  # A-Frame VR publisher (planned)
+│       │       │   └── playcanvas-react/ # PlayCanvas React exporter
+│       │       └── pages/          # High-level UI views
+│       ├── package.json            # Module metadata and scripts
+│       └── README.md               # Documentation for Publish module
 ```
 
 ### Key Architectural Benefits
@@ -549,7 +567,7 @@ For the new APPs architecture, we implement a consistent i18n structure that fol
     Each app exports its translations through an index.js file, which the main i18n system imports:
 
     ```javascript
-    // apps/updl/i18n/index.js
+    // apps/updl/base/i18n/index.js
     import enMainTranslation from './locales/en/main.json'
     import ruMainTranslation from './locales/ru/main.json'
 
@@ -563,8 +581,8 @@ For the new APPs architecture, we implement a consistent i18n structure that fol
 
     ```javascript
     // packages/ui/src/i18n/index.js (modified to include apps translations)
-    import { updlTranslations } from 'apps/updl/i18n'
-    import { publishTranslations } from 'apps/publish/i18n'
+    import { updlTranslations } from 'apps/updl/base/i18n'
+    import { publishTranslations } from 'apps/publish/base/i18n'
 
     // Merge app translations with existing resources
     const resources = {

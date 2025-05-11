@@ -4,13 +4,14 @@
         "module": "commonjs",
         "lib": ["ES2020", "DOM"],
         "declaration": true,
+        "sourceMap": true,
         "outDir": "./dist",
-        "rootDir": "./imp",
+        "rootDir": "./base",
         "strict": true,
         "esModuleInterop": true,
-        "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
+        "skipLibCheck": true,
         "jsx": "react",
         "baseUrl": ".",
         "paths": {
@@ -18,6 +19,6 @@
             "../common/*": ["../common/*"]
         }
     },
-    "include": ["imp/**/*"],
+    "include": ["base/**/*"],
     "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
 }

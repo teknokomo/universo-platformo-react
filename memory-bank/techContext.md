@@ -108,7 +108,7 @@ universo-platformo-react/
 3. **Node Registration**:
 
     - Automatic node discovery through NodesPool.ts
-    - UPDL nodes are detected from apps/updl/dist/nodes directory
+    - UPDL nodes are detected from apps/updl/base/nodes directory
     - Each node contains its own icon file in the same directory as the node file
     - Nodes can be disabled via DISABLED_NODES environment variable
 
@@ -224,6 +224,35 @@ universo-platformo-react/
     - Three.js: Creates core Three.js scene setup
     - A-Frame VR: Produces A-Frame HTML for VR experiences
     - PlayCanvas Engine: Outputs JavaScript using native PC APIs
+
+### AR.js and A-Frame Architecture
+
+Following a clear design decision, we have separated AR.js and A-Frame implementations to improve maintainability and future extensibility:
+
+1. **File Naming Convention**:
+
+    - AR.js specific files use the `ARJS` prefix (e.g., `updlToARJSBuilder.ts`, `ARJSHTMLGenerator.ts`, `UPDLToARJS.ts`)
+    - A-Frame VR implementations will use `AFrame` prefix in the future
+
+2. **Interface Separation**:
+
+    - Created separate UPDL-specific interfaces in `Interface.UPDL.ts`
+    - Proper type handling with implementations for AR.js-specific primitives (ARJSPrimitive)
+    - Clean separation between UPDL core model and presentation technologies
+
+3. **API Structure**:
+
+    - AR.js endpoints follow `/api/updl/publish/arjs` naming pattern
+    - Publication retrieval endpoints use `/api/updl/publication/arjs/:publishId`
+    - Clean separation from future A-Frame VR endpoints
+
+4. **Implementation Benefits**:
+    - Reduced code complexity through specialized implementations
+    - Improved maintainability with clear separation of concerns
+    - Future-proofing for additional technologies (A-Frame VR, PlayCanvas, etc.)
+    - Clear architecture for new developers to understand the system
+
+This architecture allows us to focus on completing AR.js implementation now while postponing A-Frame VR and other technologies for future development phases.
 
 ### Publication System
 
@@ -362,3 +391,80 @@ When working with React components integrated with original Flowise code, follow
     ```
 
 3. **Minimize useEffect Dependencies** - Only include truly necessary dependencies while keeping Unik-related dependencies (e.g. unikId).
+
+## AR.js Publication Architecture (Stage 3)
+
+The AR.js publication architecture has been revised for Stage 3 to focus on a simplified "Streaming" approach. This approach moves the generation of AR.js HTML to the client-side, reducing server complexity and improving the development workflow.
+
+### Publication Modes
+
+1. **Streaming Mode** (Priority Implementation):
+
+    - Client-side generation of AR.js HTML
+    - Dynamic conversion of UPDL data to AR.js scene
+    - Progressive loading with status indicators
+    - URL format: `/p/{uuid}`
+
+2. **Pre-generation Mode** (Future Implementation):
+    - Server-side generation and storage of HTML
+    - Pre-processing of resources and optimizations
+    - Faster initial loading for end users
+    - Same URL format: `/p/{uuid}`
+
+### Technical Implementation
+
+#### Client-Side Generation Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌───────────────┐     ┌──────────────┐
+│  User loads │     │ Server sends │     │ Browser runs  │     │ AR.js scene  │
+│  /p/{uuid}  │────▶│  UPDL data   │────▶│  conversion   │────▶│  displayed   │
+└─────────────┘     └─────────────┘     └───────────────┘     └──────────────┘
+                                              │
+                                              ▼
+                                        ┌──────────────┐
+                                        │ Progress bar │
+                                        │   updates    │
+                                        └──────────────┘
+```
+
+#### Key Components
+
+1. **Publication Interface**:
+
+    - Added "Generation Type" field to select between modes
+    - Simplified tabs for Streaming mode (Settings, Published)
+    - Form to configure AR.js-specific settings
+
+2. **Client-Side Converter**:
+
+    - `apps/publish/base/miniapps/arjs/ARJSExporter.ts` optimized for browser
+    - `UPDLToARJSConverter` converts UPDL scene to A-Frame model
+    - `ARJSHTMLGenerator` creates final HTML with markers
+
+3. **Server-Side Components**:
+
+    - Endpoint to retrieve UPDL node data: `/api/updl/scene/{id}`
+    - URL handler for publications: `/p/{uuid}`
+    - Publication metadata storage
+
+4. **Publication Process**:
+    - User configures publication settings in UI
+    - System saves publication metadata and generates URL
+    - When URL is accessed, client fetches UPDL data
+    - Browser converts data to AR.js HTML
+    - AR.js scene loads and requests camera access
+
+### Browser Compatibility Considerations
+
+-   Modern browsers with WebXR support recommended
+-   Fallback for older browsers with warnings
+-   Mobile device optimizations for AR viewing
+-   Emphasis on Android Chrome and iOS Safari compatibility
+
+### Security Considerations
+
+-   CORS settings to allow resource loading
+-   CSP adjustments for AR.js and A-Frame scripts
+-   User permission handling for camera access
+-   Content validation for user-generated UPDL scenes
