@@ -29,7 +29,8 @@ import { useTheme } from '@mui/material/styles'
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
 import Configuration from './Configuration'
 import ChatBotSettings from '@/views/publish/bots/ChatBotSettings'
-import ARJSPublisher from '@apps/publish/base/miniapps/arjs/ARJSPublisher.jsx'
+import ARJSPublisher from '@apps/publish-frt/base/src/features/arjs/ARJSPublisher.jsx'
+import ARJSExporter from '@apps/publish-frt/base/src/features/arjs/ARJSExporter.jsx'
 import EmbedChat from './EmbedChat'
 
 // Const
@@ -43,6 +44,7 @@ import cURLSVG from '@/assets/images/cURL.svg'
 import EmbedSVG from '@/assets/images/embed.svg'
 import ShareChatbotSVG from '@/assets/images/sharing.png'
 import settingsSVG from '@/assets/images/settings.svg'
+import exportSVG from '@apps/publish-frt/base/src/assets/icons/export.svg'
 import { IconBulb, IconBox, IconVariable, IconExclamationCircle, IconX } from '@tabler/icons-react'
 
 // API
@@ -115,11 +117,12 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const [displayMode, setDisplayMode] = useState('chat')
 
     const [tabVisibility, setTabVisibility] = useState({
-        chat: { embed: true, python: true, javascript: true, curl: true },
-        arjs: { embed: true, python: false, javascript: true, curl: false },
-        playcanvas: { embed: true, python: false, javascript: true, curl: false },
-        babylonjs: { embed: true, python: false, javascript: true, curl: false },
-        aframevr: { embed: true, python: false, javascript: true, curl: false }
+        chat: { embed: true, python: true, javascript: true, curl: true, export: false },
+        arjs: { embed: false, python: false, javascript: false, curl: false, export: true },
+        playcanvas: { embed: false, python: false, javascript: false, curl: false, export: true },
+        babylonjs: { embed: false, python: false, javascript: false, curl: false, export: true },
+        aframevr: { embed: false, python: false, javascript: false, curl: false, export: true },
+        threejs: { embed: false, python: false, javascript: false, curl: false, export: true }
     })
 
     const getAllAPIKeysApi = useApi(apiKeyApi.getAllAPIKeys)
@@ -446,6 +449,8 @@ query({"question": "Hey, how are you?"}).then((response) => {
             return settingsSVG
         } else if (codeLang === tPub('tabs.publish')) {
             return ShareChatbotSVG
+        } else if (codeLang === tPub('tabs.export')) {
+            return exportSVG
         }
         return pythonSVG
     }
@@ -693,16 +698,6 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
     useEffect(() => {
         // Update visible tabs when display mode changes
         if (displayMode && show) {
-            // Tab visibility definition moved here to make it clear that only chatbots need all tabs
-            const tabVisibility = {
-                chat: { embed: true, python: true, javascript: true, curl: true },
-                arjs: { embed: false, python: false, javascript: false, curl: false },
-                playcanvas: { embed: false, python: false, javascript: false, curl: false },
-                babylonjs: { embed: false, python: false, javascript: false, curl: false },
-                aframevr: { embed: false, python: false, javascript: false, curl: false },
-                threejs: { embed: false, python: false, javascript: false, curl: false }
-            }
-
             const newTabs = ['Configuration']
 
             // Add conditional tabs based on selected technology
@@ -713,6 +708,9 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
 
             // Always add publish tab
             newTabs.push(tPub('tabs.publish'))
+
+            // Add Export tab at the end if enabled for this mode
+            if (tabVisibility[displayMode]?.export) newTabs.push(tPub('tabs.export'))
 
             setCodes(newTabs)
             // Reset to first tab when changing technologies
@@ -794,98 +792,8 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                 />
                             </>
                         )}
-                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && (
-                            <>
-                                {(() => {
-                                    // Render appropriate settings component based on selected technology
-                                    switch (displayMode) {
-                                        case 'arjs':
-                                            return (
-                                                <ARJSPublisher
-                                                    flow={chatflow}
-                                                    unikId={unikId}
-                                                    onPublish={(result) => {
-                                                        if (result?.success) {
-                                                            enqueueSnackbar({
-                                                                message: 'AR.js проект успешно опубликован!',
-                                                                options: {
-                                                                    key: new Date().getTime() + Math.random(),
-                                                                    variant: 'success'
-                                                                }
-                                                            })
-                                                            onCancel()
-                                                        }
-                                                    }}
-                                                    onCancel={onCancel}
-                                                />
-                                            )
-                                        case 'chat':
-                                            return (
-                                                <ChatBotSettings
-                                                    chatflowid={dialogProps.chatflowid}
-                                                    unikId={unikId}
-                                                    isSessionMemory={dialogProps.isSessionMemory}
-                                                    isAgentCanvas={dialogProps.isAgentCanvas}
-                                                />
-                                            )
-                                        case 'playcanvas':
-                                            // Placeholder for PlayCanvas settings
-                                            return (
-                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
-                                                    <Typography variant='h4' gutterBottom>
-                                                        {tPub('technologies.playcanvas')} {tPub('publishing.publishSettings')}
-                                                    </Typography>
-                                                    <Typography variant='body2' color='text.secondary'>
-                                                        {tPub('technologies.playcanvasDescription')}
-                                                    </Typography>
-                                                    <Typography sx={{ mt: 2 }}>
-                                                        {tPub('publishing.targetPlatforms')}: Web, Mobile
-                                                    </Typography>
-                                                </Box>
-                                            )
-                                        case 'babylonjs':
-                                            // Placeholder for Babylon.js settings
-                                            return (
-                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
-                                                    <Typography variant='h4' gutterBottom>
-                                                        {tPub('technologies.babylonjs')} {tPub('publishing.publishSettings')}
-                                                    </Typography>
-                                                    <Typography variant='body2' color='text.secondary'>
-                                                        {tPub('technologies.babylonjsDescription')}
-                                                    </Typography>
-                                                    <Typography sx={{ mt: 2 }}>
-                                                        {tPub('publishing.targetPlatforms')}: Web, Mobile
-                                                    </Typography>
-                                                </Box>
-                                            )
-                                        case 'aframevr':
-                                            // Placeholder for A-Frame VR settings
-                                            return (
-                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
-                                                    <Typography variant='h4' gutterBottom>
-                                                        {tPub('technologies.aframevr')} {tPub('publishing.publishSettings')}
-                                                    </Typography>
-                                                    <Typography variant='body2' color='text.secondary'>
-                                                        {tPub('technologies.aframevrDescription')}
-                                                    </Typography>
-                                                    <Typography sx={{ mt: 2 }}>
-                                                        {tPub('publishing.targetPlatforms')}: Web VR, Mobile VR
-                                                    </Typography>
-                                                </Box>
-                                            )
-                                        default:
-                                            return (
-                                                <Box sx={{ p: 2, border: '1px dashed grey', borderRadius: 2, mb: 2 }}>
-                                                    <Typography variant='h4' gutterBottom>
-                                                        {tPub('publishing.publishSettings')}
-                                                    </Typography>
-                                                    <Typography>{t('errors.generic')}</Typography>
-                                                </Box>
-                                            )
-                                    }
-                                })()}
-                            </>
-                        )}
+                        {codeLang === tPub('tabs.export') && !chatflowApiKeyId && <ARJSExporter flow={chatflow} unikId={unikId} />}
+                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && <ARJSPublisher flow={chatflow} unikId={unikId} />}
                         {shouldShowCodeBlock(index) && (
                             <>
                                 <CopyBlock

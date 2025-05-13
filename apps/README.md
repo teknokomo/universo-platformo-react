@@ -6,20 +6,82 @@ This directory contains modular applications that extend the core Flowise platfo
 
 ```
 apps/
-├── publish/             # Publication system for exporting and sharing content
-│   ├── base/            # Core publication functionality for the publish app
-│   ├── dist/
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── gulpfile.ts
-│   └── README.md
-├── updl/                # Universal Platform Definition Language
-│   ├── base/            # Core UPDL functionality for the updl app
-│   ├── dist/
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── gulpfile.ts
-│   └── README.md
+├── publish-frt/         # Publication system frontend for exporting and sharing content
+│   ├── base/            # Core frontend functionality for publishing
+│   │   ├── src/         # Source code
+│   │   │   ├── assets/  # Static assets (icons, images)
+│   │   │   ├── api/     # HTTP clients to backend
+│   │   │   ├── components/ # React components
+│   │   │   ├── features/   # Feature modules for different technologies
+│   │   │   ├── hooks/   # Custom React hooks
+│   │   │   ├── store/   # State management
+│   │   │   ├── i18n/    # Localization
+│   │   │   ├── utils/   # Utility functions
+│   │   │   ├── interfaces/ # TypeScript types
+│   │   │   ├── configs/ # Configuration
+│   │   │   └── index.ts # Entry point
+│   │   ├── dist/        # Compiled output
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   ├── gulpfile.ts
+│   │   └── README.md
+├── publish-srv/         # Publication system backend
+│   ├── base/            # Core backend functionality for publishing
+│   │   ├── src/         # Source code
+│   │   │   ├── controllers/ # Express controllers
+│   │   │   ├── routes/  # REST API routes
+│   │   │   ├── services/ # Business logic
+│   │   │   ├── models/  # Data models
+│   │   │   ├── interfaces/ # TypeScript types
+│   │   │   ├── utils/   # Helper functions
+│   │   │   ├── configs/ # Configuration
+│   │   │   ├── middlewares/ # Middleware handlers
+│   │   │   ├── validators/ # Input validation
+│   │   │   └── index.ts # Entry point
+│   │   ├── dist/        # Compiled output
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── README.md
+├── updl-frt/            # Universal Platform Definition Language frontend
+│   ├── base/            # Core frontend UPDL functionality
+│   │   ├── src/         # Source code
+│   │   │   ├── api/     # API clients
+│   │   │   ├── assets/  # Static assets
+│   │   │   ├── builders/ # Scene builder classes
+│   │   │   ├── components/ # React components
+│   │   │   ├── configs/ # Configuration
+│   │   │   ├── features/ # Feature modules
+│   │   │   ├── hooks/   # React hooks
+│   │   │   ├── i18n/    # Internationalization
+│   │   │   ├── interfaces/ # TypeScript types
+│   │   │   ├── nodes/   # UPDL node definitions
+│   │   │   ├── store/   # State management
+│   │   │   ├── utils/   # Utility functions
+│   │   │   └── index.ts # Entry point
+│   │   ├── dist/        # Compiled output
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   ├── gulpfile.ts
+│   │   └── README.md
+├── updl-srv/            # Universal Platform Definition Language backend
+│   ├── base/            # Core backend UPDL functionality
+│   │   ├── src/         # Source code
+│   │   │   ├── api/     # Legacy API endpoints
+│   │   │   ├── configs/ # Configuration
+│   │   │   ├── controllers/ # Express controllers
+│   │   │   ├── interfaces/ # TypeScript types
+│   │   │   ├── middlewares/ # Middleware handlers
+│   │   │   ├── models/  # Data models
+│   │   │   ├── routes/  # Route configuration
+│   │   │   ├── services/ # Business logic
+│   │   │   │   └── exporters/ # Platform exporters
+│   │   │   ├── utils/   # Helper functions
+│   │   │   ├── validators/ # Input validation
+│   │   │   └── index.ts # Entry point
+│   │   ├── dist/        # Compiled output
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── README.md
 └── README.md            # This documentation
 ```
 
@@ -29,38 +91,56 @@ apps/
 
 The UPDL application provides a unified node-based system for describing 3D/AR/VR scenes that can be exported to multiple target platforms. It defines a standardized intermediate representation layer that abstracts away the specifics of various rendering engines.
 
+#### UPDL Frontend (updl-frt)
+
 **Key Features:**
 
 -   Universal node system (Scene, Object, Camera, Light, etc.)
--   Standardized property interfaces
--   Flow-based scene construction
--   Integration with Flowise editor
+-   Node definitions and icons
+-   Scene builder utilities
+-   Client-side APIs
 
-**Current Status:** Foundation Phase (Phase 1)
+**Documentation:** See [apps/updl-frt/base/README.md](./updl-frt/base/README.md)
 
-**Documentation:** See [apps/updl/README.md](./updl/README.md)
-
-### Publish
-
-The Publish application provides mechanisms for exporting UPDL scenes to various target platforms and publishing them with shareable URLs. It includes both client-side React components and server-side API endpoints.
+#### UPDL Backend (updl-srv)
 
 **Key Features:**
 
--   Technology-specific exporters (AR.js, A-Frame, etc.)
+-   Exporters implementation
+-   Server-side API endpoints
+-   Conversion utilities
+
+**Documentation:** See [apps/updl-srv/base/README.md](./updl-srv/base/README.md)
+
+### Publish
+
+The Publish application provides mechanisms for exporting UPDL scenes to various target platforms and publishing them with shareable URLs.
+
+#### Publish Frontend (publish-frt)
+
+**Key Features:**
+
 -   Publication UI components
--   URL-based sharing system
+-   Technology selection interface
 -   QR code generation for mobile access
+-   Export functionality
 
-**Current Status:** In active development
+**Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 
-**Documentation:** See [apps/publish/README.md](./publish/README.md)
+#### Publish Backend (publish-srv)
+
+**Key Features:**
+
+-   URL-based sharing system
+-   Publication storage
+-   Server-side API endpoints
+-   Project management
+
+**Documentation:** See [apps/publish-srv/base/README.md](./publish-srv/base/README.md)
 
 ## Interactions
 
-The apps in this directory are designed to work together:
-
-1.  **UPDL** defines the universal scene format and node types
-2.  **Publish** provides the exporters and UI for publishing UPDL scenes
+The apps in this directory are designed to work together in a modular architecture:
 
 ```
 ┌──────────────┐       ┌────────────────┐        ┌────────────────┐
@@ -79,12 +159,39 @@ The apps in this directory are designed to work together:
                                                  └────────────────┘
 ```
 
+In the new architecture:
+
+```
+┌──────────────┐
+│              │
+│   Flowise    │
+│   Editor     │
+│              │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐       ┌────────────────┐
+│              │       │                │
+│  UPDL-FRT    │──────▶│   UPDL-SRV     │
+│  Frontend    │       │   Backend      │
+│              │       │                │
+└──────┬───────┘       └────────────────┘
+       │
+       ▼
+┌──────────────┐       ┌────────────────┐       ┌────────────────┐
+│              │       │                │       │                │
+│ PUBLISH-FRT  │──────▶│  PUBLISH-SRV   │──────▶│  Public URL    │
+│ Frontend     │       │  Backend       │       │  /p/{uuid}     │
+│              │       │                │       │                │
+└──────────────┘       └────────────────┘       └────────────────┘
+```
+
 ## Development Guidelines
 
-1.  **Modularity:** Keep each app self-contained with clear interfaces
-2.  **Minimal Core Changes:** Avoid modifying core Flowise code
-3.  **Documentation:** Maintain README files in each app directory
-4.  **Shared Types:** Use common type definitions for cross-app communication (can be placed in a shared `packages/types` or similar if needed)
+1. **Modularity:** Keep each app self-contained with clear interfaces
+2. **Minimal Core Changes:** Avoid modifying core Flowise code
+3. **Documentation:** Maintain README files in each app directory
+4. **Shared Types:** Use common type definitions for cross-app communication
 
 ## Building
 
@@ -97,24 +204,24 @@ pnpm install
 # Build all apps (and other packages in the workspace)
 pnpm build
 
-# Build specific app
-pnpm build --filter publish
-pnpm build --filter updl
+# Build specific app frontend
+pnpm build --filter publish-frt
+pnpm build --filter updl-frt
+
+# Build specific app backend
+pnpm build --filter publish-srv
+pnpm build --filter updl-srv
 ```
-
-The build process for each app now involves:
-
-1. Compiling TypeScript code from `base/` to `dist/`
-2. Generating declaration files (.d.ts) and source maps (.js.map)
-3. Running Gulp tasks to copy SVG icons from source to dist directory
 
 ## Development
 
 To run a specific app in development mode (watches for changes and rebuilds):
 
 ```bash
-pnpm --filter publish dev
-pnpm --filter updl dev
+pnpm --filter publish-frt dev
+pnpm --filter publish-srv dev
+pnpm --filter updl-frt dev
+pnpm --filter updl-srv dev
 ```
 
 **Note about assets:** The `dev` scripts watch TypeScript files for changes but don't automatically copy SVG icons. If you add or modify SVG assets during development, run `pnpm build --filter <app>` to ensure they're properly copied to the dist directory.

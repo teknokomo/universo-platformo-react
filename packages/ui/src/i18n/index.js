@@ -68,7 +68,7 @@ import ruChatmessageTranslation from './locales/ru/views/chatmessage.json'
 
 // Universo Platformo | Import publish module translations
 // Using alias @apps/publish/base/i18n for correct path resolution
-import { publishTranslations } from '@apps/publish/base/i18n'
+import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)

@@ -654,3 +654,76 @@ As the project scales, we may consider further optimizations such as:
 -   Lazy-loading translations for apps/components when needed
 -   Automated synchronization of translation keys between language files
 -   A shared tool for managing translations across the entire project
+
+## Updated Application Architecture (APPs)
+
+Based on analysis of existing code and development best practices, an updated structure for applications in the `apps/` directory has been developed and implemented. This structure maintains the existing organization with `base/` nesting, allowing multiple implementations of a single application in the future, while simultaneously organizing the internal structure of each application for maximum consistency with the main Flowise architecture.
+
+### Frontend Application Structure (publish-frt, updl-frt)
+
+```
+apps/<app-name>/base/
+├─ package.json
+├─ tsconfig.json
+├─ gulpfile.ts
+└─ src/
+   ├─ assets/              # static files (images, fonts, icons)
+   ├─ api/                 # HTTP clients to backend with clear contracts
+   ├─ components/          # presentation React components
+   ├─ features/            # large functional modules (former miniapps)
+   ├─ hooks/               # custom React-hooks
+   ├─ store/               # state management
+   ├─ i18n/                # translations
+   ├─ utils/               # utility functions
+   ├─ interfaces/          # local TypeScript types and interfaces
+   ├─ configs/             # application configurations
+   └─ index.tsx            # entry point
+```
+
+### Backend Application Structure (publish-srv, updl-srv)
+
+```
+apps/<app-name>/base/
+├─ package.json
+├─ tsconfig.json
+├─ gulpfile.ts
+└─ src/
+   ├─ controllers/        # Express controllers
+   ├─ routes/             # route configuration (REST API)
+   ├─ services/           # business logic
+   ├─ models/             # data models
+   ├─ repositories/       # data access
+   ├─ interfaces/         # local TypeScript types and interfaces
+   ├─ utils/              # helper functions
+   ├─ configs/            # application configurations
+   ├─ middlewares/        # middleware
+   ├─ validators/         # input data validation
+   └─ index.ts            # entry point
+```
+
+### Key Features of the New Architecture
+
+1. **Application Independence**
+
+    - Each application interacts with other applications and the Flowise core only through the REST API
+    - No direct imports between applications
+    - Localization of interfaces and types within each application
+
+2. **Clear Responsibility Separation**
+
+    - Frontend separates the UI layer (components) from the business logic (features)
+    - Backend separates routes (routes), request processing logic (controllers), and business logic (services)
+    - Helper functions (utils) are separated from interfaces (interfaces)
+
+3. **REST API as the Foundation of Interaction**
+
+    - Frontend uses API clients for requests to the backend
+    - Backend provides clearly defined endpoints
+    - Standardization of error handling and data validation
+
+4. **Extensibility**
+    - Easy addition of new components, services, and interfaces
+    - Ability to replace individual parts of the system without affecting others
+    - Support for future architectural changes
+
+This structure provides an optimal balance between modularity, extensibility, and code readability, while maintaining compatibility with the existing Flowise architecture.

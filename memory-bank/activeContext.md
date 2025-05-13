@@ -1,12 +1,59 @@
-# Active Context
+# Current Active Context
+
+## Application Structure Refactoring
+
+### Goal
+
+Implement a unified, coherent structure for all applications in the apps/ directory, based on best practices and the architecture of the main Flowise project.
+
+### Completed Steps
+
+The following steps have been completed in the refactoring process:
+
+1. Updated systemPatterns.md with the new architecture and made changes to tasks.md
+2. Refactored publish-frt:
+    - Created additional directories (assets, hooks, store, configs)
+    - Renamed the miniapps directory to features
+    - Created API client structure
+    - Updated index.ts
+    - Updated README.md
+3. Refactored publish-srv:
+    - Created directories for controllers, services, interfaces, middlewares
+    - Implemented new types and interfaces
+    - Implemented REST endpoints and controllers
+    - Implemented basic publication service
+    - Updated server.ts
+    - Updated README.md
+4. Completed asset management restructuring:
+    - Created proper icons/ and images/ directories
+    - Moved all static assets to appropriate locations
+    - Updated import paths to reference new locations
+5. Migrated miniapps to features:
+    - Renamed directory structure for better clarity
+    - Updated all import paths to use new structure
+    - Removed old miniapps directories after confirming functionality
+
+### Current Work
+
+1. Refactoring updl-frt and updl-srv applications
+2. Testing API interaction between applications
+3. Implementing "Streaming" AR.js generation
+
+### Key Decisions
+
+-   Maintained the base/ nesting in the application structure
+-   Implemented interaction via REST API instead of direct imports
+-   Aligned the structure with a unified standard corresponding to the Flowise architecture
+-   Each application contains its own interfaces and types
+-   Clearly separated features by technology under the features/ directory
 
 **Current Sprint**: 0.9.0 pre-alpha (Apr 2025)
 
 **Primary Focus**:
 
+-   Complete refactoring of updl-frt and updl-srv
 -   Implement "Streaming" AR.js generation on the frontend
 -   Connect UPDL nodes with publication process
--   Simplify the publication architecture
 -   Test the end-to-end publication workflow
 
 **Immediate Next Steps**:
@@ -19,6 +66,43 @@
 
 ## Current Focus
 
+### Updated Applications Structure
+
+We have reorganized the application architecture to improve modularity and separation of concerns:
+
+-   **publish-frt**: Frontend for publication system (UI components, export options)
+
+    -   Standard directory structure with features/, components/, api/ etc.
+    -   Technology-specific modules in features/ directory
+    -   Static assets properly organized in assets/icons/ and assets/images/
+    -   HTTP clients in api/ for backend communication
+    -   Clear interfaces and types in interfaces/
+
+-   **publish-srv**: Backend for publication system (API endpoints, storage)
+
+    -   Standard structure with controllers/, routes/, services/, etc.
+    -   RESTful API endpoints in routes/
+    -   Business logic in services/
+    -   Clear separation of concerns
+
+-   **updl-frt**: Frontend for UPDL nodes and scene building
+
+    -   Currently being refactored to follow same standards
+    -   Will include features/, api/, and other standard directories
+
+-   **updl-srv**: Backend for UPDL processing and exporting
+    -   Currently being refactored with standard directories
+    -   Will move exporters to services/exporters/
+
+This separation:
+
+-   Provides clearer responsibility boundaries
+-   Simplifies maintenance and development
+-   Enables independent deployment of components
+-   Improves code organization and reduces complexity
+
+### Current Development Status
+
 Simplifying the AR.js publication architecture and implementing client-side generation.
 
 -   [x] Developed `AFrameModel` layer for A-Frame element representation
@@ -28,7 +112,9 @@ Simplifying the AR.js publication architecture and implementing client-side gene
 -   [x] Built server-side `UPDLController` for handling publication requests
 -   [x] Added API routes for publishing and listing AR.js projects
 -   [x] Refactored code to clearly separate AR.js and A-Frame implementations
--   [~] Fixing project structure issues and improving organization
+-   [x] Standardized directory structure across applications
+-   [x] Completed migration from miniapps to features
+-   [~] Finishing refactoring of updl-frt and updl-srv
 -   [~] Implementing "Streaming" mode for client-side generation
 -   [~] Connecting UPDL nodes directly with publication process
 
@@ -133,7 +219,7 @@ To verify AR.js publication functionality, implement an equivalent of the marker
 
 ## Current Issues to Resolve
 
-1. Fix project structure issues and improve organization
+1. Complete refactoring of updl-frt and updl-srv applications
 2. Add "Generation Type" field to the AR.js publication interface
 3. Implement client-side UPDL to AR.js conversion
 4. Create a route handler for `/p/{uuid}` publications

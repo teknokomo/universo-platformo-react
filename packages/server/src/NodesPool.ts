@@ -82,7 +82,7 @@ export class NodesPool {
         // Load UPDL nodes
         try {
             // Define path to UPDL nodes directory
-            const updlNodesPath = path.join(__dirname, '../../../apps/updl/dist/nodes')
+            const updlNodesPath = path.join(__dirname, '../../../apps/updl-frt/base/dist/nodes')
 
             // Check if directory exists
             const fs = require('fs')

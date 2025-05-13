@@ -1,3 +1,6 @@
 packages:
-    - "apps/*"
-    - "packages/*"
+    - 'packages/*'
+    - 'apps/publish-frt/base'
+    - 'apps/publish-srv/base'
+    - 'apps/updl-frt/base'
+    - 'apps/updl-srv/base'
