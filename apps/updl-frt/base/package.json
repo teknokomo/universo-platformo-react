@@ -1,0 +1,35 @@
+{
+    "name": "updl-frt",
+    "version": "0.1.0",
+    "description": "Frontend for Universo Platformo Definition Language for 3D/AR/VR scene definition",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rm -rf dist",
+        "build": "pnpm run clean && tsc && gulp",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts,.tsx src/"
+    },
+    "keywords": [
+        "updl",
+        "universo",
+        "platformo",
+        "frontend",
+        "3d",
+        "ar",
+        "vr",
+        "webxr"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/gulp": "4.0.9",
+        "@types/node": "^20.11.17",
+        "eslint": "^8.56.0",
+        "gulp": "^4.0.2",
+        "rimraf": "^5.0.5"
+    }
+}

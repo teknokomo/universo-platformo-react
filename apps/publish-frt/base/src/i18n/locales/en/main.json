@@ -1,0 +1,169 @@
+{
+    "general": {
+        "publish": "Publish",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "update": "Update",
+        "loading": "Loading...",
+        "success": "Success",
+        "error": "Error"
+    },
+    "navigation": {
+        "dashboard": "Dashboard",
+        "projects": "Projects",
+        "settings": "Settings",
+        "help": "Help",
+        "logout": "Logout"
+    },
+    "projects": {
+        "title": "Projects",
+        "create": "Create Project",
+        "edit": "Edit Project",
+        "delete": "Delete Project",
+        "name": "Project Name",
+        "description": "Description",
+        "status": "Status",
+        "lastModified": "Last Modified",
+        "createdAt": "Created At",
+        "author": "Author",
+        "noProjects": "No projects found"
+    },
+    "publishing": {
+        "title": "Publish",
+        "platform": "Platform",
+        "version": "Version",
+        "visibility": "Visibility",
+        "public": "Public",
+        "private": "Private",
+        "publishNow": "Publish Now",
+        "scheduling": "Schedule Publication",
+        "scheduledFor": "Scheduled For",
+        "confirmPublish": "Are you sure you want to publish?",
+        "publishSuccess": "Successfully published",
+        "publishError": "Failed to publish",
+        "targetPlatforms": "Target Platforms",
+        "publishSettings": "Publication Settings"
+    },
+    "settings": {
+        "title": "Settings",
+        "general": "General Settings",
+        "account": "Account Settings",
+        "notifications": "Notifications",
+        "appearance": "Appearance",
+        "language": "Language",
+        "theme": "Theme",
+        "dark": "Dark",
+        "light": "Light",
+        "system": "System"
+    },
+    "validation": {
+        "required": "This field is required",
+        "minLength": "Must be at least {{min}} characters",
+        "maxLength": "Must not exceed {{max}} characters",
+        "invalidFormat": "Invalid format"
+    },
+    "errors": {
+        "generic": "Something went wrong",
+        "network": "Network error",
+        "unauthorized": "Unauthorized",
+        "notFound": "Not found",
+        "serverError": "Server error"
+    },
+    "publish": {
+        "title": "Publish & Export",
+        "subtitle": "Share and export your UPDL creations",
+        "general": {
+            "cancel": "Cancel",
+            "close": "Close",
+            "loading": "Loading..."
+        },
+        "project": {
+            "title": "Project Name"
+        },
+        "tabs": {
+            "configuration": "Configuration",
+            "publish": "Publish",
+            "export": "Export"
+        },
+        "configuration": {
+            "title": "Configuration",
+            "description": "Select the mode for your publication and configure basic settings",
+            "chooseMode": "Choose Publication Mode",
+            "makePublic": "Make Public"
+        },
+        "technology": {
+            "label": "Technology",
+            "select": "Select technology",
+            "chat": "Chatbot",
+            "arjs": "AR.js",
+            "playcanvas": "PlayCanvas",
+            "babylonjs": "Babylon.js",
+            "threejs": "Three.js",
+            "aframevr": "A-Frame",
+            "playcanvasDescription": "3D web exporter based on PlayCanvas",
+            "babylonjsDescription": "3D exporter based on Babylon.js",
+            "aframevrDescription": "VR exporter based on A-Frame"
+        },
+        "technologies": {
+            "label": "Technology",
+            "select": "Select technology",
+            "chat": "Chatbot",
+            "arjs": "AR.js",
+            "playcanvas": "PlayCanvas",
+            "babylonjs": "Babylon.js",
+            "threejs": "Three.js",
+            "aframevr": "A-Frame",
+            "chatDescription": "Interactive chatbot interface",
+            "arjsDescription": "Augmented reality using AR.js and A-Frame",
+            "playcanvasDescription": "3D web exporter based on PlayCanvas",
+            "babylonjsDescription": "3D exporter based on Babylon.js",
+            "aframevrDescription": "VR exporter based on A-Frame"
+        },
+        "actions": {
+            "publish": "Publish",
+            "export": "Export",
+            "download": "Download",
+            "copy": "Copy Link",
+            "view": "View"
+        },
+        "marker": {
+            "type": "Marker Type",
+            "hiro": "Hiro (default)",
+            "kanji": "Kanji",
+            "pattern": "Pattern",
+            "barcode": "Barcode",
+            "standard": "Standard Marker",
+            "custom": "Custom Pattern",
+            "presetLabel": "Preset Marker",
+            "letterA": "Letter A",
+            "letterB": "Letter B",
+            "letterC": "Letter C",
+            "alt": "Marker",
+            "instruction": "Show this marker to the camera to activate AR"
+        },
+        "success": {
+            "published": "Successfully published!",
+            "copied": "Link copied to clipboard",
+            "exported": "HTML file downloaded successfully"
+        },
+        "errors": {
+            "failed": "Failed to publish",
+            "noUPDL": "No UPDL nodes found in this flow"
+        },
+        "preview": {
+            "title": "Preview",
+            "camera": "Allow camera access and show Hiro marker to view"
+        },
+        "export": {
+            "title": "Export",
+            "description": "Export your AR.js project for local use",
+            "html": "HTML code",
+            "instructions": "How to use the exported code",
+            "downloadInstructions": "Download and host the HTML file on a web server with HTTPS",
+            "copyInstructions": "Copy the HTML code and save it to a file with .html extension"
+        }
+    }
+}
