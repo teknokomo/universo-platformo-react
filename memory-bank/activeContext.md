@@ -32,6 +32,10 @@ The following steps have been completed in the refactoring process:
     - Renamed directory structure for better clarity
     - Updated all import paths to use new structure
     - Removed old miniapps directories after confirming functionality
+6. Improved AR.js publication interface:
+    - Fixed initial state of "Сделать публичным" toggle to match Flowise patterns
+    - Removed redundant "actions.close" button from interface
+    - Removed duplicate "actions.copyLink" button to clean up UI
 
 ### Current Work
 
@@ -46,6 +50,7 @@ The following steps have been completed in the refactoring process:
 -   Aligned the structure with a unified standard corresponding to the Flowise architecture
 -   Each application contains its own interfaces and types
 -   Clearly separated features by technology under the features/ directory
+-   Simplified AR.js Publication interface to make it consistent with Flowise patterns
 
 **Current Sprint**: 0.9.0 pre-alpha (Apr 2025)
 
@@ -58,11 +63,12 @@ The following steps have been completed in the refactoring process:
 
 **Immediate Next Steps**:
 
-1. Add "Generation Type" field to AR.js publication interface
+1. Complete initial refinements of AR.js publication interface
 2. Implement client-side UPDL to AR.js conversion
 3. Create a route handler for `/p/{uuid}` publications
 4. Connect UPDL nodes data with the publication process
 5. Test the full workflow with a red cube example
+6. Integrate AR.js publication state with Supabase for persistence
 
 ## Current Focus
 
@@ -129,6 +135,69 @@ Simplifying the AR.js publication architecture and implementing client-side gene
 -   Test with the marker.html example (red cube on a Hiro marker)
 -   Focus on getting basic functionality working before adding advanced features
 
+## Current Issues to Resolve
+
+1. Complete refactoring of updl-frt and updl-srv applications
+2. Add "Generation Type" field to the AR.js publication interface
+3. Implement client-side UPDL to AR.js conversion
+4. Create a route handler for `/p/{uuid}` publications
+5. Connect UPDL nodes data with the publication process
+6. Implement loading screen with progress indicator
+7. Ensure proper error handling for generation failures
+
+## Current Problems and Solutions
+
+### Publication Interface Issues
+
+We have identified several issues with the current publication interface:
+
+1. **Mode switching in APICodeDialog**: When switching between modes (ChatBot/AR.js/etc.) in the Configuration tab, the UI does not correctly display the appropriate settings. Specifically, AR.js settings appear when ChatBot mode is selected.
+
+2. **Duplication of buildUPDLflow.ts**: We have two files with the same name in different parts of the codebase:
+    - `packages/server/src/utils/buildUPDLflow.ts` - Server-side processing for UPDL flows
+    - `apps/updl-frt/base/src/builders/buildUPDLflow.ts` - Client-side UPDL scene builder
+3. **AR.js Publication Interface UX Issues**: Several usability issues have been identified in the AR.js publication interface:
+    - ✅ Initial state of "Сделать публичным" toggle was true instead of false (FIXED)
+    - ✅ Redundant "actions.close" button at the bottom of interface (FIXED)
+    - ✅ Duplicate "actions.copyLink" button when URL was displayed (FIXED)
+    - ⏳ Publication state is not persisted in Supabase (PENDING)
+    - ⏳ Need to toggle off/on "Сделать публичным" to get publication URL (PENDING)
+    - ⏳ Link display not synced with toggle state (PENDING)
+
+### Proposed Solutions
+
+1. **Fix mode switching in APICodeDialog.jsx**:
+
+    - Improve conditional rendering based on `displayMode` state
+    - Ensure ChatBot settings only show in chat mode
+    - Ensure AR.js settings only show in AR.js mode
+
+2. **Rename client-side buildUPDLflow.ts**:
+
+    - Rename `apps/updl-frt/base/src/builders/buildUPDLflow.ts` to `UPDLFlowBuilder.ts`
+    - Update imports in dependent files
+    - Add clear documentation about the purpose of each file
+
+3. **Fix AR.js Publication Interface UX Issues**:
+
+    - ✅ Changed initial state of "Сделать публичным" toggle to false
+    - ✅ Removed redundant "actions.close" button from interface
+    - ✅ Removed duplicate "actions.copyLink" button to clean up UI
+    - ⏳ Integrate with Supabase to store publication state
+    - ⏳ Load saved publication status when opening interface
+    - ⏳ Automatically sync link display with toggle state
+
+4. **Follow Flowise architecture pattern**:
+    - Ensure all components interact through REST API
+    - Maintain clear separation between different applications
+    - Use buildUPDLflow.ts (server) as the entry point for UPDL flow processing
+
+### Architectural Decisions
+
+-   We will focus on "Streaming" mode for AR.js generation before implementing the more complex "Pre-generation" mode
+-   Client-side generation will be the primary approach for MVP
+-   We will use REST API boundaries between all applications following Flowise patterns
+
 ## Generation Types
 
 ### Streaming Mode (Priority)
@@ -148,6 +217,8 @@ Benefits:
 -   Reduced server load
 -   No need to regenerate content when UPDL changes
 -   Works with dynamic content
+-   No need for complex storage and permission management
+-   Faster implementation for MVP
 
 ### Pre-generation Mode (Future)
 
@@ -164,6 +235,7 @@ Benefits (for future implementation):
 -   Works better with complex scenes
 -   Reduced client-side processing
 -   Can optimize resources more effectively
+-   Better performance for end users
 
 ## Test Scenario (marker.html)
 
@@ -216,13 +288,3 @@ To verify AR.js publication functionality, implement an equivalent of the marker
     - Capture a screenshot of the working AR scene
     - Note any discrepancies from expected behavior
     - Update the Memory Bank with test results
-
-## Current Issues to Resolve
-
-1. Complete refactoring of updl-frt and updl-srv applications
-2. Add "Generation Type" field to the AR.js publication interface
-3. Implement client-side UPDL to AR.js conversion
-4. Create a route handler for `/p/{uuid}` publications
-5. Connect UPDL nodes data with the publication process
-6. Implement loading screen with progress indicator
-7. Ensure proper error handling for generation failures

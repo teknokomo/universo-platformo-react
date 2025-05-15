@@ -9,7 +9,8 @@
         "update": "Update",
         "loading": "Loading...",
         "success": "Success",
-        "error": "Error"
+        "error": "Error",
+        "comingSoon": "coming soon"
     },
     "navigation": {
         "dashboard": "Dashboard",
@@ -151,7 +152,9 @@
         },
         "errors": {
             "failed": "Failed to publish",
-            "noUPDL": "No UPDL nodes found in this flow"
+            "noUPDL": "No UPDL nodes found in this flow",
+            "loadingFailed": "Failed to load AR scene",
+            "generationFailed": "Failed to generate AR scene"
         },
         "preview": {
             "title": "Preview",
@@ -164,6 +167,27 @@
             "instructions": "How to use the exported code",
             "downloadInstructions": "Download and host the HTML file on a web server with HTTPS",
             "copyInstructions": "Copy the HTML code and save it to a file with .html extension"
+        },
+        "arjs": {
+            "generationMode": {
+                "label": "Generation Mode",
+                "streaming": "Streaming Generation",
+                "pregeneration": "Pre-generation",
+                "streamingDescription": "Real-time AR.js generation on the client side",
+                "pregenerationDescription": "Pre-generated AR.js on the server (coming soon)"
+            },
+            "loading": "Loading AR scene...",
+            "publishedUrl": "Publication URL",
+            "copyLink": "Copy link",
+            "viewAR": "Open AR view",
+            "generatingScene": "Generating AR scene...",
+            "showMarker": "Show this marker to the camera to activate AR"
         }
+    },
+    "arPublication": {
+        "configSaved": "AR.js publication settings saved",
+        "saveError": "Error saving publication settings",
+        "streamingModeEnabled": "Streaming generation mode enabled",
+        "publicLinkAvailable": "Public link is available"
     }
 }

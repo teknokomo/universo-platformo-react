@@ -726,8 +726,11 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
         // Don't show on Embed tab (it has its own code block)
         if (codes[tabIndex] === 'Embed') return false
 
-        // In chat mode, show on all tabs except first (Configuration) and last (Publish)
-        // In other modes, don't show
+        // Don't show on Export tab regardless of mode
+        if (codes[tabIndex] === tPub('tabs.export')) return false
+
+        // In chat mode, show on all remaining tabs
+        // In AR.js mode, don't show code blocks
         return displayMode === 'chat'
     }
 
@@ -792,8 +795,21 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                 />
                             </>
                         )}
-                        {codeLang === tPub('tabs.export') && !chatflowApiKeyId && <ARJSExporter flow={chatflow} unikId={unikId} />}
-                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && <ARJSPublisher flow={chatflow} unikId={unikId} />}
+                        {codeLang === tPub('tabs.export') && !chatflowApiKeyId && displayMode === 'arjs' && (
+                            <ARJSExporter flow={chatflow} unikId={unikId} />
+                        )}
+                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && displayMode === 'arjs' && (
+                            <ARJSPublisher flow={chatflow} unikId={unikId} />
+                        )}
+                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && displayMode === 'chat' && (
+                            <ChatBotSettings
+                                isSessionMemory={dialogProps.isSessionMemory}
+                                isAgentCanvas={dialogProps.isAgentCanvas}
+                                chatflowid={dialogProps.chatflowid}
+                                unikId={unikId}
+                                chatflow={chatflow}
+                            />
+                        )}
                         {shouldShowCodeBlock(index) && (
                             <>
                                 <CopyBlock

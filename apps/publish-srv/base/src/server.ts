@@ -29,10 +29,13 @@ export function initializePublishServer(app?: express.Application): express.Appl
     expressApp.use('/api/publish', publishRoutes)
     expressApp.use('/api/updl', updlRoutes)
 
-    // Serve published content
+    // Маршрут '/p/:id' теперь обрабатывается в основном приложении через React Router
+    // Закомментировано, чтобы избежать конфликтов
+    /*
     expressApp.get('/p/:id', (req, res) => {
         res.sendFile(path.join(publicDir, 'p', req.params.id, 'index.html'))
     })
+    */
 
     // Serve UPDL published content
     expressApp.get('/published/:id', (req, res) => {
@@ -56,9 +59,13 @@ export function startServer(port = 3001): express.Application {
     const app = express()
     const configuredApp = initializePublishServer(app)
 
-    app.listen(port, () => {
-        console.log(`Publish server listening on port ${port}`)
-    })
+    // Если publish-srv запускается как часть основного приложения,
+    // этот вызов не должен использоваться
+    if (require.main === module) {
+        app.listen(port, () => {
+            console.log(`Publish server listening on port ${port}`)
+        })
+    }
 
     return configuredApp
 }

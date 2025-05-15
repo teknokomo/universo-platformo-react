@@ -6,8 +6,87 @@ import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { UPDLFlow } from './types'
+import { UPDLSceneGraph } from '../interfaces/UPDLTypes'
+import fetch from 'node-fetch'
+import logger from '../utils/logger'
 
 const publishService = new PublishService()
+
+/**
+ * Создает базовую UPDL сцену с примитивами для демонстрационных целей
+ * @param chatflowId ID чат-флоу для которого нужно создать сцену
+ * @returns UPDL сцена с базовыми объектами
+ */
+async function createDemoUPDLScene(chatflowId: string): Promise<UPDLSceneGraph> {
+    try {
+        console.log(`[createDemoUPDLScene] Building demo UPDL scene for chatflowId: ${chatflowId}`)
+
+        // Создаем базовую сцену AR
+        const basicScene: UPDLSceneGraph = {
+            id: chatflowId,
+            name: `AR Scene for ${chatflowId}`,
+            settings: {
+                background: '#FFFFFF'
+            },
+            objects: [
+                // Красный куб в центре
+                {
+                    id: 'cube-1',
+                    type: 'box',
+                    name: 'Red Cube',
+                    position: { x: 0, y: 0.5, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 },
+                    color: '#FF0000'
+                },
+                // Синяя сфера справа
+                {
+                    id: 'sphere-1',
+                    type: 'sphere',
+                    name: 'Blue Sphere',
+                    position: { x: 1.5, y: 0.5, z: 0 },
+                    radius: 0.5,
+                    color: '#0000FF'
+                },
+                // Зеленый цилиндр слева
+                {
+                    id: 'cylinder-1',
+                    type: 'cylinder',
+                    name: 'Green Cylinder',
+                    position: { x: -1.5, y: 0.5, z: 0 },
+                    radius: 0.5,
+                    height: 1,
+                    color: '#00FF00'
+                },
+                // Плоскость внизу
+                {
+                    id: 'plane-1',
+                    type: 'plane',
+                    name: 'Ground Plane',
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: -90, y: 0, z: 0 },
+                    width: 4,
+                    height: 4,
+                    color: '#CCCCCC'
+                }
+            ],
+            lights: [
+                {
+                    id: 'light-1',
+                    type: 'directional',
+                    position: { x: 1, y: 1, z: 1 },
+                    intensity: 0.8,
+                    color: '#FFFFFF'
+                }
+            ]
+        }
+
+        console.log(`[createDemoUPDLScene] Created UPDL scene with ${basicScene.objects?.length || 0} objects`)
+        return basicScene
+    } catch (error) {
+        console.error('Error creating demo UPDL scene:', error)
+        throw new Error(`Failed to create demo UPDL scene for chatflowId: ${chatflowId}`)
+    }
+}
 
 /**
  * Publishes a project
@@ -154,6 +233,8 @@ export class PublishController {
      */
     public async getExporters(req: Request, res: Response): Promise<void> {
         try {
+            // Universo Platformo | Add logging
+            logger.info(`[PublishController] getExporters called. Request query: ${JSON.stringify(req.query)}`)
             // Mock exporters data for now
             // In a real implementation, this would come from a service or repository
             const exporters = [
@@ -351,4 +432,389 @@ export class PublishController {
 
         fs.writeFileSync(path.join(publicationPath, 'index.html'), htmlContent)
     }
+
+    /**
+     * Публикация проекта AR.js
+     * @param req Запрос
+     * @param res Ответ
+     */
+    public async publishARJS(req: Request, res: Response): Promise<void> {
+        // Universo Platformo | Add logging
+        logger.info(
+            `[PublishController] publishARJS called. Request body: ${JSON.stringify(req.body)}, Params: ${JSON.stringify(req.params)}`
+        )
+        try {
+            const { chatflowId, generationMode, isPublic, projectName } = req.body
+
+            if (!chatflowId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing required parameter: chatflowId'
+                })
+                return
+            }
+
+            // Генерируем уникальный идентификатор публикации
+            const publicationId = uuidv4()
+            const createdAt = new Date().toISOString()
+
+            // Создаем метаданные публикации
+            const publicationMetadata = {
+                publicationId,
+                chatflowId,
+                projectName: projectName || `AR.js Project ${new Date().toLocaleDateString()}`,
+                generationMode: generationMode || 'streaming',
+                isPublic: isPublic !== undefined ? isPublic : true,
+                createdAt,
+                updatedAt: createdAt
+            }
+
+            // Сохраняем метаданные
+            this.savePublicationMetadata(publicationId, publicationMetadata)
+
+            // Universo Platformo | Унифицированный формат URL для потокового и предварительного режимов
+            // Формат /p/{id} используется для обоих режимов генерации AR.js
+            const publicUrl = `/p/${publicationId}`
+
+            // Отправляем успешный ответ
+            res.status(201).json({
+                success: true,
+                publicationId,
+                publicUrl,
+                projectName: publicationMetadata.projectName,
+                createdAt,
+                chatflowId,
+                isPublic: publicationMetadata.isPublic,
+                generationMode: publicationMetadata.generationMode
+            })
+        } catch (error) {
+            console.error('Error publishing AR.js project:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Failed to publish AR.js project',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
+    /**
+     * Получение списка публикаций AR.js для chatflow
+     * @param req Запрос
+     * @param res Ответ
+     */
+    public async getARJSPublications(req: Request, res: Response): Promise<void> {
+        // Universo Platformo | Add logging
+        logger.info(
+            `[PublishController] getARJSPublications called. ChatflowId: ${req.params.chatflowId}, Query: ${JSON.stringify(req.query)}`
+        )
+        try {
+            const { chatflowId } = req.params
+
+            if (!chatflowId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing required parameter: chatflowId'
+                })
+                return
+            }
+
+            // Получаем список метаданных публикаций
+            const publications = this.getPublicationMetadataForChatflow(chatflowId)
+
+            res.status(200).json(publications)
+        } catch (error) {
+            console.error('Error fetching AR.js publications:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch AR.js publications',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
+    /**
+     * Получение публичных данных публикации AR.js по ID
+     * @param req Запрос
+     * @param res Ответ
+     */
+    public async getPublicARJSPublication(req: Request, res: Response): Promise<void> {
+        // Universo Platformo | Add logging
+        logger.info(`[PublishController] getPublicARJSPublication called. PublicationId: ${req.params.publicationId}`)
+        try {
+            const { publicationId } = req.params
+
+            if (!publicationId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing required parameter: publicationId'
+                })
+                return
+            }
+
+            // Получаем метаданные публикации
+            const metadata = this.getPublicationMetadata(publicationId)
+
+            if (!metadata) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Publication not found'
+                })
+                return
+            }
+
+            // Проверяем, является ли публикация публичной
+            if (!metadata.isPublic) {
+                res.status(403).json({
+                    success: false,
+                    error: 'This publication is not public'
+                })
+                return
+            }
+
+            // Получаем данные чатфлоу из основного API Flowise
+            let chatflowData
+            try {
+                // Universo Platformo | Получаем данные чатфлоу через API
+                const PORT = process.env.PORT || 8080
+                const chatflowResponse = await fetch(`http://localhost:${PORT}/api/chatflows/${metadata.chatflowId}`)
+
+                if (!chatflowResponse.ok) {
+                    throw new Error(`Failed to fetch chatflow: ${chatflowResponse.status}`)
+                }
+
+                const chatflow = await chatflowResponse.json()
+
+                if (!chatflow || !chatflow.flowData) {
+                    throw new Error('Invalid chatflow data')
+                }
+
+                // Парсим flowData и извлекаем данные UPDL
+                const flowData = typeof chatflow.flowData === 'string' ? JSON.parse(chatflow.flowData) : chatflow.flowData
+
+                // Используем данные UPDL узлов для формирования сцены
+                // Это будет развито в будущих обновлениях для более полного извлечения сцены
+                console.log(
+                    `[getPublicARJSPublication] Successfully fetched chatflow ${metadata.chatflowId} with ${
+                        flowData.nodes?.length || 0
+                    } nodes`
+                )
+
+                // Временное решение: создаем демо-сцену на основе полученных данных
+                chatflowData = await createDemoUPDLScene(metadata.chatflowId)
+            } catch (error) {
+                console.error('Error fetching chatflow data:', error)
+
+                // Если не удалось получить данные, создаем простую сцену
+                console.log('[getPublicARJSPublication] Creating fallback UPDL scene')
+                chatflowData = {
+                    id: metadata.chatflowId,
+                    name: metadata.projectName,
+                    objects: [
+                        {
+                            id: 'default-cube',
+                            type: 'box',
+                            position: { x: 0, y: 0.5, z: 0 },
+                            color: '#FF0000',
+                            scale: { x: 1, y: 1, z: 1 }
+                        }
+                    ]
+                }
+            }
+
+            // Возвращаем данные для публикации
+            res.status(200).json({
+                publicationId,
+                projectName: metadata.projectName,
+                updlScene: chatflowData,
+                generationMode: metadata.generationMode || 'streaming'
+            })
+        } catch (error) {
+            console.error('Error fetching AR.js publication data:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch AR.js publication data',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
+    /**
+     * Удаление публикации AR.js
+     * @param req Запрос
+     * @param res Ответ
+     */
+    public async deleteARJSPublication(req: Request, res: Response): Promise<void> {
+        // Universo Platformo | Add logging
+        logger.info(`[PublishController] deleteARJSPublication called. PublicationId: ${req.params.publicationId}`)
+        try {
+            const { publicationId } = req.params
+
+            if (!publicationId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing required parameter: publicationId'
+                })
+                return
+            }
+
+            // Проверяем существование публикации
+            const metadata = this.getPublicationMetadata(publicationId)
+
+            if (!metadata) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Publication not found'
+                })
+                return
+            }
+
+            // Удаляем метаданные публикации
+            this.deletePublicationMetadata(publicationId)
+
+            res.status(200).json({
+                success: true,
+                message: 'Publication deleted successfully'
+            })
+        } catch (error) {
+            console.error('Error deleting AR.js publication:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Failed to delete AR.js publication',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
+    /**
+     * Обновление публикации AR.js
+     * @param req Запрос
+     * @param res Ответ
+     */
+    public async updateARJSPublication(req: Request, res: Response): Promise<void> {
+        // Universo Platformo | Add logging
+        logger.info(
+            `[PublishController] updateARJSPublication called. PublicationId: ${req.params.publicationId}, Body: ${JSON.stringify(
+                req.body
+            )}`
+        )
+        try {
+            const { publicationId } = req.params
+            const updates = req.body
+
+            if (!publicationId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing required parameter: publicationId'
+                })
+                return
+            }
+
+            // Получаем существующие метаданные
+            const metadata = this.getPublicationMetadata(publicationId)
+
+            if (!metadata) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Publication not found'
+                })
+                return
+            }
+
+            // Обновляем метаданные
+            const updatedMetadata = {
+                ...metadata,
+                ...updates,
+                updatedAt: new Date().toISOString()
+            }
+
+            // Сохраняем обновленные метаданные
+            this.savePublicationMetadata(publicationId, updatedMetadata)
+
+            res.status(200).json({
+                success: true,
+                ...updatedMetadata
+            })
+        } catch (error) {
+            console.error('Error updating AR.js publication:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update AR.js publication',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
+    /**
+     * Получение метаданных публикации по ID
+     * @param publicationId ID публикации
+     * @returns Метаданные публикации или null, если не найдено
+     */
+    private getPublicationMetadata(publicationId: string): any | null {
+        try {
+            const metadataPath = path.join(this.metadataDir, `${publicationId}.json`)
+            if (fs.existsSync(metadataPath)) {
+                const metadataRaw = fs.readFileSync(metadataPath, 'utf-8')
+                return JSON.parse(metadataRaw)
+            }
+            return null
+        } catch (error) {
+            console.error(`Error reading metadata for publication ${publicationId}:`, error)
+            return null
+        }
+    }
+
+    /**
+     * Получение списка метаданных публикаций для chatflow
+     * @param chatflowId ID потока чата
+     * @returns Массив метаданных публикаций
+     */
+    private getPublicationMetadataForChatflow(chatflowId: string): any[] {
+        try {
+            // Проверяем наличие директории
+            if (!fs.existsSync(this.metadataDir)) {
+                return []
+            }
+
+            // Получаем список файлов
+            const files = fs.readdirSync(this.metadataDir)
+
+            // Фильтруем и читаем метаданные
+            const publications = files
+                .filter((file) => file.endsWith('.json'))
+                .map((file) => {
+                    try {
+                        const metadataRaw = fs.readFileSync(path.join(this.metadataDir, file), 'utf-8')
+                        return JSON.parse(metadataRaw)
+                    } catch (error) {
+                        console.error(`Error reading metadata file ${file}:`, error)
+                        return null
+                    }
+                })
+                .filter((metadata) => metadata && metadata.chatflowId === chatflowId)
+
+            return publications
+        } catch (error) {
+            console.error(`Error getting publications for chatflow ${chatflowId}:`, error)
+            return []
+        }
+    }
+
+    /**
+     * Удаление метаданных публикации
+     * @param publicationId ID публикации
+     */
+    private deletePublicationMetadata(publicationId: string): void {
+        try {
+            const metadataPath = path.join(this.metadataDir, `${publicationId}.json`)
+            if (fs.existsSync(metadataPath)) {
+                fs.unlinkSync(metadataPath)
+            }
+        } catch (error) {
+            console.error(`Error deleting metadata for publication ${publicationId}:`, error)
+            throw error
+        }
+    }
 }
+
+// Создаем экземпляр контроллера для использования в routes
+export const publishController = new PublishController()

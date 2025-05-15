@@ -2,4 +2,4 @@
 // This file exports scene builders
 
 export * from './UPDLSceneBuilder'
-export * from './buildUPDLflow'
+export * from './UPDLFlowBuilder'

@@ -2,9 +2,10 @@
 // React component for publishing AR.js experiences
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { publishARJSFlow, getCurrentUrlIds, ensureUnikIdInUrl, getAuthHeaders } from '../../services/api'
 import { ARJSExporter } from './ARJSExporter'
-import { useTranslation } from 'react-i18next'
+import { arjsService } from '../../services/arjsService'
 
 // MUI components
 import {
@@ -27,11 +28,17 @@ import {
     Stack,
     FormGroup,
     Link,
-    Divider
+    Divider,
+    FormHelperText
 } from '@mui/material'
 
 // Icons
 import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
+
+// Import common components
+import GenerationModeSelect from '../../components/arjs/GenerationModeSelect'
+import PublicationLink from '../../components/common/PublicationLink'
+import PublishToggle from '../../components/common/PublishToggle'
 
 // QR Code component (optional dependency)
 let QRCode
@@ -75,11 +82,13 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // State for publishing status
     const [isPublishing, setIsPublishing] = useState(false)
     // State for public toggle
-    const [isPublic, setIsPublic] = useState(true)
+    const [isPublic, setIsPublic] = useState(false)
     // State for error message
     const [error, setError] = useState(null)
     // State for snackbar
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
+    // State for generation mode
+    const [generationMode, setGenerationMode] = useState('streaming')
 
     // Initialize with flow data when component mounts
     useEffect(() => {
@@ -191,8 +200,92 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     /**
      * Handle public toggle change
      */
-    const handlePublicChange = (event) => {
-        setIsPublic(event.target.checked)
+    const handlePublicChange = async (value) => {
+        setIsPublic(value)
+
+        if (flow?.id && unikId) {
+            try {
+                setLoading(true)
+                console.log('🔹 [ARJSPublisher.handlePublicChange] Changing public status to:', value)
+
+                // Если выбран режим потоковой генерации и включен переключатель публичности,
+                // автоматически создаем публикацию и показываем ссылку
+                if (generationMode === 'streaming' && value) {
+                    console.log('🔹 [ARJSPublisher.handlePublicChange] Auto-publishing with streaming mode')
+
+                    try {
+                        // Используем API-клиент вместо fetch для унификации запросов
+                        const result = await arjsService.publishARJS({
+                            chatflowId: flow.id,
+                            generationMode: 'streaming',
+                            isPublic: true,
+                            projectName: projectTitle,
+                            unikId: unikId || getCurrentUrlIds().unikId
+                        })
+
+                        if (result && result.publicUrl) {
+                            const baseUrl = window.location.origin
+                            const fullPublicUrl = result.publicUrl.startsWith('http') ? result.publicUrl : `${baseUrl}${result.publicUrl}`
+                            setPublishedUrl(fullPublicUrl)
+                            setSnackbar({ open: true, message: t('success.published') })
+                            console.log('🟢 [ARJSPublisher.handlePublicChange] Publication successful, URL:', fullPublicUrl)
+                            if (onPublish) {
+                                onPublish({ ...result, publishedUrl: fullPublicUrl })
+                            }
+                        } else {
+                            throw new Error('Publication URL not received')
+                        }
+                    } catch (error) {
+                        console.error('🔴 [ARJSPublisher.handlePublicChange] Error during auto-publishing:', error)
+                        setError(error instanceof Error ? error.message : 'Auto-publication failed')
+                    }
+                } else if (!value) {
+                    // Если отключаем публичный доступ, скрываем ссылку
+                    setPublishedUrl('')
+                } else {
+                    // Для не-потоковых режимов, только сохраняем настройки без публикации
+                    const result = await arjsService.saveARJSPublication(flow.id, value, unikId, {
+                        generationMode,
+                        markerType,
+                        markerValue,
+                        title: projectTitle
+                    })
+
+                    if (result.success) {
+                        setPublishedUrl(result.publicUrl)
+                        setSnackbar({
+                            open: true,
+                            message: t('arPublication.configSaved', 'AR.js publication settings saved')
+                        })
+                    } else {
+                        setError(result.error || 'Failed to update publication status')
+                    }
+                }
+            } catch (error) {
+                console.error('Error changing public status:', error)
+                setError(error instanceof Error ? error.message : String(error))
+            } finally {
+                setLoading(false)
+            }
+        }
+    }
+
+    /**
+     * Handle generation mode change
+     */
+    const handleGenerationModeChange = (mode) => {
+        setGenerationMode(mode)
+
+        // Если меняем на режим "не потоковый", сбросить URL публикации
+        if (mode !== 'streaming' && publishedUrl) {
+            setPublishedUrl('')
+        }
+
+        // Если включаем потоковый режим и публикация уже публична,
+        // автоматически пытаемся получить ссылку на публикацию
+        if (mode === 'streaming' && isPublic && flow?.id) {
+            handlePublicChange(true)
+        }
     }
 
     /**
@@ -247,20 +340,18 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         console.log('📱 [ARJSPublisher.handlePublish] unikId at the start of handlePublish:', unikId)
         console.log('📱 [ARJSPublisher.handlePublish] flow object received:', flow)
 
-        // Проверка наличия токена авторизации
         const authHeaders = getAuthHeaders()
         console.log('📱 [ARJSPublisher.handlePublish] Auth headers available:', Object.keys(authHeaders).length > 0)
 
-        // Более подробное логирование для отладки
         console.log('🔎 [ARJSPublisher] Button clicked, current state:', {
             projectTitle,
             markerType,
             markerValue,
             isPublic,
+            generationMode,
             sceneData: sceneData ? `id: ${sceneData.id}, name: ${sceneData.name}` : 'null'
         })
 
-        // Подробное логирование перед публикацией
         if (flow?.flowData) {
             try {
                 const parsedFlowData = JSON.parse(flow.flowData)
@@ -275,16 +366,15 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             }
         }
 
-        // Universo Platformo | Проверяем URL на наличие параметров и используем их для подстраховки
         const urlIds = getCurrentUrlIds()
         console.log('📱 [ARJSPublisher.handlePublish] URL IDs extract result:', urlIds)
 
-        // Если unikId отсутствует в props, но есть в URL, используем его из URL
         let effectiveUnikId = unikId || urlIds.unikId
 
         if (!effectiveUnikId) {
             console.error('📱 [ARJSPublisher.handlePublish] CRITICAL ERROR: No unikId found in props or URL!')
-            setError('Missing critical information: unikId not found')
+            setError('Missing critical information: unikId not found for publishing')
+            setIsPublishing(false) // Ensure loading state is reset
             return
         }
 
@@ -296,92 +386,114 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setError(null)
 
         try {
-            console.log('📱 [ARJSPublisher.handlePublish] unikId directly before options object creation:', effectiveUnikId)
-            const options = {
-                marker: markerValue,
-                markerType: markerType, // Passing actual marker type directly
-                isPublic,
-                title: projectTitle,
-                unikId: effectiveUnikId // Использовать эффективный unikId
-            }
-            console.log('📱 [ARJSPublisher.handlePublish] Publishing with options (unikId included):', options)
+            if (generationMode === 'streaming') {
+                console.log('📱 [ARJSPublisher.handlePublish] Publishing in STREAMING mode')
 
-            // Call API to publish AR.js flow
-            console.log('📱 [ARJSPublisher.handlePublish] Calling publishARJSFlow')
-            const result = await publishARJSFlow(flow.id, options)
-            console.log('📱 [ARJSPublisher.handlePublish] Publish result:', result)
-
-            if (result.success) {
-                // Determine published URL with proper environment prefix
-                const baseUrl = window.location.origin
-                const publishedUrl = result.publishedUrl.startsWith('http') ? result.publishedUrl : `${baseUrl}${result.publishedUrl}`
-
-                console.log('📱 [ARJSPublisher.handlePublish] Publication successful, URL:', publishedUrl)
-
-                // Update state with published URL
-                setPublishedUrl(publishedUrl)
-                setSnackbar({
-                    open: true,
-                    message: t('success.published')
+                const response = await fetch('/api/publish/arjs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...authHeaders
+                    },
+                    body: JSON.stringify({
+                        chatflowId: flow.id,
+                        generationMode: 'streaming',
+                        isPublic: isPublic,
+                        projectName: projectTitle,
+                        unikId: effectiveUnikId
+                    })
                 })
 
-                // Check if we received a data URL (local HTML) for direct viewing
-                if (result.dataUrl) {
-                    console.log('📱 [ARJSPublisher.handlePublish] Data URL available for direct viewing')
+                const result = await response.json()
 
-                    // Конвертируем data URL в Blob URL для безопасного открытия
-                    try {
-                        // Извлекаем HTML из data URL
-                        const htmlContent = decodeURIComponent(result.dataUrl.replace('data:text/html;charset=utf-8,', ''))
-
-                        // Создаем Blob URL
-                        const blobUrl = createBlobURL(htmlContent)
-
-                        // Сохраняем в localStorage для дальнейшего использования
-                        localStorage.setItem('arjs-latest-html', htmlContent)
-                        localStorage.setItem('arjs-latest-blob-url', blobUrl)
-
-                        console.log('📱 [ARJSPublisher.handlePublish] Created Blob URL for viewing:', blobUrl)
-
-                        // Обновляем URL в результате
-                        result.blobUrl = blobUrl
-                    } catch (e) {
-                        console.warn('📱 [ARJSPublisher.handlePublish] Could not create Blob URL:', e)
-                    }
-
-                    // Add dataUrl to publishedUrl state
-                    setPublishedUrl((prevState) => ({
-                        ...prevState,
-                        dataUrl: result.dataUrl,
-                        blobUrl: result.blobUrl
-                    }))
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `Publication failed: ${response.status}`)
                 }
 
-                // Notify parent component
-                if (onPublish) {
-                    const publishResponse = {
-                        ...result,
-                        publishedUrl: publishedUrl
+                if (result.publicUrl) {
+                    const baseUrl = window.location.origin
+                    const fullPublicUrl = result.publicUrl.startsWith('http') ? result.publicUrl : `${baseUrl}${result.publicUrl}`
+                    setPublishedUrl(fullPublicUrl)
+                    setSnackbar({ open: true, message: t('success.published') })
+                    if (onPublish) {
+                        onPublish({ ...result, publishedUrl: fullPublicUrl })
                     }
-                    console.log('📱 [ARJSPublisher.handlePublish] Notifying parent with:', publishResponse)
-                    onPublish(publishResponse)
+                } else {
+                    throw new Error('Publication response missing publicUrl')
                 }
             } else {
-                console.error('📱 [ARJSPublisher.handlePublish] Publication failed:', result.error)
-                setError(result.error || 'Failed to publish AR.js project')
+                // Logic for pregeneration or other modes
+                console.log('📱 [ARJSPublisher.handlePublish] Publishing in PREGENERATION or OTHER mode')
+                console.log('📱 [ARJSPublisher.handlePublish] unikId directly before options object creation:', effectiveUnikId)
+                const options = {
+                    marker: markerValue,
+                    markerType: markerType,
+                    isPublic,
+                    title: projectTitle,
+                    unikId: effectiveUnikId,
+                    generationMode
+                }
+                console.log('📱 [ARJSPublisher.handlePublish] Publishing with options (unikId included):', options)
 
-                // If we have a dataUrl from the error fallback, we can still offer viewing
-                if (result.dataUrl) {
+                console.log('📱 [ARJSPublisher.handlePublish] Calling publishARJSFlow')
+                const result = await publishARJSFlow(flow.id, options)
+                console.log('📱 [ARJSPublisher.handlePublish] Publish result:', result)
+
+                if (result.success) {
+                    const baseUrl = window.location.origin
+                    const publishedUrlResult = result.publishedUrl.startsWith('http')
+                        ? result.publishedUrl
+                        : `${baseUrl}${result.publishedUrl}`
+
+                    console.log('📱 [ARJSPublisher.handlePublish] Publication successful, URL:', publishedUrlResult)
+
+                    setPublishedUrl(publishedUrlResult) // Use the corrected variable name
                     setSnackbar({
                         open: true,
-                        message: 'Публикация на сервере не удалась, но создана локальная версия для просмотра'
+                        message: t('success.published')
                     })
 
-                    // Add dataUrl to state for display
-                    setPublishedUrl({
-                        url: '#local-preview',
-                        dataUrl: result.dataUrl
-                    })
+                    if (result.dataUrl) {
+                        console.log('📱 [ARJSPublisher.handlePublish] Data URL available for direct viewing')
+                        try {
+                            const htmlContent = decodeURIComponent(result.dataUrl.replace('data:text/html;charset=utf-8,', ''))
+                            const blobUrl = createBlobURL(htmlContent)
+                            localStorage.setItem('arjs-latest-html', htmlContent)
+                            localStorage.setItem('arjs-latest-blob-url', blobUrl)
+                            console.log('📱 [ARJSPublisher.handlePublish] Created Blob URL for viewing:', blobUrl)
+                            result.blobUrl = blobUrl
+                        } catch (e) {
+                            console.warn('📱 [ARJSPublisher.handlePublish] Could not create Blob URL:', e)
+                        }
+                        setPublishedUrl((prevState) => ({
+                            ...(typeof prevState === 'string' ? { url: prevState } : prevState),
+                            dataUrl: result.dataUrl,
+                            blobUrl: result.blobUrl
+                        }))
+                    }
+
+                    if (onPublish) {
+                        const publishResponse = {
+                            ...result,
+                            publishedUrl: publishedUrlResult // Use the corrected variable name
+                        }
+                        console.log('📱 [ARJSPublisher.handlePublish] Notifying parent with:', publishResponse)
+                        onPublish(publishResponse)
+                    }
+                } else {
+                    console.error('📱 [ARJSPublisher.handlePublish] Publication failed:', result.error)
+                    setError(result.error || 'Failed to publish AR.js project')
+
+                    if (result.dataUrl) {
+                        setSnackbar({
+                            open: true,
+                            message: 'Публикация на сервере не удалась, но создана локальная версия для просмотра'
+                        })
+                        setPublishedUrl({
+                            url: '#local-preview',
+                            dataUrl: result.dataUrl
+                        })
+                    }
                 }
             }
         } catch (error) {
@@ -392,13 +504,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         }
     }
 
-    /**
-     * Handle cancel button click
-     */
-    const handleCancel = () => {
-        if (onCancel) {
-            onCancel()
-        }
+    const handleError = (message, errorObj) => {
+        console.error(message, errorObj)
+        setError(errorObj instanceof Error ? errorObj.message : String(errorObj || message))
     }
 
     // Component for Published content (conditionally rendered)
@@ -424,9 +532,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     </Link>
 
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
-                        <Button variant='outlined' size='small' startIcon={<IconCopy />} onClick={() => handleCopyUrl(url)}>
-                            {t('actions.copy')}
-                        </Button>
+
 
                         {blobUrl && (
                             <Button
@@ -552,6 +658,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 onChange={(e) => setProjectTitle(e.target.value)}
                             />
 
+                            {/* Generation Mode Selector */}
+                            <GenerationModeSelect value={generationMode} onChange={handleGenerationModeChange} disabled={isPublishing} />
+
                             <FormControl fullWidth>
                                 <InputLabel id='marker-type-label'>{t('marker.type')}</InputLabel>
                                 <Select
@@ -632,12 +741,34 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 </Typography>
                             </Paper>
 
-                            <FormGroup>
-                                <FormControlLabel
-                                    control={<Switch checked={isPublic} onChange={handlePublicChange} />}
-                                    label='Сделать публичным'
-                                />
-                            </FormGroup>
+                            {/* PublishToggle component for streaming mode */}
+                            {generationMode === 'streaming' && (
+                                <Box>
+                                    <PublishToggle
+                                        isPublic={isPublic}
+                                        onChange={handlePublicChange}
+                                        helperText={t('settings.publicHelp')}
+                                    />
+                                    {isPublic && publishedUrl && typeof publishedUrl === 'string' && (
+                                        <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
+                                    )}
+                                </Box>
+                            )}
+
+                            {/* Publish button for non-streaming modes */}
+                            {generationMode !== 'streaming' && (
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                                    <Button
+                                        variant='contained'
+                                        color='primary'
+                                        onClick={handlePublish}
+                                        disabled={isPublishing || !sceneData}
+                                        startIcon={isPublishing ? <CircularProgress size={20} color='inherit' /> : null}
+                                    >
+                                        {isPublishing ? t('actions.publishing') : t('actions.publish')}
+                                    </Button>
+                                </Box>
+                            )}
                         </Stack>
                     </Box>
                 </CardContent>
@@ -650,23 +781,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 </Alert>
             )}
 
-            {/* Publication Action Buttons */}
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-                <Button variant='outlined' onClick={handleCancel}>
-                    {t('general.cancel')}
-                </Button>
-                <Button
-                    variant='contained'
-                    onClick={handlePublish}
-                    disabled={isPublishing}
-                    startIcon={isPublishing ? <CircularProgress size={20} /> : null}
-                >
-                    {isPublishing ? t('general.loading') : t('actions.publish')}
-                </Button>
-            </Box>
-
-            {/* Published Result */}
-            <PublishedContent />
+            {/* Published Result - only show for non-streaming mode */}
+            {generationMode !== 'streaming' && <PublishedContent />}
 
             <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleSnackbarClose} message={snackbar.message} />
         </Box>

@@ -26,10 +26,12 @@ import {
     Select,
     Switch,
     IconButton,
-    Tooltip
+    Tooltip,
+    Divider
 } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import QrCodeIcon from '@mui/icons-material/QrCode'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { fetchUPDLScene, publishARJSProject } from '../api/updlApi'
 import { arjsExporter } from '../features/arjs/ARJSExporter'
 import FileSaver from 'file-saver'
@@ -54,6 +56,7 @@ const ARJSPublisher = ({ sceneId, open, onClose }) => {
     const [markerType, setMarkerType] = useState('pattern')
     const [markerValue, setMarkerValue] = useState('hiro')
     const [isPublic, setIsPublic] = useState(true)
+    const [generationMode, setGenerationMode] = useState('streaming')
 
     // Available markers
     const patternMarkers = [
@@ -109,27 +112,57 @@ const ARJSPublisher = ({ sceneId, open, onClose }) => {
             setPublishing(true)
             setError(null)
 
-            // Generate HTML using AR.js exporter
-            const html = arjsExporter.generateHTML(scene, {
-                markerType,
-                markerValue,
-                title
-            })
+            if (generationMode === 'streaming') {
+                console.log('Publishing in streaming mode')
 
-            // Publish to server
-            const result = await publishARJSProject(sceneId, {
-                title,
-                html,
-                markerType,
-                markerValue,
-                isPublic
-            })
+                const publishResponse = await fetch('/api/publish/arjs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chatflowId: sceneId,
+                        generationMode: 'streaming',
+                        isPublic: isPublic,
+                        projectName: title
+                    })
+                })
 
-            setSuccess('Project published successfully!')
-            setPublishUrl(result.data.url)
+                if (!publishResponse.ok) {
+                    throw new Error(`Publication failed: ${publishResponse.status}`)
+                }
+
+                const result = await publishResponse.json()
+
+                if (result.publicUrl) {
+                    setPublishUrl(result.publicUrl)
+                    setSuccess('Project published successfully in streaming mode!')
+                } else {
+                    throw new Error('Publication response missing publicUrl')
+                }
+            } else {
+                console.log('Publishing in pregeneration mode')
+
+                const html = arjsExporter.generateHTML(scene, {
+                    markerType,
+                    markerValue,
+                    title
+                })
+
+                const result = await publishARJSProject(sceneId, {
+                    title,
+                    html,
+                    markerType,
+                    markerValue,
+                    isPublic
+                })
+
+                setSuccess('Project published successfully with pre-generation!')
+                setPublishUrl(result.data.url)
+            }
         } catch (err) {
             console.error('Error publishing:', err)
-            setError('Failed to publish AR.js project')
+            setError('Failed to publish AR.js project: ' + (err.message || 'Unknown error'))
         } finally {
             setPublishing(false)
         }
@@ -149,6 +182,11 @@ const ARJSPublisher = ({ sceneId, open, onClose }) => {
                 setSnackbarMessage('Failed to copy URL')
                 setSnackbarOpen(true)
             })
+    }
+
+    // Open URL in new tab
+    const openInNewTab = () => {
+        window.open(publishUrl, '_blank')
     }
 
     // Generate QR code
@@ -213,6 +251,11 @@ const ARJSPublisher = ({ sceneId, open, onClose }) => {
                                         <ContentCopyIcon />
                                     </IconButton>
                                 </Tooltip>
+                                <Tooltip title='Open in new tab'>
+                                    <IconButton onClick={openInNewTab} sx={{ ml: 1 }}>
+                                        <OpenInNewIcon />
+                                    </IconButton>
+                                </Tooltip>
                                 <Tooltip title='Generate QR Code'>
                                     <IconButton onClick={generateQRCode} sx={{ ml: 1 }}>
                                         <QrCodeIcon />
@@ -237,6 +280,30 @@ const ARJSPublisher = ({ sceneId, open, onClose }) => {
                                     error={!title}
                                     helperText={!title ? 'Title is required' : ''}
                                 />
+
+                                <FormControl component='fieldset' margin='normal' fullWidth>
+                                    <FormLabel component='legend'>Generation Mode</FormLabel>
+                                    <RadioGroup row value={generationMode} onChange={(e) => setGenerationMode(e.target.value)}>
+                                        <FormControlLabel
+                                            value='streaming'
+                                            control={<Radio />}
+                                            label='Streaming (Client-side generation)'
+                                        />
+                                        <FormControlLabel
+                                            value='pregeneration'
+                                            control={<Radio />}
+                                            label='Pre-generation (Server-side)'
+                                            disabled={true}
+                                        />
+                                    </RadioGroup>
+                                    <Typography variant='caption' color='textSecondary'>
+                                        {generationMode === 'streaming'
+                                            ? 'AR.js application will be generated on-demand in the browser when accessed.'
+                                            : 'AR.js application will be pre-generated and stored on the server (Coming soon).'}
+                                    </Typography>
+                                </FormControl>
+
+                                <Divider sx={{ my: 2 }} />
 
                                 <FormControl component='fieldset' margin='normal'>
                                     <FormLabel component='legend'>Marker Type</FormLabel>

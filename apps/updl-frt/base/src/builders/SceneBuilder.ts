@@ -7,4 +7,4 @@ import { UPDLSceneBuilder } from './UPDLSceneBuilder'
 export { UPDLSceneBuilder as SceneBuilder }
 
 // Export other classes and interfaces
-export * from './buildUPDLflow'
+export * from './UPDLFlowBuilder'

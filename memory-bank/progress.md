@@ -115,12 +115,9 @@ These insights have informed our revised approach for Stage 3.
 -   Developing route handler for `/p/{uuid}` URL format
 -   Implementing loading screen with progress indicator
 -   Testing with simple red cube example
-
-## Upcoming
-
--   **0.10.0-pre-alpha** - QR code generation, improved UI, better error handling.
--   **0.11.0-pre-alpha** - Server-side "Pre-generation" mode (optional), additional export options.
--   **0.12.0-pre-alpha** - Complete documentation, optimizations, and finalization.
+-   Fixing publication interface mode switching issues
+-   Resolving buildUPDLflow.ts file duplication
+-   Ensuring adherence to Flowise architecture patterns
 
 ## 2023-07-02: Application Structure Refactoring
 
@@ -133,3 +130,49 @@ These insights have informed our revised approach for Stage 3.
     -   Implemented types and interfaces
     -   Updated documentation (README.md)
 -   Implemented interaction through REST API instead of direct imports between applications
+
+## 2023-07-09: Interface and Architecture Issues
+
+-   Identified issues with publication interface mode switching
+    -   AR.js settings appear when ChatBot mode is selected
+    -   Incorrect component rendering based on selected mode
+-   Discovered duplication of buildUPDLflow.ts in codebase
+    -   Server-side implementation in packages/server/src/utils/
+    -   Client-side implementation in apps/updl-frt/base/src/builders/
+-   Formulated plan to address these issues
+    -   Fix mode switching in APICodeDialog.jsx
+    -   Rename client-side buildUPDLflow.ts to UPDLFlowBuilder.ts
+    -   Update Memory Bank with current architectural decisions
+-   Reaffirmed the focus on "Streaming" mode for AR.js generation
+    -   Prioritizing client-side generation for MVP
+    -   Deferring more complex "Pre-generation" mode for future
+
+## Upcoming
+
+-   **0.10.0-pre-alpha** - QR code generation, improved UI, better error handling.
+-   **0.11.0-pre-alpha** - Server-side "Pre-generation" mode (optional), additional export options.
+-   **0.12.0-pre-alpha** - Complete documentation, optimizations, and finalization.
+
+## May 3, 2025 - AR.js Publication Interface Improvements
+
+### Completed
+
+1. **Fixed initial AR.js publication interface issues:**
+    - Changed default state of "Сделать публичным" toggle to false
+    - Removed redundant "actions.close" button from interface
+    - Eliminated duplicate "actions.copyLink" button to clean up UI
+
+### Next Steps
+
+1. **Complete Supabase integration for AR.js publications:**
+
+    - Use existing `chat_flow` table structure for AR.js publication data
+    - Store settings in `chatbotConfig` field
+    - Update isPublic flag in database when toggled
+
+2. **Further improve UX for publication status:**
+    - Load previously saved publication state when opening interface
+    - Synchronize link display with toggle state
+    - Add automatic state update on toggle
+
+This work improves the publication interface to align with Flowise design patterns and fixes several redundant or confusing UI elements. The next phase will focus on properly integrating with the database for state persistence.

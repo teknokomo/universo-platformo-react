@@ -7,6 +7,9 @@ import MinimalLayout from '@/layout/MinimalLayout'
 import Loadable from '@/ui-component/loading/Loadable'
 import AuthGuard from './AuthGuard'
 
+// Universo Platformo | AR.js Viewer
+const ARView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pages/public/ARView.tsx')))
+
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@/views/up-uniks/UnikList')))
@@ -198,5 +201,17 @@ const AuthRoutes = {
     ]
 }
 
-export { AuthRoutes }
+// Universo Platformo | AR.js Public Routes
+const ARPublicRoutes = {
+    path: '/p',
+    element: <MinimalLayout />,
+    children: [
+        {
+            path: ':id',
+            element: <ARView />
+        }
+    ]
+}
+
+export { AuthRoutes, ARPublicRoutes }
 export default MainRoutes

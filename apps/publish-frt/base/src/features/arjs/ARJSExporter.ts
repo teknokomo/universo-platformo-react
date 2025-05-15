@@ -51,6 +51,13 @@ class ARJSExporter {
             throw new Error('Scene is required for HTML generation')
         }
 
+        // Для совместимости с потоковой генерацией
+        // Если сцена содержит узлы, нужно преобразовать их в UPDL сцену
+        if ('nodes' in scene) {
+            console.log('📱 [ARJSExporter.generateHTML] Converting from nodes to UPDL scene format')
+            scene = this.extractSceneFromUPDLNodes(scene as any)
+        }
+
         // Defaults
         const title = options.title || 'AR.js Scene'
         const markerType = options.markerType || 'pattern'
@@ -77,12 +84,218 @@ class ARJSExporter {
     }
 
     /**
+     * Преобразует узлы UPDL в сцену для AR.js
+     * @param data Объект с узлами UPDL
+     * @returns Объект сцены UPDL
+     */
+    extractSceneFromUPDLNodes(data: any): UPDLScene {
+        console.log('📱 [ARJSExporter.extractSceneFromUPDLNodes] Processing nodes', {
+            nodeCount: data.nodes?.length || 0
+        })
+
+        // Получаем информацию о потоке из данных
+        const flowId = data.id || 'unknown-flow'
+        const flowName = data.name || 'Unnamed AR.js Scene'
+
+        // Создаем базовую сцену
+        const scene: UPDLScene = {
+            id: flowId,
+            name: flowName,
+            objects: [],
+            cameras: [],
+            lights: []
+        }
+
+        // Если нет узлов, возвращаем сцену по умолчанию
+        if (!data.nodes || !Array.isArray(data.nodes) || data.nodes.length === 0) {
+            console.warn('📱 [ARJSExporter.extractSceneFromUPDLNodes] No nodes found, returning default scene')
+            return this.createDefaultScene(flowId, flowName)
+        }
+
+        // Фильтруем и обрабатываем узлы UPDL
+        const nodes = data.nodes || []
+
+        // Проходим по всем узлам и извлекаем данные для AR.js
+        nodes.forEach((node: any, index: number) => {
+            try {
+                if (!node || !node.type) return
+
+                console.log(`📱 [ARJSExporter.extractSceneFromUPDLNodes] Processing node ${index}:`, node.id || 'unknown', node.type)
+
+                // Извлекаем данные из узла
+                const nodeData = node.data || {}
+
+                // Определяем тип узла и добавляем соответствующий объект
+                if (node.type.toLowerCase().includes('object')) {
+                    // Добавляем 3D объект
+                    const position = nodeData.position || { x: 0, y: 0, z: 0 }
+                    const rotation = nodeData.rotation || { x: 0, y: 0, z: 0 }
+                    const scale = nodeData.scale || { x: 1, y: 1, z: 1 }
+                    const color = nodeData.color || '#FF0000'
+
+                    // Преобразуем цвет из строки hex в компоненты RGB (0-1)
+                    const hexToRgb = (hex: string) => {
+                        const r = parseInt(hex.slice(1, 3), 16) / 255
+                        const g = parseInt(hex.slice(3, 5), 16) / 255
+                        const b = parseInt(hex.slice(5, 7), 16) / 255
+                        return { r, g, b }
+                    }
+
+                    const rgbColor = typeof color === 'string' ? hexToRgb(color) : { r: 1, g: 0, b: 0 }
+
+                    // Определяем тип объекта (box, sphere, cylinder)
+                    let objectType = 'box'
+                    if (node.type.toLowerCase().includes('sphere')) {
+                        objectType = 'sphere'
+                    } else if (node.type.toLowerCase().includes('cylinder')) {
+                        objectType = 'cylinder'
+                    }
+
+                    scene.objects.push({
+                        id: node.id || `object-${index}`,
+                        name: nodeData.name || `Object ${index}`,
+                        type: objectType,
+                        position,
+                        rotation,
+                        scale,
+                        color: rgbColor
+                    })
+                } else if (node.type.toLowerCase().includes('camera')) {
+                    // Добавляем камеру
+                    scene.cameras.push({
+                        id: node.id || `camera-${index}`,
+                        name: nodeData.name || `Camera ${index}`,
+                        type: 'perspective',
+                        position: nodeData.position || { x: 0, y: 0, z: 5 },
+                        rotation: nodeData.rotation || { x: 0, y: 0, z: 0 },
+                        scale: nodeData.scale || { x: 1, y: 1, z: 1 }
+                    })
+                } else if (node.type.toLowerCase().includes('light')) {
+                    // Добавляем источник света
+                    scene.lights.push({
+                        id: node.id || `light-${index}`,
+                        name: nodeData.name || `Light ${index}`,
+                        type: nodeData.type || 'ambient',
+                        color: nodeData.color || { r: 1, g: 1, b: 1 },
+                        intensity: nodeData.intensity || 1.0,
+                        position: nodeData.position || { x: 0, y: 0, z: 0 },
+                        rotation: nodeData.rotation || { x: 0, y: 0, z: 0 },
+                        scale: nodeData.scale || { x: 1, y: 1, z: 1 }
+                    })
+                } else if (node.type.toLowerCase().includes('scene')) {
+                    // Если это узел сцены, извлекаем настройки сцены
+                    // (Например, фон, туман и т.д.)
+                    console.log('📱 [ARJSExporter.extractSceneFromUPDLNodes] Found scene node:', node.id)
+                }
+            } catch (error) {
+                console.error(`📱 [ARJSExporter.extractSceneFromUPDLNodes] Error processing node ${index}:`, error)
+            }
+        })
+
+        // Проверяем, что в сцене есть хотя бы один объект
+        if (scene.objects.length === 0) {
+            console.warn('📱 [ARJSExporter.extractSceneFromUPDLNodes] No objects found, adding default cube')
+            scene.objects.push({
+                id: 'default-cube',
+                name: 'Default Cube',
+                type: 'box',
+                position: { x: 0, y: 0.5, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 },
+                color: { r: 1, g: 0, b: 0 }
+            })
+        }
+
+        // Проверяем, что в сцене есть хотя бы одна камера
+        if (scene.cameras.length === 0) {
+            console.warn('📱 [ARJSExporter.extractSceneFromUPDLNodes] No cameras found, adding default camera')
+            scene.cameras.push({
+                id: 'default-camera',
+                name: 'Default Camera',
+                type: 'perspective',
+                position: { x: 0, y: 0, z: 5 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            })
+        }
+
+        // Проверяем, что в сцене есть хотя бы один источник света
+        if (scene.lights.length === 0) {
+            console.warn('📱 [ARJSExporter.extractSceneFromUPDLNodes] No lights found, adding default ambient light')
+            scene.lights.push({
+                id: 'default-light',
+                name: 'Default Ambient Light',
+                type: 'ambient',
+                color: { r: 1, g: 1, b: 1 },
+                intensity: 0.8,
+                position: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            })
+        }
+
+        console.log('📱 [ARJSExporter.extractSceneFromUPDLNodes] Scene generated:', {
+            objects: scene.objects.length,
+            cameras: scene.cameras.length,
+            lights: scene.lights.length
+        })
+
+        return scene
+    }
+
+    /**
+     * Создает сцену по умолчанию с базовыми объектами
+     * @param id ID сцены
+     * @param name Название сцены
+     * @returns Объект сцены UPDL
+     */
+    createDefaultScene(id: string, name: string): UPDLScene {
+        return {
+            id,
+            name,
+            objects: [
+                {
+                    id: 'default-box',
+                    name: 'Default AR.js Box',
+                    type: 'box',
+                    position: { x: 0, y: 0.5, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 },
+                    color: { r: 1, g: 0, b: 0 }
+                }
+            ],
+            cameras: [
+                {
+                    id: 'default-camera',
+                    name: 'Default AR.js Camera',
+                    type: 'perspective',
+                    position: { x: 0, y: 0, z: 5 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                }
+            ],
+            lights: [
+                {
+                    id: 'default-light',
+                    name: 'Default AR.js Light',
+                    type: 'ambient',
+                    color: { r: 1, g: 1, b: 1 },
+                    intensity: 0.8,
+                    position: { x: 0, y: 0, z: 0 },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: { x: 1, y: 1, z: 1 }
+                }
+            ]
+        }
+    }
+
+    /**
      * Ensures a scene has all required components for AR.js
      * @param scene - UPDL scene to complete
      * @returns Complete UPDL scene for AR.js
      */
     ensureCompleteScene(scene: UPDLScene): UPDLScene {
-        if (!scene) return null as any;
+        if (!scene) return null as any
 
         const updatedScene = { ...scene }
 

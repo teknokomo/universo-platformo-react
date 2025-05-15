@@ -90,6 +90,51 @@
         -   [~] Optimize resource loading
         -   [~] Implement caching where appropriate
 
+-   [~] **Fix AR.js Publication Interface Issues**
+
+    -   [x] Fix initial interface UX issues
+        -   [x] Set initial "Сделать публичным" toggle state to false
+        -   [x] Remove redundant "actions.close" button
+        -   [x] Remove redundant "actions.copyLink" button
+    -   [ ] Integrate with Supabase for publication state persistence
+        -   [ ] Use existing `chat_flow` table for AR.js publication data
+        -   [ ] Store publication settings in `chatbotConfig` field
+        -   [ ] Update isPublic flag in database when toggled
+    -   [ ] Improve UX for publication status
+        -   [ ] Load previously saved publication state on open
+        -   [ ] Sync link display with toggle state
+        -   [ ] Add automatic state update on toggle
+
+-   [ ] **Fix publication interface mode switching**
+
+    -   [ ] Fix ChatBot/AR.js mode switching in APICodeDialog.jsx
+        -   [ ] Analyze current implementation and identify issues
+        -   [ ] Implement correct conditional rendering based on displayMode
+        -   [ ] Ensure ChatBot settings only show in chat mode
+        -   [ ] Ensure AR.js settings only show in AR.js mode
+    -   [ ] Test mode switching with all available publication types
+        -   [ ] Check ChatBot mode functionality
+        -   [ ] Verify AR.js mode settings
+        -   [ ] Test other available modes
+    -   [ ] Add improved error handling for mode switching
+        -   [ ] Implement fallback default mode
+        -   [ ] Add validation for mode selection
+
+-   [ ] **Resolve buildUPDLflow.ts duplication**
+
+    -   [ ] Rename client-side implementation
+        -   [ ] Rename apps/updl-frt/base/src/builders/buildUPDLflow.ts to UPDLFlowBuilder.ts
+        -   [ ] Update implementation to make its purpose clear
+        -   [ ] Add comprehensive documentation
+    -   [ ] Update all references to client-side buildUPDLflow.ts
+        -   [ ] Find all imports using grep or similar tool
+        -   [ ] Update import paths
+        -   [ ] Test all dependent components
+    -   [ ] Clarify responsibilities between server and client implementations
+        -   [ ] Document server-side buildUPDLflow.ts purpose
+        -   [ ] Document client-side UPDLFlowBuilder.ts purpose
+        -   [ ] Ensure no functionality overlap
+
 -   [~] **Connect UPDL Nodes with AR.js Publication**
 
     -   [~] Create UPDL data extraction mechanism

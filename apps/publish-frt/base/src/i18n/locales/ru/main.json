@@ -9,7 +9,8 @@
         "update": "Обновить",
         "loading": "Загрузка...",
         "success": "Успешно",
-        "error": "Ошибка"
+        "error": "Ошибка",
+        "comingSoon": "скоро"
     },
     "navigation": {
         "dashboard": "Панель управления",
@@ -78,7 +79,8 @@
         "general": {
             "cancel": "Отмена",
             "close": "Закрыть",
-            "loading": "Загрузка..."
+            "loading": "Загрузка...",
+            "comingSoon": "скоро"
         },
         "project": {
             "title": "Название проекта"
@@ -151,7 +153,9 @@
         },
         "errors": {
             "failed": "Не удалось опубликовать",
-            "noUPDL": "В этом потоке не найдено узлов UPDL"
+            "noUPDL": "В этом потоке не найдено узлов UPDL",
+            "loadingFailed": "Не удалось загрузить AR сцену",
+            "generationFailed": "Не удалось сгенерировать AR сцену"
         },
         "preview": {
             "title": "Предпросмотр",
@@ -164,6 +168,27 @@
             "instructions": "Как использовать экспортированный код",
             "downloadInstructions": "Скачайте и разместите HTML файл на веб-сервере с HTTPS",
             "copyInstructions": "Скопируйте HTML код и сохраните его в файл с расширением .html"
+        },
+        "arjs": {
+            "generationMode": {
+                "label": "Режим генерации",
+                "streaming": "Потоковая генерация",
+                "pregeneration": "Предварительная генерация",
+                "streamingDescription": "Генерация AR.js в реальном времени на стороне клиента",
+                "pregenerationDescription": "Предварительная генерация AR.js на сервере (в разработке)"
+            },
+            "loading": "Загрузка AR сцены...",
+            "publishedUrl": "Ссылка на публикацию",
+            "copyLink": "Копировать ссылку",
+            "viewAR": "Открыть AR просмотр",
+            "generatingScene": "Генерация AR сцены...",
+            "showMarker": "Покажите этот маркер камере для активации AR"
         }
+    },
+    "arPublication": {
+        "configSaved": "Настройки публикации AR.js сохранены",
+        "saveError": "Ошибка при сохранении настроек",
+        "streamingModeEnabled": "Режим потоковой генерации включен",
+        "publicLinkAvailable": "Публичная ссылка доступна"
     }
 }

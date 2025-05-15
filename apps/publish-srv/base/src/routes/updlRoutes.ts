@@ -33,4 +33,7 @@ router.get('/p/arjs/:id', (req, res) => {
     }
 })
 
+// Новый маршрут для обновления статуса публикации (для потоковой генерации)
+router.post('/publication/status', updlController.updatePublicationStatus)
+
 export default router

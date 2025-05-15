@@ -6659,9 +6659,6 @@ packages:
   '@types/mysql@2.15.26':
     resolution: {integrity: sha512-DSLCOXhkvfS5WNNPbfn2KdICAmk8lLc+/PNvnPnF7gOdMZCxopXduqv0OQ13y/yA/zXTSikZZqVgybUxOEg6YQ==}
 
-  '@types/node-fetch@2.6.11':
-    resolution: {integrity: sha512-24xFj9R5+rfQJLRyM56qh+wnVSYhyXC2tkoBndtY0U+vubqNsYXGjufB2nn8Q6gt0LrARwL6UBtMCSVCwl4B1g==}
-
   '@types/node-fetch@2.6.12':
     resolution: {integrity: sha512-8nneRWKCg3rMtF69nLQJnOYUcbafYeFSjqkw3jCRLsqkWFlHaoQrr5mXmofFGOx3DKn7UfmBMyov8ySvLRVldA==}
 
@@ -17479,7 +17476,7 @@ snapshots:
   '@anthropic-ai/sdk@0.20.9(encoding@0.1.13)':
     dependencies:
       '@types/node': 18.19.23
-      '@types/node-fetch': 2.6.11
+      '@types/node-fetch': 2.6.12
       abort-controller: 3.0.0
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2
@@ -17504,7 +17501,7 @@ snapshots:
   '@anthropic-ai/sdk@0.37.0(encoding@0.1.13)':
     dependencies:
       '@types/node': 18.19.23
-      '@types/node-fetch': 2.6.11
+      '@types/node-fetch': 2.6.12
       abort-controller: 3.0.0
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2
@@ -20644,7 +20641,7 @@ snapshots:
       '@babel/preset-react': 7.25.9(@babel/core@7.24.0)
       '@rollup/plugin-inject': 5.0.5(rollup@3.29.4)
       '@rollup/plugin-json': 6.1.0(rollup@3.29.4)
-      '@types/node-fetch': 2.6.11
+      '@types/node-fetch': 2.6.12
       async-mutex: 0.5.0
       bottleneck: 2.19.5
       crypto-js: 4.2.0
@@ -25266,11 +25263,6 @@ snapshots:
   '@types/mysql@2.15.26':
     dependencies:
       '@types/node': 20.12.12
-
-  '@types/node-fetch@2.6.11':
-    dependencies:
-      '@types/node': 20.12.12
-      form-data: 4.0.1
 
   '@types/node-fetch@2.6.12':
     dependencies:
@@ -30241,7 +30233,7 @@ snapshots:
   groq-sdk@0.5.0(encoding@0.1.13):
     dependencies:
       '@types/node': 18.19.23
-      '@types/node-fetch': 2.6.11
+      '@types/node-fetch': 2.6.12
       abort-controller: 3.0.0
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2
@@ -33858,7 +33850,7 @@ snapshots:
   openai@4.82.0(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.8)(utf-8-validate@6.0.4))(zod@3.24.4):
     dependencies:
       '@types/node': 18.19.23
-      '@types/node-fetch': 2.6.11
+      '@types/node-fetch': 2.6.12
       abort-controller: 3.0.0
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2

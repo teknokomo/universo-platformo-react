@@ -8,26 +8,26 @@
 export const getAuthHeaders = (): Record<string, string> => {
     try {
         // Try to get the token from localStorage
-        const token = localStorage.getItem('supabase.auth.token')
-        if (!token) {
-            console.log('[getAuthHeaders] No auth token found in localStorage')
+        // Universo Platformo | Changed localStorage key to 'token' to align with main app
+        const tokenString = localStorage.getItem('token')
+        if (!tokenString) {
+            console.warn(
+                "[getAuthHeaders] No auth token found in localStorage using key 'token'. Also tried 'supabase.auth.token' previously."
+            )
             return {}
         }
 
-        try {
-            const authData = JSON.parse(token)
-            const accessToken = authData?.currentSession?.access_token
-
-            if (accessToken) {
-                console.log('[getAuthHeaders] Auth token found, adding to headers')
-                return {
-                    Authorization: `Bearer ${accessToken}`
-                }
+        // Universo Platformo | Assuming the token stored under 'token' is the direct access token string
+        // No need to parse it as JSON like the Supabase token structure
+        if (tokenString) {
+            console.log("[getAuthHeaders] Auth token string found with key 'token', adding to headers.")
+            return {
+                Authorization: `Bearer ${tokenString}`
             }
-        } catch (parseError) {
-            console.error('[getAuthHeaders] Failed to parse auth token:', parseError)
         }
 
+        // Fallback or further checks can be added here if needed
+        console.warn('[getAuthHeaders] Token string was present but evaluated to false, returning empty headers.')
         return {}
     } catch (error) {
         console.error('[getAuthHeaders] Error accessing localStorage:', error)

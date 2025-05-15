@@ -235,4 +235,50 @@ export class UPDLController {
             })
         }
     }
+
+    /**
+     * Обновляет статус публикации для потоковой генерации
+     * @param req Запрос Express
+     * @param res Ответ Express
+     */
+    public async updatePublicationStatus(req: Request, res: Response): Promise<void> {
+        try {
+            const { flowId, isPublic, unikId, technology, generationMode, ...otherOptions } = req.body
+
+            console.log('📡 [UPDLController.updatePublicationStatus] Updating publication status:', {
+                flowId,
+                isPublic,
+                technology,
+                generationMode
+            })
+
+            if (!flowId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Flow ID is required'
+                })
+                return
+            }
+
+            // Здесь можно добавить запись в базу данных о статусе публикации
+            // Для MVP просто возвращаем успешный ответ
+
+            res.status(200).json({
+                success: true,
+                message: 'Publication status updated',
+                flowId,
+                isPublic,
+                technology: technology || 'arjs',
+                generationMode: generationMode || 'streaming',
+                publicationId: `${flowId}-publication`,
+                timestamp: new Date().toISOString()
+            })
+        } catch (error) {
+            console.error('Error updating publication status:', error)
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
 }
