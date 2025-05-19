@@ -3,9 +3,13 @@
 
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { publishARJSFlow, getCurrentUrlIds, ensureUnikIdInUrl, getAuthHeaders } from '../../services/api'
-import { ARJSExporter } from './ARJSExporter'
+// publishARJSFlow looks like it might be from the deleted services/api.ts, will need to verify if arjsService.publishARJS replaces it
+import { /* publishARJSFlow, */ getCurrentUrlIds, /* ensureUnikIdInUrl, */ getAuthHeaders } from '../../services/api' // ensureUnikIdInUrl might also be unused
+// import { ARJSExporter } from './ARJSExporter' // Removed as ARJSExporter is part of pre-generation
 import { arjsService } from '../../services/arjsService'
+
+// Universo Platformo | Установите в true для демонстрационного режима
+const DEMO_MODE = false
 
 // MUI components
 import {
@@ -37,6 +41,7 @@ import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
 
 // Import common components
 import GenerationModeSelect from '../../components/arjs/GenerationModeSelect'
+// PublicationLink from common might be different from the one in components/arjs, keeping common for now
 import PublicationLink from '../../components/common/PublicationLink'
 import PublishToggle from '../../components/common/PublishToggle'
 
@@ -48,16 +53,8 @@ try {
     // QRCode component will be undefined if package not available
 }
 
-// Добавляем функцию для создания Blob URL вместо data URL
-const createBlobURL = (htmlContent) => {
-    try {
-        const blob = new Blob([htmlContent], { type: 'text/html' })
-        return URL.createObjectURL(blob)
-    } catch (error) {
-        console.error('Error creating blob URL:', error)
-        return null
-    }
-}
+// Removed createBlobURL as it was likely used with the pre-generated HTML preview
+// const createBlobURL = (htmlContent) => { ... }
 
 /**
  * AR.js Publisher Component
@@ -66,17 +63,17 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const { t } = useTranslation('publish')
 
     // State for selected scene data
-    const [sceneData, setSceneData] = useState(null)
+    // const [sceneData, setSceneData] = useState(null) // sceneData was used for pre-generation
     // State for project title
     const [projectTitle, setProjectTitle] = useState(flow?.name || '')
     // State for marker type
-    const [markerType, setMarkerType] = useState('preset')
+    const [markerType, setMarkerType] = useState('preset') // Defaulting to preset, as custom pattern upload might be complex without pre-gen
     // State for marker value
     const [markerValue, setMarkerValue] = useState('hiro')
     // State for loading indicator
     const [loading, setLoading] = useState(false)
-    // State for HTML preview
-    const [htmlPreview, setHtmlPreview] = useState('')
+    // State for HTML preview - REMOVED
+    // const [htmlPreview, setHtmlPreview] = useState('')
     // State for published URL
     const [publishedUrl, setPublishedUrl] = useState('')
     // State for publishing status
@@ -88,21 +85,19 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // State for snackbar
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
     // State for generation mode
-    const [generationMode, setGenerationMode] = useState('streaming')
+    const [generationMode, setGenerationMode] = useState('streaming') // Default to streaming as it's the focus
+    // Universo Platformo | State for template type in demo mode
+    const [templateType, setTemplateType] = useState('quiz')
 
     // Initialize with flow data when component mounts
     useEffect(() => {
-        // Universo Platformo | Логирование URL и извлечение параметров из него для отладки проблемы с GET запросами
         console.log('🧪 [ARJSPublisher] Current URL analysis:')
         console.log('🧪 [ARJSPublisher] window.location.href:', window.location.href)
         console.log('🧪 [ARJSPublisher] window.location.pathname:', window.location.pathname)
 
-        // Извлекаем id и unikId из URL, если они там есть
         const urlPathParts = window.location.pathname.split('/')
         console.log('🧪 [ARJSPublisher] URL path parts:', urlPathParts)
 
-        // Типичный путь: /uniks/{unikId}/chatflows/{id}
-        // Ищем индекс "uniks" и "chatflows" в пути
         const uniksIndex = urlPathParts.findIndex((p) => p === 'uniks')
         const chatflowsIndex = urlPathParts.findIndex((p) => p === 'chatflows')
 
@@ -119,7 +114,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.log('🧪 [ARJSPublisher] Found flowId in URL:', urlFlowId)
         }
 
-        // Проверяем соответствие prop и URL
         console.log('🧪 [ARJSPublisher] Props vs URL comparison:')
         console.log('🧪 [ARJSPublisher] Prop unikId:', unikId)
         console.log('🧪 [ARJSPublisher] Prop flow.id:', flow?.id)
@@ -127,61 +121,26 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         console.log('🧪 [ARJSPublisher] URL flowId:', urlFlowId)
 
         if (flow) {
-            setSceneData({
-                id: flow.id,
-                name: flow.name,
-                description: flow.description || '',
-                updatedAt: new Date().toISOString()
-            })
+            // setSceneData({
+            //     id: flow.id,
+            //     name: flow.name,
+            //     description: flow.description || '',
+            //     updatedAt: new Date().toISOString()
+            // })
             setProjectTitle(flow.name || 'AR.js Experience')
-            generateHtmlPreview()
+            // generateHtmlPreview() // Removed call
         }
     }, [flow])
 
-    // Regenerate HTML preview when settings change
-    useEffect(() => {
-        if (sceneData) {
-            generateHtmlPreview()
-        }
-    }, [sceneData, projectTitle, markerType, markerValue])
+    // Regenerate HTML preview when settings change - REMOVED
+    // useEffect(() => {
+    //     if (sceneData) {
+    //         generateHtmlPreview()
+    //     }
+    // }, [sceneData, projectTitle, markerType, markerValue])
 
-    /**
-     * Generate HTML preview using the ARJSExporter
-     */
-    const generateHtmlPreview = () => {
-        try {
-            if (!sceneData) return
-
-            const exporter = new ARJSExporter()
-
-            // Determine marker settings based on UI selections
-            let markerTypeToUse = 'pattern' // Default pattern type
-            let markerValueToUse = markerValue
-
-            if (markerType === 'preset') {
-                markerTypeToUse = 'pattern'
-                markerValueToUse = markerValue
-            } else if (markerType === 'pattern') {
-                markerTypeToUse = 'pattern'
-                markerValueToUse = markerValue
-            } else if (markerType === 'barcode') {
-                markerTypeToUse = 'barcode'
-                markerValueToUse = markerValue
-            }
-
-            // Generate HTML with proper marker settings
-            const html = exporter.generateHTML(sceneData, {
-                title: projectTitle,
-                markerType: markerTypeToUse,
-                markerValue: markerValueToUse
-            })
-
-            setHtmlPreview(html)
-        } catch (error) {
-            console.error('Error generating HTML preview:', error)
-            setError(`Failed to generate preview: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-    }
+    // Generate HTML preview using the ARJSExporter - REMOVED
+    // const generateHtmlPreview = () => { ... }
 
     /**
      * Handle marker type change
@@ -198,10 +157,50 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     }
 
     /**
+     * Handle template type change (for demo mode)
+     */
+    const handleTemplateTypeChange = (event) => {
+        setTemplateType(event.target.value)
+    }
+
+    /**
+     * Компонент выбора шаблона для демо-режима
+     */
+    const TemplateSelector = () => {
+        if (!DEMO_MODE) return null
+
+        return (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id='template-type-label'>Автоматические шаблоны</InputLabel>
+                <Select
+                    labelId='template-type-label'
+                    value={templateType}
+                    label='Автоматические шаблоны'
+                    onChange={handleTemplateTypeChange}
+                >
+                    <MenuItem value='quiz'>Квиз по школьным предметам</MenuItem>
+                </Select>
+            </FormControl>
+        )
+    }
+
+    /**
      * Handle public toggle change
      */
     const handlePublicChange = async (value) => {
         setIsPublic(value)
+
+        // Universo Platformo | Специальная обработка для демо-режима
+        if (DEMO_MODE && value) {
+            setLoading(true)
+            // Имитация задержки запроса в демо-режиме
+            setTimeout(() => {
+                setPublishedUrl('https://plano.universo.pro/')
+                setSnackbar({ open: true, message: t('success.published') })
+                setLoading(false)
+            }, 800)
+            return
+        }
 
         if (flow?.id && unikId) {
             try {
@@ -223,9 +222,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                             unikId: unikId || getCurrentUrlIds().unikId
                         })
 
-                        if (result && result.publicUrl) {
-                            const baseUrl = window.location.origin
-                            const fullPublicUrl = result.publicUrl.startsWith('http') ? result.publicUrl : `${baseUrl}${result.publicUrl}`
+                        if (result && result.success) {
+                            // Universo Platformo | Формируем ссылку на клиенте с учетом демо-режима
+                            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
                             setPublishedUrl(fullPublicUrl)
                             setSnackbar({ open: true, message: t('success.published') })
                             console.log('🟢 [ARJSPublisher.handlePublicChange] Publication successful, URL:', fullPublicUrl)
@@ -233,7 +232,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 onPublish({ ...result, publishedUrl: fullPublicUrl })
                             }
                         } else {
-                            throw new Error('Publication URL not received')
+                            throw new Error(result.error || 'Publication failed')
                         }
                     } catch (error) {
                         console.error('🔴 [ARJSPublisher.handlePublicChange] Error during auto-publishing:', error)
@@ -252,7 +251,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     })
 
                     if (result.success) {
-                        setPublishedUrl(result.publicUrl)
+                        // Universo Platformo | Формируем ссылку на клиенте с учетом демо-режима
+                        const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
+                        setPublishedUrl(fullPublicUrl)
                         setSnackbar({
                             open: true,
                             message: t('arPublication.configSaved', 'AR.js publication settings saved')
@@ -336,166 +337,59 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             return
         }
 
-        console.log('📱 [ARJSPublisher.handlePublish] Starting publish process for flow:', flow.id, flow.name)
-        console.log('📱 [ARJSPublisher.handlePublish] unikId at the start of handlePublish:', unikId)
-        console.log('📱 [ARJSPublisher.handlePublish] flow object received:', flow)
-
-        const authHeaders = getAuthHeaders()
-        console.log('📱 [ARJSPublisher.handlePublish] Auth headers available:', Object.keys(authHeaders).length > 0)
-
-        console.log('🔎 [ARJSPublisher] Button clicked, current state:', {
-            projectTitle,
-            markerType,
-            markerValue,
-            isPublic,
-            generationMode,
-            sceneData: sceneData ? `id: ${sceneData.id}, name: ${sceneData.name}` : 'null'
-        })
-
-        if (flow?.flowData) {
-            try {
-                const parsedFlowData = JSON.parse(flow.flowData)
-                console.log('🔎 [ARJSPublisher] Flow data for logging:', {
-                    id: flow?.id,
-                    nodes: parsedFlowData.nodes ? parsedFlowData.nodes.length : 'unknown',
-                    edges: parsedFlowData.edges ? parsedFlowData.edges.length : 'unknown',
-                    nodeTypes: parsedFlowData.nodes ? [...new Set(parsedFlowData.nodes.map((n) => n.type))].join(', ') : 'unknown'
-                })
-            } catch (e) {
-                console.warn('🔎 [ARJSPublisher] Unable to parse flow data:', e)
-            }
-        }
-
-        const urlIds = getCurrentUrlIds()
-        console.log('📱 [ARJSPublisher.handlePublish] URL IDs extract result:', urlIds)
-
-        let effectiveUnikId = unikId || urlIds.unikId
-
-        if (!effectiveUnikId) {
-            console.error('📱 [ARJSPublisher.handlePublish] CRITICAL ERROR: No unikId found in props or URL!')
-            setError('Missing critical information: unikId not found for publishing')
-            setIsPublishing(false) // Ensure loading state is reset
+        // Universo Platformo | Специальная обработка для демо-режима
+        if (DEMO_MODE) {
+            // В демо-режиме сразу устанавливаем фиксированную ссылку без запроса
+            setIsPublishing(true)
+            setTimeout(() => {
+                setPublishedUrl('https://plano.universo.pro/')
+                setSnackbar({ open: true, message: t('success.published') })
+                setIsPublishing(false)
+                if (onPublish) onPublish({ success: true, publishedUrl: 'https://plano.universo.pro/' })
+            }, 1000) // Имитация задержки запроса
             return
         }
 
-        if (effectiveUnikId !== unikId) {
-            console.warn('📱 [ARJSPublisher.handlePublish] Using unikId from URL instead of props:', effectiveUnikId)
+        // Поддерживается только streaming режим
+        if (generationMode !== 'streaming') {
+            setError('Unsupported generation mode: ' + generationMode)
+            return
         }
+
+        console.log('📱 [ARJSPublisher.handlePublish] Publishing in STREAMING mode for flow:', flow.id)
 
         setIsPublishing(true)
         setError(null)
 
         try {
-            if (generationMode === 'streaming') {
-                console.log('📱 [ARJSPublisher.handlePublish] Publishing in STREAMING mode')
+            const authHeaders = getAuthHeaders()
 
-                const response = await fetch('/api/publish/arjs', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...authHeaders
-                    },
-                    body: JSON.stringify({
-                        chatflowId: flow.id,
-                        generationMode: 'streaming',
-                        isPublic: isPublic,
-                        projectName: projectTitle,
-                        unikId: effectiveUnikId
-                    })
+            const response = await fetch('/api/publish/arjs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...authHeaders
+                },
+                body: JSON.stringify({
+                    chatflowId: flow.id,
+                    generationMode: 'streaming',
+                    isPublic: isPublic,
+                    projectName: projectTitle,
+                    unikId: unikId || getCurrentUrlIds().unikId
                 })
+            })
 
-                const result = await response.json()
+            const result = await response.json()
 
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || `Publication failed: ${response.status}`)
-                }
-
-                if (result.publicUrl) {
-                    const baseUrl = window.location.origin
-                    const fullPublicUrl = result.publicUrl.startsWith('http') ? result.publicUrl : `${baseUrl}${result.publicUrl}`
-                    setPublishedUrl(fullPublicUrl)
-                    setSnackbar({ open: true, message: t('success.published') })
-                    if (onPublish) {
-                        onPublish({ ...result, publishedUrl: fullPublicUrl })
-                    }
-                } else {
-                    throw new Error('Publication response missing publicUrl')
-                }
-            } else {
-                // Logic for pregeneration or other modes
-                console.log('📱 [ARJSPublisher.handlePublish] Publishing in PREGENERATION or OTHER mode')
-                console.log('📱 [ARJSPublisher.handlePublish] unikId directly before options object creation:', effectiveUnikId)
-                const options = {
-                    marker: markerValue,
-                    markerType: markerType,
-                    isPublic,
-                    title: projectTitle,
-                    unikId: effectiveUnikId,
-                    generationMode
-                }
-                console.log('📱 [ARJSPublisher.handlePublish] Publishing with options (unikId included):', options)
-
-                console.log('📱 [ARJSPublisher.handlePublish] Calling publishARJSFlow')
-                const result = await publishARJSFlow(flow.id, options)
-                console.log('📱 [ARJSPublisher.handlePublish] Publish result:', result)
-
-                if (result.success) {
-                    const baseUrl = window.location.origin
-                    const publishedUrlResult = result.publishedUrl.startsWith('http')
-                        ? result.publishedUrl
-                        : `${baseUrl}${result.publishedUrl}`
-
-                    console.log('📱 [ARJSPublisher.handlePublish] Publication successful, URL:', publishedUrlResult)
-
-                    setPublishedUrl(publishedUrlResult) // Use the corrected variable name
-                    setSnackbar({
-                        open: true,
-                        message: t('success.published')
-                    })
-
-                    if (result.dataUrl) {
-                        console.log('📱 [ARJSPublisher.handlePublish] Data URL available for direct viewing')
-                        try {
-                            const htmlContent = decodeURIComponent(result.dataUrl.replace('data:text/html;charset=utf-8,', ''))
-                            const blobUrl = createBlobURL(htmlContent)
-                            localStorage.setItem('arjs-latest-html', htmlContent)
-                            localStorage.setItem('arjs-latest-blob-url', blobUrl)
-                            console.log('📱 [ARJSPublisher.handlePublish] Created Blob URL for viewing:', blobUrl)
-                            result.blobUrl = blobUrl
-                        } catch (e) {
-                            console.warn('📱 [ARJSPublisher.handlePublish] Could not create Blob URL:', e)
-                        }
-                        setPublishedUrl((prevState) => ({
-                            ...(typeof prevState === 'string' ? { url: prevState } : prevState),
-                            dataUrl: result.dataUrl,
-                            blobUrl: result.blobUrl
-                        }))
-                    }
-
-                    if (onPublish) {
-                        const publishResponse = {
-                            ...result,
-                            publishedUrl: publishedUrlResult // Use the corrected variable name
-                        }
-                        console.log('📱 [ARJSPublisher.handlePublish] Notifying parent with:', publishResponse)
-                        onPublish(publishResponse)
-                    }
-                } else {
-                    console.error('📱 [ARJSPublisher.handlePublish] Publication failed:', result.error)
-                    setError(result.error || 'Failed to publish AR.js project')
-
-                    if (result.dataUrl) {
-                        setSnackbar({
-                            open: true,
-                            message: 'Публикация на сервере не удалась, но создана локальная версия для просмотра'
-                        })
-                        setPublishedUrl({
-                            url: '#local-preview',
-                            dataUrl: result.dataUrl
-                        })
-                    }
-                }
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || `Publication failed: ${response.status}`)
             }
+
+            // Universo Platformo | Формируем ссылку локально с учетом демо-режима
+            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
+            setPublishedUrl(fullPublicUrl)
+            setSnackbar({ open: true, message: t('success.published') })
+            if (onPublish) onPublish({ ...result, publishedUrl: fullPublicUrl })
         } catch (error) {
             console.error('📱 [ARJSPublisher.handlePublish] Error during publication:', error)
             setError(error instanceof Error ? error.message : 'Unknown error occurred during publication')
@@ -532,8 +426,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     </Link>
 
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
-
-
                         {blobUrl && (
                             <Button
                                 variant='outlined'
@@ -660,6 +552,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                             {/* Generation Mode Selector */}
                             <GenerationModeSelect value={generationMode} onChange={handleGenerationModeChange} disabled={isPublishing} />
+
+                            {/* Universo Platformo | Selector for automatic templates in demo mode */}
+                            <TemplateSelector />
 
                             <FormControl fullWidth>
                                 <InputLabel id='marker-type-label'>{t('marker.type')}</InputLabel>

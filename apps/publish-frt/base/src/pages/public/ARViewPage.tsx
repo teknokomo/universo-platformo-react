@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { ARJSExporter } from '../../features/arjs/ARJSExporter'
+import { ARJSExporter, MarkerType } from '../../features/arjs/ARJSExporter'
 import { UPDLScene } from '../../api/updlApi'
 
 /**
@@ -53,7 +53,7 @@ const ARViewPage: React.FC = () => {
                 // Используем явное приведение типа, так как тип содержит узлы, а не стандартную структуру UPDLScene
                 const html = exporter.generateHTML(nodeData as any, {
                     title: chatflow.name || 'AR.js Experience',
-                    markerType: 'pattern',
+                    markerType: MarkerType.PATTERN,
                     markerValue: 'hiro'
                 })
 

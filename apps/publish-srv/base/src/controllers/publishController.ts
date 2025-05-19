@@ -10,83 +10,29 @@ import { UPDLSceneGraph } from '../interfaces/UPDLTypes'
 import fetch from 'node-fetch'
 import logger from '../utils/logger'
 
-const publishService = new PublishService()
-
-/**
- * Создает базовую UPDL сцену с примитивами для демонстрационных целей
- * @param chatflowId ID чат-флоу для которого нужно создать сцену
- * @returns UPDL сцена с базовыми объектами
- */
-async function createDemoUPDLScene(chatflowId: string): Promise<UPDLSceneGraph> {
+// Universo Platformo | Import buildUPDLflow функцию для потоковой генерации из UPDL-узлов
+let utilBuildUPDLflow: any
+{
+    const baseDir = __dirname
+    // Пытаемся загрузить из собранного dist
     try {
-        console.log(`[createDemoUPDLScene] Building demo UPDL scene for chatflowId: ${chatflowId}`)
-
-        // Создаем базовую сцену AR
-        const basicScene: UPDLSceneGraph = {
-            id: chatflowId,
-            name: `AR Scene for ${chatflowId}`,
-            settings: {
-                background: '#FFFFFF'
-            },
-            objects: [
-                // Красный куб в центре
-                {
-                    id: 'cube-1',
-                    type: 'box',
-                    name: 'Red Cube',
-                    position: { x: 0, y: 0.5, z: 0 },
-                    scale: { x: 1, y: 1, z: 1 },
-                    color: '#FF0000'
-                },
-                // Синяя сфера справа
-                {
-                    id: 'sphere-1',
-                    type: 'sphere',
-                    name: 'Blue Sphere',
-                    position: { x: 1.5, y: 0.5, z: 0 },
-                    radius: 0.5,
-                    color: '#0000FF'
-                },
-                // Зеленый цилиндр слева
-                {
-                    id: 'cylinder-1',
-                    type: 'cylinder',
-                    name: 'Green Cylinder',
-                    position: { x: -1.5, y: 0.5, z: 0 },
-                    radius: 0.5,
-                    height: 1,
-                    color: '#00FF00'
-                },
-                // Плоскость внизу
-                {
-                    id: 'plane-1',
-                    type: 'plane',
-                    name: 'Ground Plane',
-                    position: { x: 0, y: 0, z: 0 },
-                    rotation: { x: -90, y: 0, z: 0 },
-                    width: 4,
-                    height: 4,
-                    color: '#CCCCCC'
-                }
-            ],
-            lights: [
-                {
-                    id: 'light-1',
-                    type: 'directional',
-                    position: { x: 1, y: 1, z: 1 },
-                    intensity: 0.8,
-                    color: '#FFFFFF'
-                }
-            ]
+        const prodPath = path.resolve(baseDir, '../../../../../packages/server/dist/utils/buildUPDLflow')
+        utilBuildUPDLflow = require(prodPath).utilBuildUPDLflow
+        logger.info(`[PublishController] Imported utilBuildUPDLflow from ${prodPath}`)
+    } catch (e1) {
+        // Пытаемся загрузить из исходников src
+        try {
+            const devPath = path.resolve(baseDir, '../../../../../packages/server/src/utils/buildUPDLflow')
+            utilBuildUPDLflow = require(devPath).utilBuildUPDLflow
+            logger.info(`[PublishController] Imported utilBuildUPDLflow from ${devPath}`)
+        } catch (e2) {
+            logger.error('[PublishController] Failed to import utilBuildUPDLflow:', e2)
+            logger.warn('[PublishController] utilBuildUPDLflow not available, streamUPDL fallback will be used')
         }
-
-        console.log(`[createDemoUPDLScene] Created UPDL scene with ${basicScene.objects?.length || 0} objects`)
-        return basicScene
-    } catch (error) {
-        console.error('Error creating demo UPDL scene:', error)
-        throw new Error(`Failed to create demo UPDL scene for chatflowId: ${chatflowId}`)
     }
 }
+
+const publishService = new PublishService()
 
 /**
  * Publishes a project
@@ -165,14 +111,6 @@ interface ExportResult {
     assets?: any[]
 }
 
-// ExporterInfo interface
-interface ExporterInfo {
-    id: string
-    name: string
-    description: string
-    supportedFeatures: string[]
-}
-
 // PublishResult interface
 export interface PublishResult {
     success: boolean
@@ -186,32 +124,26 @@ export interface PublishResult {
 }
 
 /**
- * Controller class for handling advanced publishing operations
+ * Контроллер для работы с публикациями
  */
 export class PublishController {
-    // Directory where published content is stored
+    /**
+     * Directory to store publication data
+     */
     private publicationDir: string
 
-    // Directory where publication metadata is stored
-    private metadataDir: string
-
     /**
-     * Constructor for PublishController
-     * @param options Controller options
+     * Constructor
      */
     constructor(
         options: {
             publicationDir?: string
-            metadataDir?: string
         } = {}
     ) {
         // Set publication directory (default: public/p)
         this.publicationDir = options.publicationDir || path.resolve(process.cwd(), 'public', 'p')
 
-        // Set metadata directory (default: data/publications)
-        this.metadataDir = options.metadataDir || path.resolve(process.cwd(), 'data', 'publications')
-
-        // Create directories if they don't exist
+        // Create directory if it doesn't exist
         this.ensureDirectoriesExist()
     }
 
@@ -222,215 +154,6 @@ export class PublishController {
         if (!fs.existsSync(this.publicationDir)) {
             fs.mkdirSync(this.publicationDir, { recursive: true })
         }
-
-        if (!fs.existsSync(this.metadataDir)) {
-            fs.mkdirSync(this.metadataDir, { recursive: true })
-        }
-    }
-
-    /**
-     * Get available exporters for publishing
-     */
-    public async getExporters(req: Request, res: Response): Promise<void> {
-        try {
-            // Universo Platformo | Add logging
-            logger.info(`[PublishController] getExporters called. Request query: ${JSON.stringify(req.query)}`)
-            // Mock exporters data for now
-            // In a real implementation, this would come from a service or repository
-            const exporters = [
-                {
-                    id: 'html',
-                    name: 'HTML',
-                    description: 'Export as standalone HTML application',
-                    features: ['offline', 'responsive'],
-                    iconUrl: '/assets/exporters/html-icon.svg'
-                },
-                {
-                    id: 'react',
-                    name: 'React App',
-                    description: 'Export as React application',
-                    features: ['component-based', 'reusable'],
-                    iconUrl: '/assets/exporters/react-icon.svg'
-                }
-            ]
-
-            res.status(200).json({ exporters })
-        } catch (error) {
-            console.error('Error fetching exporters:', error)
-            res.status(500).json({
-                error: 'Failed to retrieve exporters',
-                details: error instanceof Error ? error.message : 'Unknown error'
-            })
-        }
-    }
-
-    /**
-     * Publish a UPDL flow with the specified exporter
-     */
-    public async publishFlow(req: Request, res: Response): Promise<void> {
-        try {
-            const { flow, exporterId, options } = req.body
-
-            // Validate input
-            if (!flow || !exporterId) {
-                res.status(400).json({ error: 'Missing required parameters: flow or exporterId' })
-                return
-            }
-
-            // Validate flow structure
-            if (!this.validateFlow(flow)) {
-                res.status(400).json({ error: 'Invalid UPDL flow structure' })
-                return
-            }
-
-            // Process the publishing request
-            // In a real implementation, this would call a service to handle the actual publishing
-            const result = await this.processPublish(flow, exporterId, options)
-
-            res.status(result.success ? 200 : 400).json(result)
-        } catch (error) {
-            console.error('Error publishing flow:', error)
-            res.status(500).json({
-                success: false,
-                error: 'Failed to publish flow',
-                details: error instanceof Error ? error.message : 'Unknown error'
-            })
-        }
-    }
-
-    /**
-     * Validate if a flow follows the UPDL structure
-     */
-    private validateFlow(flow: UPDLFlow): boolean {
-        // Basic validation
-        if (!flow.id || !flow.name || !flow.version || !flow.graph) {
-            return false
-        }
-
-        // Graph validation
-        if (!Array.isArray(flow.graph.nodes) || !Array.isArray(flow.graph.edges)) {
-            return false
-        }
-
-        // Additional validations could be added here
-
-        return true
-    }
-
-    /**
-     * Process the publishing operation
-     */
-    private async processPublish(flow: UPDLFlow, exporterId: string, options?: Record<string, any>): Promise<PublishResult> {
-        // Mock implementation
-        // In a real implementation, this would call appropriate exporter services
-
-        // Simulate processing time
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Success case for demo
-        if (exporterId === 'html' || exporterId === 'react') {
-            return {
-                success: true,
-                publishedUrl: `https://example.com/published/${flow.id}`,
-                metadata: {
-                    exporterId,
-                    timestamp: new Date().toISOString(),
-                    options
-                }
-            }
-        }
-
-        // Failure case for unsupported exporters
-        return {
-            success: false,
-            error: `Exporter '${exporterId}' is not supported`,
-            metadata: {
-                timestamp: new Date().toISOString()
-            }
-        }
-    }
-
-    /**
-     * Get available markers for AR.js
-     * @param req Express request
-     * @param res Express response
-     */
-    async getARJSMarkers(req: Request, res: Response): Promise<void> {
-        try {
-            // Return mock marker data
-            const markers = [
-                { id: 'hiro', name: 'Hiro', imageUrl: '/assets/markers/hiro.png' },
-                { id: 'kanji', name: 'Kanji', imageUrl: '/assets/markers/kanji.png' },
-                { id: 'custom', name: 'Custom', imageUrl: '/assets/markers/custom.png' }
-            ]
-
-            res.status(200).json({ markers })
-        } catch (error) {
-            console.error('Error fetching AR.js markers:', error)
-            res.status(500).json({
-                error: 'Failed to retrieve AR.js markers',
-                details: error instanceof Error ? error.message : 'Unknown error'
-            })
-        }
-    }
-
-    /**
-     * Save publication metadata to disk
-     * @param publicationId Unique publication ID
-     * @param metadata Publication metadata
-     */
-    private savePublicationMetadata(publicationId: string, metadata: any): void {
-        const metadataPath = path.join(this.metadataDir, `${publicationId}.json`)
-        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
-    }
-
-    /**
-     * Mock function to simulate flow export
-     * @param flowId Flow ID to export
-     * @param exporterId Exporter ID
-     * @param options Export options
-     * @param publicationId Publication ID
-     */
-    private async mockExportFlow(flowId: string, exporterId: string, options: any, publicationId: string): Promise<void> {
-        // Create publication directory
-        const publicationPath = path.join(this.publicationDir, publicationId)
-        if (!fs.existsSync(publicationPath)) {
-            fs.mkdirSync(publicationPath, { recursive: true })
-        }
-
-        // Create mock index.html file
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Published UPDL Flow</title>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    .container { max-width: 800px; margin: 0 auto; }
-                    .info { background: #f0f0f0; padding: 15px; border-radius: 5px; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Published UPDL Flow</h1>
-                    <div class="info">
-                        <p><strong>Flow ID:</strong> ${flowId}</p>
-                        <p><strong>Exporter:</strong> ${exporterId}</p>
-                        <p><strong>Publication ID:</strong> ${publicationId}</p>
-                        <p><strong>Publication Date:</strong> ${new Date().toISOString()}</p>
-                    </div>
-                    <div id="app">Loading UPDL application...</div>
-                </div>
-                <script>
-                    console.log('UPDL Flow viewer initialized');
-                </script>
-            </body>
-            </html>
-        `
-
-        fs.writeFileSync(path.join(publicationPath, 'index.html'), htmlContent)
     }
 
     /**
@@ -455,44 +178,25 @@ export class PublishController {
             }
 
             // Генерируем уникальный идентификатор публикации
-            const publicationId = uuidv4()
+            // В режиме потоковой генерации используем сам chatflowId для упрощения
+            const publicationId = generationMode === 'streaming' ? chatflowId : uuidv4()
             const createdAt = new Date().toISOString()
 
-            // Создаем метаданные публикации
-            const publicationMetadata = {
-                publicationId,
-                chatflowId,
-                projectName: projectName || `AR.js Project ${new Date().toLocaleDateString()}`,
-                generationMode: generationMode || 'streaming',
-                isPublic: isPublic !== undefined ? isPublic : true,
-                createdAt,
-                updatedAt: createdAt
-            }
-
-            // Сохраняем метаданные
-            this.savePublicationMetadata(publicationId, publicationMetadata)
-
-            // Universo Platformo | Унифицированный формат URL для потокового и предварительного режимов
-            // Формат /p/{id} используется для обоих режимов генерации AR.js
-            const publicUrl = `/p/${publicationId}`
-
-            // Отправляем успешный ответ
-            res.status(201).json({
+            // Universo Platformo | Возвращаем метаданные о публикации
+            res.status(200).json({
                 success: true,
                 publicationId,
-                publicUrl,
-                projectName: publicationMetadata.projectName,
-                createdAt,
                 chatflowId,
-                isPublic: publicationMetadata.isPublic,
-                generationMode: publicationMetadata.generationMode
+                projectName: projectName || `AR.js for ${chatflowId}`,
+                generationMode: generationMode || 'streaming',
+                isPublic: isPublic !== undefined ? isPublic : true,
+                createdAt
             })
         } catch (error) {
-            console.error('Error publishing AR.js project:', error)
+            logger.error(`[PublishController] Error publishing AR.js:`, error)
             res.status(500).json({
                 success: false,
-                error: 'Failed to publish AR.js project',
-                details: error instanceof Error ? error.message : 'Unknown error'
+                error: error instanceof Error ? error.message : 'Unknown error during publication'
             })
         }
     }
@@ -504,9 +208,7 @@ export class PublishController {
      */
     public async getARJSPublications(req: Request, res: Response): Promise<void> {
         // Universo Platformo | Add logging
-        logger.info(
-            `[PublishController] getARJSPublications called. ChatflowId: ${req.params.chatflowId}, Query: ${JSON.stringify(req.query)}`
-        )
+        logger.info(`[PublishController] getARJSPublications called. ChatflowId: ${req.params.chatflowId}`)
         try {
             const { chatflowId } = req.params
 
@@ -518,10 +220,9 @@ export class PublishController {
                 return
             }
 
-            // Получаем список метаданных публикаций
-            const publications = this.getPublicationMetadataForChatflow(chatflowId)
-
-            res.status(200).json(publications)
+            // В режиме потоковой генерации не храним данные в JSON-файлах
+            // Возвращаем пустой массив, так как локальное хранение отключено
+            res.status(200).json([])
         } catch (error) {
             console.error('Error fetching AR.js publications:', error)
             res.status(500).json({
@@ -551,83 +252,10 @@ export class PublishController {
                 return
             }
 
-            // Получаем метаданные публикации
-            const metadata = this.getPublicationMetadata(publicationId)
-
-            if (!metadata) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Publication not found'
-                })
-                return
-            }
-
-            // Проверяем, является ли публикация публичной
-            if (!metadata.isPublic) {
-                res.status(403).json({
-                    success: false,
-                    error: 'This publication is not public'
-                })
-                return
-            }
-
-            // Получаем данные чатфлоу из основного API Flowise
-            let chatflowData
-            try {
-                // Universo Platformo | Получаем данные чатфлоу через API
-                const PORT = process.env.PORT || 8080
-                const chatflowResponse = await fetch(`http://localhost:${PORT}/api/chatflows/${metadata.chatflowId}`)
-
-                if (!chatflowResponse.ok) {
-                    throw new Error(`Failed to fetch chatflow: ${chatflowResponse.status}`)
-                }
-
-                const chatflow = await chatflowResponse.json()
-
-                if (!chatflow || !chatflow.flowData) {
-                    throw new Error('Invalid chatflow data')
-                }
-
-                // Парсим flowData и извлекаем данные UPDL
-                const flowData = typeof chatflow.flowData === 'string' ? JSON.parse(chatflow.flowData) : chatflow.flowData
-
-                // Используем данные UPDL узлов для формирования сцены
-                // Это будет развито в будущих обновлениях для более полного извлечения сцены
-                console.log(
-                    `[getPublicARJSPublication] Successfully fetched chatflow ${metadata.chatflowId} with ${
-                        flowData.nodes?.length || 0
-                    } nodes`
-                )
-
-                // Временное решение: создаем демо-сцену на основе полученных данных
-                chatflowData = await createDemoUPDLScene(metadata.chatflowId)
-            } catch (error) {
-                console.error('Error fetching chatflow data:', error)
-
-                // Если не удалось получить данные, создаем простую сцену
-                console.log('[getPublicARJSPublication] Creating fallback UPDL scene')
-                chatflowData = {
-                    id: metadata.chatflowId,
-                    name: metadata.projectName,
-                    objects: [
-                        {
-                            id: 'default-cube',
-                            type: 'box',
-                            position: { x: 0, y: 0.5, z: 0 },
-                            color: '#FF0000',
-                            scale: { x: 1, y: 1, z: 1 }
-                        }
-                    ]
-                }
-            }
-
-            // Возвращаем данные для публикации
-            res.status(200).json({
-                publicationId,
-                projectName: metadata.projectName,
-                updlScene: chatflowData,
-                generationMode: metadata.generationMode || 'streaming'
-            })
+            // Для режима потоковой генерации перенаправляем запрос к streamUPDL
+            // Так как publicationId в streaming режиме = chatflowId
+            logger.info(`[PublishController] Using streamUPDL for AR.js public data retrieval in streaming mode`)
+            return await this.streamUPDL(req, res)
         } catch (error) {
             console.error('Error fetching AR.js publication data:', error)
             res.status(500).json({
@@ -657,20 +285,8 @@ export class PublishController {
                 return
             }
 
-            // Проверяем существование публикации
-            const metadata = this.getPublicationMetadata(publicationId)
-
-            if (!metadata) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Publication not found'
-                })
-                return
-            }
-
-            // Удаляем метаданные публикации
-            this.deletePublicationMetadata(publicationId)
-
+            // В режиме потоковой генерации не храним данные в JSON-файлах,
+            // поэтому просто возвращаем успешный ответ
             res.status(200).json({
                 success: true,
                 message: 'Publication deleted successfully'
@@ -709,30 +325,11 @@ export class PublishController {
                 return
             }
 
-            // Получаем существующие метаданные
-            const metadata = this.getPublicationMetadata(publicationId)
-
-            if (!metadata) {
-                res.status(404).json({
-                    success: false,
-                    error: 'Publication not found'
-                })
-                return
-            }
-
-            // Обновляем метаданные
-            const updatedMetadata = {
-                ...metadata,
-                ...updates,
-                updatedAt: new Date().toISOString()
-            }
-
-            // Сохраняем обновленные метаданные
-            this.savePublicationMetadata(publicationId, updatedMetadata)
-
-            res.status(200).json({
-                success: true,
-                ...updatedMetadata
+            // В режиме потоковой генерации не храним данные в JSON-файлах,
+            // возвращаем сообщение, что обновление недоступно
+            res.status(400).json({
+                success: false,
+                error: 'Update not available in streaming mode'
             })
         } catch (error) {
             console.error('Error updating AR.js publication:', error)
@@ -745,73 +342,60 @@ export class PublishController {
     }
 
     /**
-     * Получение метаданных публикации по ID
-     * @param publicationId ID публикации
-     * @returns Метаданные публикации или null, если не найдено
+     * Получает данные UPDL сцены для потоковой генерации AR.js
+     * @param req Запрос
+     * @param res Ответ
      */
-    private getPublicationMetadata(publicationId: string): any | null {
-        try {
-            const metadataPath = path.join(this.metadataDir, `${publicationId}.json`)
-            if (fs.existsSync(metadataPath)) {
-                const metadataRaw = fs.readFileSync(metadataPath, 'utf-8')
-                return JSON.parse(metadataRaw)
-            }
-            return null
-        } catch (error) {
-            console.error(`Error reading metadata for publication ${publicationId}:`, error)
-            return null
+    public async streamUPDL(req: Request, res: Response): Promise<void> {
+        const id = req.params.chatflowId || req.params.publicationId
+        logger.info(`[PublishController] streamUPDL called for ID: ${id}`)
+
+        if (!id) {
+            res.status(400).json({
+                success: false,
+                error: 'Missing ID parameter'
+            })
+            return
         }
-    }
 
-    /**
-     * Получение списка метаданных публикаций для chatflow
-     * @param chatflowId ID потока чата
-     * @returns Массив метаданных публикаций
-     */
-    private getPublicationMetadataForChatflow(chatflowId: string): any[] {
         try {
-            // Проверяем наличие директории
-            if (!fs.existsSync(this.metadataDir)) {
-                return []
-            }
+            // Вызываем модифицированную функцию, которая теперь работает только с ID
+            logger.info(`[PublishController] Calling utilBuildUPDLflow for id: ${id}`)
+            const result = await utilBuildUPDLflow(id)
 
-            // Получаем список файлов
-            const files = fs.readdirSync(this.metadataDir)
+            // Определяем, какую сцену использовать (предпочитаем updlScene)
+            const sceneToUse = result.updlScene || result.scene
 
-            // Фильтруем и читаем метаданные
-            const publications = files
-                .filter((file) => file.endsWith('.json'))
-                .map((file) => {
-                    try {
-                        const metadataRaw = fs.readFileSync(path.join(this.metadataDir, file), 'utf-8')
-                        return JSON.parse(metadataRaw)
-                    } catch (error) {
-                        console.error(`Error reading metadata file ${file}:`, error)
-                        return null
-                    }
+            if (!sceneToUse || !sceneToUse.objects || sceneToUse.objects.length === 0) {
+                logger.warn(`[PublishController] utilBuildUPDLflow returned empty scene for ${id}`)
+
+                // Если сцена пустая, возвращаем ошибку
+                res.status(404).json({
+                    success: false,
+                    error: 'UPDL scene not found or empty'
                 })
-                .filter((metadata) => metadata && metadata.chatflowId === chatflowId)
-
-            return publications
-        } catch (error) {
-            console.error(`Error getting publications for chatflow ${chatflowId}:`, error)
-            return []
-        }
-    }
-
-    /**
-     * Удаление метаданных публикации
-     * @param publicationId ID публикации
-     */
-    private deletePublicationMetadata(publicationId: string): void {
-        try {
-            const metadataPath = path.join(this.metadataDir, `${publicationId}.json`)
-            if (fs.existsSync(metadataPath)) {
-                fs.unlinkSync(metadataPath)
+                return
             }
+
+            // Возвращаем реальную сцену из UPDL-узлов
+            res.status(200).json({
+                ...result,
+                publicationId: id,
+                projectName: sceneToUse.name || `AR.js for ${id}`,
+                generationMode: 'streaming',
+                success: true,
+                updlScene: sceneToUse,
+                scene: sceneToUse
+            })
         } catch (error) {
-            console.error(`Error deleting metadata for publication ${publicationId}:`, error)
-            throw error
+            logger.error(`[PublishController] Error in streamUPDL:`, error)
+
+            // В случае ошибки возвращаем ошибку, а не демо-сцену
+            res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve UPDL scene',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
         }
     }
 }

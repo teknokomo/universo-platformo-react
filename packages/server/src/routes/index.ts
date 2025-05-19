@@ -62,6 +62,8 @@ import chatflowsStreamingRouter from './chatflows-streaming'
 import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
 import upAuth from '../middlewares/up-auth'
+// Universo Platformo | AR.js publishing integration
+import publishRoutes from '../../../../apps/publish-srv/base/dist/routes/publishRoutes'
 
 const router = express.Router()
 
@@ -125,6 +127,9 @@ router.use('/uniks', upAuth.ensureAuth, upUniksRouter)
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots
 router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
+
+// Universo Platformo | AR.js Publishing Routes
+router.use('/publish', publishRoutes)
 
 // Universo Platformo | Special route for AR bots
 router.use('/arbot/:id', (req, res, next) => {

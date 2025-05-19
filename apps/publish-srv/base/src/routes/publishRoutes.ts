@@ -43,9 +43,6 @@ router.use((req, res, next) => {
  */
 // router.get('/projects/:id', projectPublishController.getPublishedProject)
 
-// Получение списка доступных экспортеров
-router.get('/exporters', (req, res) => publishController.getExporters(req, res))
-
 // Маршруты публикации AR.js
 // 1. Создание новой публикации AR.js (защищен авторизацией)
 router.post('/arjs', authMiddleware, (req, res) => publishController.publishARJS(req, res))

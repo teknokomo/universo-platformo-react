@@ -72,6 +72,7 @@ export const arjsService = {
      * @param flowId ID потока
      */
     getARViewUrl(flowId: string): string {
-        return publishService.getPublicUrl(flowId, 'arjs')
+        // Упрощенная генерация URL без посредников
+        return `${window.location.origin}/p/${flowId}`
     }
 }

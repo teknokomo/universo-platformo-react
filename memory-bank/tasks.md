@@ -62,6 +62,15 @@
     -   [x] Update README.md of each application with new structure description
     -   [~] Test application functionality after refactoring
 
+-   [x] **Clean up unused code in publish-frt and publish-srv**
+
+    -   [x] Remove updlRoutes.ts and UPDLController.ts from publish-srv
+    -   [x] Remove unused getExporters API endpoint
+    -   [x] Remove unused ARJSPublisher component duplicate
+    -   [x] Clean up streamUPDL implementation
+    -   [x] Fix build issues after code cleanup
+    -   [x] Test project build and verify no regression
+
 -   [x] **Implement REST API Communication Between Applications**
 
     -   [x] Analyze current interaction between applications

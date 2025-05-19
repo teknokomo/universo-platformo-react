@@ -341,62 +341,62 @@ export const executeUPDLFlow = async ({
 
 /**
  * Build/Data Preparation for execute function for UPDL flows.
- * This is the main entry point for processing UPDL flows from requests.
- * @param {Request} req The Express request object.
- * @param {boolean} isInternal Whether the call is internal.
+ * This function loads the chatflow directly from the database using the provided ID.
+ * @param {string} chatflowId The ID of the chatflow to build.
  * @returns {Promise<UPDLFlowResult>} The result of the UPDL flow execution.
  */
-export const utilBuildUPDLflow = async (req: Request, isInternal: boolean = false): Promise<UPDLFlowResult> => {
+export const utilBuildUPDLflow = async (chatflowId: string): Promise<UPDLFlowResult> => {
     try {
-        const chatflowid = req.params.id
+        logger.info(`[server]: utilBuildUPDLflow called for chatflow ID: ${chatflowId}`)
 
-        // Для прямого запроса из обычного REST API, используем более простой путь
-        if (req.originalUrl && (req.originalUrl.includes('/api/v1/updl/') || req.originalUrl.includes('/api/updl/'))) {
-            return await handleDirectUPDLRequest(req, chatflowid)
+        // Get access to the AppDataSource via the Express app
+        const app = getRunningExpressApp()
+        const dataSource = app.AppDataSource as DataSource
+
+        // Find the ChatFlow by ID
+        const chatFlowRepository = dataSource.getRepository(ChatFlow)
+        const chatFlow = await chatFlowRepository.findOne({
+            where: { id: chatflowId }
+        })
+
+        if (!chatFlow) {
+            throw new Error(`ChatFlow not found: ${chatflowId}`)
         }
 
-        // This would normally fetch from database or use a more robust ChatFlow object.
-        // For now, we'll use the request body if available for flowData.
-        const chatflow = req.body.flowData
-            ? ({
-                  id: chatflowid,
-                  flowData: JSON.stringify(req.body.flowData),
-                  name: 'UPDL Flow from Request'
-                  // Add other necessary ChatFlow properties if needed by executeUPDLFlow
-              } as ChatFlow)
-            : ({
-                  // Minimal mock if flowData is not in body - this case might need more robust handling
-                  id: chatflowid,
-                  flowData: '{"nodes":[],"edges":[]}',
-                  name: 'Empty UPDL Flow'
-              } as ChatFlow)
+        if (!chatFlow.flowData) {
+            throw new Error(`ChatFlow has no flowData: ${chatflowId}`)
+        }
 
-        const httpProtocol = req.get('x-forwarded-proto') || req.protocol
-        const baseURL = `${httpProtocol}://${req.get('host')}`
-        const incomingInput = req.body || {}
-        const chatId = incomingInput.chatId || incomingInput.overrideConfig?.sessionId || uuidv4()
+        logger.info(`[server]: Found chatflow: ${chatFlow.name} (ID: ${chatFlow.id})`)
 
-        // Prepare data for executeUPDLFlow.
-        // The IExecuteFlowParams might need to be adjusted if executeUPDLFlow evolves.
+        // Generate a unique chat ID for this execution
+        const chatId = uuidv4()
+
+        // Prepare parameters for executeUPDLFlow
         const executeData: IExecuteFlowParams = {
-            incomingInput,
-            chatflow,
+            chatflow: chatFlow,
+            incomingInput: {
+                question: '', // Add empty question to satisfy IncomingInput interface
+                streaming: false
+            },
             chatId,
-            baseURL,
-            isInternal,
-            componentNodes: getRunningExpressApp()?.nodesPool.componentNodes || {},
-            appDataSource: getRunningExpressApp()?.AppDataSource as any,
-            // Add other IExecuteFlowParams if they become necessary for executeUPDLFlow
-            telemetry: getRunningExpressApp()?.telemetry,
-            cachePool: getRunningExpressApp()?.cachePool,
-            sseStreamer: getRunningExpressApp()?.sseStreamer
-        } as IExecuteFlowParams
+            componentNodes: app.nodesPool.componentNodes || {},
+            appDataSource: dataSource,
+            telemetry: app.telemetry,
+            cachePool: app.cachePool,
+            sseStreamer: app.sseStreamer,
+            baseURL: '', // Add empty baseURL to satisfy IExecuteFlowParams interface
+            isInternal: true // Add isInternal flag to satisfy IExecuteFlowParams interface
+        }
 
+        // Execute the UPDL flow with the prepared parameters
         const result = await executeUPDLFlow(executeData)
+
+        logger.info(`[server]: UPDL flow execution completed for chatflow ID: ${chatflowId}`)
 
         return result
     } catch (error) {
-        logger.error('[server]: UPDL Build Error:', error)
+        logger.error(`[server]: UPDL Build Error for chatflow ID ${chatflowId}:`, error)
         throw error
     }
 }

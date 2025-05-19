@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme, StyledEngineProvider } from '@mui/material/
 import { CssBaseline } from '@mui/material'
 import AppRoutes from './routes'
 
-// Создаем тему для нашего приложения
+// Universo Platformo | Create a theme for our application
 const defaultTheme = createTheme({
     palette: {
         primary: {

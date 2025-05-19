@@ -5,7 +5,6 @@ import express from 'express'
 import path from 'path'
 import cors from 'cors'
 import publishRoutes from './routes/publishRoutes'
-import updlRoutes from './routes/updlRoutes'
 import { errorHandler } from './middlewares/errorHandler'
 
 /**
@@ -27,7 +26,6 @@ export function initializePublishServer(app?: express.Application): express.Appl
 
     // Set up API routes
     expressApp.use('/api/publish', publishRoutes)
-    expressApp.use('/api/updl', updlRoutes)
 
     // Маршрут '/p/:id' теперь обрабатывается в основном приложении через React Router
     // Закомментировано, чтобы избежать конфликтов

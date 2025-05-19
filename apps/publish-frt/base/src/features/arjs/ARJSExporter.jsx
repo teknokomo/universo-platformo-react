@@ -196,3 +196,10 @@ const ARJSExporter = ({ flow, unikId }) => {
 
 export { ARJSExporter }
 export default ARJSExporter
+
+// Universo Platformo | Runtime export for MarkerType enum
+export const MarkerType = {
+    PATTERN: 'pattern',
+    BARCODE: 'barcode',
+    CUSTOM: 'custom'
+}

@@ -129,6 +129,48 @@ The Publish Frontend module integrates with:
 -   Publish Backend (publish-srv) for storing and serving published content
 -   Main Flowise UI through custom tabs and components
 
+## Актуальная реализация потоковой генерации
+
+В текущей версии фронтенда публикации используется исключительно потоковая генерация AR.js из UPDL-узлов без предварительной генерации проекта. Порядок работы:
+
+1. Компонент `ARJSPublisher` отправляет POST-запрос на эндпоинт `/api/publish/arjs` с параметром `chatflowId` и выбранными настройками (генерация в режиме `streaming`).
+2. Данные поступают в контроллер бэкенда `PublishController.publishARJS`, где формируется ответ с `publicationId` и `publicUrl`.
+3. React Router перехватывает маршрут `/ar/{publicationId}` и отображает компонент `ARViewPage`.
+4. В компоненте `ARViewPage` выполняется GET-запрос к `/api/publish/arjs/public/:publicationId`, который возвращает JSON со сценой UPDL (`updlScene` или `scene`).
+5. Полученная сцена конвертируется утилитой `UPDLToARJSConverter` в A-Frame элементы и отрисовывается в браузере.
+
+## Интеграция с базовым Flowise
+
+-   Фронтенд обращается к бэкенду публикации, который импортирует функцию `utilBuildUPDLflow` из пакета `packages/server`.
+-   `utilBuildUPDLflow` извлекает из базы данных Flowise чат-флоу по `chatflowId`, собирает UPDL-узлы и выполняет их через внутренний механизм `executeUPDLFlow`.
+-   Результирующий объект сцены возвращается фронтенду в виде JSON, что позволяет избежать хранения промежуточных HTML-файлов.
+
+## Основные используемые файлы
+
+-   `src/main.tsx`, `src/App.tsx` — инициализация приложения и роутинг.
+-   `src/routes/index.tsx` — настройка React Router для публичного просмотра.
+-   `src/features/arjs/ARJSPublisher.jsx` — UI для выбора параметров и запуска потоковой генерации.
+-   `src/pages/public/ARViewPage.tsx`, `src/pages/public/ARView.tsx` — отображение AR-сцены.
+-   `src/services/arjsService.ts`, `src/services/publishService.ts` — сервисный слой для запросов к API публикации.
+-   `src/api/ARJSPublishApi.ts`, `src/api/httpClient.ts` — HTTP-клиенты.
+-   `src/utils/UPDLToARJSConverter.ts` — конвертация UPDL-схемы в элементы AR.js.
+-   `src/interfaces/UPDLTypes.ts`, `src/interfaces/publishTypes.ts` — общие интерфейсы данных сцены.
+
+## Устаревшие и неиспользуемые файлы
+
+-   Папка `src/features/aframe` и файлы `AFrameExporter.ts` — логика для A-Frame офлайн-экспорта не задействована.
+-   Папка `src/features/exporters` и файлы `BaseExporter.ts`, `ExporterFactory.ts`, `BaseAFrameExporter.ts` — генерация статического HTML/ZIP-файлов пока не используется.
+-   Генераторы и конвертеры в `src/features/arjs/generators` — реализуют альтернативные подходы предварительной генерации.
+-   Служебные файлы и README внутри `features/aframe` и `features/exporters` устарели и не поддерживаются.
+
+## Известные проблемы
+
+-   Документация в README и комментариях часто не соответствует текущей архитектуре.
+-   Нет автоматического удаления неиспользуемых модулей и зависимостей, что приводит к избыточному размеру бандла.
+-   Отсутствует централизованный конфиг управления режимами генерации (pre-generated vs streaming).
+-   Не реализована поддержка офлайн-режима и кэширования сцен для повторного использования.
+-   Не унифицированы стили кода и стандарты именования в разных модулях.
+
 ---
 
 _Universo Platformo | Publication Frontend Module_

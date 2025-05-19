@@ -26,13 +26,16 @@ apps/publish-srv/base/
 
 ### REST API
 
-The server provides REST API for publication and project management:
+The server provides REST API for AR.js publication:
 
 #### Endpoints:
 
--   `POST /api/publish/projects` - Project publication
--   `GET /api/publish/projects` - Get list of published projects
--   `GET /api/publish/projects/:id` - Get specific project by ID
+-   `GET /api/publish/exporters` - List available exporters
+-   `POST /api/publish/arjs` - Create a new AR.js publication (streaming mode)
+-   `GET /api/publish/arjs/chatflow/:chatflowId` - List AR.js publications for a chatflow
+-   `GET /api/publish/arjs/public/:publicationId` - Retrieve public AR.js publication data
+-   `DELETE /api/publish/arjs/:publicationId` - Delete an AR.js publication
+-   `PATCH /api/publish/arjs/:publicationId` - Update an AR.js publication
 
 ### Setup and Development
 
@@ -83,66 +86,7 @@ When adding new API endpoints, follow these steps:
 3. Implement the service logic in the `services` directory
 4. Add any necessary utility functions in the `utils` directory
 
-## API Endpoints
-
-The server exposes API endpoints for:
-
--   Managing published content
--   Handling user permissions for publications
--   Serving published resources
--   Tracking analytics for content visibility
-
-## Overview
-
-The Publish Backend module provides server-side functionality for storing, managing, and serving published content. It handles:
-
--   Storing published projects
--   Generating and managing URLs for public access
--   Serving static content for AR/VR/3D applications
--   API endpoints for the frontend components
-
-## Directory Structure
-
-```
-publish-srv/
-└── base/
-    ├── src/               # Source code
-    │   ├── controllers/   # Request handlers
-    │   ├── routes/        # API route definitions
-    │   └── utils/         # Utility functions
-    ├── dist/              # Compiled output
-    ├── package.json       # Dependencies
-    ├── tsconfig.json      # TypeScript configuration
-    └── gulpfile.ts        # Build pipeline
-```
-
-## Key Features
-
-### Publication Management
-
--   Store publication metadata and content
--   Generate unique URLs for accessing published content
--   Handle public/private visibility settings
--   Support for expiration dates
-
-### Content Serving
-
--   Serve static HTML, JS, and assets
--   Support for marker-based AR through AR.js
--   Optimized delivery for mobile devices
--   Simple caching mechanisms
-
-### API Endpoints
-
-The backend exposes several REST endpoints including:
-
--   **GET** `/api/v1/publish/exporters` — List available exporters
--   **GET** `/api/v1/publish/arjs/markers` — Get supported AR.js marker presets
--   **POST** `/api/updl/publish/arjs` — Publish UPDL flow to AR.js
--   **GET** `/api/updl/publication/arjs/:publishId` — Retrieve publication metadata
--   **GET** `/p/{uuid}` — Serve published content
-
-## Development
+## Module Usage
 
 From the project root:
 
@@ -164,6 +108,47 @@ The Publish Backend module integrates with:
 -   Publish Frontend (publish-frt) for user interface
 -   UPDL Backend (updl-srv) for scene data processing
 -   Main Flowise server through mounted routes
+
+## Актуальная реализация потоковой генерации
+
+В текущей версии бэкенда публикации используется потоковая генерация AR.js через UPDL-узлы без сохранения промежуточных HTML-файлов. Порядок работы:
+
+1. Фронтенд посылает POST-запрос на `/api/publish/arjs` с параметром `chatflowId` и настройками (режим `streaming`).
+2. В `PublishController.publishARJS` создаётся `publicationId` и `publicUrl`, отправляется ответ клиенту.
+3. При GET-запросе на `/api/publish/arjs/public/:publicationId` вызывается метод `getPublicARJSPublication`, он перенаправляет на `streamUPDL`.
+4. Метод `streamUPDL` вызывает `utilBuildUPDLflow(chatflowId)`, извлекает чат-флоу из базы Flowise, строит и выполняет UPDL-узлы через `executeUPDLFlow`.
+5. Полученная сцена (`updlScene` или `scene`) возвращается клиенту в виде JSON. Если сцена пуста или происходит ошибка, используется демонстрационная сцена `createDemoUPDLScene`.
+
+## Интеграция с базовым Flowise
+
+-   `PublishController` импортирует `utilBuildUPDLflow` из `packages/server/dist/utils/buildUPDLflow` (или из исходников).
+-   `utilBuildUPDLflow` получает данные из базы Flowise, строит и выполняет UPDL-узлы, возвращает `UPDLFlowResult`.
+-   RTT клиента и сериализация JSON позволяют фронтенду строить AR-сцену без файловой системы.
+
+## Основные используемые файлы
+
+-   `src/server.ts`, `src/routes/publishRoutes.ts`, `src/routes/updlRoutes.ts` — настройка серверных маршрутов.
+-   `src/controllers/publishController.ts` — основные методы публикации AR.js и streamUPDL.
+-   `src/controllers/UPDLController.ts` — устаревшие методы для mock-публикации UPDL.
+-   `src/utils/logger.ts` — логирование запросов и ошибок.
+-   `src/middlewares/authMiddleware.ts` — защита приватных маршрутов.
+-   `src/interfaces` — типы данных `PublishResult`, `UPDLFlowResult`, `UPDLSceneGraph`.
+-   `packages/server/dist/utils/buildUPDLflow.js` — функция построения потоковой UPDL-генерации.
+
+## Устаревшие и неиспользуемые файлы
+
+-   `src/controllers/UPDLController.ts` — контроллер mock-публикации UPDL не используется в реальном режиме `publish/srv`.
+-   Маршруты в `updlRoutes.ts` — большинство маршрутов (например, `/updl/scene`, `/updl/publish/arjs`) не подключены во время инициализации сервера.
+-   `services/`, `models/`, `validators/` — вещи, связанные с mock-базой в `UPDLController`, не используются.
+-   `src/routes/updlRoutes.ts` — файлы для старой модели mock-публикации, приоритет имеет `publishRoutes`.
+
+## Известные проблемы
+
+-   Метод `UPDLController.publishUPDLToARJS` остаётся в кодовой базе, но не используется в потоке `publish-srv`.
+-   Неочевидное разделение между `publishRoutes` и `updlRoutes`, дублирование логики публикации.
+-   Нет автоматической очистки директории `public/p` от старых публикаций в режиме single-session.
+-   Отсутствует единый конфиг для управления режимом хранения (файловая система vs потоковая генерация).
+-   Нет тестов для проверки работы потоковой генерации и обработки ошибок.
 
 ---
 
