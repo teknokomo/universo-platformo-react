@@ -1,6 +1,6 @@
 # Publication Frontend (publish-frt)
 
-Frontend for publication system in Universo Platformo.
+Frontend for the AR.js publication system in Universo Platformo.
 
 ## Project Structure
 
@@ -18,16 +18,15 @@ apps/publish-frt/base/
    ├─ api/                 # HTTP clients for backend interaction
    ├─ components/          # Presentation React components
    ├─ features/            # Functional modules for different technologies
-   │  ├─ arjs/             # AR.js components and logic
-   │  ├─ aframe/           # A-Frame components and logic
-   │  └─ exporters/        # Exporters for different platforms
+   │  └─ arjs/             # AR.js components and logic
    ├─ hooks/               # Custom React hooks
-   ├─ store/               # State management
+   ├─ pages/               # Page components
+   │  └─ public/           # Public pages (ARViewPage)
+   ├─ routes/              # Route configuration
    ├─ i18n/                # Localization
    ├─ services/            # Service layer for backend communication
-   ├─ utils/               # Utility functions
+   ├─ utils/               # Utility functions (UPDLToARJSConverter)
    ├─ interfaces/          # TypeScript types and interfaces
-   ├─ configs/             # Configurations
    └─ index.ts             # Entry point
 
 ```
@@ -39,9 +38,10 @@ Direct imports from other applications are not used to ensure modularity and ind
 
 ### Main Components
 
--   `Publisher` - Main component for project publication
--   `ExporterSelector` - Exporter selection component
--   `ARJSPublisher` - Specialized component for AR.js project publication
+-   `ARJSPublisher` - Component for AR.js project streaming publication
+-   `ARJSExporter` - Demo component for AR.js code export
+-   `ARViewPage` - Page component for AR scene viewing
+-   `UPDLToARJSConverter` - Utility for converting UPDL data to AR.js HTML
 
 ### Setup and Development
 
@@ -94,82 +94,88 @@ When adding new components or pages, follow these practices:
 
 ## Overview
 
-The Publish Frontend module provides UI components and functionality for exporting and publishing UPDL scenes to various platforms, including:
-
--   AR.js for augmented reality
--   A-Frame for virtual reality (future)
--   PlayCanvas for 3D web (future)
--   Three.js for 3D web (future)
+The Publish Frontend module provides UI components and functionality for streaming publication of UPDL scenes to AR.js. The application has been simplified to focus on streaming generation, removing unused components and features.
 
 ## Key Components
 
 ### ARJSPublisher
 
-The ARJSPublisher component provides a comprehensive interface for publishing AR.js scenes, including:
+The ARJSPublisher component provides an interface for publishing AR.js scenes using streaming generation:
 
 -   Project title and description
--   Visibility controls
--   Marker selection
--   Generation type selection (streaming/pre-generated)
+-   Visibility controls (public/private toggle)
+-   Marker selection (currently only "hiro" marker is supported)
 -   QR code for easy mobile access
+-   Generated public URL for sharing
 
 ### ARJSExporter
 
-The ARJSExporter component allows users to export AR.js scenes for offline use, including:
+The ARJSExporter component is a demo component for the "Export" tab, currently with limited functionality:
 
--   HTML code generation
--   File downloads
--   Preview options
+-   HTML code preview
+-   Copy to clipboard function
+-   Download button (demo only)
 
-## Integration
+### ARViewPage
 
-The Publish Frontend module integrates with:
+The ARViewPage component renders AR.js scenes from UPDL data:
 
--   UPDL Frontend (updl-frt) for scene data
--   Publish Backend (publish-srv) for storing and serving published content
--   Main Flowise UI through custom tabs and components
+-   Loads scene data from the backend
+-   Converts UPDL to AR.js HTML using `UPDLToARJSConverter`
+-   Displays the AR scene in an iframe
+-   Handles loading state and errors
 
-## Актуальная реализация потоковой генерации
+### UPDLToARJSConverter
 
-В текущей версии фронтенда публикации используется исключительно потоковая генерация AR.js из UPDL-узлов без предварительной генерации проекта. Порядок работы:
+The UPDLToARJSConverter utility transforms UPDL scene graphs into AR.js HTML:
 
-1. Компонент `ARJSPublisher` отправляет POST-запрос на эндпоинт `/api/publish/arjs` с параметром `chatflowId` и выбранными настройками (генерация в режиме `streaming`).
-2. Данные поступают в контроллер бэкенда `PublishController.publishARJS`, где формируется ответ с `publicationId` и `publicUrl`.
-3. React Router перехватывает маршрут `/ar/{publicationId}` и отображает компонент `ARViewPage`.
-4. В компоненте `ARViewPage` выполняется GET-запрос к `/api/publish/arjs/public/:publicationId`, который возвращает JSON со сценой UPDL (`updlScene` или `scene`).
-5. Полученная сцена конвертируется утилитой `UPDLToARJSConverter` в A-Frame элементы и отрисовывается в браузере.
+-   Converts various 3D object types (box, sphere, cylinder, etc.)
+-   Handles position, rotation, scale, and color
+-   Includes error handling and fallbacks
+-   Adds loading screen and user instructions
 
-## Интеграция с базовым Flowise
+## Workflow
 
--   Фронтенд обращается к бэкенду публикации, который импортирует функцию `utilBuildUPDLflow` из пакета `packages/server`.
--   `utilBuildUPDLflow` извлекает из базы данных Flowise чат-флоу по `chatflowId`, собирает UPDL-узлы и выполняет их через внутренний механизм `executeUPDLFlow`.
--   Результирующий объект сцены возвращается фронтенду в виде JSON, что позволяет избежать хранения промежуточных HTML-файлов.
+The current implementation uses exclusively streaming generation for AR.js from UPDL nodes:
 
-## Основные используемые файлы
+1. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `chatflowId` and selected options.
+2. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata.
+3. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered.
+4. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns a JSON with the UPDL scene data.
+5. The `UPDLToARJSConverter` utility converts the UPDL scene to A-Frame elements and renders them in the browser.
 
--   `src/main.tsx`, `src/App.tsx` — инициализация приложения и роутинг.
--   `src/routes/index.tsx` — настройка React Router для публичного просмотра.
--   `src/features/arjs/ARJSPublisher.jsx` — UI для выбора параметров и запуска потоковой генерации.
--   `src/pages/public/ARViewPage.tsx`, `src/pages/public/ARView.tsx` — отображение AR-сцены.
--   `src/services/arjsService.ts`, `src/services/publishService.ts` — сервисный слой для запросов к API публикации.
--   `src/api/ARJSPublishApi.ts`, `src/api/httpClient.ts` — HTTP-клиенты.
--   `src/utils/UPDLToARJSConverter.ts` — конвертация UPDL-схемы в элементы AR.js.
--   `src/interfaces/UPDLTypes.ts`, `src/interfaces/publishTypes.ts` — общие интерфейсы данных сцены.
+## Integration with Flowise Core
 
-## Устаревшие и неиспользуемые файлы
+-   The frontend interacts with the publication backend, which imports the `utilBuildUPDLflow` function from `packages/server`.
+-   `utilBuildUPDLflow` retrieves the chatflow from the Flowise database by `chatflowId`, assembles UPDL nodes, and executes them.
+-   The resulting scene object is returned to the frontend as JSON, eliminating the need to store intermediate HTML files.
 
--   Папка `src/features/aframe` и файлы `AFrameExporter.ts` — логика для A-Frame офлайн-экспорта не задействована.
--   Папка `src/features/exporters` и файлы `BaseExporter.ts`, `ExporterFactory.ts`, `BaseAFrameExporter.ts` — генерация статического HTML/ZIP-файлов пока не используется.
--   Генераторы и конвертеры в `src/features/arjs/generators` — реализуют альтернативные подходы предварительной генерации.
--   Служебные файлы и README внутри `features/aframe` и `features/exporters` устарели и не поддерживаются.
+## Key Files
 
-## Известные проблемы
+-   `src/routes/index.tsx` — React Router configuration for public viewing
+-   `src/features/arjs/ARJSPublisher.jsx` — UI for selecting parameters and initiating streaming generation
+-   `src/features/arjs/ARJSExporter.jsx` — Demo component for the "Export" tab
+-   `src/pages/public/ARViewPage.tsx` — AR scene display component
+-   `src/api/ARJSPublishApi.ts` — API client for server requests
+-   `src/services/api.ts` — Utilities for authentication and URL handling
+-   `src/utils/UPDLToARJSConverter.ts` — Utility for converting UPDL schema to AR.js elements
+-   `src/interfaces/UPDLTypes.ts` — Interfaces for UPDL scene data
 
--   Документация в README и комментариях часто не соответствует текущей архитектуре.
--   Нет автоматического удаления неиспользуемых модулей и зависимостей, что приводит к избыточному размеру бандла.
--   Отсутствует централизованный конфиг управления режимами генерации (pre-generated vs streaming).
--   Не реализована поддержка офлайн-режима и кэширования сцен для повторного использования.
--   Не унифицированы стили кода и стандарты именования в разных модулях.
+## Demo Mode
+
+For testing and demonstration, the `ARJSPublisher` component has a DEMO_MODE that can be activated by setting the constant `DEMO_MODE = true`. In this mode:
+
+1. Template selection is displayed (currently only one demo template "Quiz")
+2. No real API requests are made during publication
+3. A fixed publication URL is provided
+4. All UI interactions work, but without actual server operations
+
+## Current Limitations
+
+-   No support for offline mode or scene caching for reuse
+-   No optimization for mobile devices
+-   Only the "hiro" marker is currently supported
+-   The Export tab is a demo only, without full HTML/ZIP export functionality
 
 ---
 

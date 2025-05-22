@@ -1,7 +1,6 @@
 // Universo Platformo | Publish Frontend Routes
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import ARView from '../pages/public/ARView'
 import ARViewPage from '../pages/public/ARViewPage'
 
 /**
@@ -11,10 +10,7 @@ const AppRoutes: React.FC = () => {
     return (
         <BrowserRouter>
             <Routes>
-                {/* Публичные маршруты */}
-                <Route path='/ar/:uuid' element={<ARView />} />
-
-                {/* Новый маршрут для потоковой генерации AR.js */}
+                {/* Публичный маршрут для потоковой генерации AR.js */}
                 <Route path='/ar/:flowId' element={<ARViewPage />} />
 
                 {/* Редирект с корневого пути на страницу с ошибкой */}

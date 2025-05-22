@@ -8,7 +8,7 @@ import Loadable from '@/ui-component/loading/Loadable'
 import AuthGuard from './AuthGuard'
 
 // Universo Platformo | AR.js Viewer
-const ARView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pages/public/ARView.tsx')))
+const ARView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pages/public/ARViewPage.tsx')))
 
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
@@ -207,7 +207,7 @@ const ARPublicRoutes = {
     element: <MinimalLayout />,
     children: [
         {
-            path: ':id',
+            path: ':flowId',
             element: <ARView />
         }
     ]

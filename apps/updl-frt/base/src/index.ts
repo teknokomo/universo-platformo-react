@@ -18,9 +18,6 @@ export { BaseUPDLNode } from './nodes/base/BaseUPDLNode'
 export * from './interfaces/UPDLInterfaces'
 export * from './nodes/interfaces'
 
-// Re-export builders
-export * from './builders/SceneBuilder'
-
 // Default module export
 export default {
     initialize,

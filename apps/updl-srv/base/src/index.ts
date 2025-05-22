@@ -45,10 +45,6 @@ export function startServer(port = PORT): express.Application {
     return configuredApp
 }
 
-// Reexport services for external use
-export * from './services/exporters/ExporterManager'
-export * from './services/exporters/ExporterRegistry'
-
 // Start the server if this file is executed directly
 if (require.main === module) {
     startServer()

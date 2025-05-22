@@ -18,11 +18,12 @@ The following steps have been completed in the refactoring process:
     - Updated index.ts
     - Updated README.md
 3. Refactored publish-srv:
-    - Created directories for controllers, services, interfaces, middlewares
+    - Created directories for controllers, routes, interfaces, middlewares
     - Implemented new types and interfaces
     - Implemented REST endpoints and controllers
-    - Implemented basic publication service
-    - Updated server.ts
+    - **Radically simplified codebase, removed all unnecessary components and files**
+    - **Streamlined to minimal MVP for AR.js streaming generation only**
+    - Updated server.ts and index.ts to integrate with main Flowise
     - Updated README.md
 4. Completed asset management restructuring:
     - Created proper icons/ and images/ directories
@@ -51,6 +52,9 @@ The following steps have been completed in the refactoring process:
 -   Each application contains its own interfaces and types
 -   Clearly separated features by technology under the features/ directory
 -   Simplified AR.js Publication interface to make it consistent with Flowise patterns
+-   **Radically simplified publish-srv to include only the minimal functionality needed for AR.js streaming mode**
+-   **Removed all unused components, services, and middlewares from publish-srv**
+-   **Designed publish-srv as a pure extension to the main Flowise server without standalone capabilities**
 
 **Current Sprint**: 0.9.0 pre-alpha (Apr 2025)
 
@@ -84,12 +88,13 @@ We have reorganized the application architecture to improve modularity and separ
     -   HTTP clients in api/ for backend communication
     -   Clear interfaces and types in interfaces/
 
--   **publish-srv**: Backend for publication system (API endpoints, storage)
+-   **publish-srv**: Backend for publication system (API endpoints, minimal UPDL to AR.js support)
 
-    -   Standard structure with controllers/, routes/, services/, etc.
-    -   RESTful API endpoints in routes/
-    -   Business logic in services/
-    -   Clear separation of concerns
+    -   **Minimal structure with only controllers/, routes/, interfaces/, middlewares/**
+    -   **Only three REST API endpoints for AR.js publication**
+    -   **Focused specifically on UPDL streaming generation**
+    -   **Tight integration with main Flowise server**
+    -   **No standalone server capability - designed as an extension only**
 
 -   **updl-frt**: Frontend for UPDL nodes and scene building
 
@@ -106,6 +111,7 @@ This separation:
 -   Simplifies maintenance and development
 -   Enables independent deployment of components
 -   Improves code organization and reduces complexity
+-   **Reduces code duplication by leveraging Flowise core functionality**
 
 ### Current Development Status
 
@@ -115,11 +121,11 @@ Simplifying the AR.js publication architecture and implementing client-side gene
 -   [x] Implemented `UPDLToAFrameConverter` for converting UPDL scenes to A-Frame
 -   [x] Established base exporter architecture with clear responsibilities
 -   [x] Created `ARJSExporter` for generating HTML from UPDL scenes
--   [x] Built server-side `UPDLController` for handling publication requests
--   [x] Added API routes for publishing and listing AR.js projects
 -   [x] Refactored code to clearly separate AR.js and A-Frame implementations
 -   [x] Standardized directory structure across applications
 -   [x] Completed migration from miniapps to features
+-   [x] **Radically simplified publish-srv to minimal MVP for AR.js**
+-   [x] **Removed all unused code, services, and controllers from publish-srv**
 -   [~] Finishing refactoring of updl-frt and updl-srv
 -   [~] Implementing "Streaming" mode for client-side generation
 -   [~] Connecting UPDL nodes directly with publication process
@@ -191,12 +197,15 @@ We have identified several issues with the current publication interface:
     - Ensure all components interact through REST API
     - Maintain clear separation between different applications
     - Use buildUPDLflow.ts (server) as the entry point for UPDL flow processing
+    - **Minimize code duplication by integrating tightly with Flowise core functionality**
 
 ### Architectural Decisions
 
 -   We will focus on "Streaming" mode for AR.js generation before implementing the more complex "Pre-generation" mode
 -   Client-side generation will be the primary approach for MVP
 -   We will use REST API boundaries between all applications following Flowise patterns
+-   **publish-srv will be a minimal extension to the main Flowise server, not a standalone application**
+-   **We will use the core Flowise functionality wherever possible to avoid duplication**
 
 ## Generation Types
 

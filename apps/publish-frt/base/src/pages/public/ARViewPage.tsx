@@ -3,73 +3,60 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { ARJSExporter, MarkerType } from '../../features/arjs/ARJSExporter'
-import { UPDLScene } from '../../api/updlApi'
+import { UPDLToARJSConverter } from '../../utils/UPDLToARJSConverter'
+import { ARJSPublishApi } from '../../api/ARJSPublishApi'
 
 /**
  * Страница для просмотра AR контента в режиме потоковой генерации
  */
 const ARViewPage: React.FC = () => {
-    const { flowId } = useParams<{ flowId: string }>()
+    // Поддерживаем оба варианта параметров: flowId и id для совместимости
+    const { flowId, id } = useParams<{ flowId?: string; id?: string }>()
+    const publicationId = flowId || id
+
     const { t } = useTranslation()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        // Диагностика параметров URL для отладки
+        console.log('🧪 [ARViewPage] URL params:', { flowId, id, publicationId })
+        console.log('🧪 [ARViewPage] URL path:', window.location.pathname)
+
         // Функция для загрузки и рендеринга AR сцены
         const loadARScene = async () => {
             try {
                 setLoading(true)
-                console.log('📱 [ARViewPage] Loading AR scene for flowId:', flowId)
+                console.log('📱 [ARViewPage] Loading AR scene for publicationId:', publicationId)
 
-                // 1. Загрузить данные chatflow
-                const response = await fetch(`/api/chatflows/${flowId}`)
-                if (!response.ok) {
-                    throw new Error(`Failed to load flow data: ${response.status}`)
+                if (!publicationId) {
+                    throw new Error('No publication ID provided')
                 }
 
-                const chatflow = await response.json()
-                console.log('📱 [ARViewPage] Loaded chatflow data:', chatflow)
+                // Получаем данные публикации через API
+                const publicationData = await ARJSPublishApi.getPublicationData(publicationId)
+                console.log('📱 [ARViewPage] Publication data loaded:', publicationData)
 
-                if (!chatflow || !chatflow.flowData) {
-                    throw new Error('Could not load chatflow data')
+                if (!publicationData || !publicationData.updlScene) {
+                    throw new Error('No UPDL scene data found in publication')
                 }
 
-                // 2. Преобразовать данные flowData в UPDL сцену
-                const flowData = JSON.parse(chatflow.flowData)
-                console.log('📱 [ARViewPage] Parsed flow data, nodes:', flowData.nodes?.length || 0)
-
-                // Подготовить базовую структуру данных с узлами для передачи в экспортер
-                const nodeData = {
-                    id: chatflow.id,
-                    name: chatflow.name,
-                    nodes: flowData.nodes || []
-                }
-
-                // 3. Сгенерировать HTML с помощью ARJSExporter
-                const exporter = new ARJSExporter()
-
-                // ARJSExporter автоматически обрабатывает структуру с nodes, преобразуя ее в UPDLScene
-                // Используем явное приведение типа, так как тип содержит узлы, а не стандартную структуру UPDLScene
-                const html = exporter.generateHTML(nodeData as any, {
-                    title: chatflow.name || 'AR.js Experience',
-                    markerType: MarkerType.PATTERN,
-                    markerValue: 'hiro'
-                })
+                // Генерируем HTML с помощью UPDLToARJSConverter
+                const html = UPDLToARJSConverter.convertToHTML(publicationData.updlScene, publicationData.projectName || 'AR.js Experience')
 
                 console.log('📱 [ARViewPage] Generated HTML, length:', html.length)
 
-                // 4. Добавить сгенерированный HTML в DOM
+                // Добавляем сгенерированный HTML в DOM
                 const container = document.getElementById('ar-container')
                 if (container) {
-                    // Создать iframe для изоляции
+                    // Создаем iframe для изоляции
                     const iframe = document.createElement('iframe')
                     iframe.style.width = '100%'
                     iframe.style.height = '100%'
                     iframe.style.border = 'none'
                     container.appendChild(iframe)
 
-                    // Записать HTML в iframe
+                    // Записываем HTML в iframe
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
                     if (iframeDoc) {
                         iframeDoc.open()
@@ -80,19 +67,19 @@ const ARViewPage: React.FC = () => {
 
                 setLoading(false)
             } catch (error) {
-                console.error('Error loading AR scene:', error)
+                console.error('📱 [ARViewPage] Error loading AR scene:', error)
                 setError(error instanceof Error ? error.message : 'Failed to load AR scene')
                 setLoading(false)
             }
         }
 
-        if (flowId) {
+        if (publicationId) {
             loadARScene()
         } else {
-            setError('No flow ID provided')
+            setError('No publication ID provided')
             setLoading(false)
         }
-    }, [flowId])
+    }, [publicationId])
 
     return (
         <Box

@@ -1,55 +1,42 @@
-// Universo Platformo | AR.js Exporter
-// React component for exporting AR.js experiences
+// Universo Platformo | AR.js Exporter (Demo)
+// Демо-компонент экспорта AR.js (только для демонстрации UI)
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 // MUI components
-import { Button, Box, Typography, Card, CardContent, Alert, Paper, Snackbar, Link, Stack } from '@mui/material'
+import { Button, Box, Typography, Card, CardContent, Alert, Paper, Snackbar, Link } from '@mui/material'
 
 // Icons
 import { IconCopy, IconDownload } from '@tabler/icons-react'
 
 /**
- * AR.js Exporter Component
+ * Типы маркеров в AR.js
+ * @enum {string}
  */
-const ARJSExporter = ({ flow, unikId }) => {
+const MarkerType = {
+    PATTERN: 'pattern',
+    BARCODE: 'barcode',
+    CUSTOM: 'custom'
+}
+
+/**
+ * AR.js Exporter Component
+ * Внимание: Этот компонент является демонстрационным и не имеет реальной функциональности экспорта.
+ * Используется только для отображения интерфейса вкладки "Экспорт".
+ */
+const ARJSExporter = ({ flow }) => {
     const { t } = useTranslation('publish')
 
-    // State for HTML preview
-    const [htmlPreview, setHtmlPreview] = useState('')
-    // State for scene data
-    const [sceneData, setSceneData] = useState(null)
-    // State for snackbar
+    // Состояния для интерфейса
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
 
-    // Initialize with flow data when component mounts
-    useEffect(() => {
-        if (flow) {
-            setSceneData({
-                id: flow.id,
-                name: flow.name,
-                description: flow.description || '',
-                updatedAt: new Date().toISOString()
-            })
-            generateHtmlPreview()
-        }
-    }, [flow])
-
-    /**
-     * Generate HTML preview using the ARJSExporter utility
-     */
-    const generateHtmlPreview = () => {
-        try {
-            if (!sceneData) return
-
-            // This is a simplified HTML generation for demonstration
-            // In a real implementation, you would use the actual ARJSExporter utility
-            const html = `<!DOCTYPE html>
+    // Пример HTML для демонстрации
+    const demoHtml = `<!DOCTYPE html>
 <html>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <body style="margin : 0px; overflow: hidden;">
+    <body style="margin: 0px; overflow: hidden;">
         <a-scene embedded arjs>
             <a-marker preset="hiro">
                 <a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>
@@ -59,48 +46,26 @@ const ARJSExporter = ({ flow, unikId }) => {
     </body>
 </html>`
 
-            setHtmlPreview(html)
-        } catch (error) {
-            console.error('Error generating HTML preview:', error)
-            setSnackbar({
-                open: true,
-                message: `Ошибка генерации HTML: ${error.message || 'Неизвестная ошибка'}`
-            })
-        }
-    }
-
     /**
-     * Handle downloading HTML
+     * Демо функция загрузки HTML
      */
     const handleDownload = () => {
-        if (!htmlPreview) return
-
-        const element = document.createElement('a')
-        const file = new Blob([htmlPreview], { type: 'text/html' })
-        element.href = URL.createObjectURL(file)
-        element.download = `${sceneData?.name || 'ar-scene'}.html`
-        document.body.appendChild(element)
-        element.click()
-        document.body.removeChild(element)
-
         setSnackbar({
             open: true,
-            message: t('success.exported')
+            message: t('success.exported') || 'Файл экспортирован (демо)'
         })
     }
 
     /**
-     * Handle copying HTML to clipboard
+     * Демо функция копирования HTML
      */
     const handleCopy = () => {
-        if (!htmlPreview) return
-
         navigator.clipboard
-            .writeText(htmlPreview)
+            .writeText(demoHtml)
             .then(() => {
                 setSnackbar({
                     open: true,
-                    message: t('success.copied')
+                    message: t('success.copied') || 'Код скопирован'
                 })
             })
             .catch((error) => {
@@ -112,7 +77,7 @@ const ARJSExporter = ({ flow, unikId }) => {
     }
 
     /**
-     * Handle snackbar close
+     * Закрытие уведомления
      */
     const handleSnackbarClose = () => {
         setSnackbar({
@@ -124,44 +89,43 @@ const ARJSExporter = ({ flow, unikId }) => {
     return (
         <Box sx={{ width: '100%' }}>
             <Typography variant='h4' gutterBottom>
-                {t('tabs.export')}
+                {t('tabs.export') || 'Экспорт'}
             </Typography>
             <Typography variant='body2' color='text.secondary' paragraph>
-                {t('export.description')}
+                Экспортируйте AR.js сцену для использования на собственном сервере или для дальнейших модификаций
             </Typography>
 
             <Card variant='outlined' sx={{ mb: 3 }}>
                 <CardContent>
                     <Typography variant='h6' gutterBottom>
-                        {t('export.title') || 'Экспорт'}
+                        Экспорт AR.js
                     </Typography>
 
                     <Box sx={{ mb: 2 }}>
-                        <Button
-                            variant='outlined'
-                            startIcon={<IconDownload size={18} />}
-                            onClick={handleDownload}
-                            disabled={!htmlPreview}
-                            sx={{ mr: 1 }}
-                        >
-                            {t('actions.download')}
+                        <Button variant='outlined' startIcon={<IconDownload size={18} />} onClick={handleDownload} sx={{ mr: 1 }}>
+                            Скачать HTML
                         </Button>
-                        <Button variant='outlined' startIcon={<IconCopy size={18} />} onClick={handleCopy} disabled={!htmlPreview}>
-                            {t('actions.copy')}
+                        <Button variant='outlined' startIcon={<IconCopy size={18} />} onClick={handleCopy}>
+                            Копировать HTML
                         </Button>
                     </Box>
 
                     <Alert severity='info' sx={{ mb: 2 }}>
                         <Typography variant='subtitle1' gutterBottom>
-                            {t('export.instructions')}
+                            Инструкция по использованию
                         </Typography>
                         <ol>
-                            <li>{t('export.downloadInstructions')}</li>
+                            <li>Скачайте или скопируйте HTML-код</li>
+                            <li>Загрузите файл на свой сервер или откройте локально</li>
                             <li>Откройте URL на мобильном устройстве с камерой</li>
                             <li>Разрешите доступ к камере</li>
                             <li>Направьте камеру на маркер Hiro</li>
                         </ol>
                     </Alert>
+
+                    <Typography variant='body2' color='text.secondary'>
+                        Демонстрационная версия. Полноценный экспорт будет доступен в будущих версиях приложения.
+                    </Typography>
                 </CardContent>
             </Card>
 
@@ -169,7 +133,7 @@ const ARJSExporter = ({ flow, unikId }) => {
             <Card variant='outlined'>
                 <CardContent>
                     <Typography variant='h6' gutterBottom>
-                        {t('export.html')}
+                        HTML код
                     </Typography>
                     <Paper
                         elevation={0}
@@ -184,7 +148,7 @@ const ARJSExporter = ({ flow, unikId }) => {
                             wordBreak: 'break-all'
                         }}
                     >
-                        {htmlPreview}
+                        {demoHtml}
                     </Paper>
                 </CardContent>
             </Card>
@@ -194,12 +158,6 @@ const ARJSExporter = ({ flow, unikId }) => {
     )
 }
 
-export { ARJSExporter }
+// Экспортируем MarkerType для обратной совместимости
+export { MarkerType, ARJSExporter }
 export default ARJSExporter
-
-// Universo Platformo | Runtime export for MarkerType enum
-export const MarkerType = {
-    PATTERN: 'pattern',
-    BARCODE: 'barcode',
-    CUSTOM: 'custom'
-}

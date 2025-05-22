@@ -1,4 +1,4 @@
-// Universo Platformo | Type definitions for publish API
+// Universo Platformo | Interfaces for publication API
 
 /**
  * Publication request
@@ -14,7 +14,7 @@ export interface PublishRequest {
 }
 
 /**
- * Response with publication information
+ * Publication response
  */
 export interface PublishResponse {
     id: string

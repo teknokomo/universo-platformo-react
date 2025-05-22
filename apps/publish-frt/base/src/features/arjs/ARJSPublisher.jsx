@@ -1,14 +1,13 @@
 // Universo Platformo | AR.js Publisher
-// React component for publishing AR.js experiences
+// React component for publishing AR.js experiences using streaming mode
 
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-// publishARJSFlow looks like it might be from the deleted services/api.ts, will need to verify if arjsService.publishARJS replaces it
-import { /* publishARJSFlow, */ getCurrentUrlIds, /* ensureUnikIdInUrl, */ getAuthHeaders } from '../../services/api' // ensureUnikIdInUrl might also be unused
-// import { ARJSExporter } from './ARJSExporter' // Removed as ARJSExporter is part of pre-generation
-import { arjsService } from '../../services/arjsService'
+import { getCurrentUrlIds, getAuthHeaders } from '../../services/api'
+import { ARJSPublishApi } from '../../api/ARJSPublishApi'
 
 // Universo Platformo | Установите в true для демонстрационного режима
+// Активирует фиксированный URL и упрощенный интерфейс без реальных запросов
 const DEMO_MODE = false
 
 // MUI components
@@ -40,10 +39,9 @@ import {
 import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
 
 // Import common components
-import GenerationModeSelect from '../../components/arjs/GenerationModeSelect'
-// PublicationLink from common might be different from the one in components/arjs, keeping common for now
-import PublicationLink from '../../components/common/PublicationLink'
-import PublishToggle from '../../components/common/PublishToggle'
+import GenerationModeSelect from '../../components/GenerationModeSelect'
+// КРИТИЧНО: Этот компонент отвечает за отображение ссылки публикации
+import PublicationLink from '../../components/PublicationLink'
 
 // QR Code component (optional dependency)
 let QRCode
@@ -53,27 +51,21 @@ try {
     // QRCode component will be undefined if package not available
 }
 
-// Removed createBlobURL as it was likely used with the pre-generated HTML preview
-// const createBlobURL = (htmlContent) => { ... }
-
 /**
  * AR.js Publisher Component
+ * Поддерживает потоковую генерацию AR.js контента
  */
 const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
     const { t } = useTranslation('publish')
 
-    // State for selected scene data
-    // const [sceneData, setSceneData] = useState(null) // sceneData was used for pre-generation
     // State for project title
     const [projectTitle, setProjectTitle] = useState(flow?.name || '')
     // State for marker type
-    const [markerType, setMarkerType] = useState('preset') // Defaulting to preset, as custom pattern upload might be complex without pre-gen
+    const [markerType, setMarkerType] = useState('preset')
     // State for marker value
     const [markerValue, setMarkerValue] = useState('hiro')
     // State for loading indicator
     const [loading, setLoading] = useState(false)
-    // State for HTML preview - REMOVED
-    // const [htmlPreview, setHtmlPreview] = useState('')
     // State for published URL
     const [publishedUrl, setPublishedUrl] = useState('')
     // State for publishing status
@@ -85,7 +77,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // State for snackbar
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
     // State for generation mode
-    const [generationMode, setGenerationMode] = useState('streaming') // Default to streaming as it's the focus
+    const [generationMode, setGenerationMode] = useState('streaming') // Только потоковая генерация
     // Universo Platformo | State for template type in demo mode
     const [templateType, setTemplateType] = useState('quiz')
 
@@ -121,26 +113,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         console.log('🧪 [ARJSPublisher] URL flowId:', urlFlowId)
 
         if (flow) {
-            // setSceneData({
-            //     id: flow.id,
-            //     name: flow.name,
-            //     description: flow.description || '',
-            //     updatedAt: new Date().toISOString()
-            // })
             setProjectTitle(flow.name || 'AR.js Experience')
-            // generateHtmlPreview() // Removed call
         }
     }, [flow])
-
-    // Regenerate HTML preview when settings change - REMOVED
-    // useEffect(() => {
-    //     if (sceneData) {
-    //         generateHtmlPreview()
-    //     }
-    // }, [sceneData, projectTitle, markerType, markerValue])
-
-    // Generate HTML preview using the ARJSExporter - REMOVED
-    // const generateHtmlPreview = () => { ... }
 
     /**
      * Handle marker type change
@@ -190,84 +165,59 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const handlePublicChange = async (value) => {
         setIsPublic(value)
 
+        // Если отключаем публичность, сбрасываем URL
+        if (!value) {
+            setPublishedUrl('')
+            return
+        }
+
         // Universo Platformo | Специальная обработка для демо-режима
-        if (DEMO_MODE && value) {
+        if (DEMO_MODE) {
             setLoading(true)
             // Имитация задержки запроса в демо-режиме
             setTimeout(() => {
                 setPublishedUrl('https://plano.universo.pro/')
                 setSnackbar({ open: true, message: t('success.published') })
                 setLoading(false)
-            }, 800)
+            }, 1000)
             return
         }
 
-        if (flow?.id && unikId) {
-            try {
-                setLoading(true)
-                console.log('🔹 [ARJSPublisher.handlePublicChange] Changing public status to:', value)
+        // Поддерживается только streaming режим
+        if (generationMode !== 'streaming') {
+            setError('Unsupported generation mode: ' + generationMode)
+            return
+        }
 
-                // Если выбран режим потоковой генерации и включен переключатель публичности,
-                // автоматически создаем публикацию и показываем ссылку
-                if (generationMode === 'streaming' && value) {
-                    console.log('🔹 [ARJSPublisher.handlePublicChange] Auto-publishing with streaming mode')
+        console.log('📱 [ARJSPublisher.handlePublicChange] Publishing in STREAMING mode for flow:', flow.id)
 
-                    try {
-                        // Используем API-клиент вместо fetch для унификации запросов
-                        const result = await arjsService.publishARJS({
-                            chatflowId: flow.id,
-                            generationMode: 'streaming',
-                            isPublic: true,
-                            projectName: projectTitle,
-                            unikId: unikId || getCurrentUrlIds().unikId
-                        })
+        setIsPublishing(true)
+        setError(null)
 
-                        if (result && result.success) {
-                            // Universo Platformo | Формируем ссылку на клиенте с учетом демо-режима
-                            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
-                            setPublishedUrl(fullPublicUrl)
-                            setSnackbar({ open: true, message: t('success.published') })
-                            console.log('🟢 [ARJSPublisher.handlePublicChange] Publication successful, URL:', fullPublicUrl)
-                            if (onPublish) {
-                                onPublish({ ...result, publishedUrl: fullPublicUrl })
-                            }
-                        } else {
-                            throw new Error(result.error || 'Publication failed')
-                        }
-                    } catch (error) {
-                        console.error('🔴 [ARJSPublisher.handlePublicChange] Error during auto-publishing:', error)
-                        setError(error instanceof Error ? error.message : 'Auto-publication failed')
-                    }
-                } else if (!value) {
-                    // Если отключаем публичный доступ, скрываем ссылку
-                    setPublishedUrl('')
-                } else {
-                    // Для не-потоковых режимов, только сохраняем настройки без публикации
-                    const result = await arjsService.saveARJSPublication(flow.id, value, unikId, {
-                        generationMode,
-                        markerType,
-                        markerValue,
-                        title: projectTitle
-                    })
+        try {
+            // Используем API клиент вместо прямого запроса
+            const publishResult = await ARJSPublishApi.publishARJS({
+                chatflowId: flow.id,
+                generationMode: 'streaming',
+                isPublic: true,
+                projectName: projectTitle,
+                unikId: unikId || getCurrentUrlIds().unikId
+            })
 
-                    if (result.success) {
-                        // Universo Platformo | Формируем ссылку на клиенте с учетом демо-режима
-                        const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
-                        setPublishedUrl(fullPublicUrl)
-                        setSnackbar({
-                            open: true,
-                            message: t('arPublication.configSaved', 'AR.js publication settings saved')
-                        })
-                    } else {
-                        setError(result.error || 'Failed to update publication status')
-                    }
-                }
-            } catch (error) {
-                console.error('Error changing public status:', error)
-                setError(error instanceof Error ? error.message : String(error))
-            } finally {
-                setLoading(false)
+            // Формируем ссылку локально с учетом демо-режима
+            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
+            setPublishedUrl(fullPublicUrl)
+            setSnackbar({ open: true, message: t('success.published') })
+
+            if (onPublish) {
+                onPublish({ ...publishResult, publishedUrl: fullPublicUrl })
             }
+        } catch (error) {
+            console.error('📱 [ARJSPublisher.handlePublicChange] Error during publication:', error)
+            setError(error instanceof Error ? error.message : 'Unknown error occurred during publication')
+            setIsPublic(false) // Сбрасываем переключатель в случае ошибки
+        } finally {
+            setIsPublishing(false)
         }
     }
 
@@ -276,46 +226,38 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
      */
     const handleGenerationModeChange = (mode) => {
         setGenerationMode(mode)
+        console.log('📱 [ARJSPublisher] Generation mode changed to:', mode)
 
-        // Если меняем на режим "не потоковый", сбросить URL публикации
-        if (mode !== 'streaming' && publishedUrl) {
+        // Сбросить состояние URL, если режим изменился
+        if (publishedUrl) {
             setPublishedUrl('')
-        }
-
-        // Если включаем потоковый режим и публикация уже публична,
-        // автоматически пытаемся получить ссылку на публикацию
-        if (mode === 'streaming' && isPublic && flow?.id) {
-            handlePublicChange(true)
+            setIsPublic(false)
         }
     }
 
     /**
-     * Handle URL copying
+     * Handle copy URL button click
      */
     const handleCopyUrl = (url) => {
-        navigator.clipboard.writeText(url)
-        setSnackbar({
-            open: true,
-            message: t('success.copied')
-        })
+        navigator.clipboard
+            .writeText(url)
+            .then(() => {
+                setSnackbar({ open: true, message: t('success.copied') })
+            })
+            .catch((error) => {
+                console.error('Failed to copy:', error)
+            })
     }
 
     /**
-     * Get marker image for preview
+     * Получение URL изображения маркера
      */
     const getMarkerImage = () => {
+        // Пока поддерживаем только стандартные маркеры
         if (markerType === 'preset') {
-            if (markerValue === 'hiro') {
-                return 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png'
-            } else if (markerValue === 'kanji') {
-                return 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/kanji.png'
-            } else {
-                return `https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/pattern-${markerValue}.png`
-            }
+            return `https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/${markerValue}.png`
         }
-
-        // For other types, show a placeholder
-        return 'https://via.placeholder.com/200?text=Marker+Preview'
+        return ''
     }
 
     /**
@@ -328,185 +270,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         })
     }
 
-    /**
-     * Handle publish button click
-     */
-    const handlePublish = async () => {
-        if (!flow || !flow.id) {
-            setError('No flow data available')
-            return
-        }
-
-        // Universo Platformo | Специальная обработка для демо-режима
-        if (DEMO_MODE) {
-            // В демо-режиме сразу устанавливаем фиксированную ссылку без запроса
-            setIsPublishing(true)
-            setTimeout(() => {
-                setPublishedUrl('https://plano.universo.pro/')
-                setSnackbar({ open: true, message: t('success.published') })
-                setIsPublishing(false)
-                if (onPublish) onPublish({ success: true, publishedUrl: 'https://plano.universo.pro/' })
-            }, 1000) // Имитация задержки запроса
-            return
-        }
-
-        // Поддерживается только streaming режим
-        if (generationMode !== 'streaming') {
-            setError('Unsupported generation mode: ' + generationMode)
-            return
-        }
-
-        console.log('📱 [ARJSPublisher.handlePublish] Publishing in STREAMING mode for flow:', flow.id)
-
-        setIsPublishing(true)
-        setError(null)
-
-        try {
-            const authHeaders = getAuthHeaders()
-
-            const response = await fetch('/api/publish/arjs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...authHeaders
-                },
-                body: JSON.stringify({
-                    chatflowId: flow.id,
-                    generationMode: 'streaming',
-                    isPublic: isPublic,
-                    projectName: projectTitle,
-                    unikId: unikId || getCurrentUrlIds().unikId
-                })
-            })
-
-            const result = await response.json()
-
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || `Publication failed: ${response.status}`)
-            }
-
-            // Universo Platformo | Формируем ссылку локально с учетом демо-режима
-            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
-            setPublishedUrl(fullPublicUrl)
-            setSnackbar({ open: true, message: t('success.published') })
-            if (onPublish) onPublish({ ...result, publishedUrl: fullPublicUrl })
-        } catch (error) {
-            console.error('📱 [ARJSPublisher.handlePublish] Error during publication:', error)
-            setError(error instanceof Error ? error.message : 'Unknown error occurred during publication')
-        } finally {
-            setIsPublishing(false)
-        }
-    }
-
     const handleError = (message, errorObj) => {
         console.error(message, errorObj)
         setError(errorObj instanceof Error ? errorObj.message : String(errorObj || message))
     }
 
-    // Component for Published content (conditionally rendered)
-    const PublishedContent = () => {
-        if (!publishedUrl) {
-            return null
-        }
-
-        const url = typeof publishedUrl === 'object' ? publishedUrl.url : publishedUrl
-        const dataUrl = typeof publishedUrl === 'object' ? publishedUrl.dataUrl : null
-        const blobUrl = typeof publishedUrl === 'object' ? publishedUrl.blobUrl : null
-
-        return (
-            <Box sx={{ textAlign: 'center', p: 2, mt: 3 }}>
-                <Typography variant='h6' gutterBottom>
-                    {t('success.published')}
-                </Typography>
-
-                <Paper elevation={2} sx={{ p: 2, mb: 3, wordBreak: 'break-all', bgcolor: 'background.paper' }}>
-                    <Typography variant='body2'>URL проекта:</Typography>
-                    <Link href={url} target='_blank' rel='noopener' sx={{ wordBreak: 'break-all' }}>
-                        {url}
-                    </Link>
-
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
-                        {blobUrl && (
-                            <Button
-                                variant='outlined'
-                                size='small'
-                                color='secondary'
-                                startIcon={<IconDownload />}
-                                onClick={() => window.open(blobUrl, '_blank')}
-                            >
-                                {t('actions.view')}
-                            </Button>
-                        )}
-
-                        {!blobUrl && dataUrl && (
-                            <Button
-                                variant='outlined'
-                                size='small'
-                                color='warning'
-                                startIcon={<IconDownload />}
-                                onClick={() => {
-                                    // Если нет blobUrl, но есть dataUrl, создаем blob URL на лету
-                                    try {
-                                        const htmlContent = decodeURIComponent(dataUrl.replace('data:text/html;charset=utf-8,', ''))
-                                        const newBlobUrl = createBlobURL(htmlContent)
-                                        if (newBlobUrl) {
-                                            window.open(newBlobUrl, '_blank')
-                                        } else {
-                                            alert('Не удалось создать URL для предпросмотра HTML')
-                                        }
-                                    } catch (error) {
-                                        console.error('Ошибка при создании Blob URL:', error)
-                                        alert('Ошибка при открытии HTML: ' + (error.message || 'Неизвестная ошибка'))
-                                    }
-                                }}
-                            >
-                                {t('actions.view')}
-                            </Button>
-                        )}
-                    </Box>
-                </Paper>
-
-                {QRCode && (
-                    <Box sx={{ textAlign: 'center', mb: 2 }}>
-                        <Typography variant='body2' gutterBottom>
-                            Сканируйте QR-код для доступа с мобильного устройства:
-                        </Typography>
-                        <Box sx={{ display: 'inline-block', p: 1, bgcolor: 'white', borderRadius: 1 }}>
-                            <QRCode value={url} size={180} />
-                        </Box>
-                    </Box>
-                )}
-
-                <Box sx={{ mt: 3 }}>
-                    <Typography variant='body2' gutterBottom>
-                        Инструкция по использованию:
-                    </Typography>
-                    <Box sx={{ textAlign: 'left', pl: 2 }}>
-                        <Typography variant='body2' component='div'>
-                            <ol>
-                                <li>Откройте URL на устройстве с камерой</li>
-                                <li>Разрешите доступ к камере</li>
-                                <li>Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}</li>
-                                <li>Дождитесь появления 3D объекта</li>
-                            </ol>
-                        </Typography>
-                    </Box>
-                </Box>
-
-                {markerType === 'preset' && (
-                    <Box sx={{ mt: 2 }}>
-                        <Typography variant='body2' gutterBottom>
-                            Маркер для печати:
-                        </Typography>
-                        <Box sx={{ display: 'inline-block', p: 1, bgcolor: 'white', borderRadius: 1 }}>
-                            <img src={getMarkerImage()} alt={`Маркер ${markerValue}`} style={{ maxWidth: '200px' }} />
-                        </Box>
-                    </Box>
-                )}
-            </Box>
-        )
-    }
-
+    // Основной контент интерфейса
     return (
         <Box sx={{ width: '100%' }}>
             <Typography variant='h4' gutterBottom>
@@ -531,159 +300,156 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
-                                    bgcolor: 'rgba(255,255,255,0.7)',
-                                    zIndex: 1
+                                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                                    zIndex: 10
                                 }}
                             >
                                 <CircularProgress />
                             </Box>
                         )}
 
-                        <Stack spacing={3}>
-                            <Typography variant='h6'>{t('configuration.title')}</Typography>
+                        {/* Project Title Input */}
+                        <TextField
+                            label={t('project.title')}
+                            value={projectTitle}
+                            onChange={(e) => setProjectTitle(e.target.value)}
+                            fullWidth
+                            margin='normal'
+                            variant='outlined'
+                        />
 
-                            <TextField
-                                label='Название проекта'
-                                variant='outlined'
-                                fullWidth
-                                value={projectTitle}
-                                onChange={(e) => setProjectTitle(e.target.value)}
-                            />
+                        {/* Generation Mode Selector */}
+                        <GenerationModeSelect value={generationMode} onChange={handleGenerationModeChange} disabled={!!publishedUrl} />
 
-                            {/* Generation Mode Selector */}
-                            <GenerationModeSelect value={generationMode} onChange={handleGenerationModeChange} disabled={isPublishing} />
+                        {/* Type of Marker */}
+                        <FormControl fullWidth variant='outlined' margin='normal'>
+                            <InputLabel>{t('marker.type')}</InputLabel>
+                            <Select value={markerType} onChange={handleMarkerTypeChange} label={t('marker.type')} disabled={!!publishedUrl}>
+                                <MenuItem value='preset'>{t('marker.standard')}</MenuItem>
+                            </Select>
+                        </FormControl>
 
-                            {/* Universo Platformo | Selector for automatic templates in demo mode */}
-                            <TemplateSelector />
-
-                            <FormControl fullWidth>
-                                <InputLabel id='marker-type-label'>{t('marker.type')}</InputLabel>
+                        {/* Marker Selection */}
+                        {markerType === 'preset' && (
+                            <FormControl fullWidth variant='outlined' margin='normal'>
+                                <InputLabel>{t('marker.presetLabel')}</InputLabel>
                                 <Select
-                                    labelId='marker-type-label'
-                                    value={markerType}
-                                    label={t('marker.type')}
-                                    onChange={handleMarkerTypeChange}
+                                    value={markerValue}
+                                    onChange={handleMarkerValueChange}
+                                    label={t('marker.presetLabel')}
+                                    disabled={!!publishedUrl}
                                 >
-                                    <MenuItem value='preset'>Стандартный маркер</MenuItem>
-                                    <MenuItem value='pattern'>Свой паттерн</MenuItem>
-                                    <MenuItem value='barcode'>Штрих-код</MenuItem>
+                                    <MenuItem value='hiro'>{t('marker.hiro')}</MenuItem>
                                 </Select>
                             </FormControl>
+                        )}
 
-                            {markerType === 'preset' && (
-                                <FormControl fullWidth>
-                                    <InputLabel id='preset-marker-label'>Предустановленный маркер</InputLabel>
-                                    <Select
-                                        labelId='preset-marker-label'
-                                        value={markerValue}
-                                        label='Предустановленный маркер'
-                                        onChange={handleMarkerValueChange}
-                                    >
-                                        <MenuItem value='hiro'>{t('marker.hiro')}</MenuItem>
-                                        <MenuItem value='kanji'>{t('marker.kanji')}</MenuItem>
-                                        <MenuItem value='a'>Буква A</MenuItem>
-                                        <MenuItem value='b'>Буква B</MenuItem>
-                                        <MenuItem value='c'>Буква C</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            )}
+                        {/* Demo Templates */}
+                        <TemplateSelector />
 
-                            {markerType === 'pattern' && (
-                                <TextField
-                                    label='URL паттерна'
-                                    variant='outlined'
-                                    fullWidth
-                                    value={markerValue}
-                                    onChange={(e) => setMarkerValue(e.target.value)}
-                                    helperText='URL до .patt файла или изображения для использования в качестве маркера'
-                                />
-                            )}
-
-                            {markerType === 'barcode' && (
-                                <TextField
-                                    label='Значение штрих-кода'
-                                    variant='outlined'
-                                    fullWidth
-                                    value={markerValue}
-                                    onChange={(e) => setMarkerValue(e.target.value)}
-                                    type='number'
-                                    inputProps={{ min: 0, max: 63 }}
-                                    helperText='Введите значение от 0 до 63'
-                                />
-                            )}
-
-                            <Paper
-                                elevation={0}
-                                variant='outlined'
-                                sx={{
-                                    p: 2,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center'
-                                }}
-                            >
-                                <img
+                        {/* Marker Preview */}
+                        <Box sx={{ textAlign: 'center', my: 2 }}>
+                            <Typography variant='body2' color='text.secondary' gutterBottom>
+                                {t('preview.title')}
+                            </Typography>
+                            {markerType === 'preset' && markerValue && (
+                                <Box
+                                    component='img'
                                     src={getMarkerImage()}
-                                    alt='Маркер'
-                                    style={{
-                                        maxWidth: '200px',
-                                        maxHeight: '200px',
-                                        margin: '10px 0'
-                                    }}
+                                    alt={t('marker.alt')}
+                                    sx={{ maxWidth: '200px', border: '1px solid #eee' }}
                                 />
-                                <Typography variant='caption' color='text.secondary'>
-                                    Покажите этот маркер камере для активации AR
+                            )}
+                            <Typography variant='caption' display='block' sx={{ mt: 1 }}>
+                                {t('marker.instruction')}
+                            </Typography>
+                        </Box>
+
+                        {/* Make Public Toggle с индикатором загрузки */}
+                        <Box sx={{ my: 3, width: '100%' }}>
+                            <FormControl fullWidth variant='outlined'>
+                                <FormControlLabel
+                                    control={
+                                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                                            <Switch
+                                                checked={isPublic}
+                                                onChange={(e) => handlePublicChange(e.target.checked)}
+                                                disabled={!!isPublishing}
+                                                color='primary'
+                                            />
+                                            {isPublishing && <CircularProgress size={20} sx={{ ml: 2 }} />}
+                                        </Box>
+                                    }
+                                    label={t('configuration.makePublic')}
+                                    sx={{
+                                        width: '100%',
+                                        margin: 0,
+                                        '& .MuiFormControlLabel-label': {
+                                            width: '100%',
+                                            flexGrow: 1
+                                        }
+                                    }}
+                                    labelPlacement='start'
+                                />
+                            </FormControl>
+                            <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                                {t('configuration.description')}
+                            </Typography>
+                        </Box>
+
+                        {/* Public link display */}
+                        {publishedUrl && (
+                            <Box sx={{ my: 3 }}>
+                                <Typography variant='subtitle1' gutterBottom>
+                                    {t('arjs.publishedUrl')}:
                                 </Typography>
-                            </Paper>
+                                <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
 
-                            {/* PublishToggle component for streaming mode */}
-                            {generationMode === 'streaming' && (
-                                <Box>
-                                    <PublishToggle
-                                        isPublic={isPublic}
-                                        onChange={handlePublicChange}
-                                        helperText={t('settings.publicHelp')}
-                                    />
-                                    {isPublic && publishedUrl && typeof publishedUrl === 'string' && (
-                                        <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
-                                    )}
-                                </Box>
-                            )}
+                                {/* QR Code если доступен */}
+                                {QRCode && (
+                                    <Box sx={{ textAlign: 'center', my: 2 }}>
+                                        <Typography variant='body2' gutterBottom>
+                                            Сканируйте QR-код для доступа с мобильного устройства:
+                                        </Typography>
+                                        <Box sx={{ display: 'inline-block', p: 1, bgcolor: 'white', borderRadius: 1 }}>
+                                            <QRCode value={publishedUrl} size={180} />
+                                        </Box>
+                                    </Box>
+                                )}
 
-                            {/* Publish button for non-streaming modes */}
-                            {generationMode !== 'streaming' && (
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                                    <Button
-                                        variant='contained'
-                                        color='primary'
-                                        onClick={handlePublish}
-                                        disabled={isPublishing || !sceneData}
-                                        startIcon={isPublishing ? <CircularProgress size={20} color='inherit' /> : null}
-                                    >
-                                        {isPublishing ? t('actions.publishing') : t('actions.publish')}
-                                    </Button>
+                                <Box sx={{ mt: 3 }}>
+                                    <Typography variant='body2' gutterBottom>
+                                        Инструкция по использованию:
+                                    </Typography>
+                                    <Box sx={{ textAlign: 'left', pl: 2 }}>
+                                        <Typography variant='body2' component='div'>
+                                            <ol>
+                                                <li>Откройте URL на устройстве с камерой</li>
+                                                <li>Разрешите доступ к камере</li>
+                                                <li>Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}</li>
+                                                <li>Дождитесь появления 3D объекта</li>
+                                            </ol>
+                                        </Typography>
+                                    </Box>
                                 </Box>
-                            )}
-                        </Stack>
+                            </Box>
+                        )}
+
+                        {/* Error display */}
+                        {error && (
+                            <Alert severity='error' sx={{ my: 2 }}>
+                                {error}
+                            </Alert>
+                        )}
                     </Box>
                 </CardContent>
             </Card>
 
-            {/* Error messages */}
-            {error && (
-                <Alert severity='error' sx={{ mb: 3 }}>
-                    {error}
-                </Alert>
-            )}
-
-            {/* Published Result - only show for non-streaming mode */}
-            {generationMode !== 'streaming' && <PublishedContent />}
-
+            {/* Snackbar for notifications */}
             <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleSnackbarClose} message={snackbar.message} />
         </Box>
     )
 }
 
-// Export as both default and named export
 export { ARJSPublisher }
 export default ARJSPublisher
