@@ -1,5 +1,5 @@
 // Universo Platformo | AR.js Exporter (Demo)
-// Демо-компонент экспорта AR.js (только для демонстрации UI)
+// Demo component for AR.js export (only for UI display)
 
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -11,7 +11,7 @@ import { Button, Box, Typography, Card, CardContent, Alert, Paper, Snackbar, Lin
 import { IconCopy, IconDownload } from '@tabler/icons-react'
 
 /**
- * Типы маркеров в AR.js
+ * Marker types in AR.js
  * @enum {string}
  */
 const MarkerType = {
@@ -22,16 +22,16 @@ const MarkerType = {
 
 /**
  * AR.js Exporter Component
- * Внимание: Этот компонент является демонстрационным и не имеет реальной функциональности экспорта.
- * Используется только для отображения интерфейса вкладки "Экспорт".
+ * Note: This component is a demo and does not have real export functionality.
+ * Used only for displaying the "Export" tab interface.
  */
 const ARJSExporter = ({ flow }) => {
     const { t } = useTranslation('publish')
 
-    // Состояния для интерфейса
+    // States for interface
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
 
-    // Пример HTML для демонстрации
+    // Demo HTML for display
     const demoHtml = `<!DOCTYPE html>
 <html>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
@@ -47,17 +47,17 @@ const ARJSExporter = ({ flow }) => {
 </html>`
 
     /**
-     * Демо функция загрузки HTML
+     * Demo function for HTML download
      */
     const handleDownload = () => {
         setSnackbar({
             open: true,
-            message: t('success.exported') || 'Файл экспортирован (демо)'
+            message: t('success.exported') || 'File exported (demo)'
         })
     }
 
     /**
-     * Демо функция копирования HTML
+     * Demo function for copying HTML
      */
     const handleCopy = () => {
         navigator.clipboard
@@ -65,19 +65,19 @@ const ARJSExporter = ({ flow }) => {
             .then(() => {
                 setSnackbar({
                     open: true,
-                    message: t('success.copied') || 'Код скопирован'
+                    message: t('success.copied') || 'Code copied'
                 })
             })
             .catch((error) => {
                 setSnackbar({
                     open: true,
-                    message: `Не удалось скопировать HTML: ${error.message}`
+                    message: `Failed to copy HTML: ${error.message}`
                 })
             })
     }
 
     /**
-     * Закрытие уведомления
+     * Closing notification
      */
     const handleSnackbarClose = () => {
         setSnackbar({
@@ -92,7 +92,7 @@ const ARJSExporter = ({ flow }) => {
                 {t('tabs.export') || 'Экспорт'}
             </Typography>
             <Typography variant='body2' color='text.secondary' paragraph>
-                Экспортируйте AR.js сцену для использования на собственном сервере или для дальнейших модификаций
+                Export AR.js scene for use on your own server or for further modifications
             </Typography>
 
             <Card variant='outlined' sx={{ mb: 3 }}>
@@ -158,6 +158,6 @@ const ARJSExporter = ({ flow }) => {
     )
 }
 
-// Экспортируем MarkerType для обратной совместимости
+// Export MarkerType for backward compatibility
 export { MarkerType, ARJSExporter }
 export default ARJSExporter

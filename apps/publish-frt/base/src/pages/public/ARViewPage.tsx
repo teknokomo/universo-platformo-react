@@ -7,10 +7,10 @@ import { UPDLToARJSConverter } from '../../utils/UPDLToARJSConverter'
 import { ARJSPublishApi } from '../../api/ARJSPublishApi'
 
 /**
- * Страница для просмотра AR контента в режиме потоковой генерации
+ * Page for viewing AR content in streaming generation mode
  */
 const ARViewPage: React.FC = () => {
-    // Поддерживаем оба варианта параметров: flowId и id для совместимости
+    // Support both flowId and id parameters for backward compatibility
     const { flowId, id } = useParams<{ flowId?: string; id?: string }>()
     const publicationId = flowId || id
 
@@ -19,44 +19,44 @@ const ARViewPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        // Диагностика параметров URL для отладки
+        // Debug URL parameters
         console.log('🧪 [ARViewPage] URL params:', { flowId, id, publicationId })
         console.log('🧪 [ARViewPage] URL path:', window.location.pathname)
 
-        // Функция для загрузки и рендеринга AR сцены
-        const loadARScene = async () => {
+        // Function to load and render AR space
+        const loadARSpace = async () => {
             try {
                 setLoading(true)
-                console.log('📱 [ARViewPage] Loading AR scene for publicationId:', publicationId)
+                console.log('📱 [ARViewPage] Loading AR space for publicationId:', publicationId)
 
                 if (!publicationId) {
                     throw new Error('No publication ID provided')
                 }
 
-                // Получаем данные публикации через API
+                // Get publication data through API
                 const publicationData = await ARJSPublishApi.getPublicationData(publicationId)
                 console.log('📱 [ARViewPage] Publication data loaded:', publicationData)
 
-                if (!publicationData || !publicationData.updlScene) {
-                    throw new Error('No UPDL scene data found in publication')
+                if (!publicationData || !publicationData.updlSpace) {
+                    throw new Error('No UPDL space data found in publication')
                 }
 
-                // Генерируем HTML с помощью UPDLToARJSConverter
-                const html = UPDLToARJSConverter.convertToHTML(publicationData.updlScene, publicationData.projectName || 'AR.js Experience')
+                // Generate HTML using UPDLToARJSConverter
+                const html = UPDLToARJSConverter.convertToHTML(publicationData.updlSpace, publicationData.projectId || 'AR.js Experience')
 
                 console.log('📱 [ARViewPage] Generated HTML, length:', html.length)
 
-                // Добавляем сгенерированный HTML в DOM
+                // Add generated HTML to DOM
                 const container = document.getElementById('ar-container')
                 if (container) {
-                    // Создаем iframe для изоляции
+                    // Create iframe for isolation
                     const iframe = document.createElement('iframe')
                     iframe.style.width = '100%'
                     iframe.style.height = '100%'
                     iframe.style.border = 'none'
                     container.appendChild(iframe)
 
-                    // Записываем HTML в iframe
+                    // Write HTML to iframe
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
                     if (iframeDoc) {
                         iframeDoc.open()
@@ -67,14 +67,14 @@ const ARViewPage: React.FC = () => {
 
                 setLoading(false)
             } catch (error) {
-                console.error('📱 [ARViewPage] Error loading AR scene:', error)
-                setError(error instanceof Error ? error.message : 'Failed to load AR scene')
+                console.error('📱 [ARViewPage] Error loading AR space:', error)
+                setError(error instanceof Error ? error.message : 'Failed to load AR space')
                 setLoading(false)
             }
         }
 
         if (publicationId) {
-            loadARScene()
+            loadARSpace()
         } else {
             setError('No publication ID provided')
             setLoading(false)

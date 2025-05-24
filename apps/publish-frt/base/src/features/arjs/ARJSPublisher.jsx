@@ -3,16 +3,15 @@
 
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCurrentUrlIds, getAuthHeaders } from '../../services/api'
+import { getCurrentUrlIds } from '../../services/api'
 import { ARJSPublishApi } from '../../api/ARJSPublishApi'
 
-// Universo Platformo | Установите в true для демонстрационного режима
-// Активирует фиксированный URL и упрощенный интерфейс без реальных запросов
+// Universo Platformo | Set to true for demo mode
+// Activates fixed URL and simplified interface without real requests
 const DEMO_MODE = false
 
 // MUI components
 import {
-    Button,
     Box,
     Typography,
     TextField,
@@ -26,12 +25,7 @@ import {
     CardContent,
     CircularProgress,
     Alert,
-    Paper,
     Snackbar,
-    Stack,
-    FormGroup,
-    Link,
-    Divider,
     FormHelperText
 } from '@mui/material'
 
@@ -40,7 +34,7 @@ import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
 
 // Import common components
 import GenerationModeSelect from '../../components/GenerationModeSelect'
-// КРИТИЧНО: Этот компонент отвечает за отображение ссылки публикации
+// CRITICAL: This component is responsible for displaying the publication link
 import PublicationLink from '../../components/PublicationLink'
 
 // QR Code component (optional dependency)
@@ -53,7 +47,7 @@ try {
 
 /**
  * AR.js Publisher Component
- * Поддерживает потоковую генерацию AR.js контента
+ * Supports streaming generation of AR.js content
  */
 const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
     const { t } = useTranslation('publish')
@@ -77,41 +71,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // State for snackbar
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
     // State for generation mode
-    const [generationMode, setGenerationMode] = useState('streaming') // Только потоковая генерация
+    const [generationMode, setGenerationMode] = useState('streaming') // Only streaming generation
     // Universo Platformo | State for template type in demo mode
     const [templateType, setTemplateType] = useState('quiz')
 
     // Initialize with flow data when component mounts
     useEffect(() => {
-        console.log('🧪 [ARJSPublisher] Current URL analysis:')
-        console.log('🧪 [ARJSPublisher] window.location.href:', window.location.href)
-        console.log('🧪 [ARJSPublisher] window.location.pathname:', window.location.pathname)
-
-        const urlPathParts = window.location.pathname.split('/')
-        console.log('🧪 [ARJSPublisher] URL path parts:', urlPathParts)
-
-        const uniksIndex = urlPathParts.findIndex((p) => p === 'uniks')
-        const chatflowsIndex = urlPathParts.findIndex((p) => p === 'chatflows')
-
-        let urlUnikId = null
-        let urlFlowId = null
-
-        if (uniksIndex >= 0 && uniksIndex + 1 < urlPathParts.length) {
-            urlUnikId = urlPathParts[uniksIndex + 1]
-            console.log('🧪 [ARJSPublisher] Found unikId in URL:', urlUnikId)
-        }
-
-        if (chatflowsIndex >= 0 && chatflowsIndex + 1 < urlPathParts.length) {
-            urlFlowId = urlPathParts[chatflowsIndex + 1]
-            console.log('🧪 [ARJSPublisher] Found flowId in URL:', urlFlowId)
-        }
-
-        console.log('🧪 [ARJSPublisher] Props vs URL comparison:')
-        console.log('🧪 [ARJSPublisher] Prop unikId:', unikId)
-        console.log('🧪 [ARJSPublisher] Prop flow.id:', flow?.id)
-        console.log('🧪 [ARJSPublisher] URL unikId:', urlUnikId)
-        console.log('🧪 [ARJSPublisher] URL flowId:', urlFlowId)
-
         if (flow) {
             setProjectTitle(flow.name || 'AR.js Experience')
         }
@@ -139,7 +104,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     }
 
     /**
-     * Компонент выбора шаблона для демо-режима
+     * Template selector component for demo mode
      */
     const TemplateSelector = () => {
         if (!DEMO_MODE) return null
@@ -165,16 +130,16 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const handlePublicChange = async (value) => {
         setIsPublic(value)
 
-        // Если отключаем публичность, сбрасываем URL
+        // If public toggle is off, reset the URL
         if (!value) {
             setPublishedUrl('')
             return
         }
 
-        // Universo Platformo | Специальная обработка для демо-режима
+        // Universo Platformo | Special handling for demo mode
         if (DEMO_MODE) {
             setLoading(true)
-            // Имитация задержки запроса в демо-режиме
+            // Simulate request delay in demo mode
             setTimeout(() => {
                 setPublishedUrl('https://plano.universo.pro/')
                 setSnackbar({ open: true, message: t('success.published') })
@@ -183,7 +148,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             return
         }
 
-        // Поддерживается только streaming режим
+        // Only streaming mode is supported
         if (generationMode !== 'streaming') {
             setError('Unsupported generation mode: ' + generationMode)
             return
@@ -195,17 +160,22 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setError(null)
 
         try {
-            // Используем API клиент вместо прямого запроса
+            // Use API client instead of direct request
             const publishResult = await ARJSPublishApi.publishARJS({
                 chatflowId: flow.id,
                 generationMode: 'streaming',
                 isPublic: true,
                 projectName: projectTitle,
-                unikId: unikId || getCurrentUrlIds().unikId
+                flowData: {
+                    flowId: flow.id,
+                    projectTitle: projectTitle,
+                    markerType: markerType,
+                    markerValue: markerValue
+                }
             })
 
-            // Формируем ссылку локально с учетом демо-режима
-            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${flow.id}`
+            // Form local link with consideration for demo mode
+            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${publishResult.publicationId}`
             setPublishedUrl(fullPublicUrl)
             setSnackbar({ open: true, message: t('success.published') })
 
@@ -215,7 +185,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         } catch (error) {
             console.error('📱 [ARJSPublisher.handlePublicChange] Error during publication:', error)
             setError(error instanceof Error ? error.message : 'Unknown error occurred during publication')
-            setIsPublic(false) // Сбрасываем переключатель в случае ошибки
+            setIsPublic(false) // Reset toggle in case of error
         } finally {
             setIsPublishing(false)
         }
@@ -228,7 +198,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setGenerationMode(mode)
         console.log('📱 [ARJSPublisher] Generation mode changed to:', mode)
 
-        // Сбросить состояние URL, если режим изменился
+        // Reset URL state if mode changed
         if (publishedUrl) {
             setPublishedUrl('')
             setIsPublic(false)
@@ -250,10 +220,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     }
 
     /**
-     * Получение URL изображения маркера
+     * Get marker image URL
      */
     const getMarkerImage = () => {
-        // Пока поддерживаем только стандартные маркеры
+        // Currently only standard markers are supported
         if (markerType === 'preset') {
             return `https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/${markerValue}.png`
         }
@@ -275,7 +245,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setError(errorObj instanceof Error ? errorObj.message : String(errorObj || message))
     }
 
-    // Основной контент интерфейса
+    // Main interface content
     return (
         <Box sx={{ width: '100%' }}>
             <Typography variant='h4' gutterBottom>

@@ -42,104 +42,86 @@ Added to implement multi‑user functionality. When creating Universo Platformo 
 
 The project is transitioning to a modular APPs architecture that separates functionality into distinct applications while minimizing changes to the core Flowise codebase.
 
-### Directory Structure
+### Current Directory Structure (Post-QA Verification)
 
 ```
 universo-platformo-react/
 ├── packages/                  # Original Flowise packages
 │   ├── components/            # Components and utilities
 │   ├── server/                # Server-side code
+│   │   └── src/
+│   │       └── Interface.UPDL.ts  # Simplified UPDL interfaces for integration
 │   └── ui/                    # Frontend
 ├── apps/                      # New APPs architecture
-│   ├── updl/                  # UPDL node system
-│   │   ├── imp/               # Implementation
-│   │   │   ├── nodes/         # UPDL node definitions
-│   │   │   │   ├── base/      # Base node classes
-│   │   │   │   ├── scene/     # Scene nodes
-│   │   │   │   ├── object/    # Object nodes
-│   │   │   │   ├── camera/    # Camera nodes
-│   │   │   │   ├── light/     # Light nodes
-│   │   │   │   └── ...        # Other node types
-│   │   │   ├── icons/         # Common icons
-│   │   │   ├── interfaces/    # TypeScript interfaces
-│   │   │   ├── exporters/     # Platform exporters
-│   │   │   │   ├── base/      # Base exporter interface
-│   │   │   │   ├── arjs/      # AR.js exporter
-│   │   │   │   ├── playcanvas-react/ # PlayCanvas React exporter
-│   │   │   │   └── ...        # Other exporters
-│   │   │   ├── index.ts       # Entry point for UPDL API
-│   │   │   ├── initialize.ts  # Initialization functions for exporters
-│   │   │   └── utils/         # Utility functions
-│   │   ├── package.json       # Package dependencies
-│   │   └── README.md          # Documentation
-│   └── publish/               # Publication system
-│       ├── imp/               # Implementation
-│       │   ├── react/         # Frontend publication UI
-│       │   │   ├── components/ # UI components
-│       │   │   ├── pages/     # Publication pages
-│       │   │   ├── miniapps/   # Technology-specific handlers
-│       │   │   │   ├── arjs/   # AR.js publication handler
-│       │   │   │   ├── playcanvas-react/ # PlayCanvas React handler
-│       │   │   │   └── ...     # Other technology handlers
-│       │   │   └── utils/     # Frontend utilities
-│       │   └── express/       # Backend publication service
-│       │       ├── controllers/ # Request handlers
-│       │       ├── routes/    # API routes
-│       │       ├── services/  # Business logic
-│       │       └── utils/     # Backend utilities
-│       ├── package.json       # Package dependencies
-│       └── README.md          # Documentation
+│   ├── updl/                  # UPDL node system (renamed from updl-frt)
+│   │   └── base/              # Core UPDL functionality
+│   │       ├── src/
+│   │       │   ├── nodes/     # UPDL node definitions
+│   │       │   │   ├── base/  # Base node classes
+│   │       │   │   ├── space/ # Space nodes (formerly scene)
+│   │       │   │   ├── object/# Object nodes
+│   │       │   │   ├── camera/# Camera nodes
+│   │       │   │   └── light/ # Light nodes
+│   │       │   ├── assets/    # Static resources (icons, images)
+│   │       │   ├── i18n/      # Internationalization
+│   │       │   ├── interfaces/# Complete UPDL ecosystem definitions
+│   │       │   │   └── UPDLInterfaces.ts # Full UPDL specification
+│   │       │   └── index.ts   # Entry point for node definitions
+│   │       ├── dist/          # Compiled output
+│   │       ├── package.json
+│   │       ├── tsconfig.json
+│   │       └── gulpfile.ts    # Asset copying during build
+│   ├── publish-frt/           # Publication system frontend
+│   │   └── base/
+│   │       ├── src/
+│   │       │   ├── api/       # HTTP clients to backend
+│   │       │   ├── assets/    # Static resources
+│   │       │   ├── components/# UI components
+│   │       │   ├── features/  # Technology-specific handlers
+│   │       │   │   └── arjs/  # AR.js publication handler
+│   │       │   ├── i18n/      # Localization
+│   │       │   ├── pages/     # Page components
+│   │       │   ├── services/  # Service layer for backend communication
+│   │       │   ├── utils/     # Utilities (UPDLToARJSConverter)
+│   │       │   └── index.ts   # Entry point
+│   │       ├── dist/          # Compiled output
+│   │       ├── package.json
+│   │       ├── tsconfig.json
+│   │       └── gulpfile.ts    # Asset copying during build
+│   └── publish-srv/           # Publication system backend
+│       └── base/
+│           ├── src/
+│           │   ├── controllers/# Express controllers
+│           │   ├── routes/    # API routes
+│           │   ├── utils/     # Helper functions
+│           │   └── index.ts   # Entry point
+│           ├── dist/          # Compiled output
+│           ├── package.json
+│           └── tsconfig.json
 ```
 
-### Integration with Flowise
+### Interface Architecture (Two-Layer System)
 
-1. **Package.json Configuration**:
+**UPDL Core Interfaces** (`apps/updl/base/src/interfaces/UPDLInterfaces.ts`):
 
-    - Added apps directory to workspaces in root package.json
-    - Configure dependencies for each app
-    - Update build scripts to include apps
+-   **Purpose**: Complete UPDL ecosystem definitions for flows, graphs, and detailed node properties
+-   **Scope**: Full UPDL specification with advanced properties (materials, physics, animations)
+-   **Usage**: Internal UPDL nodes, graph processing, complex scene definitions
+-   **Export**: Available via UPDL module exports for advanced consumers
 
-2. **Build Configuration**:
+**Integration Interfaces** (`packages/server/src/Interface.UPDL.ts`):
 
-    - Modify turbo.json to include apps in build pipeline
-    - Configure proper build order and dependencies
-    - Ensure output files are placed correctly
+-   **Purpose**: Simplified interfaces for backend/frontend integration
+-   **Scope**: Essential properties for space processing and publication
+-   **Usage**: Publication system, API communication, AR.js conversion
+-   **Export**: Available via `@server/interface` alias
 
-3. **Node Registration**:
+**Benefits of Separation**:
 
-    - Automatic node discovery through NodesPool.ts
-    - UPDL nodes are detected from apps/updl/base/nodes directory
-    - Each node contains its own icon file in the same directory as the node file
-    - Nodes can be disabled via DISABLED_NODES environment variable
-
-4. **Server Integration**:
-
-    - Add API endpoints for UPDL flow handling
-    - Create buildUPDLflow.ts utility
-    - Implement publication endpoints
-
-5. **UI Integration**:
-    - Redesign "Embed in website" UI to "Publish & Export"
-    - Add technology selection options
-    - Create publication preview UI
-
-### Build and Deployment Process
-
-1. **Development**:
-
-    - `pnpm dev` starts both core Flowise and APPs modules
-    - Hot reloading applies to changes in both directories
-
-2. **Production Build**:
-
-    - `pnpm build` includes apps in the build process
-    - Compiled apps are included in the final distribution
-    - Frontend static assets are properly bundled
-
-3. **Deployment**:
-    - Docker image includes apps modules
-    - Environment variables configure publication paths
-    - Static assets for published projects are served from configurable location
+-   **Clean Integration**: Publication system uses only necessary interfaces
+-   **Future Flexibility**: Core UPDL can evolve without breaking integrations
+-   **Optimal Performance**: Smaller interface footprint for production use
+-   **No Duplication**: Each serves distinct architectural purpose
 
 ## UPDL Implementation Details
 

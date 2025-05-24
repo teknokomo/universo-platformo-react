@@ -1,17 +1,15 @@
 // Universo Platformo | API client for publishing AR.js applications
 import axios, { AxiosError } from 'axios'
-import { ARJSPublicationRequest, ARJSPublicationResponse, UPDLPublicationData } from '../interfaces/UPDLTypes'
 import { getAuthHeaders } from '../services/api'
+import { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult } from '@server/interface'
 
-// Universo Platformo | Универсальное определение базового URL API
-// В режиме разработки используем относительный путь, так как UI и API на одном домене (через proxy Vite).
-// Для production или явного указания используем переменную окружения VITE_API_HOST.
-// Если VITE_API_HOST не задан, а окружение не 'development', по умолчанию пустая строка (относительный путь).
+// Universo Platformo | Universal definition of API base URL
+// In development mode, we use a relative path, since UI and API are on the same domain (via Vite proxy).
+// For production or explicit specification, use the VITE_API_HOST environment variable.
 const getApiBaseUrl = () => {
     try {
-        // @ts-ignore - игнорируем ошибку для import.meta.env
+        // @ts-ignore - ignore error for import.meta.env
         if (import.meta.env && import.meta.env.DEV) {
-            // В режиме разработки через Vite Dev Server
             return window.location.origin
         }
 
@@ -21,7 +19,6 @@ const getApiBaseUrl = () => {
             return configuredHost
         }
 
-        // Если мы здесь, то мы в production и нет явно заданного хоста
         return window.location.origin
     } catch (error) {
         console.warn('Error determining API base URL, falling back to origin:', error)
@@ -29,20 +26,18 @@ const getApiBaseUrl = () => {
     }
 }
 
-// Получаем базовый URL при инициализации модуля
+// Get base URL when initializing module
 const API_BASE_URL = getApiBaseUrl()
-// Universo Platformo | Log the final base URL for clarity, especially during development
-console.log('🌍 [ARJSPublishApi] Final API_BASE_URL for requests:', API_BASE_URL)
 
 /**
- * API-клиент для работы с публикацией проектов AR.js
- * Оптимизирован для режима потоковой генерации (streaming)
+ * API client for working with AR.js project publication
+ * Optimized for streaming generation mode
  */
 export class ARJSPublishApi {
     /**
-     * Получает заголовки авторизации и добавляет их к переданным заголовкам
-     * @param headers Существующие заголовки (опционально)
-     * @returns Объединенные заголовки с авторизацией
+     * Gets authorization headers and adds them to the passed headers
+     * @param headers Existing headers (optional)
+     * @returns Combined headers with authorization
      */
     private static getHeaders(headers: Record<string, string> = {}): Record<string, string> {
         return {
@@ -53,41 +48,31 @@ export class ARJSPublishApi {
     }
 
     /**
-     * Создает новую публикацию AR.js в режиме потоковой генерации
-     * @param request Запрос на создание публикации
-     * @returns Информация о созданной публикации
+     * Creates a new AR.js publication in streaming generation mode
+     * @param request Publication creation request
+     * @returns Information about the created publication
      */
-    static async publishARJS(request: ARJSPublicationRequest): Promise<ARJSPublicationResponse> {
+    static async publishARJS(request: IARJSPublishRequest): Promise<IARJSPublishResponse> {
         try {
-            // Universo Platformo | Corrected API URL with /api/v1 prefix
             const apiUrl = `${API_BASE_URL}/api/v1/publish/arjs`
-            console.log('🚀 [FRT ARJSPublishApi] Attempting to publish AR.js. URL:', apiUrl, 'Request:', request)
-            const response = await axios.post<ARJSPublicationResponse>(apiUrl, request, {
+            console.log('🚀 [ARJSPublishApi] Publishing AR.js project:', request.chatflowId)
+
+            const response = await axios.post<IARJSPublishResponse>(apiUrl, request, {
                 headers: this.getHeaders()
             })
-            console.log('✅ [FRT ARJSPublishApi] Publication response:', response.data)
+
+            console.log('✅ [ARJSPublishApi] Publication successful:', response.data.publicationId)
             return response.data
         } catch (error: unknown) {
-            // Проверка на AxiosError
             if (axios.isAxiosError(error)) {
-                console.error(
-                    '❌ [FRT ARJSPublishApi] Error publishing AR.js project:',
-                    error.response?.data || error.message,
-                    error.config
-                )
+                console.error('❌ [ARJSPublishApi] Publication failed:', error.response?.data || error.message)
 
-                // Более детальная обработка ошибок
                 if (error.response) {
                     const errorMessage = error.response.data?.error || error.response.statusText || error.message
-                    console.error('[ARJSPublishApi] Server response error:', errorMessage)
                     throw new Error(`Publication failed: ${errorMessage}`)
                 }
             } else {
-                // Обработка не-Axios ошибок
-                console.error(
-                    '❌ [FRT ARJSPublishApi] Non-Axios error publishing AR.js project:',
-                    error instanceof Error ? error.message : 'Unknown error'
-                )
+                console.error('❌ [ARJSPublishApi] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
             }
 
             throw error
@@ -95,37 +80,34 @@ export class ARJSPublishApi {
     }
 
     /**
-     * Получает данные для публикации по id публикации
-     * Используется для публичного доступа к AR.js сцене
-     * @param publicationId Идентификатор публикации
-     * @returns Данные публикации с UPDL сценой
+     * Gets publication data by publication id
+     * Used for public access to AR.js space
+     * @param publicationId Publication ID
+     * @returns Publication data with UPDL space
      */
-    static async getPublicationData(publicationId: string): Promise<UPDLPublicationData> {
+    static async getPublicationData(
+        publicationId: string
+    ): Promise<IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string }> {
         try {
-            const apiBaseUrlToUse = getApiBaseUrl()
-            // Universo Platformo | Corrected API URL with /api/v1 prefix for public data endpoint
-            const publicationUrl = `${apiBaseUrlToUse}/api/v1/publish/arjs/public/${publicationId}`
+            const publicationUrl = `${API_BASE_URL}/api/v1/publish/arjs/public/${publicationId}`
+            console.log('🚀 [ARJSPublishApi] Loading publication:', publicationId)
 
-            console.log('🚀 [FRT ARJSPublishApi] Attempting to get publication data. URL:', publicationUrl)
-            console.log('📄 [FRT ARJSPublishApi] Current location for context:', window.location.href)
-            console.log('🔍 [FRT ARJSPublishApi] Publication ID:', publicationId)
-            console.log('🌐 [FRT ARJSPublishApi] Expected public URL format:', `${window.location.origin}/p/${publicationId}`)
-
-            // Для публичных данных не требуются заголовки авторизации
-            const response = await axios.get<UPDLPublicationData>(publicationUrl, {
-                // Добавляем заголовки для предотвращения кэширования
-                headers: {
-                    'Cache-Control': 'no-cache',
-                    Pragma: 'no-cache',
-                    Expires: '0'
+            const response = await axios.get<IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string }>(
+                publicationUrl,
+                {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        Pragma: 'no-cache',
+                        Expires: '0'
+                    }
                 }
-            })
-            console.log('[ARJSPublishApi] Publication data retrieved:', response.data)
+            )
+
+            console.log('✅ [ARJSPublishApi] Publication data loaded successfully')
             return response.data
         } catch (error: unknown) {
-            console.error('[ARJSPublishApi] Error getting publication data:', error instanceof Error ? error.message : 'Unknown error')
+            console.error('❌ [ARJSPublishApi] Failed to load publication:', error instanceof Error ? error.message : 'Unknown error')
 
-            // Более детальная обработка ошибок
             if (axios.isAxiosError(error)) {
                 if (error.response?.status === 404) {
                     throw new Error('Publication not found')

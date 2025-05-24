@@ -1,22 +1,24 @@
-// Universo Platformo | Utility for converting UPDL scene data to AR.js HTML code
-import { UPDLSceneGraph } from '../interfaces/UPDLTypes'
+// Universo Platformo | Utility for converting UPDL space data to AR.js HTML code
+
+// Import types from central Interface.UPDL.ts
+import { IUPDLSpace } from '@server/interface'
 
 /**
- * Класс для конвертации UPDL сцены в HTML-код AR.js
- * Используется в потоковой генерации AR.js сцены из UPDL данных
+ * Class for converting UPDL space to AR.js HTML code
+ * Used in streaming generation of AR.js space from UPDL data
  */
 export class UPDLToARJSConverter {
     /**
-     * Конвертирует UPDL сцену напрямую в HTML-код AR.js
-     * @param updlScene Сцена UPDL
-     * @param projectName Название проекта
-     * @returns HTML-код для AR.js
+     * Converts UPDL space directly to AR.js HTML code
+     * @param updlSpace UPDL space
+     * @param projectName Project name
+     * @returns HTML code for AR.js
      */
-    static convertToHTML(updlScene: UPDLSceneGraph, projectName: string = 'UPDL-AR.js'): string {
+    static convertToHTML(updlSpace: IUPDLSpace, projectName: string = 'UPDL-AR.js'): string {
         const aframeVersion = '1.6.0'
         const arjsVersion = 'master'
 
-        // Построение HTML-структуры
+        // Building HTML structure
         const html = `
 <!DOCTYPE html>
 <html>
@@ -77,27 +79,27 @@ export class UPDLToARJSConverter {
         </style>
     </head>
     <body>
-        <!-- Экран загрузки -->
+        <!-- Loading screen -->
         <div id="loading-screen" class="loading-screen">
             <div class="loading-spinner"></div>
-            <div>Загрузка AR сцены...</div>
+            <div>Loading AR space...</div>
         </div>
 
-        <!-- Инструкции для пользователя -->
+        <!-- User instructions -->
         <div id="ar-instructions" class="ar-instructions">
             Наведите камеру на маркер HIRO для отображения 3D объектов
         </div>
 
-        <!-- AR.js сцена -->
+        <!-- AR.js space -->
         <a-scene embedded arjs="trackingMethod: best; debugUIEnabled: false;" vr-mode-ui="enabled: false">
             <a-marker preset="hiro">
-                ${this.generateSceneContent(updlScene)}
+                ${this.generateSpaceContent(updlSpace)}
             </a-marker>
             <a-entity camera></a-entity>
         </a-scene>
 
         <script>
-            // Скрыть экран загрузки когда сцена загружена
+            // Hide loading screen when space is loaded
             document.addEventListener('DOMContentLoaded', function() {
                 const scene = document.querySelector('a-scene');
                 if (scene.hasLoaded) {
@@ -108,7 +110,7 @@ export class UPDLToARJSConverter {
                     });
                 }
 
-                // Скрыть инструкции через 10 секунд
+                // Hide instructions after 10 seconds
                 setTimeout(function() {
                     const instructions = document.querySelector('#ar-instructions');
                     if (instructions) {
@@ -127,40 +129,40 @@ export class UPDLToARJSConverter {
     }
 
     /**
-     * Генерирует содержимое AR сцены из UPDL-объектов
-     * @param updlScene Сцена UPDL
-     * @returns HTML-строка с элементами сцены
+     * Generates AR space content from UPDL objects
+     * @param updlSpace UPDL space
+     * @returns HTML string with space elements
      */
-    private static generateSceneContent(updlScene: UPDLSceneGraph): string {
+    private static generateSpaceContent(updlSpace: IUPDLSpace): string {
         let content = ''
 
         try {
-            // Если сцена пустая или отсутствует, создаем красный куб по умолчанию
-            if (!updlScene || !updlScene.objects || updlScene.objects.length === 0) {
+            // If space is empty or missing, create a default red cube
+            if (!updlSpace || !updlSpace.objects || updlSpace.objects.length === 0) {
                 console.log('[UPDLToARJSConverter] No objects found, creating default red cube')
                 content += `<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>\n`
                 return content
             }
 
-            console.log(`[UPDLToARJSConverter] Processing ${updlScene.objects.length} objects`)
+            console.log(`[UPDLToARJSConverter] Processing ${updlSpace.objects.length} objects`)
 
-            // Обработка объектов из UPDL-сцены
-            for (const obj of updlScene.objects) {
+            // Processing objects from UPDL space
+            for (const obj of updlSpace.objects) {
                 content += this.generateObjectElement(obj)
             }
 
             return content
         } catch (error) {
-            console.error('[UPDLToARJSConverter] Error generating scene content:', error)
-            // В случае ошибки возвращаем простой красный куб
+            console.error('[UPDLToARJSConverter] Error generating space content:', error)
+            // In case of error, return a simple red cube
             return `<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>\n`
         }
     }
 
     /**
-     * Генерирует HTML элемент A-Frame для объекта UPDL
-     * @param object Объект UPDL
-     * @returns HTML-строка с элементом
+     * Generates A-Frame HTML element for UPDL object
+     * @param object UPDL object
+     * @returns HTML string with element
      */
     private static generateObjectElement(object: any): string {
         if (!object || !object.type) {
@@ -169,13 +171,13 @@ export class UPDLToARJSConverter {
         }
 
         try {
-            // Получаем общие атрибуты
+            // Get common attributes
             const position = this.getPositionString(object.position)
             const scale = this.getScaleString(object.scale)
             const color = object.color || '#FF0000'
             const rotation = this.getRotationString(object.rotation)
 
-            // Определяем тип объекта и создаем соответствующий элемент A-Frame
+            // Determine object type and create corresponding A-Frame element
             switch (object.type.toLowerCase()) {
                 case 'box':
                     return `<a-box 
@@ -244,7 +246,7 @@ export class UPDLToARJSConverter {
                 scale="${scale}"
             ></a-cone>\n`
 
-                // По умолчанию, если тип не определен, создаем куб
+                // Default, if type is not defined, create a cube
                 default:
                     console.warn(`[UPDLToARJSConverter] Unknown object type: ${object.type}, defaulting to box`)
                     return `<a-box 
@@ -261,7 +263,7 @@ export class UPDLToARJSConverter {
     }
 
     /**
-     * Формирует строку позиции из объекта position
+     * Formats position string from object
      */
     private static getPositionString(position: any): string {
         if (!position) return '0 0.5 0'
@@ -269,7 +271,7 @@ export class UPDLToARJSConverter {
     }
 
     /**
-     * Формирует строку масштаба из объекта scale
+     * Formats scale string from object
      */
     private static getScaleString(scale: any): string {
         if (!scale) return '1 1 1'
@@ -277,7 +279,7 @@ export class UPDLToARJSConverter {
     }
 
     /**
-     * Формирует строку поворота из объекта rotation
+     * Formats rotation string from object
      */
     private static getRotationString(rotation: any): string {
         if (!rotation) return '0 0 0'
@@ -285,9 +287,9 @@ export class UPDLToARJSConverter {
     }
 
     /**
-     * Простой метод для экранирования HTML
-     * @param text Исходный текст
-     * @returns Экранированный текст
+     * Simple method for HTML escaping
+     * @param text Original text
+     * @returns Escaped text
      */
     private static escapeHtml(text: string): string {
         return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')

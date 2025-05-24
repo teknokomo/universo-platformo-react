@@ -106,7 +106,7 @@ export abstract class BaseUPDLNode implements INode {
     private mapPortsToUPDL(params: INodeParams[]): UPDLNodePort[] {
         // Map only parameters that are connection points, not UI fields
         return params
-            .filter((param) => param.type === 'scene' || param.type === 'object' || param.type === 'camera' || param.type === 'light')
+            .filter((param) => param.type === 'space' || param.type === 'object' || param.type === 'camera' || param.type === 'light')
             .map((param) => ({
                 id: param.name,
                 name: param.label || param.name,
@@ -135,9 +135,9 @@ export abstract class BaseUPDLNode implements INode {
     private mapParamTypeToPortType(paramType: string): UPDLPortType {
         // Map Flowise parameter types to UPDL port types
         switch (paramType) {
-            case 'scene':
-            case 'UPDLSceneNode':
-                return UPDLPortType.SCENE
+            case 'space':
+            case 'UPDLSpaceNode':
+                return UPDLPortType.SCENE // Using SCENE port type for backward compatibility
             case 'object':
             case 'UPDLObjectNode':
                 return UPDLPortType.OBJECT

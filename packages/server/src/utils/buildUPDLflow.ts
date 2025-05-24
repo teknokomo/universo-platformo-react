@@ -33,8 +33,8 @@ import {
     INodeOverrides,
     IVariableOverride,
     MODE,
-    UPDLScene,
-    UPDLFlowResult,
+    IUPDLSpace,
+    IUPDLFlowResult,
     IUPDLPosition,
     IUPDLRotation,
     IUPDLColor,
@@ -82,7 +82,7 @@ import { OMIT_QUEUE_JOB_DATA } from './constants'
 const isUPDLNode = (node: IReactFlowNode): boolean => {
     const nodeData = node.data || {}
     // Check for UPDL node indicators
-    return nodeData.category === 'UPDL' || ['scene', 'object', 'camera', 'light'].includes((nodeData.name || '').toLowerCase())
+    return nodeData.category === 'UPDL' || ['space', 'object', 'camera', 'light'].includes((nodeData.name || '').toLowerCase())
 }
 
 /**
@@ -111,12 +111,12 @@ export const getUPDLEndingNodes = (nodeDependencies: any, graph: any, allNodes: 
         return []
     }
 
-    // Check for Scene nodes (priority)
-    const sceneNodes = endingNodes.filter((node) => node.data?.name?.toLowerCase() === 'scene')
+    // Check for Space nodes (priority)
+    const spaceNodes = endingNodes.filter((node) => node.data?.name?.toLowerCase() === 'space')
 
-    // Prefer Scene nodes if available
-    if (sceneNodes.length > 0) {
-        return sceneNodes
+    // Prefer Space nodes if available
+    if (spaceNodes.length > 0) {
+        return spaceNodes
     }
 
     return endingNodes
@@ -138,13 +138,13 @@ const initUPDLEndingNode = async ({
     incomingInput: any
     flowConfig: any
 }): Promise<{ endingNodeData: any; endingNodeInstance: any }> => {
-    // Select the Scene node or the last node in the chain
-    const sceneNodeId = endingNodeIds.find((id) => {
+    // Select the Space node or the last node in the chain
+    const spaceNodeId = endingNodeIds.find((id) => {
         const node = reactFlowNodes.find((n) => n.id === id)
-        return node?.data?.name?.toLowerCase() === 'scene'
+        return node?.data?.name?.toLowerCase() === 'space'
     })
 
-    const finalEndingNodeId = sceneNodeId || endingNodeIds[endingNodeIds.length - 1]
+    const finalEndingNodeId = spaceNodeId || endingNodeIds[endingNodeIds.length - 1]
     const nodeToExecute = reactFlowNodes.find((node) => node.id === finalEndingNodeId)
 
     if (!nodeToExecute) {
@@ -156,13 +156,13 @@ const initUPDLEndingNode = async ({
     const reactFlowNodeData = nodeToExecute.data
 
     try {
-        // This is a simplified node instance for UPDL scene generation.
+        // This is a simplified node instance for UPDL space generation.
         // In a more complex scenario, this would involve loading the actual node component.
         const nodeInstance = {
             run: async (data: any, query: string, params: any) => {
-                // Convert the flow nodes to a UPDL scene
-                const scene = buildUPDLSceneFromNodes(reactFlowNodes) // reactFlowNodes is available via closure
-                return { updlScene: scene, scene: scene }
+                // Convert the flow nodes to a UPDL space
+                const updlSpace = buildUPDLSpaceFromNodes(reactFlowNodes) // reactFlowNodes is available via closure
+                return { updlSpace }
             }
         }
 
@@ -174,19 +174,19 @@ const initUPDLEndingNode = async ({
 }
 
 /**
- * Build a UPDL scene from the flow nodes
+ * Build a UPDL space from the flow nodes
  * @param {IReactFlowNode[]} nodes Flow nodes
- * @returns {UPDLScene} UPDL scene object
+ * @returns {IUPDLSpace} UPDL space object
  */
-const buildUPDLSceneFromNodes = (nodes: IReactFlowNode[]): UPDLScene => {
-    // Find the scene node
-    const sceneNode = nodes.find((node) => node.data?.name?.toLowerCase() === 'scene')
+const buildUPDLSpaceFromNodes = (nodes: IReactFlowNode[]): IUPDLSpace => {
+    // Find the space node
+    const spaceNode = nodes.find((node) => node.data?.name?.toLowerCase() === 'space')
 
-    if (!sceneNode) {
-        throw new Error('Scene node not found in flow')
+    if (!spaceNode) {
+        throw new Error('Space node not found in flow')
     }
 
-    const sceneData = sceneNode.data || {}
+    const spaceData = spaceNode.data || {}
 
     const objectNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'object')
     const cameraNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'camera')
@@ -245,8 +245,8 @@ const buildUPDLSceneFromNodes = (nodes: IReactFlowNode[]): UPDLScene => {
     })
 
     return {
-        id: sceneNode.id,
-        name: sceneData.label || 'UPDL Scene',
+        id: spaceNode.id,
+        name: spaceData.label || 'UPDL Space',
         objects,
         cameras,
         lights
@@ -262,7 +262,7 @@ export const executeUPDLFlow = async ({
     chatflow,
     chatId,
     baseURL // baseURL is not used in the current simplified version
-}: IExecuteFlowParams): Promise<UPDLFlowResult> => {
+}: IExecuteFlowParams): Promise<IUPDLFlowResult> => {
     try {
         logger.debug(`[server]: Start building UPDL flow ${chatflow.id}`)
 
@@ -321,10 +321,10 @@ export const executeUPDLFlow = async ({
 
         logger.debug(`[server]: Finished running UPDL ${endingNodeData.label} (${endingNodeData.id})`)
 
-        if (result.updlScene && !result.scene) {
-            result.scene = result.updlScene
-        } else if (result.scene && !result.updlScene) {
-            result.updlScene = result.scene
+        if (result.updlSpace && !result.space) {
+            result.space = result.updlSpace
+        } else if (result.space && !result.updlSpace) {
+            result.updlSpace = result.space
         }
 
         result.chatId = chatId
@@ -345,7 +345,7 @@ export const executeUPDLFlow = async ({
  * @param {string} chatflowId The ID of the chatflow to build.
  * @returns {Promise<UPDLFlowResult>} The result of the UPDL flow execution.
  */
-export const utilBuildUPDLflow = async (chatflowId: string): Promise<UPDLFlowResult> => {
+export const utilBuildUPDLflow = async (chatflowId: string): Promise<IUPDLFlowResult> => {
     try {
         logger.info(`[server]: utilBuildUPDLflow called for chatflow ID: ${chatflowId}`)
 
@@ -404,7 +404,7 @@ export const utilBuildUPDLflow = async (chatflowId: string): Promise<UPDLFlowRes
 /**
  * Handle direct UPDL request via the API - this path bypasses Chatflow validation
  */
-async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promise<UPDLFlowResult> {
+async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promise<IUPDLFlowResult> {
     try {
         console.log('🔄 [handleDirectUPDLRequest] Processing direct UPDL request for chatflow:', chatflowid)
         console.log('🔄 [handleDirectUPDLRequest] Request path:', req.path, 'originalUrl:', req.originalUrl)
@@ -482,23 +482,23 @@ async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promis
 
         console.log('🔄 [handleDirectUPDLRequest] Flow data contains', nodes.length, 'nodes')
 
-        // Find scene node
-        const sceneNode = nodes.find((node: any) => node.data?.name?.toLowerCase() === 'scene')
+        // Find space node
+        const spaceNode = nodes.find((node: any) => node.data?.name?.toLowerCase() === 'space')
 
-        if (!sceneNode) {
-            console.log('🔄 [handleDirectUPDLRequest] No scene node found in flow data')
+        if (!spaceNode) {
+            console.log('🔄 [handleDirectUPDLRequest] No space node found in flow data')
             return {
                 chatId,
                 status: 'error',
                 chatflowid,
                 sessionId: chatId,
-                message: 'No scene node found in flow data'
+                message: 'No space node found in flow data'
             }
         }
 
-        console.log('🔄 [handleDirectUPDLRequest] Found scene node, processing UPDL request')
+        console.log('🔄 [handleDirectUPDLRequest] Found space node, processing UPDL request')
 
-        // Process UPDL request based on scene node
+        // Process UPDL request based on space node
         // ... your processing logic here ...
 
         // Return success result with properly formatted data
@@ -509,7 +509,7 @@ async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promis
             sessionId: chatId,
             success: true,
             data: {
-                scene: buildUPDLSceneFromNodes(nodes),
+                space: buildUPDLSpaceFromNodes(nodes),
                 publishId: uuidv4(),
                 url: `/published/updl/${chatflowid}`
             },

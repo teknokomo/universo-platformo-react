@@ -63,7 +63,7 @@ import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
 import upAuth from '../middlewares/up-auth'
 // Universo Platformo | AR.js publishing integration
-import publishRoutes from '../../../../apps/publish-srv/base/dist/routes/publishRoutes'
+import { publishRoutes } from '../../../../apps/publish-srv/base/dist'
 
 const router = express.Router()
 

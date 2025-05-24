@@ -7,13 +7,13 @@ import logger from '../utils/logger'
 let utilBuildUPDLflow: any
 {
     const baseDir = __dirname
-    // Пытаемся загрузить из собранного dist
+    // Try to load from built dist
     try {
         const prodPath = path.resolve(baseDir, '../../../../../packages/server/dist/utils/buildUPDLflow')
         utilBuildUPDLflow = require(prodPath).utilBuildUPDLflow
         logger.info(`[PublishController] Imported utilBuildUPDLflow from ${prodPath}`)
     } catch (e1) {
-        // Пытаемся загрузить из исходников src
+        // Try tooloadofromcsource
         try {
             const devPath = path.resolve(baseDir, '../../../../../packages/server/src/utils/buildUPDLflow')
             utilBuildUPDLflow = require(devPath).utilBuildUPDLflow
@@ -26,13 +26,13 @@ let utilBuildUPDLflow: any
 }
 
 /**
- * Контроллер для работы с публикациями AR.js через UPDL
+ * Controller for AR.js publication via UPDL
  */
 export class PublishController {
     /**
-     * Публикация проекта AR.js
-     * @param req Запрос
-     * @param res Ответ
+     * Publish AR.js project
+     * @param req Request
+     * @param res Response
      */
     public async publishARJS(req: Request, res: Response): Promise<void> {
         logger.info(`[PublishController] publishARJS called with params: ${JSON.stringify(req.body)}`)
@@ -40,7 +40,7 @@ export class PublishController {
             const { chatflowId, generationMode = 'streaming', isPublic = true, projectName } = req.body
 
             if (!chatflowId) {
-                // Явно устанавливаем заголовок контента
+                // Explicitly set content type header
                 res.setHeader('Content-Type', 'application/json')
                 res.status(400).json({
                     success: false,
@@ -49,14 +49,14 @@ export class PublishController {
                 return
             }
 
-            // В режиме потоковой генерации используем сам chatflowId для упрощения
+            // In streaming generation mode, use chatflowId itself for simplification
             const publicationId = chatflowId
             const createdAt = new Date().toISOString()
 
-            // Явно устанавливаем заголовок контента
+            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
 
-            // Возвращаем метаданные о публикации
+            // Return publication metadata
             res.status(200).json({
                 success: true,
                 publicationId,
@@ -69,7 +69,7 @@ export class PublishController {
         } catch (error) {
             logger.error(`[PublishController] Error publishing AR.js:`, error)
 
-            // Явно устанавливаем заголовок контента
+            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
 
             res.status(500).json({
@@ -80,9 +80,9 @@ export class PublishController {
     }
 
     /**
-     * Получение публичных данных публикации AR.js по ID
-     * @param req Запрос
-     * @param res Ответ
+     * Get public publication data for AR.js by ID
+     * @param req Request
+     * @param res Response
      */
     public async getPublicARJSPublication(req: Request, res: Response): Promise<void> {
         logger.info(`[PublishController] getPublicARJSPublication called. PublicationId: ${req.params.publicationId}`)
@@ -90,7 +90,7 @@ export class PublishController {
             const { publicationId } = req.params
 
             if (!publicationId) {
-                // Явно устанавливаем заголовок контента
+                // Explicitly set content type header
                 res.setHeader('Content-Type', 'application/json')
                 res.status(400).json({
                     success: false,
@@ -99,15 +99,15 @@ export class PublishController {
                 return
             }
 
-            // Для режима потоковой генерации перенаправляем запрос к streamUPDL
-            // Так как publicationId в streaming режиме = chatflowId
+            // For streaming generation mode, redirect request to streamUPDL
+            // Since publicationId in streaming mode = chatflowId
             req.params.chatflowId = publicationId
             logger.info(`[PublishController] Using streamUPDL for AR.js public data retrieval with ID: ${publicationId}`)
             return await this.streamUPDL(req, res)
         } catch (error) {
             logger.error(`[PublishController] Error in getPublicARJSPublication:`, error)
 
-            // Явно устанавливаем заголовок контента
+            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
 
             res.status(500).json({
@@ -119,9 +119,9 @@ export class PublishController {
     }
 
     /**
-     * Получает данные UPDL сцены для потоковой генерации AR.js
-     * @param req Запрос
-     * @param res Ответ
+     * Get UPDL space data for AR.js streaming generation
+     * @param req Request
+     * @param res Response
      */
     public async streamUPDL(req: Request, res: Response): Promise<void> {
         const id = req.params.chatflowId || req.params.publicationId
@@ -130,7 +130,7 @@ export class PublishController {
         logger.info(`[PublishController] Request URL: ${req.originalUrl}`)
 
         if (!id) {
-            // Явно устанавливаем заголовок контента
+            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
             logger.error(`[PublishController] Missing ID parameter! URL: ${req.originalUrl}, params: ${JSON.stringify(req.params)}`)
             res.status(400).json({
@@ -145,7 +145,7 @@ export class PublishController {
                 throw new Error('utilBuildUPDLflow is not available')
             }
 
-            // Вызываем функцию для получения данных UPDL из узлов
+            // Call function to get UPDL data from nodes
             logger.info(`[PublishController] Calling utilBuildUPDLflow for id: ${id}`)
             const result = await utilBuildUPDLflow(id)
 
@@ -154,50 +154,50 @@ export class PublishController {
                 throw new Error(`Failed to build UPDL flow for ${id}`)
             }
 
-            // Определяем, какую сцену использовать (предпочитаем updlScene)
-            const sceneToUse = result.updlScene || result.scene
+            // Get space from result
+            const spaceToUse = result.updlSpace
 
-            if (!sceneToUse || !sceneToUse.objects || sceneToUse.objects.length === 0) {
-                logger.warn(`[PublishController] utilBuildUPDLflow returned empty scene for ${id}`)
+            if (!spaceToUse || !spaceToUse.objects || spaceToUse.objects.length === 0) {
+                logger.warn(`[PublishController] utilBuildUPDLflow returned empty space for ${id}`)
 
-                // Если сцена пустая, возвращаем ошибку
-                // Явно устанавливаем заголовок контента
+                // If space is empty, return error
+                // Explicitly set content type header
                 res.setHeader('Content-Type', 'application/json')
                 res.status(404).json({
                     success: false,
-                    error: 'UPDL scene not found or empty'
+                    error: 'UPDL space not found or empty'
                 })
                 return
             }
 
-            logger.info(`[PublishController] Successfully built UPDL scene with ${sceneToUse.objects?.length || 0} objects`)
+            logger.info(`[PublishController] Successfully built UPDL space with ${spaceToUse.objects?.length || 0} objects`)
 
-            // Возвращаем данные сцены для UPDL-узлов
-            // Явно устанавливаем заголовок контента
+            // Return space data for UPDL nodes
+            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
             res.status(200).json({
                 success: true,
                 publicationId: id,
-                projectName: sceneToUse.name || `AR.js for ${id}`,
+                projectName: spaceToUse.name || `AR.js for ${id}`,
                 generationMode: 'streaming',
-                updlScene: sceneToUse,
+                updlSpace: spaceToUse,
                 timestamp: new Date().toISOString()
             })
         } catch (error) {
             logger.error(`[PublishController] Error in streamUPDL:`, error)
             logger.error(`[PublishController] Error details: ${error instanceof Error ? error.stack : String(error)}`)
 
-            // В случае ошибки возвращаем ошибку
-            // Явно устанавливаем заголовок контента
+            // In case of error, return error
+            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
             res.status(500).json({
                 success: false,
-                error: 'Failed to retrieve UPDL scene',
+                error: 'Failed to retrieve UPDL space',
                 details: error instanceof Error ? error.message : 'Unknown error'
             })
         }
     }
 }
 
-// Создаем экземпляр контроллера для использования в routes
+// Create controller instance for use in routes
 export const publishController = new PublishController()

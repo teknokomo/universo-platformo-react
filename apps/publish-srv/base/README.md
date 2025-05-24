@@ -1,39 +1,39 @@
 # Publish Server (AR.js MVP)
 
-Минимальное серверное приложение для публикации AR.js сцен на основе UPDL-узлов, интегрируемое с основным сервером Flowise.
+Minimal server application for publishing AR.js spaces based on UPDL nodes, integrated with the main Flowise server.
 
-## Функциональность MVP
+## MVP Functionality
 
-Модуль предоставляет API для:
+The module provides API for:
 
--   Публикации AR.js приложений через потоковую генерацию UPDL-сцен
--   Извлечения данных UPDL-сцены для AR.js рендеринга
+-   Publishing AR.js applications through UPDL space streaming generation
+-   Extracting UPDL space data for AR.js rendering
 
-## Структура проекта (MVP)
+## Project Structure (MVP)
 
 ```
 apps/publish-srv/base/
 └─ src/
-   ├─ controllers/       # Контроллер AR.js публикаций
-   ├─ routes/            # Маршруты API
-   ├─ interfaces/        # TypeScript интерфейсы для UPDL
-   ├─ middlewares/       # Обработчик ошибок
-   ├─ utils/             # Логгер
-   ├─ server.ts          # Инициализация маршрутов
-   └─ index.ts           # Точка входа и экспорт
+   ├─ controllers/       # AR.js publication controllers
+   ├─ routes/            # API routes
+   ├─ interfaces/        # TypeScript interfaces for UPDL
+   ├─ middlewares/       # Error handlers
+   ├─ utils/             # Logger
+   ├─ server.ts          # Route initialization
+   └─ index.ts           # Entry point and exports
 ```
 
 ## REST API (MVP)
 
-### Эндпоинты:
+### Endpoints:
 
--   `POST /api/v1/publish/arjs` - Создать публикацию AR.js (потоковая генерация)
--   `GET /api/v1/publish/arjs/public/:publicationId` - Получить данные публикации AR.js
--   `GET /api/v1/publish/arjs/stream/:chatflowId` - Прямой запрос к UPDL-сцене
+-   `POST /api/v1/publish/arjs` - Create AR.js publication (streaming generation)
+-   `GET /api/v1/publish/arjs/public/:publicationId` - Get AR.js publication data
+-   `GET /api/v1/publish/arjs/stream/:chatflowId` - Direct request to UPDL space
 
-### Примеры:
+### Examples:
 
-#### Публикация AR.js:
+#### AR.js Publication:
 
 ```bash
 POST /api/v1/publish/arjs
@@ -45,34 +45,34 @@ POST /api/v1/publish/arjs
 }
 ```
 
-#### Получение данных сцены:
+#### Get Space Data:
 
 ```bash
 GET /api/v1/publish/arjs/public/778d565f-e9cc-4dd8-b8ef-7a097ecb18f3
 ```
 
-## Интеграция с Flowise
+## Integration with Flowise
 
-Модуль интегрируется с основным Flowise-сервером:
+The module integrates with the main Flowise server:
 
-1. Экспортирует функцию `initializePublishServer` для добавления маршрутов
-2. Использует `utilBuildUPDLflow` из основного сервера для генерации сцен
+1. Exports `initializePublishServer` function for adding routes
+2. Uses `utilBuildUPDLflow` from the main server for space generation
 
-## Процесс публикации AR.js
+## AR.js Publication Process
 
-1. Пользователь создает Chatflow с UPDL-узлами (Сцена, Объект и т.д.)
-2. В интерфейсе нажимает "Публикация и экспорт" → "AR.js" → "Сделать публичным"
-3. Получает ссылку формата `/p/:chatflowId`
-4. По этой ссылке фронтенд запрашивает данные сцены и отображает AR.js приложение
+1. User creates Chatflow with UPDL nodes (Space, Object, etc.)
+2. In the interface clicks "Publication and Export" → "AR.js" → "Make Public"
+3. Gets a link in format `/p/:chatflowId`
+4. At this link, frontend requests space data and displays AR.js application
 
-## Демо-режим
+## Demo Mode
 
-Демо-режим реализован только на стороне фронтенда (компонент `ARJSPublisher.jsx`) через константу `DEMO_MODE = true/false`. В демо-режиме фронтенд не отправляет запросы к API, а использует предопределенные ссылки.
+Demo mode is implemented only on the frontend side (`ARJSPublisher.jsx` component) through `DEMO_MODE = true/false` constant. In demo mode, frontend doesn't send requests to API, but uses predefined links.
 
-## Зависимости
+## Dependencies
 
--   **Основной сервер Flowise**: публикация интегрируется с ним
--   **Функция `utilBuildUPDLflow`**: строит UPDL-сцену из узлов чатфлоу
+-   **Main Flowise Server**: publication integrates with it
+-   **`utilBuildUPDLflow` Function**: builds UPDL space from chatflow nodes
 
 ---
 

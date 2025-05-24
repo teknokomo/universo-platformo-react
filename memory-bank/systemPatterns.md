@@ -83,49 +83,95 @@ Scene 1 (initial scene)
 
 The project follows a modular APPs architecture that separates concerns while minimizing changes to the core Flowise codebase:
 
-### Directory Structure
+### Current Directory Structure (Post-QA Verified)
 
 ```plain
 universo-platformo-react/
 ├── packages/                       # Original Flowise packages
 │   ├── components/                 # Components and utilities
 │   ├── server/                     # Server-side code
+│   │   └── src/
+│   │       └── Interface.UPDL.ts   # Simplified UPDL interfaces for integration
 │   └── ui/                         # Frontend
 ├── apps/                           # New APPs architecture
-│   ├── updl/                       # UPDL node system
-│   │   ├── imp/                    # Implementation module
-│   │   │   ├── src/
-│   │   │   │   ├── nodes/          # UPDL node definitions
-│   │   │   │   ├── exporters/      # Platform-specific exporters
-│   │   │   │   └── index.ts        # Entry point
-│   │   │   ├── package.json        # Module metadata and scripts
-│   │   │   └── tsconfig.json       # TypeScript configuration
-│   │   └── README.md               # Documentation for UPDL module
-│   └── publish/                    # Publication system
-│       ├── imp/                    # Implementation module
-│       │   ├── express/            # Backend API service
-│       │   │   ├── controllers/    # Request handlers
-│       │   │   ├── routes/         # API route definitions
-│       │   │   └── server.ts       # Express app setup
-│       │   └── react/              # Frontend publication UI
-│       │       ├── api/            # Axios wrappers
-│       │       ├── components/     # Shared UI components
-│       │       ├── miniapps/       # Technology-specific handlers
-│       │       │   ├── arjs/       # AR.js export UI and logic
-│       │       │   ├── aframe-vr/  # A-Frame VR publisher (planned)
-│       │       │   └── playcanvas-react/ # PlayCanvas React exporter
-│       │       └── pages/          # High-level UI views
-│       ├── package.json            # Module metadata and scripts
-│       └── README.md               # Documentation for Publish module
+│   ├── updl/                       # UPDL node system (pure node definitions)
+│   │   └── base/                   # Core UPDL functionality
+│   │       ├── src/
+│   │       │   ├── nodes/          # UPDL node definitions
+│   │       │   │   ├── base/       # Base node classes
+│   │       │   │   ├── space/      # Space nodes (formerly scene)
+│   │       │   │   ├── object/     # Object nodes
+│   │       │   │   ├── camera/     # Camera nodes
+│   │       │   │   └── light/      # Light nodes
+│   │       │   ├── assets/         # Static resources (icons, images)
+│   │       │   ├── i18n/           # Internationalization
+│   │       │   ├── interfaces/     # Complete UPDL ecosystem definitions
+│   │       │   │   └── UPDLInterfaces.ts # Full UPDL specification
+│   │       │   └── index.ts        # Entry point - exports node classes and interfaces
+│   │       ├── dist/               # Compiled output
+│   │       ├── package.json        # Module metadata and scripts
+│   │       ├── tsconfig.json       # TypeScript configuration
+│   │       └── gulpfile.ts         # Asset copying during build
+│   ├── publish-frt/                # Publication system frontend
+│   │   └── base/                   # Core frontend functionality
+│   │       ├── src/
+│   │       │   ├── api/            # HTTP clients to backend
+│   │       │   ├── assets/         # Static resources
+│   │       │   ├── components/     # UI components
+│   │       │   ├── features/       # Technology-specific handlers
+│   │       │   │   └── arjs/       # AR.js publication handler
+│   │       │   ├── i18n/           # Localization
+│   │       │   ├── pages/          # Page components
+│   │       │   ├── services/       # Service layer for backend communication
+│   │       │   ├── utils/          # Utilities (UPDLToARJSConverter)
+│   │       │   └── index.ts        # Entry point
+│   │       ├── dist/               # Compiled output
+│   │       ├── package.json        # Module metadata and scripts
+│   │       ├── tsconfig.json       # TypeScript configuration
+│   │       └── gulpfile.ts         # Asset copying during build
+│   └── publish-srv/                # Publication system backend
+│       └── base/                   # Core backend functionality
+│           ├── src/
+│           │   ├── controllers/    # Express controllers
+│           │   ├── routes/         # API routes
+│           │   ├── utils/          # Helper functions
+│           │   └── index.ts        # Entry point
+│           ├── dist/               # Compiled output
+│           ├── package.json        # Module metadata and scripts
+│           └── tsconfig.json       # TypeScript configuration
 ```
+
+### Interface Architecture Benefits
+
+**Two-Layer Interface System:**
+
+1. **UPDL Core Interfaces** (`UPDLInterfaces.ts`):
+
+    - Complete UPDL ecosystem definitions
+    - Full specification with advanced properties
+    - Used internally by UPDL nodes
+    - Exported for advanced consumers
+
+2. **Integration Interfaces** (`Interface.UPDL.ts`):
+    - Simplified for backend/frontend integration
+    - Essential properties only
+    - Used by publication system
+    - Available via `@server/interface` alias
+
+**Architectural Benefits:**
+
+-   **Clean Separation**: Each interface serves distinct purpose
+-   **Future-Proof**: Core UPDL can evolve independently
+-   **Performance**: Smaller footprint for production
+-   **No Duplication**: Intentional architectural separation
 
 ### Key Architectural Benefits
 
 1. **Separation of Concerns**
 
     - Core functionality remains in original packages
-    - UPDL node system contained in apps/updl
-    - Publication system isolated in apps/publish
+    - UPDL node system contained in apps/updl (pure node definitions only)
+    - Publication system isolated in apps/publish-frt and apps/publish-srv
 
 2. **Minimal Core Changes**
 
@@ -135,14 +181,14 @@ universo-platformo-react/
 
 3. **Easy Extension**
 
-    - New export technologies added as miniapps
-    - Consistent API across all exporters
-    - Simple addition of new node types
+    - New export technologies added as features in publish-frt
+    - Consistent API across all exporters via publish-srv
+    - Simple addition of new node types in apps/updl
 
 4. **Clean Publication Flow**
-    - Unified URL format: `/p/{uuid}` with frame, `/e/p/{uuid}` without
+    - Unified URL format: `/p/{uuid}`
     - Dedicated layouts for different technologies
-    - Replacement for legacy paths like `/arbot/{id}`
+    - Streaming generation from UPDL nodes to target platforms
 
 ## Code Documentation
 

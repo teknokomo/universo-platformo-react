@@ -102,9 +102,6 @@ importers:
 
   apps/publish-frt/base:
     dependencies:
-      express:
-        specifier: ^4.18.2
-        version: 4.21.1
       file-saver:
         specifier: ^2.0.5
         version: 2.0.5
@@ -121,9 +118,6 @@ importers:
         specifier: ^5.4.5
         version: 5.8.3
     devDependencies:
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.21
       '@types/file-saver':
         specifier: ^2.0.7
         version: 2.0.7
@@ -161,45 +155,17 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.21
-      '@types/gulp':
-        specifier: 4.0.9
-        version: 4.0.9
       '@types/node':
         specifier: ^20.11.17
         version: 20.12.12
       eslint:
         specifier: ^8.56.0
         version: 8.57.0
-      gulp:
-        specifier: ^4.0.2
-        version: 4.0.2
       rimraf:
         specifier: ^5.0.5
         version: 5.0.5
 
-  apps/updl-frt/base:
-    dependencies:
-      typescript:
-        specifier: ^5.4.5
-        version: 5.8.3
-    devDependencies:
-      '@types/gulp':
-        specifier: 4.0.9
-        version: 4.0.9
-      '@types/node':
-        specifier: ^20.11.17
-        version: 20.12.12
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.0
-      gulp:
-        specifier: ^4.0.2
-        version: 4.0.2
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.5
-
-  apps/updl-srv/base:
+  apps/updl/base:
     dependencies:
       typescript:
         specifier: ^5.4.5

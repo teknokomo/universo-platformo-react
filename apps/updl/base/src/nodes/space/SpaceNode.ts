@@ -1,37 +1,37 @@
-// Universo Platformo | UPDL Scene Node
-// Root node for 3D scene definition
+// Universo Platformo | UPDL Space Node
+// Root node for 3D space definition
 
 import { INodeData, ICommonObject } from '../interfaces'
 import { BaseUPDLNode } from '../base/BaseUPDLNode'
 
 /**
- * SceneNode is the root node for any UPDL scene
- * It defines global scene settings and serves as a container
+ * SpaceNode is the root node for any UPDL space
+ * It defines global space settings and serves as a container
  * for other nodes like camera, lights, and objects
  */
-export class SceneNode extends BaseUPDLNode {
+export class SpaceNode extends BaseUPDLNode {
     constructor() {
         // Configure node metadata
         super({
-            name: 'Scene',
-            type: 'UPDLScene',
-            icon: 'scene.svg',
-            description: 'Root node for a 3D scene that contains global scene settings',
+            name: 'Space',
+            type: 'UPDLSpace',
+            icon: 'space.svg',
+            description: 'Root node for a 3D space that contains global space settings',
             version: 1.0,
             // Moved properties to inputs for UI rendering
             inputs: [
                 {
-                    name: 'sceneName',
+                    name: 'spaceName',
                     type: 'string',
-                    label: 'Scene Name',
-                    description: 'Name of the scene',
-                    default: 'My Scene'
+                    label: 'Space Name',
+                    description: 'Name of the space',
+                    default: 'My Space'
                 },
                 {
                     name: 'backgroundColor',
                     type: 'string',
                     label: 'Background Color',
-                    description: 'Background color of the scene (hex code)',
+                    description: 'Background color of the space (hex code)',
                     default: '',
                     optional: true
                 },
@@ -90,7 +90,7 @@ export class SceneNode extends BaseUPDLNode {
                     name: 'isRootNode',
                     type: 'boolean',
                     label: 'Is Root Node',
-                    description: 'Scene must be the root node of a UPDL flow',
+                    description: 'Space must be the root node of a UPDL flow',
                     default: true,
                     hidden: true
                 },
@@ -98,7 +98,7 @@ export class SceneNode extends BaseUPDLNode {
                     label: 'Objects',
                     name: 'objects',
                     type: 'UPDLObject',
-                    description: 'Connect Object nodes to add them to the scene',
+                    description: 'Connect Object nodes to add them to the space',
                     list: true,
                     optional: true
                 },
@@ -106,7 +106,7 @@ export class SceneNode extends BaseUPDLNode {
                     label: 'Lights',
                     name: 'lights',
                     type: 'UPDLLight',
-                    description: 'Connect Light nodes to add them to the scene',
+                    description: 'Connect Light nodes to add them to the space',
                     list: true,
                     optional: true
                 },
@@ -114,7 +114,7 @@ export class SceneNode extends BaseUPDLNode {
                     label: 'Cameras',
                     name: 'cameras',
                     type: 'UPDLCamera',
-                    description: 'Connect Camera nodes to add them to the scene',
+                    description: 'Connect Camera nodes to add them to the space',
                     list: true,
                     optional: true
                 }
@@ -128,20 +128,20 @@ export class SceneNode extends BaseUPDLNode {
      * @param nodeData Node data from Flowise
      */
     async init(nodeData: INodeData, input: string = ''): Promise<any> {
-        // Initialize scene properties if necessary
+        // Initialize space properties if necessary
         return this
     }
 
     /**
      * Execute the node logic
      * @param nodeData Node data from Flowise
-     * @param input Input data (not used for Scene properties)
+     * @param input Input data (not used for Space properties)
      * @param options Additional options
-     * @returns Scene object
+     * @returns Space object
      */
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
         // Extract properties via nodeData.inputs
-        const sceneName = (nodeData.inputs?.sceneName as string) || 'My Scene'
+        const spaceName = (nodeData.inputs?.spaceName as string) || 'My Space'
         const backgroundColor = (nodeData.inputs?.backgroundColor as string) || '' // Use default from input definition
         const enableSkybox = nodeData.inputs?.skybox ? true : false
         const skyboxTexture = nodeData.inputs?.skyboxTexture as string
@@ -154,14 +154,14 @@ export class SceneNode extends BaseUPDLNode {
         const cameras = []
         const lights = []
 
-        // Generate a unique ID for the scene
-        const id = `scene-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        // Generate a unique ID for the space
+        const id = `space-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 
-        // Return scene configuration
+        // Return space configuration
         return {
             id,
-            type: 'UPDLSceneNode',
-            name: sceneName,
+            type: 'UPDLSpaceNode',
+            name: spaceName,
             isRootNode: true,
             backgroundColor,
             skybox: {
@@ -181,4 +181,4 @@ export class SceneNode extends BaseUPDLNode {
 }
 
 // Для совместимости с Flowise экспортируем класс как nodeClass
-module.exports = { nodeClass: SceneNode }
+module.exports = { nodeClass: SpaceNode }

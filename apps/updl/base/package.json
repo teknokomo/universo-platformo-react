@@ -1,7 +1,7 @@
 {
-    "name": "updl-frt",
+    "name": "updl",
     "version": "0.1.0",
-    "description": "Frontend for Universo Platformo Definition Language for 3D/AR/VR scene definition",
+    "description": "Universo Platformo Definition Language for 3D/AR/VR scene definition - UPDL Node Extensions for Flowise",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
@@ -14,7 +14,8 @@
         "updl",
         "universo",
         "platformo",
-        "frontend",
+        "flowise",
+        "nodes",
         "3d",
         "ar",
         "vr",

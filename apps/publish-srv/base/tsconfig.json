@@ -6,7 +6,6 @@
         "declaration": true,
         "sourceMap": true,
         "outDir": "./dist",
-        "rootDir": "./src",
         "strict": true,
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
@@ -14,7 +13,8 @@
         "skipLibCheck": true,
         "baseUrl": ".",
         "paths": {
-            "*": ["*"]
+            "*": ["*"],
+            "@server/interface": ["../../../packages/server/src/Interface.UPDL"]
         },
         "moduleResolution": "node"
     },
