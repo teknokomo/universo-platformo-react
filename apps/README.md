@@ -23,6 +23,13 @@ apps/
 │   └── base/            # Core frontend functionality for publication
 │       ├── src/         # Source code
 │       │   ├── api/     # HTTP clients to backend
+│       │   │   ├── common.ts          # Core API utilities
+│       │   │   ├── index.ts           # Central API exports
+│       │   │   └── publication/       # Publication-specific API clients
+│       │   │       ├── PublicationApi.ts        # Base publication API
+│       │   │       ├── ARJSPublicationApi.ts    # AR.js specific API
+│       │   │       ├── StreamingPublicationApi.ts # Streaming API
+│       │   │       └── index.ts       # Publication exports with compatibility
 │       │   ├── assets/  # Static resources (icons, images)
 │       │   ├── components/ # React components
 │       │   ├── features/   # Feature modules for various technologies
@@ -80,10 +87,14 @@ The Publish application provides mechanisms for exporting UPDL spaces to various
 
 **Key Features:**
 
--   Publication UI components
--   Technology selection interface
+-   Modular API architecture with technology-specific clients
+-   Multi-technology publication support (AR.js, Chatbot, extensible to others)
+-   Supabase integration with persistent configuration storage
+-   Publication UI components with real-time streaming generation
+-   Technology selection interface with independent publication states
 -   QR code generation for mobile access
--   Export functionality
+-   Export functionality with backward compatibility
+-   Circular dependency prevention and clean code architecture
 
 **Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 
@@ -134,7 +145,7 @@ app-name/
 
 **Note:** Not all directories are required for every application. Create only the directories that are needed for your specific functionality:
 
--   **Frontend applications** typically need: `api/`, `assets/`, `components/`, `features/`, `pages/`, `services/`, `utils/`, `gulpfile.ts`
+-   **Frontend applications** typically need: `api/`, `assets/`, `components/`, `features/`, `pages/`, `utils/`, `gulpfile.ts`
 -   **Backend applications** typically need: `controllers/`, `routes/`, `utils/`
 -   **UPDL modules** typically need: `assets/`, `interfaces/`, `nodes/`, `gulpfile.ts`
 

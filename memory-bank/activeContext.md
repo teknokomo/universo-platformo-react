@@ -1,151 +1,170 @@
 # Current Active Context
 
-## Application Structure Refactoring - COMPLETED
+## Complex UPDL Structures Development
 
-### Goal ✅
+### Current Goal 🎯
 
-Implement a unified, coherent structure for all applications in the apps/ directory, based on best practices and the architecture of the main Flowise project.
+Enable creation of complex UPDL structures in Chatflow that support:
 
-### Completed Steps
+-   Multiple 3D objects within single Space node
+-   Multiple interconnected Space nodes in single Chatflow
+-   Advanced AR.js publication/export functionality for complex scenes
 
-The following steps have been completed in the refactoring process:
+### Architecture Foundation ✅
 
-1. Updated systemPatterns.md with the new architecture and made changes to tasks.md
-2. Refactored publish-frt:
-    - Created additional directories (assets, hooks, store, configs)
-    - Renamed the miniapps directory to features
-    - Created API client structure
-    - Updated index.ts
-    - Updated README.md
-3. Refactored publish-srv:
-    - Created directories for controllers, routes, interfaces, middlewares
-    - Implemented new types and interfaces
-    - Implemented REST endpoints and controllers
-    - **Radically simplified codebase, removed all unnecessary components and files**
-    - **Streamlined to minimal MVP for AR.js streaming generation only**
-    - Updated server.ts and index.ts to integrate with main Flowise
-    - Updated README.md
-4. Completed asset management restructuring:
-    - Created proper icons/ and images/ directories
-    - Moved all static assets to appropriate locations
-    - Updated import paths to reference new locations
-5. Migrated miniapps to features:
-    - Renamed directory structure for better clarity
-    - Updated all import paths to use new structure
-    - Removed old miniapps directories after confirming functionality
-6. Improved AR.js publication interface:
-    - Fixed initial state of "Сделать публичным" toggle to match Flowise patterns
-    - Removed redundant "actions.close" button from interface
-    - Removed duplicate "actions.copyLink" button to clean up UI
-7. **✅ UPDL Applications Complete Refactoring (January 2025)**:
-    - **Removed updl-srv entirely** - determined unnecessary as Flowise server handles all backend logic
-    - **Renamed updl-frt to updl** - simplified naming
-    - **Cleaned updl from all export/publication related code** - only UPDL node definitions remain
-    - **Removed all legacy export functionality** - configs, store, api directories
-    - **Streamlined to pure UPDL node definitions** - assets, hooks, i18n, interfaces, nodes, utils only
-    - **Updated package.json and documentation** - reflects new simplified structure
-    - **Verified build process works correctly** - all tests pass
+**Completed Infrastructure:**
 
-### Current Architecture ✅
+-   **Project Structure**: Clean separation between UPDL node definitions (`apps/updl/`) and publication system (`apps/publish-frt/`, `apps/publish-srv/`)
+-   **AR.js Publication**: Working streaming generation with Supabase persistence
+-   **UPDL Integration**: Nodes loaded by Flowise NodesPool, processed by utilBuildUPDLflow
+-   **API Routes**: Correct authentication with `/api/v1/uniks/{unikId}/chatflows/{chatflowId}`
 
-**Final simplified architecture achieved:**
+### Current Development Focus
 
-```
-apps/
-├── updl/           # UPDL node definitions for Flowise (formerly updl-frt)
-├── publish-frt/    # Publication frontend
-└── publish-srv/    # Publication backend
-```
+#### Multi-Object Spaces
 
-### Key Decisions
+**Objective**: Support multiple 3D objects in single Space node
 
--   **UPDL-SRV REMOVED**: Determined that Flowise server already provides all needed backend functionality
--   **UPDL-FRT → UPDL**: Simplified naming as there's no corresponding server application
--   **Pure node focus**: UPDL app now contains only node definitions, no export/publication logic
--   **Clean separation**: Publication handled entirely by publish-frt/publish-srv applications
--   **Flowise integration**: UPDL nodes loaded directly by Flowise NodesPool from apps/updl/base/dist/nodes
--   Each application contains its own interfaces and types
--   Clearly separated features by technology under the features/ directory
--   **Radically simplified all applications to include only essential functionality**
+**Current State**: Basic single-object spaces working
+**Target State**: Rich scenes with multiple positioned objects
 
-**Current Sprint**: 1.0.0 pre-alpha (January 2025)
+**Key Areas**:
 
-**Status**: ✅ **REFACTORING COMPLETED**
+-   Object positioning and relationship management
+-   Dynamic object generation from UPDL data
+-   Proper coordinate system handling
 
-## Current Focus ✅
+#### Connected Spaces Architecture
 
-### Final Applications Structure
+**Objective**: Multiple Space nodes in single Chatflow with navigation
 
-Architecture has been finalized and implemented:
+**Current State**: Single space per chatflow
+**Target State**: Multi-space experiences with transitions
 
--   **updl**: Node definitions for UPDL system (Scene, Object, Camera, Light nodes)
+**Key Areas**:
 
-    -   Pure node definitions and related utilities
-    -   Assets (icons), hooks, i18n, interfaces, nodes, utils only
-    -   No export/publication logic - focused on Flowise integration
-    -   Loads into Flowise via NodesPool mechanism
+-   Space relationship and navigation logic
+-   Cross-space object references
+-   User experience for space transitions
 
--   **publish-frt**: Frontend for publication system (UI components, export options)
+#### Advanced AR.js Generation
 
-    -   Standard directory structure with features/, components/, api/ etc.
-    -   Technology-specific modules in features/ directory
-    -   Static assets properly organized in assets/icons/ and assets/images/
-    -   HTTP clients in api/ for backend communication
-    -   Clear interfaces and types in interfaces/
+**Objective**: Complex scene generation from multi-space UPDL
 
--   **publish-srv**: Backend for publication system (API endpoints, minimal UPDL to AR.js support)
-    -   **Minimal structure with only controllers/, routes/, interfaces/, middlewares/**
-    -   **Only three REST API endpoints for AR.js publication**
-    -   **Focused specifically on UPDL streaming generation**
-    -   **Tight integration with main Flowise server**
-    -   **No standalone server capability - designed as an extension only**
+**Current State**: Simple space-to-AR.js conversion
+**Target State**: Rich AR experiences with interactions
 
-This separation:
+**Key Areas**:
 
--   Provides clearest possible responsibility boundaries
--   Maximizes simplicity and maintainability
--   Enables clean integration with Flowise core
--   Eliminates code duplication
--   **Achieves optimal architecture for MVP functionality**
+-   Complex scene generation algorithms
+-   Space transitions and interactions
+-   Enhanced object behavior and properties
 
-### Current Development Status ✅
+### UPDL Node Enhancement Strategy
 
-**REFACTORING PHASE COMPLETED**
+#### Enhanced Space Node Capabilities
 
--   [x] Developed `AFrameModel` layer for A-Frame element representation
--   [x] Implemented `UPDLToAFrameConverter` for converting UPDL scenes to A-Frame
--   [x] Established base exporter architecture with clear responsibilities
--   [x] Created `ARJSExporter` for generating HTML from UPDL scenes
--   [x] Refactored code to clearly separate AR.js and A-Frame implementations
--   [x] Standardized directory structure across applications
--   [x] Completed migration from miniapps to features
--   [x] **Radically simplified publish-srv to minimal MVP for AR.js**
--   [x] **Removed all unused code, services, and controllers from publish-srv**
--   [x] **✅ COMPLETED refactoring of UPDL applications**
--   [x] **✅ REMOVED updl-srv as unnecessary**
--   [x] **✅ CLEANED updl from all export/publication logic**
--   [x] **✅ VERIFIED system works correctly after refactoring**
+-   **Multi-object support**: Array of objects instead of single object
+-   **Spatial relationships**: Positioning, grouping, hierarchies
+-   **Scene properties**: Lighting, environment, background
 
-## Implementation Strategy ✅
+#### Advanced Object Nodes
 
-**ACHIEVED**: Simplified architecture with clear separation of concerns:
+-   **Interaction capabilities**: Touch, proximity, animation triggers
+-   **Advanced properties**: Physics, materials, textures
+-   **Behavioral logic**: State management, conditional appearance
 
--   **UPDL nodes** → Define universal scene abstractions in Flowise
--   **Publish system** → Handle export to specific technologies (AR.js, etc.)
--   **Flowise core** → Provide backend processing via utilBuildUPDLflow
+#### Navigation and Linking Nodes
 
-All applications now focus on their core purpose without unnecessary complexity.
+-   **Portal nodes**: Transitions between spaces
+-   **Trigger nodes**: Conditional navigation logic
+-   **State nodes**: Persistent data across spaces
 
-## Current Status ✅
+### Implementation Priorities
 
-**REFACTORING COMPLETED SUCCESSFULLY**
+#### Phase 1: Multi-Object Foundation
 
-The application architecture refactoring has been completed with all goals achieved:
+1. **Space Node Enhancement**
 
-1. ✅ Simplified UPDL to pure node definitions
-2. ✅ Removed unnecessary updl-srv application
-3. ✅ Cleaned all export/publication logic from UPDL
-4. ✅ Verified build process works correctly
-5. ✅ Updated all documentation
+    - Modify Space node to accept multiple objects
+    - Implement object array handling in utilBuildUPDLflow
+    - Update UPDLToARJSConverter for multi-object scenes
 
-**Next phase**: Focus on enhancing publication functionality and user experience.
+2. **Object Positioning System**
+    - Relative positioning within space
+    - Collision detection and automatic layout
+    - Visual positioning tools in Flowise interface
+
+#### Phase 2: Multi-Space Architecture
+
+1. **Chatflow Multi-Space Support**
+
+    - Multiple Space nodes in single Chatflow
+    - Space identification and referencing system
+    - Navigation logic between spaces
+
+2. **AR.js Multi-Scene Generation**
+    - Scene switching mechanisms
+    - State preservation across scenes
+    - User navigation interfaces
+
+#### Phase 3: Advanced Features
+
+1. **Interactive Objects**
+
+    - Object interaction definitions
+    - Event handling in AR.js output
+    - Complex object behaviors
+
+2. **Advanced Navigation**
+    - Conditional navigation logic
+    - User choice-driven experiences
+    - Progress tracking and state management
+
+### Technical Considerations
+
+#### Performance Optimization
+
+-   Asset preloading for multi-object scenes
+-   Progressive loading for large spaces
+-   Mobile device optimization
+
+#### User Experience
+
+-   Intuitive Chatflow interface for complex structures
+-   Visual feedback for space relationships
+-   Clear error handling for complex configurations
+
+#### Architecture Scalability
+
+-   Plugin system for new object types
+-   Extensible navigation mechanisms
+-   Future support for other 3D platforms
+
+### Success Metrics
+
+#### Functionality Goals
+
+-   [ ] Single Space with 5+ objects positioned correctly
+-   [ ] Chatflow with 3+ connected Spaces
+-   [ ] Seamless navigation between Spaces in AR.js
+-   [ ] Complex object interactions working
+
+#### User Experience Goals
+
+-   [ ] Intuitive Chatflow interface for multi-object scenes
+-   [ ] Clear visual representation of Space relationships
+-   [ ] Smooth AR.js experiences on mobile devices
+-   [ ] Comprehensive error handling and validation
+
+### Current Status
+
+**Phase**: Planning and Foundation
+**Next Steps**:
+
+1. Analyze current Space and Object node implementations
+2. Design multi-object Space node architecture
+3. Implement enhanced UPDL processing in utilBuildUPDLflow
+4. Begin UPDLToARJSConverter enhancements for complex scenes
+
+This represents a significant evolution from basic AR.js publication to sophisticated 3D experience creation platform.

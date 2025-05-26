@@ -16,7 +16,6 @@
 | 0.8.0‑pre‑alpha     | 2025‑04‑22     | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created             |
 | 0.8.5‑pre‑alpha     | 2025‑04‑29     | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                |
 | 0.9.0‑pre‑alpha     | 2025‑05‑12     | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support |
-| **1.0.0‑pre‑alpha** | **2025‑01‑23** | **✅ UPDL Applications Complete Refactoring - Removed updl-srv, cleaned updl, verified system works correctly**     |
 
 ## Stage 2 Issues & Lessons Learned
 

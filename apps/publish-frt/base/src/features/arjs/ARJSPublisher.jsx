@@ -3,8 +3,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCurrentUrlIds } from '../../services/api'
-import { ARJSPublishApi } from '../../api/ARJSPublishApi'
+import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi } from '../../api'
 
 // Universo Platformo | Set to true for demo mode
 // Activates fixed URL and simplified interface without real requests
@@ -74,13 +73,89 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [generationMode, setGenerationMode] = useState('streaming') // Only streaming generation
     // Universo Platformo | State for template type in demo mode
     const [templateType, setTemplateType] = useState('quiz')
+    // Universo Platformo | State for settings loading
+    const [settingsLoading, setSettingsLoading] = useState(true)
+
+    // Universo Platformo | Function to save current settings
+    const saveCurrentSettings = async () => {
+        if (!flow?.id || DEMO_MODE || settingsLoading) {
+            return
+        }
+
+        try {
+            await ChatflowsApi.saveSettings(flow.id, {
+                isPublic: isPublic,
+                projectTitle: projectTitle,
+                markerType: markerType,
+                markerValue: markerValue,
+                generationMode: generationMode
+            })
+            console.log('📱 [ARJSPublisher] Settings auto-saved')
+        } catch (error) {
+            console.error('📱 [ARJSPublisher] Error auto-saving settings:', error)
+            // Don't show error to user for auto-save to avoid interrupting UX
+        }
+    }
+
+    // Universo Platformo | Auto-save settings when parameters change
+    useEffect(() => {
+        if (!settingsLoading) {
+            const debounceTimeout = setTimeout(() => {
+                saveCurrentSettings()
+            }, 1000) // Debounce to avoid too frequent saves
+
+            return () => clearTimeout(debounceTimeout)
+        }
+    }, [projectTitle, markerType, markerValue, generationMode, settingsLoading])
+
+    // Universo Platformo | Load saved settings when component mounts
+    useEffect(() => {
+        const loadSavedSettings = async () => {
+            if (!flow?.id || DEMO_MODE) {
+                setSettingsLoading(false)
+                return
+            }
+
+            try {
+                setSettingsLoading(true)
+                console.log('📱 [ARJSPublisher] Loading saved settings for flow:', flow.id)
+
+                const savedSettings = await ChatflowsApi.loadSettings(flow.id)
+
+                if (savedSettings) {
+                    console.log('📱 [ARJSPublisher] Restored settings:', savedSettings)
+                    setIsPublic(savedSettings.isPublic || false)
+                    setProjectTitle(savedSettings.projectTitle || flow?.name || '')
+                    setMarkerType(savedSettings.markerType || 'preset')
+                    setMarkerValue(savedSettings.markerValue || 'hiro')
+                    setGenerationMode(savedSettings.generationMode || 'streaming')
+
+                    // If settings indicate it's public, generate URL
+                    if (savedSettings.isPublic && savedSettings.generationMode === 'streaming') {
+                        // For streaming mode, generate URL immediately since content is generated on-demand
+                        const fullPublicUrl = `${window.location.origin}/p/${flow.id}`
+                        setPublishedUrl(fullPublicUrl)
+                    }
+                } else {
+                    console.log('📱 [ARJSPublisher] No saved settings found, using defaults')
+                }
+            } catch (error) {
+                console.error('📱 [ARJSPublisher] Error loading settings:', error)
+                setError('Failed to load saved settings')
+            } finally {
+                setSettingsLoading(false)
+            }
+        }
+
+        loadSavedSettings()
+    }, [flow?.id])
 
     // Initialize with flow data when component mounts
     useEffect(() => {
-        if (flow) {
-            setProjectTitle(flow.name || 'AR.js Experience')
+        if (flow && !settingsLoading) {
+            setProjectTitle((prev) => prev || flow.name || 'AR.js Experience')
         }
-    }, [flow])
+    }, [flow, settingsLoading])
 
     /**
      * Handle marker type change
@@ -130,9 +205,26 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const handlePublicChange = async (value) => {
         setIsPublic(value)
 
-        // If public toggle is off, reset the URL
+        // If public toggle is off, reset the URL and save settings
         if (!value) {
             setPublishedUrl('')
+
+            // Universo Platformo | Save settings with isPublic: false
+            if (!DEMO_MODE && flow?.id) {
+                try {
+                    await ChatflowsApi.saveSettings(flow.id, {
+                        isPublic: false,
+                        projectTitle: projectTitle,
+                        markerType: markerType,
+                        markerValue: markerValue,
+                        generationMode: generationMode
+                    })
+                    console.log('📱 [ARJSPublisher] Settings saved with isPublic: false')
+                } catch (error) {
+                    console.error('📱 [ARJSPublisher] Error saving settings:', error)
+                    setError('Failed to save settings')
+                }
+            }
             return
         }
 
@@ -160,7 +252,17 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setError(null)
 
         try {
-            // Use API client instead of direct request
+            // Universo Platformo | First save AR.js settings with isPublic: true
+            await ChatflowsApi.saveSettings(flow.id, {
+                isPublic: true,
+                projectTitle: projectTitle,
+                markerType: markerType,
+                markerValue: markerValue,
+                generationMode: generationMode
+            })
+            console.log('📱 [ARJSPublisher] Settings saved with isPublic: true')
+
+            // Use API client for AR.js publication
             const publishResult = await ARJSPublishApi.publishARJS({
                 chatflowId: flow.id,
                 generationMode: 'streaming',
@@ -259,157 +361,199 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             <Card variant='outlined' sx={{ mb: 3 }}>
                 <CardContent>
                     <Box sx={{ position: 'relative' }}>
-                        {loading && (
+                        {/* Universo Platformo | Settings loading indicator */}
+                        {settingsLoading && (
                             <Box
                                 sx={{
                                     display: 'flex',
                                     justifyContent: 'center',
                                     alignItems: 'center',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                                    zIndex: 10
+                                    minHeight: '200px',
+                                    flexDirection: 'column',
+                                    gap: 2
                                 }}
                             >
                                 <CircularProgress />
+                                <Typography variant='body2' color='text.secondary'>
+                                    Загрузка сохраненных настроек...
+                                </Typography>
                             </Box>
                         )}
 
-                        {/* Project Title Input */}
-                        <TextField
-                            label={t('project.title')}
-                            value={projectTitle}
-                            onChange={(e) => setProjectTitle(e.target.value)}
-                            fullWidth
-                            margin='normal'
-                            variant='outlined'
-                        />
+                        {/* Main interface - shown only when settings are loaded */}
+                        {!settingsLoading && (
+                            <>
+                                {loading && (
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                                            zIndex: 10
+                                        }}
+                                    >
+                                        <CircularProgress />
+                                    </Box>
+                                )}
 
-                        {/* Generation Mode Selector */}
-                        <GenerationModeSelect value={generationMode} onChange={handleGenerationModeChange} disabled={!!publishedUrl} />
+                                {/* Project Title Input */}
+                                <TextField
+                                    label={t('project.title')}
+                                    value={projectTitle}
+                                    onChange={(e) => setProjectTitle(e.target.value)}
+                                    fullWidth
+                                    margin='normal'
+                                    variant='outlined'
+                                />
 
-                        {/* Type of Marker */}
-                        <FormControl fullWidth variant='outlined' margin='normal'>
-                            <InputLabel>{t('marker.type')}</InputLabel>
-                            <Select value={markerType} onChange={handleMarkerTypeChange} label={t('marker.type')} disabled={!!publishedUrl}>
-                                <MenuItem value='preset'>{t('marker.standard')}</MenuItem>
-                            </Select>
-                        </FormControl>
-
-                        {/* Marker Selection */}
-                        {markerType === 'preset' && (
-                            <FormControl fullWidth variant='outlined' margin='normal'>
-                                <InputLabel>{t('marker.presetLabel')}</InputLabel>
-                                <Select
-                                    value={markerValue}
-                                    onChange={handleMarkerValueChange}
-                                    label={t('marker.presetLabel')}
+                                {/* Generation Mode Selector */}
+                                <GenerationModeSelect
+                                    value={generationMode}
+                                    onChange={handleGenerationModeChange}
                                     disabled={!!publishedUrl}
-                                >
-                                    <MenuItem value='hiro'>{t('marker.hiro')}</MenuItem>
-                                </Select>
-                            </FormControl>
-                        )}
-
-                        {/* Demo Templates */}
-                        <TemplateSelector />
-
-                        {/* Marker Preview */}
-                        <Box sx={{ textAlign: 'center', my: 2 }}>
-                            <Typography variant='body2' color='text.secondary' gutterBottom>
-                                {t('preview.title')}
-                            </Typography>
-                            {markerType === 'preset' && markerValue && (
-                                <Box
-                                    component='img'
-                                    src={getMarkerImage()}
-                                    alt={t('marker.alt')}
-                                    sx={{ maxWidth: '200px', border: '1px solid #eee' }}
                                 />
-                            )}
-                            <Typography variant='caption' display='block' sx={{ mt: 1 }}>
-                                {t('marker.instruction')}
-                            </Typography>
-                        </Box>
 
-                        {/* Make Public Toggle с индикатором загрузки */}
-                        <Box sx={{ my: 3, width: '100%' }}>
-                            <FormControl fullWidth variant='outlined'>
-                                <FormControlLabel
-                                    control={
-                                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                                            <Switch
-                                                checked={isPublic}
-                                                onChange={(e) => handlePublicChange(e.target.checked)}
-                                                disabled={!!isPublishing}
-                                                color='primary'
-                                            />
-                                            {isPublishing && <CircularProgress size={20} sx={{ ml: 2 }} />}
-                                        </Box>
-                                    }
-                                    label={t('configuration.makePublic')}
-                                    sx={{
-                                        width: '100%',
-                                        margin: 0,
-                                        '& .MuiFormControlLabel-label': {
-                                            width: '100%',
-                                            flexGrow: 1
-                                        }
-                                    }}
-                                    labelPlacement='start'
-                                />
-                            </FormControl>
-                            <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
-                                {t('configuration.description')}
-                            </Typography>
-                        </Box>
+                                {/* Type of Marker */}
+                                <FormControl fullWidth variant='outlined' margin='normal'>
+                                    <InputLabel>{t('marker.type')}</InputLabel>
+                                    <Select
+                                        value={markerType}
+                                        onChange={handleMarkerTypeChange}
+                                        label={t('marker.type')}
+                                        disabled={!!publishedUrl}
+                                    >
+                                        <MenuItem value='preset'>{t('marker.standard')}</MenuItem>
+                                    </Select>
+                                </FormControl>
 
-                        {/* Public link display */}
-                        {publishedUrl && (
-                            <Box sx={{ my: 3 }}>
-                                <Typography variant='subtitle1' gutterBottom>
-                                    {t('arjs.publishedUrl')}:
-                                </Typography>
-                                <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
+                                {/* Marker Selection */}
+                                {markerType === 'preset' && (
+                                    <FormControl fullWidth variant='outlined' margin='normal'>
+                                        <InputLabel>{t('marker.presetLabel')}</InputLabel>
+                                        <Select
+                                            value={markerValue}
+                                            onChange={handleMarkerValueChange}
+                                            label={t('marker.presetLabel')}
+                                            disabled={!!publishedUrl}
+                                        >
+                                            <MenuItem value='hiro'>{t('marker.hiro')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                )}
 
-                                {/* QR Code если доступен */}
-                                {QRCode && (
-                                    <Box sx={{ textAlign: 'center', my: 2 }}>
-                                        <Typography variant='body2' gutterBottom>
-                                            Сканируйте QR-код для доступа с мобильного устройства:
+                                {/* Demo Templates */}
+                                <TemplateSelector />
+
+                                {/* Marker Preview */}
+                                <Box sx={{ textAlign: 'center', my: 2 }}>
+                                    <Typography variant='body2' color='text.secondary' gutterBottom>
+                                        {t('preview.title')}
+                                    </Typography>
+                                    {markerType === 'preset' && markerValue && (
+                                        <Box
+                                            component='img'
+                                            src={getMarkerImage()}
+                                            alt={t('marker.alt')}
+                                            sx={{ maxWidth: '200px', border: '1px solid #eee' }}
+                                        />
+                                    )}
+                                    <Typography variant='caption' display='block' sx={{ mt: 1 }}>
+                                        {t('marker.instruction')}
+                                    </Typography>
+                                </Box>
+
+                                {/* Make Public Toggle с индикатором загрузки */}
+                                <Box sx={{ my: 3, width: '100%' }}>
+                                    <FormControl fullWidth variant='outlined'>
+                                        <FormControlLabel
+                                            control={
+                                                <Box
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        width: '100%',
+                                                        justifyContent: 'space-between'
+                                                    }}
+                                                >
+                                                    <Switch
+                                                        checked={isPublic}
+                                                        onChange={(e) => handlePublicChange(e.target.checked)}
+                                                        disabled={!!isPublishing}
+                                                        color='primary'
+                                                    />
+                                                    {isPublishing && <CircularProgress size={20} sx={{ ml: 2 }} />}
+                                                </Box>
+                                            }
+                                            label={t('configuration.makePublic')}
+                                            sx={{
+                                                width: '100%',
+                                                margin: 0,
+                                                '& .MuiFormControlLabel-label': {
+                                                    width: '100%',
+                                                    flexGrow: 1
+                                                }
+                                            }}
+                                            labelPlacement='start'
+                                        />
+                                    </FormControl>
+                                    <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                                        {t('configuration.description')}
+                                    </Typography>
+                                </Box>
+
+                                {/* Public link display */}
+                                {publishedUrl && (
+                                    <Box sx={{ my: 3 }}>
+                                        <Typography variant='subtitle1' gutterBottom>
+                                            {t('arjs.publishedUrl')}:
                                         </Typography>
-                                        <Box sx={{ display: 'inline-block', p: 1, bgcolor: 'white', borderRadius: 1 }}>
-                                            <QRCode value={publishedUrl} size={180} />
+                                        <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
+
+                                        {/* QR Code если доступен */}
+                                        {QRCode && (
+                                            <Box sx={{ textAlign: 'center', my: 2 }}>
+                                                <Typography variant='body2' gutterBottom>
+                                                    Сканируйте QR-код для доступа с мобильного устройства:
+                                                </Typography>
+                                                <Box sx={{ display: 'inline-block', p: 1, bgcolor: 'white', borderRadius: 1 }}>
+                                                    <QRCode value={publishedUrl} size={180} />
+                                                </Box>
+                                            </Box>
+                                        )}
+
+                                        <Box sx={{ mt: 3 }}>
+                                            <Typography variant='body2' gutterBottom>
+                                                Инструкция по использованию:
+                                            </Typography>
+                                            <Box sx={{ textAlign: 'left', pl: 2 }}>
+                                                <Typography variant='body2' component='div'>
+                                                    <ol>
+                                                        <li>Откройте URL на устройстве с камерой</li>
+                                                        <li>Разрешите доступ к камере</li>
+                                                        <li>
+                                                            Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}
+                                                        </li>
+                                                        <li>Дождитесь появления 3D объекта</li>
+                                                    </ol>
+                                                </Typography>
+                                            </Box>
                                         </Box>
                                     </Box>
                                 )}
 
-                                <Box sx={{ mt: 3 }}>
-                                    <Typography variant='body2' gutterBottom>
-                                        Инструкция по использованию:
-                                    </Typography>
-                                    <Box sx={{ textAlign: 'left', pl: 2 }}>
-                                        <Typography variant='body2' component='div'>
-                                            <ol>
-                                                <li>Откройте URL на устройстве с камерой</li>
-                                                <li>Разрешите доступ к камере</li>
-                                                <li>Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}</li>
-                                                <li>Дождитесь появления 3D объекта</li>
-                                            </ol>
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            </Box>
-                        )}
-
-                        {/* Error display */}
-                        {error && (
-                            <Alert severity='error' sx={{ my: 2 }}>
-                                {error}
-                            </Alert>
+                                {/* Error display */}
+                                {error && (
+                                    <Alert severity='error' sx={{ my: 2 }}>
+                                        {error}
+                                    </Alert>
+                                )}
+                            </>
                         )}
                     </Box>
                 </CardContent>

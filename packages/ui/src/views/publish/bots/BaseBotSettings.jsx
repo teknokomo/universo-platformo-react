@@ -51,11 +51,38 @@ const BaseBotSettings = ({
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
-    const [isPublicChatflow, setChatflowIsPublic] = useState(chatflow.isPublic ?? false)
+    // Universo Platformo | Determine public status from new structure
+    const getChatbotPublicStatus = () => {
+        try {
+            if (chatflow[configKey]) {
+                const config = typeof chatflow[configKey] === 'string' ? JSON.parse(chatflow[configKey]) : chatflow[configKey]
+                // Check if new structure with chatbot block exists
+                if (config.chatbot && typeof config.chatbot.isPublic === 'boolean') {
+                    return config.chatbot.isPublic
+                }
+                // Fallback to old structure for backward compatibility
+                if (typeof config.isPublic === 'boolean') {
+                    return config.isPublic
+                }
+            }
+            // Return false if no technology-specific configuration exists
+            return false
+        } catch (error) {
+            console.warn('Error determining chatbot public status, defaulting to false:', error)
+            return false
+        }
+    }
+
+    const [isPublicChatflow, setChatflowIsPublic] = useState(getChatbotPublicStatus())
     const [colorAnchorEl, setColorAnchorEl] = useState(null)
     const [selectedColorConfig, setSelectedColorConfig] = useState('')
     const [sketchPickerColor, setSketchPickerColor] = useState('')
     const openColorPopOver = Boolean(colorAnchorEl)
+
+    // Universo Platformo | Update public status when chatflow changes
+    useEffect(() => {
+        setChatflowIsPublic(getChatbotPublicStatus())
+    }, [chatflow])
 
     // Shared methods for all bot settings
     const onSave = async () => {
@@ -123,28 +150,54 @@ const BaseBotSettings = ({
 
     const onSwitchChange = async (checked) => {
         try {
-            // Universo Platformo | For safety, check if formatConfig is available
-            let configJSON = null
+            // Universo Platformo | Get formatted configuration with updated isPublic status
+            let configObj = {}
             try {
                 if (typeof formatConfig === 'function') {
-                    const configObj = formatConfig()
-                    configJSON = JSON.stringify(configObj)
-                    console.log('Форматированная конфигурация:', configJSON)
+                    configObj = formatConfig()
+                    console.log('Форматированная конфигурация:', configObj)
+                } else {
+                    // Universo Platformo | Use minimal structure if formatConfig is not a function
+                    configObj = {
+                        chatbot: {
+                            isPublic: checked,
+                            displayMode: 'chat'
+                        }
+                    }
                 }
             } catch (configFormatError) {
                 console.error('Ошибка при форматировании конфигурации:', configFormatError)
-                // Universo Platformo | Use an empty object if formatting failed
-                configJSON = JSON.stringify({})
+                // Universo Platformo | Use minimal structure if formatting failed
+                configObj = {
+                    chatbot: {
+                        isPublic: checked,
+                        displayMode: 'chat'
+                    }
+                }
             }
 
-            // Universo Platformo | Data for update
+            // Universo Platformo | Set isPublic in the appropriate technology block
+            if (configKey === 'chatbotConfig') {
+                // Ensure chatbot block exists and set isPublic
+                if (!configObj.chatbot) {
+                    configObj.chatbot = {}
+                }
+                configObj.chatbot.isPublic = checked
+            }
+            // Add other technology blocks here as they are implemented
+
+            const configJSON = JSON.stringify(configObj)
+
+            // Universo Platformo | Always save configuration with updated isPublic status
             const updateData = {
-                isPublic: checked
+                [configKey]: configJSON
             }
 
-            // Universo Platformo | Add configuration only if switching to public and no existing configuration
-            if (checked && !chatflow[configKey] && configJSON) {
-                updateData[configKey] = configJSON
+            // Universo Platformo | Also determine if global isPublic should be set
+            // Set global isPublic to true if any technology is public
+            const needsGlobalPublic = checked || (await hasOtherPublicTechnologies(configKey, checked))
+            if (needsGlobalPublic !== chatflow.isPublic) {
+                updateData.isPublic = needsGlobalPublic
             }
 
             console.log('Данные для обновления:', updateData)
@@ -165,21 +218,6 @@ const BaseBotSettings = ({
                 })
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
                 setChatflowIsPublic(checked)
-
-                // Universo Platformo | Separately save the configuration if publicity is enabled and configuration is not yet set
-                if (checked && !saveResp.data[configKey] && configJSON) {
-                    try {
-                        const configUpdateData = {
-                            [configKey]: configJSON
-                        }
-                        const configSaveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, configUpdateData)
-                        if (configSaveResp.data) {
-                            dispatch({ type: SET_CHATFLOW, chatflow: configSaveResp.data })
-                        }
-                    } catch (configSaveError) {
-                        console.error('Ошибка при сохранении конфигурации:', configSaveError)
-                    }
-                }
             }
         } catch (error) {
             console.error('Ошибка при обновлении статуса публичности:', error)
@@ -196,6 +234,33 @@ const BaseBotSettings = ({
                     )
                 }
             })
+        }
+    }
+
+    // Universo Platformo | Helper function to check if other technologies are public
+    const hasOtherPublicTechnologies = async (currentConfigKey, currentPublicStatus) => {
+        try {
+            const configKeys = ['chatbotConfig'] // Add other technology config keys as they are implemented
+
+            for (const key of configKeys) {
+                if (key === currentConfigKey) continue // Skip current technology
+
+                if (chatflow[key]) {
+                    const config = typeof chatflow[key] === 'string' ? JSON.parse(chatflow[key]) : chatflow[key]
+
+                    // Check for new structure
+                    if (key === 'chatbotConfig' && config.chatbot?.isPublic) return true
+                    if (key === 'chatbotConfig' && config.arjs?.isPublic) return true
+                    // Add other technology checks here
+
+                    // Fallback to old structure
+                    if (config.isPublic) return true
+                }
+            }
+            return false
+        } catch (error) {
+            console.warn('Error checking other public technologies:', error)
+            return false
         }
     }
 

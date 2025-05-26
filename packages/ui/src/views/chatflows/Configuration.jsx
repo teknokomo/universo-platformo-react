@@ -79,21 +79,8 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                         dispatch({ type: SET_CHATFLOW, chatflow: res.data })
                     }
 
-                    // Universo Platformo | Determine the current display mode
-                    let mode = 'chat' // Default
-
-                    if (res.data.chatbotConfig) {
-                        try {
-                            const botConfig = JSON.parse(res.data.chatbotConfig)
-                            if (botConfig.botType === 'ar') {
-                                mode = 'ar'
-                            }
-                        } catch (error) {
-                            console.error('Ошибка при парсинге chatbotConfig:', error)
-                        }
-                    }
-
-                    updateDisplayMode(mode)
+                    // Universo Platformo | displayMode is now purely local UI state, default to 'chat'
+                    updateDisplayMode('chat')
                 } else {
                     console.error('Ответ API не содержит данных')
                     setError('Ошибка загрузки данных: ответ API не содержит данных')
@@ -123,59 +110,9 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         fetchChatflow()
     }, [chatflowid, unikId, propDisplayMode])
 
-    const handleDisplayModeChange = async (event) => {
+    const handleDisplayModeChange = (event) => {
         const newMode = event.target.value
         updateDisplayMode(newMode)
-
-        try {
-            // Universo Platformo | Get the current bot configuration or create a new one
-            let botConfig = {}
-            if (chatflow && chatflow.chatbotConfig) {
-                try {
-                    botConfig = JSON.parse(chatflow.chatbotConfig)
-                } catch (error) {
-                    console.error('Ошибка при парсинге chatbotConfig:', error)
-                }
-            }
-
-            // Universo Platformo | Update bot type
-            botConfig.botType = newMode
-
-            // Universo Platformo | Save the updated configuration
-            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, {
-                chatbotConfig: JSON.stringify(botConfig)
-            })
-
-            if (saveResp.data) {
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
-                enqueueSnackbar({
-                    message: tFlow('chatflows.configuration.saveMode'),
-                    options: {
-                        key: new Date().getTime() + Math.random(),
-                        variant: 'success',
-                        action: (key) => (
-                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                                <IconX />
-                            </Button>
-                        )
-                    }
-                })
-            }
-        } catch (error) {
-            console.error('Ошибка при сохранении режима отображения:', error)
-            enqueueSnackbar({
-                message: tFlow('chatflows.displaySettings.saveError'),
-                options: {
-                    key: new Date().getTime() + Math.random(),
-                    variant: 'error',
-                    action: (key) => (
-                        <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                            <IconX />
-                        </Button>
-                    )
-                }
-            })
-        }
     }
 
     if (isLoading) {

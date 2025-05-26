@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { UPDLToARJSConverter } from '../../utils/UPDLToARJSConverter'
-import { ARJSPublishApi } from '../../api/ARJSPublishApi'
+import { ARJSPublishApi } from '../../api'
 
 /**
  * Page for viewing AR content in streaming generation mode

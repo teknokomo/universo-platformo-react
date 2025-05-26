@@ -61,11 +61,21 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
 
     const formatConfig = () => {
         try {
-            // Universo Platformo | Check if chatbotConfig exists and is an object
-            const baseChatbotConfig = typeof chatbotConfig === 'object' && chatbotConfig !== null ? chatbotConfig : {}
+            // Universo Platformo | Parse existing chatbotConfig to preserve other technology settings
+            let existingConfig = {}
+            if (chatflow?.chatbotConfig) {
+                try {
+                    existingConfig =
+                        typeof chatflow.chatbotConfig === 'string' ? JSON.parse(chatflow.chatbotConfig) : chatflow.chatbotConfig
+                } catch (parseError) {
+                    console.warn('Failed to parse existing chatbotConfig, using empty object:', parseError)
+                    existingConfig = {}
+                }
+            }
 
-            // Universo Platformo | Create the base configuration object
-            const obj = {
+            // Universo Platformo | Create chatbot configuration object
+            const chatbotConfig = {
+                isPublic: false, // Universo Platformo | Default isPublic status
                 botMessage: {
                     showAvatar: botMessageShowAvatar
                 },
@@ -78,67 +88,70 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
             }
 
             // Universo Platformo | Add other properties only if they are defined
-            if (title) obj.title = title
-            if (titleAvatarSrc) obj.titleAvatarSrc = titleAvatarSrc
-            if (titleBackgroundColor) obj.titleBackgroundColor = titleBackgroundColor
-            if (titleTextColor) obj.titleTextColor = titleTextColor
+            if (title) chatbotConfig.title = title
+            if (titleAvatarSrc) chatbotConfig.titleAvatarSrc = titleAvatarSrc
+            if (titleBackgroundColor) chatbotConfig.titleBackgroundColor = titleBackgroundColor
+            if (titleTextColor) chatbotConfig.titleTextColor = titleTextColor
 
-            if (welcomeMessage) obj.welcomeMessage = welcomeMessage
-            if (errorMessage) obj.errorMessage = errorMessage
-            if (backgroundColor) obj.backgroundColor = backgroundColor
-            if (fontSize) obj.fontSize = fontSize
-            if (poweredByTextColor) obj.poweredByTextColor = poweredByTextColor
+            if (welcomeMessage) chatbotConfig.welcomeMessage = welcomeMessage
+            if (errorMessage) chatbotConfig.errorMessage = errorMessage
+            if (backgroundColor) chatbotConfig.backgroundColor = backgroundColor
+            if (fontSize) chatbotConfig.fontSize = fontSize
+            if (poweredByTextColor) chatbotConfig.poweredByTextColor = poweredByTextColor
 
-            if (botMessageBackgroundColor) obj.botMessage.backgroundColor = botMessageBackgroundColor
-            if (botMessageTextColor) obj.botMessage.textColor = botMessageTextColor
-            if (botMessageAvatarSrc) obj.botMessage.avatarSrc = botMessageAvatarSrc
+            if (botMessageBackgroundColor) chatbotConfig.botMessage.backgroundColor = botMessageBackgroundColor
+            if (botMessageTextColor) chatbotConfig.botMessage.textColor = botMessageTextColor
+            if (botMessageAvatarSrc) chatbotConfig.botMessage.avatarSrc = botMessageAvatarSrc
 
-            if (userMessageBackgroundColor) obj.userMessage.backgroundColor = userMessageBackgroundColor
-            if (userMessageTextColor) obj.userMessage.textColor = userMessageTextColor
-            if (userMessageAvatarSrc) obj.userMessage.avatarSrc = userMessageAvatarSrc
+            if (userMessageBackgroundColor) chatbotConfig.userMessage.backgroundColor = userMessageBackgroundColor
+            if (userMessageTextColor) chatbotConfig.userMessage.textColor = userMessageTextColor
+            if (userMessageAvatarSrc) chatbotConfig.userMessage.avatarSrc = userMessageAvatarSrc
 
-            if (textInputBackgroundColor) obj.textInput.backgroundColor = textInputBackgroundColor
-            if (textInputTextColor) obj.textInput.textColor = textInputTextColor
-            if (textInputPlaceholder) obj.textInput.placeholder = textInputPlaceholder
-            if (textInputSendButtonColor) obj.textInput.sendButtonColor = textInputSendButtonColor
+            if (textInputBackgroundColor) chatbotConfig.textInput.backgroundColor = textInputBackgroundColor
+            if (textInputTextColor) chatbotConfig.textInput.textColor = textInputTextColor
+            if (textInputPlaceholder) chatbotConfig.textInput.placeholder = textInputPlaceholder
+            if (textInputSendButtonColor) chatbotConfig.textInput.sendButtonColor = textInputSendButtonColor
 
             if (generateNewSession) {
-                obj.generateNewSession = generateNewSession
+                chatbotConfig.generateNewSession = generateNewSession
             }
 
             if (renderHTML !== undefined) {
-                obj.renderHTML = renderHTML
+                chatbotConfig.renderHTML = renderHTML
             } else {
-                obj.renderHTML = false
+                chatbotConfig.renderHTML = false
             }
 
             if (isAgentCanvas) {
                 // if showAgentMessages is undefined, default to true
                 if (showAgentMessages === undefined || showAgentMessages === null) {
-                    obj.showAgentMessages = true
+                    chatbotConfig.showAgentMessages = true
                 } else {
-                    obj.showAgentMessages = showAgentMessages
+                    chatbotConfig.showAgentMessages = showAgentMessages
                 }
             }
 
-            console.log('formatConfig результат:', {
-                ...baseChatbotConfig,
-                ...obj
-            })
-
-            return {
-                ...baseChatbotConfig,
-                ...obj
+            // Universo Platformo | Create new structure with chatbot block and preserve other technologies
+            const newConfig = {
+                ...existingConfig,
+                chatbot: chatbotConfig
             }
+
+            console.log('formatConfig результат новой структуры:', newConfig)
+
+            return newConfig
         } catch (error) {
             console.error('Ошибка в formatConfig:', error)
-            // Universo Platformo | Return a minimal working configuration
+            // Universo Platformo | Return a minimal working configuration with new structure
             return {
-                botMessage: { showAvatar: false },
-                userMessage: { showAvatar: false },
-                textInput: {},
-                displayMode: 'chat',
-                userInputEnabled: true
+                chatbot: {
+                    isPublic: false,
+                    botMessage: { showAvatar: false },
+                    userMessage: { showAvatar: false },
+                    textInput: {},
+                    displayMode: 'chat',
+                    userInputEnabled: true
+                }
             }
         }
     }
@@ -237,8 +250,28 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
     }
 
     const renderFields = ({ botConfig, colorField, booleanField, textField }) => {
-        // Universo Platformo | Initialize states from configuration if they are not already set
-        const config = { ...defaultConfig, ...botConfig }
+        // Universo Platformo | Parse botConfig to get chatbot-specific settings from new structure
+        let chatbotSettings = {}
+
+        try {
+            // If botConfig is a string (old format), parse it
+            if (typeof botConfig === 'string') {
+                const parsedConfig = JSON.parse(botConfig)
+                // Check if it has new structure with chatbot block
+                chatbotSettings = parsedConfig.chatbot || parsedConfig
+            } else if (typeof botConfig === 'object' && botConfig !== null) {
+                // If it's already an object, check for chatbot block
+                chatbotSettings = botConfig.chatbot || botConfig
+            } else {
+                chatbotSettings = {}
+            }
+        } catch (parseError) {
+            console.warn('Failed to parse botConfig, using empty object:', parseError)
+            chatbotSettings = {}
+        }
+
+        // Universo Platformo | Merge with default configuration
+        const config = { ...defaultConfig, ...chatbotSettings }
 
         if (title === '' && config.title) setTitle(config.title)
         if (titleAvatarSrc === '' && config.titleAvatarSrc) setTitleAvatarSrc(config.titleAvatarSrc)

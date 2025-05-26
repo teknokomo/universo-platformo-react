@@ -1,5 +1,5 @@
-// Universo Platformo | Publication API Service
-// Упрощенный сервис для взаимодействия с API публикации AR.js
+// Universo Platformo | Common API utilities
+// Core API functions used across all API clients
 
 /**
  * Get the authentication token from localStorage
@@ -64,4 +64,27 @@ export const getCurrentUrlIds = (): { unikId?: string; chatflowId?: string } => 
     }
 }
 
-// Файл содержит только необходимые функции для AR.js
+/**
+ * Universal definition of API base URL
+ * In development mode, we use a relative path, since UI and API are on the same domain (via Vite proxy).
+ * For production or explicit specification, use the VITE_API_HOST environment variable.
+ */
+export const getApiBaseUrl = (): string => {
+    try {
+        // @ts-ignore - ignore error for import.meta.env
+        if (import.meta.env && import.meta.env.DEV) {
+            return window.location.origin
+        }
+
+        // @ts-ignore
+        const configuredHost = import.meta.env && import.meta.env.VITE_API_HOST
+        if (configuredHost) {
+            return configuredHost
+        }
+
+        return window.location.origin
+    } catch (error) {
+        console.warn('Error determining API base URL, falling back to origin:', error)
+        return window.location.origin
+    }
+}

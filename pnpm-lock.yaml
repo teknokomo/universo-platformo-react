@@ -102,6 +102,9 @@ importers:
 
   apps/publish-frt/base:
     dependencies:
+      axios:
+        specifier: 1.7.9
+        version: 1.7.9(debug@4.3.4)
       file-saver:
         specifier: ^2.0.5
         version: 2.0.5
