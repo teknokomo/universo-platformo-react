@@ -87,12 +87,14 @@ The Publish application provides mechanisms for exporting UPDL spaces to various
 
 -   Modular API architecture with technology-specific clients
 -   Multi-technology publication support (AR.js, Chatbot, extensible to others)
+-   **Multi-Object UPDL Support**: Handles multiple objects with automatic circular positioning
 -   Supabase integration with persistent configuration storage
 -   Publication UI components with real-time streaming generation
 -   Technology selection interface with independent publication states
 -   QR code generation for mobile access
 -   Export functionality with backward compatibility
 -   Circular dependency prevention and clean code architecture
+-   **Advanced Object Validation**: Built-in validation and cleanup for UPDL data integrity
 
 **Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 
@@ -117,7 +119,7 @@ app-name/
 │   ├── src/             # Source code
 │   │   ├── api/         # API clients (for frontend)
 │   │   ├── assets/      # Static resources (icons, images)
-│   │   ├── builders/    # Space builder classes
+│   │   ├── builders/    # UPDL to target platform builders (for frontend)
 │   │   ├── components/  # React components (for frontend)
 │   │   ├── configs/     # Configuration constants
 │   │   ├── controllers/ # Express controllers (for backend)

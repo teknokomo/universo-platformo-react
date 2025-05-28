@@ -198,15 +198,23 @@ const buildUPDLSpaceFromNodes = (nodes: IReactFlowNode[]): IUPDLSpace => {
         return {
             id: node.id,
             name: nodeData.label || 'Object',
-            type: inputs.type || 'box',
-            position: inputs.position || { x: 0, y: 0, z: 0 },
-            rotation: inputs.rotation || { x: 0, y: 0, z: 0 },
-            scale: inputs.scale || { x: 1, y: 1, z: 1 },
-            color: inputs.color || { r: 1, g: 1, b: 1 },
-            width: inputs.width,
-            height: inputs.height,
-            depth: inputs.depth,
-            radius: inputs.radius
+            type: inputs.objectType || 'box',
+            position: {
+                x: Number(inputs.positionX) || 0,
+                y: Number(inputs.positionY) || 0.5,
+                z: Number(inputs.positionZ) || 0
+            },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: {
+                x: Number(inputs.scale) || 1,
+                y: Number(inputs.scale) || 1,
+                z: Number(inputs.scale) || 1
+            },
+            color: inputs.color || '#ff0000',
+            width: Number(inputs.width) || 1,
+            height: Number(inputs.height) || 1,
+            depth: Number(inputs.depth) || 1,
+            radius: Number(inputs.radius) || 1
         }
     })
 

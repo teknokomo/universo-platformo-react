@@ -33,10 +33,12 @@ apps/publish-frt/base/
    │  │  ├─ ARJSBuilder.ts         # Main AR.js builder class
    │  │  ├─ handlers/              # Node-specific processors
    │  │  │  ├─ SpaceHandler.ts     # Space node processor
-   │  │  │  ├─ ObjectHandler.ts    # Object node processor
+   │  │  │  ├─ ObjectHandler.ts    # Object node processor with multi-object support
    │  │  │  ├─ CameraHandler.ts    # Camera node processor
    │  │  │  ├─ LightHandler.ts     # Light node processor
    │  │  │  └─ index.ts           # Handlers export
+   │  │  ├─ utils/                 # AR.js utilities
+   │  │  │  └─ SimpleValidator.ts  # Object validation and cleanup
    │  │  └─ index.ts              # AR.js builder export
    │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
@@ -67,10 +69,12 @@ The builders system provides a modular, extensible architecture for converting U
 #### Features
 
 -   **Modular Design**: Each UPDL node type has its own handler for specialized processing
+-   **Multi-Object Support**: Handles multiple objects with automatic circular positioning to prevent overlaps
 -   **Extensible**: Easy to add new target platforms (PlayCanvas, Three.js, etc.)
 -   **Type Safe**: Full TypeScript support with proper interfaces
 -   **Error Handling**: Robust error handling with fallbacks
--   **Validation**: Built-in validation for UPDL data integrity
+-   **Validation**: Built-in validation for UPDL data integrity with SimpleValidator
+-   **Positioning Algorithm**: Automatic circular arrangement for multiple objects in AR space
 
 #### Usage
 
@@ -306,6 +310,26 @@ For testing and demonstration, the `ARJSPublisher` component has a DEMO_MODE tha
 -   The Export tab is a demo only, without full HTML/ZIP export functionality
 
 ## Recent Changes
+
+### January 2025 - Multi-Object Support Implementation
+
+**Major feature enhancement**: Implemented full support for multiple objects in UPDL spaces:
+
+#### ✅ Completed
+
+-   **Multi-Object Support**: Fixed data extraction in `buildUPDLflow.ts` to properly handle multiple objects
+-   **Circular Positioning**: Implemented automatic circular arrangement algorithm in `ObjectHandler`
+-   **Data Validation**: Added `SimpleValidator` class for object validation and cleanup
+-   **Error Handling**: Enhanced error handling with detailed logging for debugging
+-   **Legacy Compatibility**: Maintains backward compatibility with single-object flows
+
+#### Benefits
+
+-   **No Overlapping Objects**: Multiple objects are automatically positioned in a circle to prevent visual conflicts
+-   **Scalable Layout**: Dynamic radius calculation based on object count for optimal viewing
+-   **Data Integrity**: Robust validation ensures consistent object properties
+-   **Developer Experience**: Comprehensive logging for troubleshooting and development
+-   **Production Ready**: Ready for testing with 3-5 objects as planned in MVP
 
 ### January 2025 - Builder Architecture Refactoring
 
