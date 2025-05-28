@@ -23,6 +23,22 @@ apps/publish-frt/base/
    │     ├─ ARJSPublicationApi.ts    # AR.js specific publication API
    │     ├─ StreamingPublicationApi.ts # Streaming publication API
    │     └─ index.ts       # Publication API exports with compatibility aliases
+   ├─ builders/            # **NEW**: UPDL to target platform builders
+   │  ├─ common/           # Shared builder infrastructure
+   │  │  ├─ BaseBuilder.ts          # Abstract base class for all builders
+   │  │  ├─ BuilderRegistry.ts      # Registry for managing builders
+   │  │  ├─ types.ts               # Common types and interfaces
+   │  │  └─ setup.ts               # Builder registration setup
+   │  ├─ arjs/             # AR.js specific builder
+   │  │  ├─ ARJSBuilder.ts         # Main AR.js builder class
+   │  │  ├─ handlers/              # Node-specific processors
+   │  │  │  ├─ SpaceHandler.ts     # Space node processor
+   │  │  │  ├─ ObjectHandler.ts    # Object node processor
+   │  │  │  ├─ CameraHandler.ts    # Camera node processor
+   │  │  │  ├─ LightHandler.ts     # Light node processor
+   │  │  │  └─ index.ts           # Handlers export
+   │  │  └─ index.ts              # AR.js builder export
+   │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
    ├─ features/            # Functional modules for different technologies
    │  └─ arjs/             # AR.js components and logic
@@ -32,10 +48,44 @@ apps/publish-frt/base/
    ├─ routes/              # Route configuration
    ├─ i18n/                # Localization
    ├─ services/            # Service layer for backend communication
-   ├─ utils/               # Utility functions (UPDLToARJSConverter)
    ├─ interfaces/          # TypeScript types and interfaces
    └─ index.ts             # Entry point
 
+```
+
+### New Builders Architecture
+
+The builders system provides a modular, extensible architecture for converting UPDL spaces to different target platforms:
+
+#### Key Components
+
+-   **BaseBuilder**: Abstract base class that all platform builders extend
+-   **BuilderRegistry**: Central registry for managing different platform builders
+-   **ARJSBuilder**: Concrete implementation for AR.js HTML generation
+-   **Handlers**: Specialized processors for different UPDL node types (Space, Object, Camera, Light)
+
+#### Features
+
+-   **Modular Design**: Each UPDL node type has its own handler for specialized processing
+-   **Extensible**: Easy to add new target platforms (PlayCanvas, Three.js, etc.)
+-   **Type Safe**: Full TypeScript support with proper interfaces
+-   **Error Handling**: Robust error handling with fallbacks
+-   **Validation**: Built-in validation for UPDL data integrity
+
+#### Usage
+
+```typescript
+import { ARJSBuilder } from './builders'
+
+const builder = new ARJSBuilder()
+const result = await builder.build(updlSpace, {
+    projectName: 'My AR Experience',
+    markerType: 'preset',
+    markerValue: 'hiro'
+})
+
+console.log(result.html) // Generated AR.js HTML
+console.log(result.metadata) // Build metadata
 ```
 
 ### Backend Interaction
@@ -67,7 +117,7 @@ Publication state persistence is handled through Supabase integration:
 -   `ARJSPublisher` - Component for AR.js project streaming publication with Supabase integration
 -   `ARJSExporter` - Demo component for AR.js code export
 -   `ARViewPage` - Page component for AR space viewing
--   `UPDLToARJSConverter` - Utility for converting UPDL data to AR.js HTML
+-   `ARJSBuilder` - **NEW**: Modular builder for converting UPDL data to AR.js HTML (replaces UPDLToARJSConverter)
 
 ### API Architecture
 
@@ -173,18 +223,26 @@ The ARJSExporter component is a demo component for the "Export" tab, currently w
 The ARViewPage component renders AR.js content from UPDL data:
 
 -   Loads space data from the backend
--   Converts UPDL to AR.js HTML using `UPDLToARJSConverter`
+-   Converts UPDL to AR.js HTML using the new `ARJSBuilder`
 -   Displays the AR content in an iframe
 -   Handles loading state and errors
 
-### UPDLToARJSConverter
+### ARJSBuilder (NEW)
 
-The UPDLToARJSConverter utility transforms UPDL space graphs into AR.js HTML:
+The ARJSBuilder system transforms UPDL space graphs into AR.js HTML:
 
--   Converts various 3D object types (box, sphere, cylinder, etc.)
--   Handles position, rotation, scale, and color
--   Includes error handling and fallbacks
--   Adds loading screen and user instructions
+-   **Modular Architecture**: Separate handlers for different node types
+-   **Type Safety**: Full TypeScript support with proper validation
+-   **Extensible Design**: Easy to add new UPDL node types or target platforms
+-   **Error Handling**: Robust error handling with sensible fallbacks
+-   **Clean HTML Generation**: Generates optimized A-Frame compatible HTML
+
+#### Builder Components
+
+-   **SpaceHandler**: Processes space-level configuration
+-   **ObjectHandler**: Converts UPDL objects to A-Frame entities (box, sphere, cylinder, etc.)
+-   **CameraHandler**: Handles camera settings (currently uses AR.js defaults)
+-   **LightHandler**: Manages lighting setup with sensible defaults
 
 ### ChatflowsApi
 
@@ -206,7 +264,7 @@ The current implementation uses exclusively streaming generation for AR.js from 
 5. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata
 6. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered
 7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns a JSON with the UPDL space data
-8. The `UPDLToARJSConverter` utility converts the UPDL space to A-Frame elements and renders them in the browser
+8. The `ARJSBuilder` system converts the UPDL space to A-Frame elements and renders them in the browser
 
 ## Integration with Flowise Core
 
@@ -214,6 +272,7 @@ The current implementation uses exclusively streaming generation for AR.js from 
 -   `utilBuildUPDLflow` retrieves the chatflow from the Flowise database by `chatflowId`, assembles UPDL nodes, and executes them
 -   The resulting space object is returned to the frontend as JSON, eliminating the need to store intermediate HTML files
 -   Publication settings are persisted using the same Supabase structure as the main Flowise system
+-   **NEW**: Server-side integration with the builders system for consistent HTML generation
 
 ## Key Files
 
@@ -221,11 +280,12 @@ The current implementation uses exclusively streaming generation for AR.js from 
 -   `src/features/arjs/ARJSPublisher.jsx` — UI for selecting parameters and initiating streaming generation with Supabase integration
 -   `src/features/arjs/ARJSExporter.jsx` — Demo component for the "Export" tab
 -   `src/pages/public/ARViewPage.tsx` — AR space display component
+-   `src/builders/arjs/ARJSBuilder.ts` — **NEW**: Main AR.js builder replacing UPDLToARJSConverter
+-   `src/builders/arjs/handlers/` — **NEW**: Specialized processors for each UPDL node type
 -   `src/api/common.ts` — Core API utilities for authentication and URL management
 -   `src/api/publication/PublicationApi.ts` — Base publication API client for all technologies
 -   `src/api/publication/ARJSPublicationApi.ts` — AR.js specific publication API client
 -   `src/api/publication/StreamingPublicationApi.ts` — Streaming publication API client
--   `src/utils/UPDLToARJSConverter.ts` — Utility for converting UPDL schema to AR.js elements
 -   `src/interfaces/UPDLTypes.ts` — Interfaces for UPDL space data
 
 ## Demo Mode
@@ -244,6 +304,27 @@ For testing and demonstration, the `ARJSPublisher` component has a DEMO_MODE tha
 -   No optimization for mobile devices
 -   Only the "hiro" marker is currently supported
 -   The Export tab is a demo only, without full HTML/ZIP export functionality
+
+## Recent Changes
+
+### January 2025 - Builder Architecture Refactoring
+
+**Major architectural improvement**: Replaced the monolithic `UPDLToARJSConverter.ts` with a modular builder system:
+
+#### ✅ Completed
+
+-   **Modular Architecture**: Created separate handlers for Space, Object, Camera, and Light nodes
+-   **Base Builder System**: Implemented extensible foundation for multiple target platforms
+-   **Type Safety**: Full TypeScript support with proper interfaces
+-   **Clean Code**: Removed console logging and improved error handling
+-   **Extensibility**: Easy to add new UPDL node types and target platforms
+
+#### Benefits
+
+-   **Maintainability**: Code is now organized in logical, testable modules
+-   **Scalability**: Simple to add PlayCanvas, Three.js, and other target platforms
+-   **Reliability**: Better error handling and validation
+-   **Developer Experience**: Clear separation of concerns and proper TypeScript support
 
 ---
 

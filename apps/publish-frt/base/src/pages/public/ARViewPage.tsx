@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { UPDLToARJSConverter } from '../../utils/UPDLToARJSConverter'
+import { ARJSBuilder } from '../../builders'
 import { ARJSPublishApi } from '../../api'
 
 /**
@@ -41,8 +41,14 @@ const ARViewPage: React.FC = () => {
                     throw new Error('No UPDL space data found in publication')
                 }
 
-                // Generate HTML using UPDLToARJSConverter
-                const html = UPDLToARJSConverter.convertToHTML(publicationData.updlSpace, publicationData.projectId || 'AR.js Experience')
+                // Generate HTML using new ARJSBuilder
+                const arjsBuilder = new ARJSBuilder()
+                const buildResult = await arjsBuilder.build(publicationData.updlSpace, {
+                    projectName: publicationData.projectId || 'AR.js Experience',
+                    markerType: 'preset',
+                    markerValue: 'hiro'
+                })
+                const html = buildResult.html
 
                 console.log('📱 [ARViewPage] Generated HTML, length:', html.length)
 

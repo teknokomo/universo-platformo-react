@@ -35,8 +35,6 @@ apps/
 │       │   ├── features/   # Feature modules for various technologies
 │       │   ├── i18n/    # Localization
 │       │   ├── pages/   # Page components
-│       │   ├── services/ # Service layer for backend communication
-│       │   ├── utils/   # Utilities
 │       │   └── index.ts # Entry point
 │       ├── dist/        # Compiled output
 │       ├── package.json
