@@ -450,3 +450,72 @@ The AR.js publication architecture has been revised for Stage 3 to focus on a si
 -   CSP adjustments for AR.js and A-Frame scripts
 -   User permission handling for camera access
 -   Content validation for user-generated UPDL scenes
+
+## Critical AR.js Rendering Architecture
+
+### Iframe-Based Rendering (ESSENTIAL)
+
+**Problem**: React's `dangerouslySetInnerHTML` prevents JavaScript execution, breaking AR.js library loading.
+
+**Solution**: Iframe approach for proper script isolation and execution:
+
+```typescript
+// ❌ WRONG: Scripts don't execute in React context
+;<div dangerouslySetInnerHTML={{ __html: arjsHtml }} />
+
+// ✅ CORRECT: Iframe provides isolated execution context
+const iframe = document.createElement('iframe')
+iframe.style.width = '100%'
+iframe.style.height = '100%'
+iframe.style.border = 'none'
+container.appendChild(iframe)
+
+const iframeDoc = iframe.contentDocument
+iframeDoc.open()
+iframeDoc.write(arjsHtml) // AR.js HTML with <script> tags executes properly
+iframeDoc.close()
+```
+
+**Implementation**: `apps/publish-frt/base/src/pages/public/ARViewPage.tsx`
+
+### Static Library Integration with Main Server
+
+**Architecture**: Main Flowise server serves AR.js libraries directly instead of separate static server.
+
+**Server Configuration** (`packages/server/src/index.ts`):
+
+```typescript
+// Serve static assets from publish-frt for AR.js libraries
+const publishFrtAssetsPath = path.join(__dirname, '../../../apps/publish-frt/base/dist/assets')
+this.app.use('/assets', express.static(publishFrtAssetsPath))
+```
+
+**Library Paths**:
+
+-   **A-Frame**: `/assets/libs/aframe/1.7.1/aframe.min.js`
+-   **AR.js**: `/assets/libs/arjs/3.4.7/aframe-ar.js`
+-   **Source**: `apps/publish-frt/base/dist/assets/libs/` (built via Gulp)
+
+**Benefits**:
+
+-   **Single Server**: No separate static file server needed
+-   **CDN Independence**: Solves CDN blocking in restricted regions
+-   **Performance**: Direct serving from main Flowise instance
+-   **Maintenance**: Libraries bundled with frontend distribution
+
+### User-Selectable Library Sources
+
+**Configuration Flow**:
+
+1. **UI Selection**: User chooses "Официальный сервер" (CDN) or "Сервер Kiberplano" (local)
+2. **Storage**: Settings saved in Supabase `chatbotConfig.arjs.libraryConfig`
+3. **Backend**: `utilBuildUPDLflow` extracts and returns library configuration
+4. **Frontend**: `ARJSBuilder` generates appropriate script tags based on user selection
+5. **Rendering**: Iframe executes HTML with user-selected library sources
+
+**Path Resolution**:
+
+-   **CDN Sources**: `https://aframe.io/releases/1.7.1/aframe.min.js`
+-   **Local Sources**: `/assets/libs/aframe/1.7.1/aframe.min.js` (absolute paths from main server)
+
+**Critical Fix**: Changed relative paths (`./assets/libs/`) to absolute paths (`/assets/libs/`) in `ARJSBuilder.generateCustomLibrarySources()` for proper browser loading.

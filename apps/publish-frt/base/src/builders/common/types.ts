@@ -2,6 +2,7 @@
 // Shared interfaces and types for all builders
 
 import { IUPDLSpace } from '../../../../../../packages/server/src/Interface.UPDL'
+import { LibraryConfig } from '../../types/library.types'
 
 /**
  * Result of a build operation
@@ -29,6 +30,7 @@ export interface BuildOptions {
     projectName?: string
     markerType?: string
     markerValue?: string
+    libraryConfig?: LibraryConfig
     [key: string]: any
 }
 

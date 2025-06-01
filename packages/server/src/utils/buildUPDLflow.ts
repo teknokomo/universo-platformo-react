@@ -377,6 +377,20 @@ export const utilBuildUPDLflow = async (chatflowId: string): Promise<IUPDLFlowRe
 
         logger.info(`[server]: Found chatflow: ${chatFlow.name} (ID: ${chatFlow.id})`)
 
+        // Universo Platformo | Extract libraryConfig from chatbotConfig if available
+        let libraryConfig = null
+        if (chatFlow.chatbotConfig) {
+            try {
+                const config = typeof chatFlow.chatbotConfig === 'string' ? JSON.parse(chatFlow.chatbotConfig) : chatFlow.chatbotConfig
+                if (config.arjs && config.arjs.libraryConfig) {
+                    libraryConfig = config.arjs.libraryConfig
+                    logger.info(`[server]: Extracted libraryConfig from chatbotConfig: ${JSON.stringify(libraryConfig)}`)
+                }
+            } catch (parseError) {
+                logger.warn(`[server]: Failed to parse chatbotConfig for libraryConfig: ${parseError}`)
+            }
+        }
+
         // Generate a unique chat ID for this execution
         const chatId = uuidv4()
 
@@ -399,6 +413,11 @@ export const utilBuildUPDLflow = async (chatflowId: string): Promise<IUPDLFlowRe
 
         // Execute the UPDL flow with the prepared parameters
         const result = await executeUPDLFlow(executeData)
+
+        // Universo Platformo | Include libraryConfig in the result
+        if (libraryConfig) {
+            result.libraryConfig = libraryConfig
+        }
 
         logger.info(`[server]: UPDL flow execution completed for chatflow ID: ${chatflowId}`)
 

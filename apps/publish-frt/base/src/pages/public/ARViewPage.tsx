@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { ARJSBuilder } from '../../builders'
-import { ARJSPublishApi } from '../../api'
+import { StreamingPublicationApi } from '../../api'
 
 /**
  * Page for viewing AR content in streaming generation mode
@@ -33,29 +33,78 @@ const ARViewPage: React.FC = () => {
                     throw new Error('No publication ID provided')
                 }
 
-                // Get publication data through API
-                const publicationData = await ARJSPublishApi.getPublicationData(publicationId)
-                console.log('📱 [ARViewPage] Publication data loaded:', publicationData)
+                // Universo Platformo | Enhanced debugging for libraryConfig flow
+                console.log('🔍 [ARViewPage] Loading publication data for:', publicationId)
 
-                if (!publicationData || !publicationData.updlSpace) {
-                    throw new Error('No UPDL space data found in publication')
+                const publicationData = await StreamingPublicationApi.getPublicationData(publicationId)
+
+                // Universo Platformo | Detailed API response logging
+                console.log('📡 [ARViewPage] API Response received:', {
+                    success: !!publicationData,
+                    hasUpdlSpace: !!publicationData?.updlSpace,
+                    hasLibraryConfig: !!publicationData?.libraryConfig,
+                    libraryConfigValue: publicationData?.libraryConfig,
+                    publicationDataKeys: Object.keys(publicationData || {}),
+                    fullResponse: publicationData
+                })
+
+                if (!publicationData?.updlSpace) {
+                    console.error('❌ [ARViewPage] No UPDL space found in publication data')
+                    setError('Publication data not found')
+                    return
                 }
+
+                console.log('✅ [ARViewPage] Publication data loaded successfully:', {
+                    projectId: publicationData.projectId,
+                    spaceObjectCount: publicationData.updlSpace.objects?.length || 0,
+                    libraryConfig: publicationData.libraryConfig
+                })
 
                 // Generate HTML using new ARJSBuilder
                 const arjsBuilder = new ARJSBuilder()
-                const buildResult = await arjsBuilder.build(publicationData.updlSpace, {
+
+                // Universo Platformo | Prepare build options with detailed logging
+                const buildOptions = {
                     projectName: publicationData.projectId || 'AR.js Experience',
                     markerType: 'preset',
-                    markerValue: 'hiro'
+                    markerValue: 'hiro',
+                    // Universo Platformo | Include libraryConfig for proper library source selection
+                    libraryConfig: publicationData.libraryConfig
+                }
+
+                console.log('🔧 [ARViewPage] Calling ARJSBuilder.build() with options:', {
+                    projectName: buildOptions.projectName,
+                    markerType: buildOptions.markerType,
+                    markerValue: buildOptions.markerValue,
+                    hasLibraryConfig: !!buildOptions.libraryConfig,
+                    libraryConfigDetails: buildOptions.libraryConfig,
+                    spaceToProcess: {
+                        name: publicationData.updlSpace.name,
+                        objectCount: publicationData.updlSpace.objects?.length || 0
+                    }
                 })
+
+                const buildResult = await arjsBuilder.build(publicationData.updlSpace, buildOptions)
                 const html = buildResult.html
 
-                console.log('📱 [ARViewPage] Generated HTML, length:', html.length)
+                console.log('🎯 [ARViewPage] ARJSBuilder.build() completed:', {
+                    htmlLength: html?.length || 0,
+                    hasHtml: !!html,
+                    metadata: buildResult.metadata,
+                    // Check if HTML contains local library paths
+                    containsLocalPaths: html?.includes('/assets/libs/') || false,
+                    containsOfficialCDN: html?.includes('aframe.io') || html?.includes('githack.com') || false
+                })
 
-                // Add generated HTML to DOM
+                // Universo Platformo | Use iframe approach for proper script execution (from working backup)
+                console.log('🖼️ [ARViewPage] Rendering HTML in iframe for script isolation')
+
                 const container = document.getElementById('ar-container')
-                if (container) {
-                    // Create iframe for isolation
+                if (container && html) {
+                    // Clear any existing content
+                    container.innerHTML = ''
+
+                    // Create iframe for isolation (allows script execution)
                     const iframe = document.createElement('iframe')
                     iframe.style.width = '100%'
                     iframe.style.height = '100%'
@@ -65,16 +114,35 @@ const ARViewPage: React.FC = () => {
                     // Write HTML to iframe
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
                     if (iframeDoc) {
+                        console.log('📝 [ARViewPage] Writing HTML to iframe document')
                         iframeDoc.open()
                         iframeDoc.write(html)
                         iframeDoc.close()
-                    }
-                }
 
-                setLoading(false)
+                        // Monitor iframe loading
+                        iframe.onload = () => {
+                            console.log('✅ [ARViewPage] Iframe loaded successfully')
+                            setLoading(false)
+                        }
+
+                        // Fallback: hide loading after 3 seconds
+                        setTimeout(() => {
+                            console.log('⏰ [ARViewPage] Timeout reached, hiding loading screen')
+                            setLoading(false)
+                        }, 3000)
+                    } else {
+                        console.error('❌ [ARViewPage] Could not access iframe document')
+                        setError('Failed to initialize AR.js iframe')
+                        setLoading(false)
+                    }
+                } else {
+                    console.error('❌ [ARViewPage] Container not found or no HTML generated')
+                    setError('Failed to initialize AR.js container')
+                    setLoading(false)
+                }
             } catch (error) {
-                console.error('📱 [ARViewPage] Error loading AR space:', error)
-                setError(error instanceof Error ? error.message : 'Failed to load AR space')
+                console.error('💥 [ARViewPage] Error loading publication:', error)
+                setError('Failed to load AR.js publication')
                 setLoading(false)
             }
         }
@@ -126,6 +194,7 @@ const ARViewPage: React.FC = () => {
                 </Alert>
             )}
 
+            {/* Universo Platformo | Container for iframe (replaced dangerouslySetInnerHTML) */}
             <div id='ar-container' style={{ width: '100%', height: '100%' }}></div>
         </Box>
     )

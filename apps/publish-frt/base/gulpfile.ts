@@ -10,7 +10,8 @@ function copyStaticFiles() {
                 'src/**/*.png', // PNG images
                 'src/**/*.jpg', // JPG images
                 'src/**/*.json', // JSON data files
-                'src/**/*.css' // CSS files
+                'src/**/*.css', // CSS files
+                'src/assets/libs/**/*.js' // JavaScript libraries (AR.js, A-Frame)
             ],
             {
                 base: 'src'

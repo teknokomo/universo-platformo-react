@@ -14,7 +14,12 @@ apps/publish-frt/base/
 └─ src/
    ├─ assets/              # Static files (images, fonts, icons)
    │  ├─ icons/            # SVG icons for components and UI
-   │  └─ images/           # Images for UI elements
+   │  ├─ images/           # Images for UI elements
+   │  └─ libs/             # Local AR.js and A-Frame libraries for CDN-blocked regions
+   │     ├─ aframe/        # A-Frame library versions
+   │     │  └─ 1.7.1/      # A-Frame 1.7.1 files
+   │     └─ arjs/          # AR.js library versions
+   │        └─ 3.4.7/      # AR.js 3.4.7 files
    ├─ api/                 # HTTP clients for backend interaction
    │  ├─ common.ts         # Base API utilities (auth, URL parsing, base URL)
    │  ├─ index.ts          # Central API exports module
@@ -23,7 +28,7 @@ apps/publish-frt/base/
    │     ├─ ARJSPublicationApi.ts    # AR.js specific publication API
    │     ├─ StreamingPublicationApi.ts # Streaming publication API
    │     └─ index.ts       # Publication API exports with compatibility aliases
-   ├─ builders/            # **NEW**: UPDL to target platform builders
+   ├─ builders/            # UPDL to target platform builders
    │  ├─ common/           # Shared builder infrastructure
    │  │  ├─ BaseBuilder.ts          # Abstract base class for all builders
    │  │  ├─ BuilderRegistry.ts      # Registry for managing builders
@@ -55,7 +60,63 @@ apps/publish-frt/base/
 
 ```
 
-### New Builders Architecture
+## Critical Architecture: Iframe-Based AR.js Rendering
+
+**IMPORTANT**: AR.js content must be rendered using iframe approach for proper library loading and script execution.
+
+### Why Iframe is Essential
+
+The AR.js libraries (A-Frame and AR.js) require proper script execution context that React's `dangerouslySetInnerHTML` cannot provide:
+
+-   **Script Isolation**: Iframe creates isolated execution context for AR.js scripts
+-   **Library Loading**: Enables proper loading of external/local JavaScript libraries
+-   **Browser Compatibility**: Prevents conflicts with React's virtual DOM
+-   **Security**: Isolates AR.js code from main application context
+
+### Implementation Pattern (ARViewPage.tsx)
+
+```typescript
+// ❌ WRONG: dangerouslySetInnerHTML (scripts don't execute)
+;<div dangerouslySetInnerHTML={{ __html: html }} />
+
+// ✅ CORRECT: iframe approach (full script execution)
+const iframe = document.createElement('iframe')
+iframe.style.width = '100%'
+iframe.style.height = '100%'
+iframe.style.border = 'none'
+container.appendChild(iframe)
+
+const iframeDoc = iframe.contentDocument
+iframeDoc.open()
+iframeDoc.write(html) // AR.js HTML with <script> tags
+iframeDoc.close()
+```
+
+### Static Libraries Integration
+
+The frontend works with local AR.js libraries served directly by the main Flowise server:
+
+#### Server Configuration (packages/server/src/index.ts)
+
+```typescript
+// Static assets served by main Flowise server
+const publishFrtAssetsPath = path.join(__dirname, '../../../apps/publish-frt/base/dist/assets')
+this.app.use('/assets', express.static(publishFrtAssetsPath))
+```
+
+#### Library Sources
+
+-   **Local (Kiberplano)**: `/assets/libs/aframe/1.7.1/aframe.min.js` - served by main server
+-   **Official (CDN)**: `https://aframe.io/releases/1.7.1/aframe.min.js` - external CDN
+
+#### Benefits
+
+-   **CDN Blocking Solution**: Local libraries work in restricted regions
+-   **Single Server**: No separate static file server needed
+-   **Performance**: Direct serving from main Flowise instance
+-   **Maintenance**: Libraries bundled with frontend distribution
+
+## Builders Architecture
 
 The builders system provides a modular, extensible architecture for converting UPDL spaces to different target platforms:
 
@@ -85,17 +146,80 @@ const builder = new ARJSBuilder()
 const result = await builder.build(updlSpace, {
     projectName: 'My AR Experience',
     markerType: 'preset',
-    markerValue: 'hiro'
+    markerValue: 'hiro',
+    libraryConfig: {
+        arjs: { version: '3.4.7', source: 'kiberplano' },
+        aframe: { version: '1.7.1', source: 'official' }
+    }
 })
 
 console.log(result.html) // Generated AR.js HTML
 console.log(result.metadata) // Build metadata
 ```
 
-### Backend Interaction
+## Library Configuration System
+
+User-selectable library sources for AR.js and A-Frame to solve CDN blocking issues.
+
+### How It Works
+
+Users can choose library sources through the UI:
+
+1. **AR.js Configuration**:
+
+    - Version: Currently supports 3.4.7
+    - Source: "Официальный сервер" (CDN) or "Сервер Kiberplano" (local)
+
+2. **A-Frame Configuration**:
+    - Version: Currently supports 1.7.1
+    - Source: "Официальный сервер" (CDN) or "Сервер Kiberplano" (local)
+
+### Library Sources
+
+-   **Официальный сервер**: External CDN sources
+
+    -   A-Frame: `https://aframe.io/releases/1.7.1/aframe.min.js`
+    -   AR.js: `https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js`
+
+-   **Сервер Kiberplano**: Local server (solves CDN blocking)
+    -   A-Frame: `/assets/libs/aframe/1.7.1/aframe.min.js`
+    -   AR.js: `/assets/libs/arjs/3.4.7/aframe-ar.js`
+
+### Configuration Storage
+
+Library preferences are stored in Supabase `chatbotConfig.arjs.libraryConfig`:
+
+```json
+{
+    "arjs": {
+        "libraryConfig": {
+            "arjs": { "version": "3.4.7", "source": "kiberplano" },
+            "aframe": { "version": "1.7.1", "source": "official" }
+        }
+    }
+}
+```
+
+### Benefits
+
+-   **Solves CDN Blocking**: Users in restricted regions can use local libraries
+-   **User Choice**: Each user decides their preferred library source
+-   **Persistent Settings**: Configuration saved per chatflow
+-   **Backward Compatibility**: Existing flows continue working with defaults
+-   **Future Extensibility**: Easy to add new library versions
+
+## Backend Integration
 
 The application interacts with the backend exclusively through REST API using API clients from the `api/` directory.
 Direct imports from other applications are not used to ensure modularity and independence.
+
+### Integration with Flowise Core
+
+-   The frontend interacts with the publication backend, which imports the `utilBuildUPDLflow` function from `packages/server`
+-   `utilBuildUPDLflow` retrieves the chatflow from the Flowise database by `chatflowId`, assembles UPDL nodes, and executes them
+-   The resulting space object with `libraryConfig` is returned to the frontend as JSON
+-   Publication settings are persisted using the same Supabase structure as the main Flowise system
+-   **Static Libraries**: Local AR.js libraries served directly by main Flowise server through `/assets` route
 
 ### Integration with Bots System
 
@@ -116,14 +240,14 @@ Publication state persistence is handled through Supabase integration:
 -   **State Restoration**: Previous settings restored when component mounts
 -   **Global Publication Status**: Overall `isPublic` flag set to true if any technology is public
 
-### Main Components
+## Main Components
 
 -   `ARJSPublisher` - Component for AR.js project streaming publication with Supabase integration
 -   `ARJSExporter` - Demo component for AR.js code export
--   `ARViewPage` - Page component for AR space viewing
--   `ARJSBuilder` - **NEW**: Modular builder for converting UPDL data to AR.js HTML (replaces UPDLToARJSConverter)
+-   `ARViewPage` - Page component for AR space viewing using iframe approach
+-   `ARJSBuilder` - Modular builder for converting UPDL data to AR.js HTML (replaces UPDLToARJSConverter)
 
-### API Architecture
+## API Architecture
 
 The application uses a modular API architecture organized into layers:
 
@@ -147,7 +271,21 @@ The application uses a modular API architecture organized into layers:
 -   **Proper Authentication**: Uses correct Flowise routes with `unikId` and `x-request-from: internal` headers
 -   **Circular Dependency Prevention**: Clean architecture with `common.ts` utilities to prevent import cycles
 
-### Setup and Development
+## Workflow
+
+The implementation uses streaming generation for AR.js from UPDL nodes with persistent configuration:
+
+1. Settings are automatically loaded from Supabase when component mounts
+2. User configures project parameters (title, marker, library sources) - settings auto-saved
+3. User toggles "Make Public" - triggers publication and saves state to Supabase
+4. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `chatflowId` and selected options
+5. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata
+6. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered
+7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns a JSON with the UPDL space data and `libraryConfig`
+8. The `ARJSBuilder` system converts the UPDL space to A-Frame elements with user-selected library sources
+9. **Critical**: Generated HTML is rendered in iframe for proper script execution and library loading
+
+## Setup and Development
 
 To run the project:
 
@@ -166,7 +304,7 @@ pnpm run build
 The build process involves two steps:
 
 1. **TypeScript Compilation**: Compiles TypeScript files to JavaScript
-2. **Gulp Tasks**: Copies static assets (SVG, PNG, JSON, CSS) to the dist folder
+2. **Gulp Tasks**: Copies static assets (SVG, PNG, JSON, CSS, JS libraries) to the dist folder
 
 ### Available Scripts
 
@@ -177,7 +315,7 @@ The build process involves two steps:
 
 ### Gulp Tasks
 
-The Gulp process copies all static files (SVG, PNG, JPG, JSON, CSS) from the source directories to the dist folder, preserving the directory structure. This ensures that assets are available at runtime.
+The Gulp process copies all static files (SVG, PNG, JPG, JSON, CSS, JS) from the source directories to the dist folder, preserving the directory structure. This ensures that assets and local libraries are available at runtime.
 
 ## Dependencies
 
@@ -195,102 +333,7 @@ When adding new components or pages, follow these practices:
 2. Use TypeScript interfaces for props and state
 3. Add appropriate static assets to the same folder (they will be copied during build)
 4. Implement internationalization support using the i18n system
-
-## Overview
-
-The Publish Frontend module provides UI components and functionality for streaming publication of UPDL spaces to AR.js. The application has been simplified to focus on streaming generation, with integrated Supabase persistence for publication settings.
-
-## Key Components
-
-### ARJSPublisher
-
-The ARJSPublisher component provides an interface for publishing AR.js spaces using streaming generation:
-
--   Project title and description
--   Visibility controls (public/private toggle) with Supabase persistence
--   Marker selection (currently only "hiro" marker is supported)
--   QR code for easy mobile access
--   Generated public URL for sharing
--   Auto-save functionality for all settings
--   Integration with multi-technology publication system
-
-### ARJSExporter
-
-The ARJSExporter component is a demo component for the "Export" tab, currently with limited functionality:
-
--   HTML code preview
--   Copy to clipboard function
--   Download button (demo only)
-
-### ARViewPage
-
-The ARViewPage component renders AR.js content from UPDL data:
-
--   Loads space data from the backend
--   Converts UPDL to AR.js HTML using the new `ARJSBuilder`
--   Displays the AR content in an iframe
--   Handles loading state and errors
-
-### ARJSBuilder (NEW)
-
-The ARJSBuilder system transforms UPDL space graphs into AR.js HTML:
-
--   **Modular Architecture**: Separate handlers for different node types
--   **Type Safety**: Full TypeScript support with proper validation
--   **Extensible Design**: Easy to add new UPDL node types or target platforms
--   **Error Handling**: Robust error handling with sensible fallbacks
--   **Clean HTML Generation**: Generates optimized A-Frame compatible HTML
-
-#### Builder Components
-
--   **SpaceHandler**: Processes space-level configuration
--   **ObjectHandler**: Converts UPDL objects to A-Frame entities (box, sphere, cylinder, etc.)
--   **CameraHandler**: Handles camera settings (currently uses AR.js defaults)
--   **LightHandler**: Manages lighting setup with sensible defaults
-
-### ChatflowsApi
-
-The ChatflowsApi provides proper integration with Flowise backend:
-
--   Uses correct API routes with `unikId` parameter: `/api/v1/uniks/{unikId}/chatflows/{chatflowId}`
--   Includes proper authentication headers (`x-request-from: internal`)
--   Handles AR.js settings persistence to `chatbotConfig.arjs` block
--   Maintains compatibility with multi-technology publication architecture
-
-## Workflow
-
-The current implementation uses exclusively streaming generation for AR.js from UPDL nodes with persistent configuration:
-
-1. Settings are automatically loaded from Supabase when component mounts
-2. User configures project parameters (title, marker, etc.) - settings auto-saved
-3. User toggles "Make Public" - triggers publication and saves state to Supabase
-4. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `chatflowId` and selected options
-5. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata
-6. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered
-7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns a JSON with the UPDL space data
-8. The `ARJSBuilder` system converts the UPDL space to A-Frame elements and renders them in the browser
-
-## Integration with Flowise Core
-
--   The frontend interacts with the publication backend, which imports the `utilBuildUPDLflow` function from `packages/server`
--   `utilBuildUPDLflow` retrieves the chatflow from the Flowise database by `chatflowId`, assembles UPDL nodes, and executes them
--   The resulting space object is returned to the frontend as JSON, eliminating the need to store intermediate HTML files
--   Publication settings are persisted using the same Supabase structure as the main Flowise system
--   **NEW**: Server-side integration with the builders system for consistent HTML generation
-
-## Key Files
-
--   `src/routes/index.tsx` — React Router configuration for public viewing
--   `src/features/arjs/ARJSPublisher.jsx` — UI for selecting parameters and initiating streaming generation with Supabase integration
--   `src/features/arjs/ARJSExporter.jsx` — Demo component for the "Export" tab
--   `src/pages/public/ARViewPage.tsx` — AR space display component
--   `src/builders/arjs/ARJSBuilder.ts` — **NEW**: Main AR.js builder replacing UPDLToARJSConverter
--   `src/builders/arjs/handlers/` — **NEW**: Specialized processors for each UPDL node type
--   `src/api/common.ts` — Core API utilities for authentication and URL management
--   `src/api/publication/PublicationApi.ts` — Base publication API client for all technologies
--   `src/api/publication/ARJSPublicationApi.ts` — AR.js specific publication API client
--   `src/api/publication/StreamingPublicationApi.ts` — Streaming publication API client
--   `src/interfaces/UPDLTypes.ts` — Interfaces for UPDL space data
+5. **For AR.js content**: Always use iframe approach for proper script execution
 
 ## Demo Mode
 
@@ -308,47 +351,6 @@ For testing and demonstration, the `ARJSPublisher` component has a DEMO_MODE tha
 -   No optimization for mobile devices
 -   Only the "hiro" marker is currently supported
 -   The Export tab is a demo only, without full HTML/ZIP export functionality
-
-## Recent Changes
-
-### January 2025 - Multi-Object Support Implementation
-
-**Major feature enhancement**: Implemented full support for multiple objects in UPDL spaces:
-
-#### ✅ Completed
-
--   **Multi-Object Support**: Fixed data extraction in `buildUPDLflow.ts` to properly handle multiple objects
--   **Circular Positioning**: Implemented automatic circular arrangement algorithm in `ObjectHandler`
--   **Data Validation**: Added `SimpleValidator` class for object validation and cleanup
--   **Error Handling**: Enhanced error handling with detailed logging for debugging
--   **Legacy Compatibility**: Maintains backward compatibility with single-object flows
-
-#### Benefits
-
--   **No Overlapping Objects**: Multiple objects are automatically positioned in a circle to prevent visual conflicts
--   **Scalable Layout**: Dynamic radius calculation based on object count for optimal viewing
--   **Data Integrity**: Robust validation ensures consistent object properties
--   **Developer Experience**: Comprehensive logging for troubleshooting and development
--   **Production Ready**: Ready for testing with 3-5 objects as planned in MVP
-
-### January 2025 - Builder Architecture Refactoring
-
-**Major architectural improvement**: Replaced the monolithic `UPDLToARJSConverter.ts` with a modular builder system:
-
-#### ✅ Completed
-
--   **Modular Architecture**: Created separate handlers for Space, Object, Camera, and Light nodes
--   **Base Builder System**: Implemented extensible foundation for multiple target platforms
--   **Type Safety**: Full TypeScript support with proper interfaces
--   **Clean Code**: Removed console logging and improved error handling
--   **Extensibility**: Easy to add new UPDL node types and target platforms
-
-#### Benefits
-
--   **Maintainability**: Code is now organized in logical, testable modules
--   **Scalability**: Simple to add PlayCanvas, Three.js, and other target platforms
--   **Reliability**: Better error handling and validation
--   **Developer Experience**: Clear separation of concerns and proper TypeScript support
 
 ---
 

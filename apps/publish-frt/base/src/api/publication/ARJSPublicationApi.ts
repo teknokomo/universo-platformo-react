@@ -2,6 +2,7 @@
 // AR.js specific publication functionality
 
 import { PublicationApi } from './PublicationApi'
+import { ILibraryConfig } from '../../../../../../packages/server/src/Interface.UPDL'
 
 // Universo Platformo | AR.js specific publication settings interface
 export interface ARJSPublicationSettings {
@@ -10,6 +11,7 @@ export interface ARJSPublicationSettings {
     markerType: string
     markerValue: string
     generationMode: string
+    libraryConfig?: ILibraryConfig
 }
 
 /**

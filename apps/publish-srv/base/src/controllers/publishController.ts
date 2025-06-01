@@ -2,6 +2,7 @@
 import { Request, Response } from 'express'
 import path from 'path'
 import logger from '../utils/logger'
+import axios from 'axios'
 
 // Universo Platformo | Import buildUPDLflow функцию для потоковой генерации из UPDL-узлов
 let utilBuildUPDLflow: any
@@ -24,6 +25,10 @@ let utilBuildUPDLflow: any
         }
     }
 }
+
+// Universo Platformo | Removed loadARJSSettings function - libraryConfig now comes directly from utilBuildUPDLflow
+// This simplifies the architecture by eliminating duplicate database queries and keeping all chatflow
+// data access centralized in utilBuildUPDLflow
 
 /**
  * Controller for AR.js publication via UPDL
@@ -172,17 +177,35 @@ export class PublishController {
 
             logger.info(`[PublishController] Successfully built UPDL space with ${spaceToUse.objects?.length || 0} objects`)
 
-            // Return space data for UPDL nodes
-            // Explicitly set content type header
-            res.setHeader('Content-Type', 'application/json')
-            res.status(200).json({
+            // Universo Platformo | libraryConfig now comes directly from utilBuildUPDLflow result
+            logger.info(`[PublishController] libraryConfig from utilBuildUPDLflow:`, result.libraryConfig ? 'found' : 'not found')
+            if (result.libraryConfig) {
+                logger.info(`[PublishController] libraryConfig details:`, JSON.stringify(result.libraryConfig))
+            }
+
+            // Universo Platformo | Enhanced debugging for API response
+            const responseData = {
                 success: true,
                 publicationId: id,
                 projectName: spaceToUse.name || `AR.js for ${id}`,
                 generationMode: 'streaming',
                 updlSpace: spaceToUse,
+                // Universo Platformo | Include libraryConfig from AR.js settings
+                libraryConfig: result.libraryConfig || null,
                 timestamp: new Date().toISOString()
+            }
+
+            logger.info(`[PublishController] Preparing API response:`, {
+                responseKeys: Object.keys(responseData),
+                hasLibraryConfig: !!responseData.libraryConfig,
+                libraryConfigDetails: responseData.libraryConfig,
+                spaceObjectCount: responseData.updlSpace?.objects?.length || 0
             })
+
+            // Return space data for UPDL nodes with libraryConfig
+            // Explicitly set content type header
+            res.setHeader('Content-Type', 'application/json')
+            res.status(200).json(responseData)
         } catch (error) {
             logger.error(`[PublishController] Error in streamUPDL:`, error)
             logger.error(`[PublishController] Error details: ${error instanceof Error ? error.stack : String(error)}`)

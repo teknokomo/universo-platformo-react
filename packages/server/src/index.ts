@@ -256,6 +256,10 @@ export class App {
         const uiBuildPath = path.join(packagePath, 'build')
         const uiHtmlPath = path.join(packagePath, 'build', 'index.html')
 
+        // Universo Platformo | Serve static assets from publish-frt for AR.js libraries
+        const publishFrtAssetsPath = path.join(__dirname, '../../../apps/publish-frt/base/dist/assets')
+        this.app.use('/assets', express.static(publishFrtAssetsPath))
+
         this.app.use('/', express.static(uiBuildPath))
 
         // All other requests not handled will return React app

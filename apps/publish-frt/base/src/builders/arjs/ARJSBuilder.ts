@@ -5,6 +5,8 @@ import { BaseBuilder } from '../common/BaseBuilder'
 import { BuildResult, BuildOptions, BuilderConfig, BuildError } from '../common/types'
 import { IUPDLSpace } from '../../../../../../packages/server/src/Interface.UPDL'
 import { SpaceHandler, ObjectHandler, CameraHandler, LightHandler } from './handlers'
+import { getLibrarySources, debugLog, appConfig } from '../../config/appConfig'
+import { LibraryConfig, DEFAULT_LIBRARY_CONFIG } from '../../types/library.types'
 
 /**
  * AR.js Builder for generating AR.js HTML from UPDL space data
@@ -26,11 +28,24 @@ export class ARJSBuilder extends BaseBuilder {
      * @returns Build result with HTML and metadata
      */
     async build(updlSpace: IUPDLSpace, options: BuildOptions = {}): Promise<BuildResult> {
+        // Universo Platformo | Enhanced debugging for libraryConfig processing
+        console.log('🔧 [ARJSBuilder] build() called with:', {
+            hasUpdlSpace: !!updlSpace,
+            spaceObjectCount: updlSpace?.objects?.length || 0,
+            optionsKeys: Object.keys(options),
+            hasLibraryConfig: !!options.libraryConfig,
+            libraryConfigDetails: options.libraryConfig,
+            fullOptions: options
+        })
+
         // Validate UPDL space
         const validation = this.validateUPDLSpace(updlSpace)
         if (!validation.isValid) {
+            console.error('❌ [ARJSBuilder] UPDL space validation failed:', validation.errors)
             throw new BuildError('UPDL space validation failed', validation.errors)
         }
+
+        console.log('✅ [ARJSBuilder] UPDL space validation passed')
 
         // Process each component using handlers
         const spaceContent = this.spaceHandler.process(updlSpace, options)
@@ -41,8 +56,24 @@ export class ARJSBuilder extends BaseBuilder {
         // Combine all content
         const sceneContent = spaceContent + objectsContent + camerasContent + lightsContent
 
+        console.log('🎬 [ARJSBuilder] Scene content generated:', {
+            spaceContentLength: spaceContent.length,
+            objectsContentLength: objectsContent.length,
+            camerasContentLength: camerasContent.length,
+            lightsContentLength: lightsContent.length,
+            totalSceneContentLength: sceneContent.length
+        })
+
         // Generate HTML
+        console.log('🏗️ [ARJSBuilder] Calling generateHTML with sceneContent and options')
         const html = this.generateHTML(sceneContent, options)
+
+        console.log('🎯 [ARJSBuilder] build() completed successfully:', {
+            htmlLength: html.length,
+            containsLocalPaths: html.includes('./assets/libs/'),
+            containsOfficialCDN: html.includes('aframe.io') || html.includes('githack.com'),
+            librarySourcesUsed: options.libraryConfig ? 'USER_SELECTED' : 'DEFAULT'
+        })
 
         return {
             html,
@@ -64,8 +95,17 @@ export class ARJSBuilder extends BaseBuilder {
      */
     private generateHTML(sceneContent: string, options: BuildOptions): string {
         const projectName = options.projectName || 'UPDL-AR.js'
-        const aframeVersion = this.config.aframeVersion || '1.6.0'
-        const arjsVersion = this.config.arjsVersion || 'master'
+
+        // NEW: Get library sources from options or fallback to defaults
+        const { aframeSrc, arjsSrc } = this.getLibrarySourcesFromOptions(options)
+
+        // Debug info using centralized debug system
+        debugLog('ARJSBuilder: Generating HTML with library sources', {
+            libraryMode: options.libraryConfig ? 'USER_SELECTED' : 'DEFAULT',
+            aframeSrc,
+            arjsSrc,
+            projectName
+        })
 
         const html = `
 <!DOCTYPE html>
@@ -74,8 +114,8 @@ export class ARJSBuilder extends BaseBuilder {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${this.escapeHtml(projectName)}</title>
-        <script src="https://aframe.io/releases/${aframeVersion}/aframe.min.js"></script>
-        <script src="https://raw.githack.com/AR-js-org/AR.js/${arjsVersion}/aframe/build/aframe-ar.js"></script>
+        <script src="${aframeSrc}"></script>
+        <script src="${arjsSrc}"></script>
         <style>
             body {
                 margin: 0;
@@ -174,6 +214,74 @@ export class ARJSBuilder extends BaseBuilder {
     `
 
         return html
+    }
+
+    /**
+     * Get library sources from options or fallback to defaults
+     * @param options Build options that may contain user library configuration
+     * @returns Object with aframeSrc and arjsSrc URLs
+     */
+    private getLibrarySourcesFromOptions(options: BuildOptions): { aframeSrc: string; arjsSrc: string } {
+        console.log('🔍 [ARJSBuilder] getLibrarySourcesFromOptions called:', {
+            hasOptions: !!options,
+            hasLibraryConfig: !!options.libraryConfig,
+            libraryConfigDetails: options.libraryConfig
+        })
+
+        // NEW: If user has provided library configuration, use it
+        if (options.libraryConfig) {
+            console.log('✅ [ARJSBuilder] Using user-provided library configuration')
+            const customSources = this.generateCustomLibrarySources(options.libraryConfig)
+            console.log('🎯 [ARJSBuilder] Custom library sources generated:', customSources)
+            return customSources
+        }
+
+        // FALLBACK: Use existing appConfig logic for backward compatibility
+        console.log('⚠️ [ARJSBuilder] No libraryConfig provided, falling back to appConfig defaults')
+        const defaultSources = getLibrarySources()
+        console.log('🔄 [ARJSBuilder] Default library sources from appConfig:', defaultSources)
+        return defaultSources
+    }
+
+    /**
+     * Generate library URLs based on user configuration
+     * @param config User-selected library configuration
+     * @returns Object with aframeSrc and arjsSrc URLs
+     */
+    private generateCustomLibrarySources(config: LibraryConfig): { aframeSrc: string; arjsSrc: string } {
+        const baseUrls = {
+            official: {
+                aframe: 'https://aframe.io/releases',
+                arjs: 'https://raw.githack.com/AR-js-org/AR.js'
+            },
+            kiberplano: {
+                // Universo Platformo | Use absolute paths for local files served by our server
+                aframe: '/assets/libs', // Fixed: absolute path instead of relative
+                arjs: '/assets/libs'
+            }
+        }
+
+        const aframePath =
+            config.aframe.source === 'kiberplano'
+                ? `${baseUrls.kiberplano.aframe}/aframe/${config.aframe.version}/aframe.min.js`
+                : `${baseUrls.official.aframe}/${config.aframe.version}/aframe.min.js`
+
+        const arjsPath =
+            config.arjs.source === 'kiberplano'
+                ? `${baseUrls.kiberplano.arjs}/arjs/${config.arjs.version}/aframe-ar.js`
+                : `${baseUrls.official.arjs}/${config.arjs.version}/aframe/build/aframe-ar.js`
+
+        debugLog('ARJSBuilder: Using custom library sources', {
+            libraryMode: 'USER_SELECTED',
+            aframeSrc: aframePath,
+            arjsSrc: arjsPath,
+            config
+        })
+
+        return {
+            aframeSrc: aframePath,
+            arjsSrc: arjsPath
+        }
     }
 
     /**

@@ -4,18 +4,18 @@
 
 ## Completed (chronological)
 
-| Release             | Date           | Highlights                                                                                                          |
-| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 0.1.0‑pre‑alpha     | 2025‑03‑03     | Initial project scaffold created                                                                                    |
-| 0.2.0‑pre‑alpha     | 2025‑03‑11     | Added multi‑user (Supabase) foundation                                                                              |
-| 0.3.0‑pre‑alpha     | 2025‑03‑17     | Basic **Uniks** functionality delivered                                                                             |
-| 0.4.0‑pre‑alpha     | 2025‑03‑25     | Full Uniks feature‑set shipped                                                                                      |
-| 0.5.0‑pre‑alpha     | 2025‑03‑30     | Document Store, Templates, complete i18n                                                                            |
-| 0.6.0‑pre‑alpha     | 2025‑04‑06     | Chatbots module, Auth UI, language‑file refactor                                                                    |
-| 0.7.0‑pre‑alpha     | 2025‑04‑16     | First AR prototype with **AR.js** marker scene                                                                      |
-| 0.8.0‑pre‑alpha     | 2025‑04‑22     | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created             |
-| 0.8.5‑pre‑alpha     | 2025‑04‑29     | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                |
-| 0.9.0‑pre‑alpha     | 2025‑05‑12     | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support |
+| Release         | Date       | Highlights                                                                                                          |
+| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| 0.1.0‑pre‑alpha | 2025‑03‑03 | Initial project scaffold created                                                                                    |
+| 0.2.0‑pre‑alpha | 2025‑03‑11 | Added multi‑user (Supabase) foundation                                                                              |
+| 0.3.0‑pre‑alpha | 2025‑03‑17 | Basic **Uniks** functionality delivered                                                                             |
+| 0.4.0‑pre‑alpha | 2025‑03‑25 | Full Uniks feature‑set shipped                                                                                      |
+| 0.5.0‑pre‑alpha | 2025‑03‑30 | Document Store, Templates, complete i18n                                                                            |
+| 0.6.0‑pre‑alpha | 2025‑04‑06 | Chatbots module, Auth UI, language‑file refactor                                                                    |
+| 0.7.0‑pre‑alpha | 2025‑04‑16 | First AR prototype with **AR.js** marker scene                                                                      |
+| 0.8.0‑pre‑alpha | 2025‑04‑22 | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created             |
+| 0.8.5‑pre‑alpha | 2025‑04‑29 | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                |
+| 0.9.0‑pre‑alpha | 2025‑05‑12 | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support |
 
 ## Stage 2 Issues & Lessons Learned
 
@@ -179,6 +179,32 @@ This refactoring achieves the optimal architecture for our MVP:
 # Progress Log
 
 ## Latest Changes
+
+### 2025-01-26: Step 1 Implementation - Universal UPDL Data Extraction Fix ✅ COMPLETED
+
+**BUILD MODE - Multi-Object Spaces Enhancement**
+
+**✅ Step 1 Successfully Implemented:**
+
+-   **Core Issue Fixed**: buildUPDLSpaceFromNodes data extraction in `packages/server/src/utils/buildUPDLflow.ts`
+-   **Technical Changes Applied (lines 194-206)**:
+    -   Field mapping corrected: `inputs.type` → `inputs.objectType`
+    -   Position extraction fixed: `inputs.position` → `inputs.positionX/Y/Z` with Number() conversion
+    -   Scale handling unified: proper x/y/z mapping with single scale input
+    -   Color format standardized: string format instead of RGB object
+-   **Verification**: `pnpm run build` completed successfully, no breaking changes
+-   **Architecture Maintained**: Proper separation between universal UPDL processing and AR.js-specific logic
+
+**Implementation Status**:
+
+-   ✅ **Step 1**: Universal UPDL data extraction (COMPLETED)
+-   🔄 **Step 2**: PositionManager implementation (NEXT)
+-   ⏳ **Step 3**: MultiObjectValidator implementation
+-   ⏳ **Step 4**: Performance optimization
+
+**Architectural Decision Confirmed**: `buildUPDLSpaceFromNodes` handles only universal UPDL data extraction, while AR.js-specific logic (positioning, validation) implemented in `apps/publish-frt/builders/arjs/ObjectHandler.ts`.
+
+**Result**: Multiple objects in UPDL spaces now have proper data extraction foundation. Ready to proceed with AR.js-specific positioning and validation enhancements.
 
 ### 2024-12-19: QA Documentation Verification & Interface Architecture Clarification
 

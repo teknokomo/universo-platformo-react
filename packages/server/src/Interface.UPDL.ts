@@ -132,6 +132,8 @@ export interface IUPDLFlowResult {
     message?: string | null
     success?: boolean // For API responses
     error?: string // For error responses
+    // Universo Platformo | Library configuration for AR.js
+    libraryConfig?: ILibraryConfig
 }
 
 // ==============================================
@@ -170,6 +172,46 @@ export interface IPublishResponse {
 // ==============================================
 
 /**
+ * Library source configuration for AR.js
+ */
+export interface ILibrarySource {
+    version: string
+    source: 'official' | 'kiberplano'
+}
+
+/**
+ * Library configuration for AR.js publication
+ */
+export interface ILibraryConfig {
+    arjs: ILibrarySource
+    aframe: ILibrarySource
+}
+
+/**
+ * Default library configuration
+ */
+export const DEFAULT_LIBRARY_CONFIG: ILibraryConfig = {
+    arjs: { version: '3.4.7', source: 'official' },
+    aframe: { version: '1.7.1', source: 'official' }
+}
+
+/**
+ * Available library versions
+ */
+export const AVAILABLE_VERSIONS = {
+    arjs: ['3.4.7'],
+    aframe: ['1.7.1']
+}
+
+/**
+ * Available library sources with their display names
+ */
+export const LIBRARY_SOURCES = {
+    official: 'Официальный сервер',
+    kiberplano: 'Сервер Kiberplano'
+}
+
+/**
  * AR.js publication request
  */
 export interface IARJSPublishRequest {
@@ -177,7 +219,14 @@ export interface IARJSPublishRequest {
     generationMode?: string
     isPublic?: boolean
     projectName?: string
-    flowData?: any
+    flowData?: {
+        flowId: string
+        projectTitle: string
+        markerType: string
+        markerValue: string
+        libraryConfig?: ILibraryConfig
+        [key: string]: any
+    }
 }
 
 /**

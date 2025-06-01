@@ -66,21 +66,20 @@ export class StreamingPublicationApi {
      */
     static async getPublicationData(
         publicationId: string
-    ): Promise<IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string }> {
+    ): Promise<IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string; libraryConfig?: any }> {
         try {
             const publicationUrl = `${API_BASE_URL}/api/v1/publish/arjs/public/${publicationId}`
             console.log('🚀 [StreamingPublicationApi] Loading publication:', publicationId)
 
-            const response = await axios.get<IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string }>(
-                publicationUrl,
-                {
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        Pragma: 'no-cache',
-                        Expires: '0'
-                    }
+            const response = await axios.get<
+                IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string; libraryConfig?: any }
+            >(publicationUrl, {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    Pragma: 'no-cache',
+                    Expires: '0'
                 }
-            )
+            })
 
             console.log('✅ [StreamingPublicationApi] Publication data loaded successfully')
             return response.data

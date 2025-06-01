@@ -5,9 +5,8 @@ import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi } from '../../api'
 
-// Universo Platformo | Set to true for demo mode
-// Activates fixed URL and simplified interface without real requests
-const DEMO_MODE = false
+// Universo Platformo | Simple demo mode toggle - set to true to enable demo features
+const DEMO_MODE = true
 
 // MUI components
 import {
@@ -25,7 +24,8 @@ import {
     CircularProgress,
     Alert,
     Snackbar,
-    FormHelperText
+    FormHelperText,
+    Grid
 } from '@mui/material'
 
 // Icons
@@ -76,6 +76,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // Universo Platformo | State for settings loading
     const [settingsLoading, setSettingsLoading] = useState(true)
 
+    // Universo Platformo | NEW: State for library configuration
+    const [arjsVersion, setArjsVersion] = useState('3.4.7')
+    const [arjsSource, setArjsSource] = useState('official')
+    const [aframeVersion, setAframeVersion] = useState('1.7.1')
+    const [aframeSource, setAframeSource] = useState('official')
+
     // Universo Platformo | Function to save current settings
     const saveCurrentSettings = async () => {
         if (!flow?.id || DEMO_MODE || settingsLoading) {
@@ -88,9 +94,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 projectTitle: projectTitle,
                 markerType: markerType,
                 markerValue: markerValue,
-                generationMode: generationMode
+                generationMode: generationMode,
+                // NEW: Include library configuration
+                libraryConfig: {
+                    arjs: { version: arjsVersion, source: arjsSource },
+                    aframe: { version: aframeVersion, source: aframeSource }
+                }
             })
-            console.log('📱 [ARJSPublisher] Settings auto-saved')
+            console.log('ARJSPublisher: Settings auto-saved') // Simple console.log instead of debugLog
         } catch (error) {
             console.error('📱 [ARJSPublisher] Error auto-saving settings:', error)
             // Don't show error to user for auto-save to avoid interrupting UX
@@ -106,7 +117,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
             return () => clearTimeout(debounceTimeout)
         }
-    }, [projectTitle, markerType, markerValue, generationMode, settingsLoading])
+    }, [projectTitle, markerType, markerValue, generationMode, arjsVersion, arjsSource, aframeVersion, aframeSource, settingsLoading])
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
@@ -118,17 +129,25 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
             try {
                 setSettingsLoading(true)
-                console.log('📱 [ARJSPublisher] Loading saved settings for flow:', flow.id)
+                console.log('ARJSPublisher: Loading saved settings for flow', flow.id) // Simple console.log
 
                 const savedSettings = await ChatflowsApi.loadSettings(flow.id)
 
                 if (savedSettings) {
-                    console.log('📱 [ARJSPublisher] Restored settings:', savedSettings)
+                    console.log('ARJSPublisher: Restored settings', savedSettings) // Simple console.log
                     setIsPublic(savedSettings.isPublic || false)
                     setProjectTitle(savedSettings.projectTitle || flow?.name || '')
                     setMarkerType(savedSettings.markerType || 'preset')
                     setMarkerValue(savedSettings.markerValue || 'hiro')
                     setGenerationMode(savedSettings.generationMode || 'streaming')
+
+                    // NEW: Load library configuration
+                    if (savedSettings.libraryConfig) {
+                        setArjsVersion(savedSettings.libraryConfig.arjs?.version || '3.4.7')
+                        setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
+                        setAframeVersion(savedSettings.libraryConfig.aframe?.version || '1.7.1')
+                        setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
+                    }
 
                     // If settings indicate it's public, generate URL
                     if (savedSettings.isPublic && savedSettings.generationMode === 'streaming') {
@@ -137,7 +156,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         setPublishedUrl(fullPublicUrl)
                     }
                 } else {
-                    console.log('📱 [ARJSPublisher] No saved settings found, using defaults')
+                    console.log('ARJSPublisher: No saved settings found, using defaults') // Simple console.log
                 }
             } catch (error) {
                 console.error('📱 [ARJSPublisher] Error loading settings:', error)
@@ -179,6 +198,34 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     }
 
     /**
+     * NEW: Handle AR.js version change
+     */
+    const handleArjsVersionChange = (event) => {
+        setArjsVersion(event.target.value)
+    }
+
+    /**
+     * NEW: Handle AR.js source change
+     */
+    const handleArjsSourceChange = (event) => {
+        setArjsSource(event.target.value)
+    }
+
+    /**
+     * NEW: Handle A-Frame version change
+     */
+    const handleAframeVersionChange = (event) => {
+        setAframeVersion(event.target.value)
+    }
+
+    /**
+     * NEW: Handle A-Frame source change
+     */
+    const handleAframeSourceChange = (event) => {
+        setAframeSource(event.target.value)
+    }
+
+    /**
      * Template selector component for demo mode
      */
     const TemplateSelector = () => {
@@ -217,9 +264,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         projectTitle: projectTitle,
                         markerType: markerType,
                         markerValue: markerValue,
-                        generationMode: generationMode
+                        generationMode: generationMode,
+                        // NEW: Include library configuration
+                        libraryConfig: {
+                            arjs: { version: arjsVersion, source: arjsSource },
+                            aframe: { version: aframeVersion, source: aframeSource }
+                        }
                     })
-                    console.log('📱 [ARJSPublisher] Settings saved with isPublic: false')
+                    console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
                 } catch (error) {
                     console.error('📱 [ARJSPublisher] Error saving settings:', error)
                     setError('Failed to save settings')
@@ -233,7 +285,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             setLoading(true)
             // Simulate request delay in demo mode
             setTimeout(() => {
-                setPublishedUrl('https://plano.universo.pro/')
+                setPublishedUrl('https://plano.universo.pro/') // Demo URL for demo mode
                 setSnackbar({ open: true, message: t('success.published') })
                 setLoading(false)
             }, 1000)
@@ -246,7 +298,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             return
         }
 
-        console.log('📱 [ARJSPublisher.handlePublicChange] Publishing in STREAMING mode for flow:', flow.id)
+        console.log('ARJSPublisher.handlePublicChange: Publishing in STREAMING mode for flow', flow.id) // Simple console.log instead of debugLog
 
         setIsPublishing(true)
         setError(null)
@@ -258,9 +310,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 projectTitle: projectTitle,
                 markerType: markerType,
                 markerValue: markerValue,
-                generationMode: generationMode
+                generationMode: generationMode,
+                // NEW: Include library configuration
+                libraryConfig: {
+                    arjs: { version: arjsVersion, source: arjsSource },
+                    aframe: { version: aframeVersion, source: aframeSource }
+                }
             })
-            console.log('📱 [ARJSPublisher] Settings saved with isPublic: true')
+            console.log('ARJSPublisher: Settings saved with isPublic: true') // Simple console.log instead of debugLog
 
             // Use API client for AR.js publication
             const publishResult = await ARJSPublishApi.publishARJS({
@@ -272,7 +329,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     flowId: flow.id,
                     projectTitle: projectTitle,
                     markerType: markerType,
-                    markerValue: markerValue
+                    markerValue: markerValue,
+                    // NEW: Include library configuration
+                    libraryConfig: {
+                        arjs: { version: arjsVersion, source: arjsSource },
+                        aframe: { version: aframeVersion, source: aframeSource }
+                    }
                 }
             })
 
@@ -449,6 +511,85 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                                 {/* Demo Templates */}
                                 <TemplateSelector />
+
+                                {/* NEW: Library Configuration Section */}
+                                <Box sx={{ mt: 3, mb: 2 }}>
+                                    <Typography variant='subtitle2' gutterBottom>
+                                        Настройки библиотек
+                                    </Typography>
+
+                                    {/* AR.js Configuration */}
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant='body2' color='text.secondary' gutterBottom>
+                                            AR.js
+                                        </Typography>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={6}>
+                                                <FormControl fullWidth size='small'>
+                                                    <InputLabel>Версия</InputLabel>
+                                                    <Select
+                                                        value={arjsVersion}
+                                                        onChange={handleArjsVersionChange}
+                                                        label='Версия'
+                                                        disabled={!!publishedUrl}
+                                                    >
+                                                        <MenuItem value='3.4.7'>3.4.7</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <FormControl fullWidth size='small'>
+                                                    <InputLabel>Сервер</InputLabel>
+                                                    <Select
+                                                        value={arjsSource}
+                                                        onChange={handleArjsSourceChange}
+                                                        label='Сервер'
+                                                        disabled={!!publishedUrl}
+                                                    >
+                                                        <MenuItem value='official'>Официальный сервер</MenuItem>
+                                                        <MenuItem value='kiberplano'>Сервер Kiberplano</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                        </Grid>
+                                    </Box>
+
+                                    {/* A-Frame Configuration */}
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant='body2' color='text.secondary' gutterBottom>
+                                            A-Frame
+                                        </Typography>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={6}>
+                                                <FormControl fullWidth size='small'>
+                                                    <InputLabel>Версия</InputLabel>
+                                                    <Select
+                                                        value={aframeVersion}
+                                                        onChange={handleAframeVersionChange}
+                                                        label='Версия'
+                                                        disabled={!!publishedUrl}
+                                                    >
+                                                        <MenuItem value='1.7.1'>1.7.1</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <FormControl fullWidth size='small'>
+                                                    <InputLabel>Сервер</InputLabel>
+                                                    <Select
+                                                        value={aframeSource}
+                                                        onChange={handleAframeSourceChange}
+                                                        label='Сервер'
+                                                        disabled={!!publishedUrl}
+                                                    >
+                                                        <MenuItem value='official'>Официальный сервер</MenuItem>
+                                                        <MenuItem value='kiberplano'>Сервер Kiberplano</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                        </Grid>
+                                    </Box>
+                                </Box>
 
                                 {/* Marker Preview */}
                                 <Box sx={{ textAlign: 'center', my: 2 }}>
