@@ -127,18 +127,18 @@
             "saveChanges": "Save Changes"
         },
         "shareARbot": {
-            "configSaved": "AR bot configuration saved successfully",
-            "saveError": "Error saving AR bot configuration: {{error}}",
+            "configSaved": "AR configuration saved successfully",
+            "saveError": "Error saving AR configuration: {{error}}",
             "copied": "Copied to clipboard",
             "copyLink": "Copy link",
             "openNewTab": "Open in new tab",
-            "makePublic": "Make AR Bot Public",
-            "makePublicTooltip": "When enabled, the AR bot will be accessible to anyone with the link",
-            "publicLink": "AR Bot Link",
-            "publicLinkInfo": "Users can access the AR bot through this link",
+            "makePublic": "Make AR Experience Public",
+            "makePublicTooltip": "When enabled, the AR experience will be accessible to anyone with the link",
+            "publicLink": "AR Experience Link",
+            "publicLinkInfo": "Users can access the AR experience through this link",
             "generalSettings": "General Settings",
             "title": "Title",
-            "titlePlaceholder": "My AR Bot",
+            "titlePlaceholder": "My AR Experience",
             "backgroundColor": "Background Color",
             "textColor": "Text Color",
             "markerSettings": "Marker Settings",
@@ -185,7 +185,7 @@
             "title": "Bot Settings",
             "description": "Configure appearance and behavior settings for your bot",
             "chatSettings": "Chat Bot Settings",
-            "arSettings": "AR Bot Settings"
+            "arSettings": "AR Settings"
         },
         "apiPython": {
             "title": "Python Code",
@@ -200,12 +200,12 @@
             "description": "Use these links to interact with the API",
             "endpoints": "API Endpoints",
             "chatEndpointDescription": "Use this endpoint to interact with the chatbot",
-            "arEndpointDescription": "Use this endpoint to interact with the AR bot",
+            "arEndpointDescription": "Use this endpoint to interact with the AR experience",
             "documentation": "API Documentation",
             "documentationDescription": "View the complete API documentation"
         },
         "embeddingChatbot": "Embedding Chatbot",
-        "embeddingARbot": "Embedding ARbot",
+        "embeddingARbot": "Embedding AR",
         "copyToClipboard": "Copy to Clipboard",
         "copy": "Copy",
         "sharePanel": {
@@ -215,7 +215,7 @@
             "shareBot": "Share Bot",
             "shareBotDescription": "Configure appearance and behavior settings for your bot",
             "chatSettings": "Chat Bot Settings",
-            "arSettings": "AR Bot Settings",
+            "arSettings": "AR Settings",
             "loading": "Loading bot settings...",
             "privateAccess": "restricted access",
             "copy": "Copy"

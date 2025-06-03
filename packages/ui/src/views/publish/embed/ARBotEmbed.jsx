@@ -1,10 +1,10 @@
-// Universo Platformo | AR Bot Embed implementation
+// Universo Platformo | AR Embed implementation
 import { baseURL } from '@/store/constant'
 
 // Project import
 import BaseBotEmbed from './BaseBotEmbed'
 
-// ==============================|| AR Bot Embed ||============================== //
+// ==============================|| AR Embed ||============================== //
 
 export const defaultThemeConfig = {
     button: {
@@ -174,7 +174,7 @@ const ARBotEmbed = ({ chatflowid }) => {
     return (
         <BaseBotEmbed
             chatflowid={chatflowid}
-            title='AR Bot Embed'
+            title='AR Embed'
             codeGenerators={codeGenerators}
             defaultThemeConfig={defaultThemeConfig}
         />

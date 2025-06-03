@@ -87,7 +87,7 @@ The project is moving to a modular APPs architecture that minimizes changes to t
 4. **Publication URL Format**
     - `/p/{uuid}` format with Universo Kiberplano frame
     - `/e/p/{uuid}` option for frameless embedding
-    - Replacing legacy `/arbot/{id}` and `/chatbot/{id}` routes
+    - Replacing legacy `/ar/{id}` and `/chatbot/{id}` routes
 
 This architecture enables a clean transition from the existing test AR.js implementation to a comprehensive, extensible system while maintaining backward compatibility.
 

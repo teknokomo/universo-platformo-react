@@ -127,15 +127,15 @@
             "saveChanges": "Сохранить изменения"
         },
         "shareARbot": {
-            "configSaved": "Конфигурация AR-бота сохранена",
-            "saveError": "Не удалось сохранить конфигурацию AR-бота: {{error}}",
+            "configSaved": "Конфигурация AR сохранена",
+            "saveError": "Не удалось сохранить AR-конфигурацию: {{error}}",
             "copied": "Скопировано!",
             "copyLink": "Копировать ссылку",
             "openNewTab": "Открыть в новой вкладке",
             "makePublic": "Сделать публичным",
-            "makePublicTooltip": "Публичные AR-боты будут доступны всем без имени пользователя и пароля",
-            "publicLink": "Ссылка на AR-бот",
-            "publicLinkInfo": "По этой ссылке пользователи могут получить доступ к AR-боту",
+            "makePublicTooltip": "Публичный AR-опыт будет доступен всем по ссылке",
+            "publicLink": "Ссылка на AR-опыт",
+            "publicLinkInfo": "По этой ссылке пользователи могут получить доступ к AR-опыту",
             "generalSettings": "Общие настройки",
             "title": "Заголовок",
             "titlePlaceholder": "Мой AR опыт",
@@ -185,7 +185,7 @@
             "title": "Настройки бота",
             "description": "Настройте внешний вид и поведение вашего бота",
             "chatSettings": "Настройки чат-бота",
-            "arSettings": "Настройки AR-бота"
+            "arSettings": "Настройки AR"
         },
         "apiPython": {
             "title": "Python код",
@@ -200,12 +200,12 @@
             "description": "Используйте эти ссылки для взаимодействия с API",
             "endpoints": "API эндпоинты",
             "chatEndpointDescription": "Используйте этот эндпоинт для взаимодействия с чатботом",
-            "arEndpointDescription": "Используйте этот эндпоинт для взаимодействия с AR ботом",
+            "arEndpointDescription": "Используйте этот эндпоинт для взаимодействия с AR опытом",
             "documentation": "Документация API",
             "documentationDescription": "Просмотр полной документации API"
         },
         "embeddingChatbot": "Встраивание Чатбота",
-        "embeddingARbot": "Встраивание AR бота",
+        "embeddingARbot": "Встраивание AR",
         "copyToClipboard": "Копировать в буфер обмена",
         "copy": "Копировать",
         "sharePanel": {
@@ -215,7 +215,7 @@
             "shareBot": "Поделиться ботом",
             "shareBotDescription": "Настройте внешний вид и поведение вашего бота",
             "chatSettings": "Настройки чат-бота",
-            "arSettings": "Настройки AR-бота",
+            "arSettings": "Настройки AR",
             "loading": "Загрузка настроек бота...",
             "privateAccess": "личный доступ",
             "copy": "Копировать"
