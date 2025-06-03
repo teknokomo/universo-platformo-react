@@ -237,7 +237,7 @@ const AREmbed = ({ chatflowid }) => {
     return (
         <>
             <Typography variant="h5" gutterBottom>
-                {t('chatflows.embeddingARbot')}
+                {t('chatflows.embeddingChatbot')}
             </Typography>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                 <div style={{ flex: 80 }}>
