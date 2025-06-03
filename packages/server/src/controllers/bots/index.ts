@@ -74,20 +74,12 @@ const getBotConfig = async (req: Request, res: Response, next: NextFunction): Pr
         }
 
         const requestedType = req.query.type as string
-        const url = req.originalUrl || req.url
 
-        // Universo Platformo | Determine type by URL first
-        if (url.includes('/arbot/') || url.includes('/ar/')) {
-            logger.debug(`[BOT CONFIG] URL indicates AR bot type`)
-            botType = 'ar'
-        }
-        // Universo Platformo | Then check explicit request parameter
-        else if (requestedType === 'ar' || requestedType === 'chat') {
+        // Universo Platformo | Use explicit request parameter when present
+        if (requestedType === 'ar' || requestedType === 'chat') {
             logger.debug(`[BOT CONFIG] Using explicit bot type from request: ${requestedType}`)
             botType = requestedType
-        }
-        // Universo Platformo | Otherwise, default to 'chat'
-        else {
+        } else {
             logger.debug(`[BOT CONFIG] No explicit type found, defaulting to 'chat'`)
             botType = 'chat'
         }
@@ -154,20 +146,12 @@ const renderBot = async (req: Request, res: Response, next: NextFunction): Promi
         }
 
         const requestedType = req.query.type as string
-        const url = req.originalUrl || req.url
 
-        // Universo Platformo | Determine type by URL first
-        if (url.includes('/arbot/') || url.includes('/ar/')) {
-            logger.debug(`[BOT RENDER] URL indicates AR bot type`)
-            botType = 'ar'
-        }
-        // Universo Platformo | Then check explicit request parameter
-        else if (requestedType === 'ar' || requestedType === 'chat') {
+        // Universo Platformo | Use explicit request parameter when present
+        if (requestedType === 'ar' || requestedType === 'chat') {
             logger.debug(`[BOT RENDER] Using explicit bot type from request: ${requestedType}`)
             botType = requestedType
-        }
-        // Universo Platformo | Otherwise, default to 'chat'
-        else {
+        } else {
             logger.debug(`[BOT RENDER] No explicit type found, defaulting to 'chat'`)
             botType = 'chat'
         }
