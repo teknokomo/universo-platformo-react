@@ -52,12 +52,7 @@ const BotLoader = ({ botId: propBotId, type: propType }) => {
     const determineBotType = (flowData) => {
         const params = new URLSearchParams(location.search)
         const urlType = params.get('type')
-        const currentPath = location.pathname
 
-        if (currentPath.includes('/arbot/') || currentPath.includes('/ar/')) {
-            setBotType('ar')
-            return
-        }
 
         if (urlType) {
             setBotType(urlType)
@@ -76,22 +71,6 @@ const BotLoader = ({ botId: propBotId, type: propType }) => {
             }
         }
 
-        if (flowData?.arbotConfig) {
-            try {
-                const config = JSON.parse(flowData.arbotConfig)
-                if (config?.botType === 'ar' || config?.displayMode === 'ar') {
-                    setBotType('ar')
-                    return
-                }
-            } catch (error) {
-                console.error('Error parsing arbotConfig:', error)
-            }
-        }
-
-        if (flowData?.type === 'ARBOT') {
-            setBotType('ar')
-            return
-        }
 
         setBotType('chat')
     }

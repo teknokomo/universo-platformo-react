@@ -19,11 +19,6 @@ const ChatbotRoutes = {
             element: <BotRouter />
         },
         {
-            // Universo Platformo | Universal route for AR bot
-            path: '/arbot/:id',
-            element: <BotRouter />
-        },
-        {
             // Universo Platformo | Universal route for bots with explicit type
             path: '/bots/:type/:id',
             element: <BotRouter />

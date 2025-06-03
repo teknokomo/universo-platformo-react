@@ -353,13 +353,13 @@ const BaseBotSettings = ({
                 <OutlinedInput
                     sx={{ display: 'none' }}
                     id='copy-bot-link'
-                    value={`${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`}
+                    value={`${baseURL}/chatbot/${chatflowid}`}
                     aria-describedby='helper-text-copy-bot-link'
                     readOnly={true}
                 />
                 <OutlinedInput
                     id='outlined-adornment-bot-link'
-                    value={`${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`}
+                    value={`${baseURL}/chatbot/${chatflowid}`}
                     aria-describedby='helper-text-bot-link'
                     readOnly={true}
                     disabled={!isPublicChatflow}
@@ -370,9 +370,7 @@ const BaseBotSettings = ({
                             disabled={!isPublicChatflow}
                             onClick={(e) => {
                                 try {
-                                    navigator.clipboard.writeText(
-                                        `${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`
-                                    )
+                                    navigator.clipboard.writeText(`${baseURL}/chatbot/${chatflowid}`)
                                     enqueueSnackbar({
                                         message: 'Ссылка скопирована',
                                         options: {
@@ -405,7 +403,7 @@ const BaseBotSettings = ({
                         title='Открыть в новой вкладке'
                         color='primary'
                         onClick={() => {
-                            const url = `${baseURL}/${configKey === 'arbotConfig' ? 'arbot' : 'chatbot'}/${chatflowid}`
+                            const url = `${baseURL}/chatbot/${chatflowid}`
                             window.open(url, '_blank')
                         }}
                     >
@@ -417,10 +415,10 @@ const BaseBotSettings = ({
             <Card sx={{ p: 3, borderRadius: '8px' }}>
                 <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                        <Typography variant='h4'>{configKey === 'arbotConfig' ? 'Заголовок' : 'Заголовок'}</Typography>
+                        <Typography variant='h4'>Заголовок</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <Typography variant='subtitle1' sx={{ mr: 2 }}>
-                                {configKey === 'arbotConfig' ? 'Сделать публичным' : 'Сделать публичным'}
+                                Сделать публичным
                             </Typography>
                             <Switch checked={isPublicChatflow} onChange={(e) => onSwitchChange(e.target.checked)} />
                         </Box>
@@ -444,7 +442,7 @@ const BaseBotSettings = ({
                                 }
                             }}
                         >
-                            {configKey === 'arbotConfig' ? 'Сохранить изменения' : 'Сохранить изменения'}
+                            Сохранить изменения
                         </StyledButton>
                     </Stack>
                 </Box>
