@@ -53,15 +53,5 @@
   },
   "chatbot": {
     "invalid": "Invalid Chatbot. Please check your configuration."
-  },
-  "arbot": {
-    "invalidTitle": "Invalid AR Bot",
-    "invalidDesc": "Please check your AR bot configuration and make sure it is marked as public.",
-    "privateTitle": "Private AR Bot",
-    "privateDesc": "This AR bot is not public. Please make it public in the settings.",
-    "loading": "Loading AR Experience...",
-    "markerFound": "Marker found!",
-    "markerLost": "Marker lost!",
-    "cameraError": "Camera access error. Please allow camera access for AR to work."
   }
-} 
+}

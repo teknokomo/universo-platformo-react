@@ -8,8 +8,8 @@ import LaunchIcon from '@mui/icons-material/Launch'
 // Const
 import { baseURL } from '@/store/constant'
 
-// Universo Platformo | Component to display API links based on the mode
-const LinksCode = ({ chatflowid, mode = 'chat' }) => {
+// Universo Platformo | Component to display API links
+const LinksCode = ({ chatflowid }) => {
     const { t } = useTranslation(['chatflows'])
 
     // Universo Platformo | Common styles for links
@@ -46,27 +46,15 @@ const LinksCode = ({ chatflowid, mode = 'chat' }) => {
                     {t('chatflows.apiLinks.endpoints')}
                 </Typography>
 
-                {mode === 'chat' ? (
-                    <>
-                        <Link href={`${baseURL}/api/v1/prediction/${chatflowid}`} target='_blank' sx={linkStyle}>
-                            POST {baseURL}/api/v1/prediction/{chatflowid}
-                            <LaunchIcon fontSize='small' />
-                        </Link>
-                        <Typography variant='body2' sx={{ mb: 2 }}>
-                            {t('chatflows.apiLinks.chatEndpointDescription')}
-                        </Typography>
-                    </>
-                ) : (
-                    <>
-                        <Link href={`${baseURL}/api/v1/ar/${chatflowid}`} target='_blank' sx={linkStyle}>
-                            POST {baseURL}/api/v1/ar/{chatflowid}
-                            <LaunchIcon fontSize='small' />
-                        </Link>
-                        <Typography variant='body2' sx={{ mb: 2 }}>
-                            {t('chatflows.apiLinks.arEndpointDescription')}
-                        </Typography>
-                    </>
-                )}
+                <>
+                    <Link href={`${baseURL}/api/v1/prediction/${chatflowid}`} target='_blank' sx={linkStyle}>
+                        POST {baseURL}/api/v1/prediction/{chatflowid}
+                        <LaunchIcon fontSize='small' />
+                    </Link>
+                    <Typography variant='body2' sx={{ mb: 2 }}>
+                        {t('chatflows.apiLinks.chatEndpointDescription')}
+                    </Typography>
+                </>
             </Paper>
 
             <Paper sx={paperStyle} variant='outlined'>
@@ -84,8 +72,7 @@ const LinksCode = ({ chatflowid, mode = 'chat' }) => {
 }
 
 LinksCode.propTypes = {
-    chatflowid: PropTypes.string.isRequired,
-    mode: PropTypes.oneOf(['chat', 'ar'])
+    chatflowid: PropTypes.string.isRequired
 }
 
 export default LinksCode
