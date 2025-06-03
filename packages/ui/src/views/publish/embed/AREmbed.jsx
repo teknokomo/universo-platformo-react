@@ -293,4 +293,4 @@ AREmbed.propTypes = {
     chatflowid: PropTypes.string
 }
 
-export default AREmbed 
+export default AREmbed

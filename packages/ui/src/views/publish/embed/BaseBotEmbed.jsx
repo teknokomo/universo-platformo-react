@@ -157,4 +157,4 @@ BaseBotEmbed.propTypes = {
     defaultThemeConfig: PropTypes.object
 }
 
-export default BaseBotEmbed 
+export default BaseBotEmbed
