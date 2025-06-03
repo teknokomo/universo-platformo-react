@@ -1,7 +1,6 @@
 // Universo Platformo | Bot controllers factory
 import { Request, Response, NextFunction } from 'express'
 import { ChatBotController } from './chat'
-import { ARBotController } from './ar'
 import { StatusCodes } from 'http-status-codes'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
@@ -20,7 +19,6 @@ declare global {
  */
 export class BotControllerFactory {
     private static chatBotController: ChatBotController
-    private static arBotController: ARBotController
 
     /**
      * Universo Platformo | Get bot controller by type
@@ -29,12 +27,6 @@ export class BotControllerFactory {
         logger.debug(`Creating bot controller for type: ${botType}`)
 
         switch (botType?.toLowerCase()) {
-            case 'ar':
-                if (!this.arBotController) {
-                    this.arBotController = new ARBotController()
-                }
-                return this.arBotController
-
             case 'chat':
             default:
                 if (!this.chatBotController) {
