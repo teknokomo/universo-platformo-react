@@ -4,23 +4,6 @@ import botsController from '../../controllers/bots'
 
 const router = express.Router()
 
-// Universo Platformo | GET/POST /ar/:id - API for AR data
-router.get('/ar/:id', (req, res, next) => {
-    // Setting type is redundant here as controller is called directly
-    console.log(`[AR API Route] GET request to /api/v1/bots/ar/${req.params.id}`)
-    res.setHeader('Content-Type', 'application/json')
-    const ARBotController = require('../../controllers/bots/ar').ARBotController
-    const arController = new ARBotController()
-    return arController.getBotConfig(req, res, next)
-})
-router.post('/ar/:id', (req, res, next) => {
-    // Setting type is redundant here as controller is called directly
-    console.log(`[AR API Route] POST request to /api/v1/bots/ar/${req.params.id}`)
-    res.setHeader('Content-Type', 'application/json')
-    const ARBotController = require('../../controllers/bots/ar').ARBotController
-    const arController = new ARBotController()
-    return arController.getBotConfig(req, res, next)
-})
 
 // Universo Platformo | GET /:id/config - General endpoint for bot configuration (defaults to chat)
 router.get('/:id/config', botsController.getBotConfig)
