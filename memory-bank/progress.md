@@ -288,3 +288,7 @@ This refactoring achieves the optimal architecture for our MVP:
 
 -   `apps/publish-frt/base/src/api/ARJSPublishApi.ts` - cleaner API client with proper error handling
 -   `apps/publish-frt/base/src/features/arjs/ARJSPublisher.jsx` - removed redundant code while preserving demo functionality
+
+### 2025-06-04: Server utils verified
+
+- Verified all utils match Flowise 3.0.1 baseline. No changes required.
