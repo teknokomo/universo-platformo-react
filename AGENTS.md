@@ -1,6 +1,6 @@
 # Agent Instructions
 
-Welcome to the repository! This project extends **Flowise AI** with Supabase-powered multi-user features and integrates **UPDL** (Universal Platform Description Language) to build cross-platform 3D/AR/VR applications. See [README.md](README.md) for a full overview.
+Welcome to the repository! This project Universo Platformo React extends **Flowise AI** with Supabase-powered multi-user features and integrates **UPDL** (Universal Platform Description Language) to build cross-platform 3D/AR/VR applications. See [README.md](README.md) for a full overview.
 
 Please review the **memory-bank/** folder (`productContext`, `techContext`, `progress`, `tasks`, etc.) for background information and past work.
 

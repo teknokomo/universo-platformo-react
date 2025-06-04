@@ -1,3 +1,239 @@
+# Tasks for Flowise 3.0.1 Major Upgrade
+
+## 🎯 CRITICAL PROJECT INITIATIVE
+
+**UPGRADING FROM FLOWISE 2.2.7-PATCH.1 TO FLOWISE 3.0.1**
+
+**Complexity Level**: **Level 4** (Complex System Update)  
+**Risk Level**: **High** (Extensive custom modifications)  
+**Impact**: **Major** (All system layers affected)
+
+### Legend
+
+-   [ ] Planned / Not Started
+-   [~] In Progress
+-   [x] Completed
+-   [! ] Blocked / Needs Decision
+-   [🎨] Creative Phase Complete
+
+---
+
+## PHASE 1: Foundation Updates (Low Risk) 🟢
+
+### Task 1.1: Upgrade workspace dependencies and lockfile
+
+**Priority**: CRITICAL | **Risk**: Low | **Impact**: Foundation
+
+-   [ ] **Update from Flowise 3.0.1: Refresh monorepo dependencies**
+    -   [ ] Analyze current `package.json` vs Flowise 3.0.1 dependencies
+    -   [ ] Update root `package.json` with new Flowise dependencies
+    -   [ ] Update `pnpm-lock.yaml` to reflect Flowise 2.2.7-patch.1 → 3.0.1 changes
+    -   [ ] Test build process after dependency updates
+    -   [ ] Document any breaking dependency changes
+
+### Task 1.2: Sync component nodes
+
+**Priority**: HIGH | **Risk**: Low | **Impact**: Feature updates
+
+-   [ ] **Update from Flowise 3.0.1: Replace packages/components**
+    -   [ ] Backup current `packages/components/` (no custom changes expected)
+    -   [ ] Replace entire `packages/components/` with Flowise 3.0.1 version
+    -   [ ] Verify new node types: agentflow, sequential agents, new retrievers
+    -   [ ] Test node loading and registration
+    -   [ ] Document new node capabilities
+
+### Task 1.3: Apply new database migrations
+
+**Priority**: HIGH | **Risk**: Low | **Impact**: Data structure
+
+-   [ ] **Update from Flowise 3.0.1: Import latest migrations**
+    -   [ ] Analyze new migrations after `1726066369562-AddFlowUpPrompts.ts`
+    -   [ ] Import `AddSeqNoToDatasetRow.ts` and execution logging migrations
+    -   [ ] Review migration compatibility with Uniks-modified entities
+    -   [ ] Execute migrations in development environment
+    -   [ ] Verify database schema alignment
+
+---
+
+## PHASE 2: Architecture Updates (Medium Risk) 🟡
+
+### Task 2.1: Update server architecture
+
+**Priority**: CRITICAL | **Risk**: Medium | **Impact**: Core system
+
+-   [ ] **Update from Flowise 3.0.1: Merge server core**
+    -   [ ] Analyze Flowise 3.0.1 `enterprise` layer introduction
+    -   [ ] Merge Passport-based authentication middleware
+    -   [ ] Update server initialization and middleware chain
+    -   [ ] Preserve Supabase JWT checks and custom logic
+    -   [ ] Test server startup and basic functionality
+
+### Task 2.2: Integrate Passport authentication with Supabase
+
+**Priority**: CRITICAL | **Risk**: High | **Impact**: Authentication
+
+-   [ ] **Update from Flowise 3.0.1: Adapt Supabase auth**
+    -   [ ] Analyze new Passport strategies (`enterprise/middleware/passport`)
+    -   [ ] Design Supabase JWT ↔ Passport integration strategy
+    -   [ ] Implement custom Passport strategy for Supabase tokens
+    -   [ ] Update authentication middleware to work with both systems
+    -   [ ] Test multi-user authentication flow
+    -   [ ] Ensure Uniks access control still works
+
+### Task 2.3: Align database entities with new features
+
+**Priority**: HIGH | **Risk**: Medium | **Impact**: Data models
+
+-   [ ] **Update from Flowise 3.0.1: Sync server entities**
+    -   [ ] Import new entities under `enterprise/database`
+    -   [ ] Merge execution logging entities and related tables
+    -   [ ] Preserve Uniks-related entity modifications
+    -   [ ] Update entity relationships and foreign keys
+    -   [ ] Test entity loading and TypeORM functionality
+
+### Task 2.4: Refresh server utilities and helpers
+
+**Priority**: MEDIUM | **Risk**: Medium | **Impact**: Helper functions
+
+-   [ ] **Update from Flowise 3.0.1: Update server utilities**
+    -   [ ] Merge refactored helper functions (telemetry, SSE, rate-limit)
+    -   [ ] Preserve custom UPDL-related utilities
+    -   [ ] Update imports and function signatures
+    -   [ ] Test utility functions functionality
+    -   [ ] Document utility changes
+
+---
+
+## PHASE 3: API & Routes Updates (Medium Risk) 🟡
+
+### Task 3.1: Update API controllers and routes
+
+**Priority**: HIGH | **Risk**: Medium | **Impact**: API endpoints
+
+-   [ ] **Update from Flowise 3.0.1: Sync API routes**
+    -   [ ] Import new API endpoints (agent executions, assistants, marketplace)
+    -   [ ] Merge updated existing controllers with Uniks modifications
+    -   [ ] Update route definitions and middleware
+    -   [ ] Preserve Uniks-based access control in controllers
+    -   [ ] Test all API endpoints functionality
+    -   [ ] Document new API capabilities
+
+---
+
+## PHASE 4: UI Integration (High Risk) 🔴
+
+### Task 4.1: Replace UI package with Flowise 3.0.1 baseline
+
+**Priority**: CRITICAL | **Risk**: High | **Impact**: User interface
+
+-   [ ] **Update from Flowise 3.0.1: Import UI sources**
+    -   [ ] Analyze current UI version `0.0.1` vs Flowise 3.0.1 UI components
+    -   [ ] Backup current UI with custom additions (Uniks pages)
+    -   [ ] Import new UI components (account, auth, agentflowsv2)
+    -   [ ] Merge new base components while preserving Uniks functionality
+    -   [ ] Update component imports and routing
+    -   [ ] Test UI compilation and basic functionality
+
+### Task 4.2: Integrate new UI authentication flow
+
+**Priority**: CRITICAL | **Risk**: High | **Impact**: Authentication UI
+
+-   [ ] **Update from Flowise 3.0.1: Wire Supabase login in UI**
+    -   [ ] Analyze new Passport-based sign-in/sign-up screens
+    -   [ ] Adapt new authentication UI to work with Supabase APIs
+    -   [ ] Preserve multi-user functionality and Uniks context
+    -   [ ] Update authentication state management
+    -   [ ] Test login/logout/registration flows
+    -   [ ] Ensure Uniks workspace selection still works
+
+### Task 4.3: Merge new UI pages
+
+**Priority**: HIGH | **Risk**: High | **Impact**: Feature UI
+
+-   [ ] **Update from Flowise 3.0.1: Add new pages**
+    -   [ ] Import agent executions, marketplaces views
+    -   [ ] Integrate new pages with existing navigation
+    -   [ ] Preserve Uniks-based access control in new pages
+    -   [ ] Update routing and menu structures
+    -   [ ] Test new page functionality within Uniks context
+
+---
+
+## PHASE 5: Finalization (High Risk) 🔴
+
+### Task 5.1: Update i18n keys
+
+**Priority**: MEDIUM | **Risk**: Medium | **Impact**: Localization
+
+-   [ ] **Update from Flowise 3.0.1: Extend translation files**
+    -   [ ] Analyze new text labels introduced in Flowise 3.0.1
+    -   [ ] Add new English keys to existing i18n files
+    -   [ ] Translate new keys to Russian
+    -   [ ] Test language switching with new content
+    -   [ ] Ensure UI displays correctly in both languages
+
+### Task 5.2: Adjust build and deployment scripts
+
+**Priority**: MEDIUM | **Risk**: Medium | **Impact**: Build process
+
+-   [ ] **Update from Flowise 3.0.1: Review build scripts**
+    -   [ ] Check for changes in build steps or environment variables (e.g., `JWT_REFRESH_TOKEN_EXPIRY_IN_MINUTES`)
+    -   [ ] Update Dockerfile and start scripts if needed
+    -   [ ] Preserve custom build configurations for UPDL apps
+    -   [ ] Test full build process
+    -   [ ] Update deployment documentation
+
+### Task 5.3: Validate UPDL nodes and publication flow
+
+**Priority**: CRITICAL | **Risk**: High | **Impact**: Core functionality
+
+-   [ ] **Update from Flowise 3.0.1: Test UPDL integration**
+    -   [ ] Test UPDL features implemented in `apps/` directory
+    -   [ ] Verify AR.js publication flow still works after upgrade
+    -   [ ] Test UPDL node registration and compilation
+    -   [ ] Ensure Flowise chatflow ↔ UPDL integration is preserved
+    -   [ ] Test end-to-end UPDL → AR.js generation workflow
+
+### Task 5.4: Update documentation
+
+**Priority**: LOW | **Risk**: Low | **Impact**: Documentation
+
+-   [ ] **Update from Flowise 3.0.1: Refresh documentation**
+    -   [ ] Update README to reference Flowise 3.0.1 as base version
+    -   [ ] Update memory-bank files with new system information
+    -   [ ] Document integration points between Flowise 3.0.1 and custom features
+    -   [ ] Create upgrade notes and troubleshooting guide
+
+---
+
+## 🔍 CRITICAL INTEGRATION CHECKPOINTS
+
+### Authentication Integration Point
+
+**Risk**: HIGH - New Passport.js system must coexist with Supabase
+
+-   [ ] Verify Supabase JWT validation works with new auth middleware
+-   [ ] Ensure multi-user access control is preserved
+-   [ ] Test Uniks workspace isolation with new authentication
+
+### UPDL Functionality Preservation
+
+**Risk**: HIGH - Custom UPDL nodes must remain functional
+
+-   [ ] Verify UPDL node loading and execution
+-   [ ] Test AR.js publication pipeline end-to-end
+-   [ ] Ensure UPDL ↔ Flowise integration points are preserved
+
+### Data Migration Safety
+
+**Risk**: MEDIUM - Database changes must preserve Uniks data
+
+-   [ ] Backup all Uniks-related data before migrations
+-   [ ] Test migration rollback procedures
+-   [ ] Verify Uniks relationships are preserved after entity updates
+
+---
+
 # Tasks for Stage 3
 
 ## Current Focus

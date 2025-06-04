@@ -10,7 +10,7 @@ import { baseURL } from '@/store/constant'
 // ==============================|| Chat Bot Viewer ||============================== //
 
 const ChatBotWithTheme = ({ chatflow, theme }) => {
-    return <FullPageChat chatflowid={chatflow.id} apiHost={process.env.REACT_APP_API_HOST} theme={theme} />
+    return <FullPageChat chatflowid={chatflow.id} apiHost={baseURL} theme={theme} />
 }
 
 ChatBotWithTheme.propTypes = {
