@@ -356,5 +356,8 @@ export interface IVariableOverride {
 // DocumentStore related
 export * from './Interface.DocumentStore'
 
+// Evaluation related
+export * from './Interface.Evaluation'
+
 // UPDL related
 export * from './Interface.UPDL'
