@@ -25,28 +25,15 @@ export function getAllowedCorsOrigins(): string {
 }
 
 export function getCorsOptions(): any {
-    const allowedOriginsStr = getAllowedCorsOrigins() // Reads process.env.CORS_ORIGINS ?? '*'
-    const allowedOriginsArr = allowedOriginsStr === '*' ? ['*'] : allowedOriginsStr.split(',').map((origin) => origin.trim())
-
     const corsOptions = {
-        origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean | string) => void) {
-            // Allow requests with no origin (like mobile apps or curl requests)
-            if (!origin) return callback(null, true)
-
-            if (allowedOriginsArr[0] === '*') {
-                // If '*' is configured, reflect the request's origin
-                // This is safe for credentials when '*' is intended, but specific origins are preferred for production
-                callback(null, origin)
-            } else if (allowedOriginsArr.includes(origin)) {
-                // If the origin is in the allowed list, reflect it
-                callback(null, origin)
+        origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+            const allowedOrigins = getAllowedCorsOrigins()
+            if (!origin || allowedOrigins == '*' || allowedOrigins.indexOf(origin) !== -1) {
+                callback(null, true)
             } else {
-                // Otherwise, disallow the origin
-                callback(new Error('Not allowed by CORS'))
+                callback(null, false)
             }
-        },
-        // Universo Platformo | Explicitly allow credentials
-        credentials: true
+        }
     }
     return corsOptions
 }

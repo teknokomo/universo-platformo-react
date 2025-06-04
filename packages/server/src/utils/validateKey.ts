@@ -5,13 +5,10 @@ import apikeyService from '../services/apikey'
 
 /**
  * Validate Chatflow API Key
- * If req.user already has a user, return true immediately.
  * @param {Request} req
  * @param {ChatFlow} chatflow
  */
-export const validateChatflowAPIKey = async (req: Request, chatflow: ChatFlow): Promise<boolean> => {
-    if ((req as any).user) return true // Universo Platformo | If JWT authorization has already passed, skip the check
-
+export const validateChatflowAPIKey = async (req: Request, chatflow: ChatFlow) => {
     const chatFlowApiKeyId = chatflow?.apikeyid
     if (!chatFlowApiKeyId) return true
 
@@ -31,16 +28,14 @@ export const validateChatflowAPIKey = async (req: Request, chatflow: ChatFlow): 
 
 /**
  * Validate API Key
- * If req.user already has a user (i.e. JWT passed), return true.
  * @param {Request} req
  */
-export const validateAPIKey = async (req: Request): Promise<boolean> => {
-    if ((req as any).user) return true // Universo Platformo | If JWT authorization has already passed, skip the check
-
+export const validateAPIKey = async (req: Request) => {
     const authorizationHeader = (req.headers['Authorization'] as string) ?? (req.headers['authorization'] as string) ?? ''
     if (!authorizationHeader) return false
 
     const suppliedKey = authorizationHeader.split(`Bearer `).pop()
+
     if (suppliedKey) {
         const keys = await apikeyService.getAllApiKeys()
         const apiSecret = keys.find((key: any) => key.apiKey === suppliedKey)?.apiSecret
@@ -49,4 +44,20 @@ export const validateAPIKey = async (req: Request): Promise<boolean> => {
         return true
     }
     return false
+}
+
+/**
+ * Get API Key WorkspaceID
+ * @param {Request} req
+ */
+export const getAPIKeyWorkspaceID = async (req: Request) => {
+    const authorizationHeader = (req.headers['Authorization'] as string) ?? (req.headers['authorization'] as string) ?? ''
+    if (!authorizationHeader) return false
+
+    const suppliedKey = authorizationHeader.split(`Bearer `).pop()
+    if (suppliedKey) {
+        const key = await apikeyService.getApiKey(suppliedKey)
+        return key?.workspaceId
+    }
+    return undefined
 }
