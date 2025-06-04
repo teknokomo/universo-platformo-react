@@ -1,5 +1,5 @@
 import passport from 'passport'
-import { VerifiedCallback } from 'passport-jwt'
+import { ExtractJwt, Strategy as JwtStrategy, VerifiedCallback } from 'passport-jwt'
 import express, { NextFunction, Request, Response } from 'express'
 import { ErrorMessage, IAssignedWorkspace, LoggedInUser } from '../../Interface.Enterprise'
 import { decryptToken, encryptToken, generateSafeCopy } from '../../utils/tempTokenUtils'
@@ -85,6 +85,27 @@ export const initializeJwtCookieMiddleware = async (app: express.Application, id
 
     const strategy = getAuthStrategy(jwtOptions)
     passport.use(strategy)
+    passport.use(
+        'supabase-jwt',
+        new JwtStrategy(
+            {
+                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+                secretOrKey: process.env.SUPABASE_JWT_SECRET,
+                passReqToCallback: true
+            },
+            async (req: Request, payload: any, done: VerifiedCallback) => {
+                try {
+                    req.user = {
+                        id: payload.sub || payload.user_id || payload.id,
+                        ...payload
+                    } as any
+                    return done(null, req.user)
+                } catch (error) {
+                    return done(error, false)
+                }
+            }
+        )
+    )
     passport.use(
         'login',
         new localStrategy(
@@ -375,22 +396,16 @@ const _generateJwtToken = (user: Partial<LoggedInUser>, expiryInMinutes: number,
 }
 
 export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers['authorization'] || req.headers['Authorization']
-    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-        try {
-            const token = authHeader.substring(7)
-            const decoded: any = jwt.verify(token, process.env.SUPABASE_JWT_SECRET as string)
-            req.user = { id: decoded.sub || decoded.user_id || decoded.id, ...decoded } as any
+    passport.authenticate('supabase-jwt', { session: false }, (supabaseErr: any, supabaseUser: LoggedInUser) => {
+        if (!supabaseErr && supabaseUser) {
+            req.user = supabaseUser
             return next()
-        } catch (e) {
-            // fall through to passport verification
         }
-    }
 
-    passport.authenticate('jwt', { session: true }, (err: any, user: LoggedInUser, info: object) => {
-        if (err) {
-            return next(err)
-        }
+        passport.authenticate('jwt', { session: true }, (err: any, user: LoggedInUser, info: object) => {
+            if (err) {
+                return next(err)
+            }
 
         // @ts-ignore
         if (info && info.name === 'TokenExpiredError') {
@@ -411,5 +426,6 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
 
         req.user = user
         next()
+    })(req, res, next)
     })(req, res, next)
 }
