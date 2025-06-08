@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog, DialogContent, DialogTitle, Button } from '@mui/material'
-import { ChatMessage } from './ChatMessage'
+import ChatMessage from './ChatMessage'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { IconEraser } from '@tabler/icons-react'
 

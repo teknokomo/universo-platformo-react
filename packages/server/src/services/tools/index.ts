@@ -1,37 +1,30 @@
 import { StatusCodes } from 'http-status-codes'
 import { Tool } from '../../database/entities/Tool'
+import { getAppVersion } from '../../utils'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
-import { getAppVersion } from '../../utils'
+import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { FLOWISE_METRIC_COUNTERS, FLOWISE_COUNTER_STATUS } from '../../Interface.Metrics'
 import { QueryRunner } from 'typeorm'
+import { validate } from 'uuid'
 
-const createTool = async (requestBody: any): Promise<any> => {
+const createTool = async (requestBody: any, orgId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        
-        // Ensure unikId is properly passed to the database
-        if (requestBody.unikId) {
-            // TypeORM expects unik_id instead of unikId
-            requestBody.unik_id = requestBody.unikId
-            // Remove unikId to avoid duplication
-            delete requestBody.unikId
-        }
-        
         const newTool = new Tool()
-        // Set relationship with Unik
-        newTool.unik = { id: requestBody.unik_id } as any
-        // Copy other fields
         Object.assign(newTool, requestBody)
-        
         const tool = await appServer.AppDataSource.getRepository(Tool).create(newTool)
         const dbResponse = await appServer.AppDataSource.getRepository(Tool).save(tool)
-        await appServer.telemetry.sendTelemetry('tool_created', {
-            version: await getAppVersion(),
-            toolId: dbResponse.id,
-            toolName: dbResponse.name
-        })
+        await appServer.telemetry.sendTelemetry(
+            'tool_created',
+            {
+                version: await getAppVersion(),
+                toolId: dbResponse.id,
+                toolName: dbResponse.name
+            },
+            orgId
+        )
         appServer.metricsProvider?.incrementCounter(FLOWISE_METRIC_COUNTERS.TOOL_CREATED, { status: FLOWISE_COUNTER_STATUS.SUCCESS })
         return dbResponse
     } catch (error) {
@@ -39,45 +32,34 @@ const createTool = async (requestBody: any): Promise<any> => {
     }
 }
 
-const deleteTool = async (toolId: string, unikId?: string): Promise<any> => {
+const deleteTool = async (toolId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        let whereClause: any = { id: toolId }
-        if (unikId) {
-            whereClause.unik = { id: unikId }
-        }
-        const dbResponse = await appServer.AppDataSource.getRepository(Tool).delete(whereClause)
+        const dbResponse = await appServer.AppDataSource.getRepository(Tool).delete({
+            id: toolId
+        })
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: toolsService.deleteTool - ${getErrorMessage(error)}`)
     }
 }
 
-const getAllTools = async (unikId?: string): Promise<Tool[]> => {
+const getAllTools = async (workspaceId?: string): Promise<Tool[]> => {
     try {
         const appServer = getRunningExpressApp()
-        let queryBuilder = appServer.AppDataSource.getRepository(Tool)
-            .createQueryBuilder('tool')
-
-        // Apply filter by unikId if provided
-        if (unikId) {
-            queryBuilder = queryBuilder.where('tool.unik_id = :unikId', { unikId })
-        }
-
-        return await queryBuilder.getMany()
+        const dbResponse = await appServer.AppDataSource.getRepository(Tool).findBy(getWorkspaceSearchOptions(workspaceId))
+        return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: toolsService.getAllTools - ${getErrorMessage(error)}`)
     }
 }
 
-const getToolById = async (toolId: string, unikId?: string): Promise<any> => {
+const getToolById = async (toolId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        let whereClause: any = { id: toolId }
-        if (unikId) {
-            whereClause.unik = { id: unikId }
-        }
-        const dbResponse = await appServer.AppDataSource.getRepository(Tool).findOneBy(whereClause)
+        const dbResponse = await appServer.AppDataSource.getRepository(Tool).findOneBy({
+            id: toolId
+        })
         if (!dbResponse) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Tool ${toolId} not found`)
         }
@@ -90,21 +72,15 @@ const getToolById = async (toolId: string, unikId?: string): Promise<any> => {
 const updateTool = async (toolId: string, toolBody: any): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        let whereClause: any = { id: toolId }
-        if (toolBody.unikId) {
-            whereClause.unik = { id: toolBody.unikId }
-            // Remove unikId from toolBody to avoid setting it directly
-            const { unikId, ...restBody } = toolBody
-            toolBody = restBody
-        }
-        
-        const tool = await appServer.AppDataSource.getRepository(Tool).findOneBy(whereClause)
+        const tool = await appServer.AppDataSource.getRepository(Tool).findOneBy({
+            id: toolId
+        })
         if (!tool) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Tool ${toolId} not found`)
         }
         const updateTool = new Tool()
         Object.assign(updateTool, toolBody)
-        await appServer.AppDataSource.getRepository(Tool).merge(tool, updateTool)
+        appServer.AppDataSource.getRepository(Tool).merge(tool, updateTool)
         const dbResponse = await appServer.AppDataSource.getRepository(Tool).save(tool)
         return dbResponse
     } catch (error) {
@@ -114,6 +90,12 @@ const updateTool = async (toolId: string, toolBody: any): Promise<any> => {
 
 const importTools = async (newTools: Partial<Tool>[], queryRunner?: QueryRunner) => {
     try {
+        for (const data of newTools) {
+            if (data.id && !validate(data.id)) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: importTools - invalid id!`)
+            }
+        }
+
         const appServer = getRunningExpressApp()
         const repository = queryRunner ? queryRunner.manager.getRepository(Tool) : appServer.AppDataSource.getRepository(Tool)
 

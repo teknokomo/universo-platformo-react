@@ -11,7 +11,7 @@ const Logo = () => {
     const { t } = useTranslation()
 
     return (
-        <div style={{ alignItems: 'center', display: 'flex', flexDirection: 'row' }}>
+        <div style={{ alignItems: 'center', display: 'flex', flexDirection: 'row', marginLeft: '10px' }}>
             <img
                 style={{ objectFit: 'contain', height: 'auto', width: 150 }}
                 src={customization.isDarkMode ? logoDark : logo}

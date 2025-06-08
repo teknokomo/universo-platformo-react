@@ -45,11 +45,6 @@ const DocumentStoreStatus = ({ status, isTableView }) => {
         }
     }
 
-    const getTranslatedStatus = (status) => {
-        if (!status) return '';
-        return t(`documentStore.status.${status.toLowerCase()}`, status)
-    }
-
     return (
         <>
             {!isTableView && (

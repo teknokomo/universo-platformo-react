@@ -3,15 +3,25 @@ import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { Variable } from '../../database/entities/Variable'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
+import { getAppVersion } from '../../utils'
+import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
 import { QueryRunner } from 'typeorm'
+import { validate } from 'uuid'
 
-const createVariable = async (newVariable: Variable, unikId: string) => {
+const createVariable = async (newVariable: Variable, orgId: string) => {
     try {
         const appServer = getRunningExpressApp()
-        // Set relationship with Unik
-        newVariable.unik = { id: unikId } as any
+
         const variable = await appServer.AppDataSource.getRepository(Variable).create(newVariable)
         const dbResponse = await appServer.AppDataSource.getRepository(Variable).save(variable)
+        await appServer.telemetry.sendTelemetry(
+            'variable_created',
+            {
+                version: await getAppVersion(),
+                variableType: variable.type
+            },
+            orgId
+        )
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(
@@ -21,13 +31,10 @@ const createVariable = async (newVariable: Variable, unikId: string) => {
     }
 }
 
-const deleteVariable = async (variableId: string, unikId: string): Promise<any> => {
+const deleteVariable = async (variableId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Variable).delete({ 
-            id: variableId,
-            unik: { id: unikId }
-        })
+        const dbResponse = await appServer.AppDataSource.getRepository(Variable).delete({ id: variableId })
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(
@@ -37,13 +44,10 @@ const deleteVariable = async (variableId: string, unikId: string): Promise<any> 
     }
 }
 
-const getAllVariables = async (unikId: string) => {
+const getAllVariables = async (workspaceId?: string) => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(Variable)
-            .createQueryBuilder('variable')
-            .where('variable.unik_id = :unikId', { unikId })
-            .getMany()
+        const dbResponse = await appServer.AppDataSource.getRepository(Variable).findBy(getWorkspaceSearchOptions(workspaceId))
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(
@@ -53,12 +57,11 @@ const getAllVariables = async (unikId: string) => {
     }
 }
 
-const getVariableById = async (variableId: string, unikId: string) => {
+const getVariableById = async (variableId: string) => {
     try {
         const appServer = getRunningExpressApp()
         const dbResponse = await appServer.AppDataSource.getRepository(Variable).findOneBy({
-            id: variableId,
-            unik: { id: unikId }
+            id: variableId
         })
         return dbResponse
     } catch (error) {
@@ -69,13 +72,9 @@ const getVariableById = async (variableId: string, unikId: string) => {
     }
 }
 
-const updateVariable = async (variable: Variable, updatedVariable: Variable, unikId: string) => {
+const updateVariable = async (variable: Variable, updatedVariable: Variable) => {
     try {
         const appServer = getRunningExpressApp()
-        // Ensure unikId is not set directly
-        if ('unikId' in updatedVariable) {
-            delete (updatedVariable as any).unikId
-        }
         const tmpUpdatedVariable = await appServer.AppDataSource.getRepository(Variable).merge(variable, updatedVariable)
         const dbResponse = await appServer.AppDataSource.getRepository(Variable).save(tmpUpdatedVariable)
         return dbResponse
@@ -89,6 +88,12 @@ const updateVariable = async (variable: Variable, updatedVariable: Variable, uni
 
 const importVariables = async (newVariables: Partial<Variable>[], queryRunner?: QueryRunner): Promise<any> => {
     try {
+        for (const data of newVariables) {
+            if (data.id && !validate(data.id)) {
+                throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: importVariables - invalid id!`)
+            }
+        }
+
         const appServer = getRunningExpressApp()
         const repository = queryRunner ? queryRunner.manager.getRepository(Variable) : appServer.AppDataSource.getRepository(Variable)
 

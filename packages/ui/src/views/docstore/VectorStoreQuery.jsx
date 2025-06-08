@@ -21,6 +21,7 @@ import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import ExpandedChunkDialog from './ExpandedChunkDialog'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import DocStoreInputHandler from '@/views/docstore/DocStoreInputHandler'
+import { PermissionButton } from '@/ui-component/button/RBACButtons'
 
 // API
 import documentsApi from '@/api/documentstore'
@@ -28,6 +29,7 @@ import nodesApi from '@/api/nodes'
 
 // Hooks
 import useApi from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 import useNotifier from '@/utils/useNotifier'
 import { baseURL } from '@/store/constant'
 import { initNode } from '@/utils/genericHelper'
@@ -59,6 +61,7 @@ const VectorStoreQuery = () => {
     const dispatch = useDispatch()
     const inputRef = useRef(null)
     const { t } = useTranslation(['document-store', 'vector-store'])
+    const { hasAssignedWorkspace } = useAuth()
 
     useNotifier()
 
@@ -229,6 +232,10 @@ const VectorStoreQuery = () => {
 
     useEffect(() => {
         if (getSpecificDocumentStoreApi.data) {
+            if (!hasAssignedWorkspace(getSpecificDocumentStoreApi.data.workspaceId)) {
+                navigate('/unauthorized')
+                return
+            }
             setDocumentStore(getSpecificDocumentStoreApi.data)
             const vectorStoreConfig = getSpecificDocumentStoreApi.data.vectorStoreConfig
             if (vectorStoreConfig) {
@@ -251,7 +258,8 @@ const VectorStoreQuery = () => {
                         description={t('vector-store:vectorStore.query.description')}
                         onBack={() => navigate(-1)}
                     >
-                        <Button
+                        <PermissionButton
+                            permissionId={'documentStores:upsert-config'}
                             variant='outlined'
                             color='secondary'
                             sx={{ borderRadius: 2, height: '100%' }}
@@ -259,7 +267,7 @@ const VectorStoreQuery = () => {
                             onClick={saveConfig}
                         >
                             {t('vector-store:vectorStore.actions.saveConfig')}
-                        </Button>
+                        </PermissionButton>
                     </ViewHeader>
                     <div style={{ width: '100%' }}></div>
                     <div>

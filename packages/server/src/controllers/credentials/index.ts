@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express'
 import credentialsService from '../../services/credentials'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
-import { accessControlService } from '../../services/access-control'
 
 const createCredential = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -12,30 +11,9 @@ const createCredential = async (req: Request, res: Response, next: NextFunction)
                 `Error: credentialsController.createCredential - body not provided!`
             )
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.createCredential - unikId not provided!`
-            )
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await credentialsService.createCredential({ ...req.body, unikId })
+        const body = req.body
+        body.workspaceId = req.user?.activeWorkspaceId
+        const apiResponse = await credentialsService.createCredential(body)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -50,30 +28,7 @@ const deleteCredentials = async (req: Request, res: Response, next: NextFunction
                 `Error: credentialsController.deleteCredentials - id not provided!`
             )
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.deleteCredentials - unikId not provided!`
-            )
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await credentialsService.deleteCredentials(req.params.id, unikId)
+        const apiResponse = await credentialsService.deleteCredentials(req.params.id)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -82,30 +37,7 @@ const deleteCredentials = async (req: Request, res: Response, next: NextFunction
 
 const getAllCredentials = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.getAllCredentials - unikId not provided!`
-            )
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await credentialsService.getAllCredentials(req.query.credentialName, unikId)
+        const apiResponse = await credentialsService.getAllCredentials(req.query.credentialName, req.user?.activeWorkspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -120,30 +52,7 @@ const getCredentialById = async (req: Request, res: Response, next: NextFunction
                 `Error: credentialsController.getCredentialById - id not provided!`
             )
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.getCredentialById - unikId not provided!`
-            )
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await credentialsService.getCredentialById(req.params.id, unikId)
+        const apiResponse = await credentialsService.getCredentialById(req.params.id, req.user?.activeWorkspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -164,30 +73,7 @@ const updateCredential = async (req: Request, res: Response, next: NextFunction)
                 `Error: credentialsController.updateCredential - body not provided!`
             )
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.updateCredential - unikId not provided!`
-            )
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await credentialsService.updateCredential(req.params.id, { ...req.body, unikId }, unikId)
+        const apiResponse = await credentialsService.updateCredential(req.params.id, req.body)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

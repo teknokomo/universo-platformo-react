@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
 
@@ -9,7 +9,7 @@ import { StyledFab } from '@/ui-component/button/StyledFab'
 import VectorStoreDialog from './VectorStoreDialog'
 import UpsertResultDialog from './UpsertResultDialog'
 
-export const VectorStorePopUp = ({ chatflowid }) => {
+const VectorStorePopUp = ({ chatflowid }) => {
     const [open, setOpen] = useState(false)
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -79,3 +79,5 @@ export const VectorStorePopUp = ({ chatflowid }) => {
 }
 
 VectorStorePopUp.propTypes = { chatflowid: PropTypes.string }
+
+export default memo(VectorStorePopUp)

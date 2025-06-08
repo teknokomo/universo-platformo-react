@@ -1,23 +1,20 @@
-import { Request, Response, NextFunction } from 'express'
+import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import apiKeyService from '../../services/apikey'
 import { ChatFlow } from '../../database/entities/ChatFlow'
-import { Unik } from '../../database/entities/Unik'
-import { RateLimiterManager } from '../../utils/rateLimit'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
-import { getErrorMessage } from '../../errors/utils'
 import { ChatflowType } from '../../Interface'
+import apiKeyService from '../../services/apikey'
 import chatflowsService from '../../services/chatflows'
-import { getDataSource } from '../../DataSource'
-import logger from '../../utils/logger'
-import { accessControlService } from '../../services/access-control'
+import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
+import { checkUsageLimit } from '../../utils/quotaUsage'
+import { RateLimiterManager } from '../../utils/rateLimit'
 
 const checkIfChatflowIsValidForStreaming = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.checkIfChatflowIsValidForStreaming - id not provided!`
+                `Error: chatflowsController.checkIfChatflowIsValidForStreaming - id not provided!`
             )
         }
         const apiResponse = await chatflowsService.checkIfChatflowIsValidForStreaming(req.params.id)
@@ -32,7 +29,7 @@ const checkIfChatflowIsValidForUploads = async (req: Request, res: Response, nex
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.checkIfChatflowIsValidForUploads - id not provided!`
+                `Error: chatflowsController.checkIfChatflowIsValidForUploads - id not provided!`
             )
         }
         const apiResponse = await chatflowsService.checkIfChatflowIsValidForUploads(req.params.id)
@@ -45,29 +42,23 @@ const checkIfChatflowIsValidForUploads = async (req: Request, res: Response, nex
 const deleteChatflow = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.deleteChatflow - id not provided!`)
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.deleteChatflow - id not provided!`)
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.deleteChatflow - unikId not provided!`)
+        const orgId = req.user?.activeOrganizationId
+        if (!orgId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.deleteChatflow - organization ${orgId} not found!`
+            )
         }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+        const workspaceId = req.user?.activeWorkspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.deleteChatflow - workspace ${workspaceId} not found!`
+            )
         }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await chatflowsService.deleteChatflow(req.params.id, unikId)
+        const apiResponse = await chatflowsService.deleteChatflow(req.params.id, orgId, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -76,27 +67,7 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
 
 const getAllChatflows = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getAllChatflows - unikId not provided!`)
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await chatflowsService.getAllChatflows(req.query?.type as ChatflowType, unikId)
+        const apiResponse = await chatflowsService.getAllChatflows(req.query?.type as ChatflowType, req.user?.activeWorkspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -109,7 +80,7 @@ const getChatflowByApiKey = async (req: Request, res: Response, next: NextFuncti
         if (typeof req.params === 'undefined' || !req.params.apikey) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.getChatflowByApiKey - apikey not provided!`
+                `Error: chatflowsController.getChatflowByApiKey - apikey not provided!`
             )
         }
         const apikey = await apiKeyService.getApiKey(req.params.apikey)
@@ -126,29 +97,9 @@ const getChatflowByApiKey = async (req: Request, res: Response, next: NextFuncti
 const getChatflowById = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getChatflowById - id not provided!`)
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.getChatflowById - id not provided!`)
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getChatflowById - unikId not provided!`)
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const apiResponse = await chatflowsService.getChatflowById(req.params.id, unikId)
+        const apiResponse = await chatflowsService.getChatflowById(req.params.id)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -158,42 +109,40 @@ const getChatflowById = async (req: Request, res: Response, next: NextFunction) 
 const saveChatflow = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (!req.body) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.saveChatflow - body not provided!`)
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.saveChatflow - body not provided!`)
         }
-        const body = req.body
-
-        // Universo Platformo | Check if unik_id is provided
-        if (!body.unik_id) {
+        const orgId = req.user?.activeOrganizationId
+        if (!orgId) {
             throw new InternalFlowiseError(
-                StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.saveChatflow - unik_id not provided in request body!`
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.saveChatflow - organization ${orgId} not found!`
             )
         }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+        const workspaceId = req.user?.activeWorkspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.saveChatflow - workspace ${workspaceId} not found!`
+            )
         }
+        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const body = req.body
 
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, body.unik_id, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const existingChatflowCount = await chatflowsService.getAllChatflowsCountByOrganization(body.type, orgId)
+        const newChatflowCount = 1
+        await checkUsageLimit('flows', subscriptionId, getRunningExpressApp().usageCacheManager, existingChatflowCount + newChatflowCount)
 
         const newChatFlow = new ChatFlow()
         Object.assign(newChatFlow, body)
-        // If the unik_id field is passed in the body, create a Unik object and assign it to the unik property
-        if (body.unik_id) {
-            const unik = new Unik()
-            unik.id = body.unik_id
-            newChatFlow.unik = unik
-        }
-        const apiResponse = await chatflowsService.saveChatflow(newChatFlow)
+        newChatFlow.workspaceId = workspaceId
+        const apiResponse = await chatflowsService.saveChatflow(
+            newChatFlow,
+            orgId,
+            workspaceId,
+            subscriptionId,
+            getRunningExpressApp().usageCacheManager
+        )
+
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -203,7 +152,23 @@ const saveChatflow = async (req: Request, res: Response, next: NextFunction) => 
 const importChatflows = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const chatflows: Partial<ChatFlow>[] = req.body.Chatflows
-        const apiResponse = await chatflowsService.importChatflows(chatflows)
+        const orgId = req.user?.activeOrganizationId
+        if (!orgId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.saveChatflow - organization ${orgId} not found!`
+            )
+        }
+        const workspaceId = req.user?.activeWorkspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.saveChatflow - workspace ${workspaceId} not found!`
+            )
+        }
+        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        req.body.workspaceId = req.user?.activeWorkspaceId
+        const apiResponse = await chatflowsService.importChatflows(chatflows, orgId, workspaceId, subscriptionId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -213,33 +178,27 @@ const importChatflows = async (req: Request, res: Response, next: NextFunction) 
 const updateChatflow = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - id not provided!`)
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.updateChatflow - id not provided!`)
         }
-        const unikId = req.params.unikId as string
-        if (!unikId) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - unikId not provided!`)
-        }
-
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
-
-        const chatflow = await chatflowsService.getChatflowById(req.params.id, unikId)
+        const chatflow = await chatflowsService.getChatflowById(req.params.id)
         if (!chatflow) {
             return res.status(404).send(`Chatflow ${req.params.id} not found`)
         }
-
+        const orgId = req.user?.activeOrganizationId
+        if (!orgId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.saveChatflow - organization ${orgId} not found!`
+            )
+        }
+        const workspaceId = req.user?.activeWorkspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.NOT_FOUND,
+                `Error: chatflowsController.saveChatflow - workspace ${workspaceId} not found!`
+            )
+        }
+        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
         const body = req.body
         const updateChatFlow = new ChatFlow()
         Object.assign(updateChatFlow, body)
@@ -248,7 +207,7 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         const rateLimiterManager = RateLimiterManager.getInstance()
         await rateLimiterManager.updateRateLimiter(updateChatFlow)
 
-        const apiResponse = await chatflowsService.updateChatflow(chatflow, updateChatFlow, unikId)
+        const apiResponse = await chatflowsService.updateChatflow(chatflow, updateChatFlow, orgId, workspaceId, subscriptionId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -260,76 +219,49 @@ const getSinglePublicChatflow = async (req: Request, res: Response, next: NextFu
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.getSinglePublicChatflow - id not provided!`
+                `Error: chatflowsController.getSinglePublicChatflow - id not provided!`
             )
         }
-
-        // Get the chatflow first to check its Unik ID
-        const chatflow = await chatflowsService.getSinglePublicChatflow(req.params.id)
-
-        // If the chatflow is associated with a Unik, check if the user has access
-        if (chatflow && chatflow.unikId) {
-            // Universo Platformo | Check user access to this Unik
-            const userId = (req as any).user?.sub
-            if (!userId) {
-                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-            }
-
-            // Get auth token from request
-            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-            // Check if user has access to this Unik using AccessControlService
-            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unikId, authToken)
-            if (!hasAccess) {
-                return res.status(403).json({ error: 'Access denied: You do not have permission to access this chatflow' })
-            }
-        }
-
-        return res.json(chatflow)
+        const apiResponse = await chatflowsService.getSinglePublicChatflow(req.params.id)
+        return res.json(apiResponse)
     } catch (error) {
         next(error)
     }
 }
 
-// Universo Platformo | Use the new bot controller that automatically determines the bot type
-const getSinglePublicBotConfig = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+const getSinglePublicChatbotConfig = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatflowsRouter.getSinglePublicBotConfig - id not provided!`
+                `Error: chatflowsController.getSinglePublicChatbotConfig - id not provided!`
             )
         }
-
-        // Получаем chatflow, чтобы проверить его Unik ID
-        const chatflowId = req.params.id
-        const chatflow = await chatflowsService.getSinglePublicChatflow(chatflowId)
-
-        // Если chatflow привязан к Unik, проверяем доступ пользователя
-        if (chatflow && chatflow.unikId) {
-            // Universo Platformo | Check user access to this Unik
-            const userId = (req as any).user?.sub
-            if (!userId) {
-                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-            }
-
-            // Get auth token from request
-            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-            // Check if user has access to this Unik using AccessControlService
-            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unikId, authToken)
-            if (!hasAccess) {
-                return res.status(403).json({ error: 'Access denied: You do not have permission to access this bot' })
-            }
-        }
-
-        // Universo Platformo | Call the corresponding method
-        const botsController = require('../bots').default
-
-        return botsController.getBotConfig(req, res, next)
+        const apiResponse = await chatflowsService.getSinglePublicChatbotConfig(req.params.id)
+        return res.json(apiResponse)
     } catch (error) {
-        logger.error(`Error getting unified bot config: ${getErrorMessage(error)}`)
-        return res.status(500).json({ error: getErrorMessage(error) })
+        next(error)
+    }
+}
+
+const checkIfChatflowHasChanged = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (typeof req.params === 'undefined' || !req.params.id) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatflowsController.checkIfChatflowHasChanged - id not provided!`
+            )
+        }
+        if (!req.params.lastUpdatedDateTime) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatflowsController.checkIfChatflowHasChanged - lastUpdatedDateTime not provided!`
+            )
+        }
+        const apiResponse = await chatflowsService.checkIfChatflowHasChanged(req.params.id, req.params.lastUpdatedDateTime)
+        return res.json(apiResponse)
+    } catch (error) {
+        next(error)
     }
 }
 
@@ -344,5 +276,6 @@ export default {
     importChatflows,
     updateChatflow,
     getSinglePublicChatflow,
-    getSinglePublicBotConfig
+    getSinglePublicChatbotConfig,
+    checkIfChatflowHasChanged
 }
