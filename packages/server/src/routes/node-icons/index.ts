@@ -1,11 +1,11 @@
 import express from 'express'
-import nodeIconsController from '../../controllers/node-icons'
+import nodesController from '../../controllers/nodes'
 const router = express.Router()
 
 // CREATE
 
 // READ
-router.get(['/', '/:name'], nodeIconsController.getSingleNodeIcon)
+router.get(['/', '/:name'], nodesController.getSingleNodeIcon)
 
 // UPDATE
 

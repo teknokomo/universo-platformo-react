@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { Box, Typography, IconButton, Button } from '@mui/material'
-import { IconRefresh, IconArrowsMaximize, IconAlertTriangle } from '@tabler/icons-react'
+import { IconArrowsMaximize, IconAlertTriangle, IconRefresh } from '@tabler/icons-react'
 
 // project import
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
@@ -90,7 +90,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
         if (label === 'Use Legacy Build') return t('documentStore.loaders.pdf.useLegacyBuild')
         if (label === 'Additional Metadata') return t('documentStore.loaders.pdf.additionalMetadata')
         if (label === 'Omit Metadata Keys') return t('documentStore.loaders.pdf.omitMetadataKeys')
-        
+
         // Vector Store fields
         if (label === 'Connect Credential') return t('vector-store:vectorStore.formFields.connectCredential')
         if (label === 'Model') return t('vector-store:vectorStore.formFields.model')
@@ -105,7 +105,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
         if (label === 'Query Name') return t('vector-store:vectorStore.formFields.queryName')
         if (label === 'Metadata Filter') return t('vector-store:vectorStore.formFields.metadataFilter')
         if (label === 'RPC Filter') return t('vector-store:vectorStore.formFields.rpcFilter')
-        
+
         return label
     }
 
@@ -317,7 +317,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                 show={showExpandDialog}
                 dialogProps={expandDialogProps}
                 onCancel={() => setShowExpandDialog(false)}
-                onConfirm={onExpandDialogSave}
+                onConfirm={(newValue, inputParamName) => onExpandDialogSave(newValue, inputParamName)}
             ></ExpandTextDialog>
         </div>
     )

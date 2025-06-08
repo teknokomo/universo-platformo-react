@@ -11,9 +11,9 @@ import MainCard from '@/ui-component/cards/MainCard'
 import ItemCard from '@/ui-component/cards/ItemCard'
 import { baseURL, gridSpacing } from '@/store/constant'
 import AssistantEmptySVG from '@/assets/images/assistant_empty.svg'
-import { StyledButton } from '@/ui-component/button/StyledButton'
 import AddCustomAssistantDialog from './AddCustomAssistantDialog'
 import ErrorBoundary from '@/ErrorBoundary'
+import { StyledPermissionButton } from '@/ui-component/button/RBACButtons'
 
 // API
 import assistantsApi from '@/api/assistants'
@@ -77,7 +77,7 @@ const CustomAssistantLayout = () => {
             }
             return images
         } catch (error) {
-            console.error('Ошибка при получении изображений:', error);
+            console.error('Error while retrieving images:', error);
             return [];
         }
     }
@@ -90,14 +90,12 @@ const CustomAssistantLayout = () => {
     }, [unikId])
 
     useEffect(() => {
-        if (getAllAssistantsApi.data) {
-            setLoading(false)
-        }
-    }, [getAllAssistantsApi.data])
+        setLoading(getAllAssistantsApi.loading)
+    }, [getAllAssistantsApi.loading])
 
     useEffect(() => {
         if (getAllAssistantsApi.error) {
-            console.error('Ошибка получения ассистентов:', getAllAssistantsApi.error);
+            console.error('Error getting assistants:', getAllAssistantsApi.error);
             setError(getAllAssistantsApi.error)
         }
     }, [getAllAssistantsApi.error])
@@ -117,14 +115,15 @@ const CustomAssistantLayout = () => {
                             title={t('assistants.custom.title')}
                             onBack={() => navigate(-1)}
                         >
-                            <StyledButton
+                            <StyledPermissionButton
+                                permissionId={'assistants:create'}
                                 variant='contained'
                                 sx={{ borderRadius: 2, height: 40 }}
                                 onClick={addNew}
                                 startIcon={<IconPlus />}
                             >
                                 {t('assistants.common.add')}
-                            </StyledButton>
+                            </StyledPermissionButton>
                         </ViewHeader>
                         {isLoading ? (
                             <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>

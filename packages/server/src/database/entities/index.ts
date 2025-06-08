@@ -18,7 +18,7 @@ import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
 import { Execution } from './Execution'
 import { LoginActivity, WorkspaceShared, WorkspaceUsers } from '../../enterprise/database/entities/EnterpriseEntities'
-import { User as EnterpriseUser } from '../../enterprise/database/entities/user.entity'
+import { User } from '../../enterprise/database/entities/user.entity'
 import { Organization } from '../../enterprise/database/entities/organization.entity'
 import { Role } from '../../enterprise/database/entities/role.entity'
 import { OrganizationUser } from '../../enterprise/database/entities/organization-user.entity'
@@ -49,7 +49,7 @@ export const entities = {
     EvaluationRun,
     Evaluator,
     ApiKey,
-    EnterpriseUser,
+    User,
     WorkspaceUsers,
     LoginActivity,
     WorkspaceShared,

@@ -5,7 +5,7 @@ const router = express.Router()
 // CREATE
 
 // READ
-router.get(['/', '/:id'], chatflowsController.getSinglePublicBotConfig)
+router.get(['/', '/:id'], chatflowsController.getSinglePublicChatbotConfig)
 
 // UPDATE
 

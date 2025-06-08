@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 
 // Hooks
 import useApi from '@/hooks/useApi'
+import { useAuth } from '@/hooks/useAuth'
 
 // Material-UI
 import { Skeleton, Toolbar, Box, Button, Card, CardContent, Grid, OutlinedInput, Stack, Typography, TextField } from '@mui/material'
@@ -32,6 +33,7 @@ import documentsApi from '@/api/documentstore'
 // Const
 import { baseURL, gridSpacing } from '@/store/constant'
 import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction } from '@/store/actions'
+import { useError } from '@/store/context/ErrorContext'
 
 // Utils
 import { initNode } from '@/utils/genericHelper'
@@ -63,6 +65,8 @@ const LoaderConfigPreviewChunks = () => {
     const navigate = useNavigate()
     const theme = useTheme()
     const { t } = useTranslation('document-store')
+    const { error } = useError()
+    const { hasAssignedWorkspace } = useAuth()
 
     const getNodeDetailsApi = useApi(nodesApi.getSpecificNode)
     const getNodesByCategoryApi = useApi(nodesApi.getNodesByCategory)
@@ -73,7 +77,6 @@ const LoaderConfigPreviewChunks = () => {
     const [selectedDocumentLoader, setSelectedDocumentLoader] = useState({})
 
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
     const [loaderName, setLoaderName] = useState('')
 
     const [textSplitterNodes, setTextSplitterNodes] = useState([])
@@ -119,19 +122,25 @@ const LoaderConfigPreviewChunks = () => {
 
     const checkMandatoryFields = () => {
         let canSubmit = true
+        const missingFields = []
         const inputParams = (selectedDocumentLoader.inputParams ?? []).filter((inputParam) => !inputParam.hidden)
         for (const inputParam of inputParams) {
             if (!inputParam.optional && (!selectedDocumentLoader.inputs[inputParam.name] || !selectedDocumentLoader.credential)) {
-                if (inputParam.type === 'credential' && !selectedDocumentLoader.credential) {
+                if (
+                    inputParam.type === 'credential' &&
+                    !selectedDocumentLoader.credential &&
+                    !selectedDocumentLoader.inputs['FLOWISE_CREDENTIAL_ID']
+                ) {
                     canSubmit = false
-                    break
+                    missingFields.push(inputParam.label || inputParam.name)
                 } else if (inputParam.type !== 'credential' && !selectedDocumentLoader.inputs[inputParam.name]) {
                     canSubmit = false
-                    break
+                    missingFields.push(inputParam.label || inputParam.name)
                 }
             }
         }
         if (!canSubmit) {
+            const fieldsList = missingFields.join(', ')
             enqueueSnackbar({
                 message: t('documentStore.loaders.common.fillMandatoryFields'),
                 options: {
@@ -165,7 +174,7 @@ const LoaderConfigPreviewChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.loaders.common.previewError', { 
+                    message: t('documentStore.loaders.common.previewError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -209,7 +218,7 @@ const LoaderConfigPreviewChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.loaders.common.processingError', { 
+                    message: t('documentStore.loaders.common.processingError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -337,6 +346,11 @@ const LoaderConfigPreviewChunks = () => {
 
     useEffect(() => {
         if (getSpecificDocumentStoreApi.data) {
+            const workspaceId = getSpecificDocumentStoreApi.data.workspaceId
+            if (!hasAssignedWorkspace(workspaceId)) {
+                navigate('/unauthorized')
+                return
+            }
             if (getSpecificDocumentStoreApi.data?.loaders.length > 0) {
                 const loader = getSpecificDocumentStoreApi.data.loaders.find((loader) => loader.id === docLoaderNodeName)
                 if (loader) {
@@ -348,30 +362,6 @@ const LoaderConfigPreviewChunks = () => {
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getSpecificDocumentStoreApi.data])
-
-    useEffect(() => {
-        if (getSpecificDocumentStoreApi.error) {
-            setError(getSpecificDocumentStoreApi.error)
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getSpecificDocumentStoreApi.error])
-
-    useEffect(() => {
-        if (getNodeDetailsApi.error) {
-            setError(getNodeDetailsApi.error)
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getNodeDetailsApi.error])
-
-    useEffect(() => {
-        if (getNodesByCategoryApi.error) {
-            setError(getNodesByCategoryApi.error)
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getNodesByCategoryApi.error])
 
     return (
         <>
@@ -453,7 +443,11 @@ const LoaderConfigPreviewChunks = () => {
                                                 fullWidth
                                                 sx={{ mt: 1 }}
                                                 size='small'
-                                                label={t('documentStore.loaders.pdf.loaderName')}
+                                                label={
+                                                    selectedDocumentLoader?.label?.toLowerCase().includes('loader')
+                                                        ? selectedDocumentLoader.label + ' name'
+                                                        : selectedDocumentLoader?.label + {t('documentStore.loaders.pdf.loaderName')}
+                                                }
                                                 value={loaderName}
                                                 onChange={(e) => setLoaderName(e.target.value)}
                                             />

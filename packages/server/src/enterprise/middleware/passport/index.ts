@@ -1,5 +1,5 @@
 import passport from 'passport'
-import { ExtractJwt, Strategy as JwtStrategy, VerifiedCallback } from 'passport-jwt'
+import { VerifiedCallback } from 'passport-jwt'
 import express, { NextFunction, Request, Response } from 'express'
 import { ErrorMessage, IAssignedWorkspace, LoggedInUser } from '../../Interface.Enterprise'
 import { decryptToken, encryptToken, generateSafeCopy } from '../../utils/tempTokenUtils'
@@ -406,6 +406,10 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
             if (err) {
                 return next(err)
             }
+    passport.authenticate('jwt', { session: true }, (err: any, user: LoggedInUser, info: object) => {
+        if (err) {
+            return next(err)
+        }
 
         // @ts-ignore
         if (info && info.name === 'TokenExpiredError') {
@@ -426,6 +430,5 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
 
         req.user = user
         next()
-    })(req, res, next)
     })(req, res, next)
 }

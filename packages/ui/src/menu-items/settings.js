@@ -58,6 +58,7 @@ const settings = {
             title: i18n.t('canvas.contextMenu.configuration'),
             type: 'item',
             url: '',
+            permission: 'chatflows:config',
             icon: icons.IconAdjustmentsHorizontal
         },
         {
@@ -65,35 +66,42 @@ const settings = {
             title: i18n.t('canvas.contextMenu.saveAsTemplate'),
             type: 'item',
             url: '',
-            icon: icons.IconTemplate
+            icon: icons.IconTemplate,
+            permission: 'templates:flowexport'
         },
         {
             id: 'duplicateChatflow',
             title: i18n.t('canvas.contextMenu.duplicateChatflow'),
+            title: 'Duplicate Chatflow',
             type: 'item',
             url: '',
-            icon: icons.IconCopy
+            icon: icons.IconCopy,
+            permission: 'chatflows:duplicate'
         },
         {
             id: 'loadChatflow',
             title: i18n.t('canvas.contextMenu.loadChatflow'),
+            title: 'Load Chatflow',
             type: 'item',
             url: '',
-            icon: icons.IconFileUpload
+            icon: icons.IconFileUpload,
+            permission: 'chatflows:import'
         },
         {
             id: 'exportChatflow',
             title: i18n.t('canvas.contextMenu.exportChatflow'),
             type: 'item',
             url: '',
-            icon: icons.IconFileExport
+            icon: icons.IconFileExport,
+            permission: 'chatflows:export'
         },
         {
             id: 'deleteChatflow',
             title: i18n.t('canvas.contextMenu.deleteChatflow'),
             type: 'item',
             url: '',
-            icon: icons.IconTrash
+            icon: icons.IconTrash,
+            permission: 'chatflows:delete'
         }
     ]
 }

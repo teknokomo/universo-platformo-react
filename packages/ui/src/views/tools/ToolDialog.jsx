@@ -15,6 +15,9 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import { CodeEditor } from '@/ui-component/editor/CodeEditor'
 import HowToUseFunctionDialog from './HowToUseFunctionDialog'
+import { PermissionButton, StyledPermissionButton } from '@/ui-component/button/RBACButtons'
+import { Available } from '@/ui-component/rbac/available'
+import ExportAsTemplateDialog from '@/ui-component/dialog/ExportAsTemplateDialog'
 import PasteJSONDialog from './PasteJSONDialog'
 
 // Icons
@@ -31,7 +34,6 @@ import useApi from '@/hooks/useApi'
 import useNotifier from '@/utils/useNotifier'
 import { generateRandomGradient, formatDataGridRows } from '@/utils/genericHelper'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
-import ExportAsTemplateDialog from '@/ui-component/dialog/ExportAsTemplateDialog'
 
 const exampleAPIFunc = `/*
 * You can use any libraries imported in Flowise
@@ -287,7 +289,6 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 func: toolFunc,
                 iconSrc: toolIcon
             }
-            
             const createResp = await toolsApi.createNewTool(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
@@ -307,9 +308,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
         } catch (error) {
             enqueueSnackbar({
                 message: `${t('tools.errors.failedToAdd')}: ${
-                    error.response && typeof error.response.data === 'object' 
-                        ? error.response.data.message 
-                        : error.response ? error.response.data : error.message
+                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
@@ -438,7 +437,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                     <Box>
                         {dialogProps.type === 'EDIT' && (
                             <>
-                                <Button
+                                <PermissionButton
+                                    permissionId={'templates:toolexport'}
                                     style={{ marginRight: '10px' }}
                                     variant='outlined'
                                     onClick={() => onSaveAsTemplate()}
@@ -446,10 +446,15 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                                     color='secondary'
                                 >
                                     {t('tools.dialog.saveAsTemplate')}
-                                </Button>
-                                <Button variant='outlined' onClick={() => exportTool()} startIcon={<IconFileDownload />}>
+                                </PermissionButton>
+                                <PermissionButton
+                                    permissionId={'tools:export'}
+                                    variant='outlined'
+                                    onClick={() => exportTool()}
+                                    startIcon={<IconFileDownload />}
+                                >
                                     {t('tools.dialog.export')}
-                                </Button>
+                                </PermissionButton>
                             </>
                         )}
                     </Box>
@@ -567,23 +572,26 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             </DialogContent>
             <DialogActions sx={{ p: 3 }}>
                 {dialogProps.type === 'EDIT' && (
-                    <StyledButton color='error' variant='contained' onClick={() => deleteTool()}>
+                    <StyledPermissionButton permissionId={'tools:delete'} color='error' variant='contained' onClick={() => deleteTool()}>
                         {t('tools.common.delete')}
-                    </StyledButton>
+                    </StyledPermissionButton>
                 )}
                 {dialogProps.type === 'TEMPLATE' && (
-                    <StyledButton color='secondary' variant='contained' onClick={useToolTemplate}>
-                        {t('tools.dialog.useTemplate')}
-                    </StyledButton>
+                    <Available permission={'tools:view,tools:create'}>
+                        <StyledButton color='secondary' variant='contained' onClick={useToolTemplate}>
+                            {t('tools.dialog.useTemplate')}
+                        </StyledButton>
+                    </Available>
                 )}
                 {dialogProps.type !== 'TEMPLATE' && (
-                    <StyledButton
+                    <StyledPermissionButton
+                        permissionId={'tools:update,tools:create'}
                         disabled={!(toolName && toolDesc)}
                         variant='contained'
                         onClick={() => (dialogProps.type === 'ADD' || dialogProps.type === 'IMPORT' ? addNewTool() : saveTool())}
                     >
                         {t(dialogProps.confirmButtonName) || t('tools.common.save')}
-                    </StyledButton>
+                    </StyledPermissionButton>
                 )}
             </DialogActions>
             <ConfirmDialog />
