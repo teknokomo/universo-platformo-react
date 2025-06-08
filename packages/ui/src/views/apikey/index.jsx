@@ -29,14 +29,16 @@ import { useTheme, styled } from '@mui/material/styles'
 
 // project imports
 import MainCard from '@/ui-component/cards/MainCard'
-import { StyledButton } from '@/ui-component/button/StyledButton'
 import APIKeyDialog from './APIKeyDialog'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
+import { PermissionButton, StyledPermissionButton } from '@/ui-component/button/RBACButtons'
+import { Available } from '@/ui-component/rbac/available'
 
 // API
 import apiKeyApi from '@/api/apikey'
+import { useError } from '@/store/context/ErrorContext'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -133,16 +135,20 @@ function APIKeyRow(props) {
                     )}
                 </StyledTableCell>
                 <StyledTableCell>{moment(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
-                <StyledTableCell>
-                    <IconButton title={t('apiKeys.buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
-                        <IconEdit />
-                    </IconButton>
-                </StyledTableCell>
-                <StyledTableCell>
-                    <IconButton title={t('apiKeys.buttonTitles.delete')} color='error' onClick={props.onDeleteClick}>
-                        <IconTrash />
-                    </IconButton>
-                </StyledTableCell>
+                <Available permission={'apikeys:update,apikeys:create'}>
+                    <StyledTableCell>
+                        <IconButton title={t('apiKeys.buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
+                            <IconEdit />
+                        </IconButton>
+                    </StyledTableCell>
+                </Available>
+                <Available permission={'apikeys:delete'}>
+                    <StyledTableCell>
+                        <IconButton title={t('apiKeys.buttonTitles.delete')} color='error' onClick={props.onDeleteClick}>
+                            <IconTrash />
+                        </IconButton>
+                    </StyledTableCell>
+                </Available>
             </TableRow>
             {open && (
                 <TableRow sx={{ '& td': { border: 0 } }}>
@@ -204,12 +210,12 @@ const APIKey = () => {
 
     const dispatch = useDispatch()
     useNotifier()
+    const { error, setError } = useError()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
     const [showDialog, setShowDialog] = useState(false)
     const [dialogProps, setDialogProps] = useState({})
     const [apiKeys, setAPIKeys] = useState([])
@@ -321,8 +327,8 @@ const APIKey = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('apiKeys.deleteError', { 
-                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    message: t('apiKeys.deleteError', {
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
                         key: new Date().getTime() + Math.random(),
@@ -364,12 +370,6 @@ const APIKey = () => {
         }
     }, [getAllAPIKeysApi.data])
 
-    useEffect(() => {
-        if (getAllAPIKeysApi.error) {
-            setError(getAllAPIKeysApi.error)
-        }
-    }, [getAllAPIKeysApi.error])
-
     return (
         <>
             <MainCard>
@@ -377,8 +377,15 @@ const APIKey = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('apiKeys.searchPlaceholder')} title={t('apiKeys.title')}>
-                            <Button
+                        <ViewHeader
+                            onSearchChange={onSearchChange}
+                            search={true}
+                            searchPlaceholder={t('apiKeys.searchPlaceholder')}
+                            title={t('apiKeys.title')}
+                            description='Flowise API & SDK authentication keys'
+                        >
+                            <PermissionButton
+                                permissionId={'apikeys:import'}
                                 variant='outlined'
                                 sx={{ borderRadius: 2, height: '100%' }}
                                 onClick={uploadDialog}
@@ -386,8 +393,9 @@ const APIKey = () => {
                                 id='btn_importApiKeys'
                             >
                                 {t('apiKeys.import')}
-                            </Button>
-                            <StyledButton
+                            </PermissionButton>
+                            <StyledPermissionButton
+                                permissionId={'apikeys:create'}
                                 variant='contained'
                                 sx={{ borderRadius: 2, height: '100%' }}
                                 onClick={addNew}
@@ -395,7 +403,7 @@ const APIKey = () => {
                                 id='btn_createApiKey'
                             >
                                 {t('apiKeys.createKey')}
-                            </StyledButton>
+                            </StyledPermissionButton>
                         </ViewHeader>
                         {!isLoading && apiKeys.length <= 0 ? (
                             <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
@@ -427,8 +435,12 @@ const APIKey = () => {
                                             <StyledTableCell>{t('apiKeys.grid.apiKey')}</StyledTableCell>
                                             <StyledTableCell>{t('apiKeys.grid.usage')}</StyledTableCell>
                                             <StyledTableCell>{t('apiKeys.grid.created')}</StyledTableCell>
-                                            <StyledTableCell> </StyledTableCell>
-                                            <StyledTableCell> </StyledTableCell>
+                                            <Available permission={'apikeys:update,apikeys:create'}>
+                                                <StyledTableCell> </StyledTableCell>
+                                            </Available>
+                                            <Available permission={'apikeys:delete'}>
+                                                <StyledTableCell> </StyledTableCell>
+                                            </Available>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -447,12 +459,12 @@ const APIKey = () => {
                                                     <StyledTableCell>
                                                         <Skeleton variant='text' />
                                                     </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
+                                                    <Available permission={'apikeys:update,apikeys:create'}>
+                                                        <StyledTableCell> </StyledTableCell>
+                                                    </Available>
+                                                    <Available permission={'apikeys:delete'}>
+                                                        <StyledTableCell> </StyledTableCell>
+                                                    </Available>
                                                 </StyledTableRow>
                                                 <StyledTableRow>
                                                     <StyledTableCell>
@@ -467,12 +479,12 @@ const APIKey = () => {
                                                     <StyledTableCell>
                                                         <Skeleton variant='text' />
                                                     </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
+                                                    <Available permission={'apikeys:update,apikeys:create'}>
+                                                        <StyledTableCell> </StyledTableCell>
+                                                    </Available>
+                                                    <Available permission={'apikeys:delete'}>
+                                                        <StyledTableCell> </StyledTableCell>
+                                                    </Available>
                                                 </StyledTableRow>
                                             </>
                                         ) : (

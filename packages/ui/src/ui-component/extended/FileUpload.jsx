@@ -6,7 +6,7 @@ import parser from 'html-react-parser'
 import { useTranslation } from 'react-i18next'
 
 // material-ui
-import { Button, Box } from '@mui/material'
+import { Button, Box, Typography, FormControl, RadioGroup, FormControlLabel, Radio } from '@mui/material'
 import { IconX, IconBulb } from '@tabler/icons-react'
 
 // Project import
@@ -19,30 +19,69 @@ import useNotifier from '@/utils/useNotifier'
 // API
 import chatflowsApi from '@/api/chatflows'
 
+const message = `Uploaded files will be parsed as strings and sent to the LLM. If file upload is enabled on the Vector Store as well, this will override and take precedence.
+<br />
+Refer <a href='https://docs.flowiseai.com/using-flowise/uploads#files' target='_blank'>docs</a> for more details.`
+
+const availableFileTypes = [
+    { name: 'CSS', ext: 'text/css' },
+    { name: 'CSV', ext: 'text/csv' },
+    { name: 'HTML', ext: 'text/html' },
+    { name: 'JSON', ext: 'application/json' },
+    { name: 'Markdown', ext: 'text/markdown' },
+    { name: 'PDF', ext: 'application/pdf' },
+    { name: 'SQL', ext: 'application/sql' },
+    { name: 'Text File', ext: 'text/plain' },
+    { name: 'XML', ext: 'application/xml' },
+    { name: 'DOC', ext: 'application/msword' },
+    { name: 'DOCX', ext: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
+]
+
 const FileUpload = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
     useNotifier()
 
-    const message = `${t('canvas.configuration.fileUpload.info')}
-<br /><br />
-${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.com/using-flowise/uploads#files' target='_blank'>${t('canvas.configuration.fileUpload.docs')}</a> ${t('canvas.configuration.fileUpload.moreDetails')}`
-
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
     const [fullFileUpload, setFullFileUpload] = useState(false)
+    const [allowedFileTypes, setAllowedFileTypes] = useState([])
     const [chatbotConfig, setChatbotConfig] = useState({})
+    const [pdfUsage, setPdfUsage] = useState('perPage')
+    const [pdfLegacyBuild, setPdfLegacyBuild] = useState(false)
 
     const handleChange = (value) => {
         setFullFileUpload(value)
     }
 
+    const handleAllowedFileTypesChange = (event) => {
+        const { checked, value } = event.target
+        if (checked) {
+            setAllowedFileTypes((prev) => [...prev, value])
+        } else {
+            setAllowedFileTypes((prev) => prev.filter((item) => item !== value))
+        }
+    }
+
+    const handlePdfUsageChange = (event) => {
+        setPdfUsage(event.target.value)
+    }
+
+    const handleLegacyBuildChange = (value) => {
+        setPdfLegacyBuild(value)
+    }
+
     const onSave = async () => {
         try {
             const value = {
-                status: fullFileUpload
+                status: fullFileUpload,
+                allowedUploadFileTypes: allowedFileTypes.join(','),
+                pdfFile: {
+                    usage: pdfUsage,
+                    legacyBuild: pdfLegacyBuild
+                }
             }
             chatbotConfig.fullFileUpload = value
             chatbotConfig.fileConfig = value.fileConfig
@@ -84,6 +123,9 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
     }
 
     useEffect(() => {
+        /* backward compatibility - by default, allow all */
+        const allowedFileTypes = availableFileTypes.map((fileType) => fileType.ext)
+        setAllowedFileTypes(allowedFileTypes)
         if (dialogProps.chatflow) {
             if (dialogProps.chatflow.chatbotConfig) {
                 try {
@@ -91,6 +133,18 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
                     setChatbotConfig(chatbotConfig || {})
                     if (chatbotConfig.fullFileUpload) {
                         setFullFileUpload(chatbotConfig.fullFileUpload.status)
+                    }
+                    if (chatbotConfig.fullFileUpload?.allowedUploadFileTypes) {
+                        const allowedFileTypes = chatbotConfig.fullFileUpload.allowedUploadFileTypes.split(',')
+                        setAllowedFileTypes(allowedFileTypes)
+                    }
+                    if (chatbotConfig.fullFileUpload?.pdfFile) {
+                        if (chatbotConfig.fullFileUpload.pdfFile.usage) {
+                            setPdfUsage(chatbotConfig.fullFileUpload.pdfFile.usage)
+                        }
+                        if (chatbotConfig.fullFileUpload.pdfFile.legacyBuild !== undefined) {
+                            setPdfLegacyBuild(chatbotConfig.fullFileUpload.pdfFile.legacyBuild)
+                        }
                     }
                 } catch (e) {
                     setChatbotConfig({})
@@ -137,8 +191,64 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
                 </div>
                 <SwitchInput label={t('canvas.configuration.fileUpload.enable')} onChange={handleChange} value={fullFileUpload} />
             </Box>
-            {/* TODO: Allow selection of allowed file types*/}
-            <StyledButton style={{ marginBottom: 10, marginTop: 10 }} variant='contained' onClick={onSave}>
+
+            <Typography sx={{ fontSize: 14, fontWeight: 500, marginBottom: 1 }}>Allow Uploads of Type</Typography>
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+                    gap: 15,
+                    padding: 10,
+                    width: '100%',
+                    marginBottom: '10px'
+                }}
+            >
+                {availableFileTypes.map((fileType) => (
+                    <div
+                        key={fileType.ext}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'start'
+                        }}
+                    >
+                        <input
+                            type='checkbox'
+                            id={fileType.ext}
+                            name={fileType.ext}
+                            checked={allowedFileTypes.indexOf(fileType.ext) !== -1}
+                            value={fileType.ext}
+                            disabled={!fullFileUpload}
+                            onChange={handleAllowedFileTypesChange}
+                        />
+                        <label htmlFor={fileType.ext} style={{ marginLeft: 10 }}>
+                            {fileType.name} ({fileType.ext})
+                        </label>
+                    </div>
+                ))}
+            </div>
+
+            <Box sx={{ marginBottom: 3 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 500, marginBottom: 1 }}>PDF Usage</Typography>
+                <FormControl disabled={!fullFileUpload}>
+                    <RadioGroup name='pdf-usage' value={pdfUsage} onChange={handlePdfUsageChange}>
+                        <FormControlLabel value='perPage' control={<Radio />} label='One document per page' />
+                        <FormControlLabel value='perFile' control={<Radio />} label='One document per file' />
+                    </RadioGroup>
+                </FormControl>
+            </Box>
+
+            <Box sx={{ marginBottom: 3 }}>
+                <SwitchInput
+                    label='Use Legacy Build (for PDF compatibility issues)'
+                    onChange={handleLegacyBuildChange}
+                    value={pdfLegacyBuild}
+                    disabled={!fullFileUpload}
+                />
+            </Box>
+
+            <StyledButton style={{ marginBottom: 10, marginTop: 20 }} variant='contained' onClick={onSave}>
                 {t('canvas.configuration.fileUpload.save')}
             </StyledButton>
         </>

@@ -12,6 +12,7 @@ import { IconEdit, IconTrash, IconX, IconLanguage } from '@tabler/icons-react'
 
 // Project imports
 import { CodeEditor } from '@/ui-component/editor/CodeEditor'
+import { PermissionButton, PermissionIconButton } from '@/ui-component/button/RBACButtons'
 
 const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDeleteChunk, isReadOnly }) => {
     const portalElement = document.getElementById('portal')
@@ -89,9 +90,16 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                             #{selectedChunkNumber}. {selectedChunk.id}
                         </Typography>
                         {!isEdit && !isReadOnly && (
-                            <IconButton onClick={() => setIsEdit(true)} size='small' color='primary' title={t('documentStore.chunks.editChunk')} sx={{ ml: 2 }}>
+                            <PermissionIconButton
+                                permissionId={'documentStores:preview-process'}
+                                onClick={() => setIsEdit(true)}
+                                size='small'
+                                color='primary'
+                                title={t('documentStore.chunks.editChunk')}
+                                sx={{ ml: 2 }}
+                            >
                                 <IconEdit />
-                            </IconButton>
+                            </PermissionIconButton>
                         )}
                         {isEdit && !isReadOnly && (
                             <Button onClick={() => onEditCancel()} color='primary' title={t('documentStore.common.cancel')} sx={{ ml: 2 }}>
@@ -99,7 +107,8 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                             </Button>
                         )}
                         {isEdit && !isReadOnly && (
-                            <Button
+                            <PermissionButton
+                                permissionId={'documentStores:preview-process'}
                                 onClick={() => onEditSaved(true)}
                                 color='primary'
                                 title={t('documentStore.common.save')}
@@ -107,10 +116,11 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                                 sx={{ ml: 2, mr: 1 }}
                             >
                                 {t('documentStore.common.save')}
-                            </Button>
+                            </PermissionButton>
                         )}
                         {!isEdit && !isReadOnly && (
-                            <IconButton
+                            <PermissionIconButton
+                                permissionId={'documentStores:delete-loader'}
                                 onClick={() => onDeleteChunk(selectedChunk)}
                                 size='small'
                                 color='error'
@@ -118,7 +128,7 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                                 sx={{ ml: 1 }}
                             >
                                 <IconTrash />
-                            </IconButton>
+                            </PermissionIconButton>
                         )}
                         <IconButton onClick={onCancel} size='small' color='inherit' title={t('documentStore.common.close')} sx={{ ml: 1 }}>
                             <IconX />
@@ -183,7 +193,16 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                                 onValueChange={(text) => setContentValue(text)}
                             />
                         )}
-                        <div style={{ marginTop: '20px', marginBottom: '15px' }}>
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.stopPropagation()
+                                }
+                            }}
+                            role='presentation'
+                            style={{ marginTop: '20px', marginBottom: '15px' }}
+                        >
                             {!isEdit && (
                                 <ReactJson
                                     theme={customization.isDarkMode ? 'ocean' : 'rjv-default'}

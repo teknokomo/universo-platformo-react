@@ -1,8 +1,15 @@
+// material-ui
+import { Box, Typography } from '@mui/material'
+
+// project imports
 import React from 'react'
 import { useLocation } from 'react-router-dom'
 import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
 import unikDashboard from '@/menu-items/unikDashboard'
+import { menuItems } from '@/menu-items'
+
+// ==============================|| SIDEBAR MENU LIST ||============================== //
 
 const MenuList = () => {
     const location = useLocation()

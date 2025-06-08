@@ -29,6 +29,13 @@ import {
 import MainCard from '@/ui-component/cards/MainCard'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
+import AddEditVariableDialog from './AddEditVariableDialog'
+import HowToUseVariablesDialog from './HowToUseVariablesDialog'
+import ViewHeader from '@/layout/MainLayout/ViewHeader'
+import ErrorBoundary from '@/ErrorBoundary'
+import { StyledPermissionButton } from '@/ui-component/button/RBACButtons'
+import { Available } from '@/ui-component/rbac/available'
+import { refreshVariablesCache } from '@/ui-component/input/suggestionOption'
 
 // API
 import variablesApi from '@/api/variables'
@@ -45,6 +52,7 @@ import { IconTrash, IconEdit, IconX, IconPlus, IconVariable } from '@tabler/icon
 import VariablesEmptySVG from '@/assets/images/variables_empty.svg'
 
 // const
+import { useError } from '@/store/context/ErrorContext'
 import AddEditVariableDialog from './AddEditVariableDialog'
 import HowToUseVariablesDialog from './HowToUseVariablesDialog'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
@@ -78,12 +86,12 @@ const Variables = () => {
     const { unikId } = useParams()
     const { t } = useTranslation(['variables', 'common'])
     useNotifier()
+    const { error, setError } = useError()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
     const [showVariableDialog, setShowVariableDialog] = useState(false)
     const [variableDialogProps, setVariableDialogProps] = useState({})
     const [variables, setVariables] = useState([])
@@ -155,8 +163,8 @@ const Variables = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('variables.deleteError', { 
-                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    message: t('variables.deleteError', {
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
                         key: new Date().getTime() + Math.random(),
@@ -176,6 +184,7 @@ const Variables = () => {
     const onConfirm = () => {
         setShowVariableDialog(false)
         getAllVariables.request()
+        refreshVariablesCache()
     }
 
     useEffect(() => {
@@ -255,8 +264,12 @@ const Variables = () => {
                                             <StyledTableCell>{t('variables.grid.type')}</StyledTableCell>
                                             <StyledTableCell>{t('variables.grid.lastUpdated')}</StyledTableCell>
                                             <StyledTableCell>{t('variables.grid.created')}</StyledTableCell>
-                                            <StyledTableCell> </StyledTableCell>
-                                            <StyledTableCell> </StyledTableCell>
+                                            <Available permissionId={'variables:update'}>
+                                                <StyledTableCell> </StyledTableCell>
+                                            </Available>
+                                            <Available permissionId={'variables:delete'}>
+                                                <StyledTableCell> </StyledTableCell>
+                                            </Available>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -278,12 +291,16 @@ const Variables = () => {
                                                     <StyledTableCell>
                                                         <Skeleton variant='text' />
                                                     </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
+                                                    <Available permission={'variables:create,variables:update'}>
+                                                        <StyledTableCell>
+                                                            <Skeleton variant='text' />
+                                                        </StyledTableCell>
+                                                    </Available>
+                                                    <Available permission={'variables:delete'}>
+                                                        <StyledTableCell>
+                                                            <Skeleton variant='text' />
+                                                        </StyledTableCell>
+                                                    </Available>
                                                 </StyledTableRow>
                                                 <StyledTableRow>
                                                     <StyledTableCell>
@@ -301,12 +318,16 @@ const Variables = () => {
                                                     <StyledTableCell>
                                                         <Skeleton variant='text' />
                                                     </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Skeleton variant='text' />
-                                                    </StyledTableCell>
+                                                    <Available permission={'variables:create,variables:update'}>
+                                                        <StyledTableCell>
+                                                            <Skeleton variant='text' />
+                                                        </StyledTableCell>
+                                                    </Available>
+                                                    <Available permission={'variables:delete'}>
+                                                        <StyledTableCell>
+                                                            <Skeleton variant='text' />
+                                                        </StyledTableCell>
+                                                    </Available>
                                                 </StyledTableRow>
                                             </>
                                         ) : (
@@ -350,25 +371,29 @@ const Variables = () => {
                                                             />
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(variable.updatedDate).format('MMMM Do, YYYY')}
+                                                            {moment(variable.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(variable.createdDate).format('MMMM Do, YYYY')}
+                                                            {moment(variable.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
-                                                        <StyledTableCell>
-                                                            <IconButton title='Edit' color='primary' onClick={() => edit(variable)}>
-                                                                <IconEdit />
-                                                            </IconButton>
-                                                        </StyledTableCell>
-                                                        <StyledTableCell>
-                                                            <IconButton
-                                                                title='Delete'
-                                                                color='error'
-                                                                onClick={() => deleteVariable(variable)}
-                                                            >
-                                                                <IconTrash />
-                                                            </IconButton>
-                                                        </StyledTableCell>
+                                                        <Available permission={'variables:create,variables:update'}>
+                                                            <StyledTableCell>
+                                                                <IconButton title='Edit' color='primary' onClick={() => edit(variable)}>
+                                                                    <IconEdit />
+                                                                </IconButton>
+                                                            </StyledTableCell>
+                                                        </Available>
+                                                        <Available permission={'variables:delete'}>
+                                                            <StyledTableCell>
+                                                                <IconButton
+                                                                    title='Delete'
+                                                                    color='error'
+                                                                    onClick={() => deleteVariable(variable)}
+                                                                >
+                                                                    <IconTrash />
+                                                                </IconButton>
+                                                            </StyledTableCell>
+                                                        </Available>
                                                     </StyledTableRow>
                                                 ))}
                                             </>

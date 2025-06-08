@@ -20,6 +20,7 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 
 const ConditionDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
+
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
@@ -59,17 +60,19 @@ const ConditionDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                                     ))}
                                 </TabsList>
                             </Tabs>
-                            {inputParam.tabs.map((inputChildParam, index) => (
-                                <TabPanel key={index} value={tabValue} index={index}>
-                                    <NodeInputHandler
-                                        disabled={inputChildParam.disabled}
-                                        inputParam={inputChildParam}
-                                        data={data}
-                                        isAdditionalParams={true}
-                                        disablePadding={true}
-                                    />
-                                </TabPanel>
-                            ))}
+                            {inputParam.tabs
+                                .filter((inputParam) => inputParam.display !== false)
+                                .map((inputChildParam, index) => (
+                                    <TabPanel key={index} value={tabValue} index={index}>
+                                        <NodeInputHandler
+                                            disabled={inputChildParam.disabled}
+                                            inputParam={inputChildParam}
+                                            data={data}
+                                            isAdditionalParams={true}
+                                            disablePadding={true}
+                                        />
+                                    </TabPanel>
+                                ))}
                         </>
                     )}
                 </>

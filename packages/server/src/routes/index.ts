@@ -60,6 +60,7 @@ import upUniksRouter from './up-uniks/uniks'
 import upAuth from '../middlewares/up-auth'
 import { publishRoutes } from '../../../../apps/publish-srv/base/dist'
 
+import authRouter from '../enterprise/routes/auth'
 import auditRouter from '../enterprise/routes/audit'
 import userRouter from '../enterprise/routes/user.route'
 import organizationRouter from '../enterprise/routes/organization.route'
@@ -127,6 +128,7 @@ router.use('/executions', executionsRouter)
 router.use('/validation', validationRouter)
 router.use('/agentflowv2-generator', agentflowv2GeneratorRouter)
 
+router.use('/auth', authRouter)
 router.use('/audit', IdentityManager.checkFeatureByPlan('feat:login-activity'), auditRouter)
 router.use('/user', userRouter)
 router.use('/organization', organizationRouter)

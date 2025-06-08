@@ -34,6 +34,9 @@ export class Tool implements ITool {
     @UpdateDateColumn()
     updatedDate: Date
 
+    @Column({ nullable: true, type: 'text' })
+    workspaceId?: string
+
     // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })

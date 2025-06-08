@@ -25,8 +25,8 @@ import StickyNote from './StickyNote'
 import CanvasHeader from './CanvasHeader'
 import AddNodes from './AddNodes'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
-import { ChatPopUp } from '@/views/chatmessage/ChatPopUp'
-import { VectorStorePopUp } from '@/views/vectorstore/VectorStorePopUp'
+import ChatPopUp from '@/views/chatmessage/ChatPopUp'
+import VectorStorePopUp from '@/views/vectorstore/VectorStorePopUp'
 import { flowContext } from '@/store/context/ReactFlowContext'
 
 // API
@@ -36,9 +36,10 @@ import chatflowsApi from '@/api/chatflows'
 // Hooks
 import useApi from '@/hooks/useApi'
 import useConfirm from '@/hooks/useConfirm'
+import { useAuth } from '@/hooks/useAuth'
 
 // icons
-import { IconX, IconRefreshAlert } from '@tabler/icons-react'
+import { IconX, IconRefreshAlert, IconMagnetFilled, IconMagnetOff } from '@tabler/icons-react'
 
 // utils
 import {
@@ -64,11 +65,12 @@ const Canvas = () => {
     const theme = useTheme()
     const navigate = useNavigate()
     const { unikId, id } = useParams()
-    const chatflowId = id === 'new' ? undefined : id
     const location = useLocation()
-    const templateFlowData = location.state ? location.state.templateFlowData : ''
     const { t } = useTranslation('canvas')
+    const { hasAssignedWorkspace } = useAuth()
 
+    const { state } = useLocation()
+    const templateFlowData = state ? state.templateFlowData : ''
     // Get unikId from URL params or state
     let parentUnikId = location.state?.unikId || unikId || localStorage.getItem('parentUnikId') || ''
     if (typeof parentUnikId === 'object' && parentUnikId !== null) {
@@ -81,12 +83,15 @@ const Canvas = () => {
     }
 
     const URLpath = document.location.pathname.toString().split('/')
-    const isAgentCanvas = URLpath.includes('agentcanvas')
-    const canvasTitle = isAgentCanvas ? 'Agent' : 'Chatflow'
+    const chatflowId =
+        URLpath[URLpath.length - 1] === 'canvas' || URLpath[URLpath.length - 1] === 'agentcanvas' ? '' : URLpath[URLpath.length - 1]
+    const isAgentCanvas = URLpath.includes('agentcanvas') ? true : false
+    const canvasTitle = URLpath.includes('agentcanvas') ? 'Agent' : 'Chatflow'
 
     const { confirm } = useConfirm()
 
     const dispatch = useDispatch()
+    const customization = useSelector((state) => state.customization)
     const canvas = useSelector((state) => state.canvas)
     const [canvasDataStore, setCanvasDataStore] = useState(canvas)
     const [chatflow, setChatflow] = useState(null)
@@ -100,14 +105,19 @@ const Canvas = () => {
 
     // ==============================|| ReactFlow ||============================== //
 
-    const [nodes, setNodes, onNodesChange] = useNodesState([])
-    const [edges, setEdges, onEdgesChange] = useEdgesState([])
+    const [nodes, setNodes, onNodesChange] = useNodesState()
+    const [edges, setEdges, onEdgesChange] = useEdgesState()
+
     const [selectedNode, setSelectedNode] = useState(null)
     const [isUpsertButtonEnabled, setIsUpsertButtonEnabled] = useState(false)
     const [isSyncNodesButtonEnabled, setIsSyncNodesButtonEnabled] = useState(false)
+    const [isSnappingEnabled, setIsSnappingEnabled] = useState(false)
 
     const reactFlowWrapper = useRef(null)
 
+    const [lastUpdatedDateTime, setLasUpdatedDateTime] = useState('')
+    const [chatflowName, setChatflowName] = useState('')
+    const [flowData, setFlowData] = useState('')
     // Flag to prevent immediate refetch after update
     const [skipRefetch, setSkipRefetch] = useState(false)
 
@@ -117,6 +127,7 @@ const Canvas = () => {
     const createNewChatflowApi = useApi(chatflowsApi.createNewChatflow)
     const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
     const getSpecificChatflowApi = useApi(() => chatflowsApi.getSpecificChatflow(parentUnikId, chatflowId))
+    const getHasChatflowChangedApi = useApi(chatflowsApi.getHasChatflowChanged)
 
     // ==============================|| Events & Actions ||============================== //
 
@@ -181,7 +192,6 @@ const Canvas = () => {
     }
 
     const handleDeleteFlow = async () => {
-        if (!chatflow?.id) return
         const confirmPayload = {
             title: t('canvas.confirmDelete'),
             description: t('canvas.confirmDeleteDescription') + ' ' + canvasTitle + ' ' + chatflow.name + '?',
@@ -194,15 +204,10 @@ const Canvas = () => {
             try {
                 await chatflowsApi.deleteChatflow(parentUnikId, chatflow.id)
                 localStorage.removeItem(`${chatflow.id}_INTERNAL`)
-                
-                // Consider the type of canvas when redirecting after deletion
-                const redirectPath = isAgentCanvas
-                    ? `/uniks/${parentUnikId}/agentflows`
-                    : `/uniks/${parentUnikId}/chatflows`;
-                navigate(redirectPath)
+                navigate(isAgentCanvas ? '/uniks/${parentUnikId}/agentflows' : '/')
             } catch (error) {
                 enqueueSnackbar({
-                    message: typeof error.response?.data === 'object' ? error.response.data.message : error.message,
+                    message: typeof error.response.data === 'object' ? error.response.data.message : error.response.data,
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -218,7 +223,7 @@ const Canvas = () => {
         }
     }
 
-    const handleSaveFlow = (chatflowName) => {
+    const handleSaveFlow = async (chatflowName) => {
         if (reactFlowInstance) {
             const nodes = reactFlowInstance.getNodes().map((node) => {
                 const nodeData = cloneDeep(node.data)
@@ -237,7 +242,7 @@ const Canvas = () => {
             rfInstanceObject.nodes = nodes
             const flowData = JSON.stringify(rfInstanceObject)
 
-            if (!chatflow?.id) {
+            if (!chatflow.id) {
                 const newChatflowBody = {
                     name: chatflowName,
                     deployed: false,
@@ -248,11 +253,9 @@ const Canvas = () => {
                 }
                 createNewChatflowApi.request(parentUnikId, newChatflowBody)
             } else {
-                const updateBody = {
-                    name: chatflowName,
-                    flowData
-                }
-                updateChatflowApi.request(parentUnikId, chatflow.id, updateBody)
+                setChatflowName(chatflowName)
+                setFlowData(flowData)
+                getHasChatflowChangedApi.request(parentUnikId, chatflow.id, lastUpdatedDateTime)
             }
         }
     }
@@ -277,7 +280,7 @@ const Canvas = () => {
                 return node
             })
         )
-    }, [])
+    })
 
     const onDragOver = useCallback((event) => {
         event.preventDefault()
@@ -422,16 +425,18 @@ const Canvas = () => {
     useEffect(() => {
         if (getSpecificChatflowApi.data) {
             const chatflow = getSpecificChatflowApi.data
+            const workspaceId = chatflow.workspaceId
+            if (!hasAssignedWorkspace(workspaceId)) {
+                navigate('/unauthorized')
+                return
+            }
             const initialFlow = chatflow.flowData ? JSON.parse(chatflow.flowData) : []
+            setLasUpdatedDateTime(chatflow.updatedDate)
             setNodes(initialFlow.nodes || [])
             setEdges(initialFlow.edges || [])
             dispatch({ type: SET_CHATFLOW, chatflow })
         } else if (getSpecificChatflowApi.error) {
-            errorFailed(
-                `Failed to retrieve ${canvasTitle}: ${
-                    getSpecificChatflowApi.error.response?.data?.message || getSpecificChatflowApi.error.message
-                }`
-            )
+            errorFailed(`Failed to retrieve ${canvasTitle}: ${getSpecificChatflowApi.error.response.data.message}`)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -443,15 +448,9 @@ const Canvas = () => {
             const chatflow = createNewChatflowApi.data
             dispatch({ type: SET_CHATFLOW, chatflow })
             saveChatflowSuccess()
-            // Consider the type of canvas when redirecting
-            const redirectPath = isAgentCanvas 
-                ? `/uniks/${parentUnikId}/agentcanvas/${chatflow.id}` 
-                : `/uniks/${parentUnikId}/chatflows/${chatflow.id}`;
-            navigate(redirectPath, { replace: true })
+            window.history.replaceState(state, null, `/uniks/${parentUnikId}/${isAgentCanvas ? 'agentcanvas' : 'canvas'}/${chatflow.id}`)
         } else if (createNewChatflowApi.error) {
-            errorFailed(
-                `Failed to save ${canvasTitle}: ${createNewChatflowApi.error.response?.data?.message || createNewChatflowApi.error.message}`
-            )
+            errorFailed(`Failed to retrieve ${canvasTitle}: ${createNewChatflowApi.error.response.data.message}`)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -461,25 +460,44 @@ const Canvas = () => {
     useEffect(() => {
         if (updateChatflowApi.data) {
             dispatch({ type: SET_CHATFLOW, chatflow: updateChatflowApi.data })
+            setLasUpdatedDateTime(updateChatflowApi.data.updatedDate)
             saveChatflowSuccess()
-            // Prevent immediate refetch
-            setSkipRefetch(true)
-            setTimeout(() => setSkipRefetch(false), 1000)
         } else if (updateChatflowApi.error) {
-            errorFailed(
-                `Failed to save ${canvasTitle}: ${updateChatflowApi.error.response?.data?.message || updateChatflowApi.error.message}`
-            )
+            errorFailed(`Failed to retrieve ${canvasTitle}: ${updateChatflowApi.error.response.data.message}`)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [updateChatflowApi.data, updateChatflowApi.error])
 
-    // Effect to fetch chatflow when id or location changes
+    // check if chatflow has changed before saving
     useEffect(() => {
-        if (chatflowId && parentUnikId && !skipRefetch) {
-            getSpecificChatflowApi.request(parentUnikId, chatflowId)
+        const checkIfHasChanged = async () => {
+            if (getHasChatflowChangedApi.data?.hasChanged === true) {
+                const confirmPayload = {
+                    title: `Confirm Change`,
+                    description: `${canvasTitle} ${chatflow.name} has changed since you have opened, overwrite changes?`,
+                    confirmButtonName: 'Confirm',
+                    cancelButtonName: 'Cancel'
+                }
+                const isConfirmed = await confirm(confirmPayload)
+
+                if (!isConfirmed) {
+                    return
+                }
+            }
+            const updateBody = {
+                name: chatflowName,
+                flowData
+            }
+            updateChatflowApi.request(chatflow.id, updateBody)
         }
-    }, [chatflowId, parentUnikId, location.key, skipRefetch])
+
+        if (getHasChatflowChangedApi.data) {
+            checkIfHasChanged()
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [getHasChatflowChangedApi.data, getHasChatflowChangedApi.error])
 
     useEffect(() => {
         setChatflow(canvasDataStore.chatflow)
@@ -597,16 +615,30 @@ const Canvas = () => {
                                 fitView
                                 deleteKeyCode={canvas.canvasDialogShow ? null : ['Delete']}
                                 minZoom={0.1}
+                                snapGrid={[25, 25]}
+                                snapToGrid={isSnappingEnabled}
                                 className='chatflow-canvas'
                             >
                                 <Controls
+                                    className={customization.isDarkMode ? 'dark-mode-controls' : ''}
                                     style={{
                                         display: 'flex',
                                         flexDirection: 'row',
                                         left: '50%',
                                         transform: 'translate(-50%, -50%)'
                                     }}
-                                />
+                                >
+                                    <button
+                                        className='react-flow__controls-button react-flow__controls-interactive'
+                                        onClick={() => {
+                                            setIsSnappingEnabled(!isSnappingEnabled)
+                                        }}
+                                        title='toggle snapping'
+                                        aria-label='toggle snapping'
+                                    >
+                                        {isSnappingEnabled ? <IconMagnetFilled /> : <IconMagnetOff />}
+                                    </button>
+                                </Controls>
                                 <Background color='#aaa' gap={16} />
                                 <AddNodes isAgentCanvas={isAgentCanvas} nodesData={getNodesApi.data} node={selectedNode} />
                                 {isSyncNodesButtonEnabled && (
