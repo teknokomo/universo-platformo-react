@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS ${tableName} (
         }
 
         if (returnBaseMessages) {
-            return await mapChatMessageToBaseMessage(chatMessage, this.config.orgId)
+            return await mapChatMessageToBaseMessage(chatMessage)
         }
 
         let returnIMessages: IMessage[] = []

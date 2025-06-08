@@ -1,8 +1,6 @@
 import { ChatFlow } from '../database/entities/ChatFlow'
 import { IReactFlowObject } from '../Interface'
 import { addBase64FilesToStorage } from 'flowise-components'
-import { checkStorage, updateStorageUsage } from './quotaUsage'
-import { UsageCacheManager } from '../UsageCacheManager'
 
 export const containsBase64File = (chatflow: ChatFlow) => {
     const parsedFlowData: IReactFlowObject = JSON.parse(chatflow.flowData)
@@ -48,19 +46,11 @@ export const containsBase64File = (chatflow: ChatFlow) => {
     return found
 }
 
-export const updateFlowDataWithFilePaths = async (
-    chatflowid: string,
-    flowData: string,
-    orgId: string,
-    workspaceId: string,
-    subscriptionId: string,
-    usageCacheManager: UsageCacheManager
-) => {
+export const updateFlowDataWithFilePaths = async (chatflowid: string, flowData: string) => {
     try {
         const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
         const re = new RegExp('^data.*;base64', 'i')
         const nodes = parsedFlowData.nodes
-
         for (let j = 0; j < nodes.length; j++) {
             const node = nodes[j]
             if (node.data.category !== 'Document Loaders') {
@@ -85,26 +75,21 @@ export const updateFlowDataWithFilePaths = async (
                             for (let j = 0; j < files.length; j++) {
                                 const file = files[j]
                                 if (re.test(file)) {
-                                    await checkStorage(orgId, subscriptionId, usageCacheManager)
-                                    const { path, totalSize } = await addBase64FilesToStorage(file, chatflowid, fileNames, orgId)
-                                    node.data.inputs[key] = path
-                                    await updateStorageUsage(orgId, workspaceId, totalSize, usageCacheManager)
+                                    node.data.inputs[key] = await addBase64FilesToStorage(file, chatflowid, fileNames)
                                 }
                             }
                         } catch (e) {
                             continue
                         }
                     } else if (re.test(input)) {
-                        await checkStorage(orgId, subscriptionId, usageCacheManager)
-                        const { path, totalSize } = await addBase64FilesToStorage(input, chatflowid, fileNames, orgId)
-                        node.data.inputs[key] = path
-                        await updateStorageUsage(orgId, workspaceId, totalSize, usageCacheManager)
+                        node.data.inputs[key] = await addBase64FilesToStorage(input, chatflowid, fileNames)
                     }
                 }
             }
         }
+
         return JSON.stringify(parsedFlowData)
-    } catch (e: any) {
-        throw new Error(`Error updating flow data with file paths: ${e.message}`)
+    } catch (e) {
+        return ''
     }
 }

@@ -25,7 +25,6 @@ import { StructuredToolInterface } from '@langchain/core/tools'
 import { isStructuredTool } from '@langchain/core/utils/function_calling'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { BaseLanguageModelCallOptions } from '@langchain/core/language_models/base'
-import type FlowiseGoogleAICacheManager from '../../cache/GoogleGenerativeAIContextCache/FlowiseGoogleAICacheManager'
 
 const DEFAULT_IMAGE_MAX_TOKEN = 8192
 const DEFAULT_IMAGE_MODEL = 'gemini-1.5-flash-latest'
@@ -81,18 +80,14 @@ class LangchainChatGoogleGenerativeAI
 
     apiKey?: string
 
-    baseUrl?: string
-
     streaming = false
 
     streamUsage = true
 
     private client: GenerativeModel
 
-    private contextCache?: FlowiseGoogleAICacheManager
-
     get _isMultimodalModel() {
-        return true
+        return this.modelName.includes('vision') || this.modelName.startsWith('gemini-1.5')
     }
 
     constructor(fields?: GoogleGenerativeAIChatInput) {
@@ -152,33 +147,20 @@ class LangchainChatGoogleGenerativeAI
         this.getClient()
     }
 
-    async getClient(prompt?: Content[], tools?: Tool[]) {
-        this.client = new GenerativeAI(this.apiKey ?? '').getGenerativeModel(
-            {
-                model: this.modelName,
-                tools,
-                safetySettings: this.safetySettings as SafetySetting[],
-                generationConfig: {
-                    candidateCount: 1,
-                    stopSequences: this.stopSequences,
-                    maxOutputTokens: this.maxOutputTokens,
-                    temperature: this.temperature,
-                    topP: this.topP,
-                    topK: this.topK
-                }
-            },
-            {
-                baseUrl: this.baseUrl
+    getClient(tools?: Tool[]) {
+        this.client = new GenerativeAI(this.apiKey ?? '').getGenerativeModel({
+            model: this.modelName,
+            tools,
+            safetySettings: this.safetySettings as SafetySetting[],
+            generationConfig: {
+                candidateCount: 1,
+                stopSequences: this.stopSequences,
+                maxOutputTokens: this.maxOutputTokens,
+                temperature: this.temperature,
+                topP: this.topP,
+                topK: this.topK
             }
-        )
-        if (this.contextCache) {
-            const cachedContent = await this.contextCache.lookup({
-                contents: prompt ? [{ ...prompt[0], parts: prompt[0].parts.slice(0, 1) }] : [],
-                model: this.modelName,
-                tools
-            })
-            this.client.cachedContent = cachedContent as any
-        }
+        })
     }
 
     _combineLLMOutput() {
@@ -227,16 +209,6 @@ class LangchainChatGoogleGenerativeAI
         }
     }
 
-    setContextCache(contextCache: FlowiseGoogleAICacheManager): void {
-        this.contextCache = contextCache
-    }
-
-    async getNumTokens(prompt: BaseMessage[]) {
-        const contents = convertBaseMessagesToContent(prompt, this._isMultimodalModel)
-        const { totalTokens } = await this.client.countTokens({ contents })
-        return totalTokens
-    }
-
     async _generateNonStreaming(
         prompt: Content[],
         options: this['ParsedCallOptions'],
@@ -248,9 +220,9 @@ class LangchainChatGoogleGenerativeAI
         this.convertFunctionResponse(prompt)
 
         if (tools.length > 0) {
-            await this.getClient(prompt, tools as Tool[])
+            this.getClient(tools as Tool[])
         } else {
-            await this.getClient(prompt)
+            this.getClient()
         }
         const res = await this.caller.callWithOptions({ signal: options?.signal }, async () => {
             let output
@@ -318,9 +290,9 @@ class LangchainChatGoogleGenerativeAI
 
         const tools = options.tools ?? []
         if (tools.length > 0) {
-            await this.getClient(prompt, tools as Tool[])
+            this.getClient(tools as Tool[])
         } else {
-            await this.getClient(prompt)
+            this.getClient()
         }
 
         const stream = await this.caller.callWithOptions({ signal: options?.signal }, async () => {
@@ -422,18 +394,24 @@ function getMessageAuthor(message: BaseMessage) {
 }
 
 function convertAuthorToRole(author: string) {
-    switch (author.toLowerCase()) {
+    switch (author) {
+        /**
+         *  Note: Gemini currently is not supporting system messages
+         *  we will convert them to human messages and merge with following
+         * */
         case 'ai':
-        case 'assistant':
-        case 'model':
+        case 'model': // getMessageAuthor returns message.name. code ex.: return message.name ?? type;
             return 'model'
+        case 'system':
+        case 'human':
+            return 'user'
         case 'function':
         case 'tool':
             return 'function'
-        case 'system':
-        case 'human':
         default:
-            return 'user'
+            // Instead of throwing, we return model (Needed for Multi Agent)
+            // throw new Error(`Unknown / unsupported author: ${author}`)
+            return 'model'
     }
 }
 
@@ -521,29 +499,17 @@ function convertMessageContentToParts(message: BaseMessage, isMultimodalModel: b
 
 function checkIfEmptyContentAndSameRole(contents: Content[]) {
     let prevRole = ''
-    const validContents: Content[] = []
-
+    const removedContents: Content[] = []
     for (const content of contents) {
-        // Skip only if completely empty
-        if (!content.parts || !content.parts.length) {
-            continue
+        const role = content.role
+        if (content.parts.length && content.parts[0].text === '' && role === prevRole) {
+            removedContents.push(content)
         }
 
-        // Ensure role is always either 'user' or 'model'
-        content.role = content.role === 'model' ? 'model' : 'user'
-
-        // Handle consecutive messages
-        if (content.role === prevRole && validContents.length > 0) {
-            // Merge with previous content if same role
-            validContents[validContents.length - 1].parts.push(...content.parts)
-            continue
-        }
-
-        validContents.push(content)
-        prevRole = content.role
+        prevRole = role
     }
 
-    return validContents
+    return contents.filter((content) => !removedContents.includes(content))
 }
 
 function convertBaseMessagesToContent(messages: BaseMessage[], isMultimodalModel: boolean) {
@@ -581,7 +547,7 @@ function convertBaseMessagesToContent(messages: BaseMessage[], isMultimodalModel
                 }
             }
             let actualRole = role
-            if (actualRole === 'function' || actualRole === 'tool') {
+            if (actualRole === 'function') {
                 // GenerativeAI API will throw an error if the role is not "user" or "model."
                 actualRole = 'user'
             }
@@ -683,39 +649,13 @@ function zodToGeminiParameters(zodObj: any) {
     const jsonSchema: any = zodToJsonSchema(zodObj)
     // eslint-disable-next-line unused-imports/no-unused-vars
     const { $schema, additionalProperties, ...rest } = jsonSchema
-
-    // Ensure all properties have type specified
     if (rest.properties) {
         Object.keys(rest.properties).forEach((key) => {
-            const prop = rest.properties[key]
-
-            // Handle enum types
-            if (prop.enum?.length) {
-                rest.properties[key] = {
-                    type: 'string',
-                    format: 'enum',
-                    enum: prop.enum
-                }
-            }
-            // Handle missing type
-            else if (!prop.type && !prop.oneOf && !prop.anyOf && !prop.allOf) {
-                // Infer type from other properties
-                if (prop.minimum !== undefined || prop.maximum !== undefined) {
-                    prop.type = 'number'
-                } else if (prop.format === 'date-time') {
-                    prop.type = 'string'
-                } else if (prop.items) {
-                    prop.type = 'array'
-                } else if (prop.properties) {
-                    prop.type = 'object'
-                } else {
-                    // Default to string if type can't be inferred
-                    prop.type = 'string'
-                }
+            if (rest.properties[key].enum?.length) {
+                rest.properties[key] = { type: 'string', format: 'enum', enum: rest.properties[key].enum }
             }
         })
     }
-
     return rest
 }
 

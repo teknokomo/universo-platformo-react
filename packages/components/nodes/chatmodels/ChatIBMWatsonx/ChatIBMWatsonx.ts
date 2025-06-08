@@ -161,13 +161,12 @@ class ChatIBMWatsonx_ChatModels implements INode {
             watsonxAIBearerToken
         }
 
-        const obj = {
+        const obj: ChatWatsonxInput & WatsonxAuth = {
             ...auth,
             streaming: streaming ?? true,
             model: modelName,
             temperature: temperature ? parseFloat(temperature) : undefined
-        } as ChatWatsonxInput & WatsonxAuth
-
+        }
         if (cache) obj.cache = cache
         if (maxTokens) obj.maxTokens = parseInt(maxTokens, 10)
         if (frequencyPenalty) obj.frequencyPenalty = parseInt(frequencyPenalty, 10)

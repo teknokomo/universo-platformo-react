@@ -4,8 +4,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { JSDOM } from 'jsdom'
 import { z } from 'zod'
-import { DataSource, Equal } from 'typeorm'
-import { ICommonObject, IDatabaseEntity, IFileUpload, IMessage, INodeData, IVariable, MessageContentImageUrl } from './Interface'
+import { DataSource } from 'typeorm'
+import { ICommonObject, IDatabaseEntity, IDocument, IMessage, INodeData, IVariable, MessageContentImageUrl } from './Interface'
 import { AES, enc } from 'crypto-js'
 import { omit } from 'lodash'
 import { AIMessage, HumanMessage, BaseMessage } from '@langchain/core/messages'
@@ -284,16 +284,14 @@ export const getInputVariables = (paramValue: string): string[] => {
 }
 
 /**
- * Transform single curly braces into double curly braces if the content includes a colon.
+ * Transform curly braces into double curly braces if the content includes a colon.
  * @param input - The original string that may contain { ... } segments.
  * @returns The transformed string, where { ... } containing a colon has been replaced with {{ ... }}.
  */
 export const transformBracesWithColon = (input: string): string => {
-    // This regex uses negative lookbehind (?<!{) and negative lookahead (?!})
-    // to ensure we only match single curly braces, not double ones.
-    // It will match a single { that's not preceded by another {,
-    // followed by any content without braces, then a single } that's not followed by another }.
-    const regex = /(?<!\{)\{([^{}]*?)\}(?!\})/g
+    // This regex will match anything of the form `{ ... }` (no nested braces).
+    // `[^{}]*` means: match any characters that are not `{` or `}` zero or more times.
+    const regex = /\{([^{}]*?)\}/g
 
     return input.replace(regex, (match, groupContent) => {
         // groupContent is the text inside the braces `{ ... }`.
@@ -543,15 +541,6 @@ const getEncryptionKey = async (): Promise<string> => {
         return process.env.FLOWISE_SECRETKEY_OVERWRITE
     }
     try {
-        if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
-            const secretId = process.env.SECRETKEY_AWS_NAME || 'FlowiseEncryptionKey'
-            const command = new GetSecretValueCommand({ SecretId: secretId })
-            const response = await secretsManagerClient.send(command)
-
-            if (response.SecretString) {
-                return response.SecretString
-            }
-        }
         return await fs.promises.readFile(getEncryptionKeyPath(), 'utf8')
     } catch (error) {
         throw new Error(error)
@@ -570,24 +559,18 @@ const decryptCredentialData = async (encryptedData: string): Promise<ICommonObje
 
     if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
         try {
-            if (encryptedData.startsWith('FlowiseCredential_')) {
-                const command = new GetSecretValueCommand({ SecretId: encryptedData })
-                const response = await secretsManagerClient.send(command)
+            const command = new GetSecretValueCommand({ SecretId: encryptedData })
+            const response = await secretsManagerClient.send(command)
 
-                if (response.SecretString) {
-                    const secretObj = JSON.parse(response.SecretString)
-                    decryptedDataStr = JSON.stringify(secretObj)
-                } else {
-                    throw new Error('Failed to retrieve secret value.')
-                }
+            if (response.SecretString) {
+                const secretObj = JSON.parse(response.SecretString)
+                decryptedDataStr = JSON.stringify(secretObj)
             } else {
-                const encryptKey = await getEncryptionKey()
-                const decryptedData = AES.decrypt(encryptedData, encryptKey)
-                decryptedDataStr = decryptedData.toString(enc.Utf8)
+                throw new Error('Failed to retrieve secret value.')
             }
         } catch (error) {
             console.error(error)
-            throw new Error('Failed to decrypt credential data.')
+            throw new Error('Credentials could not be decrypted.')
         }
     } else {
         // Fallback to existing code
@@ -706,23 +689,23 @@ export const getUserHome = (): string => {
  * @param {IChatMessage[]} chatmessages
  * @returns {BaseMessage[]}
  */
-export const mapChatMessageToBaseMessage = async (chatmessages: any[] = [], orgId: string): Promise<BaseMessage[]> => {
+export const mapChatMessageToBaseMessage = async (chatmessages: any[] = []): Promise<BaseMessage[]> => {
     const chatHistory = []
 
     for (const message of chatmessages) {
         if (message.role === 'apiMessage' || message.type === 'apiMessage') {
             chatHistory.push(new AIMessage(message.content || ''))
-        } else if (message.role === 'userMessage' || message.type === 'userMessage') {
+        } else if (message.role === 'userMessage' || message.role === 'userMessage') {
             // check for image/files uploads
             if (message.fileUploads) {
                 // example: [{"type":"stored-file","name":"0_DiXc4ZklSTo3M8J4.jpg","mime":"image/jpeg"}]
                 try {
                     let messageWithFileUploads = ''
-                    const uploads: IFileUpload[] = JSON.parse(message.fileUploads)
+                    const uploads = JSON.parse(message.fileUploads)
                     const imageContents: MessageContentImageUrl[] = []
                     for (const upload of uploads) {
-                        if (upload.type === 'stored-file' && upload.mime.startsWith('image/')) {
-                            const fileData = await getFileFromStorage(upload.name, orgId, message.chatflowid, message.chatId)
+                        if (upload.type === 'stored-file' && upload.mime.startsWith('image')) {
+                            const fileData = await getFileFromStorage(upload.name, message.chatflowid, message.chatId)
                             // as the image is stored in the server, read the file and convert it to base64
                             const bf = 'data:' + upload.mime + ';base64,' + fileData.toString('base64')
 
@@ -732,7 +715,7 @@ export const mapChatMessageToBaseMessage = async (chatmessages: any[] = [], orgI
                                     url: bf
                                 }
                             })
-                        } else if (upload.type === 'url' && upload.mime.startsWith('image') && upload.data) {
+                        } else if (upload.type === 'url' && upload.mime.startsWith('image')) {
                             imageContents.push({
                                 type: 'image_url',
                                 image_url: {
@@ -746,18 +729,16 @@ export const mapChatMessageToBaseMessage = async (chatmessages: any[] = [], orgI
                             const options = {
                                 retrieveAttachmentChatId: true,
                                 chatflowid: message.chatflowid,
-                                chatId: message.chatId,
-                                orgId
+                                chatId: message.chatId
                             }
-                            let fileInputFieldFromMimeType = 'txtFile'
-                            fileInputFieldFromMimeType = mapMimeTypeToInputField(upload.mime)
                             const nodeData = {
                                 inputs: {
-                                    [fileInputFieldFromMimeType]: `FILE-STORAGE::${JSON.stringify([upload.name])}`
+                                    txtFile: `FILE-STORAGE::${JSON.stringify([upload.name])}`
                                 }
                             }
-                            const documents: string = await fileLoaderNodeInstance.init(nodeData, '', options)
-                            messageWithFileUploads += `<doc name='${upload.name}'>${documents}</doc>\n\n`
+                            const documents: IDocument[] = await fileLoaderNodeInstance.init(nodeData, '', options)
+                            const pageContents = documents.map((doc) => doc.pageContent).join('\n')
+                            messageWithFileUploads += `<doc name='${upload.name}'>${pageContents}</doc>\n\n`
                         }
                     }
                     const messageContent = messageWithFileUploads ? `${messageWithFileUploads}\n\n${message.content}` : message.content
@@ -789,23 +770,17 @@ export const mapChatMessageToBaseMessage = async (chatmessages: any[] = [], orgI
  * @param {IMessage[]} chatHistory
  * @returns {string}
  */
-export const convertChatHistoryToText = (chatHistory: IMessage[] | { content: string; role: string }[] = []): string => {
+export const convertChatHistoryToText = (chatHistory: IMessage[] = []): string => {
     return chatHistory
         .map((chatMessage) => {
-            if (!chatMessage) return ''
-            const messageContent = 'message' in chatMessage ? chatMessage.message : chatMessage.content
-            if (!messageContent || messageContent.trim() === '') return ''
-
-            const messageType = 'type' in chatMessage ? chatMessage.type : chatMessage.role
-            if (messageType === 'apiMessage' || messageType === 'assistant') {
-                return `Assistant: ${messageContent}`
-            } else if (messageType === 'userMessage' || messageType === 'user') {
-                return `Human: ${messageContent}`
+            if (chatMessage.type === 'apiMessage') {
+                return `Assistant: ${chatMessage.message}`
+            } else if (chatMessage.type === 'userMessage') {
+                return `Human: ${chatMessage.message}`
             } else {
-                return `${messageContent}`
+                return `${chatMessage.message}`
             }
         })
-        .filter((message) => message !== '') // Remove empty messages
         .join('\n')
 }
 
@@ -936,16 +911,8 @@ export const convertMultiOptionsToStringArray = (inputString: string): string[] 
  * @param {IDatabaseEntity} databaseEntities
  * @param {INodeData} nodeData
  */
-export const getVars = async (
-    appDataSource: DataSource,
-    databaseEntities: IDatabaseEntity,
-    nodeData: INodeData,
-    options: ICommonObject
-) => {
-    const variables =
-        ((await appDataSource
-            .getRepository(databaseEntities['Variable'])
-            .findBy(options.workspaceId ? { workspaceId: Equal(options.workspaceId) } : {})) as IVariable[]) ?? []
+export const getVars = async (appDataSource: DataSource, databaseEntities: IDatabaseEntity, nodeData: INodeData) => {
+    const variables = ((await appDataSource.getRepository(databaseEntities['Variable']).find()) as IVariable[]) ?? []
 
     // override variables defined in overrideConfig
     // nodeData.inputs.vars is an Object, check each property and override the variable

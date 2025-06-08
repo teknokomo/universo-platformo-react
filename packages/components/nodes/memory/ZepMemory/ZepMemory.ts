@@ -119,7 +119,6 @@ const initializeZep = async (nodeData: INodeData, options: ICommonObject): Promi
     const credentialData = await getCredentialData(nodeData.credential ?? '', options)
     const apiKey = getCredentialParam('apiKey', credentialData, nodeData)
 
-    const orgId = options.orgId as string
     const obj: ZepMemoryInput & ZepMemoryExtendedInput = {
         baseURL,
         aiPrefix,
@@ -128,7 +127,6 @@ const initializeZep = async (nodeData: INodeData, options: ICommonObject): Promi
         memoryKey,
         inputKey,
         sessionId,
-        orgId,
         k: k ? parseInt(k, 10) : undefined
     }
     if (apiKey) obj.apiKey = apiKey
@@ -138,17 +136,14 @@ const initializeZep = async (nodeData: INodeData, options: ICommonObject): Promi
 
 interface ZepMemoryExtendedInput {
     k?: number
-    orgId: string
 }
 
 class ZepMemoryExtended extends ZepMemory implements MemoryMethods {
     lastN?: number
-    orgId = ''
 
     constructor(fields: ZepMemoryInput & ZepMemoryExtendedInput) {
         super(fields)
         this.lastN = fields.k
-        this.orgId = fields.orgId
     }
 
     async loadMemoryVariables(values: InputValues, overrideSessionId = ''): Promise<MemoryVariables> {
@@ -181,7 +176,7 @@ class ZepMemoryExtended extends ZepMemory implements MemoryMethods {
         const memoryVariables = await this.loadMemoryVariables({}, id)
         const baseMessages = memoryVariables[this.memoryKey]
         if (prependMessages?.length) {
-            baseMessages.unshift(...(await mapChatMessageToBaseMessage(prependMessages, this.orgId)))
+            baseMessages.unshift(...(await mapChatMessageToBaseMessage(prependMessages)))
         }
         return returnBaseMessages ? baseMessages : convertBaseMessagetoIMessage(baseMessages)
     }

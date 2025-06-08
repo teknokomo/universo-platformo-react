@@ -21,7 +21,7 @@ class ChatOpenAI_ChatModels implements INode {
     constructor() {
         this.label = 'ChatOpenAI'
         this.name = 'chatOpenAI'
-        this.version = 8.2
+        this.version = 8.1
         this.type = 'ChatOpenAI'
         this.icon = 'openai.svg'
         this.category = 'Chat Models'
@@ -172,9 +172,7 @@ class ChatOpenAI_ChatModels implements INode {
                 ],
                 default: 'low',
                 optional: false,
-                show: {
-                    allowImageUploads: true
-                }
+                additionalParams: true
             },
             {
                 label: 'Reasoning Effort',
@@ -243,7 +241,7 @@ class ChatOpenAI_ChatModels implements INode {
             streaming: streaming ?? true
         }
 
-        if (modelName.includes('o3') || modelName.includes('o1')) {
+        if (modelName.includes('o3')) {
             delete obj.temperature
         }
         if ((modelName.includes('o1') || modelName.includes('o3')) && reasoningEffort) {

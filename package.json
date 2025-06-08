@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "3.0.1",
+    "version": "2.2.7-patch.1",
     "private": true,
     "homepage": "https://funiverso.pro",
     "workspaces": [
@@ -57,7 +57,7 @@
         "rimraf": "^3.0.2",
         "run-script-os": "^1.1.6",
         "turbo": "1.10.16",
-        "typescript": "^5.4.5"
+        "typescript": "^5.8.3"
     },
     "pnpm": {
         "onlyBuiltDependencies": [
@@ -89,11 +89,11 @@
         "pnpm": ">=9"
     },
     "resolutions": {
-        "@google/generative-ai": "^0.24.0",
+        "@google/generative-ai": "^0.22.0",
         "@grpc/grpc-js": "^1.10.10",
         "@langchain/core": "0.3.37",
         "@qdrant/openapi-typescript-fetch": "1.2.6",
-        "openai": "4.96.0",
+        "openai": "4.82.0",
         "protobufjs": "7.4.0"
     },
     "eslintIgnore": [

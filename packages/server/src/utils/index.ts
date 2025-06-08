@@ -5,7 +5,6 @@
 import path from 'path'
 import fs from 'fs'
 import logger from './logger'
-import { v4 as uuidv4 } from 'uuid'
 import {
     IChatFlow,
     IComponentCredentials,
@@ -44,7 +43,6 @@ import { randomBytes } from 'crypto'
 import { AES, enc } from 'crypto-js'
 import multer from 'multer'
 import multerS3 from 'multer-s3'
-import MulterGoogleCloudStorage from 'multer-cloud-storage'
 import { ChatFlow } from '../database/entities/ChatFlow'
 import { ChatMessage } from '../database/entities/ChatMessage'
 import { Credential } from '../database/entities/Credential'
@@ -61,17 +59,15 @@ import { StatusCodes } from 'http-status-codes'
 import {
     CreateSecretCommand,
     GetSecretValueCommand,
+    PutSecretValueCommand,
     SecretsManagerClient,
     SecretsManagerClientConfig
 } from '@aws-sdk/client-secrets-manager'
-import { checkStorage, updateStorageUsage } from './quotaUsage'
-import { UsageCacheManager } from '../UsageCacheManager'
 
-export const QUESTION_VAR_PREFIX = 'question'
-export const FILE_ATTACHMENT_PREFIX = 'file_attachment'
-export const CHAT_HISTORY_VAR_PREFIX = 'chat_history'
-export const RUNTIME_MESSAGES_LENGTH_VAR_PREFIX = 'runtime_messages_length'
-export const REDACTED_CREDENTIAL_VALUE = '_FLOWISE_BLANK_07167752-1a71-43b1-bf8f-4f32252165db'
+const QUESTION_VAR_PREFIX = 'question'
+const FILE_ATTACHMENT_PREFIX = 'file_attachment'
+const CHAT_HISTORY_VAR_PREFIX = 'chat_history'
+const REDACTED_CREDENTIAL_VALUE = '_FLOWISE_BLANK_07167752-1a71-43b1-bf8f-4f32252165db'
 
 let secretsManagerClient: SecretsManagerClient | null = null
 const USE_AWS_SECRETS_MANAGER = process.env.SECRETKEY_STORAGE_TYPE === 'aws'
@@ -204,22 +200,6 @@ export const constructGraphs = (
     }
 
     return { graph, nodeDependencies }
-}
-
-/**
- * Get starting node and check if flow is valid
- * @param {INodeDependencies} nodeDependencies
- */
-export const getStartingNode = (nodeDependencies: INodeDependencies) => {
-    // Find starting node
-    const startingNodeIds = [] as string[]
-    Object.keys(nodeDependencies).forEach((nodeId) => {
-        if (nodeDependencies[nodeId] === 0) {
-            startingNodeIds.push(nodeId)
-        }
-    })
-
-    return { startingNodeIds }
 }
 
 /**
@@ -500,10 +480,6 @@ type BuildFlowParams = {
     stopNodeId?: string
     uploads?: IFileUpload[]
     baseURL?: string
-    orgId?: string
-    workspaceId?: string
-    subscriptionId?: string
-    usageCacheManager?: UsageCacheManager
     uploadedFilesContent?: string
 }
 
@@ -535,11 +511,7 @@ export const buildFlow = async ({
     isUpsert,
     stopNodeId,
     uploads,
-    baseURL,
-    orgId,
-    workspaceId,
-    subscriptionId,
-    usageCacheManager
+    baseURL
 }: BuildFlowParams) => {
     const flowNodes = cloneDeep(reactFlowNodes)
 
@@ -602,11 +574,8 @@ export const buildFlow = async ({
             )
 
             if (isUpsert && stopNodeId && nodeId === stopNodeId) {
-                logger.debug(`[server]: [${orgId}]: Upserting ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
+                logger.debug(`[server]: Upserting ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
                 const indexResult = await newNodeInstance.vectorStoreMethods!['upsert']!.call(newNodeInstance, reactFlowNodeData, {
-                    orgId,
-                    workspaceId,
-                    subscriptionId,
                     chatId,
                     sessionId,
                     chatflowid,
@@ -616,13 +585,12 @@ export const buildFlow = async ({
                     appDataSource,
                     databaseEntities,
                     cachePool,
-                    usageCacheManager,
                     dynamicVariables,
                     uploads,
                     baseURL
                 })
                 if (indexResult) upsertHistory['result'] = indexResult
-                logger.debug(`[server]: [${orgId}]: Finished upserting ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
+                logger.debug(`[server]: Finished upserting ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
                 break
             } else if (
                 !isUpsert &&
@@ -631,12 +599,9 @@ export const buildFlow = async ({
             ) {
                 initializedNodes.add(nodeId)
             } else {
-                logger.debug(`[server]: [${orgId}]: Initializing ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
+                logger.debug(`[server]: Initializing ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
                 const finalQuestion = uploadedFilesContent ? `${uploadedFilesContent}\n\n${question}` : question
                 let outputResult = await newNodeInstance.init(reactFlowNodeData, finalQuestion, {
-                    orgId,
-                    workspaceId,
-                    subscriptionId,
                     chatId,
                     sessionId,
                     chatflowid,
@@ -645,14 +610,11 @@ export const buildFlow = async ({
                     appDataSource,
                     databaseEntities,
                     cachePool,
-                    usageCacheManager,
                     isUpsert,
                     dynamicVariables,
                     uploads,
                     baseURL,
-                    componentNodes,
-                    updateStorageUsage,
-                    checkStorage
+                    componentNodes: componentNodes as ICommonObject
                 })
 
                 // Save dynamic variables
@@ -666,42 +628,13 @@ export const buildFlow = async ({
                     outputResult = outputResult?.output
                 }
 
-                // Determine which nodes to route next when it comes to ifElse
-                if (reactFlowNode.data.name === 'ifElseFunction' && typeof outputResult === 'object') {
-                    let sourceHandle = ''
-                    if (outputResult.type === true) {
-                        // sourceHandle = `${nodeId}-output-returnFalse-string|number|boolean|json|array`
-                        sourceHandle = (
-                            reactFlowNode.data.outputAnchors.flatMap((n) => n.options).find((n) => n?.name === 'returnFalse') as any
-                        )?.id
-                    } else if (outputResult.type === false) {
-                        // sourceHandle = `${nodeId}-output-returnTrue-string|number|boolean|json|array`
-                        sourceHandle = (
-                            reactFlowNode.data.outputAnchors.flatMap((n) => n.options).find((n) => n?.name === 'returnTrue') as any
-                        )?.id
-                    }
-
-                    const ifElseEdge = reactFlowEdges.find((edg) => edg.source === nodeId && edg.sourceHandle === sourceHandle)
-                    if (ifElseEdge) {
-                        const { graph } = constructGraphs(
-                            reactFlowNodes,
-                            reactFlowEdges.filter((edg) => !(edg.source === nodeId && edg.sourceHandle === sourceHandle)),
-                            { isNonDirected: true }
-                        )
-                        ignoreNodeIds.push(ifElseEdge.target, ...getAllConnectedNodes(graph, ifElseEdge.target))
-                        ignoreNodeIds = [...new Set(ignoreNodeIds)]
-                    }
-
-                    outputResult = outputResult?.output
-                }
-
                 flowNodes[nodeIndex].data.instance = outputResult
 
-                logger.debug(`[server]: [${orgId}]: Finished initializing ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
+                logger.debug(`[server]: Finished initializing ${reactFlowNode.data.label} (${reactFlowNode.data.id})`)
                 initializedNodes.add(reactFlowNode.data.id)
             }
         } catch (e: any) {
-            logger.error(`[server]: [${orgId}]:`, e)
+            logger.error(e)
             throw new Error(e)
         }
 
@@ -765,7 +698,6 @@ export const clearSessionMemory = async (
     componentNodes: IComponentNodes,
     chatId: string,
     appDataSource: DataSource,
-    orgId?: string,
     sessionId?: string,
     memoryType?: string,
     isClearFromViewMessageDialog?: string
@@ -779,7 +711,7 @@ export const clearSessionMemory = async (
         const nodeInstanceFilePath = componentNodes[node.data.name].filePath as string
         const nodeModule = await import(nodeInstanceFilePath)
         const newNodeInstance = new nodeModule.nodeClass()
-        const options: ICommonObject = { orgId, chatId, appDataSource, databaseEntities, logger }
+        const options: ICommonObject = { chatId, appDataSource, databaseEntities, logger }
 
         // SessionId always take priority first because it is the sessionId used for 3rd party memory node
         if (sessionId && node.data.inputs) {
@@ -802,7 +734,7 @@ export const clearSessionMemory = async (
     }
 }
 
-export const getGlobalVariable = async (
+const getGlobalVariable = async (
     overrideConfig?: ICommonObject,
     availableVariables: IVariable[] = [],
     variableOverrides: ICommonObject[] = []
@@ -939,7 +871,7 @@ export const getVariableValue = async (
             const variableNodeId = variableFullPathParts[0]
             const executedNode = reactFlowNodes.find((nd) => nd.id === variableNodeId)
             if (executedNode) {
-                let variableValue = get(executedNode.data, 'instance')
+                let variableValue = executedNode.data.instance
 
                 // Handle path such as `<variableNodeId>.data.instance.key`
                 if (variableFullPathParts.length > 3) {
@@ -1029,6 +961,7 @@ export const resolveVariables = async (
     variableOverrides: ICommonObject[] = []
 ): Promise<INodeData> => {
     let flowNodeData = cloneDeep(reactFlowNodeData)
+    const types = 'inputs'
 
     const getParamValues = async (paramsObj: ICommonObject) => {
         for (const key in paramsObj) {
@@ -1068,7 +1001,7 @@ export const resolveVariables = async (
         }
     }
 
-    const paramsObj = flowNodeData['inputs'] ?? {}
+    const paramsObj = flowNodeData[types] ?? {}
     await getParamValues(paramsObj)
 
     return flowNodeData
@@ -1282,7 +1215,7 @@ export const findAvailableConfigs = (reactFlowNodes: IReactFlowNode[], component
 
     for (const flowNode of reactFlowNodes) {
         for (const inputParam of flowNode.data.inputParams) {
-            let obj: IOverrideConfig | undefined
+            let obj: IOverrideConfig
             if (inputParam.type === 'file') {
                 obj = {
                     node: flowNode.data.label,
@@ -1323,34 +1256,6 @@ export const findAvailableConfigs = (reactFlowNodes: IReactFlowNode[], component
                     }
                 }
                 continue
-            } else if (inputParam.type === 'array') {
-                // get array item schema
-                const arrayItem = inputParam.array
-                if (Array.isArray(arrayItem)) {
-                    const arraySchema = []
-                    // Each array item is a field definition
-                    for (const item of arrayItem) {
-                        let itemType = item.type
-                        if (itemType === 'options') {
-                            const availableOptions = item.options?.map((option) => option.name).join(', ')
-                            itemType = `(${availableOptions})`
-                        } else if (itemType === 'file') {
-                            itemType = item.fileType ?? item.type
-                        }
-                        arraySchema.push({
-                            name: item.name,
-                            type: itemType
-                        })
-                    }
-                    obj = {
-                        node: flowNode.data.label,
-                        nodeId: flowNode.data.id,
-                        label: inputParam.label,
-                        name: inputParam.name,
-                        type: inputParam.type,
-                        schema: arraySchema
-                    }
-                }
             } else {
                 obj = {
                     node: flowNode.data.label,
@@ -1360,7 +1265,7 @@ export const findAvailableConfigs = (reactFlowNodes: IReactFlowNode[], component
                     type: inputParam.type === 'password' ? 'string' : inputParam.type
                 }
             }
-            if (obj && !configs.some((config) => JSON.stringify(config) === JSON.stringify(obj))) {
+            if (!configs.some((config) => JSON.stringify(config) === JSON.stringify(obj))) {
                 configs.push(obj)
             }
         }
@@ -1460,29 +1365,6 @@ export const getEncryptionKey = async (): Promise<string> => {
     if (process.env.FLOWISE_SECRETKEY_OVERWRITE !== undefined && process.env.FLOWISE_SECRETKEY_OVERWRITE !== '') {
         return process.env.FLOWISE_SECRETKEY_OVERWRITE
     }
-    if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
-        const secretId = process.env.SECRETKEY_AWS_NAME || 'FlowiseEncryptionKey'
-        try {
-            const command = new GetSecretValueCommand({ SecretId: secretId })
-            const response = await secretsManagerClient.send(command)
-
-            if (response.SecretString) {
-                return response.SecretString
-            }
-        } catch (error: any) {
-            if (error.name === 'ResourceNotFoundException') {
-                // Secret doesn't exist, create it
-                const newKey = generateEncryptKey()
-                const createCommand = new CreateSecretCommand({
-                    Name: secretId,
-                    SecretString: newKey
-                })
-                await secretsManagerClient.send(createCommand)
-                return newKey
-            }
-            throw error
-        }
-    }
     try {
         return await fs.promises.readFile(getEncryptionKeyPath(), 'utf8')
     } catch (error) {
@@ -1501,7 +1383,39 @@ export const getEncryptionKey = async (): Promise<string> => {
  * @returns {Promise<string>}
  */
 export const encryptCredentialData = async (plainDataObj: ICredentialDataDecrypted): Promise<string> => {
+    if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
+        const secretName = `FlowiseCredential_${randomBytes(12).toString('hex')}`
+
+        logger.info(`[server]: Upserting AWS Secret: ${secretName}`)
+
+        const secretString = JSON.stringify({ ...plainDataObj })
+
+        try {
+            // Try to update the secret if it exists
+            const putCommand = new PutSecretValueCommand({
+                SecretId: secretName,
+                SecretString: secretString
+            })
+            await secretsManagerClient.send(putCommand)
+        } catch (error: any) {
+            if (error.name === 'ResourceNotFoundException') {
+                // Secret doesn't exist, so create it
+                const createCommand = new CreateSecretCommand({
+                    Name: secretName,
+                    SecretString: secretString
+                })
+                await secretsManagerClient.send(createCommand)
+            } else {
+                // Rethrow any other errors
+                throw error
+            }
+        }
+        return secretName
+    }
+
     const encryptKey = await getEncryptionKey()
+
+    // Fallback to existing code
     return AES.encrypt(JSON.stringify(plainDataObj), encryptKey).toString()
 }
 
@@ -1521,20 +1435,15 @@ export const decryptCredentialData = async (
 
     if (USE_AWS_SECRETS_MANAGER && secretsManagerClient) {
         try {
-            if (encryptedData.startsWith('FlowiseCredential_')) {
-                const command = new GetSecretValueCommand({ SecretId: encryptedData })
-                const response = await secretsManagerClient.send(command)
+            logger.info(`[server]: Reading AWS Secret: ${encryptedData}`)
+            const command = new GetSecretValueCommand({ SecretId: encryptedData })
+            const response = await secretsManagerClient.send(command)
 
-                if (response.SecretString) {
-                    const secretObj = JSON.parse(response.SecretString)
-                    decryptedDataStr = JSON.stringify(secretObj)
-                } else {
-                    throw new Error('Failed to retrieve secret value.')
-                }
+            if (response.SecretString) {
+                const secretObj = JSON.parse(response.SecretString)
+                decryptedDataStr = JSON.stringify(secretObj)
             } else {
-                const encryptKey = await getEncryptionKey()
-                const decryptedData = AES.decrypt(encryptedData, encryptKey)
-                decryptedDataStr = decryptedData.toString(enc.Utf8)
+                throw new Error('Failed to retrieve secret value.')
             }
         } catch (error) {
             console.error(error)
@@ -1586,10 +1495,6 @@ export const transformToCredentialEntity = async (body: ICredentialReqBody): Pro
 
     const newCredential = new Credential()
     Object.assign(newCredential, credentialBody)
-
-    if (body.workspaceId) {
-        newCredential.workspaceId = body.workspaceId
-    }
 
     return newCredential
 }
@@ -1759,6 +1664,21 @@ export const getTelemetryFlowObj = (nodes: IReactFlowNode[], edges: IReactFlowEd
 }
 
 /**
+ * Get user settings file
+ * TODO: move env variables to settings json file, easier configuration
+ */
+export const getUserSettingsFilePath = () => {
+    if (process.env.SECRETKEY_PATH) return path.join(process.env.SECRETKEY_PATH, 'settings.json')
+    const checkPaths = [path.join(getUserHome(), '.flowise', 'settings.json')]
+    for (const checkPath of checkPaths) {
+        if (fs.existsSync(checkPath)) {
+            return checkPath
+        }
+    }
+    return ''
+}
+
+/**
  * Get app current version
  */
 export const getAppVersion = async () => {
@@ -1824,8 +1744,14 @@ export const getUploadPath = (): string => {
         : path.join(getUserHome(), '.flowise', 'uploads')
 }
 
-export function generateId() {
-    return uuidv4()
+const getOrgId = () => {
+    const settingsContent = fs.readFileSync(getUserSettingsFilePath(), 'utf8')
+    try {
+        const settings = JSON.parse(settingsContent)
+        return settings.instanceId
+    } catch (error) {
+        return ''
+    }
 }
 
 export const getMulterStorage = () => {
@@ -1840,92 +1766,15 @@ export const getMulterStorage = () => {
                 s3: s3Client,
                 bucket: Bucket,
                 metadata: function (req, file, cb) {
-                    cb(null, { fieldName: file.fieldname, originalName: file.originalname })
+                    cb(null, { fieldName: file.fieldname, originalName: file.originalname, orgId: getOrgId() })
                 },
                 key: function (req, file, cb) {
-                    cb(null, `${generateId()}`)
+                    cb(null, `${getOrgId()}/${Date.now().toString()}`)
                 }
             })
         })
         return upload
-    } else if (storageType === 'gcs') {
-        return multer({
-            storage: new MulterGoogleCloudStorage({
-                projectId: process.env.GOOGLE_CLOUD_STORAGE_PROJ_ID,
-                bucket: process.env.GOOGLE_CLOUD_STORAGE_BUCKET_NAME,
-                keyFilename: process.env.GOOGLE_CLOUD_STORAGE_CREDENTIAL,
-                uniformBucketLevelAccess: Boolean(process.env.GOOGLE_CLOUD_UNIFORM_BUCKET_ACCESS) ?? true,
-                destination: `uploads/${generateId()}`
-            })
-        })
     } else {
         return multer({ dest: getUploadPath() })
     }
-}
-
-/**
- * Calculate depth of each node from starting nodes
- * @param {INodeDirectedGraph} graph
- * @param {string[]} startingNodeIds
- * @returns {Record<string, number>} Map of nodeId to its depth
- */
-export const calculateNodesDepth = (graph: INodeDirectedGraph, startingNodeIds: string[]): Record<string, number> => {
-    const depths: Record<string, number> = {}
-    const visited = new Set<string>()
-
-    // Initialize all nodes with depth -1 (unvisited)
-    for (const nodeId in graph) {
-        depths[nodeId] = -1
-    }
-
-    // BFS queue with [nodeId, depth]
-    const queue: [string, number][] = startingNodeIds.map((id) => [id, 0])
-
-    // Set starting nodes depth to 0
-    startingNodeIds.forEach((id) => {
-        depths[id] = 0
-    })
-
-    while (queue.length > 0) {
-        const [currentNode, currentDepth] = queue.shift()!
-
-        if (visited.has(currentNode)) continue
-        visited.add(currentNode)
-
-        // Process all neighbors
-        for (const neighbor of graph[currentNode]) {
-            if (!visited.has(neighbor)) {
-                // Update depth if unvisited or found shorter path
-                if (depths[neighbor] === -1 || depths[neighbor] > currentDepth + 1) {
-                    depths[neighbor] = currentDepth + 1
-                }
-                queue.push([neighbor, currentDepth + 1])
-            }
-        }
-    }
-
-    return depths
-}
-
-/**
- * Helper function to get all nodes in a path starting from a node
- * @param {INodeDirectedGraph} graph
- * @param {string} startNode
- * @returns {string[]}
- */
-export const getAllNodesInPath = (startNode: string, graph: INodeDirectedGraph): string[] => {
-    const nodes = new Set<string>()
-    const queue = [startNode]
-
-    while (queue.length > 0) {
-        const current = queue.shift()!
-        if (nodes.has(current)) continue
-
-        nodes.add(current)
-        if (graph[current]) {
-            queue.push(...graph[current])
-        }
-    }
-
-    return Array.from(nodes)
 }

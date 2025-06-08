@@ -29,14 +29,6 @@ import { AddArtifactsToChatMessage1726156258465 } from './1726156258465-AddArtif
 import { AddFollowUpPrompts1726666309552 } from './1726666309552-AddFollowUpPrompts'
 import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssistant'
 import { AddUniks1741277504476 } from './1741277504476-AddUniks'
-import { AddEvaluation1714548873039 } from './1714548873039-AddEvaluation'
-import { AddDatasets1714548903384 } from './1714548903384-AddDataset'
-import { AddEvaluator1714808591644 } from './1714808591644-AddEvaluator'
-import { AddSeqNoToDatasetRow1733752119696 } from './1733752119696-AddSeqNoToDatasetRow'
-import { AddExecutionEntity1738090872625 } from './1738090872625-AddExecutionEntity'
-import { FixOpenSourceAssistantTable1743758056188 } from './1743758056188-FixOpenSourceAssistantTable'
-import { AddErrorToEvaluationRun1744964560174 } from './1744964560174-AddErrorToEvaluationRun'
-import { ModifyExecutionSessionIdFieldType1748450230238 } from './1748450230238-ModifyExecutionSessionIdFieldType'
 
 export const postgresMigrations = [
     Init1693891895163,
@@ -69,13 +61,5 @@ export const postgresMigrations = [
     AddArtifactsToChatMessage1726156258465,
     AddFollowUpPrompts1726666309552,
     AddTypeToAssistant1733011290987,
-    AddUniks1741277504476,
-    AddEvaluation1714548873039,
-    AddDatasets1714548903384,
-    AddEvaluator1714808591644,
-    AddSeqNoToDatasetRow1733752119696,
-    AddExecutionEntity1738090872625,
-    FixOpenSourceAssistantTable1743758056188,
-    AddErrorToEvaluationRun1744964560174,
-    ModifyExecutionSessionIdFieldType1748450230238
+    AddUniks1741277504476
 ]

@@ -10,7 +10,6 @@ import {
 } from '../../../src/Interface'
 import { Metadata, BaseRetriever, LLM, ContextChatEngine, ChatMessage, NodeWithScore } from 'llamaindex'
 import { reformatSourceDocuments } from '../EngineUtils'
-import { EvaluationRunTracerLlama } from '../../../evaluation/EvaluationRunTracerLlama'
 
 class ContextChatEngine_LlamaIndex implements INode {
     label: string
@@ -93,9 +92,6 @@ class ContextChatEngine_LlamaIndex implements INode {
         }
 
         const chatEngine = new ContextChatEngine({ chatModel: model, retriever: vectorStoreRetriever })
-
-        // these are needed for evaluation runs
-        await EvaluationRunTracerLlama.injectEvaluationMetadata(nodeData, options, chatEngine)
 
         const msgs = (await memory.getChatMessages(this.sessionId, false, prependMessages)) as IMessage[]
         for (const message of msgs) {

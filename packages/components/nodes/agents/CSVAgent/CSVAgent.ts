@@ -97,7 +97,7 @@ class CSV_Agents implements INode {
             }
         }
 
-        const loggerHandler = new ConsoleCallbackHandler(options.logger, options?.orgId)
+        const loggerHandler = new ConsoleCallbackHandler(options.logger)
         const shouldStreamResponse = options.shouldStreamResponse
         const sseStreamer: IServerSideEventStreamer = options.sseStreamer as IServerSideEventStreamer
         const chatId = options.chatId
@@ -114,12 +114,11 @@ class CSV_Agents implements INode {
             } else {
                 files = [fileName]
             }
-            const orgId = options.orgId
             const chatflowid = options.chatflowid
 
             for (const file of files) {
                 if (!file) continue
-                const fileData = await getFileFromStorage(file, orgId, chatflowid)
+                const fileData = await getFileFromStorage(file, chatflowid)
                 base64String += fileData.toString('base64')
             }
         } else {
@@ -171,7 +170,7 @@ json.dumps(my_dict)`
             const chain = new LLMChain({
                 llm: model,
                 prompt: PromptTemplate.fromTemplate(systemPrompt),
-                verbose: process.env.DEBUG === 'true' ? true : false
+                verbose: process.env.DEBUG === 'true'
             })
             const inputs = {
                 dict: dataframeColDict,
@@ -202,7 +201,7 @@ json.dumps(my_dict)`
                 prompt: PromptTemplate.fromTemplate(
                     systemMessagePrompt ? `${systemMessagePrompt}\n${finalSystemPrompt}` : finalSystemPrompt
                 ),
-                verbose: process.env.DEBUG === 'true' ? true : false
+                verbose: process.env.DEBUG === 'true'
             })
             const inputs = {
                 question: input,

@@ -8,7 +8,6 @@ import { Moderation } from '../nodes/moderation/Moderation'
 
 export type NodeParamsType =
     | 'asyncOptions'
-    | 'asyncMultiOptions'
     | 'options'
     | 'multiOptions'
     | 'datagrid'
@@ -58,16 +57,22 @@ export interface INodeOptionsValue {
     label: string
     name: string
     description?: string
-    imageSrc?: string
 }
 
 export interface INodeOutputsValue {
     label: string
     name: string
-    baseClasses?: string[]
+    baseClasses: string[]
     description?: string
     hidden?: boolean
     isAnchor?: boolean
+}
+
+export interface INodeAnchor {
+    name: string
+    type: string
+    label: string
+    description?: string
 }
 
 export interface INodeParams {
@@ -85,12 +90,10 @@ export interface INodeParams {
     rows?: number
     list?: boolean
     acceptVariable?: boolean
-    acceptNodeOutputAsVariable?: boolean
     placeholder?: string
     fileType?: string
     additionalParams?: boolean
     loadMethod?: string
-    loadConfig?: boolean
     hidden?: boolean
     hideCodeExecute?: boolean
     codeExample?: string
@@ -100,11 +103,6 @@ export interface INodeParams {
     refresh?: boolean
     freeSolo?: boolean
     loadPreviousNodes?: boolean
-    array?: Array<INodeParams>
-    show?: INodeDisplay
-    hide?: INodeDisplay
-    generateDocStoreDescription?: boolean
-    generateInstruction?: boolean
 }
 
 export interface INodeExecutionData {
@@ -112,7 +110,7 @@ export interface INodeExecutionData {
 }
 
 export interface INodeDisplay {
-    [key: string]: string[] | string | boolean | number | ICommonObject
+    [key: string]: string[] | string
 }
 
 export interface INodeProperties {
@@ -129,15 +127,11 @@ export interface INodeProperties {
     badge?: string
     deprecateMessage?: string
     hideOutput?: boolean
-    hideInput?: boolean
     author?: string
     documentation?: string
-    color?: string
-    hint?: string
 }
 
 export interface INode extends INodeProperties {
-    credential?: INodeParams
     inputs?: INodeParams[]
     output?: INodeOutputsValue[]
     loadMethods?: {
@@ -414,13 +408,10 @@ export interface IVisionChatModal {
     revertToOriginalModel(): void
     setMultiModalOption(multiModalOption: IMultiModalOption): void
 }
-
 export interface IStateWithMessages extends ICommonObject {
     messages: BaseMessage[]
     [key: string]: any
 }
-
-export * from './Interface.Evaluation'
 
 export interface IServerSideEventStreamer {
     streamStartEvent(chatId: string, data: any): void
@@ -428,19 +419,14 @@ export interface IServerSideEventStreamer {
     streamCustomEvent(chatId: string, eventType: string, data: any): void
     streamSourceDocumentsEvent(chatId: string, data: any): void
     streamUsedToolsEvent(chatId: string, data: any): void
-    streamCalledToolsEvent(chatId: string, data: any): void
     streamFileAnnotationsEvent(chatId: string, data: any): void
     streamToolEvent(chatId: string, data: any): void
     streamAgentReasoningEvent(chatId: string, data: any): void
-    streamAgentFlowExecutedDataEvent(chatId: string, data: any): void
-    streamAgentFlowEvent(chatId: string, data: any): void
     streamNextAgentEvent(chatId: string, data: any): void
-    streamNextAgentFlowEvent(chatId: string, data: any): void
     streamActionEvent(chatId: string, data: any): void
     streamArtifactsEvent(chatId: string, data: any): void
     streamAbortEvent(chatId: string): void
     streamEndEvent(chatId: string): void
-    streamUsageMetadataEvent(chatId: string, data: any): void
 }
 
 export enum FollowUpPromptProvider {
@@ -467,17 +453,3 @@ export type FollowUpPromptConfig = {
     status: boolean
     selectedProvider: FollowUpPromptProvider
 } & FollowUpPromptProviderConfig
-
-export interface ICondition {
-    type: string
-    value1: CommonType
-    operation: string
-    value2: CommonType
-    isFulfilled?: boolean
-}
-
-export interface IHumanInput {
-    type: 'proceed' | 'reject'
-    startNodeId: string
-    feedback?: string
-}

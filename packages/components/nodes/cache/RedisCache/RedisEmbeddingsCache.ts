@@ -83,19 +83,10 @@ class RedisEmbeddingsCache implements INode {
                 host,
                 username,
                 password,
-                keepAlive:
-                    process.env.REDIS_KEEP_ALIVE && !isNaN(parseInt(process.env.REDIS_KEEP_ALIVE, 10))
-                        ? parseInt(process.env.REDIS_KEEP_ALIVE, 10)
-                        : undefined,
                 ...tlsOptions
             })
         } else {
-            client = new Redis(redisUrl, {
-                keepAlive:
-                    process.env.REDIS_KEEP_ALIVE && !isNaN(parseInt(process.env.REDIS_KEEP_ALIVE, 10))
-                        ? parseInt(process.env.REDIS_KEEP_ALIVE, 10)
-                        : undefined
-            })
+            client = new Redis(redisUrl)
         }
 
         ttl ??= '3600'

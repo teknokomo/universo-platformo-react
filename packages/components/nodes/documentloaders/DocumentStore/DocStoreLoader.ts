@@ -60,8 +60,7 @@ class DocStore_DocumentLoaders implements INode {
                 return returnData
             }
 
-            const searchOptions = options.searchOptions || {}
-            const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).findBy(searchOptions)
+            const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).find()
             for (const store of stores) {
                 if (store.status === 'SYNC') {
                     const obj = {

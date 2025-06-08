@@ -98,12 +98,11 @@ class Text_DocumentLoaders implements INode {
             } else {
                 files = [fileName]
             }
-            const orgId = options.orgId
             const chatflowid = options.chatflowid
 
             for (const file of files) {
                 if (!file) continue
-                const fileData = await getFileFromStorage(file, orgId, chatflowid)
+                const fileData = await getFileFromStorage(file, chatflowid)
                 const blob = new Blob([fileData])
                 const loader = new TextLoader(blob)
 

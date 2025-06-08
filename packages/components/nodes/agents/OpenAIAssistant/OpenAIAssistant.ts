@@ -107,11 +107,7 @@ class OpenAIAssistant_Agents implements INode {
                 return returnData
             }
 
-            const searchOptions = options.searchOptions || {}
-            const assistants = await appDataSource.getRepository(databaseEntities['Assistant']).findBy({
-                ...searchOptions,
-                type: 'OPENAI'
-            })
+            const assistants = await appDataSource.getRepository(databaseEntities['Assistant']).find()
 
             for (let i = 0; i < assistants.length; i += 1) {
                 const assistantDetails = JSON.parse(assistants[i].details)
@@ -134,14 +130,13 @@ class OpenAIAssistant_Agents implements INode {
         const selectedAssistantId = nodeData.inputs?.selectedAssistant as string
         const appDataSource = options.appDataSource as DataSource
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const orgId = options.orgId
 
         const assistant = await appDataSource.getRepository(databaseEntities['Assistant']).findOneBy({
             id: selectedAssistantId
         })
 
         if (!assistant) {
-            options.logger.error(`[${orgId}]: Assistant ${selectedAssistantId} not found`)
+            options.logger.error(`Assistant ${selectedAssistantId} not found`)
             return
         }
 
@@ -154,7 +149,7 @@ class OpenAIAssistant_Agents implements INode {
                 chatId
             })
             if (!chatmsg) {
-                options.logger.error(`[${orgId}]: Chat Message with Chat Id: ${chatId} not found`)
+                options.logger.error(`Chat Message with Chat Id: ${chatId} not found`)
                 return
             }
             sessionId = chatmsg.sessionId
@@ -165,21 +160,21 @@ class OpenAIAssistant_Agents implements INode {
         const credentialData = await getCredentialData(assistant.credential ?? '', options)
         const openAIApiKey = getCredentialParam('openAIApiKey', credentialData, nodeData)
         if (!openAIApiKey) {
-            options.logger.error(`[${orgId}]: OpenAI ApiKey not found`)
+            options.logger.error(`OpenAI ApiKey not found`)
             return
         }
 
         const openai = new OpenAI({ apiKey: openAIApiKey })
-        options.logger.info(`[${orgId}]: Clearing OpenAI Thread ${sessionId}`)
+        options.logger.info(`Clearing OpenAI Thread ${sessionId}`)
         try {
             if (sessionId && sessionId.startsWith('thread_')) {
                 await openai.beta.threads.del(sessionId)
-                options.logger.info(`[${orgId}]: Successfully cleared OpenAI Thread ${sessionId}`)
+                options.logger.info(`Successfully cleared OpenAI Thread ${sessionId}`)
             } else {
-                options.logger.error(`[${orgId}]: Error clearing OpenAI Thread ${sessionId}`)
+                options.logger.error(`Error clearing OpenAI Thread ${sessionId}`)
             }
         } catch (e) {
-            options.logger.error(`[${orgId}]: Error clearing OpenAI Thread ${sessionId}`)
+            options.logger.error(`Error clearing OpenAI Thread ${sessionId}`)
         }
     }
 
@@ -195,17 +190,6 @@ class OpenAIAssistant_Agents implements INode {
         const shouldStreamResponse = options.shouldStreamResponse
         const sseStreamer: IServerSideEventStreamer = options.sseStreamer as IServerSideEventStreamer
         const chatId = options.chatId
-        const checkStorage = options.checkStorage
-            ? (options.checkStorage as (orgId: string, subscriptionId: string, usageCacheManager: any) => Promise<void>)
-            : undefined
-        const updateStorageUsage = options.updateStorageUsage
-            ? (options.updateStorageUsage as (
-                  orgId: string,
-                  workspaceId: string,
-                  totalSize: number,
-                  usageCacheManager: any
-              ) => Promise<void>)
-            : undefined
 
         if (moderations && moderations.length > 0) {
             try {
@@ -240,7 +224,7 @@ class OpenAIAssistant_Agents implements INode {
         const openai = new OpenAI({ apiKey: openAIApiKey })
 
         // Start analytics
-        const analyticHandlers = AnalyticHandler.getInstance(nodeData, options)
+        const analyticHandlers = new AnalyticHandler(nodeData, options)
         await analyticHandlers.init()
         const parentIds = await analyticHandlers.onChainStart('OpenAIAssistant', input)
 
@@ -396,30 +380,17 @@ class OpenAIAssistant_Agents implements INode {
                                         // eslint-disable-next-line no-useless-escape
                                         const fileName = cited_file.filename.split(/[\/\\]/).pop() ?? cited_file.filename
                                         if (!disableFileDownload) {
-                                            if (checkStorage)
-                                                await checkStorage(options.orgId, options.subscriptionId, options.usageCacheManager)
-
-                                            const { path, totalSize } = await downloadFile(
+                                            filePath = await downloadFile(
                                                 openAIApiKey,
                                                 cited_file,
                                                 fileName,
-                                                options.orgId,
                                                 options.chatflowid,
                                                 options.chatId
                                             )
-                                            filePath = path
                                             fileAnnotations.push({
                                                 filePath,
                                                 fileName
                                             })
-
-                                            if (updateStorageUsage)
-                                                await updateStorageUsage(
-                                                    options.orgId,
-                                                    options.workspaceId,
-                                                    totalSize,
-                                                    options.usageCacheManager
-                                                )
                                         }
                                     } else {
                                         const file_path = (annotation as OpenAI.Beta.Threads.Messages.FilePathAnnotation).file_path
@@ -428,30 +399,17 @@ class OpenAIAssistant_Agents implements INode {
                                             // eslint-disable-next-line no-useless-escape
                                             const fileName = cited_file.filename.split(/[\/\\]/).pop() ?? cited_file.filename
                                             if (!disableFileDownload) {
-                                                if (checkStorage)
-                                                    await checkStorage(options.orgId, options.subscriptionId, options.usageCacheManager)
-
-                                                const { path, totalSize } = await downloadFile(
+                                                filePath = await downloadFile(
                                                     openAIApiKey,
                                                     cited_file,
                                                     fileName,
-                                                    options.orgId,
                                                     options.chatflowid,
                                                     options.chatId
                                                 )
-                                                filePath = path
                                                 fileAnnotations.push({
                                                     filePath,
                                                     fileName
                                                 })
-
-                                                if (updateStorageUsage)
-                                                    await updateStorageUsage(
-                                                        options.orgId,
-                                                        options.workspaceId,
-                                                        totalSize,
-                                                        options.usageCacheManager
-                                                    )
                                             }
                                         }
                                     }
@@ -509,20 +467,14 @@ class OpenAIAssistant_Agents implements INode {
                             const fileId = chunk.image_file.file_id
                             const fileObj = await openai.files.retrieve(fileId)
 
-                            if (checkStorage) await checkStorage(options.orgId, options.subscriptionId, options.usageCacheManager)
-
-                            const { filePath, totalSize } = await downloadImg(
+                            const filePath = await downloadImg(
                                 openai,
                                 fileId,
                                 `${fileObj.filename}.png`,
-                                options.orgId,
                                 options.chatflowid,
                                 options.chatId
                             )
                             artifacts.push({ type: 'png', data: filePath })
-
-                            if (updateStorageUsage)
-                                await updateStorageUsage(options.orgId, options.workspaceId, totalSize, options.usageCacheManager)
 
                             if (!isStreamingStarted) {
                                 isStreamingStarted = true
@@ -791,7 +743,7 @@ class OpenAIAssistant_Agents implements INode {
                     state = await promise(threadId, newRunThread.id)
                 } else {
                     const errMsg = `Error processing thread: ${state}, Thread ID: ${threadId}`
-                    await analyticHandlers.onChainError(parentIds, errMsg, true)
+                    await analyticHandlers.onChainError(parentIds, errMsg)
                     throw new Error(errMsg)
                 }
             }
@@ -824,21 +776,7 @@ class OpenAIAssistant_Agents implements INode {
                                 // eslint-disable-next-line no-useless-escape
                                 const fileName = cited_file.filename.split(/[\/\\]/).pop() ?? cited_file.filename
                                 if (!disableFileDownload) {
-                                    if (checkStorage) await checkStorage(options.orgId, options.subscriptionId, options.usageCacheManager)
-
-                                    const { path, totalSize } = await downloadFile(
-                                        openAIApiKey,
-                                        cited_file,
-                                        fileName,
-                                        options.orgId,
-                                        options.chatflowid,
-                                        options.chatId
-                                    )
-                                    filePath = path
-
-                                    if (updateStorageUsage)
-                                        await updateStorageUsage(options.orgId, options.workspaceId, totalSize, options.usageCacheManager)
-
+                                    filePath = await downloadFile(openAIApiKey, cited_file, fileName, options.chatflowid, options.chatId)
                                     fileAnnotations.push({
                                         filePath,
                                         fileName
@@ -851,27 +789,13 @@ class OpenAIAssistant_Agents implements INode {
                                     // eslint-disable-next-line no-useless-escape
                                     const fileName = cited_file.filename.split(/[\/\\]/).pop() ?? cited_file.filename
                                     if (!disableFileDownload) {
-                                        if (checkStorage)
-                                            await checkStorage(options.orgId, options.subscriptionId, options.usageCacheManager)
-
-                                        const { path, totalSize } = await downloadFile(
+                                        filePath = await downloadFile(
                                             openAIApiKey,
                                             cited_file,
                                             fileName,
-                                            options.orgId,
                                             options.chatflowid,
                                             options.chatId
                                         )
-                                        filePath = path
-
-                                        if (updateStorageUsage)
-                                            await updateStorageUsage(
-                                                options.orgId,
-                                                options.workspaceId,
-                                                totalSize,
-                                                options.usageCacheManager
-                                            )
-
                                         fileAnnotations.push({
                                             filePath,
                                             fileName
@@ -898,20 +822,7 @@ class OpenAIAssistant_Agents implements INode {
                     const fileId = content.image_file.file_id
                     const fileObj = await openai.files.retrieve(fileId)
 
-                    if (checkStorage) await checkStorage(options.orgId, options.subscriptionId, options.usageCacheManager)
-
-                    const { filePath, totalSize } = await downloadImg(
-                        openai,
-                        fileId,
-                        `${fileObj.filename}.png`,
-                        options.orgId,
-                        options.chatflowid,
-                        options.chatId
-                    )
-
-                    if (updateStorageUsage)
-                        await updateStorageUsage(options.orgId, options.workspaceId, totalSize, options.usageCacheManager)
-
+                    const filePath = await downloadImg(openai, fileId, `${fileObj.filename}.png`, options.chatflowid, options.chatId)
                     artifacts.push({ type: 'png', data: filePath })
                 }
             }
@@ -936,13 +847,7 @@ class OpenAIAssistant_Agents implements INode {
     }
 }
 
-const downloadImg = async (
-    openai: OpenAI,
-    fileId: string,
-    fileName: string,
-    orgId: string,
-    ...paths: string[]
-): Promise<{ filePath: string; totalSize: number }> => {
+const downloadImg = async (openai: OpenAI, fileId: string, fileName: string, ...paths: string[]) => {
     const response = await openai.files.content(fileId)
 
     // Extract the binary data from the Response object
@@ -952,18 +857,12 @@ const downloadImg = async (
     const image_data_buffer = Buffer.from(image_data)
     const mime = 'image/png'
 
-    const { path, totalSize } = await addSingleFileToStorage(mime, image_data_buffer, fileName, orgId, ...paths)
+    const res = await addSingleFileToStorage(mime, image_data_buffer, fileName, ...paths)
 
-    return { filePath: path, totalSize }
+    return res
 }
 
-const downloadFile = async (
-    openAIApiKey: string,
-    fileObj: any,
-    fileName: string,
-    orgId: string,
-    ...paths: string[]
-): Promise<{ path: string; totalSize: number }> => {
+const downloadFile = async (openAIApiKey: string, fileObj: any, fileName: string, ...paths: string[]) => {
     try {
         const response = await fetch(`https://api.openai.com/v1/files/${fileObj.id}/content`, {
             method: 'GET',
@@ -981,12 +880,10 @@ const downloadFile = async (
         const data_buffer = Buffer.from(data)
         const mime = 'application/octet-stream'
 
-        const { path, totalSize } = await addSingleFileToStorage(mime, data_buffer, fileName, orgId, ...paths)
-
-        return { path, totalSize }
+        return await addSingleFileToStorage(mime, data_buffer, fileName, ...paths)
     } catch (error) {
         console.error('Error downloading or writing the file:', error)
-        return { path: '', totalSize: 0 }
+        return ''
     }
 }
 

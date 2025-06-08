@@ -9,7 +9,6 @@ export type SaverOptions = {
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
     chatflowid: string
-    orgId: string
 }
 
 export interface CheckpointTuple {

@@ -88,12 +88,9 @@ const initializeMongoDB = async (nodeData: INodeData, options: ICommonObject): P
     const mongoDBConnectUrl = getCredentialParam('mongoDBConnectUrl', credentialData, nodeData)
     const driverInfo = { name: 'Flowise', version: (await getVersion()).version }
 
-    const orgId = options.orgId as string
-
     return new BufferMemoryExtended({
         memoryKey: memoryKey ?? 'chat_history',
         sessionId,
-        orgId,
         mongoConnection: {
             databaseName,
             collectionName,
@@ -105,7 +102,6 @@ const initializeMongoDB = async (nodeData: INodeData, options: ICommonObject): P
 
 interface BufferMemoryExtendedInput {
     sessionId: string
-    orgId: string
     mongoConnection: {
         databaseName: string
         collectionName: string
@@ -116,7 +112,6 @@ interface BufferMemoryExtendedInput {
 
 class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     sessionId = ''
-    orgId = ''
     mongoConnection: {
         databaseName: string
         collectionName: string
@@ -127,7 +122,6 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     constructor(fields: BufferMemoryInput & BufferMemoryExtendedInput) {
         super(fields)
         this.sessionId = fields.sessionId
-        this.orgId = fields.orgId
         this.mongoConnection = fields.mongoConnection
     }
 
@@ -144,7 +138,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         const messages = document?.messages || []
         const baseMessages = messages.map(mapStoredMessageToChatMessage)
         if (prependMessages?.length) {
-            baseMessages.unshift(...(await mapChatMessageToBaseMessage(prependMessages, this.orgId)))
+            baseMessages.unshift(...(await mapChatMessageToBaseMessage(prependMessages)))
         }
 
         await client.close()
@@ -161,10 +155,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
 
         if (input) {
             const newInputMessage = new HumanMessage(input.text)
-            const messageToAdd = [newInputMessage].map((msg) => ({
-                ...msg.toDict(),
-                timestamp: new Date() // Add timestamp to the message
-            }))
+            const messageToAdd = [newInputMessage].map((msg) => msg.toDict())
             await collection.updateOne(
                 { sessionId: id },
                 {
@@ -176,10 +167,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
 
         if (output) {
             const newOutputMessage = new AIMessage(output.text)
-            const messageToAdd = [newOutputMessage].map((msg) => ({
-                ...msg.toDict(),
-                timestamp: new Date() // Add timestamp to the message
-            }))
+            const messageToAdd = [newOutputMessage].map((msg) => msg.toDict())
             await collection.updateOne(
                 { sessionId: id },
                 {

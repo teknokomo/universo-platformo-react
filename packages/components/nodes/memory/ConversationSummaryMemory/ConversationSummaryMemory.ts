@@ -69,7 +69,6 @@ class ConversationSummaryMemory_Memory implements INode {
         const appDataSource = options.appDataSource as DataSource
         const databaseEntities = options.databaseEntities as IDatabaseEntity
         const chatflowid = options.chatflowid as string
-        const orgId = options.orgId as string
 
         const obj: ConversationSummaryMemoryInput & BufferMemoryExtendedInput = {
             llm: model,
@@ -78,8 +77,7 @@ class ConversationSummaryMemory_Memory implements INode {
             sessionId,
             appDataSource,
             databaseEntities,
-            chatflowid,
-            orgId
+            chatflowid
         }
 
         return new ConversationSummaryMemoryExtended(obj)
@@ -91,14 +89,12 @@ interface BufferMemoryExtendedInput {
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
     chatflowid: string
-    orgId: string
 }
 
 class ConversationSummaryMemoryExtended extends FlowiseSummaryMemory implements MemoryMethods {
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
     chatflowid: string
-    orgId: string
     sessionId = ''
 
     constructor(fields: ConversationSummaryMemoryInput & BufferMemoryExtendedInput) {
@@ -107,7 +103,6 @@ class ConversationSummaryMemoryExtended extends FlowiseSummaryMemory implements 
         this.appDataSource = fields.appDataSource
         this.databaseEntities = fields.databaseEntities
         this.chatflowid = fields.chatflowid
-        this.orgId = fields.orgId
     }
 
     async getChatMessages(
@@ -133,7 +128,7 @@ class ConversationSummaryMemoryExtended extends FlowiseSummaryMemory implements 
             chatMessage.unshift(...prependMessages)
         }
 
-        const baseMessages = await mapChatMessageToBaseMessage(chatMessage, this.orgId)
+        const baseMessages = await mapChatMessageToBaseMessage(chatMessage)
 
         // Get summary
         if (this.llm && typeof this.llm !== 'string') {

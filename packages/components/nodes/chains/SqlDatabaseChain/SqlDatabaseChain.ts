@@ -194,7 +194,7 @@ class SqlDatabaseChain_Chains implements INode {
             topK,
             customPrompt
         )
-        const loggerHandler = new ConsoleCallbackHandler(options.logger, options?.orgId)
+        const loggerHandler = new ConsoleCallbackHandler(options.logger)
         const callbacks = await additionalCallbacks(nodeData, options)
 
         if (shouldStreamResponse) {
@@ -241,7 +241,7 @@ const getSQLDBChain = async (
     const obj: SqlDatabaseChainInput = {
         llm,
         database: db,
-        verbose: process.env.DEBUG === 'true' ? true : false,
+        verbose: process.env.DEBUG === 'true',
         topK: topK
     }
 

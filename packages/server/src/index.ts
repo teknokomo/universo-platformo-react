@@ -1,10 +1,14 @@
-import express, { Request, Response } from 'express'
+import express from 'express'
+import { Request, Response } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
-import cookieParser from 'cookie-parser'
-import { DataSource, IsNull } from 'typeorm'
-import { MODE, Platform } from './Interface'
+// Universo Platformo | Removed express-basic-auth import - Basic Auth is no longer used
+// import basicAuth from 'express-basic-auth'
+import cookieParser from 'cookie-parser' // Universo Platformo | Add cookie-parser for refresh tokens
+import jwt from 'jsonwebtoken' // Universo Platformo | New import for JWT verification
+import { DataSource } from 'typeorm'
+import { MODE } from './Interface'
 import { getNodeModulesPackagePath, getEncryptionKey } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { getDataSource } from './DataSource'
@@ -13,34 +17,23 @@ import { ChatFlow } from './database/entities/ChatFlow'
 import { CachePool } from './CachePool'
 import { AbortControllerPool } from './AbortControllerPool'
 import { RateLimiterManager } from './utils/rateLimit'
-import { getAllowedIframeOrigins, getCorsOptions, sanitizeMiddleware } from './utils/XSS'
+import { getAPIKeys } from './utils/apiKey'
+import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import { Telemetry } from './utils/telemetry'
 import flowiseApiV1Router from './routes'
 import errorHandlerMiddleware from './middlewares/errors'
-import { WHITELIST_URLS } from './utils/constants'
-import { initializeJwtCookieMiddleware, verifyToken } from './enterprise/middleware/passport'
-import { IdentityManager } from './IdentityManager'
 import { SSEStreamer } from './utils/SSEStreamer'
-import { getAPIKeyWorkspaceID, validateAPIKey } from './utils/validateKey'
-import { LoggedInUser } from './enterprise/Interface.Enterprise'
+import { validateAPIKey } from './utils/validateKey'
 import { IMetricsProvider } from './Interface.Metrics'
 import { Prometheus } from './metrics/Prometheus'
 import { OpenTelemetry } from './metrics/OpenTelemetry'
 import { QueueManager } from './queue/QueueManager'
 import { RedisEventSubscriber } from './queue/RedisEventSubscriber'
+import { WHITELIST_URLS } from './utils/constants'
 import 'global-agent/bootstrap'
-import { UsageCacheManager } from './UsageCacheManager'
-import { Workspace } from './enterprise/database/entities/workspace.entity'
-import { Organization } from './enterprise/database/entities/organization.entity'
-import { GeneralRole, Role } from './enterprise/database/entities/role.entity'
-import { migrateApiKeysFromJsonToDb } from './utils/apiKey'
 
 declare global {
     namespace Express {
-        interface User extends LoggedInUser {}
-        interface Request {
-            user?: LoggedInUser
-        }
         namespace Multer {
             interface File {
                 bucket: string
@@ -67,11 +60,9 @@ export class App {
     rateLimiterManager: RateLimiterManager
     AppDataSource: DataSource = getDataSource()
     sseStreamer: SSEStreamer
-    identityManager: IdentityManager
     metricsProvider: IMetricsProvider
     queueManager: QueueManager
     redisSubscriber: RedisEventSubscriber
-    usageCacheManager: UsageCacheManager
 
     constructor() {
         this.app = express()
@@ -86,15 +77,15 @@ export class App {
             // Run Migrations Scripts
             await this.AppDataSource.runMigrations({ transaction: 'each' })
 
-            // Initialize Identity Manager
-            this.identityManager = await IdentityManager.getInstance()
-
             // Initialize nodes pool
             this.nodesPool = new NodesPool()
             await this.nodesPool.initialize()
 
             // Initialize abort controllers pool
             this.abortControllerPool = new AbortControllerPool()
+
+            // Initialize API keys
+            await getAPIKeys()
 
             // Initialize encryption key
             await getEncryptionKey()
@@ -105,9 +96,6 @@ export class App {
 
             // Initialize cache pool
             this.cachePool = new CachePool()
-
-            // Initialize usage cache manager
-            this.usageCacheManager = await UsageCacheManager.getInstance()
 
             // Initialize telemetry
             this.telemetry = new Telemetry()
@@ -123,16 +111,11 @@ export class App {
                     telemetry: this.telemetry,
                     cachePool: this.cachePool,
                     appDataSource: this.AppDataSource,
-                    abortControllerPool: this.abortControllerPool,
-                    usageCacheManager: this.usageCacheManager
+                    abortControllerPool: this.abortControllerPool
                 })
-                logger.info('✅ [Queue]: All queues setup successfully')
                 this.redisSubscriber = new RedisEventSubscriber(this.sseStreamer)
                 await this.redisSubscriber.connect()
             }
-
-            // TODO: Remove this by end of 2025
-            await migrateApiKeysFromJsonToDb(this.AppDataSource, this.identityManager.getPlatformType())
 
             logger.info('📦 [server]: Data Source has been initialized!')
         } catch (error) {
@@ -145,15 +128,14 @@ export class App {
         const flowise_file_size_limit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
         this.app.use(express.json({ limit: flowise_file_size_limit }))
         this.app.use(express.urlencoded({ limit: flowise_file_size_limit, extended: true }))
+        if (process.env.NUMBER_OF_PROXIES && parseInt(process.env.NUMBER_OF_PROXIES) > 0)
+            this.app.set('trust proxy', parseInt(process.env.NUMBER_OF_PROXIES))
 
-        // Enhanced trust proxy settings for load balancer
-        this.app.set('trust proxy', true) // Trust all proxies
+        // Universo Platformo | Add cookie-parser middleware
+        this.app.use(cookieParser())
 
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))
-
-        // Parse cookies
-        this.app.use(cookieParser())
 
         // Allow embedding from specified domains.
         this.app.use((req, res, next) => {
@@ -176,99 +158,57 @@ export class App {
         // Add the sanitizeMiddleware to guard against XSS
         this.app.use(sanitizeMiddleware)
 
-        this.app.use((req, res, next) => {
-            res.header('Access-Control-Allow-Credentials', 'true') // Allow credentials (cookies, etc.)
-            if (next) next()
-        })
-
         const whitelistURLs = WHITELIST_URLS
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
         const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
 
-        await initializeJwtCookieMiddleware(this.app, this.identityManager)
-
-        this.app.use(async (req, res, next) => {
-            // Step 1: Check if the req path contains /api/v1 regardless of case
-            if (URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
-                // Step 2: Check if the req path is casesensitive
-                if (URL_CASE_SENSITIVE_REGEX.test(req.path)) {
-                    // Step 3: Check if the req path is in the whitelist
-                    const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-                    if (isWhitelisted) {
-                        next()
-                    } else if (req.headers['x-request-from'] === 'internal') {
-                        verifyToken(req, res, next)
-                    } else {
-                        // Only check license validity for non-open-source platforms
-                        if (this.identityManager.getPlatformType() !== Platform.OPEN_SOURCE) {
-                            if (!this.identityManager.isLicenseValid()) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-                        }
-                        const isKeyValidated = await validateAPIKey(req)
-                        if (!isKeyValidated) {
-                            return res.status(401).json({ error: 'Unauthorized Access' })
-                        }
-                        const apiKeyWorkSpaceId = await getAPIKeyWorkspaceID(req)
-                        if (apiKeyWorkSpaceId) {
-                            // Find workspace
-                            const workspace = await this.AppDataSource.getRepository(Workspace).findOne({
-                                where: { id: apiKeyWorkSpaceId }
-                            })
-                            if (!workspace) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-
-                            // Find owner role
-                            const ownerRole = await this.AppDataSource.getRepository(Role).findOne({
-                                where: { name: GeneralRole.OWNER, organizationId: IsNull() }
-                            })
-                            if (!ownerRole) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-
-                            // Find organization
-                            const activeOrganizationId = workspace.organizationId as string
-                            const org = await this.AppDataSource.getRepository(Organization).findOne({
-                                where: { id: activeOrganizationId }
-                            })
-                            if (!org) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-                            const subscriptionId = org.subscriptionId as string
-                            const customerId = org.customerId as string
-                            const features = await this.identityManager.getFeaturesByPlan(subscriptionId)
-                            const productId = await this.identityManager.getProductIdFromSubscription(subscriptionId)
-
-                            // @ts-ignore
-                            req.user = {
-                                permissions: [...JSON.parse(ownerRole.permissions)],
-                                features,
-                                activeOrganizationId: activeOrganizationId,
-                                activeOrganizationSubscriptionId: subscriptionId,
-                                activeOrganizationCustomerId: customerId,
-                                activeOrganizationProductId: productId,
-                                isOrganizationAdmin: true,
-                                activeWorkspaceId: apiKeyWorkSpaceId,
-                                activeWorkspace: workspace.name,
-                                isApiKeyValidated: true
-                            }
-                            next()
-                        } else {
-                            return res.status(401).json({ error: 'Unauthorized Access' })
-                        }
+        // ======= NEW AUTHENTICATION MIDDLEWARE (Supabase JWT) =======
+        // Universo Platformo | This middleware replaces the old Basic Auth logic and checks all requests to the API.
+        this.app.use('/api/v1', async (req: Request, res: Response, next) => {
+            // Universo Platformo | If the path does not contain /api/v1, skip
+            if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
+                return next()
+            }
+            // Universo Platformo | If the path case doesn't match, reject
+            if (!URL_CASE_SENSITIVE_REGEX.test(req.path)) {
+                return res.status(401).json({ error: 'Unauthorized Access' })
+            }
+            // Universo Platformo | If URL in whitelist, skip
+            const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
+            if (isWhitelisted) {
+                return next()
+            }
+            // Universo Platformo | Extract Authorization header
+            const authHeader = req.headers['authorization'] || req.headers['Authorization']
+            let supabaseUserId: string | null = null
+            if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7)
+                try {
+                    // Universo Platformo | Verify JWT using Supabase secret key
+                    const decoded: any = jwt.verify(token, process.env.SUPABASE_JWT_SECRET as string)
+                    supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
+                    if (supabaseUserId) {
+                        // Universo Platformo | Save user data in req.user for further use
+                        ;(req as any).user = { id: supabaseUserId, ...decoded }
                     }
-                } else {
+                } catch (err) {
+                    supabaseUserId = null
+                }
+            }
+            // Universo Platformo | If JWT is missing or invalid, check API key
+            if (!supabaseUserId) {
+                const apiKeyValid = await validateAPIKey(req)
+                if (!apiKeyValid) {
                     return res.status(401).json({ error: 'Unauthorized Access' })
                 }
-            } else {
-                // If the req path does not contain /api/v1, then allow the request to pass through, example: /assets, /canvas
-                next()
+                return next()
             }
+            return next()
         })
+        // ======= END NEW AUTHENTICATION MIDDLEWARE =======
 
-        // this is for SSO and must be after the JWT cookie middleware
-        await this.identityManager.initializeSSO(this.app)
+        // --- Old Basic Auth blocks are removed ---
+        // Universo Platformo | (Branch based on FLOWISE_USERNAME / FLOWISE_PASSWORD completely removed)
 
         if (process.env.ENABLE_METRICS === 'true') {
             switch (process.env.METRICS_PROVIDER) {
@@ -304,7 +244,7 @@ export class App {
             })
         })
 
-        if (process.env.MODE === MODE.QUEUE && process.env.ENABLE_BULLMQ_DASHBOARD === 'true' && !this.identityManager.isCloud()) {
+        if (process.env.MODE === MODE.QUEUE) {
             this.app.use('/admin/queues', this.queueManager.getBullBoardRouter())
         }
 

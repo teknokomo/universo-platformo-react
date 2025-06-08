@@ -65,7 +65,6 @@ class PostgresAgentMemory_Memory implements INode {
         const databaseEntities = options.databaseEntities as IDatabaseEntity
         const chatflowid = options.chatflowid as string
         const appDataSource = options.appDataSource as DataSource
-        const orgId = options.orgId as string
 
         let additionalConfiguration = {}
         if (additionalConfig) {
@@ -102,8 +101,7 @@ class PostgresAgentMemory_Memory implements INode {
             threadId,
             appDataSource,
             databaseEntities,
-            chatflowid,
-            orgId
+            chatflowid
         }
         const recordManager = new PostgresSaver(args)
         return recordManager

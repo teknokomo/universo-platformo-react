@@ -80,8 +80,7 @@ class Code_Interpreter_Tools implements INode {
             schema: z.object({
                 input: z.string().describe('Python code to be executed in the sandbox environment')
             }),
-            chatflowid: options.chatflowid,
-            orgId: options.orgId
+            chatflowid: options.chatflowid
         })
     }
 }
@@ -93,7 +92,6 @@ type E2BToolInput = {
     apiKey: string
     schema: any
     chatflowid: string
-    orgId: string
     templateCodeInterpreterE2B?: string
     domainCodeInterpreterE2B?: string
 }
@@ -115,8 +113,6 @@ export class E2BTool extends StructuredTool {
 
     chatflowid: string
 
-    orgId: string
-
     flowObj: ICommonObject
 
     templateCodeInterpreterE2B?: string
@@ -129,7 +125,6 @@ export class E2BTool extends StructuredTool {
         this.apiKey = options.apiKey
         this.schema = options.schema
         this.chatflowid = options.chatflowid
-        this.orgId = options.orgId
         this.templateCodeInterpreterE2B = options.templateCodeInterpreterE2B
         this.domainCodeInterpreterE2B = options.domainCodeInterpreterE2B
     }
@@ -141,7 +136,6 @@ export class E2BTool extends StructuredTool {
             apiKey: options.apiKey,
             schema: options.schema,
             chatflowid: options.chatflowid,
-            orgId: options.orgId,
             templateCodeInterpreterE2B: options.templateCodeInterpreterE2B,
             domainCodeInterpreterE2B: options.domainCodeInterpreterE2B
         })
@@ -218,33 +212,28 @@ export class E2BTool extends StructuredTool {
 
                             const filename = `artifact_${Date.now()}.png`
 
-                            // Don't check storage usage because this is incoming file, and if we throw error, agent will keep on retrying
-                            const { path } = await addSingleFileToStorage(
+                            const res = await addSingleFileToStorage(
                                 'image/png',
                                 pngData,
                                 filename,
-                                this.orgId,
                                 this.chatflowid,
                                 flowConfig!.chatId as string
                             )
-
-                            artifacts.push({ type: 'png', data: path })
+                            artifacts.push({ type: 'png', data: res })
                         } else if (key === 'jpeg') {
                             //@ts-ignore
                             const jpegData = Buffer.from(result.jpeg, 'base64')
 
                             const filename = `artifact_${Date.now()}.jpg`
 
-                            const { path } = await addSingleFileToStorage(
+                            const res = await addSingleFileToStorage(
                                 'image/jpg',
                                 jpegData,
                                 filename,
-                                this.orgId,
                                 this.chatflowid,
                                 flowConfig!.chatId as string
                             )
-
-                            artifacts.push({ type: 'jpeg', data: path })
+                            artifacts.push({ type: 'jpeg', data: res })
                         } else if (key === 'html' || key === 'markdown' || key === 'latex' || key === 'json' || key === 'javascript') {
                             artifacts.push({ type: key, data: (result as any)[key] })
                         } //TODO: support for pdf

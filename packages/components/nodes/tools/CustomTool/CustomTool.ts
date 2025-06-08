@@ -77,8 +77,7 @@ class CustomTool_Tools implements INode {
                 return returnData
             }
 
-            const searchOptions = options.searchOptions || {}
-            const tools = await appDataSource.getRepository(databaseEntities['Tool']).findBy(searchOptions)
+            const tools = await appDataSource.getRepository(databaseEntities['Tool']).find()
 
             for (let i = 0; i < tools.length; i += 1) {
                 const data = {
@@ -123,7 +122,7 @@ class CustomTool_Tools implements INode {
                 obj.schema = zodSchemaFunction(z)
             }
 
-            const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
+            const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
             const flow = { chatflowId: options.chatflowid }
 

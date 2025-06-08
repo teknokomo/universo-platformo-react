@@ -267,7 +267,7 @@ const runCondition = async (nodeData: INodeData, input: string, options: ICommon
     const tabIdentifier = nodeData.inputs?.[`${TAB_IDENTIFIER}_${nodeData.id}`] as string
 
     const selectedTab = tabIdentifier ? tabIdentifier.split(`_${nodeData.id}`)[0] : 'conditionUI'
-    const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
+    const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
     const flow = {
         chatflowId: options.chatflowid,
@@ -279,7 +279,7 @@ const runCondition = async (nodeData: INodeData, input: string, options: ICommon
     }
 
     if (selectedTab === 'conditionFunction' && conditionFunction) {
-        const vm = await getVM(appDataSource, databaseEntities, nodeData, options, flow)
+        const vm = await getVM(appDataSource, databaseEntities, nodeData, flow)
         try {
             const response = await vm.run(`module.exports = async function() {${conditionFunction}}()`, __dirname)
             if (typeof response !== 'string') throw new Error('Condition function must return a string')

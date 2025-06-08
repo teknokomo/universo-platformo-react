@@ -141,8 +141,7 @@ class ExecuteFlow_SeqAgents implements INode {
                 return returnData
             }
 
-            const searchOptions = options.searchOptions || {}
-            const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).findBy(searchOptions)
+            const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).find()
 
             for (let i = 0; i < chatflows.length; i += 1) {
                 const data = {
@@ -190,7 +189,7 @@ class ExecuteFlow_SeqAgents implements INode {
         const chatId = options.chatId
 
         const executeFunc = async (state: ISeqAgentsState) => {
-            const variables = await getVars(appDataSource, databaseEntities, nodeData, options)
+            const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
             let flowInput = ''
             if (seqExecuteFlowInput === 'userQuestion') {
@@ -224,7 +223,7 @@ class ExecuteFlow_SeqAgents implements INode {
                 }
             }
 
-            const callOptions = {
+            const options = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -235,7 +234,7 @@ class ExecuteFlow_SeqAgents implements INode {
 
             let sandbox: ICommonObject = {
                 $input: flowInput,
-                $callOptions: callOptions,
+                $callOptions: options,
                 $callBody: body,
                 util: undefined,
                 Symbol: undefined,

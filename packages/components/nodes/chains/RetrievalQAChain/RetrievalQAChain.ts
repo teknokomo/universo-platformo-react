@@ -53,7 +53,7 @@ class RetrievalQAChain_Chains implements INode {
         const model = nodeData.inputs?.model as BaseLanguageModel
         const vectorStoreRetriever = nodeData.inputs?.vectorStoreRetriever as BaseRetriever
 
-        const chain = RetrievalQAChain.fromLLM(model, vectorStoreRetriever, { verbose: process.env.DEBUG === 'true' ? true : false })
+        const chain = RetrievalQAChain.fromLLM(model, vectorStoreRetriever, { verbose: process.env.DEBUG === 'true' })
         return chain
     }
 
@@ -80,7 +80,7 @@ class RetrievalQAChain_Chains implements INode {
         const obj = {
             query: input
         }
-        const loggerHandler = new ConsoleCallbackHandler(options.logger, options?.orgId)
+        const loggerHandler = new ConsoleCallbackHandler(options.logger)
         const callbacks = await additionalCallbacks(nodeData, options)
 
         if (shouldStreamResponse) {

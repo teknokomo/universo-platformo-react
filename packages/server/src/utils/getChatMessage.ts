@@ -2,7 +2,6 @@ import { MoreThanOrEqual, LessThanOrEqual, Between, In } from 'typeorm'
 import { ChatMessageRatingType, ChatType } from '../Interface'
 import { ChatMessage } from '../database/entities/ChatMessage'
 import { ChatMessageFeedback } from '../database/entities/ChatMessageFeedback'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 import { aMonthAgo } from '.'
 
@@ -31,7 +30,6 @@ interface GetChatMessageParams {
     messageId?: string
     feedback?: boolean
     feedbackTypes?: ChatMessageRatingType[]
-    activeWorkspaceId?: string
 }
 
 export const utilGetChatMessage = async ({
@@ -45,27 +43,15 @@ export const utilGetChatMessage = async ({
     endDate,
     messageId,
     feedback,
-    feedbackTypes,
-    activeWorkspaceId
+    feedbackTypes
 }: GetChatMessageParams): Promise<ChatMessage[]> => {
     const appServer = getRunningExpressApp()
-
-    // Check if chatflow workspaceId is same as activeWorkspaceId
-    if (activeWorkspaceId) {
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowid
-        })
-        if (chatflow?.workspaceId !== activeWorkspaceId) {
-            throw new Error('Unauthorized access')
-        }
-    }
 
     if (feedback) {
         const query = await appServer.AppDataSource.getRepository(ChatMessage).createQueryBuilder('chat_message')
 
         // do the join with chat message feedback based on messageId for each chat message in the chatflow
         query
-            .leftJoinAndSelect('chat_message.execution', 'execution')
             .leftJoinAndMapOne('chat_message.feedback', ChatMessageFeedback, 'feedback', 'feedback.messageId = chat_message.id')
             .where('chat_message.chatflowid = :chatflowid', { chatflowid })
 
@@ -115,7 +101,6 @@ export const utilGetChatMessage = async ({
     }
 
     let createdDateQuery
-
     if (startDate || endDate) {
         if (startDate && endDate) {
             createdDateQuery = Between(new Date(startDate), new Date(endDate))
@@ -126,7 +111,7 @@ export const utilGetChatMessage = async ({
         }
     }
 
-    const messages = await appServer.AppDataSource.getRepository(ChatMessage).find({
+    return await appServer.AppDataSource.getRepository(ChatMessage).find({
         where: {
             chatflowid,
             chatType: chatTypes?.length ? In(chatTypes) : undefined,
@@ -136,13 +121,8 @@ export const utilGetChatMessage = async ({
             createdDate: createdDateQuery,
             id: messageId ?? undefined
         },
-        relations: {
-            execution: true
-        },
         order: {
             createdDate: sortOrder === 'DESC' ? 'DESC' : 'ASC'
         }
     })
-
-    return messages
 }

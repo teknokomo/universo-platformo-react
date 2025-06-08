@@ -71,7 +71,7 @@ class OpenApiChain_Chains implements INode {
 
     async run(nodeData: INodeData, input: string, options: ICommonObject): Promise<string | object> {
         const chain = await initChain(nodeData, options)
-        const loggerHandler = new ConsoleCallbackHandler(options.logger, options?.orgId)
+        const loggerHandler = new ConsoleCallbackHandler(options.logger)
         const callbacks = await additionalCallbacks(nodeData, options)
         const moderations = nodeData.inputs?.inputModeration as Moderation[]
         const shouldStreamResponse = options.shouldStreamResponse
@@ -114,9 +114,8 @@ const initChain = async (nodeData: INodeData, options: ICommonObject) => {
     } else {
         if (yamlFileBase64.startsWith('FILE-STORAGE::')) {
             const file = yamlFileBase64.replace('FILE-STORAGE::', '')
-            const orgId = options.orgId
             const chatflowid = options.chatflowid
-            const fileData = await getFileFromStorage(file, orgId, chatflowid)
+            const fileData = await getFileFromStorage(file, chatflowid)
             yamlString = fileData.toString()
         } else {
             const splitDataURI = yamlFileBase64.split(',')
@@ -129,7 +128,7 @@ const initChain = async (nodeData: INodeData, options: ICommonObject) => {
     return await createOpenAPIChain(yamlString, {
         llm: model,
         headers: typeof headers === 'object' ? headers : headers ? JSON.parse(headers) : {},
-        verbose: process.env.DEBUG === 'true' ? true : false
+        verbose: process.env.DEBUG === 'true'
     })
 }
 
