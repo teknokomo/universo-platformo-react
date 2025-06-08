@@ -20,7 +20,6 @@ import ChatflowConfigurationDialog from '@/ui-component/dialog/ChatflowConfigura
 import UpsertHistoryDialog from '@/views/vectorstore/UpsertHistoryDialog'
 import ViewLeadsDialog from '@/ui-component/dialog/ViewLeadsDialog'
 import ExportAsTemplateDialog from '@/ui-component/dialog/ExportAsTemplateDialog'
-import { Available } from '@/ui-component/rbac/available'
 
 // API
 import chatflowsApi from '@/api/chatflows'
@@ -35,7 +34,7 @@ import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackba
 
 // ==============================|| CANVAS HEADER ||============================== //
 
-const CanvasHeader = ({ chatflow, isAgentCanvas, isAgentflowV2, handleSaveFlow, handleDeleteFlow, handleLoadFlow }) => {
+const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlow, handleLoadFlow }) => {
     const theme = useTheme()
     const dispatch = useDispatch()
     const navigate = useNavigate()
@@ -63,8 +62,6 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, isAgentflowV2, handleSaveFlow, 
     const [exportAsTemplateDialogProps, setExportAsTemplateDialogProps] = useState({})
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
-
-    const [savePermission, setSavePermission] = useState(isAgentCanvas ? 'agentflows:create' : 'chatflows:create')
 
     const title = isAgentCanvas ? 'Agents' : 'Chatflow'
 
@@ -153,13 +150,10 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, isAgentflowV2, handleSaveFlow, 
                 const parsedFlowData = JSON.parse(flowData)
                 flowData = JSON.stringify(parsedFlowData)
                 localStorage.setItem('duplicatedFlowData', flowData)
-                if (isAgentflowV2) {
-                    window.open(`${uiBaseURL}/uniks/${parentUnikId}/v2/agentcanvas/new`, '_blank')
-                } else if (isAgentCanvas) {
-                    window.open(`${uiBaseURL}/uniks/${parentUnikId}/agentcanvas/new`, '_blank')
-                } else {
-                    window.open(`${uiBaseURL}/uniks/${parentUnikId}/canvas/new`, '_blank')
-                }
+
+                const parentUnikId = localStorage.getItem('parentUnikId')
+
+                window.open(`${uiBaseURL}/uniks/${parentUnikId}/${isAgentCanvas ? 'agentcanvas' : 'chatflows'}/new`, '_blank')
             } catch (e) {
                 console.error(e)
             }
@@ -189,12 +183,9 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, isAgentflowV2, handleSaveFlow, 
     }
 
     const submitFlowName = () => {
-        if (chatflow.id) {
-            const updateBody = {
-                name: flowNameRef.current.value
-            }
-            updateChatflowApi.request(chatflow.id, updateBody)
-        }
+        const newName = flowNameRef.current.value
+        handleSaveFlow(newName)
+        setEditingFlowName(false)
     }
 
     const onAPIDialogClick = () => {
@@ -246,7 +237,6 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, isAgentflowV2, handleSaveFlow, 
 
     const onConfirmSaveName = (flowName) => {
         setFlowDialogOpen(false)
-        setSavePermission(isAgentCanvas ? 'agentflows:update' : 'chatflows:update')
         handleSaveFlow(flowName)
         dispatch({ type: REMOVE_DIRTY })
     }
@@ -254,7 +244,6 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, isAgentflowV2, handleSaveFlow, 
     useEffect(() => {
         if (updateChatflowApi.data) {
             setFlowName(updateChatflowApi.data.name)
-            setSavePermission(isAgentCanvas ? 'agentflows:update' : 'chatflows:update')
             dispatch({ type: SET_CHATFLOW, chatflow: updateChatflowApi.data })
         }
         setEditingFlowName(false)
@@ -545,8 +534,7 @@ CanvasHeader.propTypes = {
     handleSaveFlow: PropTypes.func,
     handleDeleteFlow: PropTypes.func,
     handleLoadFlow: PropTypes.func,
-    isAgentCanvas: PropTypes.bool,
-    isAgentflowV2: PropTypes.bool
+    isAgentCanvas: PropTypes.bool
 }
 
 export default CanvasHeader

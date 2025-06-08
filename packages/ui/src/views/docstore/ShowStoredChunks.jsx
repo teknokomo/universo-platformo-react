@@ -17,7 +17,6 @@ import { BackdropLoader } from '@/ui-component/loading/BackdropLoader'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import ExpandedChunkDialog from './ExpandedChunkDialog'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
-import ErrorBoundary from '@/ErrorBoundary'
 
 // API
 import documentsApi from '@/api/documentstore'
@@ -26,11 +25,9 @@ import documentsApi from '@/api/documentstore'
 import useApi from '@/hooks/useApi'
 import useConfirm from '@/hooks/useConfirm'
 import useNotifier from '@/utils/useNotifier'
-import { useAuth } from '@/hooks/useAuth'
 
 // store
 import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction } from '@/store/actions'
-import { useError } from '@/store/context/ErrorContext'
 
 const CardWrapper = styled(MainCard)(({ theme }) => ({
     background: theme.palette.card.main,
@@ -57,8 +54,6 @@ const ShowStoredChunks = () => {
     const dispatch = useDispatch()
     const theme = useTheme()
     const { confirm } = useConfirm()
-    const { error } = useError()
-    const { hasAssignedWorkspace } = useAuth()
     const { t } = useTranslation(['document-store', 'vector-store'])
 
     useNotifier()
@@ -204,11 +199,6 @@ const ShowStoredChunks = () => {
     useEffect(() => {
         if (getChunksApi.data) {
             const data = getChunksApi.data
-            const workspaceId = data.workspaceId
-            if (!hasAssignedWorkspace(workspaceId)) {
-                navigate('/unauthorized')
-                return
-            }
             setTotalChunks(data.count)
             setDocumentChunks(data.chunks)
             setLoading(false)
@@ -230,160 +220,156 @@ const ShowStoredChunks = () => {
     return (
         <>
             <MainCard style={{ position: 'relative' }}>
-                {error ? (
-                    <ErrorBoundary error={error} />
-                ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
-                        <ViewHeader
-                            isBackButton={true}
-                            search={false}
-                            title={getChunksApi.data?.file?.loaderName || getChunksApi.data?.storeName}
-                            description={getChunksApi.data?.file?.splitterName || getChunksApi.data?.description}
-                            onBack={() => navigate(-1)}
-                        ></ViewHeader>
-                        <div style={{ width: '100%' }}>
-                            {fileNames.length > 0 && (
-                                <Grid sx={{ mt: 1 }} container>
-                                    {fileNames.map((fileName, index) => (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                paddingLeft: '15px',
-                                                paddingRight: '15px',
-                                                paddingTop: '10px',
-                                                paddingBottom: '10px',
-                                                fontSize: '0.9rem',
-                                                width: 'max-content',
-                                                borderRadius: '25px',
-                                                boxShadow: customization.isDarkMode
-                                                    ? '0 2px 14px 0 rgb(255 255 255 / 20%)'
-                                                    : '0 2px 14px 0 rgb(32 40 45 / 20%)',
-                                                display: 'flex',
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                marginRight: '10px'
-                                            }}
-                                        >
-                                            {fileName}
-                                        </div>
-                                    ))}
-                                </Grid>
-                            )}
-                            <div
-                                style={{
-                                    width: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    alignContent: 'center',
-                                    overflow: 'hidden',
-                                    marginTop: 15,
-                                    marginBottom: 10
-                                }}
-                            >
-                                <div style={{ marginRight: 20, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                                    <IconButton
-                                        size='small'
-                                        onClick={() => changePage(currentPage - 1)}
-                                        style={{ marginRight: 10 }}
-                                        variant='outlined'
-                                        disabled={currentPage === 1}
-                                    >
-                                        <IconChevronLeft
-                                            color={
-                                                customization.isDarkMode
-                                                    ? currentPage === 1
-                                                        ? '#616161'
-                                                        : 'white'
-                                                    : currentPage === 1
-                                                    ? '#e0e0e0'
-                                                    : 'black'
-                                            }
-                                        />
-                                    </IconButton>
-                                    {t('documentStore.chunks.showing', { start: Math.min(start, totalChunks)}-{end} of {totalChunks} chunks
-                                    <IconButton
-                                        size='small'
-                                        onClick={() => changePage(currentPage + 1)}
-                                        style={{ marginLeft: 10 }}
-                                        variant='outlined'
-                                        disabled={end >= totalChunks}
-                                    >
-                                        <IconChevronRight
-                                            color={
-                                                customization.isDarkMode
-                                                    ? end >= totalChunks
-                                                        ? '#616161'
-                                                        : 'white'
-                                                    : end >= totalChunks
-                                                    ? '#e0e0e0'
-                                                    : 'black'
-                                            }
-                                        />
-                                    </IconButton>
-                                </div>
-                                <div style={{ marginRight: 20, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                                    <IconLanguage style={{ marginRight: 10 }} size={20} />
-                                    {getChunksApi.data?.characters?.toLocaleString()} characters
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <Grid container spacing={2}>
-                                {!documentChunks.length && (
+                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <ViewHeader
+                        isBackButton={true}
+                        search={false}
+                        title={getChunksApi.data?.file?.loaderName || getChunksApi.data?.storeName}
+                        description={getChunksApi.data?.file?.splitterName || getChunksApi.data?.description}
+                        onBack={() => navigate(-1)}
+                    ></ViewHeader>
+                    <div style={{ width: '100%' }}>
+                        {fileNames.length > 0 && (
+                            <Grid sx={{ mt: 1 }} container>
+                                {fileNames.map((fileName, index) => (
                                     <div
+                                        key={index}
                                         style={{
+                                            paddingLeft: '15px',
+                                            paddingRight: '15px',
+                                            paddingTop: '10px',
+                                            paddingBottom: '10px',
+                                            fontSize: '0.9rem',
+                                            width: 'max-content',
+                                            borderRadius: '25px',
+                                            boxShadow: customization.isDarkMode
+                                                ? '0 2px 14px 0 rgb(255 255 255 / 20%)'
+                                                : '0 2px 14px 0 rgb(32 40 45 / 20%)',
                                             display: 'flex',
-                                            flexDirection: 'column',
+                                            flexDirection: 'row',
                                             alignItems: 'center',
-                                            width: '100%'
+                                            marginRight: '10px'
                                         }}
                                     >
-                                        <Box sx={{ mt: 5, p: 2, height: 'auto' }}>
-                                            <img
-                                                style={{ objectFit: 'cover', height: '16vh', width: 'auto' }}
-                                                src={chunks_emptySVG}
-                                                alt='chunks_emptySVG'
-                                            />
-                                        </Box>
-                                        <div>{t('documentStore.chunks.noChunks')}</div>
+                                        {fileName}
                                     </div>
-                                )}
-                                {documentChunks.length > 0 &&
-                                    documentChunks.map((row, index) => (
-                                        <Grid item lg={4} md={4} sm={6} xs={6} key={index}>
-                                            <CardWrapper
-                                                content={false}
-                                                onClick={() => chunkSelected(row.id)}
-                                                sx={{ border: 1, borderColor: theme.palette.grey[900] + 25, borderRadius: 2 }}
-                                            >
-                                                <Card>
-                                                    <CardContent sx={{ p: 2 }}>
-                                                        <Typography sx={{ wordWrap: 'break-word', mb: 1 }} variant='h5'>
-                                                            {`#${row.chunkNo}. Characters: ${row.pageContent.length}`}
-                                                        </Typography>
-                                                        <Typography sx={{ wordWrap: 'break-word' }} variant='body2'>
-                                                            {row.pageContent}
-                                                        </Typography>
-                                                        <ReactJson
-                                                            theme={customization.isDarkMode ? 'ocean' : 'rjv-default'}
-                                                            style={{ paddingTop: 10 }}
-                                                            src={row.metadata ? JSON.parse(row.metadata) : {}}
-                                                            name={null}
-                                                            quotesOnKeys={false}
-                                                            enableClipboard={false}
-                                                            displayDataTypes={false}
-                                                            collapsed={1}
-                                                        />
-                                                    </CardContent>
-                                                </Card>
-                                            </CardWrapper>
-                                        </Grid>
-                                    ))}
+                                ))}
                             </Grid>
+                        )}
+                        <div
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                alignContent: 'center',
+                                overflow: 'hidden',
+                                marginTop: 15,
+                                marginBottom: 10
+                            }}
+                        >
+                            <div style={{ marginRight: 20, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                <IconButton
+                                    size='small'
+                                    onClick={() => changePage(currentPage - 1)}
+                                    style={{ marginRight: 10 }}
+                                    variant='outlined'
+                                    disabled={currentPage === 1}
+                                >
+                                    <IconChevronLeft
+                                        color={
+                                            customization.isDarkMode
+                                                ? currentPage === 1
+                                                    ? '#616161'
+                                                    : 'white'
+                                                : currentPage === 1
+                                                ? '#e0e0e0'
+                                                : 'black'
+                                        }
+                                    />
+                                </IconButton>
+                                {t('documentStore.chunks.showing', { start: Math.min(start, totalChunks), end, total: totalChunks })}
+                                <IconButton
+                                    size='small'
+                                    onClick={() => changePage(currentPage + 1)}
+                                    style={{ marginLeft: 10 }}
+                                    variant='outlined'
+                                    disabled={end >= totalChunks}
+                                >
+                                    <IconChevronRight
+                                        color={
+                                            customization.isDarkMode
+                                                ? end >= totalChunks
+                                                    ? '#616161'
+                                                    : 'white'
+                                                : end >= totalChunks
+                                                ? '#e0e0e0'
+                                                : 'black'
+                                        }
+                                    />
+                                </IconButton>
+                            </div>
+                            <div style={{ marginRight: 20, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                <IconLanguage style={{ marginRight: 10 }} size={20} />
+                                {t('documentStore.chunks.totalCharacters', { count: getChunksApi.data?.characters?.toLocaleString() })}
+                            </div>
                         </div>
-                    </Stack>
-                )}
+                    </div>
+                    <div>
+                        <Grid container spacing={2}>
+                            {!documentChunks.length && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        width: '100%'
+                                    }}
+                                >
+                                    <Box sx={{ mt: 5, p: 2, height: 'auto' }}>
+                                        <img
+                                            style={{ objectFit: 'cover', height: '16vh', width: 'auto' }}
+                                            src={chunks_emptySVG}
+                                            alt='chunks_emptySVG'
+                                        />
+                                    </Box>
+                                    <div>{t('documentStore.chunks.noChunks')}</div>
+                                </div>
+                            )}
+                            {documentChunks.length > 0 &&
+                                documentChunks.map((row, index) => (
+                                    <Grid item lg={4} md={4} sm={6} xs={6} key={index}>
+                                        <CardWrapper
+                                            content={false}
+                                            onClick={() => chunkSelected(row.id)}
+                                            sx={{ border: 1, borderColor: theme.palette.grey[900] + 25, borderRadius: 2 }}
+                                        >
+                                            <Card>
+                                                <CardContent sx={{ p: 2 }}>
+                                                    <Typography sx={{ wordWrap: 'break-word', mb: 1 }} variant='h5'>
+                                                        {`#${row.chunkNo}. ${t('documentStore.chunks.charactersCount', { count: row.pageContent.length })}`}
+                                                    </Typography>
+                                                    <Typography sx={{ wordWrap: 'break-word' }} variant='body2'>
+                                                        {row.pageContent}
+                                                    </Typography>
+                                                    <ReactJson
+                                                        theme={customization.isDarkMode ? 'ocean' : 'rjv-default'}
+                                                        style={{ paddingTop: 10 }}
+                                                        src={row.metadata ? JSON.parse(row.metadata) : {}}
+                                                        name={null}
+                                                        quotesOnKeys={false}
+                                                        enableClipboard={false}
+                                                        displayDataTypes={false}
+                                                        collapsed={1}
+                                                    />
+                                                </CardContent>
+                                            </Card>
+                                        </CardWrapper>
+                                    </Grid>
+                                ))}
+                        </Grid>
+                    </div>
+                </Stack>
             </MainCard>
             <ConfirmDialog />
             <ExpandedChunkDialog

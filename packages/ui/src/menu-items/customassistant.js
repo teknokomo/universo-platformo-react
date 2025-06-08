@@ -35,16 +35,14 @@ const customAssistantSettings = {
             title: 'Configuration',
             type: 'item',
             url: '',
-            icon: icons.IconAdjustmentsHorizontal,
-            permission: 'assistants:update'
+            icon: icons.IconAdjustmentsHorizontal
         },
         {
             id: 'deleteAssistant',
             title: 'Delete Assistant',
             type: 'item',
             url: '',
-            icon: icons.IconTrash,
-            permission: 'assistants:delete'
+            icon: icons.IconTrash
         }
     ]
 }

@@ -1,19 +1,19 @@
 import express from 'express'
 import credentialsController from '../../controllers/credentials'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
-const router = express.Router()
+
+const router = express.Router({ mergeParams: true })
 
 // CREATE
-router.post('/', checkPermission('credentials:create'), credentialsController.createCredential)
+router.post('/', credentialsController.createCredential)
 
 // READ
-router.get('/', checkPermission('credentials:view'), credentialsController.getAllCredentials)
-router.get(['/', '/:id'], checkPermission('credentials:view'), credentialsController.getCredentialById)
+router.get('/', credentialsController.getAllCredentials)
+router.get('/:id', credentialsController.getCredentialById)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('credentials:create,credentials:update'), credentialsController.updateCredential)
+router.put('/:id', credentialsController.updateCredential)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('credentials:delete'), credentialsController.deleteCredentials)
+router.delete('/:id', credentialsController.deleteCredentials)
 
 export default router

@@ -16,7 +16,6 @@ import Transitions from '@/ui-component/extended/Transitions'
 import settings from '@/menu-items/settings'
 import agentsettings from '@/menu-items/agentsettings'
 import customAssistantSettings from '@/menu-items/customassistant'
-import { useAuth } from '@/hooks/useAuth'
 
 // ==============================|| SETTINGS ||============================== //
 
@@ -26,7 +25,6 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
     const customization = useSelector((state) => state.customization)
     const inputFile = useRef(null)
     const [open, setOpen] = useState(false)
-    const { hasPermission } = useAuth()
 
     const handleFileUpload = (e) => {
         if (!e.target.files) return
@@ -66,9 +64,6 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
 
     // settings list items
     const items = settingsMenu.map((menu) => {
-        if (menu.permission && !hasPermission(menu.permission)) {
-            return null
-        }
         const Icon = menu.icon
         const itemIcon = menu?.icon ? (
             <Icon stroke={1.5} size='1.3rem' />

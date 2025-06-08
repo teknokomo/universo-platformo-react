@@ -47,17 +47,15 @@ const AdditionalParamsDialog = ({ show, dialogProps, onCancel }) => {
                         overflowX: 'hidden'
                     }}
                 >
-                    {inputParams
-                        .filter((inputParam) => inputParam.display !== false)
-                        .map((inputParam, index) => (
-                            <NodeInputHandler
-                                disabled={dialogProps.disabled}
-                                key={index}
-                                inputParam={inputParam}
-                                data={data}
-                                isAdditionalParams={true}
-                            />
-                        ))}
+                    {inputParams.map((inputParam, index) => (
+                        <NodeInputHandler
+                            disabled={dialogProps.disabled}
+                            key={index}
+                            inputParam={inputParam}
+                            data={data}
+                            isAdditionalParams={true}
+                        />
+                    ))}
                 </PerfectScrollbar>
             </DialogContent>
         </Dialog>

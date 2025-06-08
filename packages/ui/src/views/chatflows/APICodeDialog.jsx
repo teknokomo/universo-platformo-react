@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
 import { useTranslation, Trans } from 'react-i18next'
@@ -24,7 +24,6 @@ import {
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTheme } from '@mui/material/styles'
-import { useAuth } from '@/hooks/useAuth'
 
 // Project import
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
@@ -32,9 +31,7 @@ import Configuration from './Configuration'
 import ChatBotSettings from '@/views/publish/bots/ChatBotSettings'
 import ARJSPublisher from '@apps/publish-frt/base/src/features/arjs/ARJSPublisher.jsx'
 import ARJSExporter from '@apps/publish-frt/base/src/features/arjs/ARJSExporter.jsx'
-import ShareChatbot from './ShareChatbot'
 import EmbedChat from './EmbedChat'
-import { Available } from '@/ui-component/rbac/available'
 
 // Const
 import { baseURL } from '@/store/constant'
@@ -60,6 +57,7 @@ import variablesApi from '@/api/variables'
 import useApi from '@/hooks/useApi'
 import { CheckboxInput } from '@/ui-component/checkbox/Checkbox'
 import { TableViewOnly } from '@/ui-component/table/Table'
+import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 
 // Helpers
 import { unshiftFiles, getConfigExamplesForJS, getConfigExamplesForPython, getConfigExamplesForCurl } from '@/utils/genericHelper'
@@ -132,36 +130,6 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const getIsChatflowStreamingApi = useApi(chatflowsApi.getIsChatflowStreaming)
     const getConfigApi = useApi(configApi.getConfig)
     const getAllVariablesApi = useApi(variablesApi.getAllVariables)
-    const isGlobal = useSelector((state) => state.auth.isGlobal)
-    const { hasPermission } = useAuth()
-
-    // Memoize keyOptions to prevent recreation on hover
-    const keyOptions = useMemo(() => {
-        if (!getAllAPIKeysApi.data) return []
-
-        const options = [
-            {
-                label: 'No Authorization',
-                name: ''
-            }
-        ]
-
-        for (const key of getAllAPIKeysApi.data) {
-            options.push({
-                label: key.keyName,
-                name: key.id
-            })
-        }
-
-        if (isGlobal || hasPermission('apikeys:create')) {
-            options.push({
-                label: '- Add New Key -',
-                name: 'addnewkey'
-            })
-        }
-
-        return options
-    }, [getAllAPIKeysApi.data, isGlobal, hasPermission])
 
     const onCheckBoxChanged = (newVal) => {
         setCheckbox(newVal)
@@ -796,15 +764,13 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                         </Tabs>
                     </div>
                     <div style={{ flex: 20 }}>
-                        <Available permission={'chatflows:update,agentflows:update'}>
-                            <Dropdown
-                                name='SelectKey'
-                                disableClearable={true}
-                                options={keyOptions}
-                                onSelect={(newValue) => onApiKeySelected(newValue)}
-                                value={dialogProps.chatflowApiKeyId ?? chatflowApiKeyId ?? t('chatflows.apiCodeDialog.chooseApiKey')}
-                            />
-                        </Available>
+                        <Dropdown
+                            name='SelectKey'
+                            disableClearable={true}
+                            options={keyOptions}
+                            onSelect={(newValue) => onApiKeySelected(newValue)}
+                            value={dialogProps.chatflowApiKeyId ?? chatflowApiKeyId ?? t('chatflows.apiCodeDialog.chooseApiKey')}
+                        />
                     </div>
                 </div>
                 <div style={{ marginTop: 10 }}></div>
@@ -1031,9 +997,6 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                     </p>
                                 )}
                             </>
-                        )}
-                        {codeLang === 'Share Chatbot' && !chatflowApiKeyId && (
-                            <ShareChatbot isSessionMemory={dialogProps.isSessionMemory} isAgentCanvas={dialogProps.isAgentCanvas} />
                         )}
                     </TabPanel>
                 ))}

@@ -40,7 +40,6 @@ import ViewLeadsDialog from '@/ui-component/dialog/ViewLeadsDialog'
 import Settings from '@/views/settings'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import PromptGeneratorDialog from '@/ui-component/dialog/PromptGeneratorDialog'
-import { Available } from '@/ui-component/rbac/available'
 import ExpandTextDialog from '@/ui-component/dialog/ExpandTextDialog'
 
 // API
@@ -88,6 +87,7 @@ const CustomAssistantConfigurePreview = () => {
     const getDocStoresApi = useApi(assistantsApi.getDocStores)
     const getToolsApi = useApi(assistantsApi.getTools)
     const getSpecificChatflowApi = useApi(chatflowsApi.getSpecificChatflow)
+    const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
     const { id: customAssistantId, unikId } = useParams()
 
@@ -872,28 +872,26 @@ const CustomAssistantConfigurePreview = () => {
                                                         </Avatar>
                                                     </ButtonBase>
                                                 )}
-                                                <Available permission={'assistants:create'}>
-                                                    <ButtonBase title={`Save`} sx={{ borderRadius: '50%', mr: 2 }}>
-                                                        <Avatar
-                                                            variant='rounded'
-                                                            sx={{
-                                                                ...theme.typography.commonAvatar,
-                                                                ...theme.typography.mediumAvatar,
-                                                                transition: 'all .2s ease-in-out',
-                                                                background: theme.palette.canvasHeader.saveLight,
-                                                                color: theme.palette.canvasHeader.saveDark,
-                                                                '&:hover': {
-                                                                    background: theme.palette.canvasHeader.saveDark,
-                                                                    color: theme.palette.canvasHeader.saveLight
-                                                                }
-                                                            }}
-                                                            color='inherit'
-                                                            onClick={onSaveAndProcess}
-                                                        >
-                                                            <IconDeviceFloppy stroke={1.5} size='1.3rem' />
-                                                        </Avatar>
-                                                    </ButtonBase>
-                                                </Available>
+                                                <ButtonBase title={`Save`} sx={{ borderRadius: '50%', mr: 2 }}>
+                                                    <Avatar
+                                                        variant='rounded'
+                                                        sx={{
+                                                            ...theme.typography.commonAvatar,
+                                                            ...theme.typography.mediumAvatar,
+                                                            transition: 'all .2s ease-in-out',
+                                                            background: theme.palette.canvasHeader.saveLight,
+                                                            color: theme.palette.canvasHeader.saveDark,
+                                                            '&:hover': {
+                                                                background: theme.palette.canvasHeader.saveDark,
+                                                                color: theme.palette.canvasHeader.saveLight
+                                                            }
+                                                        }}
+                                                        color='inherit'
+                                                        onClick={onSaveAndProcess}
+                                                    >
+                                                        <IconDeviceFloppy stroke={1.5} size='1.3rem' />
+                                                    </Avatar>
+                                                </ButtonBase>
                                                 {customAssistantFlowId && !loadingAssistant && (
                                                     <ButtonBase ref={settingsRef} title='Settings' sx={{ borderRadius: '50%' }}>
                                                         <Avatar
@@ -916,27 +914,25 @@ const CustomAssistantConfigurePreview = () => {
                                                     </ButtonBase>
                                                 )}
                                                 {!customAssistantFlowId && !loadingAssistant && (
-                                                    <Available permission={'assistants:delete'}>
-                                                        <ButtonBase ref={settingsRef} title='Delete Assistant' sx={{ borderRadius: '50%' }}>
-                                                            <Avatar
-                                                                variant='rounded'
-                                                                sx={{
-                                                                    ...theme.typography.commonAvatar,
-                                                                    ...theme.typography.mediumAvatar,
-                                                                    transition: 'all .2s ease-in-out',
-                                                                    background: theme.palette.error.light,
-                                                                    color: theme.palette.error.dark,
-                                                                    '&:hover': {
-                                                                        background: theme.palette.error.dark,
-                                                                        color: theme.palette.error.light
-                                                                    }
-                                                                }}
-                                                                onClick={handleDeleteFlow}
-                                                            >
-                                                                <IconTrash stroke={1.5} size='1.3rem' />
-                                                            </Avatar>
-                                                        </ButtonBase>
-                                                    </Available>
+                                                    <ButtonBase ref={settingsRef} title='Delete Assistant' sx={{ borderRadius: '50%' }}>
+                                                        <Avatar
+                                                            variant='rounded'
+                                                            sx={{
+                                                                ...theme.typography.commonAvatar,
+                                                                ...theme.typography.mediumAvatar,
+                                                                transition: 'all .2s ease-in-out',
+                                                                background: theme.palette.error.light,
+                                                                color: theme.palette.error.dark,
+                                                                '&:hover': {
+                                                                    background: theme.palette.error.dark,
+                                                                    color: theme.palette.error.light
+                                                                }
+                                                            }}
+                                                            onClick={handleDeleteFlow}
+                                                        >
+                                                            <IconTrash stroke={1.5} size='1.3rem' />
+                                                        </Avatar>
+                                                    </ButtonBase>
                                                 )}
                                             </Toolbar>
                                         </Box>
@@ -1247,22 +1243,20 @@ const CustomAssistantConfigurePreview = () => {
                                             </Button>
                                         </Box>
                                         {selectedChatModel && Object.keys(selectedChatModel).length > 0 && (
-                                            <Available permission={'assistants:create'}>
-                                                <Button
-                                                    fullWidth
-                                                    title='Save Assistant'
-                                                    sx={{
-                                                        mt: 1,
-                                                        mb: 1,
-                                                        borderRadius: 20,
-                                                        background: 'linear-gradient(45deg, #673ab7 30%, #1e88e5 90%)'
-                                                    }}
-                                                    variant='contained'
-                                                    onClick={onSaveAndProcess}
-                                                >
-                                                    Save Assistant
-                                                </Button>
-                                            </Available>
+                                            <Button
+                                                fullWidth
+                                                title='Save Assistant'
+                                                sx={{
+                                                    mt: 1,
+                                                    mb: 1,
+                                                    borderRadius: 20,
+                                                    background: 'linear-gradient(45deg, #673ab7 30%, #1e88e5 90%)'
+                                                }}
+                                                variant='contained'
+                                                onClick={onSaveAndProcess}
+                                            >
+                                                Save Assistant
+                                            </Button>
                                         )}
                                     </div>
                                 </Grid>

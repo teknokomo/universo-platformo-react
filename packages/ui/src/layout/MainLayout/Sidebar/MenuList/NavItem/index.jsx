@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { forwardRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 
@@ -45,7 +45,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
 
     let listItemProps = {
         component: forwardRef(function ListItemPropsComponent(props, ref) {
-            return <Link ref={ref} {...props} to={`${config.basename}${item.url}`} target={itemTarget} />
+            return <NavLink ref={ref} {...props} to={`${config.basename}${item.url}`} target={itemTarget} />
         })
     }
     if (item?.external) {
@@ -86,7 +86,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
         if (title && title.startsWith('menu.')) {
             return t(title)
         }
-
+        
         // If not, try to find a match for ID in the menu
         const menuKeys = {
             'unik-dashboard': 'menu.dashboard',
@@ -103,7 +103,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             'docs': 'menu.docs',
             'profile': 'menu.profile'
         }
-
+        
         return menuKeys[id] ? t(menuKeys[id]) : title
     }
 
@@ -134,7 +134,9 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             if (currentIndex > -1) {
                 dispatch({ type: MENU_OPEN, id: item.id })
             }
-            if (!document.location.pathname.toString().split('/')[1]) {
+
+            // Fallback option for the root page
+            if (!location.pathname.toString().split('/')[1]) {
                 itemHandler('chatflows')
             }
         }
@@ -148,6 +150,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             disabled={item.disabled}
             sx={{
                 borderRadius: `${customization.borderRadius}px`,
+                mb: 0.5,
                 alignItems: 'flex-start',
                 backgroundColor: level > 1 ? 'transparent !important' : 'inherit',
                 py: level > 1 ? 1 : 1.25,

@@ -1,6 +1,3 @@
-/*
-* TODO: Disabling for now as we need to enable login first
-*
 describe('E2E suite for api/v1/apikey API endpoint', () => {
     beforeEach(() => {
         cy.visit('http://localhost:3000/apikey')
@@ -46,4 +43,3 @@ describe('E2E suite for api/v1/apikey API endpoint', () => {
         cy.get('table.MuiTable-root tbody tr').should('have.length', 1)
     })
 })
-*/

@@ -63,14 +63,14 @@ const StarterPrompts = ({ dialogProps }) => {
                 }
             }
             chatbotConfig.starterPrompts = value.starterPrompts
-
+            
             // Use unikId and flowId from parameters or from chatflow
             const unikId = dialogProps.unikId || dialogProps.chatflow?.unik_id;
             const flowId = dialogProps.flowId || dialogProps.chatflow?.id;
-
+            
             const saveResp = await chatflowsApi.updateChatflow(unikId, flowId, {
                 chatbotConfig: JSON.stringify(chatbotConfig)
-            })
+            });
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Conversation Starter Prompts Saved',

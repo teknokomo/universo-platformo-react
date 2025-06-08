@@ -8,11 +8,11 @@ import { useParams } from 'react-router-dom'
 
 import { Card, Box, Typography, Button, Switch, OutlinedInput, Popover, Stack, IconButton, Tabs, Tab } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import { CopyBlock, atomOneDark } from 'react-code-blocks'
 
 // Project import
+import { StyledButton } from '@/ui-component/button/StyledButton'
 import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
-import { Available } from '@/ui-component/rbac/available'
-import { StyledPermissionButton } from '@/ui-component/button/RBACButtons'
 import { CheckboxInput } from '@/ui-component/checkbox/Checkbox'
 
 // Icons
@@ -48,11 +48,61 @@ const defaultConfig = {
     }
 }
 
-const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
+function TabPanel(props) {
+    const { children, value, index, ...other } = props
+    return (
+        <div
+            role='tabpanel'
+            hidden={value !== index}
+            id={`attachment-tabpanel-${index}`}
+            aria-labelledby={`attachment-tab-${index}`}
+            {...other}
+        >
+            {value === index && <Box sx={{ p: 1 }}>{children}</Box>}
+        </div>
+    )
+}
+
+TabPanel.propTypes = {
+    children: PropTypes.node,
+    index: PropTypes.number.isRequired,
+    value: PropTypes.number.isRequired
+}
+
+function a11yProps(index) {
+    return {
+        id: `attachment-tab-${index}`,
+        'aria-controls': `attachment-tabpanel-${index}`
+    }
+}
+
+const shareChatbotHtmlCode = (chatflowid, mode = 'chat') => {
+    return `<iframe
+    src="${baseURL}/api/v1/prediction/${chatflowid}?mode=${mode}"
+    width="100%"
+    height="600"
+    style="border: none;"
+></iframe>`
+}
+
+const shareChatbotReactCode = (chatflowid, mode = 'chat') => {
+    return `import { Chatbot } from 'flowise-embed-react'
+
+const App = () => {
+    return (
+        <Chatbot
+            chatflowid="${chatflowid}"
+            apiHost="${baseURL}"
+            mode="${mode}"
+        />
+    );
+};`
+}
+
+const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: propUnikId, mode = 'chat' }) => {
     const dispatch = useDispatch()
     const theme = useTheme()
     const chatflow = useSelector((state) => state.canvas.chatflow)
-    const chatflowid = chatflow.id
     const chatbotConfig = chatflow.chatbotConfig ? JSON.parse(chatflow.chatbotConfig) : {}
     const { t } = useTranslation('chatflows')
     const { unikId: paramsUnikId } = useParams()
@@ -123,6 +173,10 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
 
     const [copyAnchorEl, setCopyAnchorEl] = useState(null)
     const openCopyPopOver = Boolean(copyAnchorEl)
+
+    const [codes] = ['Html', 'React']
+    const [value, setValue] = useState(0)
+    const [shareChatbotCheckboxVal, setShareChatbotCheckbox] = useState(false)
 
     const formatObj = () => {
         const obj = {
@@ -487,22 +541,20 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
                     <IconArrowUpRightCircle />
                 </IconButton>
                 <div style={{ flex: 1 }} />
-                <Available permission={'chatflows:update,agentflows:update'}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <Switch
-                            checked={isPublicChatflow}
-                            onChange={(event) => {
-                                setChatflowIsPublic(event.target.checked)
-                                onSwitchChange(event.target.checked)
-                            }}
-                        />
-                        <Typography>{t('chatflows.shareChatbot.makePublic')}</Typography>
-                        <TooltipWithParser
-                            style={{ marginLeft: 10 }}
-                            title={t('chatflows.shareChatbot.makePublicTooltip')}
-                        />
-                    </div>
-                </Available>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Switch
+                        checked={isPublicChatflow}
+                        onChange={(event) => {
+                            setChatflowIsPublic(event.target.checked)
+                            onSwitchChange(event.target.checked)
+                        }}
+                    />
+                    <Typography>{t('chatflows.shareChatbot.makePublic')}</Typography>
+                    <TooltipWithParser
+                        style={{ marginLeft: 10 }}
+                        title={t('chatflows.shareChatbot.makePublicTooltip')}
+                    />
+                </div>
             </Stack>
 
             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 3, mt: 2 }} variant='outlined'>
@@ -578,8 +630,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
                 {colorField(textInputSendButtonColor, 'textInputSendButtonColor', t('chatflows.shareChatbot.textInputSendButtonColor'))}
             </Card>
 
-            <StyledPermissionButton
-                permissionId={'chatflows:update,agentflows:update'}
+            <StyledButton
                 fullWidth
                 style={{
                     borderRadius: 20,
@@ -591,7 +642,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
                 onClick={() => onSave()}
             >
                 {t('chatflows.shareChatbot.saveChanges')}
-            </StyledPermissionButton>
+            </StyledButton>
             <Popover
                 open={openColorPopOver}
                 anchorEl={colorAnchorEl}
@@ -624,6 +675,53 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas }) => {
                     {t('chatflows.shareChatbot.copied')}
                 </Typography>
             </Popover>
+
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                <div style={{ flex: 80 }}>
+                    <Tabs value={value} onChange={handleChange} aria-label='tabs'>
+                        {codes.map((codeLang, index) => (
+                            <Tab key={index} label={codeLang} {...a11yProps(index)}></Tab>
+                        ))}
+                    </Tabs>
+                </div>
+            </div>
+            <div style={{ marginTop: 10 }}></div>
+            {codes.map((codeLang, index) => (
+                <TabPanel key={index} value={value} index={index}>
+                    {(value === 0 || value === 1) && (
+                        <>
+                            <span>
+                                {t('chatflows.shareChatbot.pasteHtmlBody')}
+                                <p>
+                                    {t('chatflows.shareChatbot.specifyVersion')}&nbsp;
+                                    <a
+                                        rel='noreferrer'
+                                        target='_blank'
+                                        href='https://www.npmjs.com/package/flowise-embed?activeTab=versions'
+                                    >
+                                        {t('chatflows.common.version')}
+                                    </a>
+                                    :&nbsp;<code>{`https://cdn.jsdelivr.net/npm/flowise-embed@<version>/dist/web.js`}</code>
+                                </p>
+                            </span>
+                            <div style={{ height: 10 }}></div>
+                        </>
+                    )}
+                    <CopyBlock theme={atomOneDark} text={getCode(codeLang)} language='javascript' showLineNumbers={false} wrapLines />
+
+                    <CheckboxInput label={t('chatflows.shareChatbot.showConfig')} value={shareChatbotCheckboxVal} onChange={onCheckBoxShareChatbotChanged} />
+
+                    {shareChatbotCheckboxVal && (
+                        <CopyBlock
+                            theme={atomOneDark}
+                            text={getCode(codeLang)}
+                            language='javascript'
+                            showLineNumbers={false}
+                            wrapLines
+                        />
+                    )}
+                </TabPanel>
+            ))}
         </>
     )
 }

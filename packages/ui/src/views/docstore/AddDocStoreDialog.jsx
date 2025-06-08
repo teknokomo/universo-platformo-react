@@ -148,6 +148,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             })
             onCancel()
         }
+
     }
 
     const component = show ? (
@@ -229,3 +230,4 @@ AddDocStoreDialog.propTypes = {
 }
 
 export default AddDocStoreDialog
+

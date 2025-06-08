@@ -32,7 +32,6 @@ import { File } from '@/ui-component/file/File'
 import { BackdropLoader } from '@/ui-component/loading/BackdropLoader'
 import DeleteConfirmDialog from './DeleteConfirmDialog'
 import AssistantVectorStoreDialog from './AssistantVectorStoreDialog'
-import { StyledPermissionButton } from '@/ui-component/button/RBACButtons'
 
 // Icons
 import { IconX, IconPlus } from '@tabler/icons-react'
@@ -49,18 +48,6 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 import { maxScroll } from '@/store/constant'
 
 const assistantAvailableModels = [
-    {
-        label: 'gpt-4.1',
-        name: 'gpt-4.1'
-    },
-    {
-        label: 'gpt-4.1-mini',
-        name: 'gpt-4.1-mini'
-    },
-    {
-        label: 'gpt-4.1-nano',
-        name: 'gpt-4.1-nano'
-    },
     {
         label: 'gpt-4.5-preview',
         name: 'gpt-4.5-preview'
@@ -216,7 +203,6 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
     useEffect(() => {
         if (getSpecificAssistantApi.error) {
-            const error = getSpecificAssistantApi.error
             let errMsg = ''
             if (error?.response?.data) {
                 errMsg = typeof error.response.data === 'object' ? error.response.data.message : error.response.data
@@ -318,7 +304,6 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setLoading(false)
         }
         // Universo Platformo | Removed API objects from dependencies to prevent cyclical updates
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dialogProps, unikId])
 
     const syncData = (data) => {
@@ -1062,14 +1047,13 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                         {t('assistants.common.delete')}
                     </StyledButton>
                 )}
-                <StyledPermissionButton
-                    permissionId={'assistants:create,assistants:update'}
+                <StyledButton
                     disabled={!(assistantModel && assistantCredential)}
                     variant='contained'
                     onClick={() => (dialogProps.type === 'ADD' ? addNewAssistant() : saveAssistant())}
                 >
                     {dialogProps.confirmButtonName}
-                </StyledPermissionButton>
+                </StyledButton>
             </DialogActions>
             <DeleteConfirmDialog
                 show={deleteDialogOpen}

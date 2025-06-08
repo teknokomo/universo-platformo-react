@@ -24,11 +24,11 @@ import { useTheme } from '@mui/material/styles'
 // project imports
 import MainCard from '@/ui-component/cards/MainCard'
 import DocumentStoreCard from '@/ui-component/cards/DocumentStoreCard'
+import { StyledButton } from '@/ui-component/button/StyledButton'
 import AddDocStoreDialog from '@/views/docstore/AddDocStoreDialog'
 import ErrorBoundary from '@/ErrorBoundary'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import DocumentStoreStatus from '@/views/docstore/DocumentStoreStatus'
-import { StyledPermissionButton } from '@/ui-component/button/RBACButtons'
 
 // API
 import useApi from '@/hooks/useApi'
@@ -40,7 +40,6 @@ import doc_store_empty from '@/assets/images/doc_store_empty.svg'
 
 // const
 import { baseURL, gridSpacing } from '@/store/constant'
-import { useError } from '@/store/context/ErrorContext'
 
 // ==============================|| DOCUMENTS ||============================== //
 
@@ -141,19 +140,17 @@ const Documents = () => {
         setLoading(getAllDocumentStores.loading)
     }, [getAllDocumentStores.loading])
 
+    useEffect(() => {
+        setError(getAllDocumentStores.error)
+    }, [getAllDocumentStores.error])
+
     return (
         <MainCard>
             {error ? (
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader
-                        onSearchChange={onSearchChange}
-                        search={true}
-                        searchPlaceholder={t('documentStore.searchPlaceholder')}
-                        title={t('documentStore.title')}>
-                        description='Store and upsert documents for LLM retrieval (RAG)'
-                    >
+                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('documentStore.searchPlaceholder')} title={t('documentStore.title')}>
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -186,8 +183,7 @@ const Documents = () => {
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
-                        <StyledPermissionButton
-                            permissionId={'documentStores:create'}
+                        <StyledButton
                             variant='contained'
                             sx={{ borderRadius: 2, height: '100%' }}
                             onClick={addNew}
@@ -195,7 +191,7 @@ const Documents = () => {
                             id='btn_createVariable'
                         >
                             {t('documentStore.addNew')}
-                        </StyledPermissionButton>
+                        </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
                         <>

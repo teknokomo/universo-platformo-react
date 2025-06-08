@@ -1,15 +1,10 @@
 import { ICommonObject, removeFolderFromStorage } from 'flowise-components'
 import { StatusCodes } from 'http-status-codes'
-import { In, QueryRunner } from 'typeorm'
 import { ChatflowType, IReactFlowObject } from '../../Interface'
-import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../../Interface.Metrics'
-import { UsageCacheManager } from '../../UsageCacheManager'
 import { ChatFlow } from '../../database/entities/ChatFlow'
 import { ChatMessage } from '../../database/entities/ChatMessage'
 import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback'
 import { UpsertHistory } from '../../database/entities/UpsertHistory'
-import { Workspace } from '../../enterprise/database/entities/workspace.entity'
-import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import documentStoreService from '../../services/documentstore'
@@ -18,7 +13,9 @@ import { containsBase64File, updateFlowDataWithFilePaths } from '../../utils/fil
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { utilGetUploadsConfig } from '../../utils/getUploadsConfig'
 import logger from '../../utils/logger'
-import { checkUsageLimit, updateStorageUsage } from '../../utils/quotaUsage'
+import { FLOWISE_METRIC_COUNTERS, FLOWISE_COUNTER_STATUS } from '../../Interface.Metrics'
+import { QueryRunner } from 'typeorm'
+import { getDataSource } from '../../DataSource'
 
 // Check if chatflow valid for streaming
 const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<any> => {
@@ -39,10 +36,6 @@ const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<a
             if (chatflowConfig?.postProcessing?.enabled === true) {
                 return { isStreaming: false }
             }
-        }
-
-        if (chatflow.type === 'AGENTFLOW') {
-            return { isStreaming: true }
         }
 
         /*** Get Ending Node with Directed Graph  ***/
@@ -93,30 +86,33 @@ const checkIfChatflowIsValidForUploads = async (chatflowId: string): Promise<any
     }
 }
 
-const deleteChatflow = async (chatflowId: string, orgId: string, workspaceId: string): Promise<any> => {
+const deleteChatflow = async (chatflowId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-
+        let whereClause: any = { id: chatflowId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy(whereClause)
+        if (!chatflow) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
+        }
         const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).delete({ id: chatflowId })
-
-        // Update document store usage
-        await documentStoreService.updateDocumentStoreUsage(chatflowId, undefined, workspaceId)
-
-        // Delete all chat messages
-        await appServer.AppDataSource.getRepository(ChatMessage).delete({ chatflowid: chatflowId })
-
-        // Delete all chat feedback
-        await appServer.AppDataSource.getRepository(ChatMessageFeedback).delete({ chatflowid: chatflowId })
-
-        // Delete all upsert history
-        await appServer.AppDataSource.getRepository(UpsertHistory).delete({ chatflowid: chatflowId })
-
         try {
             // Delete all uploads corresponding to this chatflow
-            const { totalSize } = await removeFolderFromStorage(orgId, chatflowId)
-            await updateStorageUsage(orgId, workspaceId, totalSize, appServer.usageCacheManager)
+            await removeFolderFromStorage(chatflowId)
+            await documentStoreService.updateDocumentStoreUsage(chatflowId, undefined)
+
+            // Delete all chat messages
+            await appServer.AppDataSource.getRepository(ChatMessage).delete({ chatflowid: chatflowId })
+
+            // Delete all chat feedback
+            await appServer.AppDataSource.getRepository(ChatMessageFeedback).delete({ chatflowid: chatflowId })
+
+            // Delete all upsert history
+            await appServer.AppDataSource.getRepository(UpsertHistory).delete({ chatflowid: chatflowId })
         } catch (e) {
-            logger.error(`[server]: Error deleting file storage for chatflow ${chatflowId}`)
+            logger.error(`[server]: Error deleting file storage for chatflow ${chatflowId}: ${e}`)
         }
         return dbResponse
     } catch (error) {
@@ -127,65 +123,27 @@ const deleteChatflow = async (chatflowId: string, orgId: string, workspaceId: st
     }
 }
 
-const getAllChatflows = async (type?: ChatflowType, workspaceId?: string): Promise<ChatFlow[]> => {
+const getAllChatflows = async (type?: ChatflowType, unikId?: string): Promise<ChatFlow[]> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findBy(getWorkspaceSearchOptions(workspaceId))
-        if (type === 'MULTIAGENT') {
-            return dbResponse.filter((chatflow) => chatflow.type === 'MULTIAGENT')
-        } else if (type === 'AGENTFLOW') {
-            return dbResponse.filter((chatflow) => chatflow.type === 'AGENTFLOW')
-        } else if (type === 'ASSISTANT') {
-            return dbResponse.filter((chatflow) => chatflow.type === 'ASSISTANT')
-        } else if (type === 'CHATFLOW') {
-            // fetch all chatflows that are not agentflow
-            return dbResponse.filter((chatflow) => chatflow.type === 'CHATFLOW' || !chatflow.type)
+        let queryBuilder = appServer.AppDataSource.getRepository(ChatFlow).createQueryBuilder('chatflow')
+
+        // Apply filter by unikId if provided
+        if (unikId) {
+            queryBuilder = queryBuilder.where('chatflow.unik_id = :unikId', { unikId })
         }
-        return dbResponse
+
+        // Filter by type at the database level
+        if (type === 'MULTIAGENT') {
+            queryBuilder = queryBuilder.andWhere('chatflow.type = :type', { type: 'MULTIAGENT' })
+        } else if (type === 'CHATFLOW') {
+            queryBuilder = queryBuilder.andWhere('(chatflow.type = :type OR chatflow.type IS NULL)', { type: 'CHATFLOW' })
+        }
+        return await queryBuilder.getMany()
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
             `Error: chatflowsService.getAllChatflows - ${getErrorMessage(error)}`
-        )
-    }
-}
-
-async function getAllChatflowsCountByOrganization(type: ChatflowType, organizationId: string): Promise<number> {
-    try {
-        const appServer = getRunningExpressApp()
-
-        const workspaces = await appServer.AppDataSource.getRepository(Workspace).findBy({ organizationId })
-        const workspaceIds = workspaces.map((workspace) => workspace.id)
-        const chatflowsCount = await appServer.AppDataSource.getRepository(ChatFlow).countBy({
-            type,
-            workspaceId: In(workspaceIds)
-        })
-
-        return chatflowsCount
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatflowsService.getAllChatflowsCountByOrganization - ${getErrorMessage(error)}`
-        )
-    }
-}
-
-const getAllChatflowsCount = async (type?: ChatflowType, workspaceId?: string): Promise<number> => {
-    try {
-        const appServer = getRunningExpressApp()
-        if (type) {
-            const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).countBy({
-                type,
-                ...getWorkspaceSearchOptions(workspaceId)
-            })
-            return dbResponse
-        }
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).countBy(getWorkspaceSearchOptions(workspaceId))
-        return dbResponse
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatflowsService.getAllChatflowsCount - ${getErrorMessage(error)}`
         )
     }
 }
@@ -214,12 +172,14 @@ const getChatflowByApiKey = async (apiKeyId: string, keyonly?: unknown): Promise
     }
 }
 
-const getChatflowById = async (chatflowId: string): Promise<any> => {
+const getChatflowById = async (chatflowId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowId
-        })
+        let whereClause: any = { id: chatflowId }
+        if (unikId) {
+            whereClause.unik = { id: unikId }
+        }
+        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy(whereClause)
         if (!dbResponse) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
         }
@@ -232,16 +192,9 @@ const getChatflowById = async (chatflowId: string): Promise<any> => {
     }
 }
 
-const saveChatflow = async (
-    newChatFlow: ChatFlow,
-    orgId: string,
-    workspaceId: string,
-    subscriptionId: string,
-    usageCacheManager: UsageCacheManager
-): Promise<any> => {
+const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-
         let dbResponse: ChatFlow
         if (containsBase64File(newChatFlow)) {
             // we need a 2-step process, as we need to save the chatflow first and then update the file paths
@@ -254,30 +207,18 @@ const saveChatflow = async (
             const step1Results = await appServer.AppDataSource.getRepository(ChatFlow).save(chatflow)
 
             // step 2 - convert base64 to file paths and update the chatflow
-            step1Results.flowData = await updateFlowDataWithFilePaths(
-                step1Results.id,
-                incomingFlowData,
-                orgId,
-                workspaceId,
-                subscriptionId,
-                usageCacheManager
-            )
-            await _checkAndUpdateDocumentStoreUsage(step1Results, newChatFlow.workspaceId)
+            step1Results.flowData = await updateFlowDataWithFilePaths(step1Results.id, incomingFlowData)
+            await _checkAndUpdateDocumentStoreUsage(step1Results)
             dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).save(step1Results)
         } else {
             const chatflow = appServer.AppDataSource.getRepository(ChatFlow).create(newChatFlow)
             dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).save(chatflow)
         }
-        await appServer.telemetry.sendTelemetry(
-            'chatflow_created',
-            {
-                version: await getAppVersion(),
-                chatflowId: dbResponse.id,
-                flowGraph: getTelemetryFlowObj(JSON.parse(dbResponse.flowData)?.nodes, JSON.parse(dbResponse.flowData)?.edges)
-            },
-            orgId
-        )
-
+        await appServer.telemetry.sendTelemetry('chatflow_created', {
+            version: await getAppVersion(),
+            chatflowId: dbResponse.id,
+            flowGraph: getTelemetryFlowObj(JSON.parse(dbResponse.flowData)?.nodes, JSON.parse(dbResponse.flowData)?.edges)
+        })
         appServer.metricsProvider?.incrementCounter(
             dbResponse?.type === 'MULTIAGENT' ? FLOWISE_METRIC_COUNTERS.AGENTFLOW_CREATED : FLOWISE_METRIC_COUNTERS.CHATFLOW_CREATED,
             { status: FLOWISE_COUNTER_STATUS.SUCCESS }
@@ -292,21 +233,13 @@ const saveChatflow = async (
     }
 }
 
-const importChatflows = async (
-    newChatflows: Partial<ChatFlow>[],
-    orgId: string,
-    _: string,
-    subscriptionId: string,
-    queryRunner?: QueryRunner
-): Promise<any> => {
+const importChatflows = async (newChatflows: Partial<ChatFlow>[], queryRunner?: QueryRunner): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
         const repository = queryRunner ? queryRunner.manager.getRepository(ChatFlow) : appServer.AppDataSource.getRepository(ChatFlow)
 
         // step 1 - check whether file chatflows array is zero
         if (newChatflows.length == 0) return
-
-        await checkUsageLimit('flows', subscriptionId, appServer.usageCacheManager, newChatflows.length)
 
         // step 2 - check whether ids are duplicate in database
         let ids = '('
@@ -350,27 +283,14 @@ const importChatflows = async (
     }
 }
 
-const updateChatflow = async (
-    chatflow: ChatFlow,
-    updateChatFlow: ChatFlow,
-    orgId: string,
-    workspaceId: string,
-    subscriptionId: string
-): Promise<any> => {
+const updateChatflow = async (chatflow: ChatFlow, updateChatFlow: ChatFlow, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
         if (updateChatFlow.flowData && containsBase64File(updateChatFlow)) {
-            updateChatFlow.flowData = await updateFlowDataWithFilePaths(
-                chatflow.id,
-                updateChatFlow.flowData,
-                orgId,
-                workspaceId,
-                subscriptionId,
-                appServer.usageCacheManager
-            )
+            updateChatFlow.flowData = await updateFlowDataWithFilePaths(chatflow.id, updateChatFlow.flowData)
         }
         const newDbChatflow = appServer.AppDataSource.getRepository(ChatFlow).merge(chatflow, updateChatFlow)
-        await _checkAndUpdateDocumentStoreUsage(newDbChatflow, chatflow.workspaceId)
+        await _checkAndUpdateDocumentStoreUsage(newDbChatflow)
         const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).save(newDbChatflow)
 
         return dbResponse
@@ -407,67 +327,34 @@ const getSinglePublicChatflow = async (chatflowId: string): Promise<any> => {
     }
 }
 
-// Get specific chatflow chatbotConfig via id (PUBLIC endpoint, used to retrieve config for embedded chat)
-// Safe as public endpoint as chatbotConfig doesn't contain sensitive credential
-const getSinglePublicChatbotConfig = async (chatflowId: string): Promise<any> => {
+// Universo Platformo | Unified bot config service method
+const getSinglePublicBotConfig = async (chatflowId: string): Promise<any> => {
     try {
-        const appServer = getRunningExpressApp()
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowId
-        })
-        if (!dbResponse) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
-        }
-        const uploadsConfig = await utilGetUploadsConfig(chatflowId)
-        // even if chatbotConfig is not set but uploads are enabled
-        // send uploadsConfig to the chatbot
-        if (dbResponse.chatbotConfig || uploadsConfig) {
-            try {
-                const parsedConfig = dbResponse.chatbotConfig ? JSON.parse(dbResponse.chatbotConfig) : {}
-                return { ...parsedConfig, uploads: uploadsConfig, flowData: dbResponse.flowData }
-            } catch (e) {
-                throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error parsing Chatbot Config for Chatflow ${chatflowId}`)
-            }
-        }
-        return 'OK'
+        logger.info(`Getting unified Bot config for chatflow: ${chatflowId}`)
+
+        // Universo Platformo | Use the new bot service factory
+        const botServiceFactory = require('../../services/bots').default
+
+        // Universo Platformo | Automatically determine the required service
+        const botService = await botServiceFactory.getServiceByChatflowId(chatflowId)
+
+        // Universo Platformo | Delegate work to the specialized service
+        return await botService.getBotConfig(chatflowId)
     } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatflowsService.getSinglePublicChatbotConfig - ${getErrorMessage(error)}`
-        )
+        logger.error(`Error getting unified bot config: ${getErrorMessage(error)}`)
+        return { error: getErrorMessage(error) }
     }
 }
 
-const _checkAndUpdateDocumentStoreUsage = async (chatflow: ChatFlow, workspaceId?: string) => {
+const _checkAndUpdateDocumentStoreUsage = async (chatflow: ChatFlow) => {
     const parsedFlowData: IReactFlowObject = JSON.parse(chatflow.flowData)
     const nodes = parsedFlowData.nodes
     // from the nodes array find if there is a node with name == documentStore)
     const node = nodes.length > 0 && nodes.find((node) => node.data.name === 'documentStore')
     if (!node || !node.data || !node.data.inputs || node.data.inputs['selectedStore'] === undefined) {
-        await documentStoreService.updateDocumentStoreUsage(chatflow.id, undefined, workspaceId)
+        await documentStoreService.updateDocumentStoreUsage(chatflow.id, undefined)
     } else {
-        await documentStoreService.updateDocumentStoreUsage(chatflow.id, node.data.inputs['selectedStore'], workspaceId)
-    }
-}
-
-const checkIfChatflowHasChanged = async (chatflowId: string, lastUpdatedDateTime: string): Promise<any> => {
-    try {
-        const appServer = getRunningExpressApp()
-        //**
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowId
-        })
-        if (!chatflow) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
-        }
-        // parse the lastUpdatedDateTime as a date and
-        //check if the updatedDate is the same as the lastUpdatedDateTime
-        return { hasChanged: chatflow.updatedDate.toISOString() !== lastUpdatedDateTime }
-    } catch (error) {
-        throw new InternalFlowiseError(
-            StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatflowsService.checkIfChatflowHasChanged - ${getErrorMessage(error)}`
-        )
+        await documentStoreService.updateDocumentStoreUsage(chatflow.id, node.data.inputs['selectedStore'])
     }
 }
 
@@ -476,14 +363,11 @@ export default {
     checkIfChatflowIsValidForUploads,
     deleteChatflow,
     getAllChatflows,
-    getAllChatflowsCount,
     getChatflowByApiKey,
     getChatflowById,
     saveChatflow,
     importChatflows,
     updateChatflow,
     getSinglePublicChatflow,
-    getSinglePublicChatbotConfig,
-    checkIfChatflowHasChanged,
-    getAllChatflowsCountByOrganization
+    getSinglePublicBotConfig
 }

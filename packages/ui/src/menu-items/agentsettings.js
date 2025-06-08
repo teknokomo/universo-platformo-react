@@ -51,48 +51,42 @@ const agent_settings = {
             title: i18n.t('canvas.contextMenu.configuration'),
             type: 'item',
             url: '',
-            icon: icons.IconAdjustmentsHorizontal,
-            permission: 'agentflows:config'
+            icon: icons.IconAdjustmentsHorizontal
         },
         {
             id: 'saveAsTemplate',
             title: i18n.t('canvas.contextMenu.saveAsTemplate'),
             type: 'item',
             url: '',
-            icon: icons.IconTemplate,
-            permission: 'templates:flowexport'
+            icon: icons.IconTemplate
         },
         {
             id: 'duplicateChatflow',
             title: i18n.t('canvas.contextMenu.duplicateChatflow'),
             type: 'item',
             url: '',
-            icon: icons.IconCopy,
-            permission: 'agentflows:duplicate'
+            icon: icons.IconCopy
         },
         {
             id: 'loadChatflow',
             title: i18n.t('canvas.contextMenu.loadChatflow'),
             type: 'item',
             url: '',
-            icon: icons.IconFileUpload,
-            permission: 'agentflows:import'
+            icon: icons.IconFileUpload
         },
         {
             id: 'exportChatflow',
             title: i18n.t('canvas.contextMenu.exportChatflow'),
             type: 'item',
             url: '',
-            icon: icons.IconFileExport,
-            permission: 'agentflows:export'
+            icon: icons.IconFileExport
         },
         {
             id: 'deleteChatflow',
             title: i18n.t('canvas.contextMenu.deleteChatflow'),
             type: 'item',
             url: '',
-            icon: icons.IconTrash,
-            permission: 'agentflows:delete'
+            icon: icons.IconTrash
         }
     ]
 }

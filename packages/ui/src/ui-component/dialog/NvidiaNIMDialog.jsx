@@ -1,41 +1,36 @@
-import { useTranslation } from 'react-i18next'
-import {
-    Button,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Select,
-    Step,
-    StepLabel,
-    Stepper,
-    TextField
-} from '@mui/material'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import axios from 'axios'
 import PropTypes from 'prop-types'
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    CircularProgress,
+    Stepper,
+    Step,
+    StepLabel,
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel
+} from '@mui/material'
 
 const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
     const portalElement = document.getElementById('portal')
     const { t } = useTranslation()
 
     const modelOptions = {
-        'nvcr.io/nim/meta/llama-3.1-8b-instruct:1.8.0-RTX': {
+        'nv-mistralai/mistral-nemo-12b-instruct:latest': {
+            label: 'Mistral Nemo 12B Instruct',
+            licenseUrl: 'https://catalog.ngc.nvidia.com/orgs/nvidia/teams/nv-mistralai/containers/mistral-nemo-12b-instruct'
+        },
+        'meta/llama-3.1-8b-instruct-rtx:latest': {
             label: 'Llama 3.1 8B Instruct',
             licenseUrl: 'https://catalog.ngc.nvidia.com/orgs/nim/teams/meta/containers/llama-3.1-8b-instruct'
-        },
-        'nvcr.io/nim/deepseek-ai/deepseek-r1-distill-llama-8b:1.8.0-RTX': {
-            label: 'DeepSeek R1 Distill Llama 8B',
-            licenseUrl: 'https://catalog.ngc.nvidia.com/orgs/nim/teams/deepseek-ai/containers/deepseek-r1-distill-llama-8b'
-        },
-        'nvcr.io/nim/nv-mistralai/mistral-nemo-12b-instruct:1.8.0-rtx': {
-            label: 'Mistral Nemo 12B Instruct',
-            licenseUrl: 'https://catalog.ngc.nvidia.com/orgs/nim/teams/nv-mistralai/containers/mistral-nemo-12b-instruct'
         }
     }
 
@@ -43,10 +38,6 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
     const [loading, setLoading] = useState(false)
     const [imageTag, setImageTag] = useState('')
     const [pollInterval, setPollInterval] = useState(null)
-    const [nimRelaxMemConstraints, setNimRelaxMemConstraints] = useState('0')
-    const [hostPort, setHostPort] = useState('8080')
-    const [showContainerConfirm, setShowContainerConfirm] = useState(false)
-    const [existingContainer, setExistingContainer] = useState(null)
 
     const steps = [t('dialog.nvidiaNIM.steps.download'), t('dialog.nvidiaNIM.steps.pullImage'), t('dialog.nvidiaNIM.steps.startContainer')]
 
@@ -148,63 +139,34 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
         try {
             setLoading(true)
             try {
-                const containerResponse = await axios.post('/api/v1/nvidia-nim/get-container', {
-                    imageTag,
-                    port: parseInt(hostPort)
-                })
-                if (containerResponse.data) {
-                    setExistingContainer(containerResponse.data)
-                    setShowContainerConfirm(true)
+                const containerResponse = await axios.post('/api/v1/nvidia-nim/get-container', { imageTag })
+                if (containerResponse.data && containerResponse.data && containerResponse.data.status === 'running') {
+                    // wait additional 10 seconds for container to be ready
+                    await new Promise((resolve) => setTimeout(resolve, 10000))
                     setLoading(false)
+                    onComplete(containerResponse.data)
+                    onClose()
                     return
                 }
             } catch (err) {
-                // Handle port in use by non-model container
-                if (err.response?.status === 409) {
-                    alert(`Port ${hostPort} is already in use by another container. Please choose a different port.`)
-                    setLoading(false)
-                    return
-                }
                 // Continue if container not found
                 if (err.response?.status !== 404) {
                     throw err
                 }
             }
 
-            // No container found with this port, proceed with starting new container
-            await startNewContainer()
-        } catch (err) {
-            let errorData = err.message
-            if (typeof err === 'string') {
-                errorData = err
-            } else if (err.response?.data) {
-                errorData = err.response.data.message
-            }
-            alert('Failed to check container status: ' + errorData)
-            setLoading(false)
-        }
-    }
-
-    const startNewContainer = async () => {
-        try {
-            setLoading(true)
             const tokenResponse = await axios.get('/api/v1/nvidia-nim/get-token')
             const apiKey = tokenResponse.data.access_token
 
             await axios.post('/api/v1/nvidia-nim/start-container', {
                 imageTag,
-                apiKey,
-                nimRelaxMemConstraints: parseInt(nimRelaxMemConstraints),
-                hostPort: parseInt(hostPort)
+                apiKey
             })
 
             // Start polling for container status
             const interval = setInterval(async () => {
                 try {
-                    const containerResponse = await axios.post('/api/v1/nvidia-nim/get-container', {
-                        imageTag,
-                        port: parseInt(hostPort)
-                    })
+                    const containerResponse = await axios.post('/api/v1/nvidia-nim/get-container', { imageTag })
                     if (containerResponse.data) {
                         clearInterval(interval)
                         setLoading(false)
@@ -234,57 +196,10 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
         }
     }
 
-    const handleUseExistingContainer = async () => {
-        try {
-            setLoading(true)
-            // Start polling for container status
-            const interval = setInterval(async () => {
-                try {
-                    const containerResponse = await axios.post('/api/v1/nvidia-nim/get-container', {
-                        imageTag,
-                        port: parseInt(hostPort)
-                    })
-                    if (containerResponse.data) {
-                        clearInterval(interval)
-                        setLoading(false)
-                        onComplete(containerResponse.data)
-                        onClose()
-                    }
-                } catch (err) {
-                    // Continue polling if container not found
-                    if (err.response?.status !== 404) {
-                        clearInterval(interval)
-                        alert('Failed to check container status: ' + err.message)
-                        setLoading(false)
-                    }
-                }
-            }, 5000)
-
-            setPollInterval(interval)
-        } catch (err) {
-            let errorData = err.message
-            if (typeof err === 'string') {
-                errorData = err
-            } else if (err.response?.data) {
-                errorData = err.response.data.message
-            }
-            alert('Failed to check container status: ' + errorData)
-            setLoading(false)
-        }
-    }
-
     const handleNext = () => {
         if (activeStep === 1 && !imageTag) {
             alert('Please enter an image tag')
             return
-        }
-
-        if (activeStep === 2) {
-            const port = parseInt(hostPort)
-            if (isNaN(port) || port < 1 || port > 65535) {
-                alert('Please enter a valid port number between 1 and 65535')
-                return
-            }
         }
 
         switch (activeStep) {
@@ -321,17 +236,16 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
     }, [open])
 
     const component = open ? (
-        <>
-            <Dialog open={open}>
-                <DialogTitle>{t('dialog.nvidiaNIM.title')}</DialogTitle>
-                <DialogContent>
-                    <Stepper activeStep={activeStep}>
-                        {steps.map((label) => (
-                            <Step key={label}>
-                                <StepLabel>{label}</StepLabel>
-                            </Step>
-                        ))}
-                    </Stepper>
+        <Dialog open={open}>
+            <DialogTitle>{t('dialog.nvidiaNIM.title')}</DialogTitle>
+            <DialogContent>
+                <Stepper activeStep={activeStep}>
+                    {steps.map((label) => (
+                        <Step key={label}>
+                            <StepLabel>{label}</StepLabel>
+                        </Step>
+                    ))}
+                </Stepper>
 
                 {activeStep === 0 && (
                     <div style={{ marginTop: 20 }}>
@@ -374,97 +288,34 @@ const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
                     </div>
                 )}
 
-                    {activeStep === 2 && (
-                        <div>
-                            {loading ? (
-                                <>
-                                    <div style={{ marginBottom: 20 }} />
-                                    <CircularProgress />
-                                    <p>{t('dialog.nvidiaNIM.startingContainer')}</p>
-                                </>
-                            ) : (
-                                <>
-                                    <FormControl fullWidth sx={{ mt: 2 }}>
-                                        <InputLabel>Relax Memory Constraints</InputLabel>
-                                        <Select
-                                            label='Relax Memory Constraints'
-                                            value={nimRelaxMemConstraints}
-                                            onChange={(e) => setNimRelaxMemConstraints(e.target.value)}
-                                        >
-                                            <MenuItem value='1'>Yes</MenuItem>
-                                            <MenuItem value='0'>No</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                    <TextField
-                                        fullWidth
-                                        type='number'
-                                        label='Host Port'
-                                        value={hostPort}
-                                        onChange={(e) => setHostPort(e.target.value)}
-                                        inputProps={{ min: 1, max: 65535 }}
-                                        sx={{ mt: 2 }}
-                                    />
-                                    <p style={{ marginTop: 20 }}>Click Next to start the container.</p>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={onClose} variant='outline'>
-                        {t('dialog.nvidiaNIM.cancel')}
-                    </Button>
-                    {activeStep === 0 && (
-                        <Button onClick={handleNext} variant='outline' color='secondary'>
-                            {t('dialog.nvidiaNIM.next')}
-                        </Button>
-                    )}
-                    <Button
-                        onClick={activeStep === 0 ? handleDownloadInstaller : handleNext}
-                        disabled={loading || (activeStep === 2 && (!nimRelaxMemConstraints || !hostPort))}
-                    >
-                        {activeStep === 0 ? t('dialog.nvidiaNIM.download') : t('dialog.nvidiaNIM.next')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            <Dialog open={showContainerConfirm} onClose={() => setShowContainerConfirm(false)}>
-                <DialogTitle>Container Already Exists</DialogTitle>
-                <DialogContent>
-                    <p>A container for this image already exists:</p>
+                {activeStep === 2 && (
                     <div>
-                        <p>
-                            <strong>Name:</strong> {existingContainer?.name || 'N/A'}
-                        </p>
-                        <p>
-                            <strong>Status:</strong> {existingContainer?.status || 'N/A'}
-                        </p>
+                        {loading ? (
+                            <>
+                                <div style={{ marginBottom: 20 }} />
+                                <CircularProgress />
+                                <p>{t('dialog.nvidiaNIM.startingContainer')}</p>
+                            </>
+                        ) : (
+                            <p>{t('dialog.nvidiaNIM.imageReady')}</p>
+                        )}
                     </div>
-                    <p>You can:</p>
-                    <ul>
-                        <li>Use the existing container (recommended)</li>
-                        <li>Change the port and try again</li>
-                    </ul>
-                </DialogContent>
-                <DialogActions>
-                    <Button
-                        onClick={() => {
-                            setShowContainerConfirm(false)
-                            setExistingContainer(null)
-                        }}
-                    >
-                        Cancel
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} variant='outline'>
+                    {t('dialog.nvidiaNIM.cancel')}
+                </Button>
+                {activeStep === 0 && (
+                    <Button onClick={handleNext} variant='outline' color='secondary'>
+                        {t('dialog.nvidiaNIM.next')}
                     </Button>
-                    <Button
-                        onClick={() => {
-                            setShowContainerConfirm(false)
-                            handleUseExistingContainer()
-                        }}
-                    >
-                        Use Existing
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </>
+                )}
+                <Button onClick={activeStep === 0 ? handleDownloadInstaller : handleNext} disabled={loading}>
+                    {activeStep === 0 ? t('dialog.nvidiaNIM.download') : t('dialog.nvidiaNIM.next')}
+                </Button>
+            </DialogActions>
+        </Dialog>
     ) : null
 
     return createPortal(component, portalElement)

@@ -45,6 +45,7 @@ import { styled } from '@mui/material/styles'
 //Project Import
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { MemoizedReactMarkdown } from '@/ui-component/markdown/MemoizedReactMarkdown'
+import { CodeBlock } from '@/ui-component/markdown/CodeBlock'
 import promptEmptySVG from '@/assets/images/prompt_empty.svg'
 
 import useApi from '@/hooks/useApi'
@@ -537,7 +538,30 @@ const PromptLangsmithHubDialog = ({ promptType, show, onCancel, onSubmit }) => {
                                                                 }
                                                             }}
                                                         >
-                                                            <MemoizedReactMarkdown>{selectedPrompt?.readme}</MemoizedReactMarkdown>
+                                                            <MemoizedReactMarkdown
+                                                                remarkPlugins={[remarkGfm, remarkMath]}
+                                                                rehypePlugins={[rehypeMathjax, rehypeRaw]}
+                                                                components={{
+                                                                    code({ inline, className, children, ...props }) {
+                                                                        const match = /language-(\w+)/.exec(className || '')
+                                                                        return !inline ? (
+                                                                            <CodeBlock
+                                                                                key={Math.random()}
+                                                                                isDialog={true}
+                                                                                language={(match && match[1]) || ''}
+                                                                                value={String(children).replace(/\n$/, '')}
+                                                                                {...props}
+                                                                            />
+                                                                        ) : (
+                                                                            <code className={className} {...props}>
+                                                                                {children}
+                                                                            </code>
+                                                                        )
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {selectedPrompt?.readme}
+                                                            </MemoizedReactMarkdown>
                                                         </div>
                                                     </AccordionDetails>
                                                 </Accordion>

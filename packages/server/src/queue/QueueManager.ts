@@ -10,7 +10,6 @@ import { QueueEventsProducer, RedisOptions } from 'bullmq'
 import { createBullBoard } from 'bull-board'
 import { BullMQAdapter } from 'bull-board/bullMQAdapter'
 import { Express } from 'express'
-import { UsageCacheManager } from '../UsageCacheManager'
 
 const QUEUE_NAME = process.env.QUEUE_NAME || 'flowise-queue'
 
@@ -42,12 +41,7 @@ export class QueueManager {
             port: parseInt(process.env.REDIS_PORT || '6379'),
             username: process.env.REDIS_USERNAME || undefined,
             password: process.env.REDIS_PASSWORD || undefined,
-            tls: tlsOpts,
-            enableReadyCheck: true,
-            keepAlive:
-                process.env.REDIS_KEEP_ALIVE && !isNaN(parseInt(process.env.REDIS_KEEP_ALIVE, 10))
-                    ? parseInt(process.env.REDIS_KEEP_ALIVE, 10)
-                    : undefined
+            tls: tlsOpts
         }
     }
 
@@ -97,15 +91,13 @@ export class QueueManager {
         telemetry,
         cachePool,
         appDataSource,
-        abortControllerPool,
-        usageCacheManager
+        abortControllerPool
     }: {
         componentNodes: IComponentNodes
         telemetry: Telemetry
         cachePool: CachePool
         appDataSource: DataSource
         abortControllerPool: AbortControllerPool
-        usageCacheManager: UsageCacheManager
     }) {
         const predictionQueueName = `${QUEUE_NAME}-prediction`
         const predictionQueue = new PredictionQueue(predictionQueueName, this.connection, {
@@ -113,8 +105,7 @@ export class QueueManager {
             telemetry,
             cachePool,
             appDataSource,
-            abortControllerPool,
-            usageCacheManager
+            abortControllerPool
         })
         this.registerQueue('prediction', predictionQueue)
         this.predictionQueueEventsProducer = new QueueEventsProducer(predictionQueue.getQueueName(), {
@@ -126,8 +117,7 @@ export class QueueManager {
             componentNodes,
             telemetry,
             cachePool,
-            appDataSource,
-            usageCacheManager
+            appDataSource
         })
         this.registerQueue('upsert', upsertionQueue)
 

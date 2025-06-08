@@ -32,7 +32,7 @@ const programmingLanguages = {
     css: '.css'
 }
 
-export const CodeBlock = memo(({ language, chatflowid, isDialog, isFullWidth, value }) => {
+export const CodeBlock = memo(({ language, chatflowid, isDialog, value }) => {
     const theme = useTheme()
     const [anchorEl, setAnchorEl] = useState(null)
     const openPopOver = Boolean(anchorEl)
@@ -76,7 +76,7 @@ export const CodeBlock = memo(({ language, chatflowid, isDialog, isFullWidth, va
     }
 
     return (
-        <div style={{ width: isFullWidth ? '' : 300 }}>
+        <div style={{ width: isDialog ? '' : 300 }}>
             <Box sx={{ color: 'white', background: theme.palette?.common.dark, p: 1, borderTopLeftRadius: 10, borderTopRightRadius: 10 }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     {language}
@@ -118,6 +118,6 @@ CodeBlock.displayName = 'CodeBlock'
 CodeBlock.propTypes = {
     language: PropTypes.string,
     chatflowid: PropTypes.string,
-    isFullWidth: PropTypes.bool,
+    isDialog: PropTypes.bool,
     value: PropTypes.string
 }

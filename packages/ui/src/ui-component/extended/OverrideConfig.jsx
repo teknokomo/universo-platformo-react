@@ -44,38 +44,6 @@ const OverrideConfigTable = ({ columns, onToggle, rows, sx }) => {
         onToggle(row, enabled)
     }
 
-    const renderCellContent = (key, row) => {
-        if (key === 'enabled') {
-            return <SwitchInput onChange={(enabled) => handleChange(enabled, row)} value={row.enabled} />
-        } else if (key === 'type' && row.schema) {
-            // If there's schema information, add a tooltip
-            const schemaContent =
-                '[<br>' +
-                row.schema
-                    .map(
-                        (item) =>
-                            `&nbsp;&nbsp;${JSON.stringify(
-                                {
-                                    [item.name]: item.type
-                                },
-                                null,
-                                2
-                            )}`
-                    )
-                    .join(',<br>') +
-                '<br>]'
-
-            return (
-                <Stack direction='row' alignItems='center' spacing={1}>
-                    <Typography>{row[key]}</Typography>
-                    <TooltipWithParser title={`<div>Schema:<br/>${schemaContent}</div>`} />
-                </Stack>
-            )
-        } else {
-            return row[key]
-        }
-    }
-
     return (
         <TableContainer component={Paper}>
             <Table size='small' sx={{ minWidth: 650, ...sx }} aria-label='simple table'>
@@ -90,8 +58,16 @@ const OverrideConfigTable = ({ columns, onToggle, rows, sx }) => {
                     {rows.map((row, index) => (
                         <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                             {Object.keys(row).map((key, index) => {
-                                if (key !== 'id' && key !== 'schema') {
-                                    return <TableCell key={index}>{renderCellContent(key, row)}</TableCell>
+                                if (key !== 'id') {
+                                    return (
+                                        <TableCell key={index}>
+                                            {key === 'enabled' ? (
+                                                <SwitchInput onChange={(enabled) => handleChange(enabled, row)} value={row.enabled} />
+                                            ) : (
+                                                row[key]
+                                            )}
+                                        </TableCell>
+                                    )
                                 }
                             })}
                         </TableRow>
@@ -142,27 +118,25 @@ const OverrideConfig = ({ dialogProps }) => {
     }
 
     const formatObj = () => {
-        let apiConfig = JSON.parse(dialogProps.chatflow.apiConfig)
-        if (apiConfig === null || apiConfig === undefined) {
-            apiConfig = {}
+        const obj = {
+            overrideConfig: { status: overrideConfigStatus }
         }
 
-        let overrideConfig = { status: overrideConfigStatus }
         if (overrideConfigStatus) {
+            // loop through each key in nodeOverrides and filter out the enabled ones
             const filteredNodeOverrides = {}
             for (const key in nodeOverrides) {
                 filteredNodeOverrides[key] = nodeOverrides[key].filter((node) => node.enabled)
             }
 
-            overrideConfig = {
-                ...overrideConfig,
+            obj.overrideConfig = {
+                ...obj.overrideConfig,
                 nodes: filteredNodeOverrides,
                 variables: variableOverrides.filter((node) => node.enabled)
             }
         }
-        apiConfig.overrideConfig = overrideConfig
 
-        return apiConfig
+        return obj
     }
 
     const onNodeOverrideToggle = (node, property, status) => {
@@ -195,7 +169,7 @@ const OverrideConfig = ({ dialogProps }) => {
         const seenNodes = new Set()
 
         nodes.forEach((item) => {
-            const { node, nodeId, label, name, type, schema } = item
+            const { node, nodeId, label, name, type } = item
             seenNodes.add(node)
 
             if (!result[node]) {
@@ -212,7 +186,7 @@ const OverrideConfig = ({ dialogProps }) => {
 
             if (!result[node].nodeIds.includes(nodeId)) result[node].nodeIds.push(nodeId)
 
-            const param = { label, name, type, schema }
+            const param = { label, name, type }
 
             if (!result[node].params.some((existingParam) => JSON.stringify(existingParam) === JSON.stringify(param))) {
                 result[node].params.push(param)
@@ -234,7 +208,7 @@ const OverrideConfig = ({ dialogProps }) => {
         if (!overrideConfigStatus) {
             setNodeOverrides(newNodeOverrides)
         } else {
-            const updatedNodeOverrides = { ...newNodeOverrides }
+            const updatedNodeOverrides = { ...nodeOverrides }
 
             Object.keys(updatedNodeOverrides).forEach((node) => {
                 if (!seenNodes.has(node)) {
@@ -291,7 +265,7 @@ const OverrideConfig = ({ dialogProps }) => {
     const onOverrideConfigSave = async () => {
         try {
             const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, chatflowid, {
-                apiConfig: JSON.stringify(formatObj())
+                overrideConfig: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
                 enqueueSnackbar({
@@ -423,9 +397,7 @@ const OverrideConfig = ({ dialogProps }) => {
                                                         rows={nodeOverrides[nodeLabel]}
                                                         columns={
                                                             nodeOverrides[nodeLabel].length > 0
-                                                                ? Object.keys(nodeOverrides[nodeLabel][0]).filter(
-                                                                      (key) => key !== 'schema' && key !== 'id'
-                                                                  )
+                                                                ? Object.keys(nodeOverrides[nodeLabel][0])
                                                                 : []
                                                         }
                                                         onToggle={(property, status) =>

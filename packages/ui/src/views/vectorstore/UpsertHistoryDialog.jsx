@@ -282,7 +282,6 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                     )
                 }
             })
-            setSelected([])
         }
     }
 

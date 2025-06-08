@@ -1,14 +1,12 @@
+import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, REMOVE_DIRTY } from '@/store/actions'
+import { exportData, stringify } from '@/utils/exportImport'
+import useNotifier from '@/utils/useNotifier'
 import PropTypes from 'prop-types'
 import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
-
-import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, REMOVE_DIRTY } from '@/store/actions'
-import { exportData, stringify } from '@/utils/exportImport'
-import useNotifier from '@/utils/useNotifier'
 
 // material-ui
 import {
@@ -16,22 +14,19 @@ import {
     Box,
     Button,
     ButtonBase,
-    Checkbox,
     ClickAwayListener,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
     Divider,
-    FormControlLabel,
     List,
     ListItemButton,
     ListItemIcon,
     ListItemText,
     Paper,
     Popper,
-    Stack,
     Typography,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    Stack,
     FormControlLabel,
     Checkbox,
     DialogActions
@@ -42,46 +37,30 @@ import { useTheme } from '@mui/material/styles'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 
 // project imports
-import { PermissionListItemButton } from '@/ui-component/button/RBACButtons'
 import MainCard from '@/ui-component/cards/MainCard'
 import AboutDialog from '@/ui-component/dialog/AboutDialog'
 import Transitions from '@/ui-component/extended/Transitions'
 
 // assets
-import ExportingGIF from '@/assets/images/Exporting.gif'
-import { IconFileExport, IconFileUpload, IconInfoCircle, IconLogout, IconSettings, IconUserEdit, IconX } from '@tabler/icons-react'
+import { IconFileExport, IconFileUpload, IconInfoCircle, IconLogout, IconSettings, IconX } from '@tabler/icons-react'
 import './index.css'
+import ExportingGIF from '@/assets/images/Exporting.gif'
 
-// API
+//API
 import exportImportApi from '@/api/exportimport'
 
 // Hooks
 import useApi from '@/hooks/useApi'
-import { useConfig } from '@/store/context/ConfigContext'
 import { getErrorMessage } from '@/utils/errorHandler'
 import { useNavigate } from 'react-router-dom'
 
-const dataToExport = [
-    'Agentflows',
-    'Agentflows V2',
-    'Assistants Custom',
-    'Assistants OpenAI',
-    'Assistants Azure',
-    'Chatflows',
-    'Chat Messages',
-    'Chat Feedbacks',
-    'Custom Templates',
-    'Document Stores',
-    'Executions',
-    'Tools',
-    'Variables'
-]
+const dataToExport = ['Chatflows', 'Agentflows', 'Tools', 'Variables', 'Assistants']
 
 const ExportDialog = ({ show, onCancel, onExport }) => {
     const portalElement = document.getElementById('portal')
     const { t } = useTranslation('menu')
 
-    const [selectedData, setSelectedData] = useState(dataToExport)
+    const [selectedData, setSelectedData] = useState(['Chatflows', 'Agentflows', 'Tools', 'Variables', 'Assistants'])
     const [isExporting, setIsExporting] = useState(false)
 
     useEffect(() => {
@@ -175,40 +154,6 @@ ExportDialog.propTypes = {
     onExport: PropTypes.func
 }
 
-const ImportDialog = ({ show }) => {
-    const portalElement = document.getElementById('portal')
-
-    const component = show ? (
-        <Dialog open={show} fullWidth maxWidth='sm' aria-labelledby='import-dialog-title' aria-describedby='import-dialog-description'>
-            <DialogTitle sx={{ fontSize: '1rem' }} id='import-dialog-title'>
-                Importing...
-            </DialogTitle>
-            <DialogContent>
-                <Box sx={{ height: 'auto', display: 'flex', justifyContent: 'center', mb: 3 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <img
-                            style={{
-                                objectFit: 'cover',
-                                height: 'auto',
-                                width: 'auto'
-                            }}
-                            src={ExportingGIF}
-                            alt='ImportingGIF'
-                        />
-                        <span>Importing data might takes a while</span>
-                    </div>
-                </Box>
-            </DialogContent>
-        </Dialog>
-    ) : null
-
-    return createPortal(component, portalElement)
-}
-
-ImportDialog.propTypes = {
-    show: PropTypes.bool
-}
-
 // ==============================|| PROFILE MENU ||============================== //
 
 const ProfileSection = ({ username, handleLogout }) => {
@@ -216,20 +161,15 @@ const ProfileSection = ({ username, handleLogout }) => {
     const { unikId } = useParams()
     const customization = useSelector((state) => state.customization)
     const { t } = useTranslation(['menu', 'common'])
-    const { isCloud } = useConfig()
 
     const [open, setOpen] = useState(false)
     const [aboutDialogOpen, setAboutDialogOpen] = useState(false)
-
     const [exportDialogOpen, setExportDialogOpen] = useState(false)
-    const [importDialogOpen, setImportDialogOpen] = useState(false)
 
     const anchorRef = useRef(null)
     const inputRef = useRef()
 
     const navigate = useNavigate()
-    const currentUser = useSelector((state) => state.auth.user)
-    const isAuthenticated = useSelector((state) => state.auth.isAuthenticated)
 
     const importAllApi = useApi(exportImportApi.importData)
     const exportAllApi = useApi(exportImportApi.exportData)
@@ -273,7 +213,6 @@ const ProfileSection = ({ username, handleLogout }) => {
         if (!e.target.files) return
 
         const file = e.target.files[0]
-        setImportDialogOpen(true)
 
         const reader = new FileReader()
         reader.onload = (evt) => {
@@ -287,7 +226,6 @@ const ProfileSection = ({ username, handleLogout }) => {
     }
 
     const importAllSuccess = () => {
-        setImportDialogOpen(false)
         dispatch({ type: REMOVE_DIRTY })
         enqueueSnackbar({
             message: `Import All successful`,
@@ -309,19 +247,11 @@ const ProfileSection = ({ username, handleLogout }) => {
 
     const onExport = (data) => {
         const body = {}
-        if (data.includes('Agentflows')) body.agentflow = true
-        if (data.includes('Agentflows V2')) body.agentflowv2 = true
-        if (data.includes('Assistants Custom')) body.assistantCustom = true
-        if (data.includes('Assistants OpenAI')) body.assistantOpenAI = true
-        if (data.includes('Assistants Azure')) body.assistantAzure = true
         if (data.includes('Chatflows')) body.chatflow = true
-        if (data.includes('Chat Messages')) body.chat_message = true
-        if (data.includes('Chat Feedbacks')) body.chat_feedback = true
-        if (data.includes('Custom Templates')) body.custom_template = true
-        if (data.includes('Document Stores')) body.document_store = true
-        if (data.includes('Executions')) body.execution = true
+        if (data.includes('Agentflows')) body.agentflow = true
         if (data.includes('Tools')) body.tool = true
         if (data.includes('Variables')) body.variable = true
+        if (data.includes('Assistants')) body.assistant = true
 
         exportAllApi.request(unikId, body)
     }
@@ -336,7 +266,6 @@ const ProfileSection = ({ username, handleLogout }) => {
 
     useEffect(() => {
         if (importAllApi.error) {
-            setImportDialogOpen(false)
             let errMsg = 'Invalid Imported File'
             let error = importAllApi.error
             if (error?.response?.data) {
@@ -384,6 +313,7 @@ const ProfileSection = ({ username, handleLogout }) => {
         if (prevOpen.current === true && open === false) {
             anchorRef.current.focus()
         }
+
         prevOpen.current = open
     }, [open])
 
@@ -432,13 +362,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                         <Paper>
                             <ClickAwayListener onClickAway={handleClose}>
                                 <MainCard border={false} elevation={16} content={false} boxShadow shadow={theme.shadows[16]}>
-                                    {isAuthenticated && currentUser ? (
-                                        <Box sx={{ p: 2 }}>
-                                            <Typography component='span' variant='h4'>
-                                                {currentUser.name}
-                                            </Typography>
-                                        </Box>
-                                    ) : (
+                                    {username && (
                                         <Box sx={{ p: 2 }}>
                                             <Typography component='span' variant='h4'>
                                                 {username}
@@ -464,8 +388,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     }
                                                 }}
                                             >
-                                                <PermissionListItemButton
-                                                    permissionId='workspace:export'
+                                                <ListItemButton
                                                     sx={{ borderRadius: `${customization.borderRadius}px` }}
                                                     onClick={() => {
                                                         setExportDialogOpen(true)
@@ -475,9 +398,8 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                         <IconFileExport stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
                                                     <ListItemText primary={<Typography variant='body2'>{t('profileMenu.export')}</Typography>} />
-                                                </PermissionListItemButton>
-                                                <PermissionListItemButton
-                                                    permissionId='workspace:import'
+                                                </ListItemButton>
+                                                <ListItemButton
                                                     sx={{ borderRadius: `${customization.borderRadius}px` }}
                                                     onClick={() => {
                                                         importAll()
@@ -487,7 +409,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                         <IconFileUpload stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
                                                     <ListItemText primary={<Typography variant='body2'>{t('profileMenu.import')}</Typography>} />
-                                                </PermissionListItemButton>
+                                                </ListItemButton>
                                                 <input ref={inputRef} type='file' hidden onChange={fileChange} accept='.json' />
                                                 <ListItemButton
                                                     sx={{ borderRadius: `${customization.borderRadius}px` }}
@@ -501,29 +423,17 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     </ListItemIcon>
                                                     <ListItemText primary={<Typography variant='body2'>{t('profileMenu.aboutFlowise')}</Typography>} />
                                                 </ListItemButton>
-                                                {isAuthenticated && !currentUser.isSSO && !isCloud && (
+                                                {localStorage.getItem('username') && localStorage.getItem('password') && (
                                                     <ListItemButton
                                                         sx={{ borderRadius: `${customization.borderRadius}px` }}
-                                                        onClick={() => {
-                                                            setOpen(false)
-                                                            navigate('/user-profile')
-                                                        }}
+                                                        onClick={handleLogout}
                                                     >
                                                         <ListItemIcon>
-                                                            <IconUserEdit stroke={1.5} size='1.3rem' />
+                                                            <IconLogout stroke={1.5} size='1.3rem' />
                                                         </ListItemIcon>
-                                                        <ListItemText primary={<Typography variant='body2'>Update Profile</Typography>} />
+                                                        <ListItemText primary={<Typography variant='body2'>{t('profileMenu.logout')}</Typography>} />
                                                     </ListItemButton>
                                                 )}
-                                                <ListItemButton
-                                                    sx={{ borderRadius: `${customization.borderRadius}px` }}
-                                                    onClick={handleLogout}
-                                                >
-                                                    <ListItemIcon>
-                                                        <IconLogout stroke={1.5} size='1.3rem' />
-                                                    </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.logout')}</Typography>} />
-                                                </ListItemButton>
                                             </List>
                                         </Box>
                                     </PerfectScrollbar>
@@ -535,12 +445,12 @@ const ProfileSection = ({ username, handleLogout }) => {
             </Popper>
             <AboutDialog show={aboutDialogOpen} onCancel={() => setAboutDialogOpen(false)} />
             <ExportDialog show={exportDialogOpen} onCancel={() => setExportDialogOpen(false)} onExport={(data) => onExport(data)} />
-            <ImportDialog show={importDialogOpen} />
         </>
     )
 }
 
 ProfileSection.propTypes = {
+    username: PropTypes.string,
     handleLogout: PropTypes.func
 }
 

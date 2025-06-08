@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { useContext, useState, useEffect, memo } from 'react'
+import { useContext, useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 
@@ -66,12 +66,6 @@ const CanvasNode = ({ data }) => {
         setShowDialog(true)
     }
 
-    const getBorderColor = () => {
-        if (data.selected) return theme.palette.primary.main
-        else if (theme?.customization?.isDarkMode) return theme.palette.grey[900] + 25
-        else return theme.palette.grey[900] + 50
-    }
-
     useEffect(() => {
         const componentNode = canvas.componentNodes.find((nd) => nd.name === data.name)
         if (componentNode) {
@@ -96,7 +90,7 @@ const CanvasNode = ({ data }) => {
                 content={false}
                 sx={{
                     padding: 0,
-                    borderColor: getBorderColor()
+                    borderColor: data.selected ? theme.palette.primary.main : theme.palette.text.secondary
                 }}
                 border={false}
             >
@@ -150,16 +144,14 @@ const CanvasNode = ({ data }) => {
                 >
                     <Box>
                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                            <Box style={{ width: 50, marginRight: 10, padding: 10 }}>
+                            <Box style={{ width: 50, marginRight: 10, padding: 5 }}>
                                 <div
                                     style={{
                                         ...theme.typography.commonAvatar,
                                         ...theme.typography.largeAvatar,
                                         borderRadius: '50%',
                                         backgroundColor: 'white',
-                                        cursor: 'grab',
-                                        width: '40px',
-                                        height: '40px'
+                                        cursor: 'grab'
                                     }}
                                 >
                                     <img
@@ -228,7 +220,6 @@ const CanvasNode = ({ data }) => {
                         ))}
                         {data.inputParams
                             .filter((inputParam) => !inputParam.hidden)
-                            .filter((inputParam) => inputParam.display !== false)
                             .map((inputParam, index) => (
                                 <NodeInputHandler
                                     key={index}
@@ -294,4 +285,4 @@ CanvasNode.propTypes = {
     data: PropTypes.object
 }
 
-export default memo(CanvasNode)
+export default CanvasNode

@@ -48,13 +48,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     useEffect(() => {
         if (dialogProps.chatflow) {
             setName(dialogProps.chatflow.name)
-            if (dialogProps.chatflow.type === 'AGENTFLOW') {
-                setFlowType('AgentflowV2')
-            } else if (dialogProps.chatflow.type === 'MULTIAGENT') {
-                setFlowType('Agentflow')
-            } else if (dialogProps.chatflow.type === 'CHATFLOW') {
-                setFlowType('Chatflow')
-            }
+            setFlowType(dialogProps.chatflow.type === 'MULTIAGENT' ? 'Agentflow' : 'Chatflow')
         }
 
         if (dialogProps.tool) {
@@ -291,3 +285,4 @@ ExportAsTemplateDialog.propTypes = {
 }
 
 export default ExportAsTemplateDialog
+

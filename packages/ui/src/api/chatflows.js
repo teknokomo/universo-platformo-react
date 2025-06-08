@@ -2,7 +2,7 @@ import client from './client'
 
 const getAllChatflows = (unikId) => client.get(`/uniks/${unikId}/chatflows?type=CHATFLOW`)
 
-const getAllAgentflows = (unikId, type) => client.get(`/uniks/${unikId}/chatflows?type=${type}`)
+const getAllAgentflows = (unikId) => client.get(`/uniks/${unikId}/chatflows?type=MULTIAGENT`)
 
 const getSpecificChatflow = (unikId, id) => client.get(`/uniks/${unikId}/chatflows/${id}`)
 
@@ -26,7 +26,6 @@ const getBotConfig = (id, type = '') => client.get(`/api/v1/bots/${id}/config${t
 
 const getChatBotConfig = (id) => getBotConfig(id, 'chat')
 
-const getHasChatflowChanged = (id, lastUpdatedDateTime) => client.get(`/chatflows/has-changed/${id}/${lastUpdatedDateTime}`)
 
 const renderBot = (id, type = '') => client.get(`/api/v1/bots/${id}/render${type ? `?type=${type}` : ''}`)
 
@@ -39,7 +38,6 @@ const streamBot = (id, sessionId = '') => {
     const url = sessionId ? `/api/v1/bots/${id}/stream/${sessionId}` : `/api/v1/bots/${id}/stream`
     return client.get(url)
 }
-const generateAgentflow = (body) => client.post(`/agentflowv2-generator/generate`, body)
 
 export default {
     getAllChatflows,
@@ -58,7 +56,5 @@ export default {
     updateBotUsage,
     streamBot,
     getChatBotConfig,
-    renderChatBot,
-    getHasChatflowChanged,
-    generateAgentflow
+    renderChatBot
 }

@@ -1,10 +1,9 @@
 import express from 'express'
 import exportImportController from '../../controllers/export-import'
-import { checkPermission } from '../../enterprise/rbac/PermissionCheck'
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
-router.post('/export', checkPermission('workspace:export'), exportImportController.exportData)
+router.post('/export', exportImportController.exportData)
 
-router.post('/import', checkPermission('workspace:import'), exportImportController.importData)
+router.post('/import', exportImportController.importData)
 
 export default router

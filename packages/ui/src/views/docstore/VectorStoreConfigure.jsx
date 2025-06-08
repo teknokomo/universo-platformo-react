@@ -27,12 +27,10 @@ import nodesApi from '@/api/nodes'
 
 // Hooks
 import useApi from '@/hooks/useApi'
-import { useAuth } from '@/hooks/useAuth'
 
 // Store
 import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction } from '@/store/actions'
 import { baseURL } from '@/store/constant'
-import { useError } from '@/store/context/ErrorContext'
 
 // icons
 import { IconX, IconEditCircle, IconRowInsertTop, IconDeviceFloppy, IconRefresh, IconClock } from '@tabler/icons-react'
@@ -45,15 +43,13 @@ import { initNode } from '@/utils/genericHelper'
 import useNotifier from '@/utils/useNotifier'
 
 // const
-const steps = ['Embeddings', 'Vector Store', 'Record Manager']
+const steps = ['Embeddings', 'Vector_Store', 'Record_Manager']
 
 const VectorStoreConfigure = () => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
     const { t } = useTranslation(['document-store', 'vector-store'])
-    const { hasAssignedWorkspace } = useAuth()
     useNotifier()
-    const { error, setError } = useError()
     const customization = useSelector((state) => state.customization)
 
     const { storeId, docId, unikId } = useParams()
@@ -68,7 +64,9 @@ const VectorStoreConfigure = () => {
     const getVectorStoreNodeDetailsApi = useApi(nodesApi.getSpecificNode)
     const getRecordManagerNodeDetailsApi = useApi(nodesApi.getSpecificNode)
 
+    const [error, setError] = useState(null)
     const [loading, setLoading] = useState(true)
+
     const [documentStore, setDocumentStore] = useState({})
     const [dialogProps, setDialogProps] = useState({})
 
@@ -386,10 +384,6 @@ const VectorStoreConfigure = () => {
     useEffect(() => {
         if (getSpecificDocumentStoreApi.data) {
             const docStore = getSpecificDocumentStoreApi.data
-            if (!hasAssignedWorkspace(docStore.workspaceId)) {
-                navigate('/unauthorized')
-                return
-            }
             setDocumentStore(docStore)
             if (docStore.embeddingConfig) {
                 getEmbeddingNodeDetailsApi.request(docStore.embeddingConfig.name)

@@ -6,7 +6,6 @@ on:
     pull_request:
         branches:
             - '*'
-    workflow_dispatch:
 permissions:
     contents: read
 jobs:
@@ -32,8 +31,6 @@ jobs:
             - run: pnpm install
             - run: pnpm lint
             - run: pnpm build
-              env:
-                  NODE_OPTIONS: '--max_old_space_size=4096'
             - name: Cypress install
               run: pnpm cypress install
             - name: Install dependencies (Cypress Action)

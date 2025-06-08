@@ -9,7 +9,6 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 
 // icons
 import { IconCopy, IconChevronLeft } from '@tabler/icons-react'
-import { Available } from '@/ui-component/rbac/available'
 
 // ==============================|| CANVAS HEADER ||============================== //
 
@@ -40,11 +39,11 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                         onClick={() => {
                             // Get current path using useLocation hook
                             const currentPath = location.pathname;
-
+                            
                             // Extract unikId from URL
                             const pathParts = currentPath.split('/');
                             const unikIdIndex = pathParts.indexOf('uniks') + 1;
-
+                            
                             if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
                                 const unikId = pathParts[unikIdIndex];
                                 // Redirect to the list of templates
@@ -72,19 +71,17 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                     </Typography>
                 </Stack>
             </Box>
-            <Available permission={'chatflows:create,agentflows.create'}>
-                <Box>
-                    <StyledButton
-                        color='secondary'
-                        variant='contained'
-                        title={t('templates.canvas.useChatflow')}
-                        onClick={() => onChatflowCopy(flowData)}
-                        startIcon={<IconCopy />}
-                    >
-                        {t('templates.canvas.useTemplate')}
-                    </StyledButton>
-                </Box>
-            </Available>
+            <Box>
+                <StyledButton
+                    color='secondary'
+                    variant='contained'
+                    title={t('templates.canvas.useChatflow')}
+                    onClick={() => onChatflowCopy(flowData)}
+                    startIcon={<IconCopy />}
+                >
+                    {t('templates.canvas.useTemplate')}
+                </StyledButton>
+            </Box>
         </>
     )
 }

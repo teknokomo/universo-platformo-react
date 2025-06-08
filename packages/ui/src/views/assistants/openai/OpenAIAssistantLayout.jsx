@@ -3,16 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 // material-ui
-import { Box, Stack, Skeleton } from '@mui/material'
+import { Box, Stack, Button, Skeleton } from '@mui/material'
 
 // project imports
 import MainCard from '@/ui-component/cards/MainCard'
 import ItemCard from '@/ui-component/cards/ItemCard'
+import { StyledButton } from '@/ui-component/button/StyledButton'
 import AssistantDialog from './AssistantDialog'
 import LoadAssistantDialog from './LoadAssistantDialog'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
-import { PermissionButton, StyledPermissionButton } from '@/ui-component/button/RBACButtons'
 
 // API
 import assistantsApi from '@/api/assistants'
@@ -127,27 +127,24 @@ const OpenAIAssistantLayout = () => {
                             search={true}
                             searchPlaceholder={t('assistants.searchPlaceholder')}
                             title={t('assistants.openai.title')}
-                            description='Create assistants using OpenAI Assistant API'
                             onBack={() => navigate(-1)}
                         >
-                            <PermissionButton
-                                permissionId={'assistants:create'}
+                            <Button
                                 variant='outlined'
                                 onClick={loadExisting}
                                 startIcon={<IconFileUpload />}
                                 sx={{ borderRadius: 2, height: 40 }}
                             >
                                 {t('assistants.openai.load')}
-                            </PermissionButton>
-                            <StyledPermissionButton
-                                permissionId={'assistants:create'}
+                            </Button>
+                            <StyledButton
                                 variant='contained'
                                 sx={{ borderRadius: 2, height: 40 }}
-                                onClick={addNew}
+                                onClick={() => addNew()}
                                 startIcon={<IconPlus />}
                             >
                                 {t('assistants.common.add')}
-                            </StyledPermissionButton>
+                            </StyledButton>
                         </ViewHeader>
                         {isLoading ? (
                             <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>

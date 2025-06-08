@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect, useContext } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
@@ -11,7 +11,7 @@ import { IconMessage, IconX, IconEraser, IconArrowsMaximize } from '@tabler/icon
 import { StyledFab } from '@/ui-component/button/StyledFab'
 import MainCard from '@/ui-component/cards/MainCard'
 import Transitions from '@/ui-component/extended/Transitions'
-import ChatMessage from './ChatMessage'
+import { ChatMessage } from './ChatMessage'
 import ChatExpandDialog from './ChatExpandDialog'
 
 // api
@@ -20,7 +20,6 @@ import chatmessageApi from '@/api/chatmessage'
 // Hooks
 import useConfirm from '@/hooks/useConfirm'
 import useNotifier from '@/utils/useNotifier'
-import { flowContext } from '@/store/context/ReactFlowContext'
 
 // Const
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
@@ -28,12 +27,11 @@ import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackba
 // Utils
 import { getLocalStorageChatflow, removeLocalStorageChatHistory } from '@/utils/genericHelper'
 
-const ChatPopUp = ({ chatflowid, isAgentCanvas, onOpenChange }) => {
+export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
     const theme = useTheme()
     const { confirm } = useConfirm()
     const dispatch = useDispatch()
     const { t } = useTranslation('chatmessage')
-    const { clearAgentflowNodeStatus } = useContext(flowContext)
 
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -52,13 +50,10 @@ const ChatPopUp = ({ chatflowid, isAgentCanvas, onOpenChange }) => {
             return
         }
         setOpen(false)
-        if (onOpenChange) onOpenChange(false)
     }
 
     const handleToggle = () => {
-        const newOpenState = !open
-        setOpen(newOpenState)
-        if (onOpenChange) onOpenChange(newOpenState)
+        setOpen((prevOpen) => !prevOpen)
     }
 
     const expandChat = () => {
@@ -76,7 +71,6 @@ const ChatPopUp = ({ chatflowid, isAgentCanvas, onOpenChange }) => {
             open: false
         }
         setExpandDialogProps(props)
-        clearAgentflowNodeStatus()
         setTimeout(() => {
             const resetProps = {
                 ...expandDialogProps,
@@ -135,7 +129,6 @@ const ChatPopUp = ({ chatflowid, isAgentCanvas, onOpenChange }) => {
     useEffect(() => {
         if (prevOpen.current === true && open === false) {
             anchorRef.current.focus()
-            if (onOpenChange) onOpenChange(false)
         }
         prevOpen.current = open
 
@@ -155,7 +148,6 @@ const ChatPopUp = ({ chatflowid, isAgentCanvas, onOpenChange }) => {
             >
                 {open ? <IconX /> : <IconMessage />}
             </StyledFab>
-
             {open && (
                 <StyledFab
                     sx={{ position: 'absolute', right: 80, top: 20 }}
@@ -237,10 +229,4 @@ const ChatPopUp = ({ chatflowid, isAgentCanvas, onOpenChange }) => {
     )
 }
 
-ChatPopUp.propTypes = {
-    chatflowid: PropTypes.string,
-    isAgentCanvas: PropTypes.bool,
-    onOpenChange: PropTypes.func
-}
-
-export default memo(ChatPopUp)
+ChatPopUp.propTypes = { chatflowid: PropTypes.string, isAgentCanvas: PropTypes.bool }

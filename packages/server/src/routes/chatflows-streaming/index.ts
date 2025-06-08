@@ -1,6 +1,5 @@
 // Universo Platformo | Chat bots streaming routes
 import express from 'express'
-// import chatflowsController from '../../controllers/chatflows'
 import chatStreamingController from '../../controllers/bots/chat-streaming'
 import logger from '../../utils/logger'
 
@@ -21,7 +20,5 @@ router.get(['/:chatflowid', '/:chatflowid/', '/:chatflowid/:sessionid', '/:chatf
         next(error)
     }
 })
-// READ
-// router.get(['/', '/:id'], chatflowsController.checkIfChatflowIsValidForStreaming)
 
 export default router

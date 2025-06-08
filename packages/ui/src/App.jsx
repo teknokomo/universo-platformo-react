@@ -31,7 +31,7 @@ const App = () => {
                 setI18nInitialized(true)
             }
             i18n.on('initialized', handleInitialized)
-
+            
             return () => {
                 i18n.off('initialized', handleInitialized)
             }

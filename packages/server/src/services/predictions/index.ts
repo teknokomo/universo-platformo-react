@@ -4,9 +4,9 @@ import { utilBuildChatflow } from '../../utils/buildChatflow'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
-const buildChatflow = async (req: Request) => {
+const buildChatflow = async (fullRequest: Request) => {
     try {
-        const dbResponse = await utilBuildChatflow(req)
+        const dbResponse = await utilBuildChatflow(fullRequest)
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(

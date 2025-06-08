@@ -14,8 +14,6 @@ import CredentialListDialog from '@/views/credentials/CredentialListDialog'
 
 // API
 import credentialsApi from '@/api/credentials'
-import { useAuth } from '@/hooks/useAuth'
-import { FLOWISE_CREDENTIAL_ID } from '@/store/constant'
 
 // ===========================|| CredentialInputHandler ||=========================== //
 
@@ -23,13 +21,12 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
     const ref = useRef(null)
     const { unikId } = useParams()
     const { t } = useTranslation('canvas')
-    const [credentialId, setCredentialId] = useState(data?.credential || (data?.inputs && data.inputs[FLOWISE_CREDENTIAL_ID]) || '')
+    const [credentialId, setCredentialId] = useState(data?.credential ?? '')
     const [showCredentialListDialog, setShowCredentialListDialog] = useState(false)
     const [credentialListDialogProps, setCredentialListDialogProps] = useState({})
     const [showSpecificCredentialDialog, setShowSpecificCredentialDialog] = useState(false)
     const [specificCredentialDialogProps, setSpecificCredentialDialogProps] = useState({})
     const [reloadTimestamp, setReloadTimestamp] = useState(Date.now().toString())
-    const { hasPermission } = useAuth()
 
     const editCredential = (credentialId) => {
         const dialogProp = {
@@ -99,7 +96,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
     }
 
     useEffect(() => {
-        setCredentialId(data?.credential || (data?.inputs && data.inputs[FLOWISE_CREDENTIAL_ID]) || '')
+        setCredentialId(data?.credential ?? '')
     }, [data])
 
     return (
@@ -113,7 +110,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                 name={inputParam.name}
                                 nodeData={data}
                                 value={credentialId ?? t('canvas.credentials.chooseAnOption')}
-                                isCreateNewOption={hasPermission('credentials:create')}
+                                isCreateNewOption={true}
                                 credentialNames={inputParam.credentialNames}
                                 onSelect={(newValue) => {
                                     setCredentialId(newValue)
@@ -122,7 +119,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                                 onCreateNew={() => addAsyncOption(inputParam.name)}
                                 unikId={unikId}
                             />
-                            {credentialId && hasPermission('credentials:update') && (
+                            {credentialId && (
                                 <IconButton title={t('canvas.common.edit')} color='primary' size='small' onClick={() => editCredential(credentialId)}>
                                     <IconEdit />
                                 </IconButton>

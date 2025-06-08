@@ -20,7 +20,7 @@ import chatflowsApi from '@/api/chatflows'
 // utils
 import useNotifier from '@/utils/useNotifier'
 
-const RateLimit = ({ dialogProps }) => {
+const RateLimit = () => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const chatflowid = chatflow.id
@@ -38,11 +38,9 @@ const RateLimit = ({ dialogProps }) => {
     const [limitMsg, setLimitMsg] = useState(apiConfig?.rateLimit?.limitMsg ?? '')
 
     const formatObj = () => {
-        let apiConfig = JSON.parse(dialogProps.chatflow.apiConfig)
-        if (apiConfig === null || apiConfig === undefined) {
-            apiConfig = {}
+        const obj = {
+            rateLimit: { status: rateLimitStatus }
         }
-        let obj = { status: rateLimitStatus }
 
         if (rateLimitStatus) {
             const rateLimitValuesBoolean = [!limitMax, !limitDuration, !limitMsg]
@@ -50,16 +48,16 @@ const RateLimit = ({ dialogProps }) => {
             if (rateLimitFilledValues.length >= 1 && rateLimitFilledValues.length <= 2) {
                 throw new Error('Need to fill all rate limit input fields')
             } else if (rateLimitFilledValues.length === 3) {
-                obj = {
-                    ...obj,
+                obj.rateLimit = {
+                    ...obj.rateLimit,
                     limitMax,
                     limitDuration,
                     limitMsg
                 }
             }
         }
-        apiConfig.rateLimit = obj
-        return apiConfig
+
+        return obj
     }
 
     const handleChange = (value) => {
@@ -77,8 +75,8 @@ const RateLimit = ({ dialogProps }) => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflowid, {
-                apiConfig: JSON.stringify(formatObj())
+            const saveResp = await chatflowsApi.updateChatflow(chatflow.unik_id, chatflowid, {
+                rateLimit: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
                 enqueueSnackbar({
@@ -177,8 +175,7 @@ const RateLimit = ({ dialogProps }) => {
 }
 
 RateLimit.propTypes = {
-    isSessionMemory: PropTypes.bool,
-    dialogProps: PropTypes.object
+    isSessionMemory: PropTypes.bool
 }
 
 export default RateLimit

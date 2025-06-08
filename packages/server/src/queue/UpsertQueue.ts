@@ -14,13 +14,11 @@ import { executeUpsert } from '../utils/upsertVector'
 import { executeDocStoreUpsert, insertIntoVectorStore, previewChunks, processLoader } from '../services/documentstore'
 import { RedisOptions } from 'bullmq'
 import logger from '../utils/logger'
-import { UsageCacheManager } from '../UsageCacheManager'
 
 interface UpsertQueueOptions {
     appDataSource: DataSource
     telemetry: Telemetry
     cachePool: CachePool
-    usageCacheManager: UsageCacheManager
     componentNodes: IComponentNodes
 }
 
@@ -29,7 +27,6 @@ export class UpsertQueue extends BaseQueue {
     private telemetry: Telemetry
     private cachePool: CachePool
     private appDataSource: DataSource
-    private usageCacheManager: UsageCacheManager
     private queueName: string
 
     constructor(name: string, connection: RedisOptions, options: UpsertQueueOptions) {
@@ -39,7 +36,6 @@ export class UpsertQueue extends BaseQueue {
         this.telemetry = options.telemetry
         this.cachePool = options.cachePool
         this.appDataSource = options.appDataSource
-        this.usageCacheManager = options.usageCacheManager
     }
 
     public getQueueName() {
@@ -56,7 +52,6 @@ export class UpsertQueue extends BaseQueue {
         if (this.appDataSource) data.appDataSource = this.appDataSource
         if (this.telemetry) data.telemetry = this.telemetry
         if (this.cachePool) data.cachePool = this.cachePool
-        if (this.usageCacheManager) data.usageCacheManager = this.usageCacheManager
         if (this.componentNodes) data.componentNodes = this.componentNodes
 
         // document-store/loader/preview

@@ -1,5 +1,4 @@
 import PropTypes from 'prop-types'
-import { useSelector } from 'react-redux'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
@@ -14,9 +13,6 @@ import { BrowserView, MobileView } from 'react-device-detect'
 // Universo Platformo | Import updated menu items
 import MenuList from './MenuList'
 import LogoSection from '../LogoSection'
-import CloudMenuList from '@/layout/MainLayout/Sidebar/CloudMenuList'
-
-// store
 import { drawerWidth, headerHeight } from '@/store/constant'
 
 // ==============================|| SIDEBAR DRAWER ||============================== //
@@ -24,7 +20,6 @@ import { drawerWidth, headerHeight } from '@/store/constant'
 const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
     const theme = useTheme()
     const matchUpMd = useMediaQuery(theme.breakpoints.up('md'))
-    const isAuthenticated = useSelector((state) => state.auth.isAuthenticated)
 
     const drawer = (
         <>
@@ -43,18 +38,16 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
                     component='div'
                     style={{
                         height: !matchUpMd ? 'calc(100vh - 56px)' : `calc(100vh - ${headerHeight}px)`,
-                        display: 'flex',
-                        flexDirection: 'column'
+                        paddingLeft: '16px',
+                        paddingRight: '16px'
                     }}
                 >
                     <MenuList />
-                    <CloudMenuList />
                 </PerfectScrollbar>
             </BrowserView>
             <MobileView>
                 <Box sx={{ px: 2 }}>
                     <MenuList />
-                    <CloudMenuList />
                 </Box>
             </MobileView>
         </>
@@ -69,33 +62,32 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
                 flexShrink: { md: 0 },
                 width: matchUpMd ? drawerWidth : 'auto'
             }}
-            aria-label='mailbox folders'
+            aria-label='sidebar navigation'
         >
-            {isAuthenticated && (
-                <Drawer
-                    container={container}
-                    variant={matchUpMd ? 'persistent' : 'temporary'}
-                    anchor='left'
-                    open={drawerOpen}
-                    onClose={drawerToggle}
-                    sx={{
-                        '& .MuiDrawer-paper': {
-                            width: drawerWidth,
-                            background: theme.palette.background.default,
-                            color: theme.palette.text.primary,
-                            [theme.breakpoints.up('md')]: {
-                                top: `${headerHeight}px`
-                            },
-                            borderRight: drawerOpen ? '1px solid' : 'none',
-                            borderColor: drawerOpen ? theme.palette.grey[900] + 25 : 'transparent'
-                        }
-                    }}
-                    ModalProps={{ keepMounted: true }}
-                    color='inherit'
-                >
-                    {drawer}
-                </Drawer>
-            )}
+            <Drawer
+                container={container}
+                variant={matchUpMd ? 'persistent' : 'temporary'}
+                anchor='left'
+                open={drawerOpen}
+                onClose={drawerToggle}
+                sx={{
+                    '& .MuiDrawer-paper': {
+                        width: drawerWidth,
+                        background: theme.palette.background.default,
+                        color: theme.palette.text.primary,
+                        [theme.breakpoints.up('md')]: {
+                            top: `${headerHeight}px`
+                        },
+                        borderRight: drawerOpen ? '1px solid' : 'none',
+                        borderColor: drawerOpen ? theme.palette.primary[200] + 75 : 'transparent',
+                        zIndex: 1000
+                    }
+                }}
+                ModalProps={{ keepMounted: true }}
+                color='inherit'
+            >
+                {drawer}
+            </Drawer>
         </Box>
     )
 }

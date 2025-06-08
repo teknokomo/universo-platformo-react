@@ -29,7 +29,6 @@ import useNotifier from '@/utils/useNotifier'
 
 const AddCustomAssistantDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
-
     const dispatch = useDispatch()
     const { t } = useTranslation('assistants')
 

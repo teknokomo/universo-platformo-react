@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
 import feedbackService from '../../services/feedback'
-import { validateFeedbackForCreation, validateFeedbackForUpdate } from '../../services/feedback/validation'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
 
@@ -32,7 +31,6 @@ const createChatMessageFeedbackForChatflow = async (req: Request, res: Response,
                 `Error: feedbackController.createChatMessageFeedbackForChatflow - body not provided!`
             )
         }
-        await validateFeedbackForCreation(req.body)
         const apiResponse = await feedbackService.createChatMessageFeedbackForChatflow(req.body)
         return res.json(apiResponse)
     } catch (error) {
@@ -54,7 +52,6 @@ const updateChatMessageFeedbackForChatflow = async (req: Request, res: Response,
                 `Error: feedbackController.updateChatMessageFeedbackForChatflow - id not provided!`
             )
         }
-        await validateFeedbackForUpdate(req.params.id, req.body)
         const apiResponse = await feedbackService.updateChatMessageFeedbackForChatflow(req.params.id, req.body)
         return res.json(apiResponse)
     } catch (error) {

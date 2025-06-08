@@ -7,7 +7,6 @@ import { NodesPool } from '../NodesPool'
 import { CachePool } from '../CachePool'
 import { QueueEvents, QueueEventsListener } from 'bullmq'
 import { AbortControllerPool } from '../AbortControllerPool'
-import { UsageCacheManager } from '../UsageCacheManager'
 
 interface CustomListener extends QueueEventsListener {
     abort: (args: { id: string }, id: string) => void
@@ -20,7 +19,7 @@ export default class Worker extends BaseCommand {
     async run(): Promise<void> {
         logger.info('Starting Flowise Worker...')
 
-        const { appDataSource, telemetry, componentNodes, cachePool, abortControllerPool, usageCacheManager } = await this.prepareData()
+        const { appDataSource, telemetry, componentNodes, cachePool, abortControllerPool } = await this.prepareData()
 
         const queueManager = QueueManager.getInstance()
         queueManager.setupAllQueues({
@@ -28,8 +27,7 @@ export default class Worker extends BaseCommand {
             telemetry,
             cachePool,
             appDataSource,
-            abortControllerPool,
-            usageCacheManager
+            abortControllerPool
         })
 
         /** Prediction */
@@ -74,10 +72,7 @@ export default class Worker extends BaseCommand {
         // Initialize cache pool
         const cachePool = new CachePool()
 
-        // Initialize usage cache manager
-        const usageCacheManager = await UsageCacheManager.getInstance()
-
-        return { appDataSource, telemetry, componentNodes: nodesPool.componentNodes, cachePool, abortControllerPool, usageCacheManager }
+        return { appDataSource, telemetry, componentNodes: nodesPool.componentNodes, cachePool, abortControllerPool }
     }
 
     async catch(error: Error) {

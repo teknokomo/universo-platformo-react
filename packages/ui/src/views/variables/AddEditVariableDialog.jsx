@@ -27,22 +27,8 @@ import useNotifier from '@/utils/useNotifier'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 import { Dropdown } from '@/ui-component/dropdown/Dropdown'
 
-const variableTypes = [
-    {
-        label: 'Static',
-        name: 'static',
-        description: t('variables.typeDescriptions.static')
-    },
-    {
-        label: 'Runtime',
-        name: 'runtime',
-        description: t('variables.typeDescriptions.runtime')
-    }
-]
-
 const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
     const portalElement = document.getElementById('portal')
-
     const dispatch = useDispatch()
     const { t } = useTranslation('variables')
 
@@ -58,6 +44,19 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
     const [variableType, setVariableType] = useState('static')
     const [dialogType, setDialogType] = useState('ADD')
     const [variable, setVariable] = useState({})
+
+    const variableTypes = [
+        {
+            label: 'Static',
+            name: 'static',
+            description: t('variables.typeDescriptions.static')
+        },
+        {
+            label: 'Runtime',
+            name: 'runtime',
+            description: t('variables.typeDescriptions.runtime')
+        }
+    ]
 
     useEffect(() => {
         if (dialogProps.type === 'EDIT' && dialogProps.data) {

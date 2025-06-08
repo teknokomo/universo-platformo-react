@@ -1,20 +1,19 @@
 import express from 'express'
 import toolsController from '../../controllers/tools'
-import { checkAnyPermission, checkPermission } from '../../enterprise/rbac/PermissionCheck'
 
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 // CREATE
-router.post('/', checkPermission('tools:create'), toolsController.createTool)
+router.post('/', toolsController.createTool)
 
 // READ
-router.get('/', checkPermission('tools:view'), toolsController.getAllTools)
-router.get(['/', '/:id'], checkAnyPermission('tools:view'), toolsController.getToolById)
+router.get('/', toolsController.getAllTools)
+router.get('/:id', toolsController.getToolById)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('tools:update,tools:create'), toolsController.updateTool)
+router.put('/:id', toolsController.updateTool)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('tools:delete'), toolsController.deleteTool)
+router.delete('/:id', toolsController.deleteTool)
 
 export default router

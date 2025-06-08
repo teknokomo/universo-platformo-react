@@ -7,10 +7,8 @@ import { IReactFlowEdge, IReactFlowNode } from '../../Interface'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { DeleteResult } from 'typeorm'
 import { CustomTemplate } from '../../database/entities/CustomTemplate'
-import { v4 as uuidv4 } from 'uuid'
+
 import chatflowsService from '../chatflows'
-import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
-import { WorkspaceService } from '../../enterprise/services/workspace.service'
 
 type ITemplate = {
     badge: string
@@ -26,18 +24,18 @@ const getCategories = (fileDataObj: ITemplate) => {
 }
 
 // Get all templates for marketplaces
-const getAllTemplates = async () => {
+const getAllTemplates = async (unikId?: string) => {
     try {
         let marketplaceDir = path.join(__dirname, '..', '..', '..', 'marketplaces', 'chatflows')
         let jsonsInDir = fs.readdirSync(marketplaceDir).filter((file) => path.extname(file) === '.json')
         let templates: any[] = []
-        jsonsInDir.forEach((file) => {
+        jsonsInDir.forEach((file, index) => {
             const filePath = path.join(__dirname, '..', '..', '..', 'marketplaces', 'chatflows', file)
             const fileData = fs.readFileSync(filePath)
             const fileDataObj = JSON.parse(fileData.toString()) as ITemplate
 
             const template = {
-                id: uuidv4(),
+                id: index,
                 templateName: file.split('.json')[0],
                 flowData: fileData.toString(),
                 badge: fileDataObj?.badge,
@@ -52,13 +50,13 @@ const getAllTemplates = async () => {
 
         marketplaceDir = path.join(__dirname, '..', '..', '..', 'marketplaces', 'tools')
         jsonsInDir = fs.readdirSync(marketplaceDir).filter((file) => path.extname(file) === '.json')
-        jsonsInDir.forEach((file) => {
+        jsonsInDir.forEach((file, index) => {
             const filePath = path.join(__dirname, '..', '..', '..', 'marketplaces', 'tools', file)
             const fileData = fs.readFileSync(filePath)
             const fileDataObj = JSON.parse(fileData.toString())
             const template = {
                 ...fileDataObj,
-                id: uuidv4(),
+                id: index,
                 type: 'Tool',
                 framework: fileDataObj?.framework,
                 badge: fileDataObj?.badge,
@@ -71,12 +69,12 @@ const getAllTemplates = async () => {
 
         marketplaceDir = path.join(__dirname, '..', '..', '..', 'marketplaces', 'agentflows')
         jsonsInDir = fs.readdirSync(marketplaceDir).filter((file) => path.extname(file) === '.json')
-        jsonsInDir.forEach((file) => {
+        jsonsInDir.forEach((file, index) => {
             const filePath = path.join(__dirname, '..', '..', '..', 'marketplaces', 'agentflows', file)
             const fileData = fs.readFileSync(filePath)
             const fileDataObj = JSON.parse(fileData.toString())
             const template = {
-                id: uuidv4(),
+                id: index,
                 templateName: file.split('.json')[0],
                 flowData: fileData.toString(),
                 badge: fileDataObj?.badge,
@@ -84,26 +82,6 @@ const getAllTemplates = async () => {
                 usecases: fileDataObj?.usecases,
                 categories: getCategories(fileDataObj),
                 type: 'Agentflow',
-                description: fileDataObj?.description || ''
-            }
-            templates.push(template)
-        })
-
-        marketplaceDir = path.join(__dirname, '..', '..', '..', 'marketplaces', 'agentflowsv2')
-        jsonsInDir = fs.readdirSync(marketplaceDir).filter((file) => path.extname(file) === '.json')
-        jsonsInDir.forEach((file) => {
-            const filePath = path.join(__dirname, '..', '..', '..', 'marketplaces', 'agentflowsv2', file)
-            const fileData = fs.readFileSync(filePath)
-            const fileDataObj = JSON.parse(fileData.toString())
-            const template = {
-                id: uuidv4(),
-                templateName: file.split('.json')[0],
-                flowData: fileData.toString(),
-                badge: fileDataObj?.badge,
-                framework: fileDataObj?.framework,
-                usecases: fileDataObj?.usecases,
-                categories: getCategories(fileDataObj),
-                type: 'AgentflowV2',
                 description: fileDataObj?.description || ''
             }
             templates.push(template)
@@ -123,10 +101,13 @@ const getAllTemplates = async () => {
     }
 }
 
-const deleteCustomTemplate = async (templateId: string): Promise<DeleteResult> => {
+const deleteCustomTemplate = async (templateId: string, unikId: string): Promise<DeleteResult> => {
     try {
         const appServer = getRunningExpressApp()
-        return await appServer.AppDataSource.getRepository(CustomTemplate).delete({ id: templateId })
+        return await appServer.AppDataSource.getRepository(CustomTemplate).delete({ 
+            id: templateId,
+            unik: { id: unikId }
+        })
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
@@ -135,50 +116,35 @@ const deleteCustomTemplate = async (templateId: string): Promise<DeleteResult> =
     }
 }
 
-const _modifyTemplates = (templates: any[]) => {
-    templates.map((template) => {
-        template.usecases = template.usecases ? JSON.parse(template.usecases) : ''
-        if (template.type === 'Tool') {
-            template.flowData = JSON.parse(template.flowData)
-            template.iconSrc = template.flowData.iconSrc
-            template.schema = template.flowData.schema
-            template.func = template.flowData.func
-            template.categories = []
-            template.flowData = undefined
-        } else {
-            template.categories = getCategories(JSON.parse(template.flowData))
-        }
-        if (!template.badge) {
-            template.badge = ''
-        }
-        if (!template.framework) {
-            template.framework = ''
-        }
-    })
-}
-
-const getAllCustomTemplates = async (workspaceId?: string): Promise<any> => {
+const getAllCustomTemplates = async (unikId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const templates: any[] = await appServer.AppDataSource.getRepository(CustomTemplate).findBy(getWorkspaceSearchOptions(workspaceId))
-        const dbResponse = []
-        _modifyTemplates(templates)
-        dbResponse.push(...templates)
-        // get shared credentials
-        if (workspaceId) {
-            const workspaceService = new WorkspaceService()
-            const sharedItems = (await workspaceService.getSharedItemsForWorkspace(workspaceId, 'custom_template')) as CustomTemplate[]
-            if (sharedItems && sharedItems.length) {
-                _modifyTemplates(sharedItems)
-                // add shared = true flag to all shared items, to differentiate them in the UI
-                sharedItems.forEach((sharedItem) => {
-                    // @ts-ignore
-                    sharedItem.shared = true
-                    dbResponse.push(sharedItem)
-                })
+        const templates: any[] = await appServer.AppDataSource.getRepository(CustomTemplate).find({
+            where: {
+                unik: { id: unikId }
             }
-        }
-        return dbResponse
+        })
+        
+        templates.map((template) => {
+            template.usecases = template.usecases ? JSON.parse(template.usecases) : ''
+            if (template.type === 'Tool') {
+                template.flowData = JSON.parse(template.flowData)
+                template.iconSrc = template.flowData.iconSrc
+                template.schema = template.flowData.schema
+                template.func = template.flowData.func
+                template.categories = []
+                template.flowData = undefined
+            } else {
+                template.categories = getCategories(JSON.parse(template.flowData))
+            }
+            if (!template.badge) {
+                template.badge = ''
+            }
+            if (!template.framework) {
+                template.framework = ''
+            }
+        })
+        return templates
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
@@ -194,6 +160,12 @@ const saveCustomTemplate = async (body: any): Promise<any> => {
         let derivedFramework = ''
         const customTemplate = new CustomTemplate()
         Object.assign(customTemplate, body)
+        
+        // Set Unik relation
+        if (body.unikId) {
+            customTemplate.unik = { id: body.unikId } as any
+            delete body.unikId
+        }
 
         if (body.chatflowId) {
             const chatflow = await chatflowsService.getChatflowById(body.chatflowId)
@@ -242,9 +214,6 @@ const _generateExportFlowData = (flowData: any) => {
             version: node.data.version,
             name: node.data.name,
             type: node.data.type,
-            color: node.data.color,
-            hideOutput: node.data.hideOutput,
-            hideInput: node.data.hideInput,
             baseClasses: node.data.baseClasses,
             tags: node.data.tags,
             category: node.data.category,

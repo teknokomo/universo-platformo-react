@@ -2,7 +2,6 @@ import PropTypes from 'prop-types'
 import { Box, Button, FormControl, ListItem, ListItemAvatar, ListItemText, MenuItem, Select, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
-import { useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 
 // Project Imports
@@ -313,7 +312,6 @@ const FollowUpPrompts = ({ dialogProps }) => {
     const { t } = useTranslation()
 
     useNotifier()
-    const theme = useTheme()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
@@ -476,16 +474,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
                     <>
                         <Typography variant='h5'>{t('canvas.configuration.followUpPrompts.providers')}</Typography>
                         <FormControl fullWidth>
-                            <Select
-                                size='small'
-                                value={selectedProvider}
-                                onChange={handleSelectedProviderChange}
-                                sx={{
-                                    '& .MuiSvgIcon-root': {
-                                        color: theme?.customization?.isDarkMode ? '#fff' : 'inherit'
-                                    }
-                                }}
-                            >
+                            <Select size='small' value={selectedProvider} onChange={handleSelectedProviderChange}>
                                 {Object.values(followUpPromptsOptions).map((provider) => (
                                     <MenuItem key={provider.name} value={provider.name}>
                                         {provider.label}

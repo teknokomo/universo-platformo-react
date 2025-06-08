@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express'
+import { Request, Response, NextFunction } from 'express'
 import toolsService from '../../services/tools'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
@@ -8,18 +8,11 @@ const createTool = async (req: Request, res: Response, next: NextFunction) => {
         if (!req.body) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.createTool - body not provided!`)
         }
-        const orgId = req.user?.activeOrganizationId
-        if (!orgId) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Error: toolsController.createTool - organization ${orgId} not found!`)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.createTool - unikId not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
-        if (!workspaceId) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Error: toolsController.createTool - workspace ${workspaceId} not found!`)
-        }
-        const body = req.body
-        body.workspaceId = workspaceId
-
-        const apiResponse = await toolsService.createTool(body, orgId)
+        const apiResponse = await toolsService.createTool({...req.body, unikId})
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -31,7 +24,11 @@ const deleteTool = async (req: Request, res: Response, next: NextFunction) => {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.deleteTool - id not provided!`)
         }
-        const apiResponse = await toolsService.deleteTool(req.params.id)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.deleteTool - unikId not provided!`)
+        }
+        const apiResponse = await toolsService.deleteTool(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -40,7 +37,8 @@ const deleteTool = async (req: Request, res: Response, next: NextFunction) => {
 
 const getAllTools = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const apiResponse = await toolsService.getAllTools(req.user?.activeWorkspaceId)
+        const unikId = req.params.unikId as string
+        const apiResponse = await toolsService.getAllTools(unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -52,7 +50,11 @@ const getToolById = async (req: Request, res: Response, next: NextFunction) => {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.getToolById - id not provided!`)
         }
-        const apiResponse = await toolsService.getToolById(req.params.id)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.getToolById - unikId not provided!`)
+        }
+        const apiResponse = await toolsService.getToolById(req.params.id, unikId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -67,7 +69,11 @@ const updateTool = async (req: Request, res: Response, next: NextFunction) => {
         if (!req.body) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.deleteTool - body not provided!`)
         }
-        const apiResponse = await toolsService.updateTool(req.params.id, req.body)
+        const unikId = req.params.unikId as string
+        if (!unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: toolsController.updateTool - unikId not provided!`)
+        }
+        const apiResponse = await toolsService.updateTool(req.params.id, {...req.body, unikId})
         return res.json(apiResponse)
     } catch (error) {
         next(error)

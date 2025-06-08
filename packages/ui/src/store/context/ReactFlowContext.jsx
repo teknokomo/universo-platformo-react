@@ -1,8 +1,8 @@
 import { createContext, useState } from 'react'
 import { useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
-import { getUniqueNodeId, showHideInputParams } from '@/utils/genericHelper'
-import { cloneDeep, isEqual } from 'lodash'
+import { getUniqueNodeId } from '@/utils/genericHelper'
+import { cloneDeep } from 'lodash'
 import { SET_DIRTY } from '@/store/actions'
 
 const initialValue = {
@@ -10,8 +10,7 @@ const initialValue = {
     setReactFlowInstance: () => {},
     duplicateNode: () => {},
     deleteNode: () => {},
-    deleteEdge: () => {},
-    onNodeDataChange: () => {}
+    deleteEdge: () => {}
 }
 
 export const flowContext = createContext(initialValue)
@@ -20,112 +19,10 @@ export const ReactFlowContext = ({ children }) => {
     const dispatch = useDispatch()
     const [reactFlowInstance, setReactFlowInstance] = useState(null)
 
-    const onAgentflowNodeStatusUpdate = ({ nodeId, status, error }) => {
-        reactFlowInstance.setNodes((nds) =>
-            nds.map((node) => {
-                if (node.id === nodeId) {
-                    node.data = {
-                        ...node.data,
-                        status,
-                        error
-                    }
-                }
-                return node
-            })
-        )
-    }
-
-    const clearAgentflowNodeStatus = () => {
-        reactFlowInstance.setNodes((nds) =>
-            nds.map((node) => {
-                node.data = {
-                    ...node.data,
-                    status: undefined,
-                    error: undefined
-                }
-                return node
-            })
-        )
-    }
-
-    const onNodeDataChange = ({ nodeId, inputParam, newValue }) => {
-        const updatedNodes = reactFlowInstance.getNodes().map((node) => {
-            if (node.id === nodeId) {
-                const updatedInputs = { ...node.data.inputs }
-
-                updatedInputs[inputParam.name] = newValue
-
-                const updatedInputParams = showHideInputParams({
-                    ...node.data,
-                    inputs: updatedInputs
-                })
-
-                // Remove inputs with display set to false
-                Object.keys(updatedInputs).forEach((key) => {
-                    const input = updatedInputParams.find((param) => param.name === key)
-                    if (input && input.display === false) {
-                        delete updatedInputs[key]
-                    }
-                })
-
-                return {
-                    ...node,
-                    data: {
-                        ...node.data,
-                        inputParams: updatedInputParams,
-                        inputs: updatedInputs
-                    }
-                }
-            }
-            return node
-        })
-
-        // Check if any node's inputParams have changed before updating
-        const hasChanges = updatedNodes.some(
-            (node, index) => !isEqual(node.data.inputParams, reactFlowInstance.getNodes()[index].data.inputParams)
-        )
-
-        if (hasChanges) {
-            reactFlowInstance.setNodes(updatedNodes)
-        }
-    }
-
     const deleteNode = (nodeid) => {
         deleteConnectedInput(nodeid, 'node')
-
-        // Gather all nodes to be deleted (parent and all descendants)
-        const nodesToDelete = new Set()
-
-        // Helper function to collect all descendant nodes recursively
-        const collectDescendants = (parentId) => {
-            const childNodes = reactFlowInstance.getNodes().filter((node) => node.parentNode === parentId)
-
-            childNodes.forEach((childNode) => {
-                nodesToDelete.add(childNode.id)
-                collectDescendants(childNode.id)
-            })
-        }
-
-        // Collect all descendants first
-        collectDescendants(nodeid)
-
-        // Add the parent node itself last
-        nodesToDelete.add(nodeid)
-
-        // Clean up inputs for all nodes to be deleted
-        nodesToDelete.forEach((id) => {
-            if (id !== nodeid) {
-                // Skip parent node as it's already processed at the beginning
-                deleteConnectedInput(id, 'node')
-            }
-        })
-
-        // Filter out all nodes and edges in a single operation
-        reactFlowInstance.setNodes((nodes) => nodes.filter((node) => !nodesToDelete.has(node.id)))
-
-        // Remove all edges connected to any of the deleted nodes
-        reactFlowInstance.setEdges((edges) => edges.filter((edge) => !nodesToDelete.has(edge.source) && !nodesToDelete.has(edge.target)))
-
+        reactFlowInstance.setNodes(reactFlowInstance.getNodes().filter((n) => n.id !== nodeid))
+        reactFlowInstance.setEdges(reactFlowInstance.getEdges().filter((ns) => ns.source !== nodeid && ns.target !== nodeid))
         dispatch({ type: SET_DIRTY })
     }
 
@@ -175,7 +72,7 @@ export const ReactFlowContext = ({ children }) => {
         }
     }
 
-    const duplicateNode = (id, distance = 50) => {
+    const duplicateNode = (id) => {
         const nodes = reactFlowInstance.getNodes()
         const originalNode = nodes.find((n) => n.id === id)
         if (originalNode) {
@@ -186,17 +83,16 @@ export const ReactFlowContext = ({ children }) => {
                 ...clonedNode,
                 id: newNodeId,
                 position: {
-                    x: clonedNode.position.x + clonedNode.width + distance,
+                    x: clonedNode.position.x + 400,
                     y: clonedNode.position.y
                 },
                 positionAbsolute: {
-                    x: clonedNode.positionAbsolute.x + clonedNode.width + distance,
+                    x: clonedNode.positionAbsolute.x + 400,
                     y: clonedNode.positionAbsolute.y
                 },
                 data: {
                     ...clonedNode.data,
-                    id: newNodeId,
-                    label: clonedNode.data.label + ` (${newNodeId.split('_').pop()})`
+                    id: newNodeId
                 },
                 selected: false
             }
@@ -251,10 +147,7 @@ export const ReactFlowContext = ({ children }) => {
                 setReactFlowInstance,
                 deleteNode,
                 deleteEdge,
-                duplicateNode,
-                onAgentflowNodeStatusUpdate,
-                clearAgentflowNodeStatus,
-                onNodeDataChange
+                duplicateNode
             }}
         >
             {children}

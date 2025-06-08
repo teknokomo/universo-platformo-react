@@ -1,12 +1,12 @@
 <!-- markdownlint-disable MD030 -->
 
-# Flowise
+# Flowise - 低代码 LLM 应用程序构建器
 
 [English](./README.md) | 中文
 
-<h3>以可视化方式构建 AI Agents</h3>
+![Flowise](https://github.com/FlowiseAI/Flowise/blob/main/images/flowise.gif?raw=true)
 
-![Flowise](https://github.com/FlowiseAI/Flowise/blob/main/images/flowise_agentflow.gif?raw=true)
+拖放界面来构建自定义的 LLM 流程
 
 ## ⚡ 快速入门
 
@@ -21,6 +21,15 @@
     ```
 
 3. 打开[http://localhost:3000](http://localhost:3000)
+
+## 🔒 身份验证
+
+要启用应用级身份验证，请将`FLOWISE_USERNAME`和`FLOWISE_PASSWORD`添加到`.env`文件中：
+
+```
+FLOWISE_USERNAME=user
+FLOWISE_PASSWORD=1234
+```
 
 ## 🌱 环境变量
 

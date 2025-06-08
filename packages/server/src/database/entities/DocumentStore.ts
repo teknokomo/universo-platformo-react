@@ -39,9 +39,6 @@ export class DocumentStore implements IDocumentStore {
     @Column({ nullable: true, type: 'text' })
     recordManagerConfig: string | null
 
-    @Column({ nullable: true, type: 'text' })
-    workspaceId?: string
-
     // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })

@@ -1,19 +1,19 @@
 import express from 'express'
 import variablesController from '../../controllers/variables'
-import { checkAnyPermission, checkPermission } from '../../enterprise/rbac/PermissionCheck'
 
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 // CREATE
-router.post('/', checkPermission('variables:create'), variablesController.createVariable)
+router.post('/', variablesController.createVariable)
 
 // READ
-router.get('/', checkPermission('variables:view'), variablesController.getAllVariables)
+router.get('/', variablesController.getAllVariables)
+router.get('/:id', variablesController.getVariableById)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('variables:create,variables:update'), variablesController.updateVariable)
+router.put('/:id', variablesController.updateVariable)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('variables:delete'), variablesController.deleteVariable)
+router.delete('/:id', variablesController.deleteVariable)
 
 export default router

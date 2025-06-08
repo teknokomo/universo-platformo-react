@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AR.js - четыре объекта на метке Hiro</title>
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <!-- AR.js for A-Frame (маркер + геолокация, без NFT) -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+  </head>
+
+  <body>
+    <a-scene embedded arjs>
+      <!-- Маркер «hiro» -->
+      <a-marker preset="hiro">
+        <!-- Куб 1 -->
+        <a-box
+          position="-1.5 0.5 0"
+          scale="1 1 1"
+          material="color: #FF0000">
+        </a-box>
+
+        <!-- Куб 2 -->
+        <a-box
+          position="-0.5 0.5 0"
+          scale="1 1 1"
+          material="color: #0057FF">
+        </a-box>
+
+        <!-- Сфера -->
+        <a-sphere
+          position="0.5 0.5 0"
+          radius="0.5"
+          material="color: #00CC55">
+        </a-sphere>
+
+        <!-- Куб 3 -->
+        <a-box
+          position="1.5 0.5 0"
+          scale="1 1 1"
+          material="color: #FFC800">
+        </a-box>
+      </a-marker>
+
+      <!-- AR.js-камера -->
+      <a-entity camera></a-entity>
+    </a-scene>
+  </body>
+</html>

@@ -21,10 +21,9 @@
         "start-worker": "run-script-os",
         "start-worker:windows": "cd packages/server/bin && run worker",
         "start-worker:default": "cd packages/server/bin && ./run worker",
+        "clean": "turbo run clean",
         "clean:all": "rimraf node_modules .turbo **/node_modules **/.turbo **/dist **/build",
         "build:clean": "pnpm clean:all && pnpm install && pnpm build",
-        "test": "turbo run test",
-        "clean": "pnpm --filter \"./packages/**\" clean",
         "nuke": "pnpm --filter \"./packages/**\" nuke && rimraf node_modules .turbo",
         "format": "prettier --write \"**/*.{ts,tsx,md}\"",
         "lint": "eslint \"**/*.{js,jsx,ts,tsx,json,md}\"",
@@ -80,6 +79,8 @@
             "set-value": "4.1.0",
             "unset-value": "2.0.1",
             "webpack-dev-middleware": "7.4.2",
+            "langchain": "^0.3.5",
+            "zod": "^3.24.4",
             "@types/react": "^18.0.0"
         }
     },

@@ -1,9 +1,8 @@
 import express from 'express'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
-import documentStoreController from '../../controllers/documentstore'
+import documentStoreController from '../../controllers/documentstore/index'
 import { getMulterStorage } from '../../utils'
 
-const router = express.Router()
+const router = express.Router({ mergeParams: true })
 
 router.post(['/upsert/', '/upsert/:id'], getMulterStorage().array('files'), documentStoreController.upsertDocStoreMiddleware)
 
@@ -11,74 +10,59 @@ router.post(['/refresh/', '/refresh/:id'], documentStoreController.refreshDocSto
 
 /** Document Store Routes */
 // Create document store
-router.post('/store', checkPermission('documentStores:create'), documentStoreController.createDocumentStore)
+router.post('/store', documentStoreController.createDocumentStore)
 // List all stores
-router.get('/store', checkPermission('documentStores:view'), documentStoreController.getAllDocumentStores)
+router.get('/store', documentStoreController.getAllDocumentStores)
 // Get specific store
-router.get(
-    '/store/:id',
-    checkAnyPermission('documentStores:view,documentStores:update,documentStores:delete'),
-    documentStoreController.getDocumentStoreById
-)
+router.get('/store/:id', documentStoreController.getDocumentStoreById)
 // Update documentStore
-router.put('/store/:id', checkAnyPermission('documentStores:create,documentStores:update'), documentStoreController.updateDocumentStore)
+router.put('/store/:id', documentStoreController.updateDocumentStore)
 // Delete documentStore
-router.delete('/store/:id', checkPermission('documentStores:delete'), documentStoreController.deleteDocumentStore)
+router.delete('/store/:id', documentStoreController.deleteDocumentStore)
 // Get document store configs
-router.get('/store-configs/:id/:loaderId', checkAnyPermission('documentStores:view'), documentStoreController.getDocStoreConfigs)
+router.get('/store-configs/:id/:loaderId', documentStoreController.getDocStoreConfigs)
 
 /** Component Nodes = Document Store - Loaders */
 // Get all loaders
-router.get('/components/loaders', checkPermission('documentStores:add-loader'), documentStoreController.getDocumentLoaders)
+router.get('/components/loaders', documentStoreController.getDocumentLoaders)
 
 // delete loader from document store
-router.delete(
-    '/loader/:id/:loaderId',
-    checkPermission('documentStores:delete-loader'),
-    documentStoreController.deleteLoaderFromDocumentStore
-)
+router.delete('/loader/:id/:loaderId', documentStoreController.deleteLoaderFromDocumentStore)
 // chunking preview
-router.post('/loader/preview', checkPermission('documentStores:preview-process'), documentStoreController.previewFileChunks)
+router.post('/loader/preview', documentStoreController.previewFileChunks)
 // saving process
-router.post('/loader/save', checkPermission('documentStores:preview-process'), documentStoreController.saveProcessingLoader)
+router.post('/loader/save', documentStoreController.saveProcessingLoader)
 // chunking process
-router.post('/loader/process/:loaderId', checkPermission('documentStores:preview-process'), documentStoreController.processLoader)
+router.post('/loader/process/:loaderId', documentStoreController.processLoader)
 
 /** Document Store - Loaders - Chunks */
 // delete specific file chunk from the store
-router.delete(
-    '/chunks/:storeId/:loaderId/:chunkId',
-    checkAnyPermission('documentStores:update,documentStores:delete'),
-    documentStoreController.deleteDocumentStoreFileChunk
-)
+router.delete('/chunks/:storeId/:loaderId/:chunkId', documentStoreController.deleteDocumentStoreFileChunk)
 // edit specific file chunk from the store
-router.put(
-    '/chunks/:storeId/:loaderId/:chunkId',
-    checkPermission('documentStores:update'),
-    documentStoreController.editDocumentStoreFileChunk
-)
+router.put('/chunks/:storeId/:loaderId/:chunkId', documentStoreController.editDocumentStoreFileChunk)
 // Get all file chunks from the store
-router.get('/chunks/:storeId/:fileId/:pageNo', checkPermission('documentStores:view'), documentStoreController.getDocumentStoreFileChunks)
+router.get('/chunks/:storeId/:fileId/:pageNo', documentStoreController.getDocumentStoreFileChunks)
 
 // add chunks to the selected vector store
-router.post('/vectorstore/insert', checkPermission('documentStores:upsert-config'), documentStoreController.insertIntoVectorStore)
+router.post('/vectorstore/insert', documentStoreController.insertIntoVectorStore)
 // save the selected vector store
-router.post('/vectorstore/save', checkPermission('documentStores:upsert-config'), documentStoreController.saveVectorStoreConfig)
+router.post('/vectorstore/save', documentStoreController.saveVectorStoreConfig)
 // delete data from the selected vector store
-router.delete('/vectorstore/:storeId', checkPermission('documentStores:upsert-config'), documentStoreController.deleteVectorStoreFromStore)
+router.delete('/vectorstore/:storeId', documentStoreController.deleteVectorStoreFromStore)
 // query the vector store
-router.post('/vectorstore/query', checkPermission('documentStores:view'), documentStoreController.queryVectorStore)
+router.post('/vectorstore/query', documentStoreController.queryVectorStore)
 // Get all embedding providers
-router.get('/components/embeddings', checkPermission('documentStores:upsert-config'), documentStoreController.getEmbeddingProviders)
+router.get('/components/embeddings', documentStoreController.getEmbeddingProviders)
 // Get all vector store providers
-router.get('/components/vectorstore', checkPermission('documentStores:upsert-config'), documentStoreController.getVectorStoreProviders)
+router.get('/components/vectorstore', documentStoreController.getVectorStoreProviders)
 // Get all Record Manager providers
-router.get('/components/recordmanager', checkPermission('documentStores:upsert-config'), documentStoreController.getRecordManagerProviders)
+router.get('/components/recordmanager', documentStoreController.getRecordManagerProviders)
 
 // update the selected vector store from the playground
-router.post('/vectorstore/update', checkPermission('documentStores:upsert-config'), documentStoreController.updateVectorStoreConfigOnly)
+router.post('/vectorstore/update', documentStoreController.updateVectorStoreConfigOnly)
 
 // generate docstore tool description
 router.post('/generate-tool-desc/:id', documentStoreController.generateDocStoreToolDesc)
 
 export default router
+

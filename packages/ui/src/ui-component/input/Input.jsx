@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { FormControl, OutlinedInput, InputBase, Popover } from '@mui/material'
-import { useTheme } from '@mui/material/styles'
 import SelectVariable from '@/ui-component/json/SelectVariable'
 import { getAvailableNodesForVariable } from '@/utils/genericHelper'
 
 export const Input = ({ inputParam, value, nodes, edges, nodeId, onChange, disabled = false }) => {
-    const theme = useTheme()
     const [myValue, setMyValue] = useState(value ?? '')
     const [anchorEl, setAnchorEl] = useState(null)
     const [availableNodesForVariable, setAvailableNodesForVariable] = useState([])
@@ -32,8 +30,6 @@ export const Input = ({ inputParam, value, nodes, edges, nodeId, onChange, disab
                 return 'password'
             case 'number':
                 return 'number'
-            case 'email':
-                return 'email'
             default:
                 return 'text'
         }
@@ -75,7 +71,7 @@ export const Input = ({ inputParam, value, nodes, edges, nodeId, onChange, disab
                             style: {
                                 border: 'none',
                                 background: 'none',
-                                color: 'inherit'
+                                color: '#212121'
                             }
                         }}
                         sx={{
@@ -110,11 +106,6 @@ export const Input = ({ inputParam, value, nodes, edges, nodeId, onChange, disab
                             step: inputParam.step ?? 1,
                             style: {
                                 height: inputParam.rows ? '90px' : 'inherit'
-                            }
-                        }}
-                        sx={{
-                            '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: theme.palette.grey[900] + 25
                             }
                         }}
                     />

@@ -1,6 +1,5 @@
-import axios from 'axios'
-import { baseURL, ErrorMessage } from '@/store/constant'
-import AuthUtils from '@/utils/authUtils'
+    import axios from 'axios'
+import { baseURL } from '@/store/constant'
 
 const apiClient = axios.create({
     baseURL: `${baseURL}/api/v1`,

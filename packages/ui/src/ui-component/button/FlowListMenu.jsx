@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 
 import { styled, alpha } from '@mui/material/styles'
 import Menu from '@mui/material/Menu'
-import { PermissionMenuItem } from '@/ui-component/button/RBACButtons'
+import MenuItem from '@mui/material/MenuItem'
 import EditIcon from '@mui/icons-material/Edit'
 import Divider from '@mui/material/Divider'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
@@ -74,7 +74,7 @@ const StyledMenu = styled((props) => (
     }
 }))
 
-export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, setError, updateFlowsApi }) {
+export default function FlowListMenu({ chatflow, isAgentCanvas, setError, updateFlowsApi }) {
     const { confirm } = useConfirm()
     const dispatch = useDispatch()
     const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
@@ -166,11 +166,7 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, s
         }
         try {
             await updateChatflowApi.request(chatflow.id, updateBody)
-            if (isAgentCanvas && localStorage.getItem('agentFlowVersion') === 'v2') {
-                await updateFlowsApi.request('AGENTFLOW')
-            } else {
-                await updateFlowsApi.request(isAgentCanvas ? 'MULTIAGENT' : undefined)
-            }
+            await updateFlowsApi.request()
         } catch (error) {
             if (setError) setError(error)
             enqueueSnackbar({
@@ -209,7 +205,7 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, s
         }
         try {
             await updateChatflowApi.request(chatflow.id, updateBody)
-            await updateFlowsApi.request(isAgentCanvas ? 'AGENTFLOW' : undefined)
+            await updateFlowsApi.request()
         } catch (error) {
             if (setError) setError(error)
             enqueueSnackbar({
@@ -241,11 +237,7 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, s
         if (isConfirmed) {
             try {
                 await chatflowsApi.deleteChatflow(chatflow.id)
-                if (isAgentCanvas && localStorage.getItem('agentFlowVersion') === 'v2') {
-                    await updateFlowsApi.request('AGENTFLOW')
-                } else {
-                    await updateFlowsApi.request(isAgentCanvas ? 'MULTIAGENT' : undefined)
-                }
+                await updateFlowsApi.request()
             } catch (error) {
                 if (setError) setError(error)
                 enqueueSnackbar({
@@ -269,13 +261,7 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, s
         setAnchorEl(null)
         try {
             localStorage.setItem('duplicatedFlowData', chatflow.flowData)
-            if (isAgentflowV2) {
-                window.open(`${uiBaseURL}/v2/agentcanvas`, '_blank')
-            } else if (isAgentCanvas) {
-                window.open(`${uiBaseURL}/agentcanvas`, '_blank')
-            } else {
-                window.open(`${uiBaseURL}/canvas`, '_blank')
-            }
+            window.open(`${uiBaseURL}/${isAgentCanvas ? 'agentcanvas' : 'canvas'}`, '_blank')
         } catch (e) {
             console.error(e)
         }
@@ -323,84 +309,48 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, s
                 open={open}
                 onClose={handleClose}
             >
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:update' : 'chatflows:update'}
-                    onClick={handleFlowRename}
-                    disableRipple
-                >
+                <MenuItem onClick={handleFlowRename} disableRipple>
                     <EditIcon />
                     Rename
-                </PermissionMenuItem>
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:duplicate' : 'chatflows:duplicate'}
-                    onClick={handleDuplicate}
-                    disableRipple
-                >
+                </MenuItem>
+                <MenuItem onClick={handleDuplicate} disableRipple>
                     <FileCopyIcon />
                     Duplicate
-                </PermissionMenuItem>
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:export' : 'chatflows:export'}
-                    onClick={handleExport}
-                    disableRipple
-                >
+                </MenuItem>
+                <MenuItem onClick={handleExport} disableRipple>
                     <FileDownloadIcon />
                     Export
-                </PermissionMenuItem>
-                <PermissionMenuItem permissionId={'templates:flowexport'} onClick={handleExportTemplate} disableRipple>
+                </MenuItem>
+                <MenuItem onClick={handleExportTemplate} disableRipple>
                     <ExportTemplateOutlinedIcon />
                     Save As Template
-                </PermissionMenuItem>
+                </MenuItem>
                 <Divider sx={{ my: 0.5 }} />
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:config' : 'chatflows:config'}
-                    onClick={handleFlowStarterPrompts}
-                    disableRipple
-                >
+                <MenuItem onClick={handleFlowStarterPrompts} disableRipple>
                     <PictureInPictureAltIcon />
                     Starter Prompts
-                </PermissionMenuItem>
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:config' : 'chatflows:config'}
-                    onClick={handleFlowChatFeedback}
-                    disableRipple
-                >
+                </MenuItem>
+                <MenuItem onClick={handleFlowChatFeedback} disableRipple>
                     <ThumbsUpDownOutlinedIcon />
                     Chat Feedback
-                </PermissionMenuItem>
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:domains' : 'chatflows:domains'}
-                    onClick={handleAllowedDomains}
-                    disableRipple
-                >
+                </MenuItem>
+                <MenuItem onClick={handleAllowedDomains} disableRipple>
                     <VpnLockOutlinedIcon />
                     Allowed Domains
-                </PermissionMenuItem>
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:config' : 'chatflows:config'}
-                    onClick={handleSpeechToText}
-                    disableRipple
-                >
+                </MenuItem>
+                <MenuItem onClick={handleSpeechToText} disableRipple>
                     <MicNoneOutlinedIcon />
                     Speech To Text
-                </PermissionMenuItem>
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:update' : 'chatflows:update'}
-                    onClick={handleFlowCategory}
-                    disableRipple
-                >
+                </MenuItem>
+                <MenuItem onClick={handleFlowCategory} disableRipple>
                     <FileCategoryIcon />
                     Update Category
-                </PermissionMenuItem>
+                </MenuItem>
                 <Divider sx={{ my: 0.5 }} />
-                <PermissionMenuItem
-                    permissionId={isAgentCanvas ? 'agentflows:delete' : 'chatflows:delete'}
-                    onClick={handleDelete}
-                    disableRipple
-                >
+                <MenuItem onClick={handleDelete} disableRipple>
                     <FileDeleteIcon />
                     Delete
-                </PermissionMenuItem>
+                </MenuItem>
             </StyledMenu>
             <SaveChatflowDialog
                 show={flowDialogOpen}
@@ -452,7 +402,6 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, isAgentflowV2, s
 FlowListMenu.propTypes = {
     chatflow: PropTypes.object,
     isAgentCanvas: PropTypes.bool,
-    isAgentflowV2: PropTypes.bool,
     setError: PropTypes.func,
     updateFlowsApi: PropTypes.object
 }
