@@ -122,6 +122,19 @@
 
 ## PHASE 4: UI Integration (High Risk) 🔴
 
+### Task 4.0: URGENT FIX - Chat Bot Publication Interface Input Fields
+
+**Priority**: CRITICAL | **Risk**: Low | **Impact**: User interface
+
+-   [x] **COMPLETED: Fix chat bot settings input functionality**
+    -   [x] Diagnosed problem: BaseBotSettings not receiving event handlers from ChatBotSettings
+    -   [x] Updated BaseBotSettings.jsx to accept onTextChanged and onBooleanChanged props
+    -   [x] Modified event handler stubs to use passed props instead of console.warn
+    -   [x] Verified PropTypes already correctly defined
+    -   [x] **COMPLETED**: Input fields now functional for text and boolean values
+    -   [x] **COMPLETED**: Fixed ChatBotViewer.jsx data structure mismatch (config.multiAgent → config.chatbot)
+    -   [x] **STATUS**: Chat bot configuration display fixed, all settings now working end-to-end
+
 ### Task 4.1: Replace UI package with Flowise 3.0.1 baseline
 
 **Priority**: CRITICAL | **Risk**: High | **Impact**: User interface

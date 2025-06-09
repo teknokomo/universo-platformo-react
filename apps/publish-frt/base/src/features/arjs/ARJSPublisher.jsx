@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi } from '../../api'
 
 // Universo Platformo | Simple demo mode toggle - set to true to enable demo features
-const DEMO_MODE = true
+const DEMO_MODE = false
 
 // MUI components
 import {

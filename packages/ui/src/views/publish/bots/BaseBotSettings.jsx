@@ -36,7 +36,9 @@ const BaseBotSettings = ({
     renderFields,
     defaultConfig,
     updateTranslationKey,
-    onColorChanged
+    onColorChanged,
+    onTextChanged: propOnTextChanged,
+    onBooleanChanged: propOnBooleanChanged
 }) => {
     const dispatch = useDispatch()
     const theme = useTheme()
@@ -335,15 +337,21 @@ const BaseBotSettings = ({
         )
     }
 
-    // The specific implementation of these handlers must be provided by the client component
+    // Universo Platformo | Use event handlers provided by client component
     const onTextChanged = (value, fieldName) => {
-        // This method will be overridden by the client component
-        console.warn('onTextChanged must be implemented by the client component')
+        if (typeof propOnTextChanged === 'function') {
+            propOnTextChanged(value, fieldName)
+        } else {
+            console.warn('onTextChanged handler not provided')
+        }
     }
 
     const onBooleanChanged = (value, fieldName) => {
-        // This method will be overridden by the client component
-        console.warn('onBooleanChanged must be implemented by the client component')
+        if (typeof propOnBooleanChanged === 'function') {
+            propOnBooleanChanged(value, fieldName)
+        } else {
+            console.warn('onBooleanChanged handler not provided')
+        }
     }
 
     // Render the base settings UI

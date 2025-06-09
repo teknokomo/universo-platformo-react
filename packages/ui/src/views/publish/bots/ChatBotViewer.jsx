@@ -34,16 +34,16 @@ const ChatBotViewer = () => {
         if (chatflow?.chatbotConfig) {
             try {
                 const config = JSON.parse(chatflow.chatbotConfig)
-                if (config.multiAgent) {
+                if (config.chatbot) {
                     const newTheme = {
                         ...theme,
-                        primaryColor: config.multiAgent.primaryColor || theme.primaryColor,
-                        secondaryColor: config.multiAgent.secondaryColor || theme.secondaryColor,
-                        backgroundColor: config.multiAgent.backgroundColor || theme.backgroundColor,
-                        fontFamily: config.multiAgent.fontFamily || theme.fontFamily,
-                        fontSize: config.multiAgent.fontSize || theme.fontSize,
-                        borderRadius: config.multiAgent.borderRadius || theme.borderRadius,
-                        boxShadow: config.multiAgent.boxShadow || theme.boxShadow
+                        primaryColor: config.chatbot.primaryColor || theme.primaryColor,
+                        secondaryColor: config.chatbot.secondaryColor || theme.secondaryColor,
+                        backgroundColor: config.chatbot.backgroundColor || theme.backgroundColor,
+                        fontFamily: config.chatbot.fontFamily || theme.fontFamily,
+                        fontSize: config.chatbot.fontSize || theme.fontSize,
+                        borderRadius: config.chatbot.borderRadius || theme.borderRadius,
+                        boxShadow: config.chatbot.boxShadow || theme.boxShadow
                     }
 
                     return <ChatBotWithTheme chatflow={chatflow} theme={newTheme} />
