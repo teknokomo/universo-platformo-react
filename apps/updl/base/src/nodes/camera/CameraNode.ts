@@ -44,7 +44,8 @@ export class CameraNode extends BaseUPDLNode {
                     label: 'Position X',
                     description: 'X position of the camera',
                     default: 0,
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 {
                     name: 'positionY',
@@ -52,7 +53,8 @@ export class CameraNode extends BaseUPDLNode {
                     label: 'Position Y',
                     description: 'Y position of the camera',
                     default: 1.6, // Typical human eye height
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 {
                     name: 'positionZ',
@@ -60,7 +62,8 @@ export class CameraNode extends BaseUPDLNode {
                     label: 'Position Z',
                     description: 'Z position of the camera',
                     default: 5, // Backed away from the origin
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 // Rotation
                 {
@@ -69,7 +72,8 @@ export class CameraNode extends BaseUPDLNode {
                     label: 'Rotation X',
                     description: 'X rotation of the camera in degrees',
                     default: 0,
-                    step: 1
+                    step: 1,
+                    additionalParams: true
                 },
                 {
                     name: 'rotationY',
@@ -77,7 +81,8 @@ export class CameraNode extends BaseUPDLNode {
                     label: 'Rotation Y',
                     description: 'Y rotation of the camera in degrees',
                     default: 0,
-                    step: 1
+                    step: 1,
+                    additionalParams: true
                 },
                 {
                     name: 'rotationZ',
@@ -85,7 +90,8 @@ export class CameraNode extends BaseUPDLNode {
                     label: 'Rotation Z',
                     description: 'Z rotation of the camera in degrees',
                     default: 0,
-                    step: 1
+                    step: 1,
+                    additionalParams: true
                 },
                 // Field of View (for perspective camera)
                 {
@@ -97,6 +103,7 @@ export class CameraNode extends BaseUPDLNode {
                     min: 1,
                     max: 179,
                     step: 1,
+                    additionalParams: true,
                     show: {
                         'data.cameraType': ['perspective']
                     }
@@ -109,7 +116,8 @@ export class CameraNode extends BaseUPDLNode {
                     description: 'Distance to the near clipping plane',
                     default: 0.1,
                     min: 0.01,
-                    step: 0.01
+                    step: 0.01,
+                    additionalParams: true
                 },
                 {
                     name: 'farClippingPlane',
@@ -118,7 +126,8 @@ export class CameraNode extends BaseUPDLNode {
                     description: 'Distance to the far clipping plane',
                     default: 1000,
                     min: 1,
-                    step: 1
+                    step: 1,
+                    additionalParams: true
                 },
                 // Zoom (mainly for orthographic, but also good for perspective fine-tuning)
                 {
@@ -128,7 +137,8 @@ export class CameraNode extends BaseUPDLNode {
                     description: 'Camera zoom level',
                     default: 1,
                     min: 0.1,
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 }
             ]
         })

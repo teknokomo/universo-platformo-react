@@ -1,19 +1,10 @@
 # Technical Context
 
-## 🚨 CRITICAL UPGRADE PROJECT: Flowise 3.0.1
+## 🔄 Custom Modifications to Preserve
 
-### Current System State
-
--   **Base Version**: Flowise 2.2.7-patch.1
--   **Target Version**: Flowise 3.0.1
--   **Project Status**: Major upgrade required with extensive custom modifications
-
-### 🔄 Custom Modifications to Preserve
-
-#### 1. Authentication Architecture
+### 1. Authentication Architecture
 
 -   **Current**: Multi-user Supabase JWT authentication
--   **Challenge**: New Flowise 3.0.1 uses Passport.js authentication
 -   **Integration Point**: Must create bridge between Supabase JWT ↔ Passport.js
 -   **Files Affected**: All middleware, controllers, UI authentication
 
@@ -30,7 +21,6 @@
 -   **Languages**: English (base) + Russian (full translation)
 -   **Implementation**: Complete UI text extraction and translation
 -   **Files**: `packages/ui/src/i18n/locales/en.json` & `ru.json`
--   **New Challenge**: Flowise 3.0.1 introduces new UI text that needs translation
 
 #### 4. UPDL Nodes & AR.js Export
 
@@ -39,124 +29,6 @@
 -   **Integration**: Custom nodes within Flowise chatflow system
 -   **Components**: Publisher UI, Builder logic, API integration
 -   **Risk**: Medium - Isolated from core Flowise changes but needs verification
-
-### 🆕 New Flowise 3.0.1 Features
-
-#### 1. Enterprise Architecture Layer
-
--   **New Structure**: `enterprise/` directory with advanced features
--   **Authentication**: Passport.js strategies and middleware
--   **Database**: New entities for execution logging, agent management
-
-#### 2. Agents Functionality
-
--   **New Capabilities**: Agent executions, marketplace, assistants
--   **UI Components**: New pages and workflows
--   **API Endpoints**: Extended controller and route structure
-
-#### 3. Enhanced Node System
-
--   **Updated Components**: All nodes in `packages/components/`
--   **New Node Types**: Sequential agents, enhanced retrievers, new embeddings
--   **Backward Compatibility**: Should be maintained for existing chatflows
-
-### 🛠️ Technical Integration Strategy
-
-#### Authentication Bridge Pattern
-
-```typescript
-// Proposed architecture for Supabase ↔ Passport integration
-middleware/auth-bridge.ts:
-1. Supabase JWT validation (existing)
-2. Passport user object creation (new)
-3. Uniks context preservation (existing)
-4. Route-based authentication selection
-```
-
-#### Database Migration Strategy
-
-```sql
--- Backup existing Uniks data
--- Apply new Flowise 3.0.1 migrations
--- Verify Uniks relationships intact
--- Test entity loading and access control
-```
-
-#### UI Integration Approach
-
-```typescript
-// Incremental merge strategy:
-1. Import new base components from Flowise 3.0.1
-2. Preserve Uniks-specific pages and workflows
-3. Adapt new authentication UI to Supabase backend
-4. Integrate new agent/marketplace pages with Uniks access control
-```
-
-### ⚠️ Critical Risk Areas
-
-1. **Authentication System Conflicts** (HIGH)
-
-    - Passport.js vs Supabase JWT validation
-    - Session management incompatibilities
-    - Multi-user access control preservation
-
-2. **Database Schema Changes** (MEDIUM)
-
-    - New entities may conflict with Uniks modifications
-    - Migration order and dependency issues
-    - Data integrity during upgrade process
-
-3. **UI Architecture Changes** (HIGH)
-
-    - Extensive custom UI modifications in packages/ui
-    - New authentication flow integration
-    - Routing and navigation updates
-
-4. **UPDL Integration Preservation** (MEDIUM)
-    - apps/ directory compatibility with new Flowise version
-    - API integration points may change
-    - AR.js export workflow validation required
-
-### 📊 Upgrade Impact Assessment
-
-| Component           | Modification Level       | Risk   | Complexity |
-| ------------------- | ------------------------ | ------ | ---------- |
-| packages/components | None (replace)           | Low    | Simple     |
-| packages/server     | High (auth, controllers) | High   | Complex    |
-| packages/ui         | High (auth, pages)       | High   | Complex    |
-| Database migrations | Medium (new entities)    | Medium | Moderate   |
-| apps/ directory     | Low (integration points) | Medium | Moderate   |
-| i18n files          | Medium (new keys)        | Low    | Simple     |
-
-### 🎯 Success Criteria for Upgrade
-
-**Technical Validation**:
-
--   [ ] All packages build successfully
--   [ ] Server starts without authentication errors
--   [ ] Supabase JWT + Passport.js coexistence
--   [ ] Uniks workspace isolation functional
--   [ ] UPDL nodes load and execute
--   [ ] AR.js export pipeline operational
--   [ ] UI renders correctly in English/Russian
-
-**Functional Validation**:
-
--   [ ] Multi-user login/logout via Supabase
--   [ ] Workspace switching and access control
--   [ ] Chatflow creation and execution
--   [ ] UPDL → AR.js scene generation
--   [ ] New agent functionality accessible
--   [ ] Marketplace and assistants integration
-
-**Performance Validation**:
-
--   [ ] No degradation in build times
--   [ ] Server startup performance maintained
--   [ ] UI responsiveness preserved
--   [ ] UPDL generation speed stable
-
----
 
 ## Flowise AI
 

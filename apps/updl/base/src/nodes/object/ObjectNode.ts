@@ -48,7 +48,8 @@ export class ObjectNode extends BaseUPDLNode {
                     label: 'Position X',
                     description: 'X position of the object',
                     default: 0,
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 {
                     name: 'positionY',
@@ -56,7 +57,8 @@ export class ObjectNode extends BaseUPDLNode {
                     label: 'Position Y',
                     description: 'Y position of the object',
                     default: 0.5, // Slightly raised for visibility on marker
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 {
                     name: 'positionZ',
@@ -64,7 +66,8 @@ export class ObjectNode extends BaseUPDLNode {
                     label: 'Position Z',
                     description: 'Z position of the object',
                     default: 0,
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 // Scale - simplified to uniform scaling
                 {
@@ -73,7 +76,8 @@ export class ObjectNode extends BaseUPDLNode {
                     label: 'Scale',
                     description: 'Uniform scale of the object',
                     default: 1,
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 // Color as a field for input, not a connection
                 {
@@ -81,7 +85,8 @@ export class ObjectNode extends BaseUPDLNode {
                     type: 'string',
                     label: 'Color',
                     description: 'Color of the object (hex code)',
-                    default: '#ff0000' // Red color as default
+                    default: '#ff0000', // Red color as default
+                    additionalParams: true
                 },
                 // Box specific
                 {
@@ -91,6 +96,7 @@ export class ObjectNode extends BaseUPDLNode {
                     description: 'Width of the box or plane',
                     default: 1,
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.objectType': ['box', 'plane']
@@ -103,6 +109,7 @@ export class ObjectNode extends BaseUPDLNode {
                     description: 'Height of the box, plane or cylinder',
                     default: 1,
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.objectType': ['box', 'plane', 'cylinder']
@@ -115,6 +122,7 @@ export class ObjectNode extends BaseUPDLNode {
                     description: 'Depth of the box',
                     default: 1,
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.objectType': ['box']
@@ -128,6 +136,7 @@ export class ObjectNode extends BaseUPDLNode {
                     description: 'Radius of the sphere or cylinder',
                     default: 1,
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.objectType': ['sphere', 'cylinder']

@@ -46,7 +46,8 @@ export class LightNode extends BaseUPDLNode {
                     label: 'Light Color',
                     description: 'Color of the light',
                     default: '',
-                    optional: true
+                    optional: true,
+                    additionalParams: true
                 },
                 // Intensity
                 {
@@ -57,7 +58,8 @@ export class LightNode extends BaseUPDLNode {
                     default: 1,
                     min: 0,
                     max: 10,
-                    step: 0.1
+                    step: 0.1,
+                    additionalParams: true
                 },
                 // Position (for point and directional lights)
                 {
@@ -67,6 +69,7 @@ export class LightNode extends BaseUPDLNode {
                     description: 'X position of the light',
                     default: 0,
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.lightType': ['point', 'directional']
@@ -79,6 +82,7 @@ export class LightNode extends BaseUPDLNode {
                     description: 'Y position of the light',
                     default: 10, // Higher up for better illumination
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.lightType': ['point', 'directional']
@@ -91,6 +95,7 @@ export class LightNode extends BaseUPDLNode {
                     description: 'Z position of the light',
                     default: 10, // Further back for directional light
                     step: 0.1,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.lightType': ['point', 'directional']
@@ -103,6 +108,7 @@ export class LightNode extends BaseUPDLNode {
                     label: 'Cast Shadows',
                     description: 'Whether the light casts shadows',
                     default: true,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.lightType': ['directional', 'point']
@@ -116,6 +122,7 @@ export class LightNode extends BaseUPDLNode {
                     description: 'Color of the light from below (for hemisphere light)',
                     default: '',
                     optional: true,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.lightType': ['hemisphere'] // hemisphere type not shown

@@ -1,79 +1,87 @@
 # Current Active Context
 
-## MAJOR PROJECT INITIATIVE: Flowise 3.0.1 Upgrade
+## CURRENT PROJECT FOCUS: UPDL Node Enhancement & AR.js Quiz Development
 
 ### 🎯 Primary Objective
 
-Upgrade project from **Flowise 2.2.7-patch.1** to **Flowise 3.0.1** while preserving all custom functionality:
+Enhance UPDL nodes and develop new AR.js educational quiz functionality:
 
-1. **Multi-user authentication via Supabase** (instead of single-user)
-2. **Uniks functionality** (workspace concept with hierarchical entities)
-3. **Internationalization** (English/Russian language support)
-4. **UPDL nodes** (universal nodes for high-level logic with AR.js export)
+1. **UPDL Interface Enhancement** - Compact node interface with Flow Management
+2. **AR.js Quiz Logic Development** - New node types for educational quizzes
+3. **Preserve existing functionality** - Maintain all UPDL and AR.js export capabilities
 
-### 🆕 New Flowise 3.0.1 Features to Integrate
+### ✅ COMPLETED: UPDL Interface Enhancement
 
--   **New Agents functionality**
--   **Passport.js authentication system**
--   **Updated node components**
--   **Various system improvements**
+**Status**: **COMPLETED** ✅ All four UPDL nodes enhanced with Flow Management
 
-### 📋 Codex Task Categories (15 Major Tasks)
+#### **Enhanced Nodes:**
 
-#### **PHASE 1: Foundation Updates (Low Risk)**
+1. **Space Node**: Only `Space Name` visible, other fields in Additional Parameters
+2. **Object Node**: Only `Object Name` and `Object Type` visible by default
+3. **Light Node**: Only `Light Name` and `Light Type` visible by default
+4. **Camera Node**: Only `Camera Name` and `Camera Type` visible by default
 
-1. **Upgrade workspace dependencies and lockfile** - Update package.json and pnpm-lock.yaml
-2. **Sync component nodes** - Replace packages/components (no custom changes)
-3. **Apply new database migrations** - Import latest migrations
+#### **Benefits Achieved:**
 
-#### **PHASE 2: Architecture Updates (Medium Risk)**
-
-4. **Update server architecture** - Merge server core changes
-5. **Integrate Passport authentication with Supabase** - Adapt new auth to work with Supabase
-6. **Align database entities with new features** - Sync server entities
-7. **Refresh server utilities and helpers** - Update helper functions
-
-#### **PHASE 3: API & Routes (Medium Risk)**
-
-8. **Update API controllers and routes** - Sync API endpoints (agents, assistants, marketplace)
-
-#### **PHASE 4: UI Integration (High Risk)**
-
-9. **Replace UI package with Flowise 3.0.1 baseline** - Major UI updates
-10. **Integrate new UI authentication flow** - Wire Supabase login with new UI
-11. **Merge new UI pages** - Add agent executions, marketplaces views
-
-#### **PHASE 5: Finalization (High Risk)**
-
-12. **Update i18n keys** - Extend translation files with new labels
-13. **Adjust build and deployment scripts** - Update build processes
-14. **Validate UPDL nodes and publication flow** - Ensure UPDL integration still works
-15. **Update documentation** - Refresh README and memory-bank files
-
-### ⚠️ Critical Integration Points
-
--   **Passport.js ↔ Supabase**: Ensure new authentication works with our multi-user setup
--   **UPDL nodes**: Preserve all UPDL functionality in apps/ directory
--   **Uniks hierarchy**: Maintain workspace concept with entity relationships
--   **i18n system**: Integrate new texts with existing English/Russian support
--   **Custom chatbot functionality**: Preserve modifications moved to other files
+-   🎯 **Improved UX**: Compact node interface reduces canvas clutter
+-   ⚡ **Better Workflow**: Essential fields visible, advanced options accessible via Flow Management
+-   🔧 **Maintainable**: Consistent interface pattern across all UPDL nodes
+-   📱 **Scalable**: Foundation ready for new node types
 
 ### 🔄 Current Project State
 
--   **Base Version**: Flowise 2.2.7-patch.1
--   **Target Version**: Flowise 3.0.1
+-   **Base Version**: Flowise 2.2.7-patch.1 (stable)
 -   **Custom Features**: Fully functional (Supabase auth, Uniks, i18n, UPDL)
--   **Last Focus**: AR.js library configuration system (completed)
--   **Next Focus**: Begin systematic Flowise 3.0.1 upgrade process
+-   **Last Focus**: UPDL node interface enhancement (completed)
+-   **Current Focus**: Ready for AR.js Quiz Logic Development
+
+### 🎯 NEXT PHASE: AR.js Quiz Logic Development
+
+**Priority**: MEDIUM | **Complexity**: Level 3 (Feature Implementation)
+
+#### **Planned New Node Types:**
+
+Create new UPDL node types for AR.js educational quiz export functionality:
+
+-   **Quiz Controller nodes** - Manage quiz state and flow
+-   **Question/Answer logic nodes** - Handle quiz questions and validation
+-   **AR interaction nodes** - Handle AR-specific interactions (touch, gaze, proximity)
+-   **Progress tracking nodes** - Track learning progress and scoring
+
+#### **Technical Requirements**
+
+-   Use consistent `additionalParams: true` pattern from enhanced nodes
+-   Maintain UPDL export compatibility
+-   Extend AR.js Builder for quiz functionality
+-   Keep integration with existing Supabase/Uniks architecture
+
+### 🏗️ System Architecture
+
+#### **Current Technology Stack:**
+
+-   **Frontend**: React with Material-UI
+-   **Backend**: Node.js with TypeScript
+-   **Database**: Supabase (PostgreSQL)
+-   **Authentication**: Supabase Auth with multi-user support
+-   **Internationalization**: English/Russian support
+-   **UPDL System**: Custom node system for AR.js export
+-   **AR Technology**: AR.js with A-Frame
+
+#### **Custom Features:**
+
+-   **Uniks Workspace System**: Hierarchical entity management
+-   **UPDL Nodes**: Universal nodes for AR.js scene creation
+-   **Multi-language Support**: Full i18n implementation
+-   **Publication System**: Export UPDL flows to AR.js applications
 
 ### 💡 Strategic Approach
 
-1. **Start with low-risk updates** (dependencies, components, migrations)
-2. **Enable incremental testing** after foundation updates
-3. **Preserve custom functionality** through careful integration
-4. **Document all conflicts** and resolution strategies
-5. **Maintain backward compatibility** where possible
+1. **Maintain Stability**: Keep current working system intact
+2. **Incremental Development**: Add quiz functionality step by step
+3. **Preserve Compatibility**: Ensure all existing features continue working
+4. **Document Progress**: Update memory bank with each major milestone
+5. **Test Thoroughly**: Verify both UI and AR.js export functionality
 
-**COMPLEXITY LEVEL**: **Level 4** (Complex System Update)
-**ESTIMATED IMPACT**: Major upgrade affecting all system layers
-**RISK LEVEL**: High (due to extensive custom modifications)
+**COMPLEXITY LEVEL**: **Level 2** (Simple Enhancement) → **Level 3** (Feature Implementation)
+**ESTIMATED IMPACT**: Enhanced user experience + new AR.js quiz capabilities
+**RISK LEVEL**: Low (building on stable foundation)

@@ -33,14 +33,16 @@ export class SpaceNode extends BaseUPDLNode {
                     label: 'Background Color',
                     description: 'Background color of the space (hex code)',
                     default: '',
-                    optional: true
+                    optional: true,
+                    additionalParams: true
                 },
                 {
                     name: 'skybox',
                     type: 'boolean',
                     label: 'Enable Skybox',
                     description: 'Whether to use a skybox',
-                    default: false
+                    default: false,
+                    additionalParams: true
                 },
                 {
                     name: 'skyboxTexture',
@@ -48,6 +50,7 @@ export class SpaceNode extends BaseUPDLNode {
                     label: 'Skybox Texture',
                     description: 'URL to the skybox texture (optional)',
                     optional: true,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.skybox': [true]
@@ -58,7 +61,8 @@ export class SpaceNode extends BaseUPDLNode {
                     type: 'boolean',
                     label: 'Enable Fog',
                     description: 'Whether to use fog effect',
-                    default: false
+                    default: false,
+                    additionalParams: true
                 },
                 {
                     name: 'fogColor',
@@ -67,6 +71,7 @@ export class SpaceNode extends BaseUPDLNode {
                     description: 'Color of the fog (hex code)',
                     default: '',
                     optional: true,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.fog': [true]
@@ -81,6 +86,7 @@ export class SpaceNode extends BaseUPDLNode {
                     min: 0,
                     max: 1,
                     step: 0.01,
+                    additionalParams: true,
                     show: {
                         // Using inputs prefix now
                         'inputs.fog': [true]
