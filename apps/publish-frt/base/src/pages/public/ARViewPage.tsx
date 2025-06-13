@@ -80,7 +80,9 @@ const ARViewPage: React.FC = () => {
                     markerType: 'preset',
                     markerValue: 'hiro',
                     // Universo Platformo | Include libraryConfig for proper library source selection
-                    libraryConfig: publicationData.libraryConfig
+                    libraryConfig: publicationData.libraryConfig,
+                    // Universo Platformo | Include chatflowId for lead data saving
+                    chatflowId: publicationId
                 }
 
                 console.log('🔧 [ARViewPage] Calling ARJSBuilder with options:', {

@@ -130,21 +130,28 @@ export class ARJSBuilder extends BaseBuilder {
         })
 
         try {
-            // Universo Platformo | Extract showPoints from first scene's spaceData if available
-            const firstScene = multiScene.scenes.length > 0 ? multiScene.scenes[0] : null
-            // Support both legacy (spaceData.showPoints) and new (spaceData.inputs.showPoints) locations
-            const showPointsRaw = firstScene?.spaceData?.showPoints ?? firstScene?.spaceData?.inputs?.showPoints
-            const showPoints = !!showPointsRaw
+            // Universo Platformo | Extract showPoints from any scene that has it enabled (not just first)
+            let showPoints = false
+            for (const scene of multiScene.scenes) {
+                if (scene.spaceData?.showPoints || scene.spaceData?.inputs?.showPoints) {
+                    showPoints = true
+                    break
+                }
+            }
 
             // Universo Platformo | Extract leadCollection from first scene's spaceData
+            const firstScene = multiScene.scenes.length > 0 ? multiScene.scenes[0] : null
             const leadCollection = firstScene?.spaceData?.leadCollection
 
             console.log('🔧 [ARJSBuilder] Points system analysis:', {
                 hasScenes: multiScene.scenes.length > 0,
                 firstSceneExists: !!firstScene,
                 hasSpaceData: !!firstScene?.spaceData,
-                showPointsRaw,
-                showPointsBoolean: showPoints,
+                showPoints,
+                totalScenes: multiScene.scenes.length,
+                sceneWithPointsFound: multiScene.scenes.findIndex(
+                    (scene) => scene.spaceData?.showPoints || scene.spaceData?.inputs?.showPoints
+                ),
                 spaceDataKeys: firstScene?.spaceData ? Object.keys(firstScene.spaceData) : []
             })
 
@@ -295,6 +302,9 @@ export class ARJSBuilder extends BaseBuilder {
         </a-scene>
 
         <script>
+            // Universo Platformo | Set global chatflowId for lead data saving
+            window.chatflowId = '${options.chatflowId || ''}';
+            
             // Hide loading screen when space is loaded
             document.addEventListener('DOMContentLoaded', function() {
                 const scene = document.querySelector('a-scene');

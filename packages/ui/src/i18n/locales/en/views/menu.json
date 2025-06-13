@@ -1,28 +1,29 @@
 {
-  "menu": {
-    "dashboard": "Uniboard",
-    "chatflows": "Chatflows",
-    "agentflows": "Agents",
-    "assistants": "Assistants",
-    "tools": "Tools",
-    "credentials": "Credentials",
-    "variables": "Variables",
-    "apiKeys": "API Keys",
-    "documentStores": "Documents",
-    "templates": "Templates",
-    "uniks": "Uniks",
-    "docs": "Documentation",
-    "profile": "Profile"
-  },
-  "profileMenu": {
-    "export": "Export",
-    "import": "Import",
-    "aboutFlowise": "About Kiberplano",
-    "logout": "Logout",
-    "exportDialog": {
-      "title": "Select Data to Export",
-      "exporting": "Exporting...",
-      "exportingInfo": "Exporting data might takes a while"
+    "menu": {
+        "dashboard": "Uniboard",
+        "chatflows": "Chatflows",
+        "agentflows": "Agents",
+        "assistants": "Assistants",
+        "tools": "Tools",
+        "credentials": "Credentials",
+        "variables": "Variables",
+        "apiKeys": "API Keys",
+        "documentStores": "Documents",
+        "analytics": "Analytics",
+        "templates": "Templates",
+        "uniks": "Uniks",
+        "docs": "Documentation",
+        "profile": "Profile"
+    },
+    "profileMenu": {
+        "export": "Export",
+        "import": "Import",
+        "aboutFlowise": "About Kiberplano",
+        "logout": "Logout",
+        "exportDialog": {
+            "title": "Select Data to Export",
+            "exporting": "Exporting...",
+            "exportingInfo": "Exporting data might takes a while"
+        }
     }
-  }
-} 
+}

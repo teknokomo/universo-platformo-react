@@ -153,6 +153,7 @@ export interface IUPDLScene {
     nextSceneId?: string | undefined
     isLast: boolean
     order: number
+    isResultsScene?: boolean
 }
 
 /**

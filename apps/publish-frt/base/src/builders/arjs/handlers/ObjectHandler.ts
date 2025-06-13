@@ -144,9 +144,9 @@ export class ObjectHandler {
                     return boxElement
 
                 case 'sphere':
-                    // Universo Platformo | Normalize sphere size so that diameter ≈ box edge (1 m)
-                    const rawRadiusScene = object.geometry?.radius ?? object.radius ?? 0.5
-                    const normalizedRadiusScene = rawRadiusScene > 0.5 && !object.scale ? 0.5 : rawRadiusScene
+                    // Universo Platformo | Normalize sphere radius to 0.5 for consistent size with boxes
+                    const rawRadiusScene = object.geometry?.radius ?? object.radius ?? 1
+                    const normalizedRadiusScene = 0.5 // Set to 0.5 to match box size (1x1x1 box ≈ 1 diameter sphere)
                     const sphereElement = `<a-sphere 
                 position="${position}"
                 material="color: ${color};"
@@ -259,9 +259,9 @@ export class ObjectHandler {
             ></a-box>\n`
 
                 case 'sphere':
-                    // Universo Platformo | Normalize sphere size for single-scene builder
-                    const rawRadius = object.geometry?.radius ?? object.radius ?? 0.5
-                    const normalizedRadius = rawRadius > 0.5 && !object.scale ? 0.5 : rawRadius
+                    // Universo Platformo | Normalize sphere radius to 0.5 for consistent size with boxes
+                    const rawRadius = object.geometry?.radius ?? object.radius ?? 1
+                    const normalizedRadius = 0.5 // Set to 0.5 to match box size (1x1x1 box ≈ 1 diameter sphere)
                     return `<a-sphere 
                 position="${position}"
                 material="color: ${color};"

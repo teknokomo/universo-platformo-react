@@ -53,6 +53,9 @@ const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@/views/docstore/L
 const VectorStoreConfigure = Loadable(lazy(() => import('@/views/docstore/VectorStoreConfigure')))
 const VectorStoreQuery = Loadable(lazy(() => import('@/views/docstore/VectorStoreQuery')))
 
+// analytics routing
+const Analytics = Loadable(lazy(() => import('@/views/analytics')))
+
 // Example for other common pages
 const CommonPage = Loadable(lazy(() => import('@/views/up-uniks/CommonPage')))
 const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
@@ -165,6 +168,10 @@ const MainRoutes = {
                         {
                             path: 'document-stores/query/:storeId',
                             element: <VectorStoreQuery />
+                        },
+                        {
+                            path: 'analytics',
+                            element: <Analytics />
                         },
                         {
                             path: 'templates',

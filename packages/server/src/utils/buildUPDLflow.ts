@@ -287,6 +287,15 @@ const analyzeSpaceChain = (nodes: IReactFlowNode[], edges: any[]): IUPDLMultiSce
         const nextSpaceId = spaceEdgeMap.get(currentSpaceId)
         const isLast = !nextSpaceId
 
+        // Universo Platformo | Determine if this is a results scene
+        const showPoints = currentSpace.data?.inputs?.showPoints || false
+        const hasDataNodes = connectedDataNodes.length > 0
+        const isResultsScene = isLast && showPoints && !hasDataNodes
+
+        console.log(
+            `[analyzeSpaceChain] Space ${currentSpaceId} analysis: showPoints=${showPoints}, hasDataNodes=${hasDataNodes}, isLast=${isLast}, isResultsScene=${isResultsScene}`
+        )
+
         const scene: IUPDLScene = {
             spaceId: currentSpaceId,
             spaceData: {
@@ -296,7 +305,9 @@ const analyzeSpaceChain = (nodes: IReactFlowNode[], edges: any[]): IUPDLMultiSce
                     collectName: currentSpace.data?.inputs?.collectLeadName || false,
                     collectEmail: currentSpace.data?.inputs?.collectLeadEmail || false,
                     collectPhone: currentSpace.data?.inputs?.collectLeadPhone || false
-                }
+                },
+                // Universo Platformo | Add showPoints setting to spaceData
+                showPoints: showPoints
             },
             dataNodes: connectedDataNodes.map((node) => ({
                 id: node.id,
@@ -341,7 +352,9 @@ const analyzeSpaceChain = (nodes: IReactFlowNode[], edges: any[]): IUPDLMultiSce
             }),
             ...(nextSpaceId ? { nextSceneId: nextSpaceId } : {}),
             isLast,
-            order
+            order,
+            // Universo Platformo | Results scene detection
+            isResultsScene
         }
 
         scenes.push(scene)
