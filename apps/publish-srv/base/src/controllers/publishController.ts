@@ -159,23 +159,45 @@ export class PublishController {
                 throw new Error(`Failed to build UPDL flow for ${id}`)
             }
 
-            // Get space from result
-            const spaceToUse = result.updlSpace
+            // Universo Platformo | Handle both single space and multi-scene results
+            let spaceToUse = null
+            let isMultiScene = false
 
-            if (!spaceToUse || !spaceToUse.objects || spaceToUse.objects.length === 0) {
-                logger.warn(`[PublishController] utilBuildUPDLflow returned empty space for ${id}`)
+            if (result.multiScene) {
+                // Multi-scene result
+                isMultiScene = true
+                logger.info(`[PublishController] Multi-scene result with ${result.multiScene.totalScenes} scenes`)
 
-                // If space is empty, return error
-                // Explicitly set content type header
-                res.setHeader('Content-Type', 'application/json')
-                res.status(404).json({
-                    success: false,
-                    error: 'UPDL space not found or empty'
-                })
-                return
+                // Validate multi-scene structure
+                if (!result.multiScene.scenes || result.multiScene.scenes.length === 0) {
+                    logger.warn(`[PublishController] utilBuildUPDLflow returned empty multi-scene for ${id}`)
+                    res.setHeader('Content-Type', 'application/json')
+                    res.status(404).json({
+                        success: false,
+                        error: 'Multi-scene structure not found or empty'
+                    })
+                    return
+                }
+            } else {
+                // Single space result (legacy)
+                spaceToUse = result.updlSpace
+
+                if (!spaceToUse || !spaceToUse.objects || spaceToUse.objects.length === 0) {
+                    logger.warn(`[PublishController] utilBuildUPDLflow returned empty space for ${id}`)
+                    res.setHeader('Content-Type', 'application/json')
+                    res.status(404).json({
+                        success: false,
+                        error: 'UPDL space not found or empty'
+                    })
+                    return
+                }
             }
 
-            logger.info(`[PublishController] Successfully built UPDL space with ${spaceToUse.objects?.length || 0} objects`)
+            if (isMultiScene) {
+                logger.info(`[PublishController] Successfully built multi-scene with ${result.multiScene.scenes.length} scenes`)
+            } else {
+                logger.info(`[PublishController] Successfully built UPDL space with ${spaceToUse.objects?.length || 0} objects`)
+            }
 
             // Universo Platformo | libraryConfig now comes directly from utilBuildUPDLflow result
             logger.info(`[PublishController] libraryConfig from utilBuildUPDLflow:`, result.libraryConfig ? 'found' : 'not found')
@@ -184,22 +206,33 @@ export class PublishController {
             }
 
             // Universo Platformo | Enhanced debugging for API response
-            const responseData = {
+            const responseData: any = {
                 success: true,
                 publicationId: id,
-                projectName: spaceToUse.name || `AR.js for ${id}`,
+                projectName: isMultiScene ? `Multi-Scene AR.js for ${id}` : spaceToUse?.name || `AR.js for ${id}`,
                 generationMode: 'streaming',
-                updlSpace: spaceToUse,
                 // Universo Platformo | Include libraryConfig from AR.js settings
                 libraryConfig: result.libraryConfig || null,
                 timestamp: new Date().toISOString()
+            }
+
+            // Add the appropriate data structure based on mode
+            if (isMultiScene) {
+                responseData.multiScene = result.multiScene
+            } else {
+                responseData.updlSpace = spaceToUse
             }
 
             logger.info(`[PublishController] Preparing API response:`, {
                 responseKeys: Object.keys(responseData),
                 hasLibraryConfig: !!responseData.libraryConfig,
                 libraryConfigDetails: responseData.libraryConfig,
-                spaceObjectCount: responseData.updlSpace?.objects?.length || 0
+                isMultiScene: isMultiScene,
+                spaceObjectCount: isMultiScene
+                    ? responseData.multiScene?.scenes?.reduce((total: number, scene: any) => total + (scene.objectNodes?.length || 0), 0) ||
+                      0
+                    : responseData.updlSpace?.objects?.length || 0,
+                sceneCount: isMultiScene ? responseData.multiScene?.totalScenes : 1
             })
 
             // Return space data for UPDL nodes with libraryConfig

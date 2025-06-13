@@ -2,7 +2,7 @@
 // Handles processing of UPDL Object nodes for AR.js
 // Logic transferred from UPDLToARJSConverter.ts
 
-import { IUPDLObject } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLObject, IUPDLMultiScene } from '../../../../../../../packages/server/src/Interface.UPDL'
 import { BuildOptions } from '../../common/types'
 import { SimpleValidator } from '../utils/SimpleValidator'
 
@@ -32,8 +32,11 @@ export class ObjectHandler {
                 `[ObjectHandler] Validated ${validatedObjects.length} objects (removed ${objects.length - validatedObjects.length} invalid)`
             )
 
-            const positionedObjects = this.applyCircularPositioning(validatedObjects)
-            console.log(`[ObjectHandler] Applied circular positioning for ${positionedObjects.length} objects`)
+            // Choose layout: 'circle' (legacy) or 'line' (default MVP)
+            const layout = options.layout === 'circle' ? 'circle' : 'line'
+            const positionedObjects =
+                layout === 'circle' ? this.applyCircularPositioning(validatedObjects) : this.applyLinearPositioning(validatedObjects)
+            console.log(`[ObjectHandler] Applied ${layout} positioning for ${positionedObjects.length} objects`)
 
             // Process each object
             let content = ''
@@ -47,6 +50,184 @@ export class ObjectHandler {
             console.error('[ObjectHandler] Error processing objects:', error)
             // In case of error, return a simple red cube
             return '<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>\n'
+        }
+    }
+
+    /**
+     * Universo Platformo | Process objects by scenes for multi-scene functionality
+     * @param multiScene Multi-scene data structure
+     * @param options Build options
+     * @returns HTML string with A-Frame object elements associated with scenes
+     */
+    processMultiScene(multiScene: IUPDLMultiScene, options: BuildOptions = {}): string {
+        try {
+            console.log(`[ObjectHandler] Processing multi-scene with ${multiScene.totalScenes} scenes`)
+
+            if (!multiScene.scenes || multiScene.scenes.length === 0) {
+                console.log(`[ObjectHandler] No scenes provided, using default cube`)
+                return '<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>\n'
+            }
+
+            let content = ''
+
+            // Process objects for each scene
+            multiScene.scenes.forEach((scene, sceneIndex) => {
+                const objects = scene.objectNodes || []
+
+                if (objects.length === 0) {
+                    console.log(`[ObjectHandler] No objects in scene ${sceneIndex}, skipping`)
+                    return
+                }
+
+                console.log(`[ObjectHandler] Processing ${objects.length} objects for scene ${sceneIndex}`)
+
+                // Validate objects for this scene
+                const validatedObjects = SimpleValidator.validateObjects(objects)
+
+                // Choose layout: 'circle' (legacy) or 'line' (default MVP)
+                const layout = options.layout === 'circle' ? 'circle' : 'line'
+                const positionedObjects =
+                    layout === 'circle' ? this.applyCircularPositioning(validatedObjects) : this.applyLinearPositioning(validatedObjects)
+
+                // Generate objects with scene association
+                positionedObjects.forEach((obj) => {
+                    content += this.generateObjectElementWithScene(obj, sceneIndex)
+                })
+            })
+
+            console.log(`[ObjectHandler] Generated multi-scene objects HTML`)
+            return content
+        } catch (error) {
+            console.error('[ObjectHandler] Error processing multi-scene objects:', error)
+            return '<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>\n'
+        }
+    }
+
+    /**
+     * Generates A-Frame HTML element for UPDL object with scene association
+     * @param object UPDL object
+     * @param sceneIndex Scene index for visibility control
+     * @returns HTML string with element
+     */
+    private generateObjectElementWithScene(object: any, sceneIndex: number): string {
+        if (!object || !object.type) {
+            return ''
+        }
+
+        try {
+            // Get common attributes
+            const position = this.getPositionString(object.position)
+            const scale = this.getScaleString(object.scale)
+            const color = this.getColorString(object)
+            const rotation = this.getRotationString(object.rotation)
+
+            // Scene visibility attributes
+            const isVisible = sceneIndex === 0
+            const sceneAttributes = `data-scene-id="${sceneIndex}" visible="${isVisible ? 'true' : 'false'}"`
+
+            // Universo Platformo | Debug object visibility with proper position string
+            console.log(
+                `[ObjectHandler] Scene ${sceneIndex} Object: type=${object.type}, position="${position}", scale="${scale}", color="${color}", visible=${isVisible}`
+            )
+
+            // Determine object type and create corresponding A-Frame element
+            switch (object.type.toLowerCase()) {
+                case 'box':
+                    const boxElement = `<a-box 
+                position="${position}"
+                rotation="${rotation}"
+                material="color: ${color};"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-box>\n`
+                    console.log(`[ObjectHandler] Generated box element: ${boxElement.replace(/\n/g, ' ').trim()}`)
+                    return boxElement
+
+                case 'sphere':
+                    // Universo Platformo | Normalize sphere size so that diameter ≈ box edge (1 m)
+                    const rawRadiusScene = object.geometry?.radius ?? object.radius ?? 0.5
+                    const normalizedRadiusScene = rawRadiusScene > 0.5 && !object.scale ? 0.5 : rawRadiusScene
+                    const sphereElement = `<a-sphere 
+                position="${position}"
+                material="color: ${color};"
+                radius="${normalizedRadiusScene}"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-sphere>\n`
+                    console.log(`[ObjectHandler] Generated sphere element: ${sphereElement.replace(/\n/g, ' ').trim()}`)
+                    return sphereElement
+
+                case 'cylinder':
+                    return `<a-cylinder 
+                position="${position}"
+                rotation="${rotation}"
+                material="color: ${color};"
+                radius="${object.radius || 0.5}"
+                height="${object.height || 1}"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-cylinder>\n`
+
+                case 'plane':
+                    return `<a-plane 
+                position="${position}"
+                material="color: ${color};"
+                width="${object.width || 1}"
+                height="${object.height || 1}"
+                rotation="${object.rotation?.x || -90} ${object.rotation?.y || 0} ${object.rotation?.z || 0}"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-plane>\n`
+
+                case 'text':
+                    return `<a-text 
+                position="${position}"
+                rotation="${rotation}"
+                value="${this.escapeHtml(object.value || 'Text')}"
+                color="${color}"
+                width="${object.width || 10}"
+                align="${object.align || 'center'}"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-text>\n`
+
+                case 'circle':
+                    return `<a-circle 
+                position="${position}"
+                rotation="${rotation}"
+                material="color: ${color};"
+                radius="${object.radius || 0.5}"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-circle>\n`
+
+                case 'cone':
+                    return `<a-cone 
+                position="${position}"
+                rotation="${rotation}"
+                material="color: ${color};"
+                radius-bottom="${object.radiusBottom || 0.5}"
+                radius-top="${object.radiusTop || 0}"
+                height="${object.height || 1}"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-cone>\n`
+
+                // Default, if type is not defined, create a cube
+                default:
+                    const defaultElement = `<a-box 
+                position="${position}"
+                rotation="${rotation}"
+                material="color: ${color};"
+                scale="${scale}"
+                ${sceneAttributes}
+            ></a-box>\n`
+                    console.log(`[ObjectHandler] Generated default box element: ${defaultElement.replace(/\n/g, ' ').trim()}`)
+                    return defaultElement
+            }
+        } catch (error) {
+            console.error(`[ObjectHandler] Error generating object element:`, error)
+            return ''
         }
     }
 
@@ -78,10 +259,13 @@ export class ObjectHandler {
             ></a-box>\n`
 
                 case 'sphere':
+                    // Universo Platformo | Normalize sphere size for single-scene builder
+                    const rawRadius = object.geometry?.radius ?? object.radius ?? 0.5
+                    const normalizedRadius = rawRadius > 0.5 && !object.scale ? 0.5 : rawRadius
                     return `<a-sphere 
                 position="${position}"
                 material="color: ${color};"
-                radius="${object.geometry?.radius || object.radius || 0.5}"
+                radius="${normalizedRadius}"
                 scale="${scale}"
             ></a-sphere>\n`
 
@@ -203,13 +387,14 @@ export class ObjectHandler {
      * @returns Objects with adjusted positions
      */
     private applyCircularPositioning(objects: IUPDLObject[]): IUPDLObject[] {
-        if (objects.length <= 1) {
-            console.log(`[ObjectHandler] Single object, no positioning needed`)
-            return objects // Single object doesn't need repositioning
+        if (!objects || objects.length === 0) {
+            return []
         }
 
-        const radius = Math.max(1.5, objects.length * 0.5) // Dynamic radius
+        // Universo Platformo | Apply circular positioning for better AR visualization
+        const radius = 0.5 // Reduced from 2.0 to 0.5 for better visibility
         const angleStep = (2 * Math.PI) / objects.length
+
         console.log(`[ObjectHandler] Positioning ${objects.length} objects in circle with radius ${radius.toFixed(2)}`)
 
         return objects.map((obj, index) => {
@@ -220,9 +405,33 @@ export class ObjectHandler {
             return {
                 ...obj,
                 position: {
-                    x: Number(x.toFixed(2)),
-                    y: obj.position?.y || 0.5, // Keep original Y or default
-                    z: Number(z.toFixed(2))
+                    x: parseFloat(x.toFixed(2)),
+                    y: obj.position?.y || 0.5,
+                    z: parseFloat(z.toFixed(2))
+                }
+            }
+        })
+    }
+
+    // Universo Platformo | Arrange objects in a straight line along X axis (MVP layout)
+    private applyLinearPositioning(objects: IUPDLObject[]): IUPDLObject[] {
+        if (!objects || objects.length === 0) return []
+
+        const spacing = 1.5 // meters between objects – increased for better separation
+        const startX = -((objects.length - 1) * spacing) / 2 // center the row on marker
+
+        console.log(
+            `[ObjectHandler] Positioning ${objects.length} objects in line with spacing ${spacing.toFixed(2)} (startX=${startX.toFixed(2)})`
+        )
+
+        return objects.map((obj, index): IUPDLObject => {
+            const x = +(startX + index * spacing).toFixed(2)
+            return {
+                ...obj,
+                position: {
+                    x,
+                    y: obj.position?.y ?? 0.5,
+                    z: obj.position?.z ?? 0
                 }
             }
         })

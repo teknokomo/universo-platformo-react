@@ -205,7 +205,7 @@
         "nodeConfig": {
             "inputs": "Входы",
             "outputs": "Выходы",
-            "flowControl": "Управление потоком",
+            "flowControl": "Дополнительные параметры",
             "addNode": "Добавить узел",
             "true": "Истина",
             "false": "Ложь"

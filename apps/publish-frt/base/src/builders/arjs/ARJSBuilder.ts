@@ -3,8 +3,8 @@
 
 import { BaseBuilder } from '../common/BaseBuilder'
 import { BuildResult, BuildOptions, BuilderConfig, BuildError } from '../common/types'
-import { IUPDLSpace } from '../../../../../../packages/server/src/Interface.UPDL'
-import { SpaceHandler, ObjectHandler, CameraHandler, LightHandler } from './handlers'
+import { IUPDLSpace, IUPDLMultiScene } from '../../../../../../packages/server/src/Interface.UPDL'
+import { SpaceHandler, ObjectHandler, CameraHandler, LightHandler, DataHandler } from './handlers'
 import { getLibrarySources, debugLog, appConfig } from '../../config/appConfig'
 import { LibraryConfig, DEFAULT_LIBRARY_CONFIG } from '../../types/library.types'
 
@@ -16,6 +16,7 @@ export class ARJSBuilder extends BaseBuilder {
     private objectHandler = new ObjectHandler()
     private cameraHandler = new CameraHandler()
     private lightHandler = new LightHandler()
+    private dataHandler = new DataHandler()
 
     constructor(platform: string = 'arjs', config: BuilderConfig = { platform: 'arjs' }) {
         super(platform, config)
@@ -47,26 +48,54 @@ export class ARJSBuilder extends BaseBuilder {
 
         console.log('✅ [ARJSBuilder] UPDL space validation passed')
 
+        // Universo Platformo | Extract leadCollection from space data
+        const leadCollection = {
+            collectName: updlSpace.leadCollection?.collectName || false,
+            collectEmail: updlSpace.leadCollection?.collectEmail || false,
+            collectPhone: updlSpace.leadCollection?.collectPhone || false
+        }
+
+        console.log('🔧 [ARJSBuilder] Lead collection analysis:', {
+            leadCollection,
+            hasAnyLeadCollection: leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone
+        })
+
         // Process each component using handlers
         const spaceContent = this.spaceHandler.process(updlSpace, options)
         const objectsContent = this.objectHandler.process(updlSpace.objects || [], options)
         const camerasContent = this.cameraHandler.process(updlSpace.cameras || [], options)
         const lightsContent = this.lightHandler.process(updlSpace.lights || [], options)
+        const datasContent = this.dataHandler.process(updlSpace.datas || [], { ...options, leadCollection })
+
+        console.log('🎯 [ARJSBuilder] Data processing results:', {
+            datasInputCount: updlSpace.datas?.length || 0,
+            datasInputDetails: updlSpace.datas,
+            datasContentLength: datasContent.length,
+            datasContentPreview: datasContent.substring(0, 200) + '...'
+        })
 
         // Combine all content
         const sceneContent = spaceContent + objectsContent + camerasContent + lightsContent
+
+        // Data content goes after scene (UI and scripts)
+        const dataUIContent = datasContent
 
         console.log('🎬 [ARJSBuilder] Scene content generated:', {
             spaceContentLength: spaceContent.length,
             objectsContentLength: objectsContent.length,
             camerasContentLength: camerasContent.length,
             lightsContentLength: lightsContent.length,
+            datasContentLength: datasContent.length,
             totalSceneContentLength: sceneContent.length
         })
 
         // Generate HTML
-        console.log('🏗️ [ARJSBuilder] Calling generateHTML with sceneContent and options')
-        const html = this.generateHTML(sceneContent, options)
+        console.log('🏗️ [ARJSBuilder] Calling generateHTML with sceneContent, dataUIContent and options')
+        console.log('🏗️ [ARJSBuilder] Final content lengths before HTML generation:', {
+            sceneContentLength: sceneContent.length,
+            dataUIContentLength: dataUIContent.length
+        })
+        const html = this.generateHTML(sceneContent, dataUIContent, options)
 
         console.log('🎯 [ARJSBuilder] build() completed successfully:', {
             htmlLength: html.length,
@@ -88,12 +117,91 @@ export class ARJSBuilder extends BaseBuilder {
     }
 
     /**
+     * Universo Platformo | Build AR.js HTML from multi-scene data
+     * @param multiScene Multi-scene data structure
+     * @param options Build options
+     * @returns Build result with HTML and metadata
+     */
+    async buildMultiScene(multiScene: IUPDLMultiScene, options: BuildOptions = {}): Promise<BuildResult> {
+        console.log('🔧 [ARJSBuilder] buildMultiScene() called with:', {
+            totalScenes: multiScene.totalScenes,
+            scenesCount: multiScene.scenes?.length || 0,
+            optionsKeys: Object.keys(options)
+        })
+
+        try {
+            // Universo Platformo | Extract showPoints from first scene's spaceData if available
+            const firstScene = multiScene.scenes.length > 0 ? multiScene.scenes[0] : null
+            // Support both legacy (spaceData.showPoints) and new (spaceData.inputs.showPoints) locations
+            const showPointsRaw = firstScene?.spaceData?.showPoints ?? firstScene?.spaceData?.inputs?.showPoints
+            const showPoints = !!showPointsRaw
+
+            // Universo Platformo | Extract leadCollection from first scene's spaceData
+            const leadCollection = firstScene?.spaceData?.leadCollection
+
+            console.log('🔧 [ARJSBuilder] Points system analysis:', {
+                hasScenes: multiScene.scenes.length > 0,
+                firstSceneExists: !!firstScene,
+                hasSpaceData: !!firstScene?.spaceData,
+                showPointsRaw,
+                showPointsBoolean: showPoints,
+                spaceDataKeys: firstScene?.spaceData ? Object.keys(firstScene.spaceData) : []
+            })
+
+            console.log('🔧 [ARJSBuilder] Lead collection analysis:', {
+                leadCollection,
+                hasAnyLeadCollection:
+                    leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
+            })
+
+            // Process each component using multi-scene handlers with showPoints option
+            const objectsContent = this.objectHandler.processMultiScene(multiScene, options)
+            const datasContent = this.dataHandler.processMultiScene(multiScene, { ...options, showPoints, leadCollection })
+
+            // Pass only objects content – generateHTML already wraps everything into a single <a-marker>
+            const sceneContent = objectsContent
+
+            // Data content goes after scene (UI and scripts)
+            const dataUIContent = datasContent
+
+            console.log('🎬 [ARJSBuilder] Multi-scene content generated:', {
+                objectsContentLength: objectsContent.length,
+                datasContentLength: datasContent.length,
+                totalSceneContentLength: sceneContent.length
+            })
+
+            // Generate HTML
+            const html = this.generateHTML(sceneContent, dataUIContent, options)
+
+            console.log('🎯 [ARJSBuilder] buildMultiScene() completed successfully:', {
+                htmlLength: html.length,
+                totalScenes: multiScene.totalScenes
+            })
+
+            return {
+                html,
+                metadata: {
+                    platform: 'arjs',
+                    generatedAt: new Date(),
+                    nodeCount: multiScene.scenes.reduce((total, scene) => total + scene.objectNodes.length + scene.dataNodes.length, 0),
+                    markerType: options.markerType || 'preset',
+                    markerValue: options.markerValue || 'hiro'
+                }
+            }
+        } catch (error) {
+            console.error('❌ [ARJSBuilder] Multi-scene build failed:', error)
+            throw new BuildError('Multi-scene build failed', [(error as Error).message])
+        }
+    }
+
+    /**
      * Generate complete HTML document for AR.js
      * @param sceneContent A-Frame scene content
+     * @param dataUIContent Quiz UI and script content
      * @param options Build options
      * @returns Complete HTML string
      */
-    private generateHTML(sceneContent: string, options: BuildOptions): string {
+    private generateHTML(sceneContent: string, dataUIContent: string, options: BuildOptions): string {
         const projectName = options.projectName || 'UPDL-AR.js'
 
         // NEW: Get library sources from options or fallback to defaults
@@ -209,9 +317,18 @@ export class ARJSBuilder extends BaseBuilder {
                 }, 10000);
             });
         </script>
+        
+        ${dataUIContent}
     </body>
 </html>
     `
+
+        console.log('📄 [ARJSBuilder] Final HTML generation complete:', {
+            totalHtmlLength: html.length,
+            containsQuizContainer: html.includes('quiz-container'),
+            containsQuizScript: html.includes('[Quiz]'),
+            dataUIContentInHtml: html.includes(dataUIContent)
+        })
 
         return html
     }

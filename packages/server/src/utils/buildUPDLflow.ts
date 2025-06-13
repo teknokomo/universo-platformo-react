@@ -40,7 +40,10 @@ import {
     IUPDLColor,
     IUPDLObject,
     IUPDLCamera,
-    IUPDLLight
+    IUPDLLight,
+    IUPDLData,
+    IUPDLScene,
+    IUPDLMultiScene
 } from '../Interface'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { databaseEntities } from '.'
@@ -82,7 +85,7 @@ import { OMIT_QUEUE_JOB_DATA } from './constants'
 const isUPDLNode = (node: IReactFlowNode): boolean => {
     const nodeData = node.data || {}
     // Check for UPDL node indicators
-    return nodeData.category === 'UPDL' || ['space', 'object', 'camera', 'light'].includes((nodeData.name || '').toLowerCase())
+    return nodeData.category === 'UPDL' || ['space', 'object', 'camera', 'light', 'data'].includes((nodeData.name || '').toLowerCase())
 }
 
 /**
@@ -129,12 +132,14 @@ const initUPDLEndingNode = async ({
     endingNodeIds,
     componentNodes, // componentNodes is not used in the current simplified version but kept for signature consistency
     reactFlowNodes,
+    reactFlowEdges = [], // Add edges parameter with default
     incomingInput, // incomingInput is not used in the current simplified version
     flowConfig // flowConfig is not used in the current simplified version
 }: {
     endingNodeIds: string[]
     componentNodes: any
     reactFlowNodes: IReactFlowNode[]
+    reactFlowEdges?: any[]
     incomingInput: any
     flowConfig: any
 }): Promise<{ endingNodeData: any; endingNodeInstance: any }> => {
@@ -160,9 +165,17 @@ const initUPDLEndingNode = async ({
         // In a more complex scenario, this would involve loading the actual node component.
         const nodeInstance = {
             run: async (data: any, query: string, params: any) => {
-                // Convert the flow nodes to a UPDL space
-                const updlSpace = buildUPDLSpaceFromNodes(reactFlowNodes) // reactFlowNodes is available via closure
-                return { updlSpace }
+                // Universo Platformo | Check for multi-scene structure
+                const multiScene = analyzeSpaceChain(reactFlowNodes, reactFlowEdges)
+
+                if (multiScene) {
+                    console.log(`[initUPDLEndingNode] Multi-scene detected: ${multiScene.totalScenes} scenes`)
+                    return { multiScene }
+                } else {
+                    // Convert the flow nodes to a UPDL space (legacy single space)
+                    const updlSpace = buildUPDLSpaceFromNodes(reactFlowNodes)
+                    return { updlSpace }
+                }
             }
         }
 
@@ -170,6 +183,183 @@ const initUPDLEndingNode = async ({
     } catch (error) {
         logger.error('Error initializing UPDL node:', error)
         throw error
+    }
+}
+
+/**
+ * Universo Platformo | Analyze Space connections and build scene chain
+ * @param {IReactFlowNode[]} nodes Flow nodes
+ * @param {any[]} edges Flow edges
+ * @returns {IUPDLMultiScene | null} Multi-scene structure or null for single space
+ */
+const analyzeSpaceChain = (nodes: IReactFlowNode[], edges: any[]): IUPDLMultiScene | null => {
+    // Find all Space nodes
+    const spaceNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'space')
+
+    // If only one Space, return null (use legacy single space processing)
+    if (spaceNodes.length <= 1) {
+        console.log('[analyzeSpaceChain] Single space detected, using legacy processing')
+        return null
+    }
+
+    console.log(`[analyzeSpaceChain] Found ${spaceNodes.length} space nodes, analyzing connections`)
+
+    // Build edge map for Space connections
+    const spaceEdgeMap = new Map<string, string>()
+    const incomingConnections = new Set<string>()
+
+    edges.forEach((edge) => {
+        const sourceNode = nodes.find((n) => n.id === edge.source)
+        const targetNode = nodes.find((n) => n.id === edge.target)
+
+        if (sourceNode?.data?.name?.toLowerCase() === 'space' && targetNode?.data?.name?.toLowerCase() === 'space') {
+            spaceEdgeMap.set(edge.source, edge.target)
+            incomingConnections.add(edge.target)
+            console.log(`[analyzeSpaceChain] Space connection: ${edge.source} → ${edge.target}`)
+        }
+    })
+
+    // Find starting Space (no incoming connections from other Spaces)
+    const startingSpaces = spaceNodes.filter((space) => !incomingConnections.has(space.id))
+
+    if (startingSpaces.length === 0) {
+        console.warn('[analyzeSpaceChain] No starting space found, using first space')
+        return null
+    }
+
+    const startingSpace = startingSpaces[0]
+    console.log(`[analyzeSpaceChain] Starting space: ${startingSpace.id}`)
+
+    // Build ordered scene chain
+    const scenes: IUPDLScene[] = []
+    let currentSpaceId = startingSpace.id
+    let order = 0
+
+    while (currentSpaceId) {
+        const currentSpace = spaceNodes.find((s) => s.id === currentSpaceId)
+        if (!currentSpace) break
+
+        // Find Data nodes connected to this Space
+        const directDataNodes = nodes.filter((node) => {
+            if (node.data?.name?.toLowerCase() !== 'data') return false
+
+            // Check if this data node is connected to current space
+            return edges.some((edge) => edge.target === currentSpace.id && edge.source === node.id)
+        })
+
+        // Universo Platformo | Find all related Data nodes (including answers connected to questions)
+        const allRelatedDataNodes = new Set(directDataNodes)
+
+        // For each directly connected data node, find its connected data nodes (e.g., answers to questions)
+        directDataNodes.forEach((dataNode) => {
+            const relatedNodes = nodes.filter((node) => {
+                if (node.data?.name?.toLowerCase() !== 'data') return false
+                if (allRelatedDataNodes.has(node)) return false
+
+                // Check if this data node is connected to our data node (question -> answers)
+                return (
+                    edges.some((edge) => edge.source === dataNode.id && edge.target === node.id) ||
+                    edges.some((edge) => edge.source === node.id && edge.target === dataNode.id)
+                )
+            })
+
+            relatedNodes.forEach((node) => allRelatedDataNodes.add(node))
+        })
+
+        const connectedDataNodes = Array.from(allRelatedDataNodes)
+
+        console.log(
+            `[analyzeSpaceChain] Space ${currentSpaceId}: Found ${directDataNodes.length} direct data, ${connectedDataNodes.length} total data`
+        )
+
+        // Find Object nodes connected to any Data nodes of this Space
+        const connectedObjectNodes = nodes.filter((node) => {
+            if (node.data?.name?.toLowerCase() !== 'object') return false
+
+            // Check if this object is connected to any data node of current space
+            return connectedDataNodes.some(
+                (dataNode) =>
+                    edges.some((edge) => edge.source === dataNode.id && edge.target === node.id) ||
+                    edges.some((edge) => edge.source === node.id && edge.target === dataNode.id)
+            )
+        })
+
+        const nextSpaceId = spaceEdgeMap.get(currentSpaceId)
+        const isLast = !nextSpaceId
+
+        const scene: IUPDLScene = {
+            spaceId: currentSpaceId,
+            spaceData: {
+                ...currentSpace.data,
+                // Universo Platformo | Add leadCollection settings to spaceData
+                leadCollection: {
+                    collectName: currentSpace.data?.inputs?.collectLeadName || false,
+                    collectEmail: currentSpace.data?.inputs?.collectLeadEmail || false,
+                    collectPhone: currentSpace.data?.inputs?.collectLeadPhone || false
+                }
+            },
+            dataNodes: connectedDataNodes.map((node) => ({
+                id: node.id,
+                name: node.data?.label || 'Data',
+                dataType: node.data?.inputs?.dataType || 'question',
+                content: node.data?.inputs?.content || '',
+                isCorrect: node.data?.inputs?.isCorrect || false,
+                nextSpace: node.data?.inputs?.nextSpace,
+                objects: node.data?.inputs?.objects || [],
+                // Universo Platformo | Points system fields
+                enablePoints: node.data?.inputs?.enablePoints || false,
+                pointsValue: Number(node.data?.inputs?.pointsValue) || 0,
+                metadata: {
+                    difficulty: node.data?.inputs?.difficulty,
+                    tags: node.data?.inputs?.tags || []
+                }
+            })),
+            objectNodes: connectedObjectNodes.map((node) => {
+                const nodeData = node.data || {}
+                const inputs = nodeData.inputs || {}
+                return {
+                    id: node.id,
+                    name: nodeData.label || 'Object',
+                    type: inputs.objectType || 'box',
+                    position: {
+                        x: Number(inputs.positionX) || 0,
+                        y: Number(inputs.positionY) || 0.5,
+                        z: Number(inputs.positionZ) || 0
+                    },
+                    rotation: { x: 0, y: 0, z: 0 },
+                    scale: {
+                        x: Number(inputs.scale) || 1,
+                        y: Number(inputs.scale) || 1,
+                        z: Number(inputs.scale) || 1
+                    },
+                    color: inputs.color || '#ff0000',
+                    width: Number(inputs.width) || 1,
+                    height: Number(inputs.height) || 1,
+                    depth: Number(inputs.depth) || 1,
+                    radius: Number(inputs.radius) || 1
+                }
+            }),
+            ...(nextSpaceId ? { nextSceneId: nextSpaceId } : {}),
+            isLast,
+            order
+        }
+
+        scenes.push(scene)
+        console.log(
+            `[analyzeSpaceChain] Scene ${order}: Space ${currentSpaceId}, ${connectedDataNodes.length} data, ${connectedObjectNodes.length} objects`
+        )
+
+        currentSpaceId = nextSpaceId || ''
+        order++
+    }
+
+    console.log(`[analyzeSpaceChain] Built scene chain with ${scenes.length} scenes`)
+
+    return {
+        scenes,
+        currentSceneIndex: 0,
+        totalScenes: scenes.length,
+        isCompleted: false
     }
 }
 
@@ -191,6 +381,7 @@ const buildUPDLSpaceFromNodes = (nodes: IReactFlowNode[]): IUPDLSpace => {
     const objectNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'object')
     const cameraNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'camera')
     const lightNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'light')
+    const dataNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'data')
 
     const objects: IUPDLObject[] = objectNodes.map((node) => {
         const nodeData = node.data || {}
@@ -252,13 +443,84 @@ const buildUPDLSpaceFromNodes = (nodes: IReactFlowNode[]): IUPDLSpace => {
         }
     })
 
-    return {
+    // Universo Platformo | Process Data nodes for quiz functionality
+    console.log(
+        `[buildUPDLSpaceFromNodes] Found ${dataNodes.length} data nodes:`,
+        dataNodes.map((n) => ({
+            id: n.id,
+            label: n.data?.label,
+            dataType: n.data?.inputs?.dataType,
+            content: n.data?.inputs?.content
+        }))
+    )
+
+    const datas: IUPDLData[] = dataNodes.map((node) => {
+        const nodeData = node.data || {}
+        const inputs = nodeData.inputs || {}
+
+        // Auto-determine dataType based on connections and content if not explicitly set
+        let dataType = inputs.dataType || 'question'
+
+        // If this node has objects connected, it's likely an answer
+        if (inputs.objects && inputs.objects.length > 0 && dataType === 'question') {
+            dataType = 'answer'
+        }
+
+        // Normalize to lowercase for consistency
+        dataType = dataType.toLowerCase()
+
+        const dataObj = {
+            id: node.id,
+            name: nodeData.label || 'Data',
+            dataType: dataType,
+            content: inputs.content || '',
+            isCorrect: inputs.isCorrect || false,
+            nextSpace: inputs.nextSpace,
+            objects: inputs.objects ? (Array.isArray(inputs.objects) ? inputs.objects : [inputs.objects]) : [],
+            // Universo Platformo | Points system properties
+            enablePoints: inputs.enablePoints || false,
+            pointsValue: Number(inputs.pointsValue) || 0,
+            metadata: {
+                difficulty: inputs.difficulty,
+                tags: inputs.tags ? (Array.isArray(inputs.tags) ? inputs.tags : [inputs.tags]) : []
+            }
+        }
+        console.log(`[buildUPDLSpaceFromNodes] Processed data node:`, dataObj)
+        return dataObj
+    })
+
+    const updlSpace = {
         id: spaceNode.id,
         name: spaceData.label || 'UPDL Space',
         objects,
         cameras,
-        lights
+        lights,
+        datas,
+        // Universo Platformo | Points system display option from Space node
+        showPoints: spaceData.inputs?.showPoints || false,
+        // Universo Platformo | Lead data collection settings from Space node
+        leadCollection: {
+            collectName: spaceData.inputs?.collectLeadName || false,
+            collectEmail: spaceData.inputs?.collectLeadEmail || false,
+            collectPhone: spaceData.inputs?.collectLeadPhone || false
+        }
     }
+
+    console.log(`[buildUPDLSpaceFromNodes] Points system configuration:`, {
+        spaceId: spaceNode.id,
+        hasInputs: !!spaceData.inputs,
+        showPointsRaw: spaceData.inputs?.showPoints,
+        showPointsBoolean: spaceData.inputs?.showPoints || false,
+        inputsKeys: spaceData.inputs ? Object.keys(spaceData.inputs) : []
+    })
+
+    console.log(`[buildUPDLSpaceFromNodes] Final UPDL Space:`, {
+        ...updlSpace,
+        datasCount: datas.length,
+        datasDetails: datas
+    })
+
+    return updlSpace
 }
 
 /**
@@ -310,10 +572,12 @@ export const executeUPDLFlow = async ({
             apiMessageId
         }
 
+        // Universo Platformo | Pass edges to analyze space connections
         const { endingNodeData, endingNodeInstance } = await initUPDLEndingNode({
             endingNodeIds,
             componentNodes,
             reactFlowNodes: nodes,
+            reactFlowEdges: edges, // Add edges for space chain analysis
             incomingInput,
             flowConfig
         })
@@ -329,10 +593,17 @@ export const executeUPDLFlow = async ({
 
         logger.debug(`[server]: Finished running UPDL ${endingNodeData.label} (${endingNodeData.id})`)
 
-        if (result.updlSpace && !result.space) {
-            result.space = result.updlSpace
-        } else if (result.space && !result.updlSpace) {
-            result.updlSpace = result.space
+        // Universo Platformo | Handle both single space and multi-scene results
+        if (result.multiScene) {
+            // Multi-scene detected, no space field needed
+            logger.debug(`[server]: Multi-scene result with ${result.multiScene.totalScenes} scenes`)
+        } else {
+            // Single space result - maintain backward compatibility
+            if (result.updlSpace && !result.space) {
+                result.space = result.updlSpace
+            } else if (result.space && !result.updlSpace) {
+                result.updlSpace = result.space
+            }
         }
 
         result.chatId = chatId

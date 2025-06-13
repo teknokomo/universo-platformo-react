@@ -89,6 +89,27 @@ export interface IUPDLLight extends IUPDLBaseObject {
 }
 
 /**
+ * UPDL Data for quiz and interaction logic
+ */
+export interface IUPDLData {
+    id: string
+    name: string
+    dataType: 'Question' | 'Answer' | 'Intro' | 'Transition'
+    content: string
+    isCorrect?: boolean
+    nextSpace?: string
+    objects?: string[]
+    // Universo Platformo | Points system properties
+    enablePoints?: boolean
+    pointsValue?: number
+    metadata?: {
+        difficulty?: number
+        tags?: string[]
+        [key: string]: any
+    }
+}
+
+/**
  * UPDL Space containing all space objects
  */
 export interface IUPDLSpace {
@@ -98,6 +119,15 @@ export interface IUPDLSpace {
     objects: IUPDLObject[]
     cameras?: IUPDLCamera[]
     lights?: IUPDLLight[]
+    datas?: IUPDLData[]
+    // Universo Platformo | Points system display option
+    showPoints?: boolean
+    // Universo Platformo | Lead data collection settings
+    leadCollection?: {
+        collectName?: boolean
+        collectEmail?: boolean
+        collectPhone?: boolean
+    }
     settings?: {
         background?: IUPDLColor | string
         fog?: {
@@ -113,10 +143,34 @@ export interface IUPDLSpace {
 }
 
 /**
+ * Universo Platformo | Scene representation in space chain
+ */
+export interface IUPDLScene {
+    spaceId: string
+    spaceData: any
+    dataNodes: IUPDLData[]
+    objectNodes: IUPDLObject[]
+    nextSceneId?: string | undefined
+    isLast: boolean
+    order: number
+}
+
+/**
+ * Universo Platformo | Multiple scenes for quiz functionality
+ */
+export interface IUPDLMultiScene {
+    scenes: IUPDLScene[]
+    currentSceneIndex: number
+    totalScenes: number
+    isCompleted: boolean
+}
+
+/**
  * Result of UPDL flow processing
  */
 export interface IUPDLFlowResult {
     updlSpace?: IUPDLSpace
+    multiScene?: IUPDLMultiScene // Universo Platformo | Multi-scene support
     metadata?: {
         nodeCount: number
         processingTime: number

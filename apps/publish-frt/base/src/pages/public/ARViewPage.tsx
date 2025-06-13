@@ -42,21 +42,32 @@ const ARViewPage: React.FC = () => {
                 console.log('📡 [ARViewPage] API Response received:', {
                     success: !!publicationData,
                     hasUpdlSpace: !!publicationData?.updlSpace,
+                    hasMultiScene: !!publicationData?.multiScene,
                     hasLibraryConfig: !!publicationData?.libraryConfig,
                     libraryConfigValue: publicationData?.libraryConfig,
                     publicationDataKeys: Object.keys(publicationData || {}),
                     fullResponse: publicationData
                 })
 
-                if (!publicationData?.updlSpace) {
-                    console.error('❌ [ARViewPage] No UPDL space found in publication data')
+                // Universo Platformo | Support both single space and multi-scene data
+                if (!publicationData?.updlSpace && !publicationData?.multiScene) {
+                    console.error('❌ [ARViewPage] No UPDL space or multi-scene found in publication data')
                     setError('Publication data not found')
                     return
                 }
 
+                // Universo Platformo | Determine data type and log appropriately
+                const isMultiScene = !!publicationData.multiScene
+                const multiSceneData = publicationData.multiScene
+                const singleSpaceData = publicationData.updlSpace
+
                 console.log('✅ [ARViewPage] Publication data loaded successfully:', {
                     projectId: publicationData.projectId,
-                    spaceObjectCount: publicationData.updlSpace.objects?.length || 0,
+                    isMultiScene: isMultiScene,
+                    spaceObjectCount: isMultiScene
+                        ? multiSceneData?.scenes?.reduce((total: number, scene: any) => total + (scene.objectNodes?.length || 0), 0) || 0
+                        : singleSpaceData?.objects?.length || 0,
+                    sceneCount: isMultiScene ? multiSceneData?.totalScenes || 0 : 1,
                     libraryConfig: publicationData.libraryConfig
                 })
 
@@ -72,22 +83,31 @@ const ARViewPage: React.FC = () => {
                     libraryConfig: publicationData.libraryConfig
                 }
 
-                console.log('🔧 [ARViewPage] Calling ARJSBuilder.build() with options:', {
+                console.log('🔧 [ARViewPage] Calling ARJSBuilder with options:', {
                     projectName: buildOptions.projectName,
                     markerType: buildOptions.markerType,
                     markerValue: buildOptions.markerValue,
                     hasLibraryConfig: !!buildOptions.libraryConfig,
                     libraryConfigDetails: buildOptions.libraryConfig,
-                    spaceToProcess: {
-                        name: publicationData.updlSpace.name,
-                        objectCount: publicationData.updlSpace.objects?.length || 0
-                    }
+                    isMultiScene: isMultiScene,
+                    dataToProcess: isMultiScene
+                        ? { totalScenes: multiSceneData?.totalScenes, scenes: multiSceneData?.scenes?.length }
+                        : { name: singleSpaceData?.name, objectCount: singleSpaceData?.objects?.length || 0 }
                 })
 
-                const buildResult = await arjsBuilder.build(publicationData.updlSpace, buildOptions)
+                // Universo Platformo | Use appropriate builder method based on data type
+                let buildResult
+                if (isMultiScene && multiSceneData) {
+                    buildResult = await arjsBuilder.buildMultiScene(multiSceneData, buildOptions)
+                } else if (singleSpaceData) {
+                    buildResult = await arjsBuilder.build(singleSpaceData, buildOptions)
+                } else {
+                    throw new Error('No valid data to process')
+                }
                 const html = buildResult.html
 
-                console.log('🎯 [ARViewPage] ARJSBuilder.build() completed:', {
+                console.log('🎯 [ARViewPage] ARJSBuilder completed:', {
+                    method: isMultiScene ? 'buildMultiScene' : 'build',
                     htmlLength: html?.length || 0,
                     hasHtml: !!html,
                     metadata: buildResult.metadata,
