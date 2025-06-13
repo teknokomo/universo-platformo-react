@@ -21,6 +21,14 @@ export class SpaceNode extends BaseUPDLNode {
             // Moved properties to inputs for UI rendering
             inputs: [
                 {
+                    label: 'Spaces',
+                    name: 'spaces',
+                    type: 'UPDLSpace',
+                    description: 'Connect Space nodes to create space chains',
+                    list: true,
+                    optional: true
+                },
+                {
                     name: 'spaceName',
                     type: 'string',
                     label: 'Space Name',
@@ -101,6 +109,47 @@ export class SpaceNode extends BaseUPDLNode {
                     hidden: true
                 },
                 {
+                    name: 'showPoints',
+                    type: 'boolean',
+                    label: 'Show Points Counter',
+                    description: 'Display points counter in the AR interface',
+                    default: false,
+                    additionalParams: true
+                },
+                // Universo Platformo | Lead data collection settings
+                {
+                    name: 'collectLeadName',
+                    type: 'boolean',
+                    label: 'Collect Name',
+                    description: 'Collect participant name for quiz data',
+                    default: false,
+                    additionalParams: true
+                },
+                {
+                    name: 'collectLeadEmail',
+                    type: 'boolean',
+                    label: 'Collect Email',
+                    description: 'Collect participant email for quiz data',
+                    default: false,
+                    additionalParams: true
+                },
+                {
+                    name: 'collectLeadPhone',
+                    type: 'boolean',
+                    label: 'Collect Phone',
+                    description: 'Collect participant phone for quiz data',
+                    default: false,
+                    additionalParams: true
+                },
+                {
+                    label: 'Datas',
+                    name: 'data',
+                    type: 'UPDLData',
+                    description: 'Connect Data nodes for quiz questions, answers, and logic',
+                    list: true,
+                    optional: true
+                },
+                {
                     label: 'Objects',
                     name: 'objects',
                     type: 'UPDLObject',
@@ -155,10 +204,20 @@ export class SpaceNode extends BaseUPDLNode {
         const fogColor = (nodeData.inputs?.fogColor as string) || '' // Use default from input definition
         const fogDensity = Number(nodeData.inputs?.fogDensity) || 0.1
 
+        // Universo Platformo | Points system properties
+        const showPoints = nodeData.inputs?.showPoints ? true : false
+
+        // Universo Platformo | Lead data collection properties
+        const collectLeadName = nodeData.inputs?.collectLeadName ? true : false
+        const collectLeadEmail = nodeData.inputs?.collectLeadEmail ? true : false
+        const collectLeadPhone = nodeData.inputs?.collectLeadPhone ? true : false
+
         // Use empty arrays for connected elements; connections are handled by Flowise graph execution
+        const inputSpace = nodeData.inputs?.spaces || null
         const objects = []
         const cameras = []
         const lights = []
+        const data = []
 
         // Generate a unique ID for the space
         const id = `space-${Date.now()}-${Math.floor(Math.random() * 1000)}`
@@ -179,9 +238,18 @@ export class SpaceNode extends BaseUPDLNode {
                 color: fogColor,
                 density: fogDensity
             },
+            showPoints,
+            // Universo Platformo | Lead data collection settings
+            leadCollection: {
+                collectName: collectLeadName,
+                collectEmail: collectLeadEmail,
+                collectPhone: collectLeadPhone
+            },
+            inputSpace,
             objects,
             cameras,
-            lights
+            lights,
+            data
         }
     }
 }
