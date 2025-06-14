@@ -70,20 +70,20 @@ Added to implement multi‑user functionality. When creating Universo Platformo 
 
 ## APPs Architecture Implementation
 
-The project is transitioning to a modular APPs architecture that separates functionality into distinct applications while minimizing changes to the core Flowise codebase.
+The project has successfully implemented a modular APPs architecture with 4 working applications that separate functionality while minimizing changes to the core Flowise codebase.
 
-### Current Directory Structure (Post-QA Verification)
+### Current Directory Structure (Verified & Complete)
 
 ```
 universo-platformo-react/
 ├── packages/                  # Original Flowise packages
 │   ├── components/            # Components and utilities
-│   ├── server/                # Server-side code
+│   ├── server/                # Server-side code with APPs integration
 │   │   └── src/
 │   │       └── Interface.UPDL.ts  # Simplified UPDL interfaces for integration
-│   └── ui/                    # Frontend
-├── apps/                      # New APPs architecture
-│   ├── updl/                  # UPDL node system (renamed from updl-frt)
+│   └── ui/                    # Frontend with APPs integration via aliases
+├── apps/                      # APPs architecture (4 applications implemented)
+│   ├── updl/                  # UPDL node system (pure node definitions)
 │   │   └── base/              # Core UPDL functionality
 │   │       ├── src/
 │   │       │   ├── nodes/     # UPDL node definitions
@@ -91,7 +91,8 @@ universo-platformo-react/
 │   │       │   │   ├── space/ # Space nodes (formerly scene)
 │   │       │   │   ├── object/# Object nodes
 │   │       │   │   ├── camera/# Camera nodes
-│   │       │   │   └── light/ # Light nodes
+│   │       │   │   ├── light/ # Light nodes
+│   │       │   │   └── data/  # Data nodes for quiz functionality
 │   │       │   ├── assets/    # Static resources (icons, images)
 │   │       │   ├── i18n/      # Internationalization
 │   │       │   ├── interfaces/# Complete UPDL ecosystem definitions
@@ -104,30 +105,48 @@ universo-platformo-react/
 │   ├── publish-frt/           # Publication system frontend
 │   │   └── base/
 │   │       ├── src/
-│   │       │   ├── api/       # HTTP clients to backend
-│   │       │   ├── assets/    # Static resources
+│   │       │   ├── api/       # HTTP clients with technology-specific modules
+│   │       │   ├── assets/    # Static resources + local AR.js libraries
+│   │       │   │   └── libs/  # Local AR.js/A-Frame for CDN-blocked regions
+│   │       │   ├── builders/  # UPDL to target platform builders
+│   │       │   │   ├── common/# Shared builder infrastructure
+│   │       │   │   └── arjs/  # AR.js builder with handlers
 │   │       │   ├── components/# UI components
 │   │       │   ├── features/  # Technology-specific handlers
 │   │       │   │   └── arjs/  # AR.js publication handler
 │   │       │   ├── i18n/      # Localization
 │   │       │   ├── pages/     # Page components
+│   │       │   │   └── public/# Public pages (ARViewPage with iframe)
 │   │       │   ├── services/  # Service layer for backend communication
-│   │       │   ├── utils/     # Utilities (UPDLToARJSConverter)
+│   │       │   ├── utils/     # Utilities and validation
 │   │       │   └── index.ts   # Entry point
 │   │       ├── dist/          # Compiled output
 │   │       ├── package.json
 │   │       ├── tsconfig.json
 │   │       └── gulpfile.ts    # Asset copying during build
-│   └── publish-srv/           # Publication system backend
+│   ├── publish-srv/           # Publication system backend
+│   │   └── base/
+│   │       ├── src/
+│   │       │   ├── controllers/# Express controllers
+│   │       │   ├── routes/    # API routes
+│   │       │   ├── interfaces/# Local TypeScript interfaces
+│   │       │   ├── middlewares/# Error handlers
+│   │       │   ├── utils/     # Helper functions and logger
+│   │       │   ├── server.ts  # Route initialization
+│   │       │   └── index.ts   # Entry point and exports
+│   │       ├── dist/          # Compiled output
+│   │       ├── package.json
+│   │       └── tsconfig.json
+│   └── analytics-frt/         # Analytics system frontend
 │       └── base/
 │           ├── src/
-│           │   ├── controllers/# Express controllers
-│           │   ├── routes/    # API routes
-│           │   ├── utils/     # Helper functions
+│           │   ├── pages/     # Page components
+│           │   │   └── Analytics.jsx # Main analytics component
 │           │   └── index.ts   # Entry point
 │           ├── dist/          # Compiled output
 │           ├── package.json
-│           └── tsconfig.json
+│           ├── tsconfig.json  # TypeScript config with allowJs: true
+│           └── gulpfile.ts    # Asset copying during build
 ```
 
 ### Interface Architecture (Two-Layer System)

@@ -5,11 +5,4 @@ alwaysApply: true
 ---
 # Code Documentation
 
-1. Write concise English comments for new code and changes
-2. Prefix first comment line with `Universo Platformo | `
-
-Example:
-```
-// Universo Platformo | Implemented Uniks functionality
-// Handling data source connection
-``` 
+Write concise English comments for new code and changes

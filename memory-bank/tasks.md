@@ -1,10 +1,10 @@
 # Project Tasks
 
-## 🎯 CURRENT PROJECT STATUS: UPDL Quiz Development Phase 1 - Bug Fixes
+## 🎯 CURRENT PROJECT STATUS: Flowise 2.2.8 Upgrade & Chatbot App Refactoring
 
-**Base Version**: Flowise 2.2.7-patch.1 (Stable)  
-**Focus**: MVP Educational UPDL Quizzes - Bug Fixes and Polish  
-**Complexity Level**: **Level 1** (Quick Bug Fix)
+**Base Version**: Flowise 2.2.7-patch.1 (Stable) → **Target**: Flowise 2.2.8  
+**Focus**: Upstream upgrade and chatbot functionality refactoring into separate app  
+**Complexity Level**: **Level 2** (Simple Enhancement)
 
 ### Legend
 
@@ -197,6 +197,55 @@
 4. ✅ Object interaction working properly after visibility resolved
 
 ### ✅ COMPLETED: Stage 7 - Quiz Results Bug Fixes ✅
+
+### ✅ COMPLETED: Analytics-FRT Application Setup ✅
+
+**Priority**: HIGH | **Risk**: Low | **Impact**: Application Architecture
+
+-   [x] **COMPLETED: Analytics-FRT TypeScript Build Fix**
+    -   [x] Diagnosed TypeScript error: TS7016 - Could not find declaration file for JSX module
+    -   [x] Root cause: TypeScript trying to import JSX file without allowJs configuration
+    -   [x] **SOLUTION**: Added `"allowJs": true` to `apps/analytics-frt/base/tsconfig.json`
+    -   [x] Verified individual build: `pnpm build` in analytics-frt/base ✅
+    -   [x] Verified full project build: `pnpm build:clean` ✅
+    -   [x] **STATUS**: Analytics-FRT application now builds successfully
+
+**Application Structure**:
+
+-   **Location**: `apps/analytics-frt/` - Separate analytics application
+-   **Purpose**: Analytics functionality refactored from Flowise core
+-   **Build**: TypeScript + Gulp pipeline
+-   **Integration**: Imported via alias `@apps/analytics-frt` in main UI
+
+---
+
+## 🎯 NEXT PHASE: FLOWISE 2.2.8 UPGRADE & CHATBOT REFACTORING
+
+### 📋 PLANNED TASKS
+
+#### Task 1: Flowise Upstream Upgrade ⏳
+
+**Priority**: HIGH | **Risk**: Medium | **Impact**: Core Platform Update
+
+-   [ ] **Upgrade Flowise from 2.2.7-patch.1 to 2.2.8**
+    -   [ ] Review Flowise 2.2.8 changelog and breaking changes
+    -   [ ] Update package.json dependencies
+    -   [ ] Resolve any API changes or deprecations
+    -   [ ] Test core functionality after upgrade
+    -   [ ] Verify UPDL nodes still work correctly
+    -   [ ] Update any custom integrations if needed
+
+#### Task 2: Chatbot Application Refactoring ⏳
+
+**Priority**: HIGH | **Risk**: Medium | **Impact**: Application Architecture
+
+-   [ ] **Create Chatbot Application in apps/ structure**
+    -   [ ] Create `apps/chatbot-frt/` directory structure
+    -   [ ] Move chatbot functionality from Flowise core to separate app
+    -   [ ] Set up TypeScript build configuration
+    -   [ ] Configure integration with main UI via alias
+    -   [ ] Test chatbot functionality in new structure
+    -   [ ] Update any broken chatbot features after refactoring
 
 **Priority**: HIGH | **Risk**: Low | **Impact**: User Experience
 
@@ -566,7 +615,7 @@
     ✅ Updated IUPDLSpace interface in Interface.UPDL.ts
     ✅ Build verified - no errors
 
-**STAGE 2: Update DataHandler for form generation***  
+**STAGE 2: Update DataHandler for form generation\***  
 ✅ Added `generateLeadCollectionForm()` method to create HTML forms
 ✅ Integrated form into `generateMultiSceneUI()`
 ✅ Added JavaScript functions:
@@ -577,7 +626,7 @@
 -   `hideLeadForm()`, `showQuizContainer()` - display management
     ✅ Build verified - no errors
 
-**STAGE 3: Server-side logic update***  
+**STAGE 3: Server-side logic update\***  
 ✅ Added leadCollection handling in `buildUPDLSpaceFromNodes()`
 ✅ Added leadCollection handling in `analyzeSpaceChain()` for multi-scene
 ✅ Updated ARJSBuilder to pass leadCollection data to DataHandler

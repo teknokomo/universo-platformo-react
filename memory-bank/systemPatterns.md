@@ -83,7 +83,7 @@ Scene 1 (initial scene)
 
 The project follows a modular APPs architecture that separates concerns while minimizing changes to the core Flowise codebase:
 
-### Current Directory Structure (Post-QA Verified)
+### Current Directory Structure (Verified & Updated)
 
 ```plain
 universo-platformo-react/
@@ -92,8 +92,8 @@ universo-platformo-react/
 │   ├── server/                     # Server-side code
 │   │   └── src/
 │   │       └── Interface.UPDL.ts   # Simplified UPDL interfaces for integration
-│   └── ui/                         # Frontend
-├── apps/                           # New APPs architecture
+│   └── ui/                         # Frontend with APPs integration
+├── apps/                           # APPs architecture (4 applications)
 │   ├── updl/                       # UPDL node system (pure node definitions)
 │   │   └── base/                   # Core UPDL functionality
 │   │       ├── src/
@@ -102,7 +102,8 @@ universo-platformo-react/
 │   │       │   │   ├── space/      # Space nodes (formerly scene)
 │   │       │   │   ├── object/     # Object nodes
 │   │       │   │   ├── camera/     # Camera nodes
-│   │       │   │   └── light/      # Light nodes
+│   │       │   │   ├── light/      # Light nodes
+│   │       │   │   └── data/       # Data nodes for quiz functionality
 │   │       │   ├── assets/         # Static resources (icons, images)
 │   │       │   ├── i18n/           # Internationalization
 │   │       │   ├── interfaces/     # Complete UPDL ecosystem definitions
@@ -116,29 +117,48 @@ universo-platformo-react/
 │   │   └── base/                   # Core frontend functionality
 │   │       ├── src/
 │   │       │   ├── api/            # HTTP clients to backend
-│   │       │   ├── assets/         # Static resources
+│   │       │   │   └── publication/ # Technology-specific API clients
+│   │       │   ├── assets/         # Static resources + local AR.js libraries
+│   │       │   │   └── libs/       # Local AR.js/A-Frame for CDN-blocked regions
+│   │       │   ├── builders/       # UPDL to target platform builders
+│   │       │   │   ├── common/     # Shared builder infrastructure
+│   │       │   │   └── arjs/       # AR.js specific builder with handlers
 │   │       │   ├── components/     # UI components
 │   │       │   ├── features/       # Technology-specific handlers
 │   │       │   │   └── arjs/       # AR.js publication handler
 │   │       │   ├── i18n/           # Localization
 │   │       │   ├── pages/          # Page components
+│   │       │   │   └── public/     # Public pages (ARViewPage with iframe)
 │   │       │   ├── services/       # Service layer for backend communication
-│   │       │   ├── utils/          # Utilities (UPDLToARJSConverter)
+│   │       │   ├── utils/          # Utilities and validation
 │   │       │   └── index.ts        # Entry point
 │   │       ├── dist/               # Compiled output
 │   │       ├── package.json        # Module metadata and scripts
 │   │       ├── tsconfig.json       # TypeScript configuration
 │   │       └── gulpfile.ts         # Asset copying during build
-│   └── publish-srv/                # Publication system backend
-│       └── base/                   # Core backend functionality
+│   ├── publish-srv/                # Publication system backend
+│   │   └── base/                   # Core backend functionality
+│   │       ├── src/
+│   │       │   ├── controllers/    # Express controllers
+│   │       │   ├── routes/         # API routes
+│   │       │   ├── interfaces/     # Local TypeScript interfaces
+│   │       │   ├── middlewares/    # Error handlers
+│   │       │   ├── utils/          # Helper functions and logger
+│   │       │   ├── server.ts       # Route initialization
+│   │       │   └── index.ts        # Entry point and exports
+│   │       ├── dist/               # Compiled output
+│   │       ├── package.json        # Module metadata and scripts
+│   │       └── tsconfig.json       # TypeScript configuration
+│   └── analytics-frt/              # Analytics system frontend
+│       └── base/                   # Core analytics functionality
 │           ├── src/
-│           │   ├── controllers/    # Express controllers
-│           │   ├── routes/         # API routes
-│           │   ├── utils/          # Helper functions
+│           │   ├── pages/          # Page components
+│           │   │   └── Analytics.jsx # Main analytics component
 │           │   └── index.ts        # Entry point
 │           ├── dist/               # Compiled output
 │           ├── package.json        # Module metadata and scripts
-│           └── tsconfig.json       # TypeScript configuration
+│           ├── tsconfig.json       # TypeScript configuration (allowJs: true)
+│           └── gulpfile.ts         # Asset copying during build
 ```
 
 ### Interface Architecture Benefits
@@ -170,25 +190,35 @@ universo-platformo-react/
 1. **Separation of Concerns**
 
     - Core functionality remains in original packages
-    - UPDL node system contained in apps/updl (pure node definitions only)
+    - UPDL node system contained in apps/updl (pure node definitions with quiz support)
     - Publication system isolated in apps/publish-frt and apps/publish-srv
+    - Analytics functionality separated in apps/analytics-frt
 
 2. **Minimal Core Changes**
 
     - Original Flowise codebase remains largely untouched
-    - Integration points well-defined and limited
-    - Backward compatibility maintained
+    - Integration points well-defined and limited through aliases
+    - Backward compatibility maintained across all applications
 
 3. **Easy Extension**
 
-    - New export technologies added as features in publish-frt
+    - New export technologies added as builders in publish-frt
     - Consistent API across all exporters via publish-srv
     - Simple addition of new node types in apps/updl
+    - Modular application structure for new functionality
 
 4. **Clean Publication Flow**
+
     - Unified URL format: `/p/{uuid}`
-    - Dedicated layouts for different technologies
+    - Iframe-based AR.js rendering for proper script execution
     - Streaming generation from UPDL nodes to target platforms
+    - Local library serving for CDN-blocked regions
+
+5. **Proven Architecture Pattern**
+    - 4 applications successfully implemented and working
+    - TypeScript + JSX integration with `allowJs: true` pattern
+    - Consistent build process across all applications
+    - Modular i18n with namespace separation
 
 ## Code Documentation
 

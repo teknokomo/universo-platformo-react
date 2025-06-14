@@ -1,61 +1,72 @@
 # Current Research Context
 
-## 🎯 ACTIVE: UPDL Enhancement & AR.js Quiz Development
+## 🎯 ACTIVE: Flowise 2.2.8 Upgrade & Chatbot Refactoring Research
 
-### UPDL Interface Enhancement Research ✅
+### APPs Architecture Implementation Research ✅
 
 **Status**: COMPLETED - All research objectives achieved
 
-#### Flow Management Pattern Analysis
+#### APPs Architecture Pattern Analysis
 
--   ✅ **Analyzed ChatCerebras implementation**: Uses `additionalParams: true` property to hide secondary fields
--   ✅ **UPDL Integration Strategy**: Applied additionalParams pattern to all four UPDL nodes
--   ✅ **UI Consistency**: Maintained consistent interface pattern across Space, Object, Light, Camera nodes
+-   ✅ **4 Applications Successfully Implemented**: UPDL, Publish-FRT, Publish-SRV, Analytics-FRT
+-   ✅ **TypeScript + JSX Integration**: Solved with `allowJs: true` pattern in tsconfig.json
+-   ✅ **Modular Build System**: Consistent TypeScript + Gulp pipeline across all applications
+-   ✅ **Alias Integration**: Clean integration with main UI via `@apps/*` aliases
 
 #### Results Achieved:
 
--   **Space Node**: Only `Space Name` visible by default
--   **Object Node**: Only `Object Name` and `Object Type` visible by default
--   **Light Node**: Only `Light Name` and `Light Type` visible by default
--   **Camera Node**: Only `Camera Name` and `Camera Type` visible by default
+-   **UPDL Application**: Pure node definitions with Data nodes for quiz functionality
+-   **Publish Frontend**: Complete AR.js builder with iframe rendering and multi-object support
+-   **Publish Backend**: Integrated with main Flowise server, quiz results storage
+-   **Analytics Frontend**: Single component architecture with JSX integration
 
-### 🔍 NEXT: AR.js Quiz Architecture Research
+### 🔍 NEXT: Flowise Upgrade & Chatbot Refactoring Research
 
-#### Research Questions for Quiz Node Development:
+#### Research Questions for Platform Upgrade:
 
-1. **Quiz State Management**: How to handle quiz progression and scoring in AR.js environment?
-2. **AR Interaction Patterns**: What interaction methods work best for educational content (touch, gaze, proximity)?
-3. **Progress Tracking**: How to integrate quiz progress with existing Supabase infrastructure?
-4. **A-Frame Integration**: How to generate interactive A-Frame components for quiz elements?
+1. **Breaking Changes**: What API changes exist between Flowise 2.2.7-patch.1 and 2.2.8?
+2. **Dependency Updates**: Which packages need version updates and compatibility checks?
+3. **Custom Integration Points**: How will UPDL nodes and APPs architecture be affected?
+4. **Chatbot Extraction**: What components need to be moved to separate chatbot-frt application?
 
 #### Research Areas:
 
--   **Educational AR Patterns**: Study existing AR educational applications for best practices
--   **A-Frame Quiz Components**: Research A-Frame component architecture for interactive elements
--   **State Management**: Design quiz state flow compatible with UPDL export system
--   **Progress Persistence**: Integration with Supabase for learning analytics
+-   **Flowise 2.2.8 Changelog**: Study official release notes and breaking changes
+-   **Dependency Compatibility**: Research package version compatibility matrix
+-   **Migration Strategy**: Plan step-by-step upgrade process with rollback options
+-   **Chatbot Architecture**: Design chatbot-frt application following proven APPs pattern
 
 ### 🏗️ Technical Research Focus
 
-#### Quiz Node Architecture Considerations:
+#### Platform Upgrade Considerations:
 
--   **Node Connectivity**: How quiz nodes connect and pass data
--   **Export Generation**: How to translate quiz logic to A-Frame/AR.js code
--   **User Interaction**: Designing intuitive AR interaction patterns
--   **Performance**: Optimizing quiz logic for mobile AR performance
+-   **Backward Compatibility**: Ensure all 4 existing applications continue working
+-   **UPDL Node Compatibility**: Verify node definitions work with new Flowise version
+-   **API Stability**: Check publication system API compatibility
+-   **Build Process**: Ensure all TypeScript + Gulp pipelines remain functional
+
+#### Chatbot Refactoring Strategy:
+
+-   **Component Identification**: Map chatbot-specific components in main UI
+-   **Dependency Analysis**: Identify chatbot dependencies and shared utilities
+-   **Integration Points**: Design clean API between chatbot-frt and main application
+-   **Migration Path**: Plan gradual migration without breaking existing functionality
 
 ### 📚 Background Context
 
-#### Stable Technology Stack:
+#### Current Technology Stack:
 
--   **Base**: Flowise 2.2.7-patch.1 (proven stable)
--   **Custom Features**: Supabase auth, Uniks workspaces, i18n, UPDL nodes
--   **AR Technology**: AR.js with A-Frame for cross-platform compatibility
--   **UI Framework**: React with Material-UI for consistent interface
+-   **Base**: Flowise 2.2.7-patch.1 (stable) → **Target**: Flowise 2.2.8
+-   **APPs Architecture**: 4 applications successfully implemented and working
+-   **Custom Features**: Supabase auth, Uniks workspaces, i18n, UPDL nodes with quiz support
+-   **AR Technology**: AR.js with A-Frame, iframe rendering, local library serving
+-   **UI Framework**: React with Material-UI + modular APPs integration
 
 #### Proven Patterns:
 
--   **UPDL System**: Successfully exports 3D scenes to AR.js
--   **Flow Management**: additionalParams pattern working across all nodes
--   **Publication Flow**: Supabase-based publication system functioning
--   **Multi-language**: English/Russian support implemented
+-   **APPs Architecture**: 4 applications working in production with clean separation
+-   **UPDL System**: Complete AR.js export with quiz functionality and lead collection
+-   **TypeScript + JSX**: `allowJs: true` pattern for mixed TypeScript/JSX applications
+-   **Publication Flow**: Integrated with main Flowise server, `/p/{uuid}` URLs working
+-   **Multi-language**: English/Russian support with modular namespace architecture
+-   **Build System**: Consistent TypeScript + Gulp pipeline across all applications

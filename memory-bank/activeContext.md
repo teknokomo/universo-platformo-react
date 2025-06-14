@@ -1,87 +1,111 @@
 # Current Active Context
 
-## CURRENT PROJECT FOCUS: UPDL Node Enhancement & AR.js Quiz Development
+## CURRENT PROJECT FOCUS: Flowise 2.2.8 Upgrade & Chatbot App Refactoring
 
 ### 🎯 Primary Objective
 
-Enhance UPDL nodes and develop new AR.js educational quiz functionality:
+Upgrade Flowise platform and refactor chatbot functionality into modular apps architecture:
 
-1. **UPDL Interface Enhancement** - Compact node interface with Flow Management
-2. **AR.js Quiz Logic Development** - New node types for educational quizzes
-3. **Preserve existing functionality** - Maintain all UPDL and AR.js export capabilities
+1. **Flowise Upstream Upgrade** - Update from 2.2.7-patch.1 to 2.2.8
+2. **Chatbot App Refactoring** - Move chatbot functionality to separate `apps/chatbot-frt` structure
+3. **Preserve existing functionality** - Maintain all UPDL, AR.js, and analytics capabilities
 
-### ✅ COMPLETED: UPDL Interface Enhancement
+### ✅ COMPLETED: Analytics-FRT Application Setup
 
-**Status**: **COMPLETED** ✅ All four UPDL nodes enhanced with Flow Management
+**Status**: **COMPLETED** ✅ Analytics functionality successfully refactored into separate app
 
-#### **Enhanced Nodes:**
+#### **Analytics-FRT Application:**
 
-1. **Space Node**: Only `Space Name` visible, other fields in Additional Parameters
-2. **Object Node**: Only `Object Name` and `Object Type` visible by default
-3. **Light Node**: Only `Light Name` and `Light Type` visible by default
-4. **Camera Node**: Only `Camera Name` and `Camera Type` visible by default
+-   **Location**: `apps/analytics-frt/` - Separate analytics application
+-   **Purpose**: Analytics functionality refactored from Flowise core
+-   **Build**: TypeScript + Gulp pipeline with `allowJs: true` configuration
+-   **Integration**: Imported via alias `@apps/analytics-frt` in main UI
+-   **Component**: Single React component `AnalyticsPage` in `src/pages/Analytics.jsx`
 
-#### **Benefits Achieved:**
+#### **Technical Achievement:**
 
--   🎯 **Improved UX**: Compact node interface reduces canvas clutter
--   ⚡ **Better Workflow**: Essential fields visible, advanced options accessible via Flow Management
--   🔧 **Maintainable**: Consistent interface pattern across all UPDL nodes
--   📱 **Scalable**: Foundation ready for new node types
+-   🔧 **Build Fix**: Resolved TypeScript TS7016 error by adding `"allowJs": true` to tsconfig.json
+-   ✅ **Verified**: Both individual and full project builds working correctly
+-   📁 **Architecture**: Clean separation following APPs architecture pattern
 
 ### 🔄 Current Project State
 
--   **Base Version**: Flowise 2.2.7-patch.1 (stable)
--   **Custom Features**: Fully functional (Supabase auth, Uniks, i18n, UPDL)
--   **Last Focus**: UPDL node interface enhancement (completed)
--   **Current Focus**: Ready for AR.js Quiz Logic Development
+-   **Base Version**: Flowise 2.2.7-patch.1 (stable) → **Target**: Flowise 2.2.8
+-   **Custom Features**: Fully functional (Supabase auth, Uniks, i18n, UPDL, AR.js quizzes)
+-   **APPs Architecture**: 4 applications successfully implemented
+-   **Last Achievement**: Analytics-FRT application setup completed
+-   **Current Focus**: Flowise upgrade and chatbot refactoring
 
-### 🎯 NEXT PHASE: AR.js Quiz Logic Development
+### 🎯 NEXT PHASE: Flowise 2.2.8 Upgrade & Chatbot Refactoring
 
-**Priority**: MEDIUM | **Complexity**: Level 3 (Feature Implementation)
+**Priority**: HIGH | **Complexity**: Level 2 (Simple Enhancement)
 
-#### **Planned New Node Types:**
+#### **Planned Tasks:**
 
-Create new UPDL node types for AR.js educational quiz export functionality:
+1. **Flowise Upstream Upgrade**:
 
--   **Quiz Controller nodes** - Manage quiz state and flow
--   **Question/Answer logic nodes** - Handle quiz questions and validation
--   **AR interaction nodes** - Handle AR-specific interactions (touch, gaze, proximity)
--   **Progress tracking nodes** - Track learning progress and scoring
+    - Review Flowise 2.2.8 changelog and breaking changes
+    - Update package.json dependencies
+    - Resolve any API changes or deprecations
+    - Test core functionality after upgrade
+    - Verify UPDL nodes still work correctly
 
-#### **Technical Requirements**
+2. **Chatbot Application Refactoring**:
+    - Create `apps/chatbot-frt/` directory structure
+    - Move chatbot functionality from Flowise core to separate app
+    - Set up TypeScript build configuration
+    - Configure integration with main UI via alias
+    - Test chatbot functionality in new structure
 
--   Use consistent `additionalParams: true` pattern from enhanced nodes
--   Maintain UPDL export compatibility
--   Extend AR.js Builder for quiz functionality
--   Keep integration with existing Supabase/Uniks architecture
+### 🏗️ Current APPs Architecture
 
-### 🏗️ System Architecture
+#### **Implemented Applications:**
 
-#### **Current Technology Stack:**
+1. **UPDL (`apps/updl/`)**: Universal Platform Definition Language
 
--   **Frontend**: React with Material-UI
--   **Backend**: Node.js with TypeScript
--   **Database**: Supabase (PostgreSQL)
+    - Pure node definitions for Flowise editor
+    - Space, Object, Camera, Light, Data nodes
+    - Two-layer interface system (core + integration)
+    - Multi-scene support with quiz functionality
+
+2. **Publish Frontend (`apps/publish-frt/`)**: Publication system frontend
+
+    - Modular API architecture with technology-specific clients
+    - AR.js builder with iframe-based rendering
+    - Multi-object support with circular positioning
+    - Library configuration system (CDN vs local)
+    - Quiz support with lead collection
+
+3. **Publish Backend (`apps/publish-srv/`)**: Publication system backend
+
+    - Integrated with main Flowise server
+    - AR.js publication API with streaming generation
+    - Static library serving for CDN-blocked regions
+    - Quiz results storage in Supabase
+
+4. **Analytics Frontend (`apps/analytics-frt/`)**: Analytics functionality
+    - Single React component for quiz analytics
+    - TypeScript + JSX integration with `allowJs: true`
+    - Imported via `@apps/analytics-frt` alias
+
+#### **Technology Stack:**
+
+-   **Frontend**: React with Material-UI + APPs architecture
+-   **Backend**: Node.js with TypeScript + integrated publication system
+-   **Database**: Supabase (PostgreSQL) with quiz results storage
 -   **Authentication**: Supabase Auth with multi-user support
--   **Internationalization**: English/Russian support
--   **UPDL System**: Custom node system for AR.js export
--   **AR Technology**: AR.js with A-Frame
-
-#### **Custom Features:**
-
--   **Uniks Workspace System**: Hierarchical entity management
--   **UPDL Nodes**: Universal nodes for AR.js scene creation
--   **Multi-language Support**: Full i18n implementation
--   **Publication System**: Export UPDL flows to AR.js applications
+-   **Internationalization**: English/Russian support with modular namespaces
+-   **UPDL System**: Complete node system for AR.js export with quiz support
+-   **AR Technology**: AR.js with A-Frame + local library serving
 
 ### 💡 Strategic Approach
 
-1. **Maintain Stability**: Keep current working system intact
-2. **Incremental Development**: Add quiz functionality step by step
+1. **Maintain Stability**: Keep current working APPs architecture intact
+2. **Incremental Upgrade**: Update Flowise version step by step
 3. **Preserve Compatibility**: Ensure all existing features continue working
-4. **Document Progress**: Update memory bank with each major milestone
-5. **Test Thoroughly**: Verify both UI and AR.js export functionality
+4. **Modular Refactoring**: Move chatbot to separate app following established pattern
+5. **Test Thoroughly**: Verify all applications work after upgrade
 
-**COMPLEXITY LEVEL**: **Level 2** (Simple Enhancement) → **Level 3** (Feature Implementation)
-**ESTIMATED IMPACT**: Enhanced user experience + new AR.js quiz capabilities
-**RISK LEVEL**: Low (building on stable foundation)
+**COMPLEXITY LEVEL**: **Level 2** (Simple Enhancement)
+**ESTIMATED IMPACT**: Updated platform + improved modular architecture
+**RISK LEVEL**: Low (building on proven APPs architecture)

@@ -1,0 +1,26 @@
+{
+    "analytics": {
+        "title": "Quiz Analytics",
+        "searchPlaceholder": "Search by name or email...",
+        "selectQuiz": "Select quiz for analysis",
+        "noQuizzesFound": "No quizzes found. Create a quiz with lead collection feature to view analytics.",
+        "selectQuizToView": "Select a quiz to view analytics",
+        "noDataAvailable": "No analytics data available for the selected quiz",
+        "metrics": {
+            "totalParticipants": "Total Participants",
+            "averageScore": "Average Score",
+            "maxScore": "Maximum Score",
+            "totalPoints": "Total Points"
+        },
+        "table": {
+            "name": "Name",
+            "email": "Email",
+            "points": "Points",
+            "completionDate": "Completion Date",
+            "chatflowId": "Chatflow ID",
+            "notSpecified": "Not specified"
+        },
+        "loading": "Loading...",
+        "error": "Error loading data"
+    }
+}

@@ -62,69 +62,77 @@ By addressing these needs, UPDL will streamline development workflows. Teams can
     - Prototyping multiplayer game elements
     - Integration with Supabase multiplayer functionality
 
-## APPs Architecture Approach
+## APPs Architecture Implementation
 
-The project is moving to a modular APPs architecture that minimizes changes to the core Flowise codebase:
+The project has successfully implemented a modular APPs architecture with 4 working applications that minimize changes to the core Flowise codebase:
 
-1. **Separation of Concerns**
+1. **Separation of Concerns** ✅ **IMPLEMENTED**
 
-    - Core functionality in original packages
-    - UPDL node system in apps/updl
-    - Publication system in apps/publish
+    - Core functionality preserved in original packages
+    - UPDL node system implemented in apps/updl (pure node definitions)
+    - Publication system implemented in apps/publish-frt and apps/publish-srv
+    - Analytics functionality separated in apps/analytics-frt
 
-2. **Technology-Specific MiniApps**
+2. **Technology-Specific Builders** ✅ **IMPLEMENTED**
 
-    - Each export target implemented as a miniapp
-    - Consistent API for all exporters
-    - Easy addition of new technology exporters
+    - AR.js builder with iframe-based rendering implemented
+    - Modular builder architecture for easy addition of new exporters
+    - Multi-object support with circular positioning
+    - Local library serving for CDN-blocked regions
 
-3. **Integration Points**
+3. **Integration Points** ✅ **IMPLEMENTED**
 
-    - Registration of UPDL nodes in Flowise editor
-    - Redesign of "Embed in website" into "Publish & Export"
-    - Server endpoints for publication handling
+    - UPDL nodes successfully registered in Flowise editor
+    - "Embed in website" redesigned into "Publish & Export" interface
+    - Server endpoints for publication handling integrated with main Flowise server
+    - Quiz functionality with lead collection implemented
 
-4. **Publication URL Format**
-    - `/p/{uuid}` format with Universo Kiberplano frame
-    - `/e/p/{uuid}` option for frameless embedding
-    - Replacing legacy `/arbot/{id}` and `/chatbot/{id}` routes
+4. **Publication URL Format** ✅ **IMPLEMENTED**
+    - `/p/{uuid}` format implemented and working
+    - Iframe-based AR.js rendering for proper script execution
+    - Quiz results storage in Supabase
+    - Library configuration system (CDN vs local sources)
 
-This architecture enables a clean transition from the existing test AR.js implementation to a comprehensive, extensible system while maintaining backward compatibility.
+This architecture has proven successful with 4 applications working in production, enabling comprehensive AR.js quiz functionality while maintaining full backward compatibility.
 
-## Current Phase & Roadmap (v0.9.0 pre-alpha, May 2025)
+## Current Phase & Status (v0.9.0+ Achieved, December 2024)
 
-The project has shifted from design to **implementation**. Our end‑to‑end milestone:
+The project has successfully **completed implementation** of the core APPs architecture and AR.js functionality. Our milestone achieved:
 
-> _"UPDL graph in Flowise → AR.js application in browser"_
+> ✅ _"UPDL graph in Flowise → AR.js application in browser"_ **COMPLETED**
 
-### Near‑term deliverables
+### Completed Deliverables ✅
 
-| Deliverable                    | Definition of Done                                              |
-| ------------------------------ | --------------------------------------------------------------- |
-| **UPDL core node set**         | Nodes can be created, saved, and displayed in the editor        |
-| **AR.js exporter**             | A working HTML page with a 3D model on a marker is generated    |
-| **Publish flow (MVP)**         | CLI or API returns a URL for the generated build                |
-| **AR.js / A-Frame separation** | Specialized AR.js files with ARJS prefix and updated API routes |
+| Deliverable                    | Status  | Implementation Details                                            |
+| ------------------------------ | ------- | ----------------------------------------------------------------- |
+| **UPDL core node set**         | ✅ DONE | Space, Object, Camera, Light, Data nodes working in editor        |
+| **AR.js exporter**             | ✅ DONE | Full AR.js builder with iframe rendering and multi-object support |
+| **Publish flow (MVP)**         | ✅ DONE | API returns working URLs with `/p/{uuid}` format                  |
+| **AR.js / A-Frame separation** | ✅ DONE | Clean APPs architecture with specialized AR.js handling           |
+| **Quiz functionality**         | ✅ DONE | Educational quizzes with scoring and lead collection              |
+| **Analytics system**           | ✅ DONE | Separate analytics-frt application for quiz results               |
 
-### Priorities
+### Current Focus: Platform Upgrade & Expansion
 
-1. Prove the viability of the pipeline (editor → export → publish).
-2. Conduct an internal UX test to identify bottlenecks (node hierarchy, drag‑and‑drop workflow).
-3. Prepare the foundation for the next platforms: **PlayCanvas React → Babylon.js → Three.js → A‑Frame VR** (in that order).
+**Next Priority**: Flowise 2.2.8 upgrade and chatbot refactoring
 
-### Known Limitations for v0.7.0
+1. **Platform Modernization**: Update Flowise base to latest version
+2. **Chatbot Refactoring**: Move chatbot functionality to separate app following APPs pattern
+3. **Architecture Consolidation**: Ensure all 4 applications work seamlessly after upgrade
 
--   **Web‑only:** native ARKit/ARCore are not supported.
--   **UI nodes:** 2D interface nodes are currently outside UPDL; a React UI can be overlaid on the canvas if needed.
--   **Complex nodes (Physics, Networking)** are postponed; exporters ignore them with a warning.
--   **Single‑scene assumption:** the first Scene node is treated as the main scene.
--   **Focus on functionality > optimization:** performance will be polished later.
+### Proven Capabilities
 
-### Upcoming Release Plan
+-   ✅ **Multi-platform foundation**: APPs architecture proven with 4 working applications
+-   ✅ **AR.js production ready**: Full quiz functionality with lead collection
+-   ✅ **CDN independence**: Local library serving for blocked regions
+-   ✅ **Educational use cases**: Quiz creation and analytics working
+-   ✅ **Scalable architecture**: Easy addition of new applications and exporters
 
-| Version    | Focus                          | Key Deliverables                                                                 |
-| ---------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| **0.9.0**  | APPs Structure & UPDL Base     | Basic apps/updl and apps/publish structure, UPDL core nodes, AR.js export        |
-| **0.10.0** | Additional Exporters (Phase 1) | PlayCanvas React and Babylon.js exporters, enhanced node functionality           |
-| **0.11.0** | Additional Exporters (Phase 2) | Three.js, A-Frame VR, and PlayCanvas Engine exporters                            |
-| **0.12.0** | Cleanup & Optimization         | Legacy AR.js code removal, performance optimization, comprehensive documentation |
+### Future Expansion Roadmap
+
+| Version    | Focus                          | Key Deliverables                                                       |
+| ---------- | ------------------------------ | ---------------------------------------------------------------------- |
+| **0.10.0** | Platform Upgrade               | Flowise 2.2.8 upgrade, chatbot-frt application, stability improvements |
+| **0.11.0** | Additional Exporters (Phase 1) | PlayCanvas React and Babylon.js exporters, enhanced node functionality |
+| **0.12.0** | Additional Exporters (Phase 2) | Three.js, A-Frame VR, and PlayCanvas Engine exporters                  |
+| **0.13.0** | Advanced Features              | Physics nodes, networking capabilities, advanced UI components         |

@@ -12,6 +12,7 @@
         "resolveJsonModule": true,
         "skipLibCheck": true,
         "jsx": "react",
+        "allowJs": true,
         "baseUrl": ".",
         "paths": {
             "*": ["*"],

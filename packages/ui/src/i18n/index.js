@@ -70,6 +70,9 @@ import ruChatmessageTranslation from './locales/ru/views/chatmessage.json'
 // Using alias @apps/publish/base/i18n for correct path resolution
 import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
 
+// Universo Platformo | Import analytics module translations
+import { analyticsTranslations } from '@apps/analytics-frt/base/src/i18n'
+
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
     .use(initReactI18next)
@@ -93,7 +96,8 @@ i18n.use(LanguageDetector)
                     canvas: enCanvasTranslation,
                     chatflows: enChatflowsTranslation,
                     chatmessage: enChatmessageTranslation,
-                    publish: publishTranslations.en.publish
+                    publish: publishTranslations.en.publish,
+                    analytics: analyticsTranslations.en.analytics
                 },
                 ru: {
                     translation: ruTranslation,
@@ -112,7 +116,8 @@ i18n.use(LanguageDetector)
                     canvas: ruCanvasTranslation,
                     chatflows: ruChatflowsTranslation,
                     chatmessage: ruChatmessageTranslation,
-                    publish: publishTranslations.ru.publish
+                    publish: publishTranslations.ru.publish,
+                    analytics: analyticsTranslations.ru.analytics
                 }
             },
             fallbackLng: 'en',
@@ -133,7 +138,8 @@ i18n.use(LanguageDetector)
                 'canvas',
                 'chatflows',
                 'chatmessage',
-                'publish'
+                'publish',
+                'analytics'
             ],
             defaultNS: 'translation',
             fallbackNS: 'translation',

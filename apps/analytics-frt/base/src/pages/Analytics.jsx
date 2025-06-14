@@ -79,7 +79,7 @@ const Analytics = () => {
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const { unikId } = useParams()
-    const { t } = useTranslation()
+    const { t } = useTranslation(['analytics'])
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -226,19 +226,19 @@ const Analytics = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={search}
-                        searchPlaceholder='Поиск по имени или email...'
-                        title='Аналитика квизов'
+                        searchPlaceholder={t('searchPlaceholder')}
+                        title={t('title')}
                     />
 
                     {/* Universo Platformo | Chatflow Selector */}
                     <Box sx={{ mb: 3 }}>
                         <FormControl fullWidth>
-                            <InputLabel id='chatflow-select-label'>Выберите квиз для анализа</InputLabel>
+                            <InputLabel id='chatflow-select-label'>{t('selectQuiz')}</InputLabel>
                             <Select
                                 labelId='chatflow-select-label'
                                 id='chatflow-select'
                                 value={selectedChatflowId}
-                                label='Выберите квиз для анализа'
+                                label={t('selectQuiz')}
                                 onChange={handleChatflowChange}
                                 disabled={chatflowsLoading}
                             >
@@ -252,7 +252,7 @@ const Analytics = () => {
 
                         {chatflows.length === 0 && !chatflowsLoading && (
                             <Alert severity='info' sx={{ mt: 2 }}>
-                                Квизы не найдены. Создайте квиз с функцией сбора лидов для просмотра аналитики.
+                                {t('noQuizzesFound')}
                             </Alert>
                         )}
                     </Box>
@@ -267,7 +267,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.totalLeads}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                Всего участников
+                                                {t('metrics.totalParticipants')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -283,7 +283,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.averagePoints}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                Средний балл
+                                                {t('metrics.averageScore')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -299,7 +299,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.maxPoints}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                Максимальный балл
+                                                {t('metrics.maxScore')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -315,7 +315,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.totalPoints}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                Общая сумма баллов
+                                                {t('metrics.totalPoints')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -335,7 +335,7 @@ const Analytics = () => {
                                 />
                             </Box>
                             <Typography variant='h6' color='textSecondary'>
-                                Выберите квиз для просмотра аналитики
+                                {t('selectQuizToView')}
                             </Typography>
                         </Stack>
                     ) : isLoading ? (
@@ -356,7 +356,7 @@ const Analytics = () => {
                                         />
                                     </Box>
                                     <Typography variant='h6' color='textSecondary'>
-                                        Данные аналитики отсутствуют для выбранного квиза
+                                        {t('noDataAvailable')}
                                     </Typography>
                                 </Stack>
                             ) : (
@@ -364,21 +364,21 @@ const Analytics = () => {
                                     <Table sx={{ minWidth: 650 }} size='small' aria-label='analytics table'>
                                         <TableHead>
                                             <TableRow>
-                                                <StyledTableCell>Имя</StyledTableCell>
-                                                <StyledTableCell>Email</StyledTableCell>
-                                                <StyledTableCell>Баллы</StyledTableCell>
-                                                <StyledTableCell>Дата прохождения</StyledTableCell>
-                                                <StyledTableCell>Chatflow ID</StyledTableCell>
+                                                <StyledTableCell>{t('table.name')}</StyledTableCell>
+                                                <StyledTableCell>{t('table.email')}</StyledTableCell>
+                                                <StyledTableCell>{t('table.points')}</StyledTableCell>
+                                                <StyledTableCell>{t('table.completionDate')}</StyledTableCell>
+                                                <StyledTableCell>{t('table.chatflowId')}</StyledTableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {leads?.filter(filterLeads)?.map((row, index) => (
                                                 <StyledTableRow key={index}>
                                                     <StyledTableCell>
-                                                        <Typography variant='body1'>{row.name || 'Не указано'}</Typography>
+                                                        <Typography variant='body1'>{row.name || t('table.notSpecified')}</Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
-                                                        <Typography variant='body1'>{row.email || 'Не указано'}</Typography>
+                                                        <Typography variant='body1'>{row.email || t('table.notSpecified')}</Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Typography

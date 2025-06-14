@@ -26,8 +26,7 @@ export default defineConfig(async ({ mode }) => {
             alias: {
                 '@': resolve(__dirname, 'src'),
                 '@apps': resolve(__dirname, '../../apps'),
-                '@apps/updl-frt': resolve(__dirname, '../../apps/updl-frt'),
-                '@apps/updl-srv': resolve(__dirname, '../../apps/updl-srv'),
+                '@apps/updl': resolve(__dirname, '../../apps/updl'),
                 '@apps/publish-frt': resolve(__dirname, '../../apps/publish-frt'),
                 '@apps/publish-srv': resolve(__dirname, '../../apps/publish-srv'),
                 '@apps/analytics-frt': resolve(__dirname, '../../apps/analytics-frt'),
