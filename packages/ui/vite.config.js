@@ -30,6 +30,7 @@ export default defineConfig(async ({ mode }) => {
                 '@apps/updl-srv': resolve(__dirname, '../../apps/updl-srv'),
                 '@apps/publish-frt': resolve(__dirname, '../../apps/publish-frt'),
                 '@apps/publish-srv': resolve(__dirname, '../../apps/publish-srv'),
+                '@apps/analytics-frt': resolve(__dirname, '../../apps/analytics-frt'),
                 '@codemirror/state': resolve(__dirname, '../../node_modules/@codemirror/state'),
                 '@codemirror/view': resolve(__dirname, '../../node_modules/@codemirror/view'),
                 '@codemirror/language': resolve(__dirname, '../../node_modules/@codemirror/language'),
