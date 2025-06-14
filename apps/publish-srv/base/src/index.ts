@@ -1,4 +1,4 @@
 // Universo Platformo | Publish Server Module
-// Прямой экспорт маршрутов для интеграции с основным Flowise
+// Universo Platformo | Directly export routes for integration with core Flowise
 
 export { default as publishRoutes } from './routes/publishRoutes'

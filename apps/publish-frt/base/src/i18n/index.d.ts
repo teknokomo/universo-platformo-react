@@ -23,6 +23,6 @@ export function getPublishTranslations(language: string): Record<string, any>
  */
 export const publishTranslations: PublishTranslations
 
-// Расширяем экспорт по умолчанию как экземпляр i18next
+// Universo Platformo | Export default as i18next instance
 declare const i18nInstance: i18n
 export default i18nInstance

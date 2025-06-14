@@ -13,7 +13,7 @@ const logger = {
         console.error(`[${getTimestamp()}] [ERROR] [publish-srv] ${message}`, ...args)
     },
     debug: (message: string, ...args: any[]) => {
-        // В production режиме можно отключать debug логи
+        // Universo Platformo | Debug logs can be disabled in production
         if (process.env.NODE_ENV !== 'production') {
             console.debug(`[${getTimestamp()}] [DEBUG] [publish-srv] ${message}`, ...args)
         }

@@ -301,11 +301,11 @@ const getSinglePublicBotConfig = async (req: Request, res: Response, next: NextF
             )
         }
 
-        // Получаем chatflow, чтобы проверить его Unik ID
+        // Universo Platformo | Retrieve chatflow to check its Unik ID
         const chatflowId = req.params.id
         const chatflow = await chatflowsService.getSinglePublicChatflow(chatflowId)
 
-        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        // Universo Platformo | If chatflow belongs to a Unik, verify user access
         if (chatflow && chatflow.unikId) {
             // Universo Platformo | Check user access to this Unik
             const userId = (req as any).user?.sub

@@ -4,7 +4,7 @@ import path from 'path'
 import logger from '../utils/logger'
 import axios from 'axios'
 
-// Universo Platformo | Import buildUPDLflow функцию для потоковой генерации из UPDL-узлов
+// Universo Platformo | Import buildUPDLflow function for streaming generation from UPDL nodes
 let utilBuildUPDLflow: any
 {
     const baseDir = __dirname

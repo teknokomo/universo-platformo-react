@@ -724,13 +724,13 @@ async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promis
         // Get or generate chat ID
         const chatId = req.body.chatId || uuidv4()
 
-        // Универсальная проверка для запросов GET
+        // Universo Platformo | Generic check for GET requests
         if (req.method === 'GET') {
-            // Если это запрос на получение информации о chatflow
+            // Universo Platformo | If requesting chatflow information
             if (req.originalUrl && (req.originalUrl.includes('/chatflows/') || req.originalUrl.includes('/chatflow/'))) {
                 console.log('🔄 [handleDirectUPDLRequest] GET request for chatflow information')
 
-                // Получаем chatflow из базы данных если доступно
+                // Universo Platformo | Retrieve chatflow from the database if available
                 const appDataSource = getRunningExpressApp()?.AppDataSource
                 let chatflowData = null
 
@@ -748,7 +748,7 @@ async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promis
                     }
                 }
 
-                // Возвращаем информацию о chatflow в правильном формате
+                // Universo Platformo | Return chatflow information in the expected format
                 return {
                     chatId,
                     status: 'success',
@@ -769,8 +769,8 @@ async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promis
         if (isPublishRequest) {
             console.log('🔄 [handleDirectUPDLRequest] Detected publish/export request, returning properly formatted result')
 
-            // Подготавливаем полный и правильный объект ответа для publish/export запросов
-            // Клиент ожидает определенную структуру с полями url, publishId и другими
+            // Universo Platformo | Prepare a full and correct response object for publish/export requests
+            // Universo Platformo | Client expects a structure with fields like url and publishId
             return {
                 chatId,
                 status: 'success',
@@ -778,9 +778,9 @@ async function handleDirectUPDLRequest(req: Request, chatflowid: string): Promis
                 sessionId: req.body.sessionId || uuidv4(),
                 success: true,
                 data: {
-                    publishId: uuidv4(), // Генерируем уникальный ID публикации
+                    publishId: uuidv4(), // Universo Platformo | Generate unique publication ID
                     id: uuidv4(),
-                    url: `/published/arjs/${chatflowid}`, // Формируем URL для публикации
+                    url: `/published/arjs/${chatflowid}`, // Universo Platformo | Construct publication URL
                     title: req.body.title || 'UPDL AR.js Experience',
                     createdAt: new Date().toISOString()
                 },

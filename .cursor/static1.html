@@ -5,12 +5,12 @@
         <title>AR.js — HUD + прозрачный канвас</title>
         <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
 
-        <!-- A-Frame и AR.js -->
+        <!-- Universo Platformo | A-Frame and AR.js -->
         <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
         <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
         <style>
-            /* 0️⃣  Убираем непрозрачный фон везде */
+            /* Universo Platformo | 0️⃣ Remove opaque background everywhere */
             html,
             body {
                 margin: 0;
@@ -18,7 +18,7 @@
                 overflow: hidden;
                 background: transparent;
             }
-            /* 1️⃣  Сцена и канвас – на весь экран, фон прозрачный */
+            /* Universo Platformo | 1️⃣ Scene and canvas full screen with transparent background */
             a-scene,
             .a-canvas {
                 position: fixed;
@@ -29,7 +29,7 @@
                 background: transparent !important;
                 z-index: 0;
             }
-            /* 2️⃣  Видео AR.js кладём «позади» и растягиваем */
+            /* Universo Platformo | 2️⃣ Put AR.js video behind and stretch */
             #arjs-video {
                 position: fixed !important;
                 top: 0;
@@ -42,7 +42,7 @@
             }
         </style>
 
-        <!-- «Пульсация» -->
+        <!-- Universo Platformo | Pulse effect -->
         <script>
             AFRAME.registerComponent('grow-on-click', {
                 schema: { factor: { default: 1.3 }, dur: { default: 150 } },
@@ -75,13 +75,13 @@
                  displayWidth:1280; displayHeight:720;
                  trackingMethod:best; debugUIEnabled:false"
         >
-            <!-- Камера -->
+            <!-- Universo Platformo | Camera -->
             <a-entity camera look-controls="enabled:false">
-                <!-- Луч-курсор -->
+                <!-- Universo Platformo | Cursor ray -->
                 <a-entity cursor="rayOrigin:mouse;fuse:false" raycaster="objects:.clickable;showLine:true;lineColor:#FF55FF;far:20">
                 </a-entity>
 
-                <!-- HUD на 2 м перед камерой -->
+                <!-- Universo Platformo | HUD 2 meters in front of camera -->
                 <a-entity position="0 0 -2">
                     <a-box class="clickable" grow-on-click color="#FF0000" position="-1.1 0 0" scale="0.4 0.4 0.4"></a-box>
 

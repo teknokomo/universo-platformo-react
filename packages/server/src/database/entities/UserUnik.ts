@@ -11,7 +11,7 @@ export class UserUnik {
     unik_id: string
 
     @Column({ default: 'member' })
-    role: string // Например, 'member' или 'owner' – роль пользователя в рамках Unik
+    role: string // Universo Platformo | Role of the user within a Unik (e.g., 'member' or 'owner')
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })

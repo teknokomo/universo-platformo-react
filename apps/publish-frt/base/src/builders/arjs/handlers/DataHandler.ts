@@ -238,7 +238,7 @@ export class DataHandler {
                                 </div>
                             </div>
                             <div id="performance-message" style="margin: 15px 0; font-size: 14px; opacity: 0.9;">
-                                <!-- Динамическое сообщение -->
+                                <!-- Universo Platformo | Dynamic message -->
                             </div>
                             <!-- Universo Platformo | Temporarily hidden restart button - will be fixed later
                             <button id="restart-quiz-btn" style="
