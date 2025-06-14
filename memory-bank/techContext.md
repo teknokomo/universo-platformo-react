@@ -537,7 +537,7 @@ this.app.use('/assets', express.static(publishFrtAssetsPath))
 
 **Configuration Flow**:
 
-1. **UI Selection**: User chooses "Официальный сервер" (CDN) or "Сервер Kiberplano" (local)
+1. **UI Selection**: User chooses "Official server" (CDN) or "Kiberplano server" (local)
 2. **Storage**: Settings saved in Supabase `chatbotConfig.arjs.libraryConfig`
 3. **Backend**: `utilBuildUPDLflow` extracts and returns library configuration
 4. **Frontend**: `ARJSBuilder` generates appropriate script tags based on user selection
