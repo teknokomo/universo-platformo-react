@@ -107,8 +107,11 @@ The UPDL module provides node definitions that integrate with Flowise:
 
 -   **Space Node**: Root container for 3D space with global settings
 -   **Object Node**: 3D objects (cube, sphere, cylinder, etc.)
+-   **Data Node**: Question and answer content for quiz scenes
 -   **Camera Node**: Space viewpoint configuration
 -   **Light Node**: Lighting setup (point, directional, ambient)
+
+Data nodes are used for creating quizzes. A question node can have multiple answer nodes connected to it. Answers may be marked with `isCorrect` and can optionally define `pointsValue`. These answers can also link to Object nodes that appear when chosen.
 
 Each node includes:
 
