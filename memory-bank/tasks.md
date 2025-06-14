@@ -169,7 +169,7 @@
 
 -   [x] **COMPLETED: Space Connection Logic**
     -   [x] Identified correct Space connection pattern: output → input connectors
-    -   [x] Verified scene ordering: Space_3 (sердце) → Space_0 (тюльпан)
+    -   [x] Verified scene ordering: Space_3 (heart) → Space_0 (tulip)
     -   [x] Confirmed proper scene visibility management
     -   [x] Validated question/answer data processing per scene
 
@@ -203,7 +203,7 @@
 #### Task 7.1: Fix Quiz Results Display Issues ✅
 
 -   [x] **COMPLETED: Results Screen Bug Fixes**
-    -   [x] **Fixed duplicate points display**: Removed "Баллы: X" from main UI when results screen is shown
+    -   [x] **Fixed duplicate points display**: Removed "Points: X" from main UI when results screen is shown
     -   [x] **Fixed incorrect points display**: Results screen now shows actual earned points instead of 0
     -   [x] **Fixed restart button**: Restart functionality now works correctly
     -   [x] **Enhanced points logic**: Correct answers now properly award 1 point each
@@ -546,44 +546,44 @@
 
 **Status**: Planning phase - awaiting user requirements and priorities
 
-# UNIVERSO PLATFORMO - ЗАДАЧИ РАЗРАБОТКИ
+# UNIVERSO PLATFORMO - DEVELOPMENT TASKS
 
-## АКТИВНЫЕ ЗАДАЧИ
+## ACTIVE TASKS
 
-### ✅ ЗАВЕРШЕНО: Функционал сбора данных участников квиза - Lead Collection Phase 1
+### ✅ COMPLETED: Quiz Lead Collection Functionality - Phase 1
 
-**Статус:** ✅ ЗАВЕРШЕНО  
-**Дата завершения:** 2024-12-28
+**Status:** ✅ COMPLETED  
+**Completion Date:** 2024-12-28
 
-#### Выполненные этапы:
+#### Completed Steps:
 
-**ЭТАП 1: Расширение SpaceNode переключателями сбора данных**  
-✅ Добавлены новые поля в SpaceNode:
+**STAGE 1: Extend SpaceNode with lead collection toggles**  
+✅ Added new fields to SpaceNode:
 
--   `collectLeadName` - переключатель для сбора имени
--   `collectLeadEmail` - переключатель для сбора email
--   `collectLeadPhone` - переключатель для сбора телефона
-    ✅ Обновлен интерфейс IUPDLSpace в Interface.UPDL.ts
-    ✅ Проверена сборка - без ошибок
+-   `collectLeadName` - toggle to collect name
+-   `collectLeadEmail` - toggle to collect email
+-   `collectLeadPhone` - toggle to collect phone
+    ✅ Updated IUPDLSpace interface in Interface.UPDL.ts
+    ✅ Build verified - no errors
 
-**ЭТАП 2: Обновление DataHandler для генерации форм**  
-✅ Добавлен метод `generateLeadCollectionForm()` для создания HTML форм
-✅ Интегрирована форма в `generateMultiSceneUI()`
-✅ Добавлены JavaScript функции:
+**STAGE 2: Update DataHandler for form generation***  
+✅ Added `generateLeadCollectionForm()` method to create HTML forms
+✅ Integrated form into `generateMultiSceneUI()`
+✅ Added JavaScript functions:
 
--   `initializeLeadForm()` - инициализация формы
--   `validateAndCollectLeadData()` - валидация и сбор данных
--   `isValidEmail()` - валидация email
--   `hideLeadForm()`, `showQuizContainer()` - управление отображением
-    ✅ Проверена сборка - без ошибок
+-   `initializeLeadForm()` - form initialization
+-   `validateAndCollectLeadData()` - validation and data collection
+-   `isValidEmail()` - email validation
+-   `hideLeadForm()`, `showQuizContainer()` - display management
+    ✅ Build verified - no errors
 
-**ЭТАП 3: Обновление server-side логики**  
-✅ Добавлена обработка leadCollection в `buildUPDLSpaceFromNodes()`
-✅ Добавлена обработка leadCollection в `analyzeSpaceChain()` для multi-scene
-✅ Обновлен ARJSBuilder для передачи leadCollection данных в DataHandler
-✅ Проверена сборка - без ошибок
+**STAGE 3: Server-side logic update***  
+✅ Added leadCollection handling in `buildUPDLSpaceFromNodes()`
+✅ Added leadCollection handling in `analyzeSpaceChain()` for multi-scene
+✅ Updated ARJSBuilder to pass leadCollection data to DataHandler
+✅ Build verified - no errors
 
-#### Архитектура решения:
+#### Solution Architecture:
 
 ```
 SpaceNode (UPDL)
@@ -592,50 +592,50 @@ SpaceNode (UPDL)
         └── buildUPDLflow.ts (server processing)
             └── ARJSBuilder.ts (client processing)
                 └── DataHandler.ts (HTML/JS generation)
-                    └── AR.js Quiz UI (форма сбора данных)
+                    └── AR.js Quiz UI (lead collection form)
 ```
 
-#### Техническая реализация:
+#### Technical Implementation:
 
-1. **Frontend (UPDL Editor):** Переключатели в дополнительных настройках Space узла
-2. **Server Processing:** Извлечение настроек из SpaceNode и передача в builder
-3. **Client Generation:** Генерация HTML формы и JavaScript логики
-4. **User Flow:** Форма → валидация → сокрытие → запуск квиза
+1. **Frontend (UPDL Editor):** Toggles in Space node advanced settings
+2. **Server Processing:** Extract settings from SpaceNode and pass to builder
+3. **Client Generation:** Generate HTML form and JavaScript logic
+4. **User Flow:** Form → validation → hide → start quiz
 
-#### Следующие этапы (для будущей разработки):
+#### Next steps (for future development):
 
--   **ЭТАП 4:** API интеграция с Supabase таблицей `lead`
--   **ЭТАП 5:** Обработка окончания квиза и сохранение данных
--   **ЭТАП 6:** Дополнительная валидация и UX улучшения
+-   **STAGE 4:** API integration with the Supabase `lead` table
+-   **STAGE 5:** Handle quiz completion and save data
+-   **STAGE 6:** Additional validation and UX improvements
 
-### 🔄 В ОЖИДАНИИ: UPDL Quiz Phase 3 - Points System & Lead Data Persistence
+### 🔄 PENDING: UPDL Quiz Phase 3 - Points System & Lead Data Persistence
 
-**Статус:** 🔄 ОЖИДАНИЕ  
-**Приоритет:** Средний  
-**Описание:** Реализация сохранения данных участников квиза в Supabase и отображения результатов
+**Status:** 🔄 PENDING  
+**Priority:** Medium  
+**Description:** Implement saving quiz participant data to Supabase and displaying results
 
-**Детали задачи:**
+**Task Details:**
 
--   Создание API эндпоинта для сохранения данных в таблицу `lead`
--   Определение момента завершения квиза для записи данных
--   Добавление отображения очков в конце квиза (опционально)
--   Обработка временного хранения очков в `chatId` поле
+-   Create API endpoint to save data to the `lead` table
+-   Determine quiz completion moment for data recording
+-   Add score display at the end of the quiz (optional)
+-   Handle temporary score storage in the `chatId` field
 
 ---
 
-## ЗАВЕРШЕННЫЕ ЗАДАЧИ
+## COMPLETED TASKS
 
 ### ✅ UPDL Quiz System Phase 2 - Multi-Scene Support
 
-**Дата завершения:** 2024-12-27  
-**Описание:** Реализована поддержка multi-scene квизов с цепочкой Space узлов
-**Компоненты:** Space chain analysis, scene transitions, points system
+**Completion Date:** 2024-12-27  
+**Description:** Implemented multi-scene quiz support with Space node chain
+**Components:** Space chain analysis, scene transitions, points system
 
 ### ✅ UPDL Quiz System Phase 1 - Data Node Integration
 
-**Дата завершения:** 2024-12-26  
-**Описание:** Базовая реализация Data узлов для создания вопросов и ответов в квизах
-**Компоненты:** DataNode, SpaceNode integration, AR.js quiz UI
+**Completion Date:** 2024-12-26  
+**Description:** Basic implementation of Data nodes for creating quiz questions and answers
+**Components:** DataNode, SpaceNode integration, AR.js quiz UI
 
 # UNIVERSO PLATFORMO - AR.JS QUIZ SYSTEM TASKS
 
