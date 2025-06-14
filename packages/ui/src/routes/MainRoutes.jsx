@@ -53,8 +53,8 @@ const LoaderConfigPreviewChunks = Loadable(lazy(() => import('@/views/docstore/L
 const VectorStoreConfigure = Loadable(lazy(() => import('@/views/docstore/VectorStoreConfigure')))
 const VectorStoreQuery = Loadable(lazy(() => import('@/views/docstore/VectorStoreQuery')))
 
-// analytics routing
-const Analytics = Loadable(lazy(() => import('@/views/analytics')))
+// analytics routing moved to analytics-frt app
+const Analytics = Loadable(lazy(() => import('@apps/analytics-frt/base/src/pages/Analytics.jsx')))
 
 // Example for other common pages
 const CommonPage = Loadable(lazy(() => import('@/views/up-uniks/CommonPage')))
