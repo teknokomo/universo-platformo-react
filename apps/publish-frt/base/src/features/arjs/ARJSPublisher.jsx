@@ -609,7 +609,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     </Typography>
                                 </Box>
 
-                                {/* Make Public Toggle с индикатором загрузки */}
+                                {/* Universo Platformo | Make Public Toggle with loading indicator */}
                                 <Box sx={{ my: 3, width: '100%' }}>
                                     <FormControl fullWidth variant='outlined'>
                                         <FormControlLabel
@@ -656,7 +656,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         </Typography>
                                         <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
 
-                                        {/* QR Code если доступен */}
+                                        {/* Universo Platformo | QR Code if available */}
                                         {QRCode && (
                                             <Box sx={{ textAlign: 'center', my: 2 }}>
                                                 <Typography variant='body2' gutterBottom>

@@ -23,7 +23,7 @@ export abstract class BaseUPDLNode implements INode {
     version: number = 1.0 // Adding version property
     tags: string[] = ['UPDL'] // Tag for display in the UPDL tab
 
-    // Добавляем свойства, совместимые с Flowise
+    // Universo Platformo | Add properties compatible with Flowise
     label: string
     filePath?: string
 
@@ -45,7 +45,7 @@ export abstract class BaseUPDLNode implements INode {
         this.type = config.type
         this.icon = config.icon
         this.description = config.description
-        this.label = config.name // Используем имя как метку для отображения
+        this.label = config.name // Universo Platformo | Use name as display label
         this.version = config.version || 1.0 // Set default version if not provided
         this.properties = config.properties || []
 

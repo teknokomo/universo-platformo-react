@@ -54,11 +54,11 @@ const getBotConfig = async (req: Request, res: Response, next: NextFunction): Pr
 
         logger.info(`[BOT CONFIG] Getting bot config for ID: ${botId}`)
 
-        // Получаем chatflow, чтобы проверить его Unik ID
+        // Universo Platformo | Retrieve chatflow to check its Unik ID
         const appServer = getRunningExpressApp()
         const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
 
-        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        // Universo Platformo | If chatflow belongs to a Unik, verify user access
         if (chatflow && chatflow.unik && chatflow.unik.id) {
             // Universo Platformo | Check user access to this Unik
             const userId = (req as any).user?.sub
@@ -126,11 +126,11 @@ const renderBot = async (req: Request, res: Response, next: NextFunction): Promi
 
         logger.info(`[BOT RENDER] Rendering bot for ID: ${botId}`)
 
-        // Получаем chatflow, чтобы проверить его Unik ID
+        // Universo Platformo | Retrieve chatflow to check its Unik ID
         const appServer = getRunningExpressApp()
         const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
 
-        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        // Universo Platformo | If chatflow belongs to a Unik, verify user access
         if (chatflow && chatflow.unik && chatflow.unik.id) {
             // Universo Platformo | Check user access to this Unik
             const userId = (req as any).user?.sub
@@ -201,11 +201,11 @@ const streamBot = async (req: Request, res: Response, next: NextFunction): Promi
 
         const botId = req.params.id
 
-        // Получаем chatflow, чтобы проверить его Unik ID
+        // Universo Platformo | Retrieve chatflow to check its Unik ID
         const appServer = getRunningExpressApp()
         const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
 
-        // Если chatflow привязан к Unik, проверяем доступ пользователя
+        // Universo Platformo | If chatflow belongs to a Unik, verify user access
         if (chatflow && chatflow.unik && chatflow.unik.id) {
             // Universo Platformo | Check user access to this Unik
             const userId = (req as any).user?.sub

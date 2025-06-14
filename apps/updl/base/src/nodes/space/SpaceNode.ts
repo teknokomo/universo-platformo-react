@@ -254,5 +254,5 @@ export class SpaceNode extends BaseUPDLNode {
     }
 }
 
-// Для совместимости с Flowise экспортируем класс как nodeClass
+// Universo Platformo | Export class as nodeClass for Flowise compatibility
 module.exports = { nodeClass: SpaceNode }
