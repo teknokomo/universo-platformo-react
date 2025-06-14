@@ -125,6 +125,12 @@ The module integrates seamlessly with the main Flowise server:
 7. AR.js HTML is generated with user-selected library sources
 8. **Critical**: Frontend renders HTML using iframe approach for proper script execution
 
+### Quiz Points and Leads
+
+The publication backend also handles quiz results. When a user completes an AR quiz,
+their score is returned to the frontend and temporarily saved in the Supabase `lead` table
+inside the `phone` field. A dedicated field for quiz results will be added later.
+
 ## Library Configuration Flow
 
 The server now supports user-selectable library sources to solve CDN blocking:

@@ -95,6 +95,7 @@ The Publish application provides mechanisms for exporting UPDL spaces to various
 -   Export functionality with backward compatibility
 -   Circular dependency prevention and clean code architecture
 -   **Advanced Object Validation**: Built-in validation and cleanup for UPDL data integrity
+-   **AR Quiz Support**: Build educational quizzes with question/answer Data nodes, scoring and lead collection
 
 **Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 
@@ -106,6 +107,7 @@ The Publish application provides mechanisms for exporting UPDL spaces to various
 -   Publication storage
 -   Server-side API endpoints
 -   Project management
+-   Stores quiz scores in Supabase leads (temporary phone field)
 
 **Documentation:** See [apps/publish-srv/base/README.md](./publish-srv/base/README.md)
 
