@@ -874,3 +874,5 @@ const isResultsScene = isLast && showPoints && !hasDataNodes
 ---
 
 **STATUS**: MVP COMPLETE - Quiz system with full lead collection, points tracking, results screen, and analytics dashboard is ready for production use.
+### Task: User Profile MVP
+- [ ] Implement profile-frt app for updating email and password

@@ -159,6 +159,13 @@ universo-platformo-react/
 │           ├── package.json        # Module metadata and scripts
 │           ├── tsconfig.json       # TypeScript configuration (allowJs: true)
 │           └── gulpfile.ts         # Asset copying during build
+│   └── profile-frt/                # User profile frontend
+│       └── base/
+│           ├── src/                # Profile page and i18n
+│           ├── dist/               # Compiled output
+│           ├── package.json        # Module metadata and scripts
+│           ├── tsconfig.json       # TypeScript configuration
+│           └── gulpfile.ts         # Asset copying during build
 ```
 
 ### Interface Architecture Benefits

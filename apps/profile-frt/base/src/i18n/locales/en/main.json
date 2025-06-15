@@ -1,0 +1,11 @@
+{
+    "profile": {
+        "title": "User Profile",
+        "email": "Email",
+        "password": "Password",
+        "updateEmail": "Update Email",
+        "updatePassword": "Update Password",
+        "emailUpdated": "Email updated successfully",
+        "passwordUpdated": "Password updated successfully"
+    }
+}

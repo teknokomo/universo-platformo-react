@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { supabase } from '../../utils/supabase'
+import { supabase, getSupabaseClientWithAuth } from '../../utils/supabase'
 import logger from '../../utils/logger'
 
 /**
@@ -146,5 +146,49 @@ export const refreshToken = async (req: Request, res: Response) => {
         const errorMessage = error instanceof Error ? error.message : 'Unknown refresh error'
         logger.error(`Token refresh error: ${errorMessage}`)
         res.status(401).json({ error: errorMessage })
+    }
+}
+
+/**
+ * Universo Platformo | Update user email
+ */
+export const updateUserEmail = async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split(' ')[1]
+    if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' })
+
+    const { email } = req.body
+    if (!email) return res.status(400).json({ error: 'Email is required' })
+
+    try {
+        const supabaseClient = getSupabaseClientWithAuth(token)
+        const { data, error } = await supabaseClient.auth.updateUser({ email })
+        if (error) return res.status(400).json({ error: error.message })
+        return res.json({ user: data.user })
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown update email error'
+        logger.error(`Update email error: ${errorMessage}`)
+        return res.status(500).json({ error: errorMessage })
+    }
+}
+
+/**
+ * Universo Platformo | Update user password
+ */
+export const updateUserPassword = async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split(' ')[1]
+    if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' })
+
+    const { password } = req.body
+    if (!password) return res.status(400).json({ error: 'Password is required' })
+
+    try {
+        const supabaseClient = getSupabaseClientWithAuth(token)
+        const { error } = await supabaseClient.auth.updateUser({ password })
+        if (error) return res.status(400).json({ error: error.message })
+        return res.json({ message: 'Password updated' })
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown update password error'
+        logger.error(`Update password error: ${errorMessage}`)
+        return res.status(500).json({ error: errorMessage })
     }
 }

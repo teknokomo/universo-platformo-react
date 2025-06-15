@@ -55,6 +55,7 @@ const VectorStoreQuery = Loadable(lazy(() => import('@/views/docstore/VectorStor
 
 // analytics routing moved to analytics-frt app
 const Analytics = Loadable(lazy(() => import('@apps/analytics-frt/base/src/pages/Analytics.jsx')))
+const Profile = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Profile.jsx')))
 
 // Example for other common pages
 const CommonPage = Loadable(lazy(() => import('@/views/up-uniks/CommonPage')))
@@ -188,6 +189,14 @@ const MainRoutes = {
         {
             path: '/admin',
             element: <AdminPanel />
+        },
+        {
+            path: '/profile',
+            element: (
+                <AuthGuard>
+                    <Profile />
+                </AuthGuard>
+            )
         },
         {
             path: '*',
