@@ -72,6 +72,8 @@ import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
 
 // Universo Platformo | Import analytics module translations
 import { analyticsTranslations } from '@apps/analytics-frt/base/src/i18n'
+// Universo Platformo | Import profile module translations
+import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
@@ -97,7 +99,8 @@ i18n.use(LanguageDetector)
                     chatflows: enChatflowsTranslation,
                     chatmessage: enChatmessageTranslation,
                     publish: publishTranslations.en.publish,
-                    analytics: analyticsTranslations.en.analytics
+                    analytics: analyticsTranslations.en.analytics,
+                    profile: profileTranslations.en.profile
                 },
                 ru: {
                     translation: ruTranslation,
@@ -117,7 +120,8 @@ i18n.use(LanguageDetector)
                     chatflows: ruChatflowsTranslation,
                     chatmessage: ruChatmessageTranslation,
                     publish: publishTranslations.ru.publish,
-                    analytics: analyticsTranslations.ru.analytics
+                    analytics: analyticsTranslations.ru.analytics,
+                    profile: profileTranslations.ru.profile
                 }
             },
             fallbackLng: 'en',
@@ -139,7 +143,8 @@ i18n.use(LanguageDetector)
                 'chatflows',
                 'chatmessage',
                 'publish',
-                'analytics'
+                'analytics',
+                'profile'
             ],
             defaultNS: 'translation',
             fallbackNS: 'translation',
