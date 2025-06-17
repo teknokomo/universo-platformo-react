@@ -10,7 +10,9 @@ const Profile = () => {
     const { user } = useAuth()
 
     const [email, setEmail] = useState(user?.email || '')
-    const [password, setPassword] = useState('')
+    const [currentPassword, setCurrentPassword] = useState('')
+    const [newPassword, setNewPassword] = useState('')
+    const [confirmNewPassword, setConfirmNewPassword] = useState('')
     const [info, setInfo] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
@@ -20,8 +22,16 @@ const Profile = () => {
         setLoading(true)
         setError('')
         setInfo('')
+
+        if (!email.trim()) {
+            setError(t('emailRequired'))
+            setLoading(false)
+            return
+        }
+
         try {
             const token = localStorage.getItem('token')
+
             const res = await fetch(`${window.location.origin}/api/v1/auth/email`, {
                 method: 'PUT',
                 headers: {
@@ -30,10 +40,28 @@ const Profile = () => {
                 },
                 body: JSON.stringify({ email })
             })
+
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error)
-            setInfo(t('emailUpdated'))
+
+            if (!res.ok) {
+                // Map server errors to localized messages
+                let errorMessage = t('emailUpdateFailed')
+
+                if (data.error) {
+                    // Add specific email error mappings if needed in the future
+                    errorMessage = data.error
+                }
+
+                throw new Error(errorMessage)
+            }
+
+            if (data.requiresConfirmation) {
+                setInfo('Email update initiated. Please check your new email for confirmation link.')
+            } else {
+                setInfo(t('emailUpdated'))
+            }
         } catch (err) {
+            console.error('Email update error:', err)
             setError(err.message)
         } finally {
             setLoading(false)
@@ -45,21 +73,74 @@ const Profile = () => {
         setLoading(true)
         setError('')
         setInfo('')
+
+        // Validate fields
+        if (!currentPassword.trim()) {
+            setError(t('currentPasswordRequired'))
+            setLoading(false)
+            return
+        }
+
+        if (!newPassword.trim()) {
+            setError(t('newPasswordRequired'))
+            setLoading(false)
+            return
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            setError(t('passwordsDoNotMatch'))
+            setLoading(false)
+            return
+        }
+
+        if (newPassword.length < 6) {
+            setError(t('passwordTooShort'))
+            setLoading(false)
+            return
+        }
+
         try {
             const token = localStorage.getItem('token')
+
             const res = await fetch(`${window.location.origin}/api/v1/auth/password`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ password })
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword
+                })
             })
+
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error)
+
+            if (!res.ok) {
+                // Map server errors to localized messages
+                let errorMessage = t('passwordUpdateFailed')
+
+                if (data.error) {
+                    if (data.error.includes('Current password is incorrect')) {
+                        errorMessage = t('currentPasswordIncorrect')
+                    } else if (data.error.includes('must be at least 6 characters')) {
+                        errorMessage = t('passwordTooShort')
+                    } else if (data.error.includes('cannot be empty')) {
+                        errorMessage = t('newPasswordRequired')
+                    } else {
+                        errorMessage = data.error // Keep original error if not recognized
+                    }
+                }
+
+                throw new Error(errorMessage)
+            }
+
             setInfo(t('passwordUpdated'))
-            setPassword('')
+            setCurrentPassword('')
+            setNewPassword('')
+            setConfirmNewPassword('')
         } catch (err) {
+            console.error('Password update error:', err)
             setError(err.message)
         } finally {
             setLoading(false)
@@ -73,13 +154,7 @@ const Profile = () => {
                 {error && <Alert severity='error'>{error}</Alert>}
                 <Box component='form' onSubmit={updateEmail}>
                     <Stack spacing={2}>
-                        <TextField
-                            label={t('email')}
-                            fullWidth
-                            type='email'
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                        />
+                        <TextField label={t('email')} fullWidth type='email' value={email} onChange={(e) => setEmail(e.target.value)} />
                         <Button variant='contained' type='submit' disabled={loading}>
                             {t('updateEmail')}
                         </Button>
@@ -88,11 +163,28 @@ const Profile = () => {
                 <Box component='form' onSubmit={updatePassword}>
                     <Stack spacing={2}>
                         <TextField
-                            label={t('password')}
+                            label={t('currentPassword')}
                             fullWidth
                             type='password'
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            required
+                        />
+                        <TextField
+                            label={t('newPassword')}
+                            fullWidth
+                            type='password'
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            required
+                        />
+                        <TextField
+                            label={t('confirmNewPassword')}
+                            fullWidth
+                            type='password'
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            required
                         />
                         <Button variant='contained' type='submit' disabled={loading}>
                             {t('updatePassword')}

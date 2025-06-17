@@ -19,6 +19,18 @@ apps/
 │       ├── tsconfig.json
 │       ├── gulpfile.ts
 │       └── README.md
+├── profile-frt/         # User profile management frontend
+│   └── base/            # Core profile functionality
+│       ├── src/         # Source code
+│       │   ├── i18n/    # Localization
+│       │   ├── pages/   # Page components
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── gulpfile.ts
+│       ├── README.md
+│       └── README-RU.md
 ├── publish-frt/         # Publication system frontend for exporting and sharing content
 │   └── base/            # Core frontend functionality for publication
 │       ├── src/         # Source code
@@ -76,6 +88,31 @@ The UPDL application provides a unified node system for describing 3D/AR/VR spac
 -   **Integration Interfaces** (`Interface.UPDL.ts`): Simplified interfaces for backend/frontend integration via `@server/interface` alias
 
 **Documentation:** See [apps/updl/base/README.md](./updl/base/README.md)
+
+### Profile
+
+The Profile application provides user profile management and authentication functionality for the Universo Platformo platform.
+
+#### Profile Frontend (profile-frt)
+
+**Key Features:**
+
+-   JWT token-based authentication with Supabase
+-   Email and password update functionality
+-   SQL functions with SECURITY DEFINER for secure user data updates
+-   Form validation and error handling
+-   Multi-language support (English/Russian)
+-   Mobile-friendly responsive design
+-   Integration with main platform authentication system
+
+**Authentication Architecture:**
+
+-   **Custom SQL Functions**: Uses `update_user_email()` and `update_user_password()` functions
+-   **Secure Token Handling**: JWT tokens with proper validation and expiry handling
+-   **Database Security**: Row Level Security and SECURITY DEFINER functions
+-   **Migration Integration**: Currently includes profile functions in Unik migration (temporary)
+
+**Documentation:** See [apps/profile-frt/base/README.md](./profile-frt/base/README.md) and [apps/profile-frt/base/README-RU.md](./profile-frt/base/README-RU.md)
 
 ### Publish
 
@@ -219,6 +256,7 @@ pnpm build
 
 # Build specific frontend application
 pnpm build --filter publish-frt
+pnpm build --filter profile-frt
 pnpm build --filter updl
 
 # Build specific backend application
@@ -231,6 +269,7 @@ To run a specific application in development mode (watches for changes and rebui
 
 ```bash
 pnpm --filter publish-frt dev
+pnpm --filter profile-frt dev
 pnpm --filter publish-srv dev
 pnpm --filter updl dev
 ```

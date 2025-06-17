@@ -133,6 +133,102 @@ export class AddUniks1741277504476 implements MigrationInterface {
       FOR DELETE
       USING (auth.role() = 'authenticated')
     `)
+
+        // 7. Create SQL functions for user email/password updates
+        await queryRunner.query(`
+            CREATE OR REPLACE FUNCTION update_user_email(user_id uuid, new_email text)
+            RETURNS void
+            LANGUAGE plpgsql
+            SECURITY DEFINER
+            AS $$
+            BEGIN
+                UPDATE auth.users SET email = new_email WHERE id = user_id;
+            END;
+            $$;
+        `)
+
+        // Create secure password verification function
+        await queryRunner.query(`
+            CREATE OR REPLACE FUNCTION verify_user_password(password text)
+            RETURNS BOOLEAN
+            LANGUAGE plpgsql
+            SECURITY DEFINER
+            SET search_path = extensions, public, auth
+            AS $$
+            DECLARE
+                user_id uuid;
+            BEGIN
+                user_id := auth.uid();
+                
+                RETURN EXISTS (
+                    SELECT id 
+                    FROM auth.users 
+                    WHERE id = user_id 
+                    AND encrypted_password = crypt(password::text, auth.users.encrypted_password)
+                );
+            END;
+            $$;
+        `)
+
+        // Create secure password change function
+        await queryRunner.query(`
+            CREATE OR REPLACE FUNCTION change_user_password_secure(
+                current_password text, 
+                new_password text
+            )
+            RETURNS json
+            LANGUAGE plpgsql
+            SECURITY DEFINER
+            SET search_path = extensions, public, auth
+            AS $$
+            DECLARE
+                user_id uuid;
+                is_valid_password boolean;
+            BEGIN
+                -- Get current user ID
+                user_id := auth.uid();
+                
+                -- Check user is authenticated
+                IF user_id IS NULL THEN
+                    RAISE EXCEPTION 'User not authenticated';
+                END IF;
+                
+                -- Validate new password
+                IF (new_password = '') IS NOT FALSE THEN
+                    RAISE EXCEPTION 'New password cannot be empty';
+                ELSIF char_length(new_password) < 6 THEN
+                    RAISE EXCEPTION 'Password must be at least 6 characters long';
+                END IF;
+                
+                -- Verify current password
+                SELECT verify_user_password(current_password) INTO is_valid_password;
+                
+                IF NOT is_valid_password THEN
+                    RAISE EXCEPTION 'Current password is incorrect';
+                END IF;
+                
+                -- Update password
+                UPDATE auth.users 
+                SET encrypted_password = crypt(new_password, gen_salt('bf'))
+                WHERE id = user_id;
+                
+                RETURN '{"success": true, "message": "Password updated successfully"}';
+            END;
+            $$;
+        `)
+
+        // Keep old function for backward compatibility (deprecated)
+        await queryRunner.query(`
+            CREATE OR REPLACE FUNCTION update_user_password(user_id uuid, new_password text)
+            RETURNS void
+            LANGUAGE plpgsql
+            SECURITY DEFINER
+            AS $$
+            BEGIN
+                UPDATE auth.users SET encrypted_password = crypt(new_password, gen_salt('bf')) WHERE id = user_id;
+            END;
+            $$;
+        `)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
@@ -156,6 +252,12 @@ export class AddUniks1741277504476 implements MigrationInterface {
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow insert user_uniks for authenticated users" ON "user_uniks";`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow update user_uniks for authenticated users" ON "user_uniks";`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow delete user_uniks for authenticated users" ON "user_uniks";`)
+
+        // Drop SQL functions for user email/password updates
+        await queryRunner.query(`DROP FUNCTION IF EXISTS update_user_email(uuid, text);`)
+        await queryRunner.query(`DROP FUNCTION IF EXISTS update_user_password(uuid, text);`)
+        await queryRunner.query(`DROP FUNCTION IF EXISTS verify_user_password(text);`)
+        await queryRunner.query(`DROP FUNCTION IF EXISTS change_user_password_secure(text, text);`)
 
         for (const tbl of tables) {
             await queryRunner.query(`

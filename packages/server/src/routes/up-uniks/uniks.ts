@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { getSupabaseClientWithAuth } from '../../utils/supabase'
+import { supabase } from '../../utils/supabase'
 import chatflowsRouter from '../chatflows'
 import chatflowsStreamingRouter from '../chatflows-streaming'
 import chatflowsUploadsRouter from '../chatflows-uploads'
@@ -16,29 +16,32 @@ import upAuth from '../../middlewares/up-auth'
 
 const router = Router()
 
+// Apply ensureAuth middleware to all routes
+router.use(upAuth.ensureAuth)
+
 // GET /uniks — Get list of Uniks for current user through user_uniks table
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' })
+        // Get user ID from middleware (req.user should be set by ensureAuth)
+        const userId = (req as any).user?.sub
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: User not found' })
         }
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { data: user, error: userError } = await supabaseClient.auth.getUser()
-        if (userError || !user) {
-            return res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        }
-        const userId = user.user.id
-        const { data, error } = await supabaseClient.from('user_uniks').select('role, unik:uniks(*)').eq('user_id', userId)
+
+        const { data, error } = await supabase.from('user_uniks').select('role, unik:uniks(*)').eq('user_id', userId)
+
         if (error) {
             return res.status(500).json({ error: error.message })
         }
+
         const uniks = data.map((item: any) => ({
             ...item.unik,
             role: item.role
         }))
+
         return res.json(uniks || [])
     } catch (err) {
+        console.error('Unexpected error fetching Uniks:', err)
         return res.status(500).json({ error: 'Failed to fetch Uniks' })
     }
 })
@@ -46,13 +49,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /uniks/:id — Get details of specific Unik by its ID
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' })
-        }
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const unikId = req.params.id
-        const { data, error } = await supabaseClient.from('uniks').select('*').eq('id', unikId).single()
+        const { data, error } = await supabase.from('uniks').select('*').eq('id', req.params.id).single()
         if (error) {
             return res.status(500).json({ error: error.message })
         }
@@ -68,18 +65,14 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /uniks — Create new Unik
 router.post('/', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' })
+        // Get user ID from middleware
+        const userId = (req as any).user?.sub
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: User not found' })
         }
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { data: user, error: userError } = await supabaseClient.auth.getUser()
-        if (userError || !user) {
-            return res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        }
-        const userId = user.user.id
+
         const { name } = req.body
-        const { data: insertData, error: insertError } = await supabaseClient
+        const { data: insertData, error: insertError } = await supabase
             .from('uniks')
             .insert({ name: name || 'New Workspace' })
             .select()
@@ -87,7 +80,7 @@ router.post('/', async (req: Request, res: Response) => {
             return res.status(500).json({ error: insertError.message })
         }
         const newUnik = insertData[0]
-        const { error: relationError } = await supabaseClient.from('user_uniks').insert({
+        const { error: relationError } = await supabase.from('user_uniks').insert({
             user_id: userId,
             unik_id: newUnik.id,
             role: 'owner'
@@ -104,20 +97,16 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /uniks/:id — Update Unik (only name field)
 router.put('/:id', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' })
+        // Get user ID from middleware
+        const userId = (req as any).user?.sub
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: User not found' })
         }
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { data: user, error: userError } = await supabaseClient.auth.getUser()
-        if (userError || !user) {
-            return res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        }
-        const userId = user.user.id
+
         const unikId = req.params.id
         const { name } = req.body
         // Check if user has a connection with this Unik (owner / editor)
-        const { data: relationData, error: relationError } = await supabaseClient
+        const { data: relationData, error: relationError } = await supabase
             .from('user_uniks')
             .select('role')
             .eq('unik_id', unikId)
@@ -130,7 +119,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         if (!allowedRoles.includes(relationData.role)) {
             return res.status(403).json({ error: 'Not authorized to update this Unik' })
         }
-        const { data, error } = await supabaseClient.from('uniks').update({ name }).eq('id', unikId).select()
+        const { data, error } = await supabase.from('uniks').update({ name }).eq('id', unikId).select()
         if (error) {
             return res.status(500).json({ error: error.message })
         }
@@ -146,19 +135,15 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /uniks/:id — Delete Unik (only owner)
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' })
+        // Get user ID from middleware
+        const userId = (req as any).user?.sub
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized: User not found' })
         }
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { data: user, error: userError } = await supabaseClient.auth.getUser()
-        if (userError || !user) {
-            return res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        }
-        const userId = user.user.id
+
         const unikId = req.params.id
         // Check if user_uniks has role 'owner'
-        const { data: relationData, error: relationError } = await supabaseClient
+        const { data: relationData, error: relationError } = await supabase
             .from('user_uniks')
             .select('role')
             .eq('unik_id', unikId)
@@ -167,7 +152,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         if (relationError || !relationData || relationData.role !== 'owner') {
             return res.status(403).json({ error: 'Not authorized to delete this Unik' })
         }
-        const { error } = await supabaseClient.from('uniks').delete().eq('id', unikId)
+        const { error } = await supabase.from('uniks').delete().eq('id', unikId)
         if (error) {
             return res.status(500).json({ error: error.message })
         }
@@ -180,19 +165,15 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // POST /uniks/members — Add member to Unik (only owner)
 router.post('/members', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized: No token provided' })
+        // Get user ID from middleware
+        const ownerId = (req as any).user?.sub
+        if (!ownerId) {
+            return res.status(401).json({ error: 'Unauthorized: User not found' })
         }
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { data: user, error: userError } = await supabaseClient.auth.getUser()
-        if (userError || !user) {
-            return res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        }
+
         const { unik_id, user_id: memberUserId, role } = req.body
-        const ownerId = user.user.id
         // Check if current user is the owner of the Unik
-        const { data: relationData, error: relationError } = await supabaseClient
+        const { data: relationData, error: relationError } = await supabase
             .from('user_uniks')
             .select('role')
             .eq('unik_id', unik_id)
@@ -201,7 +182,7 @@ router.post('/members', async (req: Request, res: Response) => {
         if (relationError || !relationData || relationData.role !== 'owner') {
             return res.status(403).json({ error: 'Not authorized to manage members of this Unik' })
         }
-        const { data, error } = await supabaseClient.from('user_uniks').insert({ unik_id, user_id: memberUserId, role }).select()
+        const { data, error } = await supabase.from('user_uniks').insert({ unik_id, user_id: memberUserId, role }).select()
         if (error) {
             return res.status(500).json({ error: error.message })
         }
@@ -212,39 +193,39 @@ router.post('/members', async (req: Request, res: Response) => {
 })
 
 // Mount nested routes for Chatflows with ensureAuth middleware
-router.use('/:unikId/chatflows', upAuth.ensureAuth, chatflowsRouter)
+router.use('/:unikId/chatflows', chatflowsRouter)
 
 // Mount nested routes for Chatflows Streaming with ensureAuth middleware
-router.use('/:unikId/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
+router.use('/:unikId/chatflows-streaming', chatflowsStreamingRouter)
 
 // Mount nested routes for Chatflows Uploads with ensureAuth middleware
-router.use('/:unikId/chatflows-uploads', upAuth.ensureAuth, chatflowsUploadsRouter)
+router.use('/:unikId/chatflows-uploads', chatflowsUploadsRouter)
 
 // Mount nested routes for Flow Config with ensureAuth middleware
-router.use('/:unikId/flow-config', upAuth.ensureAuth, flowConfigRouter)
+router.use('/:unikId/flow-config', flowConfigRouter)
 
 // Mount nested routes for Tools with ensureAuth middleware
-router.use('/:unikId/tools', upAuth.ensureAuth, toolsRouter)
+router.use('/:unikId/tools', toolsRouter)
 
 // Mount nested routes for Variables with ensureAuth middleware
-router.use('/:unikId/variables', upAuth.ensureAuth, variablesRouter)
+router.use('/:unikId/variables', variablesRouter)
 
 // Mount nested routes for export/import with ensureAuth middleware
-router.use('/:unikId/export-import', upAuth.ensureAuth, exportImportRouter)
+router.use('/:unikId/export-import', exportImportRouter)
 
 // Mount nested routes for Credentials with ensureAuth middleware
-router.use('/:unikId/credentials', upAuth.ensureAuth, credentialsRouter)
+router.use('/:unikId/credentials', credentialsRouter)
 
 // Mount nested routes for Assistants with ensureAuth middleware
-router.use('/:unikId/assistants', upAuth.ensureAuth, assistantsRouter)
+router.use('/:unikId/assistants', assistantsRouter)
 
 // Mount nested routes for API Keys with ensureAuth middleware
-router.use('/:unikId/apikey', upAuth.ensureAuth, apikeyRouter)
+router.use('/:unikId/apikey', apikeyRouter)
 
 // Mount nested routes for Document Stores with ensureAuth middleware
-router.use('/:unikId/document-stores', upAuth.ensureAuth, documentStoreRouter)
+router.use('/:unikId/document-stores', documentStoreRouter)
 
 // Mount nested routes for Templates (Marketplaces) with ensureAuth middleware
-router.use('/:unikId/templates', upAuth.ensureAuth, marketplacesRouter)
+router.use('/:unikId/templates', marketplacesRouter)
 
 export default router

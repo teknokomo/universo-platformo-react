@@ -6,6 +6,20 @@
         "updateEmail": "Update Email",
         "updatePassword": "Update Password",
         "emailUpdated": "Email updated successfully",
-        "passwordUpdated": "Password updated successfully"
+        "passwordUpdated": "Password updated successfully",
+        "emailUpdateFailed": "Failed to update email",
+        "passwordUpdateFailed": "Failed to update password",
+        "emailRequired": "Email is required",
+        "passwordRequired": "Password is required",
+        "invalidToken": "Invalid or expired authentication token",
+        "networkError": "Network error occurred",
+        "currentPassword": "Current Password",
+        "newPassword": "New Password",
+        "confirmNewPassword": "Confirm New Password",
+        "currentPasswordRequired": "Current password is required",
+        "newPasswordRequired": "New password is required",
+        "passwordsDoNotMatch": "New passwords do not match",
+        "passwordTooShort": "Password must be at least 6 characters long",
+        "currentPasswordIncorrect": "Current password is incorrect"
     }
 }

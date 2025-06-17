@@ -1,6 +1,22 @@
 import { Request, Response } from 'express'
-import { supabase, getSupabaseClientWithAuth } from '../../utils/supabase'
+import { supabase } from '../../utils/supabase'
 import logger from '../../utils/logger'
+
+// Validate environment variables
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    logger.error('[AUTH CONFIG] Missing Supabase configuration')
+    logger.error(`[AUTH CONFIG] SUPABASE_URL: ${!!process.env.SUPABASE_URL}`)
+    logger.error(`[AUTH CONFIG] SUPABASE_ANON_KEY: ${!!process.env.SUPABASE_ANON_KEY}`)
+}
+
+if (!process.env.SUPABASE_JWT_SECRET) {
+    logger.error('[AUTH CONFIG] Missing SUPABASE_JWT_SECRET')
+} else {
+    logger.info('[AUTH CONFIG] SUPABASE_JWT_SECRET is configured')
+}
+
+logger.info(`[AUTH CONFIG] Supabase URL: ${process.env.SUPABASE_URL}`)
+logger.info(`[AUTH CONFIG] Supabase Key configured: ${!!process.env.SUPABASE_ANON_KEY}`)
 
 /**
  * Universo Platformo | Register a new user
@@ -154,20 +170,44 @@ export const refreshToken = async (req: Request, res: Response) => {
  */
 export const updateUserEmail = async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1]
-    if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' })
+    if (!token) {
+        return res.status(401).json({ error: 'Unauthorized: No token provided' })
+    }
 
     const { email } = req.body
-    if (!email) return res.status(400).json({ error: 'Email is required' })
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' })
+    }
 
     try {
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { data, error } = await supabaseClient.auth.updateUser({ email })
-        if (error) return res.status(400).json({ error: error.message })
-        return res.json({ user: data.user })
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown update email error'
-        logger.error(`Update email error: ${errorMessage}`)
-        return res.status(500).json({ error: errorMessage })
+        // Get user ID from JWT token
+        const {
+            data: { user },
+            error: userError
+        } = await supabase.auth.getUser(token)
+        if (userError || !user) {
+            logger.error(`Failed to get user from token: ${userError?.message}`)
+            return res.status(401).json({ error: 'Invalid token' })
+        }
+
+        // Use SQL to update user email directly in auth.users table
+        const { data, error } = await supabase.rpc('update_user_email', {
+            user_id: user.id,
+            new_email: email
+        })
+
+        if (error) {
+            logger.error(`SQL error updating user email: ${error.message}`)
+            return res.status(400).json({ error: error.message })
+        }
+
+        return res.status(200).json({
+            message: 'Email updated successfully',
+            email: email
+        })
+    } catch (error) {
+        logger.error(`Unexpected error updating user email: ${error}`)
+        return res.status(500).json({ error: 'Internal server error' })
     }
 }
 
@@ -176,19 +216,63 @@ export const updateUserEmail = async (req: Request, res: Response) => {
  */
 export const updateUserPassword = async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1]
-    if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' })
+    if (!token) {
+        return res.status(401).json({ error: 'Unauthorized: No token provided' })
+    }
 
-    const { password } = req.body
-    if (!password) return res.status(400).json({ error: 'Password is required' })
+    const { currentPassword, newPassword } = req.body
+
+    // Validate input data
+    if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required' })
+    }
+
+    if (!newPassword) {
+        return res.status(400).json({ error: 'New password is required' })
+    }
 
     try {
-        const supabaseClient = getSupabaseClientWithAuth(token)
-        const { error } = await supabaseClient.auth.updateUser({ password })
-        if (error) return res.status(400).json({ error: error.message })
-        return res.json({ message: 'Password updated' })
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown update password error'
-        logger.error(`Update password error: ${errorMessage}`)
-        return res.status(500).json({ error: errorMessage })
+        // Get user from token
+        const {
+            data: { user },
+            error: userError
+        } = await supabase.auth.getUser(token)
+
+        if (userError || !user) {
+            logger.error(`Failed to get user from token: ${userError?.message}`)
+            return res.status(401).json({ error: 'Invalid token' })
+        }
+
+        // Use secure SQL function
+        const { data, error } = await supabase.rpc('change_user_password_secure', {
+            current_password: currentPassword,
+            new_password: newPassword
+        })
+
+        if (error) {
+            logger.error(`SQL error updating user password: ${error.message}`)
+
+            // Handle specific errors
+            if (error.message.includes('Current password is incorrect')) {
+                return res.status(400).json({ error: 'Current password is incorrect' })
+            }
+
+            if (error.message.includes('must be at least 6 characters')) {
+                return res.status(400).json({ error: 'Password must be at least 6 characters long' })
+            }
+
+            if (error.message.includes('cannot be empty')) {
+                return res.status(400).json({ error: 'New password cannot be empty' })
+            }
+
+            return res.status(400).json({ error: error.message })
+        }
+
+        return res.status(200).json({
+            message: 'Password updated successfully'
+        })
+    } catch (error) {
+        logger.error(`Unexpected error updating user password: ${error}`)
+        return res.status(500).json({ error: 'Internal server error' })
     }
 }

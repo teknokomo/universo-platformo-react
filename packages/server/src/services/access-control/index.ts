@@ -2,7 +2,7 @@
 // Centralized service for checking user access to resources
 
 // Import the correct Supabase clients
-import { supabase, getSupabaseClientWithAuth } from '../../utils/supabase'
+import { supabase } from '../../utils/supabase'
 
 /**
  * Service for checking user access permissions to various resources
@@ -17,39 +17,21 @@ export class AccessControlService {
      */
     async checkUnikAccess(userId: string, unikId: string, authToken?: string): Promise<boolean> {
         if (!userId || !unikId) {
-            // Universo Platformo | Log missing IDs
-            console.log(`[AccessControlService] checkUnikAccess called with missing IDs: userId=${userId}, unikId=${unikId}`)
             return false
         }
 
-        // Universo Platformo | Log input parameters
-        console.log(`[AccessControlService] Checking Unik access for userId: ${userId}, unikId: ${unikId}`)
-
         try {
-            // Use authenticated client if token provided, otherwise fall back to anon client
-            const client = authToken ? getSupabaseClientWithAuth(authToken) : supabase
-
-            // Universo Platformo | Execute direct query with explicit casting
-            console.log(`[AccessControlService] Executing query with UUID casting and auth=${!!authToken}`)
-
             // Use SQL query with explicit UUID casting
-            const { data, error } = await client
+            const { data, error } = await supabase
                 .from('user_uniks')
                 .select('*')
                 .filter('user_id', 'eq', userId)
                 .filter('unik_id', 'eq', unikId)
 
-            // Universo Platformo | Log response
-            console.log(`[AccessControlService] Supabase response:`, { data, error })
-
             const hasAccess = !error && Array.isArray(data) && data.length > 0
-            // Universo Platformo | Log access result
-            console.log(`[AccessControlService] Access result for userId ${userId} to unikId ${unikId}: ${hasAccess}`)
-
             return hasAccess
         } catch (error) {
-            // Universo Platformo | Log caught error
-            console.error('[AccessControlService] Error during checkUnikAccess:', error)
+            console.error('AccessControlService error during checkUnikAccess:', error)
             return false
         }
     }
@@ -65,10 +47,7 @@ export class AccessControlService {
         if (!userId || !unikId) return false
 
         try {
-            // Use authenticated client if token provided
-            const client = authToken ? getSupabaseClientWithAuth(authToken) : supabase
-
-            const { data, error } = await client
+            const { data, error } = await supabase
                 .from('user_uniks')
                 .select('role')
                 .filter('user_id', 'eq', userId)
@@ -92,10 +71,7 @@ export class AccessControlService {
         if (!userId) return []
 
         try {
-            // Use authenticated client if token provided
-            const client = authToken ? getSupabaseClientWithAuth(authToken) : supabase
-
-            const { data, error } = await client.from('user_uniks').select('unik_id, role').filter('user_id', 'eq', userId)
+            const { data, error } = await supabase.from('user_uniks').select('unik_id, role').filter('user_id', 'eq', userId)
 
             return data || []
         } catch (error) {
@@ -115,11 +91,8 @@ export class AccessControlService {
         if (!userId || !chatflowId) return false
 
         try {
-            // Use authenticated client if token provided
-            const client = authToken ? getSupabaseClientWithAuth(authToken) : supabase
-
             // First get the Unik ID for this chatflow
-            const { data: chatflow, error: chatflowError } = await client
+            const { data: chatflow, error: chatflowError } = await supabase
                 .from('chat_flow')
                 .select('unik_id')
                 .filter('id', 'eq', chatflowId)
