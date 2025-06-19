@@ -11,7 +11,6 @@ import MainCard from '@/ui-component/cards/MainCard'
 import ItemCard from '@/ui-component/cards/ItemCard'
 import { gridSpacing } from '@/store/constant'
 import APIEmptySVG from '@/assets/images/api_empty.svg'
-import LoginDialog from '@/ui-component/dialog/LoginDialog'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import { FlowListTable } from '@/ui-component/table/FlowListTable'
 import { StyledButton } from '@/ui-component/button/StyledButton'
@@ -30,6 +29,7 @@ const uniksApi = {
 
 // Hooks
 import useApi from '@/hooks/useApi'
+import { useAuthError } from '@/hooks/useAuthError'
 
 // Additional: import UnikDialog modal for creating/editing Unik
 import UnikDialog from '@/views/up-uniks/UnikDialog'
@@ -46,8 +46,6 @@ const UnikList = () => {
     const [error, setError] = useState(null)
     const [uniks, setUniks] = useState([])
     const [search, setSearch] = useState('')
-    const [loginDialogOpen, setLoginDialogOpen] = useState(false)
-    const [loginDialogProps, setLoginDialogProps] = useState({})
 
     // State for modal window for creating/editing Unik
     const [unikDialogOpen, setUnikDialogOpen] = useState(false)
@@ -55,6 +53,7 @@ const UnikList = () => {
 
     const getAllUniks = useApi(uniksApi.getAllUniks)
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
+    const { handleAuthError } = useAuthError()
 
     const handleChange = (event, nextView) => {
         if (nextView === null) return
@@ -69,12 +68,6 @@ const UnikList = () => {
     // Filter for searching by name and ID
     function filterUniks(data) {
         return data.name.toLowerCase().includes(search.toLowerCase()) || (data.id && data.id.toLowerCase().includes(search.toLowerCase()))
-    }
-
-    const onLoginClick = (username, password) => {
-        localStorage.setItem('username', username)
-        localStorage.setItem('password', password)
-        navigate(0)
     }
 
     // Open modal for adding new Unik
@@ -107,17 +100,11 @@ const UnikList = () => {
 
     useEffect(() => {
         if (getAllUniks.error) {
-            if (getAllUniks.error?.response?.status === 401) {
-                setLoginDialogProps({
-                    title: 'Login',
-                    confirmButtonName: 'Login'
-                })
-                setLoginDialogOpen(true)
-            } else {
+            if (!handleAuthError(getAllUniks.error)) {
                 setError(getAllUniks.error)
             }
         }
-    }, [getAllUniks.error])
+    }, [getAllUniks.error, handleAuthError])
 
     useEffect(() => {
         setLoading(getAllUniks.loading)
@@ -226,7 +213,6 @@ const UnikList = () => {
                 </Stack>
             )}
 
-            <LoginDialog show={loginDialogOpen} dialogProps={loginDialogProps} onConfirm={onLoginClick} />
             <ConfirmDialog />
             <UnikDialog
                 show={unikDialogOpen}

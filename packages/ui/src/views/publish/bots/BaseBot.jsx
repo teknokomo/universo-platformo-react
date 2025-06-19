@@ -4,14 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PropTypes from 'prop-types'
 
-// Project import
-import LoginDialog from '@/ui-component/dialog/LoginDialog'
-
 // API
 import chatflowsApi from '@/api/chatflows'
 
 // Hooks
 import useApi from '@/hooks/useApi'
+import { useAuthError } from '@/hooks/useAuthError'
 
 // ==============================|| Base Bot Component ||============================== //
 
@@ -21,19 +19,12 @@ const BaseBot = ({ children }) => {
     const { t } = useTranslation()
 
     const [chatflow, setChatflow] = useState(null)
-    const [loginDialogOpen, setLoginDialogOpen] = useState(false)
-    const [loginDialogProps, setLoginDialogProps] = useState({})
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
     const getSpecificChatflowFromPublicApi = useApi(chatflowsApi.getSpecificChatflowFromPublicEndpoint)
     const getSpecificChatflowApi = useApi(chatflowsApi.getSpecificChatflow)
-
-    const onLoginClick = (username, password) => {
-        localStorage.setItem('username', username)
-        localStorage.setItem('password', password)
-        navigate(0)
-    }
+    const { handleAuthError } = useAuthError()
 
     useEffect(() => {
         if (id) {
@@ -48,15 +39,8 @@ const BaseBot = ({ children }) => {
     useEffect(() => {
         if (getSpecificChatflowFromPublicApi.error) {
             if (getSpecificChatflowFromPublicApi.error?.response?.status === 401) {
-                if (localStorage.getItem('username') && localStorage.getItem('password')) {
-                    getSpecificChatflowApi.request(id)
-                } else {
-                    setLoginDialogProps({
-                        title: t('chatMessage.common.login'),
-                        confirmButtonName: t('chatMessage.common.login')
-                    })
-                    setLoginDialogOpen(true)
-                }
+                // For public endpoints that return 401, try authenticated endpoint
+                getSpecificChatflowApi.request(id)
             } else {
                 setError(getSpecificChatflowFromPublicApi.error.message)
                 setLoading(false)
@@ -67,18 +51,12 @@ const BaseBot = ({ children }) => {
 
     useEffect(() => {
         if (getSpecificChatflowApi.error) {
-            if (getSpecificChatflowApi.error?.response?.status === 401) {
-                setLoginDialogProps({
-                    title: t('chatMessage.common.login'),
-                    confirmButtonName: t('chatMessage.common.login')
-                })
-                setLoginDialogOpen(true)
-            } else {
+            if (!handleAuthError(getSpecificChatflowApi.error)) {
                 setError(getSpecificChatflowApi.error.message)
                 setLoading(false)
             }
         }
-    }, [getSpecificChatflowApi.error, t])
+    }, [getSpecificChatflowApi.error, handleAuthError])
 
     useEffect(() => {
         if (getSpecificChatflowFromPublicApi.data || getSpecificChatflowApi.data) {
@@ -100,12 +78,7 @@ const BaseBot = ({ children }) => {
         return <p>{t('chatbot.invalid')}</p>
     }
 
-    return (
-        <>
-            {children(chatflow)}
-            <LoginDialog show={loginDialogOpen} dialogProps={loginDialogProps} onConfirm={onLoginClick} />
-        </>
-    )
+    return <>{children(chatflow)}</>
 }
 
 BaseBot.propTypes = {

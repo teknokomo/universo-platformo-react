@@ -11,7 +11,6 @@ import MainCard from '@/ui-component/cards/MainCard'
 import ItemCard from '@/ui-component/cards/ItemCard'
 import { gridSpacing } from '@/store/constant'
 import WorkflowEmptySVG from '@/assets/images/workflow_empty.svg'
-import LoginDialog from '@/ui-component/dialog/LoginDialog'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import { FlowListTable } from '@/ui-component/table/FlowListTable'
 import { StyledButton } from '@/ui-component/button/StyledButton'
@@ -23,6 +22,7 @@ import chatflowsApi from '@/api/chatflows'
 
 // Hooks
 import useApi from '@/hooks/useApi'
+import { useAuthError } from '@/hooks/useAuthError'
 
 // const
 import { baseURL } from '@/store/constant'
@@ -42,11 +42,10 @@ const Chatflows = () => {
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
     const [search, setSearch] = useState('')
-    const [loginDialogOpen, setLoginDialogOpen] = useState(false)
-    const [loginDialogProps, setLoginDialogProps] = useState({})
 
     const getAllChatflowsApi = useApi(() => chatflowsApi.getAllChatflows(unikId))
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
+    const { handleAuthError } = useAuthError()
 
     const handleChange = (event, nextView) => {
         if (nextView === null) return
@@ -66,12 +65,6 @@ const Chatflows = () => {
         )
     }
 
-    const onLoginClick = (username, password) => {
-        localStorage.setItem('username', username)
-        localStorage.setItem('password', password)
-        navigate(0)
-    }
-
     const addNew = () => {
         localStorage.setItem('parentUnikId', unikId)
         navigate(`/uniks/${unikId}/chatflows/new`)
@@ -87,7 +80,7 @@ const Chatflows = () => {
             navigate(`/uniks/${unikId}/chatflows/new`, { state: { templateFlowData: location.state.templateFlowData } })
             return
         }
-        
+
         if (unikId) {
             getAllChatflowsApi.request()
         } else {
@@ -97,17 +90,11 @@ const Chatflows = () => {
 
     useEffect(() => {
         if (getAllChatflowsApi.error) {
-            if (getAllChatflowsApi.error?.response?.status === 401) {
-                setLoginDialogProps({
-                    title: t('chatflows.common.login'),
-                    confirmButtonName: t('chatflows.common.login')
-                })
-                setLoginDialogOpen(true)
-            } else {
+            if (!handleAuthError(getAllChatflowsApi.error)) {
                 setError(getAllChatflowsApi.error)
             }
         }
-    }, [getAllChatflowsApi.error, t])
+    }, [getAllChatflowsApi.error, handleAuthError])
 
     useEffect(() => {
         setLoading(getAllChatflowsApi.loading)
@@ -143,7 +130,12 @@ const Chatflows = () => {
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('chatflows.searchPlaceholder')} title={t('chatflows.title')}>
+                    <ViewHeader
+                        onSearchChange={onSearchChange}
+                        search={true}
+                        searchPlaceholder={t('chatflows.searchPlaceholder')}
+                        title={t('chatflows.title')}
+                    >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -221,14 +213,6 @@ const Chatflows = () => {
                 </Stack>
             )}
 
-            {loginDialogOpen && (
-                <LoginDialog
-                    show={loginDialogOpen}
-                    dialogProps={loginDialogProps}
-                    onConfirm={onLoginClick}
-                    onCancel={() => setLoginDialogOpen(false)}
-                />
-            )}
             <ConfirmDialog />
         </MainCard>
     )

@@ -11,7 +11,6 @@ import MainCard from '@/ui-component/cards/MainCard'
 import ItemCard from '@/ui-component/cards/ItemCard'
 import { gridSpacing } from '@/store/constant'
 import AgentsEmptySVG from '@/assets/images/agents_empty.svg'
-import LoginDialog from '@/ui-component/dialog/LoginDialog'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
 import { FlowListTable } from '@/ui-component/table/FlowListTable'
 import { StyledButton } from '@/ui-component/button/StyledButton'
@@ -23,6 +22,7 @@ import chatflowsApi from '@/api/chatflows'
 
 // Hooks
 import useApi from '@/hooks/useApi'
+import { useAuthError } from '@/hooks/useAuthError'
 
 // const
 import { baseURL } from '@/store/constant'
@@ -43,11 +43,10 @@ const Agentflows = () => {
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
     const [search, setSearch] = useState('')
-    const [loginDialogOpen, setLoginDialogOpen] = useState(false)
-    const [loginDialogProps, setLoginDialogProps] = useState({})
 
     const getAllAgentflows = useApi(chatflowsApi.getAllAgentflows)
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
+    const { handleAuthError } = useAuthError()
 
     const handleChange = (event, nextView) => {
         if (nextView === null) return
@@ -65,12 +64,6 @@ const Agentflows = () => {
             (data.category && data.category.toLowerCase().indexOf(search.toLowerCase()) > -1) ||
             data.id.toLowerCase().indexOf(search.toLowerCase()) > -1
         )
-    }
-
-    const onLoginClick = (username, password) => {
-        localStorage.setItem('username', username)
-        localStorage.setItem('password', password)
-        navigate(0)
     }
 
     const addNew = () => {
@@ -95,17 +88,11 @@ const Agentflows = () => {
 
     useEffect(() => {
         if (getAllAgentflows.error) {
-            if (getAllAgentflows.error?.response?.status === 401) {
-                setLoginDialogProps({
-                    title: t('chatflows.common.login'),
-                    confirmButtonName: t('chatflows.common.login')
-                })
-                setLoginDialogOpen(true)
-            } else {
+            if (!handleAuthError(getAllAgentflows.error)) {
                 setError(getAllAgentflows.error)
             }
         }
-    }, [getAllAgentflows.error, t])
+    }, [getAllAgentflows.error, handleAuthError])
 
     useEffect(() => {
         setLoading(getAllAgentflows.loading)
@@ -141,7 +128,12 @@ const Agentflows = () => {
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('chatflows.agents.searchPlaceholder')} title={t('chatflows.agents.title')}>
+                    <ViewHeader
+                        onSearchChange={onSearchChange}
+                        search={true}
+                        searchPlaceholder={t('chatflows.agents.searchPlaceholder')}
+                        title={t('chatflows.agents.title')}
+                    >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -220,14 +212,6 @@ const Agentflows = () => {
                 </Stack>
             )}
 
-            {loginDialogOpen && (
-                <LoginDialog
-                    show={loginDialogOpen}
-                    dialogProps={loginDialogProps}
-                    onConfirm={onLoginClick}
-                    onCancel={() => setLoginDialogOpen(false)}
-                />
-            )}
             <ConfirmDialog />
         </MainCard>
     )

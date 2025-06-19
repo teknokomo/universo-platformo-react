@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/utils/authProvider'
 
 // material-ui
 import {
@@ -161,6 +162,7 @@ const ProfileSection = ({ username, handleLogout }) => {
     const { unikId } = useParams()
     const customization = useSelector((state) => state.customization)
     const { t } = useTranslation(['menu', 'common'])
+    const { isAuthenticated } = useAuth()
 
     const [open, setOpen] = useState(false)
     const [aboutDialogOpen, setAboutDialogOpen] = useState(false)
@@ -397,7 +399,9 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     <ListItemIcon>
                                                         <IconFileExport stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.export')}</Typography>} />
+                                                    <ListItemText
+                                                        primary={<Typography variant='body2'>{t('profileMenu.export')}</Typography>}
+                                                    />
                                                 </ListItemButton>
                                                 <ListItemButton
                                                     sx={{ borderRadius: `${customization.borderRadius}px` }}
@@ -408,7 +412,9 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     <ListItemIcon>
                                                         <IconFileUpload stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.import')}</Typography>} />
+                                                    <ListItemText
+                                                        primary={<Typography variant='body2'>{t('profileMenu.import')}</Typography>}
+                                                    />
                                                 </ListItemButton>
                                                 <input ref={inputRef} type='file' hidden onChange={fileChange} accept='.json' />
                                                 <ListItemButton
@@ -421,9 +427,11 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                     <ListItemIcon>
                                                         <IconInfoCircle stroke={1.5} size='1.3rem' />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant='body2'>{t('profileMenu.aboutFlowise')}</Typography>} />
+                                                    <ListItemText
+                                                        primary={<Typography variant='body2'>{t('profileMenu.aboutFlowise')}</Typography>}
+                                                    />
                                                 </ListItemButton>
-                                                {localStorage.getItem('username') && localStorage.getItem('password') && (
+                                                {isAuthenticated && (
                                                     <ListItemButton
                                                         sx={{ borderRadius: `${customization.borderRadius}px` }}
                                                         onClick={handleLogout}
@@ -431,7 +439,9 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                         <ListItemIcon>
                                                             <IconLogout stroke={1.5} size='1.3rem' />
                                                         </ListItemIcon>
-                                                        <ListItemText primary={<Typography variant='body2'>{t('profileMenu.logout')}</Typography>} />
+                                                        <ListItemText
+                                                            primary={<Typography variant='body2'>{t('profileMenu.logout')}</Typography>}
+                                                        />
                                                     </ListItemButton>
                                                 )}
                                             </List>
