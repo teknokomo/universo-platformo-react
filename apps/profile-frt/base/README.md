@@ -164,26 +164,24 @@ const { data, error } = await supabase.rpc('change_user_password_secure', {
 
 ## Database Migration
 
-**Important Note**: Currently, the SQL functions for profile management are included in the Unik-related migration `packages/server/src/database/migrations/postgres/1741277504476-AddUniks.ts`. This is a temporary solution for development convenience.
+The profile management system now has its own dedicated migration structure, maintaining proper separation of concerns between profile functionality and other system components.
 
-In the future, a separate migration will be created specifically for user profile functionality to maintain proper separation of concerns.
+### Profile Service Migration
 
-### Current Migration Structure
+The profile system uses a dedicated migration `apps/profile-srv/base/src/database/migrations/postgres/1741277504477-AddProfile.ts` that includes:
 
-The `AddUniks1741277504476` migration includes:
+-   **Profile table schema**: Complete user profile data structure
+-   **Row Level Security (RLS) policies**: Secure access control for profile data
+-   **User profile SQL functions**: Authentication and profile management functions
+-   **Database triggers**: Automatic profile creation on user registration
 
--   Unik (workspace) tables and relationships
--   Row Level Security (RLS) policies
--   **User profile SQL functions** (temporary placement)
+### Integration with Main Platform
 
-### Future Migration Plan
+The profile service integrates with the main Flowise platform through:
 
-A dedicated profile migration will be created containing:
-
--   User profile-specific SQL functions
--   Profile-related database schemas
--   Authentication enhancements
--   User preference storage
+-   **Entity Integration**: Profile entities are automatically included in the main database schema
+-   **Migration System**: Profile migrations are integrated into the PostgreSQL migration system
+-   **Shared Authentication**: Uses the same Supabase authentication system as the main platform
 
 ## User Interface
 
@@ -359,7 +357,6 @@ The profile frontend integrates seamlessly with the main Flowise platform:
 -   **Single User Context**: Currently designed for individual user management
 -   **Basic Validation**: Limited client-side validation rules
 -   **No Avatar Support**: Profile pictures not yet implemented
--   **Migration Coupling**: Profile functions temporarily in Unik migration
 
 ## Future Enhancements
 
