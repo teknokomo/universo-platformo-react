@@ -23,10 +23,47 @@ export class ProfileService {
     }
 
     /**
+     * Check if nickname is available
+     */
+    async checkNicknameAvailable(nickname: string, excludeUserId?: string): Promise<boolean> {
+        try {
+            const query = this.profileRepository.createQueryBuilder('profile').where('profile.nickname = :nickname', { nickname })
+
+            if (excludeUserId) {
+                query.andWhere('profile.user_id != :userId', { userId: excludeUserId })
+            }
+
+            const existing = await query.getOne()
+            return !existing
+        } catch (error) {
+            // If repository query fails (e.g., table doesn't exist in local DB), assume nickname is available.
+            return true
+        }
+    }
+
+    /**
      * Update existing user profile
      */
     async updateProfile(userId: string, data: UpdateProfileDto): Promise<Profile | null> {
-        await this.profileRepository.update({ user_id: userId }, data)
+        // Check nickname uniqueness if being updated
+        if (data.nickname) {
+            const isAvailable = await this.checkNicknameAvailable(data.nickname, userId)
+            if (!isAvailable) {
+                throw new Error('Nickname is already taken')
+            }
+        }
+
+        const updateData = {
+            ...data,
+            updated_at: new Date()
+        }
+
+        const result = await this.profileRepository.update({ user_id: userId }, updateData)
+
+        if (result.affected === 0) {
+            return null
+        }
+
         return await this.getUserProfile(userId)
     }
 

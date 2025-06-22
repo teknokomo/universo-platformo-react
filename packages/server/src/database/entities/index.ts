@@ -18,7 +18,7 @@ import { User } from './User'
 import { UserUnik } from './UserUnik'
 
 // Profile entities
-import { Profile } from '../../../../../apps/profile-srv/base/dist/database/entities/Profile'
+import { Profile } from '../../../../../apps/profile-srv/base/src/database/entities/Profile'
 
 export const entities = {
     ChatFlow,

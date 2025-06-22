@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { supabase } from '../../utils/supabase'
+import { createClient } from '@supabase/supabase-js'
 import logger from '../../utils/logger'
 
 // Validate environment variables
@@ -232,19 +233,34 @@ export const updateUserPassword = async (req: Request, res: Response) => {
     }
 
     try {
-        // Get user from token
+        // Create a new client instance with the user's token
+        const userSupabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        })
+
+        // Restore session to ensure auth context is passed to RPC calls
+        await userSupabase.auth.setSession({
+            access_token: token,
+            refresh_token: '' // Not needed for single RPC
+        })
+
+        // Verify user with token first
         const {
             data: { user },
             error: userError
-        } = await supabase.auth.getUser(token)
+        } = await userSupabase.auth.getUser()
 
         if (userError || !user) {
             logger.error(`Failed to get user from token: ${userError?.message}`)
             return res.status(401).json({ error: 'Invalid token' })
         }
 
-        // Use secure SQL function
-        const { data, error } = await supabase.rpc('change_user_password_secure', {
+        // Use secure SQL function with authenticated client
+        const { data, error } = await userSupabase.rpc('change_user_password_secure', {
             current_password: currentPassword,
             new_password: newPassword
         })

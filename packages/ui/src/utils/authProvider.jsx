@@ -109,6 +109,11 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
+    // Get access token for API calls
+    const getAccessToken = () => {
+        return localStorage.getItem('token')
+    }
+
     return (
         <AuthContext.Provider
             value={{
@@ -116,6 +121,7 @@ export const AuthProvider = ({ children }) => {
                 loading,
                 login,
                 logout,
+                getAccessToken,
                 isAuthenticated: !!user
             }}
         >

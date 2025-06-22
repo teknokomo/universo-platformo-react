@@ -1,8 +1,10 @@
 // Profile Service Entry Point
-// This module exports the main components of the profile backend system
+// Directly export routes for integration with core Flowise
 
+export { default as createProfileRoutes } from './routes/profileRoutes'
+
+// Additional exports for standalone usage
 export * from './database/entities/Profile'
 export * from './services/profileService'
 export * from './controllers/profileController'
-export * from './routes/profileRoutes'
 export * from './types'

@@ -1,3 +1,4 @@
+import 'reflect-metadata'
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm'
 
 @Entity({ name: 'profiles' })
@@ -9,8 +10,9 @@ export class Profile {
     @Index('idx_profiles_user_id')
     user_id!: string // Foreign key to auth.users in Supabase
 
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    nickname?: string
+    @Column({ type: 'varchar', length: 50, nullable: false, unique: true })
+    @Index('idx_profiles_nickname', { unique: true })
+    nickname!: string
 
     @Column({ type: 'varchar', length: 100, nullable: true })
     first_name?: string

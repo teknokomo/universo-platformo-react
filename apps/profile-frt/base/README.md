@@ -367,6 +367,26 @@ The profile frontend integrates seamlessly with the main Flowise platform:
 -   **Two-Factor Authentication**: Enhanced security options
 -   **Profile History**: Audit log for profile changes
 
+## Recent Updates (June 2025)
+
+### Profile Architecture Improvements
+
+1. **Nickname & Email Display** – The frontend now correctly fetches and displays the user nickname from the `profiles` table alongside the authenticated email.
+2. **Secure Password Flow** – Password-change requests are forwarded to a new backend endpoint (`PUT /api/v1/auth/password`) that validates the current password through a secure Supabase SQL function.
+3. **Token Handling** – All profile operations create an Authorization header with the JWT token retrieved from `AuthProvider.getAccessToken()`.
+4. **Error Feedback** – The component surfaces precise error messages (e.g. _Current password is incorrect_) returned by the backend.
+
+### Why Indexes Were Added in `Profile.ts`
+
+The backend `Profile` entity now includes two explicit indexes:
+
+| Index                   | Column     | Purpose                                                                                                               |
+| ----------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| `idx_profiles_user_id`  | `user_id`  | Guarantees a one-to-one relationship between `auth.users` and `public.profiles`, and accelerates look-ups by user id. |
+| `idx_profiles_nickname` | `nickname` | Enforces nickname uniqueness and supports fast availability checks when users choose or change their nickname.        |
+
+These indexes greatly reduce query latency for profile retrieval and nickname availability checks that are executed by the frontend during initial page load and nickname validation.
+
 ---
 
 _Universo Platformo | Profile Frontend Module_

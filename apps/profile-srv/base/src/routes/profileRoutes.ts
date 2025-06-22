@@ -1,23 +1,51 @@
 import { Router } from 'express'
 import { ProfileController } from '../controllers/profileController'
+import { ProfileService } from '../services/profileService'
+import { Profile } from '../database/entities/Profile'
 
-export function createProfileRoutes(profileController: ProfileController): Router {
+// Create function that will be called when DataSource is available
+export function createProfileRoutes(dataSource: any): Router {
     const router = Router()
 
-    // GET /api/profile/:userId - Get user profile
-    router.get('/profile/:userId', (req, res) => profileController.getProfile(req, res))
+    // Helper to create controller lazily after DataSource is ready
+    const getController = async () => {
+        // Ensure DataSource is initialized before creating repository
+        if (!dataSource.isInitialized) {
+            await dataSource.initialize()
+        }
 
-    // POST /api/profile - Create new profile
-    router.post('/profile', (req, res) => profileController.createProfile(req, res))
+        const repo = dataSource.getRepository(Profile)
+        const service = new ProfileService(repo)
+        return new ProfileController(service)
+    }
 
-    // PUT /api/profile/:userId - Update user profile
-    router.put('/profile/:userId', (req, res) => profileController.updateProfile(req, res))
-
-    // DELETE /api/profile/:userId - Delete user profile
-    router.delete('/profile/:userId', (req, res) => profileController.deleteProfile(req, res))
-
-    // GET /api/profiles - Get all profiles (admin endpoint)
-    router.get('/profiles', (req, res) => profileController.getAllProfiles(req, res))
+    // Routes
+    router.get('/check-nickname/:nickname', async (req, res) => {
+        const controller = await getController()
+        return controller.checkNickname(req, res)
+    })
+    router.get('/:userId', async (req, res) => {
+        const controller = await getController()
+        return controller.getProfile(req, res)
+    })
+    router.post('/', async (req, res) => {
+        const controller = await getController()
+        return controller.createProfile(req, res)
+    })
+    router.put('/:userId', async (req, res) => {
+        const controller = await getController()
+        return controller.updateProfile(req, res)
+    })
+    router.delete('/:userId', async (req, res) => {
+        const controller = await getController()
+        return controller.deleteProfile(req, res)
+    })
+    router.get('/', async (req, res) => {
+        const controller = await getController()
+        return controller.getAllProfiles(req, res)
+    })
 
     return router
 }
+
+export default createProfileRoutes

@@ -64,6 +64,9 @@ import logger from '../utils/logger'
 import upAuth from '../middlewares/up-auth'
 // Universo Platformo | AR.js publishing integration
 import { publishRoutes } from '../../../../apps/publish-srv/base/dist'
+// Universo Platformo | Profile service integration
+import { createProfileRoutes } from '../../../../apps/profile-srv/base/dist'
+import { getDataSource } from '../DataSource'
 
 const router = express.Router()
 
@@ -128,7 +131,10 @@ router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingR
 // Universo Platformo | Bots
 router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
 
-// Universo Platformo | AR.js Publishing Routes
+// Universo Platformo | Publishing Routes
 router.use('/publish', publishRoutes)
+
+// Universo Platformo | Profile Routes (mounted at /api/v1/profile)
+router.use('/api/v1/profile', upAuth.ensureAuth, createProfileRoutes(getDataSource()))
 
 export default router

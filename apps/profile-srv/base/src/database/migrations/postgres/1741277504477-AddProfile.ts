@@ -9,19 +9,24 @@ export class AddProfile1741277504477 implements MigrationInterface {
             CREATE TABLE IF NOT EXISTS "profiles" (
                 "id" uuid NOT NULL DEFAULT gen_random_uuid(),
                 "user_id" uuid NOT NULL UNIQUE,
-                "nickname" character varying(50),
+                "nickname" character varying(50) NOT NULL UNIQUE,
                 "first_name" character varying(100),
                 "last_name" character varying(100),
                 "created_at" TIMESTAMP NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_profiles" PRIMARY KEY ("id"),
-                CONSTRAINT "UQ_profiles_user_id" UNIQUE ("user_id")
+                CONSTRAINT "UQ_profiles_user_id" UNIQUE ("user_id"),
+                CONSTRAINT "UQ_profiles_nickname" UNIQUE ("nickname")
             )
         `)
 
-        // 2. Add index for user_id lookup performance
+        // 2. Add indexes for performance
         await queryRunner.query(`
             CREATE INDEX "idx_profiles_user_id" ON "profiles" ("user_id")
+        `)
+
+        await queryRunner.query(`
+            CREATE INDEX "idx_profiles_nickname" ON "profiles" ("nickname")
         `)
 
         // 3. Enable Row-Level Security for data privacy
@@ -57,11 +62,39 @@ export class AddProfile1741277504477 implements MigrationInterface {
             SECURITY DEFINER
             SET search_path = public, auth
             AS $$
+            DECLARE
+                temp_nickname VARCHAR(50);
+                attempt_count INTEGER := 0;
+                max_attempts INTEGER := 5;
             BEGIN
-                -- Insert profile with RLS bypass through SECURITY DEFINER
-                -- and explicit user_id from NEW.id
-                INSERT INTO public.profiles (user_id)
-                VALUES (NEW.id);
+                -- Generate unique temporary nickname 
+                LOOP
+                    attempt_count := attempt_count + 1;
+                    temp_nickname := 'user_' || substring(NEW.id::text from 1 for 8);
+                    
+                    -- Add suffix if nickname already exists
+                    IF attempt_count > 1 THEN
+                        temp_nickname := temp_nickname || '_' || attempt_count;
+                    END IF;
+                    
+                    -- Try to insert profile with generated nickname
+                    BEGIN
+                        INSERT INTO public.profiles (user_id, nickname)
+                        VALUES (NEW.id, temp_nickname);
+                        EXIT; -- Success, exit loop
+                    EXCEPTION
+                        WHEN unique_violation THEN
+                            -- If nickname already exists, try again
+                            IF attempt_count >= max_attempts THEN
+                                -- Use timestamp as fallback
+                                temp_nickname := 'user_' || extract(epoch from now())::bigint;
+                                INSERT INTO public.profiles (user_id, nickname)
+                                VALUES (NEW.id, temp_nickname);
+                                EXIT;
+                            END IF;
+                    END;
+                END LOOP;
+                
                 RETURN NEW;
             EXCEPTION
                 WHEN OTHERS THEN

@@ -43,6 +43,36 @@ export class ProfileController {
     }
 
     /**
+     * GET /profile/check-nickname/:nickname - Check if nickname is available
+     */
+    async checkNickname(req: Request, res: Response): Promise<void> {
+        try {
+            const { nickname } = req.params
+            const userId = (req as any).user?.id // From authentication middleware
+
+            if (!nickname) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Nickname is required'
+                } as ApiResponse)
+                return
+            }
+
+            const isAvailable = await this.profileService.checkNicknameAvailable(nickname, userId)
+
+            res.json({
+                success: true,
+                data: { available: isAvailable }
+            } as ApiResponse)
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
      * POST /profile - Create new profile
      */
     async createProfile(req: Request, res: Response): Promise<void> {
@@ -57,12 +87,30 @@ export class ProfileController {
                 return
             }
 
+            if (!profileData.nickname) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Nickname is required'
+                } as ApiResponse)
+                return
+            }
+
             // Check if profile already exists
             const exists = await this.profileService.profileExists(profileData.user_id)
             if (exists) {
                 res.status(409).json({
                     success: false,
                     error: 'Profile already exists for this user'
+                } as ApiResponse)
+                return
+            }
+
+            // Check nickname availability
+            const isAvailable = await this.profileService.checkNicknameAvailable(profileData.nickname)
+            if (!isAvailable) {
+                res.status(409).json({
+                    success: false,
+                    error: 'Nickname is already taken'
                 } as ApiResponse)
                 return
             }
@@ -114,6 +162,15 @@ export class ProfileController {
                 message: 'Profile updated successfully'
             } as ApiResponse)
         } catch (error) {
+            // Handle nickname uniqueness error specifically
+            if (error instanceof Error && error.message.includes('already taken')) {
+                res.status(409).json({
+                    success: false,
+                    error: error.message
+                } as ApiResponse)
+                return
+            }
+
             res.status(500).json({
                 success: false,
                 error: error instanceof Error ? error.message : 'Internal server error'

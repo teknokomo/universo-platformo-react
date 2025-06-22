@@ -424,6 +424,25 @@ The service compiles to standard JavaScript for deployment:
 -   **Search & Filtering**: Profile search and filtering capabilities
 -   **Profile Privacy**: Privacy settings and visibility controls
 
+## Recent Updates (June 2025)
+
+### Backend Enhancements
+
+1. **Async Route Initialization** – `profileRoutes.ts` now waits for `DataSource` initialization ensuring `Profile` metadata is loaded before queries.
+2. **Authenticated Supabase Client** – `updateUserPassword` creates a per-request Supabase client with the user's JWT, allowing database functions that rely on `auth.uid()` (e.g. `change_user_password_secure`).
+3. **Detailed Error Logging** – All auth endpoints log Supabase errors with context for easier debugging.
+
+### Indexes Added in `Profile.ts`
+
+Two B-tree indexes were introduced:
+
+| Index                   | Column     | Reason                                                                                       |
+| ----------------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `idx_profiles_user_id`  | `user_id`  | Guarantees a unique profile per Supabase `auth.users` record and speeds up profile look-ups. |
+| `idx_profiles_nickname` | `nickname` | Ensures nickname uniqueness platform-wide and accelerates availability checks.               |
+
+These indexes reduce full-table scans during high-traffic nickname validation and improve JOIN performance when linking profile data to authentication records.
+
 ---
 
 **Author**: Vladimir Levadnij and Teknokomo  
