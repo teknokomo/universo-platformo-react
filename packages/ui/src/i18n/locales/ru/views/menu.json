@@ -1,8 +1,8 @@
 {
     "menu": {
         "dashboard": "Униборд",
-        "chatflows": "Чат-потоки",
-        "agentflows": "Агент-потоки",
+        "chatflows": "Пространства",
+        "agentflows": "Агенты",
         "assistants": "Ассистенты",
         "tools": "Инструменты",
         "credentials": "Учетные данные",
@@ -12,7 +12,7 @@
         "analytics": "Аналитика",
         "templates": "Шаблоны",
         "uniks": "Уники",
-        "docs": "Документация",
+        "docs": "Справка",
         "profile": "Профиль"
     },
     "profileMenu": {

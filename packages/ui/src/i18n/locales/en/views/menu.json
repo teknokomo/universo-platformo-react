@@ -1,7 +1,7 @@
 {
     "menu": {
         "dashboard": "Uniboard",
-        "chatflows": "Chatflows",
+        "chatflows": "Spaces",
         "agentflows": "Agents",
         "assistants": "Assistants",
         "tools": "Tools",
@@ -12,7 +12,7 @@
         "analytics": "Analytics",
         "templates": "Templates",
         "uniks": "Uniks",
-        "docs": "Documentation",
+        "docs": "Help",
         "profile": "Profile"
     },
     "profileMenu": {

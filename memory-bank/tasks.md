@@ -4,7 +4,63 @@
 
 **Project**: Universo Platformo React (Flowise-based platform)  
 **Base Version**: Flowise 2.2.7-patch.1  
-**Active Mode**: Memory Bank operational, ready for new tasks
+**Active Mode**: BUILD completed - Menu enhancement with Chip mechanism
+
+---
+
+## ✅ COMPLETED TASKS
+
+### Menu Enhancement (MENU-001)
+
+**Status**: COMPLETED ✅ | **Date**: 2025-01-13  
+**Type**: Level 2 Simple Enhancement | **Priority**: Medium
+
+#### Problem Solved
+
+Enhanced menu naming and functionality to improve user experience and provide better access to documentation.
+
+#### Key Changes Made
+
+**Menu Renaming:**
+
+-   **"Чат-потоки" → "Пространства"** (Russian) / **"Chatflows" → "Spaces"** (English)
+-   **"Агент-потоки" → "Агенты"** (Russian) / **"Agent Flows" → "Agents"** (English - already correct)
+-   **"Документация" → "Справка"** (Russian) / **"Documentation" → "Help"** (English)
+
+**Documentation Link Enhancement:**
+
+-   Changed "Справка"/"Help" menu item to open external link `https://docs.universo.pro` in new window
+-   Added proper external link properties (`external: true`, `target: '_blank'`)
+
+**Empty State Messages Updated:**
+
+-   **"Чат-потоков пока нет" → "Пространств пока нет"** (Russian)
+-   **"Агент-потоков пока нет" → "Агентов пока нет"** (Russian)
+-   **"No chat flows yet" → "No spaces yet"** (English)
+
+#### Files Modified
+
+**Localization Files:**
+
+-   `packages/ui/src/i18n/locales/ru/views/menu.json` - Russian menu translations
+-   `packages/ui/src/i18n/locales/en/views/menu.json` - English menu translations
+-   `packages/ui/src/i18n/locales/ru/views/chatflows.json` - Russian page titles and empty states
+-   `packages/ui/src/i18n/locales/en/views/chatflows.json` - English page titles and empty states
+
+**Menu Configuration:**
+
+-   `packages/ui/src/menu-items/unikDashboard.js` - External documentation link configuration
+
+#### Technical Implementation
+
+All changes were made to localization files and menu configuration only, preserving:
+
+-   URL routes (still `/chatflows`, `/agentflows`)
+-   Backend API endpoints
+-   Component logic and functionality
+-   Database structure
+
+The implementation was focused on user-facing text and link behavior only, ensuring no disruption to existing functionality.
 
 ---
 

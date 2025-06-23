@@ -1,13 +1,8 @@
 // Import required icons from @tabler/icons-react
-import {
-    IconFiles,
-    IconBuildingStore,
-    IconFileText,
-    IconUser
-} from '@tabler/icons-react'
+import { IconFiles, IconBuildingStore, IconFileText, IconUser, IconExternalLink } from '@tabler/icons-react'
 
 // Collect them in an icons object
-const icons = { IconFiles, IconBuildingStore, IconFileText, IconUser }
+const icons = { IconFiles, IconBuildingStore, IconFileText, IconUser, IconExternalLink }
 
 // ==============================|| UNIK DASHBOARD MENU ITEMS ||============================== //
 
@@ -25,20 +20,29 @@ const unikDashboard = {
             breadcrumbs: false
         },
         {
-            id: 'docs',
-            title: 'menu.docs',
-            type: 'item',
-            url: '/docs',
-            icon: icons.IconFileText,
-            breadcrumbs: false
-        },
-        {
             id: 'profile',
             title: 'menu.profile',
             type: 'item',
             url: '/profile',
             icon: icons.IconUser,
             breadcrumbs: false
+        },
+        {
+            id: 'docs',
+            title: 'menu.docs',
+            type: 'item',
+            url: 'https://docs.universo.pro',
+            icon: icons.IconFileText,
+            breadcrumbs: false,
+            external: true,
+            target: '_blank',
+            chip: {
+                color: 'primary',
+                variant: 'outlined',
+                size: 'small',
+                label: '⧉',
+                avatar: null
+            }
         }
     ]
 }
