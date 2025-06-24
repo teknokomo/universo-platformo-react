@@ -749,6 +749,9 @@ importers:
       '@types/uuid':
         specifier: ^9.0.7
         version: 9.0.8
+      '@universo/profile-srv':
+        specifier: workspace:*
+        version: link:../../apps/profile-srv/base
       async-mutex:
         specifier: ^0.4.0
         version: 0.4.1

@@ -29,9 +29,7 @@ import { AddArtifactsToChatMessage1726156258465 } from './1726156258465-AddArtif
 import { AddFollowUpPrompts1726666309552 } from './1726666309552-AddFollowUpPrompts'
 import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssistant'
 import { AddUniks1741277504476 } from './1741277504476-AddUniks'
-
-// Profile migrations
-import { profileMigrations } from '../../../../../../apps/profile-srv/base/dist/database/migrations/postgres'
+import { profileMigrations } from '@universo/profile-srv'
 
 export const postgresMigrations = [
     Init1693891895163,

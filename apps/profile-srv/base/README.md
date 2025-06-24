@@ -1,32 +1,41 @@
-# Profile Service Backend (profile-srv)
+# Profile Service Backend (@universo/profile-srv)
 
-Backend service for user profile management and authentication in Universo Platformo.
+Backend service for user profile management and authentication in Universo Platformo, implemented as a workspace package for clean integration and future modularity.
 
 ## Project Structure
 
-The project follows a unified structure for backend services in the monorepo:
+The project is structured as a **workspace package** (`@universo/profile-srv`) within the monorepo, enabling clean separation and future extraction to separate repositories:
 
 ```
 apps/profile-srv/base/
-├── package.json
-├── tsconfig.json
+├── package.json              # Package config with scoped name "@universo/profile-srv"
+├── tsconfig.json             # TypeScript configuration
 └── src/
    ├── database/
    │  ├── entities/
-   │  │  └── Profile.ts          # TypeORM profile entity
+   │  │  └── Profile.ts          # TypeORM profile entity (exported)
    │  └── migrations/postgres/
    │     ├── 1741277504477-AddProfile.ts  # Profile migration
-   │     └── index.ts            # Migration exports
+   │     └── index.ts            # Migration exports (exported)
    ├── controllers/
-   │  └── profileController.ts   # REST API controller
+   │  └── profileController.ts   # REST API controller (exported)
    ├── services/
-   │  └── profileService.ts      # Business logic
+   │  └── profileService.ts      # Business logic (exported)
    ├── routes/
-   │  └── profileRoutes.ts       # Express routes
+   │  └── profileRoutes.ts       # Express routes (exported)
    ├── types/
-   │  └── index.ts              # TypeScript types
-   └── index.ts                 # Entry point
+   │  └── index.ts              # TypeScript types (exported)
+   └── index.ts                 # Entry point with all exports
 ```
+
+### Workspace Package Architecture
+
+This service is implemented as a **pnpm workspace package** that:
+
+-   **Package Name**: `@universo/profile-srv` (scoped name for organization)
+-   **Integration**: Used as dependency `"@universo/profile-srv": "workspace:*"` in main server
+-   **Exports**: All modules exported via `src/index.ts` for clean imports
+-   **Future-Ready**: Prepared for extraction to separate repository as plugin
 
 ## Features
 
@@ -300,14 +309,16 @@ Express routes are configured for all profile endpoints:
 
 ## Integration
 
-### Flowise Platform Integration
+### Workspace Package Integration
 
-The profile service integrates seamlessly with the main Flowise platform:
+The profile service integrates with the main Flowise platform as a **workspace package**:
 
-1. **Entity Integration**: Profile entity automatically included in main entities index
-2. **Migration Integration**: Profile migrations included in PostgreSQL migration system
-3. **Build System**: Included in monorepo build process
-4. **Authentication**: Uses shared JWT authentication system
+1. **Package Import**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+2. **Entity Integration**: Profile entity automatically included in main entities index
+3. **Migration Integration**: Profile migrations included in PostgreSQL migration system via spread operator
+4. **Route Integration**: Profile routes mounted at `/api/v1/profile` with authentication middleware
+5. **Build System**: Automatic dependency resolution and build ordering via pnpm workspace
+6. **Authentication**: Uses shared JWT authentication system
 
 ### Supabase Integration
 
@@ -321,33 +332,44 @@ The profile service integrates seamlessly with the main Flowise platform:
 ### Setup
 
 ```bash
-# Install dependencies
+# Install dependencies (from project root)
 pnpm install
 
-# Build the service
-pnpm --filter profile-srv build
+# Build the workspace package
+pnpm --filter @universo/profile-srv build
 ```
 
 ### Development Mode
 
 ```bash
 # Development with watch mode
-pnpm --filter profile-srv dev
+pnpm --filter @universo/profile-srv dev
 ```
 
 ### Building
 
 ```bash
 # Clean build
-pnpm --filter profile-srv clean
-pnpm --filter profile-srv build
+pnpm --filter @universo/profile-srv clean
+pnpm --filter @universo/profile-srv build
 ```
 
 ### Testing
 
 ```bash
 # Run linting
-pnpm --filter profile-srv lint
+pnpm --filter @universo/profile-srv lint
+```
+
+### Integration Verification
+
+```bash
+# Verify workspace package integration
+node -e "console.log(Object.keys(require('@universo/profile-srv')))"
+# Expected output: createProfileRoutes, Profile, profileMigrations, ProfileService, ProfileController
+
+# Build entire project including profile service
+pnpm build
 ```
 
 ## Dependencies
@@ -424,7 +446,15 @@ The service compiles to standard JavaScript for deployment:
 -   **Search & Filtering**: Profile search and filtering capabilities
 -   **Profile Privacy**: Privacy settings and visibility controls
 
-## Recent Updates (June 2025)
+## Recent Updates (January 2025)
+
+### Workspace Package Conversion
+
+1. **Package Restructure** – Converted from relative imports to workspace package `@universo/profile-srv`
+2. **Clean Import System** – Main server now imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+3. **Enhanced Exports** – All components exported via `src/index.ts` for clean package interface
+4. **Build Integration** – Automatic dependency resolution and build ordering via pnpm workspace
+5. **Future-Ready Architecture** – Prepared for extraction to separate repository as plugin
 
 ### Backend Enhancements
 

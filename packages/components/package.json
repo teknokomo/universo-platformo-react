@@ -12,7 +12,7 @@
         "nuke": "rimraf dist node_modules .turbo"
     },
     "keywords": [],
-    "homepage": "https://funiverso.pro",
+    "homepage": "https://universo.pro",
     "author": {
         "name": "Vladimir Levadnij and Teknokomo",
         "email": "info@universo.pro"

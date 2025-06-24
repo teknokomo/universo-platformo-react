@@ -1,5 +1,5 @@
 {
-    "name": "profile-srv",
+    "name": "@universo/profile-srv",
     "version": "0.1.0",
     "description": "Backend for user profile system in Universo Platformo",
     "main": "dist/index.js",

@@ -1,32 +1,41 @@
-# Бэкенд сервиса профилей (profile-srv)
+# Бэкенд сервиса профилей (@universo/profile-srv)
 
-Бэкенд-сервис для управления профилями пользователей и аутентификации в Universo Platformo.
+Бэкенд-сервис для управления профилями пользователей и аутентификации в Universo Platformo, реализованный как workspace пакет для чистой интеграции и будущей модульности.
 
 ## Структура проекта
 
-Проект соответствует единой структуре для бэкенд-сервисов в монорепозитории:
+Проект структурирован как **workspace пакет** (`@universo/profile-srv`) в монорепозитории, обеспечивая чистое разделение и будущую возможность извлечения в отдельные репозитории:
 
 ```
 apps/profile-srv/base/
-├── package.json
-├── tsconfig.json
+├── package.json              # Конфигурация пакета с scoped именем "@universo/profile-srv"
+├── tsconfig.json             # Конфигурация TypeScript
 └── src/
    ├── database/
    │  ├── entities/
-   │  │  └── Profile.ts          # Сущность профиля TypeORM
+   │  │  └── Profile.ts          # Сущность профиля TypeORM (экспортируемая)
    │  └── migrations/postgres/
    │     ├── 1741277504477-AddProfile.ts  # Миграция профиля
-   │     └── index.ts            # Экспорт миграций
+   │     └── index.ts            # Экспорт миграций (экспортируемый)
    ├── controllers/
-   │  └── profileController.ts   # Контроллер REST API
+   │  └── profileController.ts   # Контроллер REST API (экспортируемый)
    ├── services/
-   │  └── profileService.ts      # Бизнес-логика
+   │  └── profileService.ts      # Бизнес-логика (экспортируемая)
    ├── routes/
-   │  └── profileRoutes.ts       # Маршруты Express
+   │  └── profileRoutes.ts       # Маршруты Express (экспортируемые)
    ├── types/
-   │  └── index.ts              # Типы TypeScript
-   └── index.ts                 # Точка входа
+   │  └── index.ts              # Типы TypeScript (экспортируемые)
+   └── index.ts                 # Точка входа со всеми экспортами
 ```
+
+### Архитектура Workspace пакета
+
+Этот сервис реализован как **pnpm workspace пакет** который:
+
+-   **Имя пакета**: `@universo/profile-srv` (scoped имя для организации)
+-   **Интеграция**: Используется как зависимость `"@universo/profile-srv": "workspace:*"` в главном сервере
+-   **Экспорты**: Все модули экспортируются через `src/index.ts` для чистых импортов
+-   **Готовность к будущему**: Подготовлен для извлечения в отдельный репозиторий как плагин
 
 ## Функциональность
 
@@ -300,14 +309,16 @@ interface ApiResponse<T = any> {
 
 ## Интеграция
 
-### Интеграция с платформой Flowise
+### Интеграция Workspace пакета
 
-Сервис профилей без проблем интегрируется с основной платформой Flowise:
+Сервис профилей интегрируется с основной платформой Flowise как **workspace пакет**:
 
-1.  **Интеграция сущностей**: Сущность профиля автоматически включается в основной индекс сущностей
-2.  **Интеграция миграций**: Миграции профилей включены в систему миграций PostgreSQL
-3.  **Система сборки**: Включено в процесс сборки монорепозитория
-4.  **Аутентификация**: Использует общую систему аутентификации JWT
+1.  **Импорт пакета**: Главный сервер импортирует через `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+2.  **Интеграция сущностей**: Сущность профиля автоматически включается в основной индекс сущностей
+3.  **Интеграция миграций**: Миграции профилей включены в систему миграций PostgreSQL через spread оператор
+4.  **Интеграция маршрутов**: Маршруты профилей монтируются на `/api/v1/profile` с middleware аутентификации
+5.  **Система сборки**: Автоматическое разрешение зависимостей и порядок сборки через pnpm workspace
+6.  **Аутентификация**: Использует общую систему аутентификации JWT
 
 ### Интеграция с Supabase
 
@@ -321,33 +332,44 @@ interface ApiResponse<T = any> {
 ### Установка
 
 ```bash
-# Установка зависимостей
+# Установка зависимостей (из корня проекта)
 pnpm install
 
-# Сборка сервиса
-pnpm --filter profile-srv build
+# Сборка workspace пакета
+pnpm --filter @universo/profile-srv build
 ```
 
 ### Режим разработки
 
 ```bash
 # Разработка с режимом отслеживания
-pnpm --filter profile-srv dev
+pnpm --filter @universo/profile-srv dev
 ```
 
 ### Сборка
 
 ```bash
 # Чистая сборка
-pnpm --filter profile-srv clean
-pnpm --filter profile-srv build
+pnpm --filter @universo/profile-srv clean
+pnpm --filter @universo/profile-srv build
 ```
 
 ### Тестирование
 
 ```bash
 # Запуск линтинга
-pnpm --filter profile-srv lint
+pnpm --filter @universo/profile-srv lint
+```
+
+### Проверка интеграции
+
+```bash
+# Проверка интеграции workspace пакета
+node -e "console.log(Object.keys(require('@universo/profile-srv')))"
+# Ожидаемый вывод: createProfileRoutes, Profile, profileMigrations, ProfileService, ProfileController
+
+# Сборка всего проекта включая сервис профилей
+pnpm build
 ```
 
 ## Зависимости
@@ -424,7 +446,15 @@ pnpm --filter profile-srv lint
 -   **Поиск и фильтрация**: Возможности поиска и фильтрации профилей
 -   **Приватность профиля**: Настройки приватности и видимости профиля
 
-## Обновления (Июнь 2025)
+## Обновления (Январь 2025)
+
+### Конвертация в Workspace пакет
+
+1. **Реструктуризация пакета** — Конвертирован из относительных импортов в workspace пакет `@universo/profile-srv`
+2. **Система чистых импортов** — Главный сервер теперь импортирует через `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+3. **Улучшенные экспорты** — Все компоненты экспортируются через `src/index.ts` для чистого интерфейса пакета
+4. **Интеграция сборки** — Автоматическое разрешение зависимостей и порядок сборки через pnpm workspace
+5. **Архитектура готовая к будущему** — Подготовлена для извлечения в отдельный репозиторий как плагин
 
 ### Улучшения бекенда
 

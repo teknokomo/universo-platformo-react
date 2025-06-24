@@ -65,7 +65,7 @@ import upAuth from '../middlewares/up-auth'
 // Universo Platformo | AR.js publishing integration
 import { publishRoutes } from '../../../../apps/publish-srv/base/dist'
 // Universo Platformo | Profile service integration
-import { createProfileRoutes } from '../../../../apps/profile-srv/base/dist'
+import { createProfileRoutes } from '@universo/profile-srv'
 import { getDataSource } from '../DataSource'
 
 const router = express.Router()
