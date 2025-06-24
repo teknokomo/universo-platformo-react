@@ -10,6 +10,25 @@ Upgrade Flowise platform and refactor chatbot functionality into modular apps ar
 2. **Chatbot App Refactoring** - Move chatbot functionality to separate `apps/chatbot-frt` structure
 3. **Preserve existing functionality** - Maintain all UPDL, AR.js, and analytics capabilities
 
+### ✅ COMPLETED: Profile-SRV Workspace Package Conversion
+
+**Status**: **COMPLETED** ✅ Profile service successfully converted to workspace package
+
+#### **Profile-SRV Workspace Package:**
+
+-   **Package Name**: `@universo/profile-srv` - Scoped workspace package
+-   **Purpose**: Backend profile service with clean import system
+-   **Integration**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+-   **Architecture**: Eliminated complex relative paths, prepared for future plugin extraction
+-   **Build System**: Automatic dependency resolution via pnpm workspace
+
+#### **Technical Achievement:**
+
+-   🔧 **Clean Imports**: Replaced relative paths with workspace package imports
+-   ✅ **Verified**: All builds pass successfully, runtime working correctly
+-   📦 **Package Structure**: Professional scoped package with proper exports
+-   🚀 **Future-Ready**: Prepared for extraction to separate repository
+
 ### ✅ COMPLETED: Analytics-FRT Application Setup
 
 **Status**: **COMPLETED** ✅ Analytics functionality successfully refactored into separate app
@@ -33,7 +52,7 @@ Upgrade Flowise platform and refactor chatbot functionality into modular apps ar
 -   **Base Version**: Flowise 2.2.7-patch.1 (stable) → **Target**: Flowise 2.2.8
 -   **Custom Features**: Fully functional (Enhanced Supabase auth, Secure profile management, Uniks, i18n, UPDL, AR.js quizzes)
 -   **APPs Architecture**: 5 applications successfully implemented
--   **Last Achievement**: Profile-FRT secure password enhancement completed
+-   **Last Achievement**: Profile-SRV workspace package conversion completed
 -   **Security Level**: Enhanced with current password verification for password changes
 
 ### 🎯 NEXT PHASE: Flowise 2.2.8 Upgrade & Chatbot Refactoring
@@ -90,11 +109,18 @@ Upgrade Flowise platform and refactor chatbot functionality into modular apps ar
     - Imported via `@apps/analytics-frt` alias
 
 5. **Profile Frontend (`apps/profile-frt/`)**: Enhanced user profile management
+
     - **Secure password change**: Current password verification required
     - **Email management**: Update email with confirmation flow
     - **Full internationalization**: Russian/English localization
     - **Security features**: Bcrypt hashing, input validation, error handling
     - **Backend integration**: Custom SQL functions for secure user data updates
+
+6. **Profile Backend (`@universo/profile-srv`)**: Workspace package backend service
+    - **Workspace Package**: Scoped package with clean import system
+    - **Professional Architecture**: Eliminated complex relative paths
+    - **Future-Ready**: Prepared for extraction to separate repository
+    - **Clean Integration**: Main server imports via workspace dependency
 
 #### **Technology Stack:**
 

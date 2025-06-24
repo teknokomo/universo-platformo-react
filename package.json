@@ -2,7 +2,7 @@
     "name": "universo-platformo-react",
     "version": "2.2.7-patch.1",
     "private": true,
-    "homepage": "https://funiverso.pro",
+    "homepage": "https://universo.pro",
     "workspaces": [
         "apps/*/base",
         "packages/*",

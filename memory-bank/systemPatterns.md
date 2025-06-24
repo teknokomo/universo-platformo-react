@@ -784,13 +784,54 @@ apps/<app-name>/base/
    └─ index.ts            # entry point
 ```
 
+### Workspace Package Architecture
+
+#### Backend Services as Workspace Packages
+
+Backend applications can be implemented as **workspace packages** for better integration and future extensibility:
+
+```
+apps/<service-name>/base/
+├─ package.json           # Scoped package name "@universo/<service-name>"
+├─ tsconfig.json
+└─ src/
+   ├─ [standard structure]
+   └─ index.ts            # Entry point with all exports
+```
+
+**Example: Profile Service**
+
+-   **Package Name**: `@universo/profile-srv`
+-   **Integration**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+-   **Benefits**:
+    -   Eliminates complex relative paths
+    -   Professional package structure
+    -   Automatic dependency resolution
+    -   Prepared for extraction to separate repository
+
+#### Workspace Package vs REST API Integration
+
+**Workspace Packages** (for backend services):
+
+-   Clean import system via workspace dependencies
+-   Type-safe integration
+-   Automatic build ordering
+-   Suitable for core services (auth, profiles, etc.)
+
+**REST API** (for applications):
+
+-   Service-to-service communication
+-   Technology-agnostic integration
+-   Better isolation for complex applications
+-   Suitable for publication systems, analytics, etc.
+
 ### Key Features of the New Architecture
 
-1. **Application Independence**
+1. **Flexible Integration Approaches**
 
-    - Each application interacts with other applications and the Flowise core only through the REST API
-    - No direct imports between applications
-    - Localization of interfaces and types within each application
+    - **Backend services**: Can use workspace packages for tight integration
+    - **Applications**: Use REST API for service communication
+    - **Mixed approach**: Core services as packages, complex apps as API services
 
 2. **Clear Responsibility Separation**
 
@@ -798,15 +839,16 @@ apps/<app-name>/base/
     - Backend separates routes (routes), request processing logic (controllers), and business logic (services)
     - Helper functions (utils) are separated from interfaces (interfaces)
 
-3. **REST API as the Foundation of Interaction**
+3. **Multiple Integration Patterns**
 
-    - Frontend uses API clients for requests to the backend
-    - Backend provides clearly defined endpoints
-    - Standardization of error handling and data validation
+    - **Workspace packages**: Direct imports with type safety
+    - **REST API**: HTTP-based communication with clear contracts
+    - **Hybrid**: Core services as packages, applications as API services
 
-4. **Extensibility**
+4. **Future-Ready Extensibility**
+    - Workspace packages can be extracted to separate repositories
     - Easy addition of new components, services, and interfaces
-    - Ability to replace individual parts of the system without affecting others
-    - Support for future architectural changes
+    - Support for microservices architecture evolution
+    - Maintained compatibility during architectural changes
 
 This structure provides an optimal balance between modularity, extensibility, and code readability, while maintaining compatibility with the existing Flowise architecture.

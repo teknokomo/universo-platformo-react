@@ -70,7 +70,31 @@ Added to implement multi‑user functionality. When creating Universo Platformo 
 
 ## APPs Architecture Implementation
 
-The project has successfully implemented a modular APPs architecture with 4 working applications that separate functionality while minimizing changes to the core Flowise codebase.
+The project has successfully implemented a modular APPs architecture with 5 working applications that separate functionality while minimizing changes to the core Flowise codebase.
+
+### Workspace Package Architecture
+
+#### Profile Service Workspace Package
+
+The profile service has been successfully converted to a **workspace package** architecture:
+
+**Package Structure:**
+
+-   **Package Name**: `@universo/profile-srv` (scoped workspace package)
+-   **Integration**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
+-   **Exports**: All components exported via `src/index.ts` for clean package interface
+-   **Dependencies**: Workspace dependency `"@universo/profile-srv": "workspace:*"` in main server
+
+**Benefits Achieved:**
+
+-   **Eliminated Complex Relative Paths**: No more `../../../../apps/profile-srv/base/dist` imports
+-   **Professional Package Structure**: Scoped package with proper metadata
+-   **Automatic Dependency Resolution**: pnpm workspace handles build ordering
+-   **Future-Ready**: Prepared for extraction to separate repository as plugin
+-   **Type Safety**: Full TypeScript integration with workspace resolution
+
+**Implementation Pattern:**
+This workspace package pattern can be applied to other backend services for similar benefits. Frontend applications continue to use REST API communication for appropriate separation.
 
 ### Current Directory Structure (Verified & Complete)
 
@@ -137,16 +161,28 @@ universo-platformo-react/
 │   │       ├── dist/          # Compiled output
 │   │       ├── package.json
 │   │       └── tsconfig.json
-│   └── analytics-frt/         # Analytics system frontend
+│   ├── analytics-frt/         # Analytics system frontend
+│   │   └── base/
+│   │       ├── src/
+│   │       │   ├── pages/     # Page components
+│   │       │   │   └── Analytics.jsx # Main analytics component
+│   │       │   └── index.ts   # Entry point
+│   │       ├── dist/          # Compiled output
+│   │       ├── package.json
+│   │       ├── tsconfig.json  # TypeScript config with allowJs: true
+│   │       └── gulpfile.ts    # Asset copying during build
+│   └── profile-srv/           # Profile service backend (WORKSPACE PACKAGE)
 │       └── base/
 │           ├── src/
-│           │   ├── pages/     # Page components
-│           │   │   └── Analytics.jsx # Main analytics component
-│           │   └── index.ts   # Entry point
+│           │   ├── database/  # TypeORM entities and migrations (exported)
+│           │   ├── controllers/# REST API controllers (exported)
+│           │   ├── services/  # Business logic services (exported)
+│           │   ├── routes/    # Express routes (exported)
+│           │   ├── types/     # TypeScript types (exported)
+│           │   └── index.ts   # Entry point with all exports
 │           ├── dist/          # Compiled output
-│           ├── package.json
-│           ├── tsconfig.json  # TypeScript config with allowJs: true
-│           └── gulpfile.ts    # Asset copying during build
+│           ├── package.json   # "@universo/profile-srv" workspace package
+│           └── tsconfig.json  # TypeScript configuration
 ```
 
 ### Interface Architecture (Two-Layer System)
