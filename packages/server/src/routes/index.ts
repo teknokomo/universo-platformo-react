@@ -134,7 +134,7 @@ router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
 // Universo Platformo | Publishing Routes
 router.use('/publish', publishRoutes)
 
-// Universo Platformo | Profile Routes (mounted at /api/v1/profile)
-router.use('/api/v1/profile', upAuth.ensureAuth, createProfileRoutes(getDataSource()))
+// Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
+router.use('/profile', upAuth.ensureAuth, createProfileRoutes(getDataSource()))
 
 export default router
