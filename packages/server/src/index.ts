@@ -1,11 +1,11 @@
 import express from 'express'
-import { Request, Response } from 'express'
+import { Request, Response, NextFunction } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
 // Universo Platformo | Removed express-basic-auth import - Basic Auth is no longer used
 // import basicAuth from 'express-basic-auth'
-import cookieParser from 'cookie-parser' // Universo Platformo | Add cookie-parser for refresh tokens
+const cookieParser = require('cookie-parser') // Universo Platformo | Add cookie-parser for refresh tokens
 import jwt from 'jsonwebtoken' // Universo Platformo | New import for JWT verification
 import { DataSource } from 'typeorm'
 import { MODE } from './Interface'
@@ -132,13 +132,13 @@ export class App {
             this.app.set('trust proxy', parseInt(process.env.NUMBER_OF_PROXIES))
 
         // Universo Platformo | Add cookie-parser middleware
-        this.app.use(cookieParser())
+        this.app.use(cookieParser() as any)
 
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))
 
         // Allow embedding from specified domains.
-        this.app.use((req, res, next) => {
+        this.app.use((req: Request, res: Response, next: NextFunction) => {
             const allowedOrigins = getAllowedIframeOrigins()
             if (allowedOrigins == '*') {
                 next()
@@ -164,7 +164,7 @@ export class App {
 
         // ======= NEW AUTHENTICATION MIDDLEWARE (Supabase JWT) =======
         // Universo Platformo | This middleware replaces the old Basic Auth logic and checks all requests to the API.
-        this.app.use('/api/v1', async (req: Request, res: Response, next) => {
+        this.app.use('/api/v1', async (req: Request, res: Response, next: NextFunction) => {
             // Universo Platformo | If the path does not contain /api/v1, skip
             if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
                 return next()

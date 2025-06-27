@@ -168,8 +168,8 @@ const Credentials = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('credentials.deleteError', { 
-                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    message: t('credentials.deleteError', {
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
                         key: new Date().getTime() + Math.random(),
@@ -360,10 +360,10 @@ const Credentials = () => {
                                                             </Box>
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(credential.updatedDate).format('MMMM Do, YYYY')}
+                                                            {moment(credential.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(credential.createdDate).format('MMMM Do, YYYY')}
+                                                            {moment(credential.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
                                                             <IconButton title='Edit' color='primary' onClick={() => edit(credential)}>
