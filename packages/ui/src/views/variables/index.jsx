@@ -155,8 +155,8 @@ const Variables = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('variables.deleteError', { 
-                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    message: t('variables.deleteError', {
+                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
                         key: new Date().getTime() + Math.random(),
@@ -210,7 +210,12 @@ const Variables = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('variables.searchPlaceholder')} title={t('variables.title')}>
+                        <ViewHeader
+                            onSearchChange={onSearchChange}
+                            search={true}
+                            searchPlaceholder={t('variables.searchPlaceholder')}
+                            title={t('variables.title')}
+                        >
                             <Button variant='outlined' sx={{ borderRadius: 2, height: '100%' }} onClick={() => setShowHowToDialog(true)}>
                                 {t('variables.howToUse')}
                             </Button>
@@ -350,10 +355,10 @@ const Variables = () => {
                                                             />
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(variable.updatedDate).format('MMMM Do, YYYY')}
+                                                            {moment(variable.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(variable.createdDate).format('MMMM Do, YYYY')}
+                                                            {moment(variable.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
                                                             <IconButton title='Edit' color='primary' onClick={() => edit(variable)}>

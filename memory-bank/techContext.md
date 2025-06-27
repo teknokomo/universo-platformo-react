@@ -32,7 +32,7 @@
 
 ## Flowise AI
 
-Original project that serves as the foundation. Version 2.2.7‑patch.1 (will be updated in the future).
+Original project that serves as the foundation. Version 2.2.8 (upgraded from 2.2.7‑patch.1 on 2025-06-27).
 
 ## Supabase Integration
 
