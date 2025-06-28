@@ -1,21 +1,29 @@
 # Progress
 
-**As of 2025-01-23**
+**As of 2025-06-28**
 
 ## Completed (chronological)
 
-| Release         | Date       | Highlights                                                                                                          |
-| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
-| 0.1.0‑pre‑alpha | 2025‑03‑03 | Initial project scaffold created                                                                                    |
-| 0.2.0‑pre‑alpha | 2025‑03‑11 | Added multi‑user (Supabase) foundation                                                                              |
-| 0.3.0‑pre‑alpha | 2025‑03‑17 | Basic **Uniks** functionality delivered                                                                             |
-| 0.4.0‑pre‑alpha | 2025‑03‑25 | Full Uniks feature‑set shipped                                                                                      |
-| 0.5.0‑pre‑alpha | 2025‑03‑30 | Document Store, Templates, complete i18n                                                                            |
-| 0.6.0‑pre‑alpha | 2025‑04‑06 | Chatbots module, Auth UI, language‑file refactor                                                                    |
-| 0.7.0‑pre‑alpha | 2025‑04‑16 | First AR prototype with **AR.js** marker scene                                                                      |
-| 0.8.0‑pre‑alpha | 2025‑04‑22 | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created             |
-| 0.8.5‑pre‑alpha | 2025‑04‑29 | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                |
-| 0.9.0‑pre‑alpha | 2025‑05‑12 | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support |
+| Release          | Date       | Highlights                                                                                                          |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| 0.1.0‑pre‑alpha  | 2025‑03‑03 | Initial project scaffold created                                                                                    |
+| 0.2.0‑pre‑alpha  | 2025‑03‑11 | Added multi‑user (Supabase) foundation                                                                              |
+| 0.3.0‑pre‑alpha  | 2025‑03‑17 | Basic **Uniks** functionality delivered                                                                             |
+| 0.4.0‑pre‑alpha  | 2025‑03‑25 | Full Uniks feature‑set shipped                                                                                      |
+| 0.5.0‑pre‑alpha  | 2025‑03‑30 | Document Store, Templates, complete i18n                                                                            |
+| 0.6.0‑pre‑alpha  | 2025‑04‑06 | Chatbots module, Auth UI, language‑file refactor                                                                    |
+| 0.7.0‑pre‑alpha  | 2025‑04‑16 | First AR prototype with **AR.js** marker scene                                                                      |
+| 0.8.0‑pre‑alpha  | 2025‑04‑22 | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created             |
+| 0.8.5‑pre‑alpha  | 2025‑04‑29 | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                |
+| 0.9.0‑pre‑alpha  | 2025‑05‑12 | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support |
+| 0.10.0‑pre‑alpha | 2025‑05‑08 | Memory bank updates, Publishing/UPDL apps enhancement, authorization improvements                                   |
+| 0.11.0‑pre‑alpha | 2025‑05‑15 | Global refactoring Stage 2 results, Gulp task manager, app separation (updl/publish)                                |
+| 0.12.0‑pre‑alpha | 2025‑05‑22 | Removed pre-generation test functionality, UPDL export cleanup                                                      |
+| 0.13.0‑pre‑alpha | 2025‑05‑28 | AR.js library location selection, flexible UPDL assembly, multiple objects support                                  |
+| 0.14.0‑pre‑alpha | 2025‑06‑04 | AR.js library loading functionality, AR bot code removal, project cleanup                                           |
+| 0.15.0‑pre‑alpha | 2025‑06‑13 | **Flowise 3.0.1 attempted upgrade with rollback** to 2.2.7-patch.1, UPDL scoring system                             |
+| 0.16.0‑pre‑alpha | 2025‑06‑21 | Russian localization fixes, analytics app separation, user profile enhancements                                     |
+| 0.17.0‑pre‑alpha | 2025‑06‑25 | Enhanced user profile fields, menu updates, profile-srv workspace package conversion                                |
 
 ## Stage 2 Issues & Lessons Learned
 
@@ -32,256 +40,102 @@ These insights informed our revised approach for Stage 3, leading to the simplif
 
 ## Recent Major Achievements
 
-### ✅ UPDL Applications Complete Refactoring (January 2025)
+### ✅ UPDL Applications Complete Refactoring (Completed)
 
 **MAJOR MILESTONE ACHIEVED**
 
--   **✅ Removed updl-srv entirely**
-    -   Determined that Flowise server already provides all needed backend functionality
-    -   Eliminated code duplication by leveraging existing utilBuildUPDLflow
-    -   Simplified architecture by removing unnecessary backend application
--   **✅ Renamed updl-frt to updl**
-    -   Simplified naming as there's no corresponding server application
-    -   Updated package.json, documentation, and all references
--   **✅ Cleaned updl from export/publication logic**
-    -   Removed all configs, store, api directories - legacy functionality
-    -   Eliminated ExporterContext, constants related to export
-    -   Streamlined to pure UPDL node definitions only
--   **✅ Verified system works correctly**
-    -   All builds pass successfully
-    -   UPDL nodes load correctly in Flowise via NodesPool
-    -   Publication system works with simplified architecture
-    -   Logs show proper UPDL data flow and AR.js generation
+-   **Removed updl-srv entirely** - Flowise server provides all needed backend functionality
+-   **Renamed updl-frt to updl** - Simplified naming without corresponding server app
+-   **Cleaned UPDL from export/publication logic** - Streamlined to pure node definitions only
+-   **Verified system integrity** - All builds pass, UPDL nodes work correctly
 
-**Final Architecture Achieved:**
+**Final Architecture:**
 
 ```
 apps/
-├── updl/           # Pure UPDL node definitions (formerly updl-frt)
+├── updl/           # Pure UPDL node definitions
 ├── publish-frt/    # Publication frontend
 └── publish-srv/    # Publication backend
 ```
 
-### Application Structure Refactoring (2023-09-25)
+### Application Structure Refactoring (Completed)
 
--   **Standardized directory structure** across all applications ✅
-    -   Frontend apps: assets/, api/, components/, features/, hooks/, etc.
-    -   Backend apps: controllers/, routes/, services/, models/, etc.
--   **Features migration** from miniapps directory ✅
-    -   Renamed miniapps → features in publish-frt
-    -   Updated all import paths
-    -   Verified build process works correctly
-    -   Removed old miniapps directories
--   **Asset management improvement** ✅
-    -   Created dedicated icons/ and images/ directories
-    -   Improved organization of static assets
-    -   Updated import paths for all assets
--   **REST API communication** between applications ✅
-    -   Replaced direct imports with API client calls
-    -   Implemented type-safe HTTP clients
-    -   Created clear contracts between frontend and backend
--   **Documentation updates** ✅
-    -   Updated all README files with new structure
-    -   Added comprehensive documentation of architecture
+-   **Standardized directory structure** across all applications
+-   **Features migration** from miniapps → features in publish-frt
+-   **Asset management improvement** with dedicated directories
+-   **REST API communication** between applications with type-safe clients
+-   **Documentation updates** reflecting current architecture
 
 ## Current Status ✅
 
-**REFACTORING PHASE COMPLETED**
+**Core Foundation Completed:**
 
--   ✅ **Application structure refactoring** - All apps follow unified structure
--   ✅ **UPDL applications cleanup** - Simplified to essential functionality only
--   ✅ **Build process verification** - All tests pass, no regressions
--   ✅ **Documentation updates** - README files reflect current architecture
--   ✅ **System integration** - UPDL nodes work correctly with publication flow
+-   ✅ APPs architecture with 4 working applications
+-   ✅ UPDL node system integrated with Flowise
+-   ✅ AR.js publication flow with quiz functionality
+-   ✅ Supabase multi-user authentication
+-   ✅ Profile system with workspace package architecture
 
-## Implementation Roadmap (Updated)
-
-### Phase 1: Streamlined Foundation ✅ COMPLETED
-
--   APPs directory structure reorganization ✅
--   Simplified publication architecture ✅
--   Interface restructuring and optimization ✅
--   **UPDL applications refactoring** ✅
--   **System verification and testing** ✅
-
-### Phase 2: Enhanced Functionality (Current Focus)
-
--   Client-side "Streaming" generation mode 🔄
--   UPDL nodes to publication connection ✅ (verified working)
--   Complete set of UPDL nodes 🔄
--   Working AR.js publication flow ✅ (basic functionality working)
-
-### Phase 3: User Experience
-
--   AR.js marker scene testing ⏳
--   Publication URL scheme improvement ⏳
--   QR code generation for mobile access ⏳
--   UI improvements and better error handling ⏳
-
-### Phase 4: Advanced Features
-
--   Server-side "Pre-generation" mode ⏳
--   Additional exporters (PlayCanvas, Babylon.js, etc.) ⏳
--   Complete documentation ⏳
-
-## Current Focus
-
-**Next phase priorities:**
-
--   Implementing enhanced "Streaming" mode for client-side AR.js generation
--   Improving user experience of publication interface
--   Testing with more complex UPDL scenes
--   Fixing remaining publication interface mode switching issues
--   Developing comprehensive documentation
-
-**Architecture decisions confirmed:**
+**Architecture Principles:**
 
 -   **UPDL** → Pure node definitions for Flowise integration
 -   **Publish system** → Handle export to specific technologies
 -   **Flowise core** → Provide backend processing via existing utilities
 
-## Upcoming
+**Next Priorities:**
 
--   **1.1.0-pre-alpha** - Enhanced streaming generation, improved UX
--   **1.2.0-pre-alpha** - Complete UPDL node set, advanced testing
--   **1.3.0-pre-alpha** - Additional export options, documentation
+-   Enhanced user experience and interface improvements
+-   Advanced UPDL node types for diverse project creation
+-   Project versioning and publication system evolution
 
-## UPDL Architecture Simplification
+## UPDL Architecture Simplification ✅
 
-### Completed ✅
+**Key Changes:**
 
-1. **Eliminated updl-srv application:**
-    - Determined unnecessary as Flowise server provides all needed backend functionality
-    - Removed entire application directory and all related code
-    - Updated workspace configuration
-2. **Simplified updl application (formerly updl-frt):**
-    - Renamed from updl-frt to updl for clarity
-    - Removed all export/publication related code and directories
-    - Cleaned configs, store, api directories - kept only essential functionality
-    - Streamlined to assets, hooks, i18n, interfaces, nodes, utils only
-3. **Verified system integrity:**
-    - All builds pass successfully after refactoring
-    - UPDL nodes continue to work correctly in Flowise
-    - Publication flow continues to function with simplified architecture
-    - No regressions detected in existing functionality
+1. **Eliminated updl-srv** - Flowise server provides all backend functionality
+2. **Simplified updl app** - Pure node definitions only, removed export/publication logic
+3. **Verified system integrity** - All builds pass, no regressions
 
-### Impact
-
-This refactoring achieves the optimal architecture for our MVP:
-
--   **Clearest separation of concerns** - UPDL focuses purely on node definitions
--   **Eliminates code duplication** - Uses existing Flowise backend functionality
--   **Simplifies maintenance** - Fewer applications to manage and develop
--   **Improves integration** - Better alignment with Flowise architecture patterns
-
-**Result**: Clean, maintainable codebase ready for enhanced user experience development.
+**Impact:** Clean separation of concerns, reduced code duplication, simplified maintenance.
 
 # Progress Log
 
-## Latest Changes
+## Latest Achievements
 
-### 2025-01-27: Flowise 2.2.8 Platform Upgrade ✅ COMPLETED
+### 2025-01-27: Flowise 2.2.8 Platform Upgrade ✅
 
-**BUILD MODE - Platform Modernization**
+**Platform modernization completed** - Upgraded from 2.2.7-patch.1 to 2.2.8 with enhanced ASSISTANT type support, improved TypeScript compatibility, and preserved user isolation. Zero data loss, all builds successful.
 
-**✅ Flowise Platform Successfully Upgraded from 2.2.7-patch.1 to 2.2.8:**
+### 2025-06-24: Profile-SRV Workspace Package Conversion ✅
 
--   **Core Service Updates**: Enhanced chatflow service with ASSISTANT type support while preserving unikId user isolation
--   **Export-Import Enhancement**: Updated all service calls to maintain user data isolation across new API features
--   **TypeScript Compatibility**: Resolved middleware typing issues with NextFunction imports for improved type safety
--   **Cookie-Parser Integration**: Fixed TypeScript compatibility using CommonJS import strategy for authentication system
--   **API Compatibility**: Added support for new ASSISTANT chatflow type alongside existing MULTIAGENT and CHATFLOW types
--   **Import Validation**: Enhanced with UUID validation for imported chatflows using validate() function
--   **User Isolation Preserved**: All unikId filtering functionality maintained across platform upgrade
--   **Zero Data Loss**: Upgrade completed without affecting user data, settings, or custom functionality
--   **Build Verification**: All TypeScript compilation, server startup, and feature testing successful
--   **Architecture Impact**: Backward compatibility preserved, new features integrated, enhanced security maintained
+**Workspace package architecture implemented** - Converted apps/profile-srv to scoped package `@universo/profile-srv` with clean imports, eliminated complex relative paths, prepared for future plugin architecture.
 
-**Result**: Successfully modernized platform base while preserving all Universo-specific functionality and user isolation features.
+### 2025-01-26: Universal UPDL Data Extraction Fix ✅
 
-### 2025-06-24: Profile-SRV Workspace Package Conversion ✅ COMPLETED
+**Multi-object spaces enhancement** - Fixed buildUPDLSpaceFromNodes data extraction with corrected field mapping, position handling, and color format. Maintained architectural separation between universal UPDL and AR.js-specific logic.
 
-**BUILD MODE - Workspace Package Architecture Implementation**
+### 2024-12-19: Documentation QA & Code Cleanup ✅
 
-**✅ Profile Service Workspace Package Successfully Implemented:**
+**Documentation verification completed** - Corrected app structure documentation, clarified interface architecture (UPDLInterfaces.ts vs Interface.UPDL.ts), verified directory structures.
 
--   **Package Conversion**: Converted `apps/profile-srv` from relative imports to workspace package `@universo/profile-srv`
--   **Clean Import System**: Main server now imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
--   **Enhanced Package Structure**:
-    -   Scoped package name: `"@universo/profile-srv"`
-    -   Workspace dependency: `"@universo/profile-srv": "workspace:*"`
-    -   All modules exported via `src/index.ts`
-    -   Professional package.json with proper metadata
--   **Import Path Updates**:
-    -   Database entities: `../../../../apps/profile-srv/base/dist` → `@universo/profile-srv`
-    -   Migrations: `../../../../../../apps/profile-srv/base/dist/database/migrations/postgres` → `@universo/profile-srv`
-    -   Routes: `../../../../apps/profile-srv/base/dist` → `@universo/profile-srv`
--   **Build Verification**: All builds pass successfully, runtime working correctly
--   **Future-Ready Architecture**: Prepared for extraction to separate repository as plugin
+**Code refactoring completed** - Cleaned ARJSPublishApi.ts and ARJSPublisher.jsx, removed redundant code while preserving demo functionality and streaming pipeline.
 
-**Implementation Benefits**:
+## Future Roadmap
 
--   ✅ **Eliminated Complex Relative Paths**: No more `../../../../../` imports
--   ✅ **Professional Package Structure**: Scoped package with clean exports
--   ✅ **Automatic Dependency Resolution**: pnpm workspace handles build ordering
--   ✅ **Microservices Preparation**: Ready for future plugin architecture
+### **0.18.0-pre-alpha: Platform Stabilization**
 
-**Result**: Profile service now follows professional package standards and is prepared for future architectural evolution.
+-   Enhanced user profile system and architecture consolidation
+-   Stability improvements and comprehensive documentation
+-   Automated testing framework implementation
 
-### 2025-01-26: Step 1 Implementation - Universal UPDL Data Extraction Fix ✅ COMPLETED
+### **0.19.0-pre-alpha: Advanced UPDL Development**
 
-**BUILD MODE - Multi-Object Spaces Enhancement**
+-   New UPDL node types (Physics, Animation, Interaction, Networking)
+-   Universo MMOOMM integration with PlayCanvas technology
+-   Multi-scene projects and collaborative features
 
-**✅ Step 1 Successfully Implemented:**
+### **0.20.0-alpha: Publication System Evolution**
 
--   **Core Issue Fixed**: buildUPDLSpaceFromNodes data extraction in `packages/server/src/utils/buildUPDLflow.ts`
--   **Technical Changes Applied (lines 194-206)**:
-    -   Field mapping corrected: `inputs.type` → `inputs.objectType`
-    -   Position extraction fixed: `inputs.position` → `inputs.positionX/Y/Z` with Number() conversion
-    -   Scale handling unified: proper x/y/z mapping with single scale input
-    -   Color format standardized: string format instead of RGB object
--   **Verification**: `pnpm run build` completed successfully, no breaking changes
--   **Architecture Maintained**: Proper separation between universal UPDL processing and AR.js-specific logic
-
-**Implementation Status**:
-
--   ✅ **Step 1**: Universal UPDL data extraction (COMPLETED)
--   🔄 **Step 2**: PositionManager implementation (NEXT)
--   ⏳ **Step 3**: MultiObjectValidator implementation
--   ⏳ **Step 4**: Performance optimization
-
-**Architectural Decision Confirmed**: `buildUPDLSpaceFromNodes` handles only universal UPDL data extraction, while AR.js-specific logic (positioning, validation) implemented in `apps/publish-frt/builders/arjs/ObjectHandler.ts`.
-
-**Result**: Multiple objects in UPDL spaces now have proper data extraction foundation. Ready to proceed with AR.js-specific positioning and validation enhancements.
-
-### 2024-12-19: QA Documentation Verification & Interface Architecture Clarification
-
-**✅ Documentation QA completed:**
-
--   **VERIFIED** app structure documentation against real directory structure
--   **CORRECTED** publish-srv documentation - removed non-existent directories (interfaces, middlewares, services, models, configs, validators)
--   **CORRECTED** publish-frt documentation - removed non-existent directories (hooks, routes, store, interfaces)
--   **CLARIFIED** interface architecture - documented separation between UPDLInterfaces.ts and Interface.UPDL.ts
--   **CONFIRMED** no interface duplication - each serves distinct purpose (core UPDL vs integration layer)
--   **UPDATED** README files with interface architecture explanation
-
-**Interface Architecture Documented:**
-
--   `UPDLInterfaces.ts` - Complete UPDL ecosystem definitions for internal use
--   `Interface.UPDL.ts` - Simplified integration layer for backend/frontend communication
-
-### 2024-12-19: Code Refactoring and Cleanup
-
-**✅ Level 1 Code Cleanup completed:**
-
--   **CLEANED ARJSPublishApi.ts** - removed type aliases duplication, excessive URL logging, optimized error handling
--   **OPTIMIZED ARJSPublisher.jsx** - removed unused imports (Button, Icons), excessive URL analysis logging, cleaned API request parameters
--   **PRESERVED demo functionality** - maintained Template selector component and all demo mode features (DEMO_MODE = false)
--   **VERIFIED A-Frame usage** - UPDLToARJSConverter.ts and ARViewPage.tsx correctly use A-Frame as AR.js foundation
--   **COMPLETED build verification** - all 7 packages built successfully without errors
--   **MAINTAINED streaming functionality** - preserved working AR.js publication pipeline
-
-**Files Optimized:**
-
--   `apps/publish-frt/base/src/api/ARJSPublishApi.ts` - cleaner API client with proper error handling
--   `apps/publish-frt/base/src/features/arjs/ARJSPublisher.jsx` - removed redundant code while preserving demo functionality
+-   Advanced project versioning and Chatflow (Spaces) management
+-   Publication branching (dev/staging/production)
+-   **Transition to Alpha status** - production-ready platform

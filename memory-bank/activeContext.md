@@ -1,148 +1,66 @@
 # Current Active Context
 
-## CURRENT PROJECT FOCUS: Chatbot App Refactoring & Platform Enhancement
+## CURRENT PROJECT FOCUS: Platform Enhancement & Evolution (v0.17.0+)
 
-### 🎯 Primary Objective
+### 🎯 Next Priorities (0.18.0-0.20.0)
 
-Continue platform modernization following successful Flowise 2.2.8 upgrade with chatbot functionality refactoring:
+**Focus**: Advanced development and system maturation
 
-1. **Flowise Upstream Upgrade** - ✅ COMPLETED: Updated from 2.2.7-patch.1 to 2.2.8
-2. **Chatbot App Refactoring** - Move chatbot functionality to separate `apps/chatbot-frt` structure
-3. **Preserve existing functionality** - Maintain all UPDL, AR.js, and analytics capabilities
+1. **Platform Stabilization (0.18.0)** - Enhanced user profiles, architecture consolidation, stability improvements
+2. **Advanced UPDL Development (0.19.0)** - New node types, Universo MMOOMM integration with PlayCanvas
+3. **Publication System Evolution (0.20.0)** - Project versioning, **transition to Alpha status**
 
-### ✅ COMPLETED: Profile-SRV Workspace Package Conversion
+### ✅ Recent Key Achievements
 
-**Status**: **COMPLETED** ✅ Profile service successfully converted to workspace package
+**Platform Foundation Complete:**
 
-#### **Profile-SRV Workspace Package:**
+-   ✅ **Flowise 2.2.8 Platform Upgrade** - Enhanced ASSISTANT support, preserved user isolation
+-   ✅ **Profile-SRV Workspace Package** - Converted to `@universo/profile-srv` with clean imports
+-   ✅ **Enhanced User Profiles** - Secure email/password updates, nickname system
+-   ✅ **Menu Improvements** - Updated navigation and external documentation links
 
--   **Package Name**: `@universo/profile-srv` - Scoped workspace package
--   **Purpose**: Backend profile service with clean import system
--   **Integration**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
--   **Architecture**: Eliminated complex relative paths, prepared for future plugin extraction
--   **Build System**: Automatic dependency resolution via pnpm workspace
+### 🏗️ APPs Architecture Overview
 
-#### **Technical Achievement:**
+**6 Working Applications:**
 
--   🔧 **Clean Imports**: Replaced relative paths with workspace package imports
--   ✅ **Verified**: All builds pass successfully, runtime working correctly
--   📦 **Package Structure**: Professional scoped package with proper exports
--   🚀 **Future-Ready**: Prepared for extraction to separate repository
+-   **UPDL** (`apps/updl/`) - Pure node definitions for Flowise editor
+-   **Publish Frontend/Backend** (`apps/publish-frt/`, `apps/publish-srv/`) - AR.js publication system
+-   **Analytics** (`apps/analytics-frt/`) - Quiz analytics and reporting
+-   **Profile Frontend** (`apps/profile-frt/`) - User profile management with i18n
+-   **Profile Backend** (`@universo/profile-srv`) - Workspace package backend service
 
-### ✅ COMPLETED: Analytics-FRT Application Setup
+**Core Technologies:**
 
-**Status**: **COMPLETED** ✅ Analytics functionality successfully refactored into separate app
+-   React + Material-UI frontend with APPs architecture
+-   Node.js + TypeScript backend with Supabase integration
+-   Enhanced authentication with secure profile management
+-   UPDL system for AR.js export with quiz functionality
 
-#### **Analytics-FRT Application:**
+_Detailed architecture available in [productContext.md](productContext.md)_
 
--   **Location**: `apps/analytics-frt/` - Separate analytics application
--   **Purpose**: Analytics functionality refactored from Flowise core
--   **Build**: TypeScript + Gulp pipeline with `allowJs: true` configuration
--   **Integration**: Imported via alias `@apps/analytics-frt` in main UI
--   **Component**: Single React component `AnalyticsPage` in `src/pages/Analytics.jsx`
+### 🔄 Current System Status
 
-#### **Technical Achievement:**
+**Base Platform**: Flowise 2.2.8 with Universo-specific enhancements
+**User Management**: Supabase auth + enhanced profiles with nickname system
+**Publication**: Working AR.js quiz system with analytics
+**Security**: Enhanced with current password verification and encrypted storage
+**Build System**: PNPM workspaces with professional package structure
 
--   🔧 **Build Fix**: Resolved TypeScript TS7016 error by adding `"allowJs": true` to tsconfig.json
--   ✅ **Verified**: Both individual and full project builds working correctly
--   📁 **Architecture**: Clean separation following APPs architecture pattern
+### 💡 Strategic Direction
 
-### 🔄 Current Project State
+**Architecture Goals:**
 
--   **Base Version**: Flowise 2.2.8 (upgraded successfully) ✅
--   **Custom Features**: Fully functional (Enhanced Supabase auth, Secure profile management, Uniks, i18n, UPDL, AR.js quizzes)
--   **APPs Architecture**: 5 applications successfully implemented
--   **Last Achievement**: Profile-SRV workspace package conversion completed
--   **Security Level**: Enhanced with current password verification for password changes
+-   Maintain modular APPs structure for scalability
+-   Enhance UPDL capabilities for diverse project types
+-   Prepare for Universo MMOOMM integration via PlayCanvas
+-   Build toward production-ready Alpha status in 0.20.0
 
-### 🎯 NEXT PHASE: Chatbot App Refactoring & Platform Enhancement
+**Development Approach:**
 
-**Priority**: HIGH | **Complexity**: Level 2 (Simple Enhancement)
+-   Incremental enhancement with backward compatibility
+-   Focus on user experience and workflow optimization
+-   Expand UPDL node ecosystem for complex project creation
+-   Implement advanced project versioning and publication management
 
-#### **Completed Tasks:**
-
-1. **Flowise Upstream Upgrade**: ✅ COMPLETED
-
-    - ✅ Reviewed Flowise 2.2.8 changelog and resolved breaking changes
-    - ✅ Updated package dependencies and service APIs
-    - ✅ Resolved API changes (ASSISTANT type support, export-import enhancements)
-    - ✅ Tested core functionality - all systems operational
-    - ✅ Verified UPDL nodes work correctly with new version
-
-#### **Next Tasks:**
-
-2. **Chatbot Application Refactoring**:
-    - Create `apps/chatbot-frt/` directory structure
-    - Move chatbot functionality from Flowise core to separate app
-    - Set up TypeScript build configuration
-    - Configure integration with main UI via alias
-    - Test chatbot functionality in new structure
-
-### 🏗️ Current APPs Architecture
-
-#### **Implemented Applications:**
-
-1. **UPDL (`apps/updl/`)**: Universal Platform Definition Language
-
-    - Pure node definitions for Flowise editor
-    - Space, Object, Camera, Light, Data nodes
-    - Two-layer interface system (core + integration)
-    - Multi-scene support with quiz functionality
-
-2. **Publish Frontend (`apps/publish-frt/`)**: Publication system frontend
-
-    - Modular API architecture with technology-specific clients
-    - AR.js builder with iframe-based rendering
-    - Multi-object support with circular positioning
-    - Library configuration system (CDN vs local)
-    - Quiz support with lead collection
-
-3. **Publish Backend (`apps/publish-srv/`)**: Publication system backend
-
-    - Integrated with main Flowise server
-    - AR.js publication API with streaming generation
-    - Static library serving for CDN-blocked regions
-    - Quiz results storage in Supabase
-
-4. **Analytics Frontend (`apps/analytics-frt/`)**: Analytics functionality
-
-    - Single React component for quiz analytics
-    - TypeScript + JSX integration with `allowJs: true`
-    - Imported via `@apps/analytics-frt` alias
-
-5. **Profile Frontend (`apps/profile-frt/`)**: Enhanced user profile management
-
-    - **Secure password change**: Current password verification required
-    - **Email management**: Update email with confirmation flow
-    - **Full internationalization**: Russian/English localization
-    - **Security features**: Bcrypt hashing, input validation, error handling
-    - **Backend integration**: Custom SQL functions for secure user data updates
-
-6. **Profile Backend (`@universo/profile-srv`)**: Workspace package backend service
-    - **Workspace Package**: Scoped package with clean import system
-    - **Professional Architecture**: Eliminated complex relative paths
-    - **Future-Ready**: Prepared for extraction to separate repository
-    - **Clean Integration**: Main server imports via workspace dependency
-
-#### **Technology Stack:**
-
--   **Frontend**: React with Material-UI + APPs architecture
--   **Backend**: Node.js with TypeScript + integrated publication system
--   **Database**: Supabase (PostgreSQL) with enhanced authentication and secure profile management
--   **Authentication**: Enhanced Supabase Auth with secure profile updates and multi-user support
--   **Security**: Bcrypt password hashing, current password verification, SQL functions with SECURITY DEFINER
--   **Internationalization**: English/Russian support with modular namespaces and full error message localization
--   **UPDL System**: Complete node system for AR.js export with quiz support
--   **AR Technology**: AR.js with A-Frame + local library serving
-
-### 💡 Strategic Approach
-
-1. **Maintain Security**: Keep enhanced profile security features intact
-2. **Incremental Upgrade**: Update Flowise version step by step
-3. **Preserve Compatibility**: Ensure all existing features continue working
-4. **Modular Refactoring**: Move chatbot to separate app following established pattern
-5. **Test Thoroughly**: Verify all applications work after upgrade
-
-**COMPLEXITY LEVEL**: **Level 2** (Simple Enhancement)
-**ESTIMATED IMPACT**: Updated platform + improved modular architecture + enhanced security
-**RISK LEVEL**: Low (building on proven APPs architecture)
+**CURRENT COMPLEXITY LEVEL**: Ready for Level 3-4 (Advanced Features)
+**PLATFORM MATURITY**: Pre-Alpha → Alpha transition planned (0.20.0)

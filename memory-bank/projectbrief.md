@@ -1,96 +1,148 @@
 # Project Brief - Universo Platformo
 
-## Overview
+## Mission & Strategic Vision
 
-Universo Platformo (Universo Kiberplano) is a project based on the modification of Flowise AI, adding multi-user functionality through Supabase integration.
+Universo Platformo is a comprehensive platform for creating 3D/AR/VR applications and the foundation for **Universo MMOOMM** - a massive multiplayer online game combining space exploration with **Kiberplano** (Cyberplan) functionality. The platform enables "write once, deploy anywhere" workflow for interactive experiences, while the game serves as a cosmic sandbox where players create production chains, develop detailed products, and implement solutions in the real world through robotic systems.
 
-## Project Name
+**Key Strategic Goals:**
 
--   Universo Platformo / Universo Kiberplano
--   Based on Flowise AI (version 2.2.7-patch.1)
+-   **Universal UPDL System**: Visual node-based development for cross-platform 3D applications
+-   **Universo MMOOMM**: Space MMO with production chains, territorial control, and real-world integration
+-   **Kiberplano Integration**: Digital planning → robotic implementation → real world deployment
 
-## Core Technologies
+> **Detailed Functionality:**  
+> • [Universo MMOOMM Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-MMOOMM)  
+> • [Universo Platformo Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-Platformo)
 
--   Node.js (>=18.15.0 <19.0.0 || ^20)
--   PNPM (>=9)
--   Supabase (for multi-user functionality)
--   React
+## Current Status & Development Roadmap (v0.17.0+, June 2025)
 
-## Key Goals
+**Current Phase**: Platform Enhancement & Evolution  
+**Base Platform**: Flowise AI 2.2.8 with Supabase multi-user functionality  
+**Architecture**: 6 working APPs applications with modular design
 
--   Implement multi-user functionality
--   Minimize changes to original Flowise code
--   Maintain backwards compatibility
--   Keep implementation simple and concise
+### Development Roadmap
 
-## Coding Standards
-
--   Prefix comments with "Universo Platformo | "
--   Write concise English comments
--   Follow existing code patterns
--   Fewer lines of code is better
-
-## UPDL (Work is currently underway to implement it)
-
-UPDL is an initiative to create a universal visual design language **UPDL (Universo Platformo Definition Language)** within the Universo Platformo ecosystem. The goal of the project is to provide **a single way to describe** 3D/AR/VR scenes and interactive logic in a form understandable to both humans and machines, which can then be used to generate applications on different technologies. In other words, developers will be able to describe the structure of a scene and the behavior of an application once, in the form of a **graph of nodes**, and then export this specification to various engines (for example, PlayCanvas, Babylon.js, Three.js, A-Frame, AR.js, etc.) without duplicating work. This approach separates the **"what" (content and logic)** from the **"how" (platform-specific implementation)**: _what_ should happen is described in UPDL, and _how_ it is realized is determined by the code generator during export. By decoupling content from platform details in this way, UPDL enables a true "write once, deploy anywhere" workflow for interactive 3D/AR applications.
-
-Key outcomes the project aims to achieve:
-
--   **Universal node system (UPDL):** A unified node-based system for describing scenes and logic, integrated into the application (based on FlowiseAI).
--   **Multi-platform export:** The ability to generate, from one description, multiple versions of an application – an AR application in the browser, a 3D application on PlayCanvas (including React), scenes in Babylon.js, Three.js, A-Frame, etc.
--   **Publishing mechanism:** A user-friendly interface to generate and deploy the generated applications via a unique link (similar to the _Publish_ system in PlayCanvas).
--   **Documentation and automation:** A well-tuned Memory Bank system to preserve development context and a set of Cursor AI prompts to assist in planning, code generation, and creative tasks.
-
-This project is expected to significantly reduce the effort required to develop interactive applications for different platforms. In the long term, UPDL will become the **central link of the Universo Platformo ecosystem**, providing a unified format for sharing content between design tools and runtime engines.
+| Version              | Focus                        | Key Deliverables                                                                 |
+| -------------------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| **0.18.0-pre-alpha** | Platform Stabilization       | Enhanced user profiles, architecture consolidation, stability improvements       |
+| **0.19.0-pre-alpha** | Advanced UPDL Development    | New node types, Universo MMOOMM integration with PlayCanvas technology           |
+| **0.20.0-alpha**     | Publication System Evolution | Project versioning, Chatflow (Spaces) management, **transition to Alpha status** |
 
 ## UPDL Architecture
 
-### Core Node Components
+### Core Design Principles
 
-1. **Scene Node**: The root node for all UPDL scenes that contains global settings and serves as the main container.
-2. **Object Node**: Represents 3D objects, including primitives and complex models, with material and texture options.
-3. **Camera Node**: Defines viewing parameters with options for perspective, orthographic, and specialized AR/VR modes.
-4. **Light Node**: Creates various light sources with customizable parameters for intensity, color, and range.
-5. **Interaction Node**: Handles user interactions like clicks, touches, and other event-based triggers.
-6. **Controller Node**: Manages behaviors like spinning, orbiting, or other automated movements.
-7. **Animation Node**: Controls property animations with timing, looping, and sequence options.
+1. **Universal Description Layer**: UPDL nodes describe "what" should happen, not "how"
+2. **Hierarchical Structure**: Space nodes serve as root containers with parent-child relationships
+3. **Cross-Platform Export**: Single node graph works across different rendering engines
+4. **Modular Composition**: Primitive nodes combine into specialized composite nodes
+
+### Primitive Node Types (Current Implementation)
+
+| Node       | Purpose                                            | Key Features                                          |
+| ---------- | -------------------------------------------------- | ----------------------------------------------------- |
+| **Space**  | Root container for 3D environment (formerly Scene) | Global settings, environment configuration            |
+| **Object** | 3D entities with transform properties              | Primitives, models, materials, parent-child hierarchy |
+| **Camera** | Viewpoint definition                               | Perspective/orthographic, AR/VR settings              |
+| **Light**  | Scene illumination                                 | Directional, Point, Spot, Ambient types               |
+| **Data**   | Structured information storage                     | Quiz functionality, question/answer systems           |
+
+### Composite & Custom Nodes
+
+-   **Composite Nodes**: Built from primitive combinations (e.g., AR Marker, Interactive Quiz)
+-   **Specialized Nodes**: Domain-specific assemblies for 3D, VR, AR, logic systems
+-   **Custom User Nodes**: User-created node types with "unpacking" capability
+-   **Version Management**: `updlVersion` field ensures forward/backward compatibility
 
 ### Export Targets
 
-UPDL is designed to export to multiple target technologies:
+**Current Support**: AR.js/A-Frame, PlayCanvas React  
+**Planned**: Babylon.js, Three.js, A-Frame VR, PlayCanvas Engine  
+**Architecture**: Builder pattern in `apps/publish-*` for extensible export system
 
--   **AR.js / A-Frame**: For marker-based augmented reality experiences in web browsers
--   **PlayCanvas React**: For React-based 3D applications using PlayCanvas
--   **Babylon.js**: For high-performance 3D web applications
--   **Three.js**: For lower-level WebGL-based development
--   **A-Frame VR**: For virtual reality experiences
--   **PlayCanvas Engine**: For native PlayCanvas applications
+## Technical Foundation
 
-### APPs Architecture
+### Core Technologies
 
-The project is transitioning to a modular APPs architecture with minimal changes to the base Flowise codebase:
+-   **Node.js** (>=18.15.0 <19.0.0 || ^20)
+-   **PNPM** (>=9) - **IMPORTANT: Use PNPM, not npm!**
+-   **React** with Material-UI components
+-   **Supabase** for authentication and data storage
+-   **Flowise AI 2.2.8** as base framework
+-   **TypeScript** for type safety
+
+### Essential Commands
+
+```bash
+# Installation
+pnpm install
+
+# Build all applications
+pnpm build
+
+# Development mode
+pnpm dev
+
+# Build specific application
+pnpm build --filter publish-frt
+pnpm build --filter updl
+```
+
+### APPs Architecture (6 Applications)
 
 ```
-universo-platformo-react/
-├── packages/                  # Original Flowise packages
-│   ├── components/            # Components and utilities
-│   ├── server/                # Server-side code
-│   └── ui/                    # Frontend
-├── apps/                      # New APPs architecture
-│   ├── updl/                  # UPDL node system
-│   │   └── imp/               # Implementation
-│   └── publish/               # Publication system
-│       ├── imp/               # Implementation
-│       │   ├── react/         # Frontend
-│       │   │   └── miniapps/  # Technology-specific handlers
-│       │   └── express/       # Backend
+apps/
+├── updl/base/                # UPDL node definitions and interfaces
+├── publish-frt/base/         # Publication frontend with AR.js export
+├── publish-srv/base/         # Publication backend and URL management
+├── profile-frt/base/         # User profile management frontend
+├── profile-srv/base/         # @universo/profile-srv workspace package
+└── analytics-frt/base/       # Quiz analytics and performance tracking
 ```
 
-This structure allows for:
+**Architecture Benefits:**
 
-1. **Modularity**: Each functional area is contained within its own application
-2. **Minimal Core Changes**: Original Flowise code remains largely untouched
-3. **Easy Extension**: New technologies can be added as miniapps
-4. **Clean Separation**: Clear boundaries between different functional areas
+-   **Modularity**: Each functional area contained within its own application
+-   **Minimal Core Changes**: Original Flowise code remains largely untouched
+-   **Easy Extension**: New technologies added as additional apps
+-   **Clean Separation**: Clear boundaries between different functional areas
 
-The architecture will replace the existing temporary AR.js implementation with a comprehensive, extensible system for creating, publishing, and exporting 3D/AR/VR applications.
+### Environment Setup
+
+Create `.env` file in `packages/server/` directory:
+
+```bash
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+```
+
+**Note**: After refactoring, Supabase configuration should only be specified in `packages/server/` directory.
+
+## Coding Standards & Guidelines
+
+-   **Language**: Concise English comments for code, preserve existing patterns
+-   **Efficiency**: Fewer lines of code is better, maintain readability
+-   **Compatibility**: Maintain backwards compatibility with Flowise
+-   **Package Management**: PNPM workspaces only, no npm/yarn usage
+
+## Key Resources & Documentation
+
+-   **Project Repository**: [universo-platformo-react](https://github.com/teknokomo/universo-platformo-react)
+-   **Detailed APPs Structure**: [apps/README.md](../apps/README.md)
+-   **Technical Context**: [memory-bank/techContext.md](techContext.md)
+-   **System Patterns**: [memory-bank/systemPatterns.md](systemPatterns.md)
+-   **Current Tasks**: [memory-bank/tasks.md](tasks.md)
+
+## License Information
+
+**Dual Licensing Structure:**
+
+-   **Original Flowise Code** (`packages/` directory): Apache License 2.0
+-   **Universo Platformo Extensions** (`apps/` directory): Omsk Open License
+
+The Omsk Open License is similar to MIT but includes additional provisions for creating meaningful public domain while protecting traditional values.
+
+---
+
+_This document serves as the primary context file for the Universo Platformo Memory Bank system. It provides essential technical and strategic information needed for AI-assisted development and project understanding._

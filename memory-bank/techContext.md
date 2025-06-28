@@ -70,7 +70,7 @@ Added to implement multi‑user functionality. When creating Universo Platformo 
 
 ## APPs Architecture Implementation
 
-The project has successfully implemented a modular APPs architecture with 5 working applications that separate functionality while minimizing changes to the core Flowise codebase.
+The project has successfully implemented a modular APPs architecture with 6 working applications that separate functionality while minimizing changes to the core Flowise codebase.
 
 ### Workspace Package Architecture
 
@@ -96,94 +96,11 @@ The profile service has been successfully converted to a **workspace package** a
 **Implementation Pattern:**
 This workspace package pattern can be applied to other backend services for similar benefits. Frontend applications continue to use REST API communication for appropriate separation.
 
-### Current Directory Structure (Verified & Complete)
+### Current APPs Implementation (v0.17.0+)
 
-```
-universo-platformo-react/
-├── packages/                  # Original Flowise packages
-│   ├── components/            # Components and utilities
-│   ├── server/                # Server-side code with APPs integration
-│   │   └── src/
-│   │       └── Interface.UPDL.ts  # Simplified UPDL interfaces for integration
-│   └── ui/                    # Frontend with APPs integration via aliases
-├── apps/                      # APPs architecture (4 applications implemented)
-│   ├── updl/                  # UPDL node system (pure node definitions)
-│   │   └── base/              # Core UPDL functionality
-│   │       ├── src/
-│   │       │   ├── nodes/     # UPDL node definitions
-│   │       │   │   ├── base/  # Base node classes
-│   │       │   │   ├── space/ # Space nodes (formerly scene)
-│   │       │   │   ├── object/# Object nodes
-│   │       │   │   ├── camera/# Camera nodes
-│   │       │   │   ├── light/ # Light nodes
-│   │       │   │   └── data/  # Data nodes for quiz functionality
-│   │       │   ├── assets/    # Static resources (icons, images)
-│   │       │   ├── i18n/      # Internationalization
-│   │       │   ├── interfaces/# Complete UPDL ecosystem definitions
-│   │       │   │   └── UPDLInterfaces.ts # Full UPDL specification
-│   │       │   └── index.ts   # Entry point for node definitions
-│   │       ├── dist/          # Compiled output
-│   │       ├── package.json
-│   │       ├── tsconfig.json
-│   │       └── gulpfile.ts    # Asset copying during build
-│   ├── publish-frt/           # Publication system frontend
-│   │   └── base/
-│   │       ├── src/
-│   │       │   ├── api/       # HTTP clients with technology-specific modules
-│   │       │   ├── assets/    # Static resources + local AR.js libraries
-│   │       │   │   └── libs/  # Local AR.js/A-Frame for CDN-blocked regions
-│   │       │   ├── builders/  # UPDL to target platform builders
-│   │       │   │   ├── common/# Shared builder infrastructure
-│   │       │   │   └── arjs/  # AR.js builder with handlers
-│   │       │   ├── components/# UI components
-│   │       │   ├── features/  # Technology-specific handlers
-│   │       │   │   └── arjs/  # AR.js publication handler
-│   │       │   ├── i18n/      # Localization
-│   │       │   ├── pages/     # Page components
-│   │       │   │   └── public/# Public pages (ARViewPage with iframe)
-│   │       │   ├── services/  # Service layer for backend communication
-│   │       │   ├── utils/     # Utilities and validation
-│   │       │   └── index.ts   # Entry point
-│   │       ├── dist/          # Compiled output
-│   │       ├── package.json
-│   │       ├── tsconfig.json
-│   │       └── gulpfile.ts    # Asset copying during build
-│   ├── publish-srv/           # Publication system backend
-│   │   └── base/
-│   │       ├── src/
-│   │       │   ├── controllers/# Express controllers
-│   │       │   ├── routes/    # API routes
-│   │       │   ├── interfaces/# Local TypeScript interfaces
-│   │       │   ├── middlewares/# Error handlers
-│   │       │   ├── utils/     # Helper functions and logger
-│   │       │   ├── server.ts  # Route initialization
-│   │       │   └── index.ts   # Entry point and exports
-│   │       ├── dist/          # Compiled output
-│   │       ├── package.json
-│   │       └── tsconfig.json
-│   ├── analytics-frt/         # Analytics system frontend
-│   │   └── base/
-│   │       ├── src/
-│   │       │   ├── pages/     # Page components
-│   │       │   │   └── Analytics.jsx # Main analytics component
-│   │       │   └── index.ts   # Entry point
-│   │       ├── dist/          # Compiled output
-│   │       ├── package.json
-│   │       ├── tsconfig.json  # TypeScript config with allowJs: true
-│   │       └── gulpfile.ts    # Asset copying during build
-│   └── profile-srv/           # Profile service backend (WORKSPACE PACKAGE)
-│       └── base/
-│           ├── src/
-│           │   ├── database/  # TypeORM entities and migrations (exported)
-│           │   ├── controllers/# REST API controllers (exported)
-│           │   ├── services/  # Business logic services (exported)
-│           │   ├── routes/    # Express routes (exported)
-│           │   ├── types/     # TypeScript types (exported)
-│           │   └── index.ts   # Entry point with all exports
-│           ├── dist/          # Compiled output
-│           ├── package.json   # "@universo/profile-srv" workspace package
-│           └── tsconfig.json  # TypeScript configuration
-```
+**6 Working Applications:** UPDL, Publish Frontend/Backend, Analytics, Profile Frontend/Backend
+
+**Detailed Directory Structure:** See [apps/README.md](../apps/README.md) for complete architecture documentation, build instructions, and current application structure.
 
 ### Interface Architecture (Two-Layer System)
 
@@ -208,89 +125,22 @@ universo-platformo-react/
 -   **Optimal Performance**: Smaller interface footprint for production use
 -   **No Duplication**: Each serves distinct architectural purpose
 
-## UPDL Implementation Details
+## UPDL Core Components (v0.17.0+)
 
-### Core Node Components
+### Key Node Types
 
-1. **BaseUPDLNode**:
+**Implemented Nodes:** Space (root), Object, Camera, Light, Data (quiz), Interaction, Controller, Animation
 
-    - Abstract base class for all UPDL nodes
-    - Implements common functionality and interfaces
-    - Handles input/output port definitions
-    - Provides serialization/deserialization methods
+**Core Features:**
 
-2. **Scene Node**:
+-   Hierarchical structure with parent-child relationships
+-   Typed ports with connection validation
+-   JSON serialization with version compatibility
+-   Platform-independent intermediate representation
 
-    - Root node for UPDL scene graph
-    - Contains global scene settings
-    - Manages environment and rendering options
-    - Can contain camera, lights, and objects
+**Export Process:** Flowise JSON → UPDL objects → Platform-specific code → Published applications
 
-3. **Object Node**:
-
-    - Represents 3D objects in the scene
-    - Supports primitives (cube, sphere, etc.)
-    - Handles 3D model loading
-    - Manages materials and textures
-    - Can contain child objects
-
-4. **Camera Node**:
-
-    - Defines view parameters
-    - Supports perspective and orthographic modes
-    - Configures AR/VR specific settings
-    - Can be attached to scene or objects
-
-5. **Light Node**:
-
-    - Implements various light types
-    - Configures intensity, color, range
-    - Handles shadows and other effects
-    - Can be global or attached to objects
-
-6. **Interaction Node**:
-
-    - Processes user input events
-    - Handles click/touch interactions
-    - Triggers actions based on input
-    - Configures raycasting for 3D object selection
-
-7. **Controller Node**:
-
-    - Manages object behaviors
-    - Implements rotation, orbit, movement patterns
-    - Processes input to control objects
-    - Links input events to animation triggers
-
-8. **Animation Node**:
-    - Controls property animations
-    - Manages timing and sequencing
-    - Supports looping and easing
-    - Handles playback control (play/pause/stop)
-
-### Export Process
-
-1. **Data Flow**:
-
-    - Flowise serializes UPDL node graph to JSON
-    - Export handler deserializes to UPDL objects
-    - Platform-specific exporter generates code
-    - Publication server saves and serves generated files
-
-2. **Default Value Handling**:
-
-    - Missing required components (camera, lights) are auto-created
-    - Platform-specific optimizations are applied
-    - Default values are used for missing properties
-    - Warnings are generated for unsupported features
-
-3. **Technology-Specific Export**:
-    - AR.js: Generates HTML with A-Frame tags and AR.js scripts
-    - PlayCanvas React: Creates JSX component hierarchy
-    - Babylon.js: Generates JavaScript using Babylon APIs
-    - Three.js: Creates core Three.js scene setup
-    - A-Frame VR: Produces A-Frame HTML for VR experiences
-    - PlayCanvas Engine: Outputs JavaScript using native PC APIs
+**Detailed UPDL Patterns:** See [systemPatterns.md](systemPatterns.md) for comprehensive node architecture and design principles.
 
 ### AR.js and A-Frame Architecture
 
@@ -404,32 +254,27 @@ These engines cover a broad spectrum of web 3D/AR development. Initially, our fo
 
 By leveraging this tech stack and workflow, we ensure that UPDL development is robust: we use proven frameworks (Flowise, React, Node, Three.js, etc.), enforce good practices (linting, CI), keep the AI assistant informed (Memory Bank), and maintain agility in development (monorepo tools for speed, GitHub for collaboration). All these technical considerations set a solid foundation for implementing UPDL as envisioned.
 
-## Current Implementation Focus (Apr 2025, v0.1)
+## Current Development Focus (June 2025, v0.17.0+)
 
-These items track the hands‑on technical work that is actively in progress:
+**Platform Status:** Successfully implemented with 6 working applications, workspace packages, and AR.js publication system.
 
-1. **Custom UPDL nodes in Flowise**
+**Next Development Priorities (v0.18.0-0.20.0):**
 
-    - Add the first nodes: _Scene, Object, Camera, Light, OnClick, Animation, Spin Controller_.
-    - Modify `packages/editor` (because no plugin system) to register the nodes (likely under a new "UPDL" category in the node palette).
-    - Verify serialization/deserialization of the graph on save.
+1. **Platform Stabilization (0.18.0-pre-alpha)**
 
-2. **AR.js / A‑Frame Exporter**
+    - Enhanced user profile system and architecture consolidation
+    - Comprehensive testing framework implementation
+    - Performance optimization and stability improvements
 
-    - HTML template generator ("checkerboard + Hiro marker → 3D model").
-    - Insert properties from UPDL JSON instead of hard‑coded values.
-    - Emit events (_OnClick_ → A‑Frame listener).
-    - Sprint goal: CLI command `npm run export:ar`.
+2. **Advanced UPDL Development (0.19.0-pre-alpha)**
 
-3. **`apps/updl` Core Module**
+    - New UPDL node types (Physics, Animation, Interaction, Networking)
+    - Universo MMOOMM integration with PlayCanvas technology
+    - Multi-scene projects and collaborative features
 
-    - Node types in `src/nodes`, `Exporter` interface in `src/exporters`.
-    - Library must be consumed by both the editor and the publish backend.
-    - Create a unit test: load sample JSON → run each exporter → validate HTML.
-
-4. **CI / Turborepo**
-    - Add pipelines `build:updl` and `build:publish`.
-    - ESLint and unit tests must pass before merge requests.
+3. **Publication System Evolution (0.20.0-alpha)**
+    - Advanced project versioning and Chatflow (Spaces) management
+    - **Transition to Alpha status** - production-ready stability
 
 ## Known Technical Issues & Risks
 
@@ -459,82 +304,18 @@ When working with React components integrated with original Flowise code, follow
 
 3. **Minimize useEffect Dependencies** - Only include truly necessary dependencies while keeping Unik-related dependencies (e.g. unikId).
 
-## AR.js Publication Architecture (Stage 3)
+## AR.js Publication Architecture
 
-The AR.js publication architecture has been revised for Stage 3 to focus on a simplified "Streaming" approach. This approach moves the generation of AR.js HTML to the client-side, reducing server complexity and improving the development workflow.
+**Publication Flow:** Client-side generation with streaming mode for dynamic UPDL to AR.js HTML conversion
 
-### Publication Modes
+**URL Scheme:** `/p/{uuid}` for published projects with iframe-based rendering for proper script execution
 
-1. **Streaming Mode** (Priority Implementation):
+**Key Features:**
 
-    - Client-side generation of AR.js HTML
-    - Dynamic conversion of UPDL data to AR.js scene
-    - Progressive loading with status indicators
-    - URL format: `/p/{uuid}`
-
-2. **Pre-generation Mode** (Future Implementation):
-    - Server-side generation and storage of HTML
-    - Pre-processing of resources and optimizations
-    - Faster initial loading for end users
-    - Same URL format: `/p/{uuid}`
-
-### Technical Implementation
-
-#### Client-Side Generation Flow
-
-```
-┌─────────────┐     ┌─────────────┐     ┌───────────────┐     ┌──────────────┐
-│  User loads │     │ Server sends │     │ Browser runs  │     │ AR.js scene  │
-│  /p/{uuid}  │────▶│  UPDL data   │────▶│  conversion   │────▶│  displayed   │
-└─────────────┘     └─────────────┘     └───────────────┘     └──────────────┘
-                                              │
-                                              ▼
-                                        ┌──────────────┐
-                                        │ Progress bar │
-                                        │   updates    │
-                                        └──────────────┘
-```
-
-#### Key Components
-
-1. **Publication Interface**:
-
-    - Added "Generation Type" field to select between modes
-    - Simplified tabs for Streaming mode (Settings, Published)
-    - Form to configure AR.js-specific settings
-
-2. **Client-Side Converter**:
-
-    - `apps/publish/base/miniapps/arjs/ARJSExporter.ts` optimized for browser
-    - `UPDLToARJSConverter` converts UPDL scene to A-Frame model
-    - `ARJSHTMLGenerator` creates final HTML with markers
-
-3. **Server-Side Components**:
-
-    - Endpoint to retrieve UPDL node data: `/api/updl/scene/{id}`
-    - URL handler for publications: `/p/{uuid}`
-    - Publication metadata storage
-
-4. **Publication Process**:
-    - User configures publication settings in UI
-    - System saves publication metadata and generates URL
-    - When URL is accessed, client fetches UPDL data
-    - Browser converts data to AR.js HTML
-    - AR.js scene loads and requests camera access
-
-### Browser Compatibility Considerations
-
--   Modern browsers with WebXR support recommended
--   Fallback for older browsers with warnings
--   Mobile device optimizations for AR viewing
--   Emphasis on Android Chrome and iOS Safari compatibility
-
-### Security Considerations
-
--   CORS settings to allow resource loading
--   CSP adjustments for AR.js and A-Frame scripts
--   User permission handling for camera access
--   Content validation for user-generated UPDL scenes
+-   Browser-based UPDL to A-Frame conversion
+-   Local library serving for CDN-blocked regions
+-   QR code generation for mobile access
+-   Quiz functionality with Data nodes and lead collection
 
 ## Critical AR.js Rendering Architecture
 
