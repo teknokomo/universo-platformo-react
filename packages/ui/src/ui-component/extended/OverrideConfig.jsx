@@ -118,8 +118,13 @@ const OverrideConfig = ({ dialogProps }) => {
     }
 
     const formatObj = () => {
-        let apiConfig = JSON.parse(dialogProps.chatflow.apiConfig)
-        if (apiConfig === null || apiConfig === undefined) {
+        let apiConfig = {}
+        try {
+            apiConfig = JSON.parse(dialogProps.chatflow.apiConfig || '{}')
+            if (apiConfig === null || apiConfig === undefined) {
+                apiConfig = {}
+            }
+        } catch (e) {
             apiConfig = {}
         }
 

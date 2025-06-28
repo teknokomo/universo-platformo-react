@@ -24,7 +24,12 @@ const RateLimit = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const chatflowid = chatflow.id
-    const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+    let apiConfig = {}
+    try {
+        apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+    } catch (e) {
+        apiConfig = {}
+    }
     const { t } = useTranslation()
 
     useNotifier()
@@ -38,8 +43,13 @@ const RateLimit = ({ dialogProps }) => {
     const [limitMsg, setLimitMsg] = useState(apiConfig?.rateLimit?.limitMsg ?? '')
 
     const formatObj = () => {
-        let apiConfig = JSON.parse(dialogProps.chatflow.apiConfig)
-        if (apiConfig === null || apiConfig === undefined) {
+        let apiConfig = {}
+        try {
+            apiConfig = JSON.parse(dialogProps.chatflow.apiConfig || '{}')
+            if (apiConfig === null || apiConfig === undefined) {
+                apiConfig = {}
+            }
+        } catch (e) {
             apiConfig = {}
         }
         let obj = { status: rateLimitStatus }

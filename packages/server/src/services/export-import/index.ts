@@ -480,7 +480,7 @@ const importData = async (importData: ExportData) => {
 
             await queryRunner.commitTransaction()
         } catch (error) {
-            if (queryRunner && !queryRunner.isTransactionActive) await queryRunner.rollbackTransaction()
+            if (queryRunner && queryRunner.isTransactionActive) await queryRunner.rollbackTransaction()
             throw error
         } finally {
             if (queryRunner && !queryRunner.isReleased) await queryRunner.release()
