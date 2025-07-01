@@ -17,7 +17,8 @@ import {
     getBaseClasses,
     getCredentialData,
     getCredentialParam,
-    mapChatMessageToBaseMessage
+    mapChatMessageToBaseMessage,
+    safeGet
 } from '../../../src/utils'
 import { FlowiseMemory, ICommonObject, IMessage, INode, INodeData, INodeParams, MemoryMethods, MessageType } from '../../../src/Interface'
 
@@ -251,14 +252,16 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         const items = response.Item ? response.Item[messageAttributeName]?.L ?? [] : []
         const messages = items
             .map((item) => ({
-                type: item.M?.type.S,
+                type: safeGet(item, 'M.type.S', ''),
                 data: {
-                    role: item.M?.role?.S,
-                    content: item.M?.text.S
+                    role: safeGet(item, 'M.role.S', ''),
+                    content: safeGet(item, 'M.text.S', ''),
+                    name: '',
+                    tool_call_id: ''
                 }
             }))
-            .filter((x): x is StoredMessage => x.type !== undefined && x.data.content !== undefined)
-        const baseMessages = messages.map(mapStoredMessageToChatMessage)
+            .filter((x) => x.type !== '' && x.data.content !== '')
+        const baseMessages = messages.map((msg) => mapStoredMessageToChatMessage(msg as StoredMessage))
         if (prependMessages?.length) {
             baseMessages.unshift(...(await mapChatMessageToBaseMessage(prependMessages)))
         }

@@ -24,7 +24,7 @@ import { ChainValues } from '@langchain/core/utils/types'
 import { AgentAction } from '@langchain/core/agents'
 import { LunaryHandler } from '@langchain/community/callbacks/handlers/lunary'
 
-import { getCredentialData, getCredentialParam, getEnvironmentVariable } from './utils'
+import { getCredentialData, getCredentialParam, getEnvironmentVariable, safeGet } from './utils'
 import { ICommonObject, IDatabaseEntity, INodeData, IServerSideEventStreamer } from './Interface'
 import { LangWatch, LangWatchSpan, LangWatchTrace, autoconvertTypedValues } from 'langwatch'
 import { DataSource } from 'typeorm'
@@ -413,22 +413,20 @@ class ExtendedLunaryHandler extends LunaryHandler {
     }
 
     async initThread() {
-        const entity = await this.appDataSource.getRepository(this.databaseEntities['Lead']).findOne({
-            where: {
-                chatId: this.chatId
-            }
+        const entity = await this.appDataSource?.getRepository(this.databaseEntities['ChatMessage']).findOneBy({
+            chatId: this.chatId
         })
 
-        const userId = entity?.email ?? entity?.id
+        const userId = safeGet(entity, 'email', '') || safeGet(entity, 'id', '')
 
         this.thread = lunary.openThread({
             id: this.chatId,
             userId,
             userProps: userId
                 ? {
-                      name: entity?.name ?? undefined,
-                      email: entity?.email ?? undefined,
-                      phone: entity?.phone ?? undefined
+                      name: safeGet(entity, 'name', undefined),
+                      email: safeGet(entity, 'email', undefined),
+                      phone: safeGet(entity, 'phone', undefined)
                   }
                 : undefined
         })

@@ -10,7 +10,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { Storage } from '@google-cloud/storage'
 import { Readable } from 'node:stream'
-import { getUserHome } from './utils'
+import { getUserHome, bufferToUint8Array } from './utils'
 import sanitize from 'sanitize-filename'
 
 export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: string, fileNames: string[]) => {
@@ -31,7 +31,7 @@ export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: st
             Key,
             ContentEncoding: 'base64', // required for binary data
             ContentType: mime,
-            Body: bf
+            Body: bufferToUint8Array(bf)
         })
         await s3Client.send(putObjCmd)
 
@@ -52,7 +52,7 @@ export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: st
             file.createWriteStream({ contentType: mime, metadata: { contentEncoding: 'base64' } })
                 .on('error', (err) => reject(err))
                 .on('finish', () => resolve())
-                .end(bf)
+                .end(bufferToUint8Array(bf))
         })
         fileNames.push(sanitizedFilename)
         return 'FILE-STORAGE::' + JSON.stringify(fileNames)
@@ -68,7 +68,7 @@ export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: st
         const sanitizedFilename = _sanitizeFilename(filename)
 
         const filePath = path.join(dir, sanitizedFilename)
-        fs.writeFileSync(filePath, bf)
+        fs.writeFileSync(filePath, bufferToUint8Array(bf))
         fileNames.push(sanitizedFilename)
         return 'FILE-STORAGE::' + JSON.stringify(fileNames)
     }
@@ -91,7 +91,7 @@ export const addArrayFilesToStorage = async (mime: string, bf: Buffer, fileName:
             Key,
             ContentEncoding: 'base64', // required for binary data
             ContentType: mime,
-            Body: bf
+            Body: bufferToUint8Array(bf)
         })
         await s3Client.send(putObjCmd)
         fileNames.push(sanitizedFilename)
@@ -106,7 +106,7 @@ export const addArrayFilesToStorage = async (mime: string, bf: Buffer, fileName:
             file.createWriteStream()
                 .on('error', (err) => reject(err))
                 .on('finish', () => resolve())
-                .end(bf)
+                .end(bufferToUint8Array(bf))
         })
         fileNames.push(sanitizedFilename)
         return 'FILE-STORAGE::' + JSON.stringify(fileNames)
@@ -116,7 +116,7 @@ export const addArrayFilesToStorage = async (mime: string, bf: Buffer, fileName:
             fs.mkdirSync(dir, { recursive: true })
         }
         const filePath = path.join(dir, sanitizedFilename)
-        fs.writeFileSync(filePath, bf)
+        fs.writeFileSync(filePath, bufferToUint8Array(bf))
         fileNames.push(sanitizedFilename)
         return 'FILE-STORAGE::' + JSON.stringify(fileNames)
     }
@@ -139,7 +139,7 @@ export const addSingleFileToStorage = async (mime: string, bf: Buffer, fileName:
             Key,
             ContentEncoding: 'base64', // required for binary data
             ContentType: mime,
-            Body: bf
+            Body: bufferToUint8Array(bf)
         })
         await s3Client.send(putObjCmd)
         return 'FILE-STORAGE::' + sanitizedFilename
@@ -153,7 +153,7 @@ export const addSingleFileToStorage = async (mime: string, bf: Buffer, fileName:
             file.createWriteStream({ contentType: mime, metadata: { contentEncoding: 'base64' } })
                 .on('error', (err) => reject(err))
                 .on('finish', () => resolve())
-                .end(bf)
+                .end(bufferToUint8Array(bf))
         })
         return 'FILE-STORAGE::' + sanitizedFilename
     } else {
@@ -162,7 +162,7 @@ export const addSingleFileToStorage = async (mime: string, bf: Buffer, fileName:
             fs.mkdirSync(dir, { recursive: true })
         }
         const filePath = path.join(dir, sanitizedFilename)
-        fs.writeFileSync(filePath, bf)
+        fs.writeFileSync(filePath, bufferToUint8Array(bf))
         return 'FILE-STORAGE::' + sanitizedFilename
     }
 }

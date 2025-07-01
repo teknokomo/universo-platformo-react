@@ -1,5 +1,15 @@
-import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeOutputsValue, INodeParams } from '../../../src/Interface'
+import {
+    ICommonObject,
+    IDatabaseEntity,
+    INode,
+    INodeData,
+    INodeOptionsValue,
+    INodeOutputsValue,
+    INodeParams,
+    IDocumentStoreData
+} from '../../../src/Interface'
 import { DataSource } from 'typeorm'
+import { safeGet, safeJSONParse } from '../../../src/utils'
 
 class DocStore_VectorStores implements INode {
     label: string
@@ -58,11 +68,12 @@ class DocStore_VectorStores implements INode {
 
             const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).find()
             for (const store of stores) {
-                if (store.status === 'UPSERTED') {
+                const storeData = store as IDocumentStoreData
+                if (safeGet(storeData, 'status', '') === 'UPSERTED') {
                     const obj = {
-                        name: store.id,
-                        label: store.name,
-                        description: store.description
+                        name: safeGet(storeData, 'id', ''),
+                        label: safeGet(storeData, 'name', 'Unknown Store'),
+                        description: safeGet(storeData, 'description', '')
                     }
                     returnData.push(obj)
                 }
@@ -77,7 +88,9 @@ class DocStore_VectorStores implements INode {
         const databaseEntities = options.databaseEntities as IDatabaseEntity
         const output = nodeData.outputs?.output as string
 
-        const entity = await appDataSource.getRepository(databaseEntities['DocumentStore']).findOneBy({ id: selectedStore })
+        const entity = (await appDataSource
+            .getRepository(databaseEntities['DocumentStore'])
+            .findOneBy({ id: selectedStore })) as IDocumentStoreData | null
         if (!entity) {
             return { error: 'Store not found' }
         }
@@ -85,20 +98,22 @@ class DocStore_VectorStores implements INode {
         data.output = output
 
         // Prepare Embeddings Instance
-        const embeddingConfig = JSON.parse(entity.embeddingConfig)
-        data.embeddingName = embeddingConfig.name
-        data.embeddingConfig = embeddingConfig.config
+        const embeddingConfigStr = safeGet(entity, 'embeddingConfig', '{}')
+        const embeddingConfig = safeJSONParse(embeddingConfigStr, {})
+        data.embeddingName = safeGet(embeddingConfig, 'name', '')
+        data.embeddingConfig = safeGet(embeddingConfig, 'config', {})
         let embeddingObj = await _createEmbeddingsObject(options.componentNodes, data, options)
         if (!embeddingObj) {
             return { error: 'Failed to create EmbeddingObj' }
         }
 
         // Prepare Vector Store Instance
-        const vsConfig = JSON.parse(entity.vectorStoreConfig)
-        data.vectorStoreName = vsConfig.name
-        data.vectorStoreConfig = vsConfig.config
+        const vsConfigStr = safeGet(entity, 'vectorStoreConfig', '{}')
+        const vsConfig = safeJSONParse(vsConfigStr, {})
+        data.vectorStoreName = safeGet(vsConfig, 'name', '')
+        data.vectorStoreConfig = safeGet(vsConfig, 'config', {})
         if (data.inputs) {
-            data.vectorStoreConfig = { ...vsConfig.config, ...data.inputs }
+            data.vectorStoreConfig = { ...safeGet(vsConfig, 'config', {}), ...data.inputs }
         }
 
         // Prepare Vector Store Node Data

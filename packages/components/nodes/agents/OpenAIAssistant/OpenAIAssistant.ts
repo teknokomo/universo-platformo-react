@@ -6,11 +6,13 @@ import {
     INodeOptionsValue,
     INodeParams,
     IServerSideEventStreamer,
-    IUsedTool
+    IUsedTool,
+    IAssistantDetails,
+    ISessionData
 } from '../../../src/Interface'
 import OpenAI from 'openai'
 import { DataSource } from 'typeorm'
-import { getCredentialData, getCredentialParam } from '../../../src/utils'
+import { getCredentialData, getCredentialParam, safeJSONParse, safeGet, hasProperty } from '../../../src/utils'
 import fetch from 'node-fetch'
 import { flatten, uniqWith, isEqual } from 'lodash'
 import { zodToJsonSchema } from 'zod-to-json-schema'
@@ -20,8 +22,8 @@ import { formatResponse } from '../../outputparsers/OutputParserHelpers'
 import { addSingleFileToStorage } from '../../../src/storageUtils'
 import { DynamicStructuredTool } from '../../tools/OpenAPIToolkit/core'
 
-const lenticularBracketRegex = /【[^】]*】/g
-const imageRegex = /<img[^>]*\/>/g
+const lenticularBracketRegex = /【.*?】/g
+const imageRegex = /\!\[.*?\]\(data:image\/[^;]+;base64,[^)]+\)/g
 
 class OpenAIAssistant_Agents implements INode {
     label: string
@@ -37,12 +39,12 @@ class OpenAIAssistant_Agents implements INode {
     constructor() {
         this.label = 'OpenAI Assistant'
         this.name = 'openAIAssistant'
-        this.version = 4.0
+        this.version = 8.0
         this.type = 'OpenAIAssistant'
+        this.icon = 'openai.svg'
         this.category = 'Agents'
-        this.icon = 'assistant.svg'
-        this.description = `An agent that uses OpenAI Assistant API to pick the tool and args to call`
-        this.baseClasses = [this.type]
+        this.description = 'Use your favourite OpenAI Assistant for conversation'
+        this.baseClasses = [this.type, 'Agent']
         this.inputs = [
             {
                 label: 'Select Assistant',
@@ -51,10 +53,18 @@ class OpenAIAssistant_Agents implements INode {
                 loadMethod: 'listAssistants'
             },
             {
-                label: 'Allowed Tools',
+                label: 'Tools',
                 name: 'tools',
-                type: 'Tool',
-                list: true
+                type: 'BaseToolInterface',
+                list: true,
+                optional: true
+            },
+            {
+                label: 'Disable File Download',
+                name: 'disableFileDownload',
+                type: 'boolean',
+                optional: true,
+                description: 'Messages files from OpenAI will not be downloaded and file_id will be used instead'
             },
             {
                 label: 'Input Moderation',
@@ -67,30 +77,42 @@ class OpenAIAssistant_Agents implements INode {
             {
                 label: 'Tool Choice',
                 name: 'toolChoice',
-                type: 'string',
+                type: 'options',
                 description:
-                    'Controls which (if any) tool is called by the model. Can be "none", "auto", "required", or the name of a tool. Refer <a href="https://platform.openai.com/docs/api-reference/runs/createRun#runs-createrun-tool_choice" target="_blank">here</a> for more information',
-                placeholder: 'file_search',
-                optional: true,
-                additionalParams: true
+                    'auto is the default, where the model can pick between generating a message or calling a function. Setting it to required will force the model to call a function',
+                options: [
+                    {
+                        label: 'auto',
+                        name: 'auto'
+                    },
+                    {
+                        label: 'none',
+                        name: 'none'
+                    },
+                    {
+                        label: 'required',
+                        name: 'required'
+                    },
+                    {
+                        label: 'file_search',
+                        name: 'file_search'
+                    },
+                    {
+                        label: 'code_interpreter',
+                        name: 'code_interpreter'
+                    }
+                ],
+                additionalParams: true,
+                optional: true
             },
             {
                 label: 'Parallel Tool Calls',
                 name: 'parallelToolCalls',
                 type: 'boolean',
-                description: 'Whether to enable parallel function calling during tool use. Defaults to true',
-                default: true,
                 optional: true,
-                additionalParams: true
-            },
-            {
-                label: 'Disable File Download',
-                name: 'disableFileDownload',
-                type: 'boolean',
+                additionalParams: true,
                 description:
-                    'Messages can contain text, images, or files. In some cases, you may want to prevent others from downloading the files. Learn more from OpenAI File Annotation <a target="_blank" href="https://platform.openai.com/docs/assistants/how-it-works/managing-threads-and-messages">docs</a>',
-                optional: true,
-                additionalParams: true
+                    'Whether to enable parallel function calling during tool use. Defaults to true. Tools that take a long time to run can be run in parallel'
             }
         ]
     }
@@ -110,11 +132,11 @@ class OpenAIAssistant_Agents implements INode {
             const assistants = await appDataSource.getRepository(databaseEntities['Assistant']).find()
 
             for (let i = 0; i < assistants.length; i += 1) {
-                const assistantDetails = JSON.parse(assistants[i].details)
+                const assistantDetails = safeJSONParse<IAssistantDetails>(safeGet(assistants[i], 'details', '{}'))
                 const data = {
-                    label: assistantDetails.name,
-                    name: assistants[i].id,
-                    description: assistantDetails.instructions
+                    label: safeGet(assistantDetails, 'name', 'Unknown Assistant'),
+                    name: safeGet(assistants[i], 'id', ''),
+                    description: safeGet(assistantDetails, 'instructions', '')
                 } as INodeOptionsValue
                 returnData.push(data)
             }
@@ -145,19 +167,19 @@ class OpenAIAssistant_Agents implements INode {
         let sessionId = ''
         if (sessionIdObj.type === 'chatId') {
             const chatId = sessionIdObj.id
-            const chatmsg = await appDataSource.getRepository(databaseEntities['ChatMessage']).findOneBy({
+            const chatmsg = (await appDataSource.getRepository(databaseEntities['ChatMessage']).findOneBy({
                 chatId
-            })
+            })) as ISessionData | null
             if (!chatmsg) {
                 options.logger.error(`Chat Message with Chat Id: ${chatId} not found`)
                 return
             }
-            sessionId = chatmsg.sessionId
+            sessionId = safeGet(chatmsg, 'sessionId', '')
         } else if (sessionIdObj.type === 'threadId') {
             sessionId = sessionIdObj.id
         }
 
-        const credentialData = await getCredentialData(assistant.credential ?? '', options)
+        const credentialData = await getCredentialData(safeGet(assistant, 'credential', ''), options)
         const openAIApiKey = getCredentialParam('openAIApiKey', credentialData, nodeData)
         if (!openAIApiKey) {
             options.logger.error(`OpenAI ApiKey not found`)
@@ -197,9 +219,9 @@ class OpenAIAssistant_Agents implements INode {
             } catch (e) {
                 await new Promise((resolve) => setTimeout(resolve, 500))
                 if (shouldStreamResponse) {
-                    streamResponse(sseStreamer, chatId, e.message)
+                    streamResponse(sseStreamer, chatId, (e as Error).message)
                 }
-                return formatResponse(e.message)
+                return formatResponse((e as Error).message)
             }
         }
 
@@ -217,7 +239,7 @@ class OpenAIAssistant_Agents implements INode {
 
         if (!assistant) throw new Error(`Assistant ${selectedAssistantId} not found`)
 
-        const credentialData = await getCredentialData(assistant.credential ?? '', options)
+        const credentialData = await getCredentialData(safeGet(assistant, 'credential', ''), options)
         const openAIApiKey = getCredentialParam('openAIApiKey', credentialData, nodeData)
         if (!openAIApiKey) throw new Error(`OpenAI ApiKey not found`)
 
@@ -229,8 +251,8 @@ class OpenAIAssistant_Agents implements INode {
         const parentIds = await analyticHandlers.onChainStart('OpenAIAssistant', input)
 
         try {
-            const assistantDetails = JSON.parse(assistant.details)
-            const openAIAssistantId = assistantDetails.id
+            const assistantDetails = safeJSONParse<IAssistantDetails>(safeGet(assistant, 'details', '{}'))
+            const openAIAssistantId = safeGet(assistantDetails, 'id', '')
 
             // Retrieve assistant
             const retrievedAssistant = await openai.beta.assistants.retrieve(openAIAssistantId)
@@ -249,10 +271,10 @@ class OpenAIAssistant_Agents implements INode {
                 await openai.beta.assistants.update(openAIAssistantId, { tools: filteredTools })
             }
 
-            const chatmessage = await appDataSource.getRepository(databaseEntities['ChatMessage']).findOneBy({
+            const chatmessage = (await appDataSource.getRepository(databaseEntities['ChatMessage']).findOneBy({
                 chatId: options.chatId,
                 chatflowid: options.chatflowid
-            })
+            })) as ISessionData | null
 
             let threadId = ''
             let isNewThread = false
@@ -261,7 +283,7 @@ class OpenAIAssistant_Agents implements INode {
                 threadId = thread.id
                 isNewThread = true
             } else {
-                const thread = await openai.beta.threads.retrieve(chatmessage.sessionId)
+                const thread = await openai.beta.threads.retrieve(safeGet(chatmessage, 'sessionId', ''))
                 threadId = thread.id
             }
 

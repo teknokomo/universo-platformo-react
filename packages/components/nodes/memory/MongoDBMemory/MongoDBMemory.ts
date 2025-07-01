@@ -7,7 +7,8 @@ import {
     getCredentialData,
     getCredentialParam,
     getVersion,
-    mapChatMessageToBaseMessage
+    mapChatMessageToBaseMessage,
+    safeGet
 } from '../../../src/utils'
 import { FlowiseMemory, ICommonObject, IMessage, INode, INodeData, INodeParams, MemoryMethods, MessageType } from '../../../src/Interface'
 
@@ -135,7 +136,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
 
         const id = overrideSessionId ? overrideSessionId : this.sessionId
         const document = await collection.findOne({ sessionId: id })
-        const messages = document?.messages || []
+        const messages = safeGet(document, 'messages', [])
         const baseMessages = messages.map(mapStoredMessageToChatMessage)
         if (prependMessages?.length) {
             baseMessages.unshift(...(await mapChatMessageToBaseMessage(prependMessages)))

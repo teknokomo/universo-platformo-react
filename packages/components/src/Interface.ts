@@ -446,3 +446,67 @@ export type FollowUpPromptConfig = {
     status: boolean
     selectedProvider: FollowUpPromptProvider
 } & FollowUpPromptProviderConfig
+
+/**
+ * Additional interfaces for type safety
+ */
+
+export interface IAssistantDetails {
+    name: string
+    instructions: string
+    model?: string
+    tools?: Array<{ type: string }>
+    id?: string
+    created_at?: number
+    metadata?: ICommonObject
+}
+
+export interface IToolData {
+    name: string
+    description: string
+    schema?: ICommonObject
+    func?: Function
+}
+
+export interface ICredentialData {
+    apiKey?: string
+    secretKey?: string
+    accessToken?: string
+    [key: string]: any
+}
+
+export interface ISessionData {
+    sessionId: string
+    userId?: string
+    chatflowId?: string
+    [key: string]: any
+}
+
+export interface IUploadResponse {
+    id: string
+    filename: string
+    object: string
+    bytes: number
+    created_at: number
+    purpose: string
+}
+
+export interface IDocumentStoreData {
+    id: string
+    name: string
+    description?: string
+    status: string
+    whereUsed?: Array<{ id: string; name: string }>
+    storeLoaders?: Array<{ id: string; name: string }>
+}
+
+export interface IMessageContent {
+    content: string
+    role: string
+    name?: string
+    function_call?: ICommonObject
+}
+
+export interface IParsedJSON {
+    [key: string]: any
+}

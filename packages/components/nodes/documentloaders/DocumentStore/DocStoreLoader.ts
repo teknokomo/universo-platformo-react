@@ -1,7 +1,16 @@
-import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeOutputsValue, INodeParams } from '../../../src/Interface'
+import {
+    ICommonObject,
+    IDatabaseEntity,
+    INode,
+    INodeData,
+    INodeOptionsValue,
+    INodeOutputsValue,
+    INodeParams,
+    IDocumentStoreData
+} from '../../../src/Interface'
 import { DataSource } from 'typeorm'
 import { Document } from '@langchain/core/documents'
-import { handleEscapeCharacters } from '../../../src'
+import { handleEscapeCharacters, safeGet, safeJSONParse } from '../../../src'
 
 class DocStore_DocumentLoaders implements INode {
     label: string
@@ -62,11 +71,12 @@ class DocStore_DocumentLoaders implements INode {
 
             const stores = await appDataSource.getRepository(databaseEntities['DocumentStore']).find()
             for (const store of stores) {
-                if (store.status === 'SYNC') {
+                const storeData = store as IDocumentStoreData
+                if (safeGet(storeData, 'status', '') === 'SYNC') {
                     const obj = {
-                        name: store.id,
-                        label: store.name,
-                        description: store.description
+                        name: safeGet(storeData, 'id', ''),
+                        label: safeGet(storeData, 'name', 'Unknown Store'),
+                        description: safeGet(storeData, 'description', '')
                     }
                     returnData.push(obj)
                 }
@@ -86,7 +96,11 @@ class DocStore_DocumentLoaders implements INode {
 
         const finalDocs = []
         for (const chunk of chunks) {
-            finalDocs.push(new Document({ pageContent: chunk.pageContent, metadata: JSON.parse(chunk.metadata) }))
+            const chunkData = chunk as any
+            const pageContent = safeGet(chunkData, 'pageContent', '')
+            const metadataStr = safeGet(chunkData, 'metadata', '{}')
+            const metadata = safeJSONParse(metadataStr, {})
+            finalDocs.push(new Document({ pageContent, metadata }))
         }
 
         if (output === 'document') {

@@ -4,7 +4,7 @@ import { BaseMessage } from '@langchain/core/messages'
 import { DataSource } from 'typeorm'
 import { CheckpointTuple, SaverOptions, SerializerProtocol } from '../interface'
 import { IMessage, MemoryMethods } from '../../../../src/Interface'
-import { mapChatMessageToBaseMessage } from '../../../../src/utils'
+import { mapChatMessageToBaseMessage, safeGet } from '../../../../src/utils'
 
 export class SqliteSaver extends BaseCheckpointSaver implements MemoryMethods {
     protected isSetup: boolean
@@ -272,8 +272,8 @@ CREATE TABLE IF NOT EXISTS ${tableName} (
         let returnIMessages: IMessage[] = []
         for (const m of chatMessage) {
             returnIMessages.push({
-                message: m.content as string,
-                type: m.role
+                message: safeGet(m, 'content', '') as string,
+                type: safeGet(m, 'role', 'user')
             })
         }
         return returnIMessages

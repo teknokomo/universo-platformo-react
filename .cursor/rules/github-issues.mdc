@@ -1,0 +1,29 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+In our GitHub repository, we create Issues with the main text in English, and also use the spoiler functionality with the <details></details> markup to place the Russian version of the text there.
+
+Create the text for Issues using this template:
+
+```
+# Update menu items Documentation, Chat Flows, Agent Flows
+
+It is necessary to update the menu items:
+
+- Change the label "Документация" / "Documentation" to "Справка" / "Help", as the documentation will be hosted at docs.universo.pro under that name.  
+- Rename "Чат‑потоки" / "Chat Flows" to "Пространства" / "Spaces" within the Unik menu.  
+- Rename "Агент‑потоки" / "Agent Flows" to "Агенты" / "Agents".
+<details>
+<summary>In Russian</summary>
+
+# Актуализировать пункты меню Документация, Чат‑потоки, Агент‑потоки
+
+Необходимо доработать пункты меню:
+
+- Изменить пункт "Документация" / "Documentation" на "Справка" / "Help", поскольку документация будет располагаться на домене docs.universo.pro и именоваться "Справка".  
+- Переименовать в меню Уников пункт "Чат‑потоки" / "Chat Flows" в "Пространства" / "Spaces".  
+- Переименовать пункт "Агент‑потоки" / "Agent Flows" в "Агенты" / "Agents".
+</details>
+```

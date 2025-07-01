@@ -4,7 +4,7 @@ import { BaseMessage } from '@langchain/core/messages'
 import { InputValues, MemoryVariables, OutputValues } from '@langchain/core/memory'
 import { ICommonObject, IDatabaseEntity } from '../../../src'
 import { IMessage, INode, INodeData, INodeParams, MemoryMethods, MessageType } from '../../../src/Interface'
-import { getBaseClasses, getCredentialData, getCredentialParam, mapChatMessageToBaseMessage } from '../../../src/utils'
+import { getBaseClasses, getCredentialData, getCredentialParam, mapChatMessageToBaseMessage, safeGet } from '../../../src/utils'
 import { DataSource } from 'typeorm'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -311,8 +311,8 @@ class Mem0MemoryExtended extends BaseMem0Memory implements MemoryMethods {
         chatMessage = chatMessage.reverse()
 
         let returnIMessages: IMessage[] = chatMessage.map((m) => ({
-            message: m.content as string,
-            type: m.role as MessageType
+            message: safeGet(m, 'content', '') as string,
+            type: safeGet(m, 'role', 'user')
         }))
 
         if (prependMessages?.length) {
