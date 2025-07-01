@@ -9,6 +9,7 @@ import { LLMChain } from 'langchain/chains'
 import { INode, INodeData, INodeParams } from '../../../src/Interface'
 import { checkInputs, Moderation } from '../../moderation/Moderation'
 import { formatResponse } from '../../outputparsers/OutputParserHelpers'
+import { safeGet } from '../../../src/utils'
 
 type ObjectTool = StructuredTool
 const FINISH_NAME = 'finish'
@@ -144,20 +145,25 @@ class AutoGPT_Agents implements INode {
                     executor.fullMessageHistory.push(new AIMessage(assistantReply))
 
                     const action = await executor.outputParser.parse(assistantReply)
-                    const tools = executor.tools.reduce((acc, tool) => ({ ...acc, [tool.name]: tool }), {} as { [key: string]: ObjectTool })
+                    const tools = executor.tools.reduce<Record<string, any>>((acc, tool) => {
+                        const toolName = safeGet(tool, 'name', 'unknown_tool')
+                        acc[toolName] = tool
+                        return acc
+                    }, {})
+
                     if (action.name === FINISH_NAME) {
                         return action.args.response
                     }
                     let result: string
                     if (action.name in tools) {
-                        const tool = tools[action.name]
+                        const tool = tools[action.name] as ObjectTool
                         let observation
                         try {
                             observation = await tool.call(action.args)
                         } catch (e) {
                             observation = `Error in args: ${e}`
                         }
-                        result = `Command ${tool.name} returned: ${observation}`
+                        result = `Command ${safeGet(tool, 'name', 'unknown')} returned: ${observation}`
                     } else if (action.name === 'ERROR') {
                         result = `Error: ${action.args}. `
                     } else {

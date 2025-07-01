@@ -6,7 +6,8 @@ import {
     getCredentialData,
     getCredentialParam,
     getVars,
-    prepareSandboxVars
+    prepareSandboxVars,
+    safeGet
 } from '../../../src/utils'
 import {
     ICommonObject,
@@ -144,9 +145,10 @@ class ExecuteFlow_SeqAgents implements INode {
             const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).find()
 
             for (let i = 0; i < chatflows.length; i += 1) {
+                const chatflow = chatflows[i] as any
                 const data = {
-                    label: chatflows[i].name,
-                    name: chatflows[i].id
+                    label: safeGet(chatflow, 'name', 'Unknown Flow'),
+                    name: safeGet(chatflow, 'id', '')
                 } as INodeOptionsValue
                 returnData.push(data)
             }
@@ -197,7 +199,8 @@ class ExecuteFlow_SeqAgents implements INode {
             } else if (seqExecuteFlowInput && seqExecuteFlowInput.startsWith('{{') && seqExecuteFlowInput.endsWith('}}')) {
                 const nodeId = seqExecuteFlowInput.replace('{{', '').replace('}}', '').replace('$', '').trim()
                 const messageOutputs = ((state.messages as unknown as BaseMessage[]) ?? []).filter(
-                    (message) => message.additional_kwargs && message.additional_kwargs?.nodeId === nodeId
+                    (message) =>
+                        safeGet(message, 'additional_kwargs', null) && safeGet(message.additional_kwargs, 'nodeId', null) === nodeId
                 )
                 const messageOutput = messageOutputs[messageOutputs.length - 1]
 

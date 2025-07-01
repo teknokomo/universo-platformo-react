@@ -8,7 +8,7 @@ import {
     MemoryMethods,
     ICommonObject
 } from '../../../src/Interface'
-import { getBaseClasses, mapChatMessageToBaseMessage } from '../../../src/utils'
+import { getBaseClasses, mapChatMessageToBaseMessage, safeGet } from '../../../src/utils'
 import { BaseLanguageModel } from '@langchain/core/language_models/base'
 import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { ConversationSummaryMemory, ConversationSummaryMemoryInput } from 'langchain/memory'
@@ -156,8 +156,8 @@ class ConversationSummaryMemoryExtended extends FlowiseSummaryMemory implements 
         let returnIMessages: IMessage[] = []
         for (const m of chatMessage) {
             returnIMessages.push({
-                message: m.content as string,
-                type: m.role
+                message: safeGet(m, 'content', '') as string,
+                type: safeGet(m, 'role', 'user')
             })
         }
         return returnIMessages

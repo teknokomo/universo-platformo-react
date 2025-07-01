@@ -627,7 +627,11 @@ export const getCredentialData = async (selectedCredentialId: string, options: I
         if (!credential) return {}
 
         // Decrypt credentialData
-        const decryptedCredentialData = await decryptCredentialData(credential.encryptedData)
+        const encryptedData = safeGet(credential, 'encryptedData', null)
+        if (!encryptedData) {
+            throw new Error('No encrypted data found in credential')
+        }
+        const decryptedCredentialData = await decryptCredentialData(encryptedData)
 
         return decryptedCredentialData
     } catch (e) {
@@ -1188,15 +1192,80 @@ export const handleDocumentLoaderMetadata = (
 }
 
 export const handleDocumentLoaderDocuments = async (loader: DocumentLoader, textSplitter?: TextSplitter) => {
-    let docs: Document[] = []
-
-    if (textSplitter) {
-        let splittedDocs = await loader.load()
-        splittedDocs = await textSplitter.splitDocuments(splittedDocs)
-        docs = splittedDocs
-    } else {
-        docs = await loader.load()
+    const documents: Document[] = []
+    try {
+        const docs = await loader.load()
+        if (textSplitter) {
+            documents.push(...(await textSplitter.splitDocuments(docs)))
+        } else {
+            documents.push(...docs)
+        }
+    } catch (error) {
+        throw new Error(`Failed to load documents: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+    return documents
+}
 
-    return docs
+/**
+ * Type-safe utilities for working with unknown types
+ */
+
+/**
+ * Safely parse JSON with type safety
+ * @param jsonString - The JSON string to parse
+ * @param fallback - Fallback value if parsing fails
+ * @returns Parsed object or fallback
+ */
+export const safeJSONParse = <T = ICommonObject>(jsonString: string, fallback: T = {} as T): T => {
+    try {
+        return JSON.parse(jsonString) as T
+    } catch {
+        return fallback
+    }
+}
+
+/**
+ * Convert Buffer to Uint8Array for compatibility
+ * @param buffer - Buffer to convert
+ * @returns Uint8Array
+ */
+export const bufferToUint8Array = (buffer: Buffer): Uint8Array => {
+    return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+}
+
+/**
+ * Safely cast unknown to a specific type with validation
+ * @param value - Unknown value to cast
+ * @param validator - Optional validation function
+ * @param fallback - Fallback value if casting fails
+ * @returns Typed value or fallback
+ */
+export const safeCast = <T>(value: unknown, validator?: (val: any) => boolean, fallback?: T): T | undefined => {
+    if (validator && !validator(value)) {
+        return fallback
+    }
+    return value as T
+}
+
+/**
+ * Check if object has specific property with type guard
+ * @param obj - Object to check
+ * @param prop - Property name
+ * @returns Type guard for property existence
+ */
+export const hasProperty = <T extends object, K extends PropertyKey>(obj: T, prop: K): obj is T & Record<K, unknown> => {
+    return Object.prototype.hasOwnProperty.call(obj, prop)
+}
+
+/**
+ * Safely access nested object properties
+ * @param obj - Object to access
+ * @param path - Dot-separated path
+ * @param fallback - Fallback value
+ * @returns Property value or fallback
+ */
+export const safeGet = (obj: any, path: string, fallback: any = undefined): any => {
+    return path.split('.').reduce((current, prop) => {
+        return current && typeof current === 'object' && prop in current ? current[prop] : fallback
+    }, obj)
 }

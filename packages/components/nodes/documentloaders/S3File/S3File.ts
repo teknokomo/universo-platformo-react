@@ -12,7 +12,8 @@ import {
     getCredentialParam,
     handleDocumentLoaderDocuments,
     handleDocumentLoaderMetadata,
-    handleDocumentLoaderOutput
+    handleDocumentLoaderOutput,
+    bufferToUint8Array
 } from '../../../src/utils'
 import { S3Client, GetObjectCommand, S3ClientConfig } from '@aws-sdk/client-s3'
 import { getRegions, MODEL_TYPE } from '../../../src/modelLoader'
@@ -536,7 +537,7 @@ class S3_DocumentLoaders implements INode {
 
                     if (response.Body instanceof Readable) {
                         response.Body.on('data', (chunk: Buffer) => chunks.push(chunk))
-                        response.Body.on('end', () => resolve(Buffer.concat(chunks)))
+                        response.Body.on('end', () => resolve(Buffer.concat(chunks.map(bufferToUint8Array))))
                         response.Body.on('error', reject)
                     } else {
                         reject(new Error('Response body is not a readable stream.'))
@@ -545,7 +546,7 @@ class S3_DocumentLoaders implements INode {
 
                 fsDefault.mkdirSync(path.dirname(filePath), { recursive: true })
 
-                fsDefault.writeFileSync(filePath, objectData)
+                fsDefault.writeFileSync(filePath, bufferToUint8Array(objectData))
             } catch (e: any) {
                 throw new Error(`Failed to download file ${keyName} from S3 bucket ${bucketName}: ${e.message}`)
             }

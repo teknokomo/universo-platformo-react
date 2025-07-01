@@ -1,7 +1,7 @@
 import { omit } from 'lodash'
 import { IDocument, ICommonObject, INode, INodeData, INodeParams } from '../../../src/Interface'
 import { TextSplitter } from 'langchain/text_splitter'
-import { getFileFromStorage, handleEscapeCharacters, INodeOutputsValue } from '../../../src'
+import { getFileFromStorage, handleEscapeCharacters, INodeOutputsValue, bufferToUint8Array } from '../../../src'
 import { EPubLoader } from '@langchain/community/document_loaders/fs/epub'
 
 import * as fs from 'fs'
@@ -123,7 +123,8 @@ class Epub_DocumentLoaders implements INode {
                     if (!file) continue
                     const fileData = await getFileFromStorage(file, chatflowid)
                     const tempFilePath = path.join(tempDir, `${Date.now()}_${file}`)
-                    fs.writeFileSync(tempFilePath, fileData)
+                    const fileUint8Array = fileData instanceof Buffer ? bufferToUint8Array(fileData) : fileData
+                    fs.writeFileSync(tempFilePath, fileUint8Array)
                     await this.extractDocs(usage, tempFilePath, textSplitter, docs)
                 }
             } else {
@@ -135,7 +136,7 @@ class Epub_DocumentLoaders implements INode {
                     splitDataURI.pop()
                     const fileBuffer = Buffer.from(splitDataURI.pop() || '', 'base64')
                     const tempFilePath = path.join(tempDir, `${Date.now()}_epub_file.epub`)
-                    fs.writeFileSync(tempFilePath, fileBuffer)
+                    fs.writeFileSync(tempFilePath, bufferToUint8Array(fileBuffer))
                     await this.extractDocs(usage, tempFilePath, textSplitter, docs)
                 }
             }

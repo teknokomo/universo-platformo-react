@@ -5,7 +5,7 @@ import { RunnableConfig } from '@langchain/core/runnables'
 import { CallbackManagerForToolRun, Callbacks, CallbackManager, parseCallbackConfigArg } from '@langchain/core/callbacks/manager'
 import { StructuredTool } from '@langchain/core/tools'
 import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, INodeParams } from '../../../src/Interface'
-import { availableDependencies, defaultAllowBuiltInDep, getCredentialData, getCredentialParam } from '../../../src/utils'
+import { availableDependencies, defaultAllowBuiltInDep, getCredentialData, getCredentialParam, safeGet } from '../../../src/utils'
 import { v4 as uuidv4 } from 'uuid'
 
 class ChatflowTool_Tools implements INode {
@@ -125,9 +125,10 @@ class ChatflowTool_Tools implements INode {
             const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).find()
 
             for (let i = 0; i < chatflows.length; i += 1) {
+                const chatflow = chatflows[i] as any
                 const data = {
-                    label: chatflows[i].name,
-                    name: chatflows[i].id
+                    label: safeGet(chatflow, 'name', 'Unknown Chatflow'),
+                    name: safeGet(chatflow, 'id', '')
                 } as INodeOptionsValue
                 returnData.push(data)
             }

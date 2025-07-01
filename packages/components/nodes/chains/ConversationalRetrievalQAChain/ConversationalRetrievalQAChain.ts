@@ -12,7 +12,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers'
 import type { Document } from '@langchain/core/documents'
 import { BufferMemoryInput } from 'langchain/memory'
 import { ConversationalRetrievalQAChain } from 'langchain/chains'
-import { getBaseClasses, mapChatMessageToBaseMessage } from '../../../src/utils'
+import { getBaseClasses, mapChatMessageToBaseMessage, safeGet, hasProperty } from '../../../src/utils'
 import { ConsoleCallbackHandler, additionalCallbacks } from '../../../src/handler'
 import {
     FlowiseMemory,
@@ -23,7 +23,8 @@ import {
     INodeParams,
     IDatabaseEntity,
     MemoryMethods,
-    IServerSideEventStreamer
+    IServerSideEventStreamer,
+    IMessageContent
 } from '../../../src/Interface'
 import { QA_TEMPLATE, REPHRASE_TEMPLATE, RESPONSE_TEMPLATE } from './prompts'
 
@@ -448,9 +449,10 @@ class BufferMemory extends FlowiseMemory implements MemoryMethods {
 
         let returnIMessages: IMessage[] = []
         for (const m of chatMessage) {
+            const messageContent = m as IMessageContent
             returnIMessages.push({
-                message: m.content as string,
-                type: m.role
+                message: safeGet(messageContent, 'content', ''),
+                type: safeGet(messageContent, 'role', 'userMessage')
             })
         }
         return returnIMessages

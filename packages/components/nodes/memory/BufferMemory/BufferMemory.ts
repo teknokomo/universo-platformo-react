@@ -8,7 +8,7 @@ import {
     INodeParams,
     MemoryMethods
 } from '../../../src/Interface'
-import { getBaseClasses, mapChatMessageToBaseMessage } from '../../../src/utils'
+import { getBaseClasses, mapChatMessageToBaseMessage, safeGet } from '../../../src/utils'
 import { BufferMemory, BufferMemoryInput } from 'langchain/memory'
 import { BaseMessage } from '@langchain/core/messages'
 import { DataSource } from 'typeorm'
@@ -123,8 +123,8 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         let returnIMessages: IMessage[] = []
         for (const m of chatMessage) {
             returnIMessages.push({
-                message: m.content as string,
-                type: m.role
+                message: safeGet(m, 'content', '') as string,
+                type: safeGet(m, 'role', 'user')
             })
         }
 
