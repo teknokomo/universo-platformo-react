@@ -1,7 +1,7 @@
 // Universo Platformo | Simple AR.js Object Validator
 // Ensures data integrity for UPDL objects before AR.js rendering
 
-import { IUPDLObject } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLObject } from '@universo/publish-srv'
 
 /**
  * Simple validator for UPDL objects used in AR.js generation

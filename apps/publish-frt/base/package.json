@@ -22,6 +22,7 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@universo/publish-srv": "workspace:*",
         "axios": "1.7.9",
         "file-saver": "^2.0.5",
         "jszip": "^3.10.1",

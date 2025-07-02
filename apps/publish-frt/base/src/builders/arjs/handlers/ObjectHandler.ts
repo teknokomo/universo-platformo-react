@@ -2,7 +2,7 @@
 // Handles processing of UPDL Object nodes for AR.js
 // Logic transferred from UPDLToARJSConverter.ts
 
-import { IUPDLObject, IUPDLMultiScene } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLObject, IUPDLMultiScene } from '@universo/publish-srv'
 import { BuildOptions } from '../../common/types'
 import { SimpleValidator } from '../utils/SimpleValidator'
 

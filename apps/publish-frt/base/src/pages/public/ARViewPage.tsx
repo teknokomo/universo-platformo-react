@@ -4,7 +4,6 @@ import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { ARJSBuilder } from '../../builders'
-import { StreamingPublicationApi } from '../../api'
 
 /**
  * Page for viewing AR content in streaming generation mode
@@ -33,83 +32,66 @@ const ARViewPage: React.FC = () => {
                     throw new Error('No publication ID provided')
                 }
 
-                // Universo Platformo | Enhanced debugging for libraryConfig flow
-                console.log('🔍 [ARViewPage] Loading publication data for:', publicationId)
+                // UPDATED: Get raw flow data from new API
+                console.log('🔍 [ARViewPage] Loading raw flow data for:', publicationId)
 
-                const publicationData = await StreamingPublicationApi.getPublicationData(publicationId)
+                const response = await fetch(`/api/v1/publish/arjs/public/${publicationId}`)
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch publication data: ${response.status}`)
+                }
 
-                // Universo Platformo | Detailed API response logging
-                console.log('📡 [ARViewPage] API Response received:', {
-                    success: !!publicationData,
-                    hasUpdlSpace: !!publicationData?.updlSpace,
-                    hasMultiScene: !!publicationData?.multiScene,
+                const publicationData = await response.json()
+
+                // NEW: API response logging for raw data
+                console.log('📡 [ARViewPage] Raw data API Response received:', {
+                    success: !!publicationData.success,
+                    hasFlowData: !!publicationData?.flowData,
                     hasLibraryConfig: !!publicationData?.libraryConfig,
                     libraryConfigValue: publicationData?.libraryConfig,
                     publicationDataKeys: Object.keys(publicationData || {}),
-                    fullResponse: publicationData
+                    flowDataLength: publicationData?.flowData?.length || 0
                 })
 
-                // Universo Platformo | Support both single space and multi-scene data
-                if (!publicationData?.updlSpace && !publicationData?.multiScene) {
-                    console.error('❌ [ARViewPage] No UPDL space or multi-scene found in publication data')
+                // Check for valid response
+                if (!publicationData.success || !publicationData.flowData) {
+                    console.error('❌ [ARViewPage] No flow data found in publication response')
                     setError('Publication data not found')
                     return
                 }
 
-                // Universo Platformo | Determine data type and log appropriately
-                const isMultiScene = !!publicationData.multiScene
-                const multiSceneData = publicationData.multiScene
-                const singleSpaceData = publicationData.updlSpace
-
-                console.log('✅ [ARViewPage] Publication data loaded successfully:', {
-                    projectId: publicationData.projectId,
-                    isMultiScene: isMultiScene,
-                    spaceObjectCount: isMultiScene
-                        ? multiSceneData?.scenes?.reduce((total: number, scene: any) => total + (scene.objectNodes?.length || 0), 0) || 0
-                        : singleSpaceData?.objects?.length || 0,
-                    sceneCount: isMultiScene ? multiSceneData?.totalScenes || 0 : 1,
+                console.log('✅ [ARViewPage] Raw flow data loaded successfully:', {
+                    projectName: publicationData.projectName,
+                    flowDataLength: publicationData.flowData.length,
                     libraryConfig: publicationData.libraryConfig
                 })
 
-                // Generate HTML using new ARJSBuilder
+                // NEW: Generate HTML using buildFromFlowData method
                 const arjsBuilder = new ARJSBuilder()
 
-                // Universo Platformo | Prepare build options with detailed logging
+                // NEW: Prepare build options for raw data processing
                 const buildOptions = {
-                    projectName: publicationData.projectId || 'AR.js Experience',
+                    projectName: publicationData.projectName || 'AR.js Experience',
                     markerType: 'preset',
                     markerValue: 'hiro',
-                    // Universo Platformo | Include libraryConfig for proper library source selection
                     libraryConfig: publicationData.libraryConfig,
-                    // Universo Platformo | Include chatflowId for lead data saving
                     chatflowId: publicationId
                 }
 
-                console.log('🔧 [ARViewPage] Calling ARJSBuilder with options:', {
+                console.log('🔧 [ARViewPage] Calling ARJSBuilder.buildFromFlowData with raw data:', {
                     projectName: buildOptions.projectName,
                     markerType: buildOptions.markerType,
                     markerValue: buildOptions.markerValue,
                     hasLibraryConfig: !!buildOptions.libraryConfig,
                     libraryConfigDetails: buildOptions.libraryConfig,
-                    isMultiScene: isMultiScene,
-                    dataToProcess: isMultiScene
-                        ? { totalScenes: multiSceneData?.totalScenes, scenes: multiSceneData?.scenes?.length }
-                        : { name: singleSpaceData?.name, objectCount: singleSpaceData?.objects?.length || 0 }
+                    flowDataLength: publicationData.flowData.length
                 })
 
-                // Universo Platformo | Use appropriate builder method based on data type
-                let buildResult
-                if (isMultiScene && multiSceneData) {
-                    buildResult = await arjsBuilder.buildMultiScene(multiSceneData, buildOptions)
-                } else if (singleSpaceData) {
-                    buildResult = await arjsBuilder.build(singleSpaceData, buildOptions)
-                } else {
-                    throw new Error('No valid data to process')
-                }
+                // NEW: Use buildFromFlowData method instead of build/buildMultiScene
+                const buildResult = await arjsBuilder.buildFromFlowData(publicationData.flowData, buildOptions)
                 const html = buildResult.html
 
-                console.log('🎯 [ARViewPage] ARJSBuilder completed:', {
-                    method: isMultiScene ? 'buildMultiScene' : 'build',
+                console.log('🎯 [ARViewPage] ARJSBuilder.buildFromFlowData completed:', {
+                    method: 'buildFromFlowData',
                     htmlLength: html?.length || 0,
                     hasHtml: !!html,
                     metadata: buildResult.metadata,

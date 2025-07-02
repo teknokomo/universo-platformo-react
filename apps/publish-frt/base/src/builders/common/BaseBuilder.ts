@@ -1,7 +1,7 @@
 // Universo Platformo | Base builder for all platforms
 // Abstract base class that all platform builders must extend
 
-import { IUPDLSpace } from '../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLSpace } from '@universo/publish-srv'
 import { BuildResult, BuildOptions, BuilderConfig, ValidationResult } from './types'
 
 /**
@@ -11,7 +11,15 @@ export abstract class BaseBuilder {
     protected platform: string
     protected config: BuilderConfig
 
-    constructor(platform: string, config: BuilderConfig = { platform }) {
+    constructor(
+        platform: string,
+        config: BuilderConfig = {
+            platform,
+            name: 'BaseBuilder',
+            version: '1.0.0',
+            supportedMarkerTypes: []
+        }
+    ) {
         this.platform = platform
         this.config = config
     }

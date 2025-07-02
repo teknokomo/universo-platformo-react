@@ -51,6 +51,17 @@ try {
 const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
     const { t } = useTranslation('publish')
 
+    // CRITICAL DEBUG: Diagnose flow.id undefined issue
+    useEffect(() => {
+        console.log('🔍 [ARJSPublisher] FLOW DEBUG:', {
+            flowExists: !!flow,
+            flowId: flow?.id,
+            flowKeys: flow ? Object.keys(flow) : 'no flow',
+            flowValue: flow,
+            flowType: typeof flow
+        })
+    }, [flow])
+
     // State for project title
     const [projectTitle, setProjectTitle] = useState(flow?.name || '')
     // State for marker type
@@ -250,6 +261,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
      * Handle public toggle change
      */
     const handlePublicChange = async (value) => {
+        // CRITICAL: Check for flow.id before proceeding
+        if (!flow?.id) {
+            console.error('🚨 [ARJSPublisher] Cannot proceed: flow.id is undefined', { flow })
+            setError('Ошибка: идентификатор потока не найден. Пожалуйста, сохраните поток и попробуйте снова.')
+            setIsPublic(false)
+            return
+        }
+
         setIsPublic(value)
 
         // If public toggle is off, reset the URL and save settings
@@ -320,6 +339,11 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.log('ARJSPublisher: Settings saved with isPublic: true') // Simple console.log instead of debugLog
 
             // Use API client for AR.js publication
+            // Additional safety check before API call
+            if (!flow.id) {
+                throw new Error('Идентификатор потока отсутствует')
+            }
+
             const publishResult = await ARJSPublishApi.publishARJS({
                 chatflowId: flow.id,
                 generationMode: 'streaming',
@@ -337,6 +361,11 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     }
                 }
             })
+
+            // Validate publicationId before forming URL
+            if (!publishResult?.publicationId) {
+                throw new Error('Не получен идентификатор публикации от сервера')
+            }
 
             // Form local link with consideration for demo mode
             const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${publishResult.publicationId}`

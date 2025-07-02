@@ -1,7 +1,7 @@
 // Universo Platformo | AR.js Data Handler
 // Handles processing of UPDL Data nodes for AR.js quiz functionality
 
-import { IUPDLData, IUPDLMultiScene, IUPDLScene } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLData, IUPDLMultiScene, IUPDLScene } from '@universo/publish-srv'
 import { BuildOptions } from '../../common/types'
 
 /**

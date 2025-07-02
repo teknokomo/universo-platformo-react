@@ -1,30 +1,9 @@
 // Universo Platformo | Publication controller
-import { Request, Response } from 'express'
-import path from 'path'
-import logger from '../utils/logger'
-import axios from 'axios'
+// REFACTORED: Now uses dependency injection for FlowDataService
 
-// Universo Platformo | Import buildUPDLflow function for streaming generation from UPDL nodes
-let utilBuildUPDLflow: any
-{
-    const baseDir = __dirname
-    // Try to load from built dist
-    try {
-        const prodPath = path.resolve(baseDir, '../../../../../packages/server/dist/utils/buildUPDLflow')
-        utilBuildUPDLflow = require(prodPath).utilBuildUPDLflow
-        logger.info(`[PublishController] Imported utilBuildUPDLflow from ${prodPath}`)
-    } catch (e1) {
-        // Try tooloadofromcsource
-        try {
-            const devPath = path.resolve(baseDir, '../../../../../packages/server/src/utils/buildUPDLflow')
-            utilBuildUPDLflow = require(devPath).utilBuildUPDLflow
-            logger.info(`[PublishController] Imported utilBuildUPDLflow from ${devPath}`)
-        } catch (e2) {
-            logger.error('[PublishController] Failed to import utilBuildUPDLflow:', e2)
-            logger.warn('[PublishController] utilBuildUPDLflow not available, streamUPDL fallback will be used')
-        }
-    }
-}
+import { Request, Response } from 'express'
+import logger from '../utils/logger'
+import { FlowDataService } from '../services/FlowDataService'
 
 // Universo Platformo | Removed loadARJSSettings function - libraryConfig now comes directly from utilBuildUPDLflow
 // This simplifies the architecture by eliminating duplicate database queries and keeping all chatflow
@@ -32,8 +11,11 @@ let utilBuildUPDLflow: any
 
 /**
  * Controller for AR.js publication via UPDL
+ * ARCHITECTURE: Uses dependency injection for FlowDataService to break circular dependencies
  */
 export class PublishController {
+    constructor(private flowDataService: FlowDataService) {}
+
     /**
      * Publish AR.js project
      * @param req Request
@@ -58,11 +40,12 @@ export class PublishController {
             const publicationId = chatflowId
             const createdAt = new Date().toISOString()
 
+            logger.info(`[PublishController] Creating publication response with publicationId: ${publicationId}`)
+
             // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
 
-            // Return publication metadata
-            res.status(200).json({
+            const responseData = {
                 success: true,
                 publicationId,
                 chatflowId,
@@ -70,7 +53,12 @@ export class PublishController {
                 generationMode,
                 isPublic,
                 createdAt
-            })
+            }
+
+            logger.info(`[PublishController] Response data: ${JSON.stringify(responseData)}`)
+
+            // Return publication metadata
+            res.status(200).json(responseData)
         } catch (error) {
             logger.error(`[PublishController] Error publishing AR.js:`, error)
 
@@ -90,16 +78,19 @@ export class PublishController {
      * @param res Response
      */
     public async getPublicARJSPublication(req: Request, res: Response): Promise<void> {
-        logger.info(`[PublishController] getPublicARJSPublication called. PublicationId: ${req.params.publicationId}`)
-        try {
-            const { publicationId } = req.params
+        const publicationId = req.params.publicationId
+        logger.info(`[PublishController] getPublicARJSPublication called. PublicationId: ${publicationId}`)
+        logger.info(`[PublishController] Request params: ${JSON.stringify(req.params)}`)
+        logger.info(`[PublishController] PublicationId type: ${typeof publicationId}, value: "${publicationId}"`)
 
-            if (!publicationId) {
+        try {
+            if (!publicationId || publicationId === 'undefined') {
+                logger.error(`[PublishController] Invalid publicationId: ${publicationId}`)
                 // Explicitly set content type header
                 res.setHeader('Content-Type', 'application/json')
                 res.status(400).json({
                     success: false,
-                    error: 'Missing required parameter: publicationId'
+                    error: 'Missing or invalid publicationId parameter'
                 })
                 return
             }
@@ -124,7 +115,8 @@ export class PublishController {
     }
 
     /**
-     * Get UPDL space data for AR.js streaming generation
+     * Get raw flow data for AR.js streaming generation
+     * UPDATED: Now uses injected FlowDataService instead of static method
      * @param req Request
      * @param res Response
      */
@@ -135,7 +127,6 @@ export class PublishController {
         logger.info(`[PublishController] Request URL: ${req.originalUrl}`)
 
         if (!id) {
-            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
             logger.error(`[PublishController] Missing ID parameter! URL: ${req.originalUrl}, params: ${JSON.stringify(req.params)}`)
             res.status(400).json({
@@ -146,114 +137,53 @@ export class PublishController {
         }
 
         try {
-            if (!utilBuildUPDLflow) {
-                throw new Error('utilBuildUPDLflow is not available')
+            // Use injected FlowDataService instance instead of static method
+            logger.info(`[PublishController] Calling flowDataService.getFlowData for id: ${id}`)
+            const flowData = await this.flowDataService.getFlowData(id)
+
+            if (!flowData || !flowData.flowData) {
+                logger.warn(`[PublishController] FlowDataService returned no flow data for ${id}`)
+                throw new Error(`Failed to get flow data for ${id}`)
             }
 
-            // Call function to get UPDL data from nodes
-            logger.info(`[PublishController] Calling utilBuildUPDLflow for id: ${id}`)
-            const result = await utilBuildUPDLflow(id)
-
-            if (!result) {
-                logger.warn(`[PublishController] utilBuildUPDLflow returned no result for ${id}`)
-                throw new Error(`Failed to build UPDL flow for ${id}`)
+            logger.info(`[PublishController] Successfully retrieved flow data for ${id}`)
+            logger.info(`[PublishController] libraryConfig from FlowDataService:`, flowData.libraryConfig ? 'found' : 'not found')
+            if (flowData.libraryConfig) {
+                logger.info(`[PublishController] libraryConfig details:`, JSON.stringify(flowData.libraryConfig))
             }
 
-            // Universo Platformo | Handle both single space and multi-scene results
-            let spaceToUse = null
-            let isMultiScene = false
-
-            if (result.multiScene) {
-                // Multi-scene result
-                isMultiScene = true
-                logger.info(`[PublishController] Multi-scene result with ${result.multiScene.totalScenes} scenes`)
-
-                // Validate multi-scene structure
-                if (!result.multiScene.scenes || result.multiScene.scenes.length === 0) {
-                    logger.warn(`[PublishController] utilBuildUPDLflow returned empty multi-scene for ${id}`)
-                    res.setHeader('Content-Type', 'application/json')
-                    res.status(404).json({
-                        success: false,
-                        error: 'Multi-scene structure not found or empty'
-                    })
-                    return
-                }
-            } else {
-                // Single space result (legacy)
-                spaceToUse = result.updlSpace
-
-                if (!spaceToUse || !spaceToUse.objects || spaceToUse.objects.length === 0) {
-                    logger.warn(`[PublishController] utilBuildUPDLflow returned empty space for ${id}`)
-                    res.setHeader('Content-Type', 'application/json')
-                    res.status(404).json({
-                        success: false,
-                        error: 'UPDL space not found or empty'
-                    })
-                    return
-                }
-            }
-
-            if (isMultiScene) {
-                logger.info(`[PublishController] Successfully built multi-scene with ${result.multiScene.scenes.length} scenes`)
-            } else {
-                logger.info(`[PublishController] Successfully built UPDL space with ${spaceToUse.objects?.length || 0} objects`)
-            }
-
-            // Universo Platformo | libraryConfig now comes directly from utilBuildUPDLflow result
-            logger.info(`[PublishController] libraryConfig from utilBuildUPDLflow:`, result.libraryConfig ? 'found' : 'not found')
-            if (result.libraryConfig) {
-                logger.info(`[PublishController] libraryConfig details:`, JSON.stringify(result.libraryConfig))
-            }
-
-            // Universo Platformo | Enhanced debugging for API response
-            const responseData: any = {
+            // Return RAW flow data (not processed UPDL structures)
+            const responseData = {
                 success: true,
                 publicationId: id,
-                projectName: isMultiScene ? `Multi-Scene AR.js for ${id}` : spaceToUse?.name || `AR.js for ${id}`,
+                projectName: flowData.chatflow?.name || `UPDL Space ${id}`,
                 generationMode: 'streaming',
-                // Universo Platformo | Include libraryConfig from AR.js settings
-                libraryConfig: result.libraryConfig || null,
+                flowData: flowData.flowData, // Raw JSON string
+                libraryConfig: flowData.libraryConfig, // Extracted configuration
+                chatflowId: id, // Add for compatibility
                 timestamp: new Date().toISOString()
             }
 
-            // Add the appropriate data structure based on mode
-            if (isMultiScene) {
-                responseData.multiScene = result.multiScene
-            } else {
-                responseData.updlSpace = spaceToUse
-            }
-
-            logger.info(`[PublishController] Preparing API response:`, {
+            logger.info(`[PublishController] Preparing raw data API response:`, {
                 responseKeys: Object.keys(responseData),
                 hasLibraryConfig: !!responseData.libraryConfig,
                 libraryConfigDetails: responseData.libraryConfig,
-                isMultiScene: isMultiScene,
-                spaceObjectCount: isMultiScene
-                    ? responseData.multiScene?.scenes?.reduce((total: number, scene: any) => total + (scene.objectNodes?.length || 0), 0) ||
-                      0
-                    : responseData.updlSpace?.objects?.length || 0,
-                sceneCount: isMultiScene ? responseData.multiScene?.totalScenes : 1
+                flowDataLength: responseData.flowData.length,
+                projectName: responseData.projectName
             })
 
-            // Return space data for UPDL nodes with libraryConfig
-            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
             res.status(200).json(responseData)
         } catch (error) {
             logger.error(`[PublishController] Error in streamUPDL:`, error)
             logger.error(`[PublishController] Error details: ${error instanceof Error ? error.stack : String(error)}`)
 
-            // In case of error, return error
-            // Explicitly set content type header
             res.setHeader('Content-Type', 'application/json')
             res.status(500).json({
                 success: false,
-                error: 'Failed to retrieve UPDL space',
+                error: 'Failed to retrieve flow data',
                 details: error instanceof Error ? error.message : 'Unknown error'
             })
         }
     }
 }
-
-// Create controller instance for use in routes
-export const publishController = new PublishController()

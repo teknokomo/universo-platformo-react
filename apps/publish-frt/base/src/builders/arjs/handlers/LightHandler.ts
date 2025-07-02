@@ -1,7 +1,7 @@
 // Universo Platformo | AR.js Light Handler
 // Handles processing of UPDL Light nodes for AR.js
 
-import { IUPDLLight } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLLight } from '@universo/publish-srv'
 import { BuildOptions } from '../../common/types'
 
 /**

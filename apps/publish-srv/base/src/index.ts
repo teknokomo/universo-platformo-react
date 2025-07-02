@@ -1,4 +1,9 @@
 // Universo Platformo | Publish Server Module
-// Universo Platformo | Directly export routes for integration with core Flowise
+// REFACTORED: Now exports route factory instead of static routes
 
-export { default as publishRoutes } from './routes/publishRoutes'
+export { createPublishRoutes } from './routes/createPublishRoutes'
+export * from './types/publication.types'
+export { FlowDataService } from './services/FlowDataService'
+export { PublishController } from './controllers/publishController'
+
+// Legacy exports removed - old publishRoutes.ts deleted

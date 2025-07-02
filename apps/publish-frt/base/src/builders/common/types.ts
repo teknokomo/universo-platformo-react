@@ -1,15 +1,25 @@
 // Universo Platformo | Common builder types
-// Shared interfaces and types for all builders
+// REFACTORED: Contains only frontend-specific builder types
+// UPDL structure types moved to @universo/publish-srv
 
-import { IUPDLSpace } from '../../../../../../packages/server/src/Interface.UPDL'
-import { LibraryConfig } from '../../types/library.types'
+import type { ILibraryConfig } from '@universo/publish-srv'
 
 /**
  * Result of a build operation
  */
 export interface BuildResult {
-    html: string
-    metadata: BuildMetadata
+    success: boolean
+    html?: string
+    error?: string
+    metadata?: {
+        buildTime: number
+        markerType: string
+        markerValue: string
+        libraryVersions: {
+            arjs: string
+            aframe: string
+        }
+    }
 }
 
 /**
@@ -28,9 +38,10 @@ export interface BuildMetadata {
  */
 export interface BuildOptions {
     projectName?: string
+    libraryConfig?: ILibraryConfig
     markerType?: string
     markerValue?: string
-    libraryConfig?: LibraryConfig
+    debug?: boolean
     [key: string]: any
 }
 
@@ -42,6 +53,9 @@ export interface BuilderConfig {
     template?: string
     aframeVersion?: string
     arjsVersion?: string
+    name: string
+    version: string
+    supportedMarkerTypes: string[]
     [key: string]: any
 }
 
@@ -57,9 +71,18 @@ export interface ValidationResult {
 /**
  * Error thrown during build process
  */
-export class BuildError extends Error {
-    constructor(message: string, public errors: string[] = []) {
+export interface BuildError {
+    code: string
+    message: string
+    details?: any
+}
+
+export class BuildErrorClass extends Error {
+    constructor(message: string, public code: string = 'BUILD_ERROR', public details?: any) {
         super(message)
         this.name = 'BuildError'
     }
 }
+
+// Types removed: UPDL structure types and LibraryConfig now imported from @universo/publish-srv
+// This file now contains only frontend-specific builder types

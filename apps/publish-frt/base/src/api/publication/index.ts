@@ -5,6 +5,9 @@ export { PublicationApi } from './PublicationApi'
 export { ARJSPublicationApi, type ARJSPublicationSettings } from './ARJSPublicationApi'
 export { StreamingPublicationApi } from './StreamingPublicationApi'
 
+// Export centralized types
+export type { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult, IPublicationDataResult } from '@universo/publish-srv'
+
 // Re-export for compatibility during migration
 export { ARJSPublicationApi as ChatflowsApi } from './ARJSPublicationApi'
 export { type ARJSPublicationSettings as ARJSSettings } from './ARJSPublicationApi'

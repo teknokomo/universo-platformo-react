@@ -2,11 +2,11 @@
 // Main AR.js builder replacing UPDLToARJSConverter.ts
 
 import { BaseBuilder } from '../common/BaseBuilder'
-import { BuildResult, BuildOptions, BuilderConfig, BuildError } from '../common/types'
-import { IUPDLSpace, IUPDLMultiScene } from '../../../../../../packages/server/src/Interface.UPDL'
+import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../common/types'
+import { IUPDLSpace, IUPDLMultiScene, ILibraryConfig, DEFAULT_LIBRARY_CONFIG } from '@universo/publish-srv'
 import { SpaceHandler, ObjectHandler, CameraHandler, LightHandler, DataHandler } from './handlers'
 import { getLibrarySources, debugLog, appConfig } from '../../config/appConfig'
-import { LibraryConfig, DEFAULT_LIBRARY_CONFIG } from '../../types/library.types'
+import { UPDLProcessor } from '../common/UPDLProcessor'
 
 /**
  * AR.js Builder for generating AR.js HTML from UPDL space data
@@ -18,8 +18,45 @@ export class ARJSBuilder extends BaseBuilder {
     private lightHandler = new LightHandler()
     private dataHandler = new DataHandler()
 
-    constructor(platform: string = 'arjs', config: BuilderConfig = { platform: 'arjs' }) {
+    constructor(
+        platform: string = 'arjs',
+        config: BuilderConfig = {
+            platform: 'arjs',
+            name: 'ARJSBuilder',
+            version: '1.0.0',
+            supportedMarkerTypes: ['preset']
+        }
+    ) {
         super(platform, config)
+    }
+
+    /**
+     * Build AR.js HTML from raw flow data
+     * NEW METHOD: Processes flow data using UPDLProcessor then builds HTML
+     * @param flowDataString Raw flow data JSON string from API
+     * @param options Build options
+     * @returns Build result with HTML and metadata
+     */
+    async buildFromFlowData(flowDataString: string, options: BuildOptions = {}): Promise<BuildResult> {
+        console.log('🔧 [ARJSBuilder] buildFromFlowData() called with flow data string')
+
+        try {
+            // Process flow data using UPDLProcessor
+            const processResult = UPDLProcessor.processFlowData(flowDataString)
+
+            if (processResult.multiScene) {
+                console.log('🎬 [ARJSBuilder] Multi-scene detected, using buildMultiScene()')
+                return this.buildMultiScene(processResult.multiScene as unknown as IUPDLMultiScene, options)
+            } else if (processResult.updlSpace) {
+                console.log('🏠 [ARJSBuilder] Single space detected, using build()')
+                return this.build(processResult.updlSpace as unknown as IUPDLSpace, options)
+            } else {
+                throw new Error('No valid UPDL structure found in flow data')
+            }
+        } catch (error) {
+            console.error('❌ [ARJSBuilder] buildFromFlowData() failed:', error)
+            throw new BuildErrorClass('Failed to build from flow data', 'BUILD_FROM_FLOW_ERROR', (error as Error).message)
+        }
     }
 
     /**
@@ -40,10 +77,10 @@ export class ARJSBuilder extends BaseBuilder {
         })
 
         // Validate UPDL space
-        const validation = this.validateUPDLSpace(updlSpace)
+        const validation = this.validateUPDLSpace(updlSpace as any)
         if (!validation.isValid) {
             console.error('❌ [ARJSBuilder] UPDL space validation failed:', validation.errors)
-            throw new BuildError('UPDL space validation failed', validation.errors)
+            throw new BuildErrorClass('UPDL space validation failed', 'VALIDATION_ERROR', validation.errors)
         }
 
         console.log('✅ [ARJSBuilder] UPDL space validation passed')
@@ -105,13 +142,16 @@ export class ARJSBuilder extends BaseBuilder {
         })
 
         return {
+            success: true,
             html,
             metadata: {
-                platform: 'arjs',
-                generatedAt: new Date(),
-                nodeCount: this.getTotalNodeCount(updlSpace),
+                buildTime: Date.now(),
                 markerType: options.markerType || 'preset',
-                markerValue: options.markerValue || 'hiro'
+                markerValue: options.markerValue || 'hiro',
+                libraryVersions: {
+                    arjs: '3.4.7',
+                    aframe: '1.7.1'
+                }
             }
         }
     }
@@ -186,18 +226,21 @@ export class ARJSBuilder extends BaseBuilder {
             })
 
             return {
+                success: true,
                 html,
                 metadata: {
-                    platform: 'arjs',
-                    generatedAt: new Date(),
-                    nodeCount: multiScene.scenes.reduce((total, scene) => total + scene.objectNodes.length + scene.dataNodes.length, 0),
+                    buildTime: Date.now(),
                     markerType: options.markerType || 'preset',
-                    markerValue: options.markerValue || 'hiro'
+                    markerValue: options.markerValue || 'hiro',
+                    libraryVersions: {
+                        arjs: '3.4.7',
+                        aframe: '1.7.1'
+                    }
                 }
             }
         } catch (error) {
             console.error('❌ [ARJSBuilder] Multi-scene build failed:', error)
-            throw new BuildError('Multi-scene build failed', [(error as Error).message])
+            throw new BuildErrorClass('Multi-scene build failed', 'MULTISCENE_BUILD_ERROR', (error as Error).message)
         }
     }
 
@@ -375,7 +418,7 @@ export class ARJSBuilder extends BaseBuilder {
      * @param config User-selected library configuration
      * @returns Object with aframeSrc and arjsSrc URLs
      */
-    private generateCustomLibrarySources(config: LibraryConfig): { aframeSrc: string; arjsSrc: string } {
+    private generateCustomLibrarySources(config: ILibraryConfig): { aframeSrc: string; arjsSrc: string } {
         const baseUrls = {
             official: {
                 aframe: 'https://aframe.io/releases',
