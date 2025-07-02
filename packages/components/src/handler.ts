@@ -414,7 +414,7 @@ class ExtendedLunaryHandler extends LunaryHandler {
 
     async initThread() {
         const entity = await this.appDataSource?.getRepository(this.databaseEntities['ChatMessage']).findOneBy({
-            chatId: this.chatId
+                chatId: this.chatId
         })
 
         const userId = safeGet(entity, 'email', '') || safeGet(entity, 'id', '')

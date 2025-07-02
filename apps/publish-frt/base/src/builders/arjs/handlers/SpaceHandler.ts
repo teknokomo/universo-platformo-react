@@ -1,7 +1,7 @@
 // Universo Platformo | AR.js Space Handler
 // Handles processing of UPDL Space nodes for AR.js
 
-import { IUPDLSpace } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLSpace } from '@universo/publish-srv'
 import { BuildOptions } from '../../common/types'
 
 /**

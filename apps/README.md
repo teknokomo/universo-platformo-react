@@ -31,6 +31,18 @@ apps/
 │       ├── gulpfile.ts
 │       ├── README.md
 │       └── README-RU.md
+├── profile-srv/         # User profile management backend (workspace package)
+│   └── base/            # Core profile functionality
+│       ├── src/         # Source code
+│       │   ├── i18n/    # Localization
+│       │   ├── pages/   # Page components
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── gulpfile.ts
+│       ├── README.md
+│       └── README-RU.md
 ├── publish-frt/         # Publication system frontend for exporting and sharing content
 │   └── base/            # Core frontend functionality for publication
 │       ├── src/         # Source code
@@ -53,13 +65,14 @@ apps/
 │       ├── tsconfig.json
 │       ├── gulpfile.ts
 │       └── README.md
-├── publish-srv/         # Publication system backend
+├── publish-srv/         # Publication system backend (workspace package)
 │   └── base/            # Core backend functionality for publication
 │       ├── src/         # Source code
 │       │   ├── controllers/ # Express controllers
-│       │   ├── routes/  # REST API routes
-│       │   ├── utils/   # Helper functions
-│       │   └── index.ts # Entry point
+│       │   ├── services/    # Business logic (e.g., FlowDataService)
+│       │   ├── routes/      # Asynchronous route factories
+│       │   ├── types/       # Shared UPDL type definitions
+│       │   └── index.ts     # Entry point for the package
 │       ├── dist/        # Compiled output
 │       ├── package.json
 │       ├── tsconfig.json
@@ -91,7 +104,7 @@ The UPDL application provides a unified node system for describing 3D/AR/VR spac
 
 ### Profile
 
-The Profile application provides user profile management and authentication functionality for the Universo Platformo platform.
+The Profile application provides user profile management functionality. It consists of a frontend application and a backend workspace package.
 
 #### Profile Frontend (profile-frt)
 
@@ -99,52 +112,49 @@ The Profile application provides user profile management and authentication func
 
 -   JWT token-based authentication with Supabase
 -   Email and password update functionality
--   SQL functions with SECURITY DEFINER for secure user data updates
--   Form validation and error handling
--   Multi-language support (English/Russian)
 -   Mobile-friendly responsive design
--   Integration with main platform authentication system
 
-**Authentication Architecture:**
+**Documentation:** See [apps/profile-frt/base/README.md](./profile-frt/base/README.md)
 
--   **Custom SQL Functions**: Uses `update_user_email()` and `update_user_password()` functions
--   **Secure Token Handling**: JWT tokens with proper validation and expiry handling
--   **Database Security**: Row Level Security and SECURITY DEFINER functions
--   **Migration Integration**: Currently includes profile functions in Unik migration (temporary)
+#### Profile Server (profile-srv)
 
-**Documentation:** See [apps/profile-frt/base/README.md](./profile-frt/base/README.md) and [apps/profile-frt/base/README-RU.md](./profile-frt/base/README-RU.md)
-
-### Publish
-
-The Publish application provides mechanisms for exporting UPDL spaces to various target platforms and publishing them with shareable URLs.
-
-#### Publish Frontend (publish-frt)
+This is a backend service, structured as a workspace package (`@universo/profile-srv`), responsible for handling user profile data securely.
 
 **Key Features:**
 
--   Modular API architecture with technology-specific clients
--   Multi-technology publication support (AR.js, Chatbot, extensible to others)
--   **Multi-Object UPDL Support**: Handles multiple objects with automatic circular positioning
--   Supabase integration with persistent configuration storage
--   Publication UI components with real-time streaming generation
--   Technology selection interface with independent publication states
--   QR code generation for mobile access
--   Export functionality with backward compatibility
--   Circular dependency prevention and clean code architecture
--   **Advanced Object Validation**: Built-in validation and cleanup for UPDL data integrity
--   **AR Quiz Support**: Build educational quizzes with question/answer Data nodes, scoring and lead collection
+-   Secure endpoints for user data management.
+-   Uses custom SQL functions with `SECURITY DEFINER` for safe data updates.
+-   Asynchronous route initialization to prevent race conditions with the database connection.
+
+**Documentation:** See [apps/profile-srv/base/README.md](./profile-srv/base/README.md)
+
+### Publish
+
+The Publish application provides mechanisms for exporting UPDL spaces to AR.js and publishing them with shareable URLs.
+
+#### Publish Frontend (publish-frt)
+
+The frontend application is responsible for the entire user-facing publication workflow, including the final conversion of data to a viewable AR format.
+
+**Key Features:**
+
+-   **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into a valid AR.js experience. All heavy processing is done on the client.
+-   **Modular Builders**: A flexible `ARJSBuilder` system constructs the final HTML from UPDL data.
+-   **Supabase Integration**: Persists publication configurations.
+-   **AR Quiz Support**: A feature to build educational quizzes with scoring and lead collection.
 
 **Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 
 #### Publish Backend (publish-srv)
 
+This is a backend service, refactored into a workspace package (`@universo/publish-srv`), with a single responsibility: serving data to the frontend.
+
 **Key Features:**
 
--   URL-based sharing system
--   Publication storage
--   Server-side API endpoints
--   Project management
--   Stores quiz scores in Supabase leads (temporary phone field)
+-   **Workspace Package**: Provides shared types and services as `@universo/publish-srv`.
+-   **Raw Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend.
+-   **Source of Truth for Types**: Exports all shared UPDL and publication-related TypeScript types.
+-   **Asynchronous Route Initialization**: Prevents race conditions by initializing routes only after a database connection is established.
 
 **Documentation:** See [apps/publish-srv/base/README.md](./publish-srv/base/README.md)
 
@@ -261,6 +271,7 @@ pnpm build --filter updl
 
 # Build specific backend application
 pnpm build --filter publish-srv
+pnpm build --filter profile-srv
 ```
 
 ## Development
@@ -271,6 +282,7 @@ To run a specific application in development mode (watches for changes and rebui
 pnpm --filter publish-frt dev
 pnpm --filter profile-frt dev
 pnpm --filter publish-srv dev
+pnpm --filter profile-srv dev
 pnpm --filter updl dev
 ```
 

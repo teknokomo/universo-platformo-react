@@ -2,7 +2,12 @@
 // AR.js specific publication functionality
 
 import { PublicationApi } from './PublicationApi'
-import { ILibraryConfig } from '../../../../../../packages/server/src/Interface.UPDL'
+
+// Local interface to avoid server dependencies
+interface ILibraryConfig {
+    arjs?: { version: string; source: string }
+    aframe?: { version: string; source: string }
+}
 
 // Universo Platformo | AR.js specific publication settings interface
 export interface ARJSPublicationSettings {

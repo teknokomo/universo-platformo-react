@@ -63,7 +63,7 @@ import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
 import upAuth from '../middlewares/up-auth'
 // Universo Platformo | AR.js publishing integration
-import { publishRoutes } from '../../../../apps/publish-srv/base/dist'
+import { createPublishRoutes } from '@universo/publish-srv'
 // Universo Platformo | Profile service integration
 import { createProfileRoutes } from '@universo/profile-srv'
 import { getDataSource } from '../DataSource'
@@ -132,7 +132,7 @@ router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingR
 router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
 
 // Universo Platformo | Publishing Routes
-router.use('/publish', publishRoutes)
+router.use('/publish', createPublishRoutes(getDataSource()))
 
 // Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
 router.use('/profile', upAuth.ensureAuth, createProfileRoutes(getDataSource()))

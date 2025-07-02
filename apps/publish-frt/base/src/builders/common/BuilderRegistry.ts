@@ -2,7 +2,7 @@
 // Central registry for managing different platform builders
 
 import { BaseBuilder } from './BaseBuilder'
-import { BuilderConfig, BuildError } from './types'
+import { BuilderConfig, BuildErrorClass } from './types'
 
 /**
  * Registry for managing platform builders
@@ -37,7 +37,7 @@ export class BuilderRegistry {
     static createBuilder(platform: string, config: BuilderConfig): BaseBuilder {
         const BuilderClass = this.getBuilder(platform)
         if (!BuilderClass) {
-            throw new BuildError(`Builder for platform ${platform} not found`)
+            throw new BuildErrorClass(`Builder for platform ${platform} not found`)
         }
         return new (BuilderClass as any)(platform, config) // Cast to any to avoid abstract class instantiation error
     }

@@ -15,8 +15,7 @@
         "allowJs": true,
         "baseUrl": ".",
         "paths": {
-            "*": ["*"],
-            "@server/interface": ["../../../packages/server/src/Interface.UPDL"]
+            "*": ["*"]
         },
         "moduleResolution": "node"
     },

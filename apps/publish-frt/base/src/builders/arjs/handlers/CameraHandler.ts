@@ -1,7 +1,7 @@
 // Universo Platformo | AR.js Camera Handler
 // Handles processing of UPDL Camera nodes for AR.js
 
-import { IUPDLCamera } from '../../../../../../../packages/server/src/Interface.UPDL'
+import { IUPDLCamera } from '@universo/publish-srv'
 import { BuildOptions } from '../../common/types'
 
 /**

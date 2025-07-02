@@ -16,7 +16,8 @@
         "paths": {
             "*": ["*"],
             "../common/*": ["../common/*"],
-            "@server/interface": ["../../../packages/server/src/Interface.UPDL"]
+            "@universo/publish-srv": ["../../publish-srv/base/src"],
+            "@universo/publish-srv/*": ["../../publish-srv/base/src/*"]
         },
         "moduleResolution": "node"
     },

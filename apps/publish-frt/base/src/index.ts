@@ -1,8 +1,8 @@
 // Universo Platformo | Publish Frontend Module
 // Main entry point for the publish frontend module
 
-// Import types from central Interface.UPDL.ts
-import { IPublishRequest, IPublishResponse } from '@server/interface'
+// Import types from @universo/publish-srv
+import { IPublishRequest, IPublishResponse } from '@universo/publish-srv'
 
 // Re-export types for backward compatibility
 export type PublishRequest = IPublishRequest

@@ -1,103 +1,88 @@
-# Publish Server (AR.js MVP)
+# Publish Service (@universo/publish-srv)
 
-Minimal server application for publishing AR.js spaces based on UPDL nodes, integrated with the main Flowise server.
+Backend service for the publication system in Universo Platformo, refactored into a workspace package for modularity, clean integration, and type sharing.
 
-## MVP Functionality
+## Project Structure
 
-The module provides API for:
-
--   Publishing AR.js applications through UPDL space streaming generation
--   Extracting UPDL space data for AR.js rendering
-
-## Project Structure (MVP)
+The project is structured as a **workspace package** (`@universo/publish-srv`), enabling clean separation and clear dependency management within the monorepo:
 
 ```
 apps/publish-srv/base/
-└─ src/
-   ├─ controllers/       # AR.js publication controllers
-   ├─ routes/            # API routes
-   ├─ interfaces/        # TypeScript interfaces for UPDL
-   ├─ middlewares/       # Error handlers
-   ├─ utils/             # Logger
-   ├─ server.ts          # Route initialization
-   └─ index.ts           # Entry point and exports
+├── package.json              # Package config with scoped name "@universo/publish-srv"
+├── tsconfig.json             # TypeScript configuration
+└── src/
+   ├── controllers/
+   │  └── publishController.ts   # REST API controller (exported)
+   ├── services/
+   │  └── FlowDataService.ts     # Business logic for fetching flow data
+   ├── routes/
+   │  └── createPublishRoutes.ts # Express routes factory (exported)
+   ├── types/
+   │  └── publication.types.ts  # Shared UPDL types (exported)
+   └── index.ts                 # Entry point with all package exports
 ```
+
+### Workspace Package Architecture
+
+This service is implemented as a **pnpm workspace package** that:
+
+-   **Package Name**: `@universo/publish-srv` (scoped name for organization)
+-   **Integration**: Used as a dependency `"@universo/publish-srv": "workspace:*"` in the main server.
+-   **Exports**: Key modules (routes, types, services, controllers) are exported via `src/index.ts` for clean, controlled imports.
+-   **Type Sharing**: Acts as the source of truth for UPDL types (`IUPDLSpace`, `IUPDLObject`, etc.), which are consumed by the `@universo/publish-frt` frontend package.
+
+## Features
+
+-   **Publication Management**: Provides API endpoints to create and retrieve publication records.
+-   **Flow Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend.
+-   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types for use across the platform.
+-   **Modular and Decoupled**: Fully independent from `packages/server` business logic. It no longer contains UPDL generation code.
 
 ## Integration with Main Flowise Server
 
-**Critical**: This publish server is integrated directly into the main Flowise server for optimal performance and resource sharing:
+The service is tightly integrated with the main Flowise server, leveraging its core infrastructure while remaining modular.
 
-### Static Libraries Service
+### Asynchronous Route Initialization
 
-The main Flowise server (`packages/server/src/index.ts`) serves static AR.js libraries directly:
+**Critical Fix**: To solve race conditions where routes were registered before the database connection was ready, this package uses an **asynchronous routes factory**, similar to `@universo/profile-srv`.
+
+The `createPublishRoutes(dataSource)` function is exported and called from the main server **after** the `DataSource` has been initialized. This ensures that the `FlowDataService` and its underlying repository are always available when the first request hits the controller.
 
 ```typescript
-// Main Flowise server configuration
-const publishFrtAssetsPath = path.join(__dirname, '../../../apps/publish-frt/base/dist/assets')
-this.app.use('/assets', express.static(publishFrtAssetsPath))
+// Main server (simplified)
+import { createPublishRoutes } from '@universo/publish-srv'
+
+// ... after AppDataSource.initialize()
+const publishRoutes = createPublishRoutes(AppDataSource)
+this.app.use('/api/v1/publish', publishRoutes)
 ```
 
-#### Benefits:
+### Key Integration Points
 
--   **Single Server Architecture**: No separate static file server needed
--   **CDN Blocking Solution**: Local libraries accessible when external CDNs are blocked
--   **Performance**: Direct serving from main Flowise instance
--   **Maintenance**: Libraries bundled with frontend distribution
+1.  **Route Registration**: Asynchronous `createPublishRoutes` function ensures routes are registered safely.
+2.  **Database Access**: The `FlowDataService` directly accesses the Flowise database via the TypeORM `DataSource` passed from the main server.
+3.  **Authentication**: Inherits the main server's JWT authentication middleware, which is applied before the package's routes.
 
-#### Library Paths:
+## REST API
 
--   **A-Frame**: `/assets/libs/aframe/1.7.1/aframe.min.js`
--   **AR.js**: `/assets/libs/arjs/3.4.7/aframe-ar.js`
--   **Source**: Served from `apps/publish-frt/base/dist/assets/libs/`
-
-### Server Integration Points
-
-1. **Route Registration**: Publication routes added to main Flowise server via `initializePublishServer()`
-2. **Database Access**: Uses main Flowise database connection through `utilBuildUPDLflow`
-3. **Authentication**: Inherits main server's authentication middleware
-4. **Static Assets**: AR.js libraries served through main server's static file handler
-5. **Logging**: Integrated with main server's logging system
-
-## REST API (MVP)
+The API is now streamlined to handle publication records and serve raw flow data.
 
 ### Endpoints:
 
--   `POST /api/v1/publish/arjs` - Create AR.js publication (streaming generation)
--   `GET /api/v1/publish/arjs/public/:publicationId` - Get AR.js publication data
--   `GET /api/v1/publish/arjs/stream/:chatflowId` - Direct request to UPDL space
+-   `POST /api/v1/publish/arjs` - Creates or updates a publication record.
+-   `GET /api/v1/publish/arjs/public/:publicationId` - Gets the raw `flowData` for a given publication.
 
-### Examples:
+### `POST /api/v1/publish/arjs`
 
-#### AR.js Publication:
+Creates a publication record associated with a `chatflowId`. The body should contain the chatflow ID and any metadata required by the frontend.
 
-```bash
-POST /api/v1/publish/arjs
-{
-  "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
-  "generationMode": "streaming",
-  "isPublic": true,
-  "projectName": "UPDL+AR.js",
-  "libraryConfig": {
-    "arjs": { "version": "3.4.7", "source": "kiberplano" },
-    "aframe": { "version": "1.7.1", "source": "official" }
-  }
-}
-```
-
-#### Get Space Data:
-
-```bash
-GET /api/v1/publish/arjs/public/778d565f-e9cc-4dd8-b8ef-7a097ecb18f3
-```
-
-Returns:
+**Example Request:**
 
 ```json
 {
-    "success": true,
-    "updlSpace": {
-        /* UPDL space data */
-    },
+    "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "isPublic": true,
+    "projectName": "My AR Experience",
     "libraryConfig": {
         "arjs": { "version": "3.4.7", "source": "kiberplano" },
         "aframe": { "version": "1.7.1", "source": "official" }
@@ -105,64 +90,42 @@ Returns:
 }
 ```
 
-## Integration with Flowise
+### `GET /api/v1/publish/arjs/public/:publicationId`
 
-The module integrates seamlessly with the main Flowise server:
+Retrieves the raw `flowData` (as a JSON string) and `libraryConfig` for a given `publicationId` (which is the `chatflowId`). The frontend is responsible for parsing and processing this data with `UPDLProcessor`.
 
-1. **Route Registration**: Exports `initializePublishServer` function for adding routes to main server
-2. **Database Integration**: Uses `utilBuildUPDLflow` from the main server for space generation
-3. **Library Configuration**: Returns `libraryConfig` from chatflow's `chatbotConfig` for user-selected library sources
-4. **Static File Serving**: Main server handles static AR.js library files through `/assets` route
+**Example Response:**
 
-## AR.js Publication Process
+```json
+{
+    "success": true,
+    "flowData": "{\"nodes\":[...],\"edges\":[...]}",
+    "libraryConfig": {
+        "arjs": { "version": "3.4.7", "source": "kiberplano" },
+        "aframe": { "version": "1.7.1", "source": "official" }
+    }
+}
+```
 
-1. User creates Chatflow with UPDL nodes (Space, Object, etc.)
-2. In the interface, user configures library sources (official CDN vs local Kiberplano server)
-3. User clicks "Publication and Export" → "AR.js" → "Make Public"
-4. Server creates publication with user's library configuration
-5. User gets a link in format `/p/:chatflowId`
-6. At this link, frontend requests space data including `libraryConfig`
-7. AR.js HTML is generated with user-selected library sources
-8. **Critical**: Frontend renders HTML using iframe approach for proper script execution
+## Architectural Changes Summary
 
-### Quiz Points and Leads
+-   **Decoupling**: The `utilBuildUPDLflow` logic was entirely **removed** from the backend and moved to the `UPDLProcessor` class in the `publish-frt` package.
+-   **Single Responsibility**: This service is now only responsible for database interactions (CRUD on publications, fetching `flowData`) and is no longer involved in UPDL logic.
+-   **Type-Driven Development**: This package is the source of truth for all publication-related types, ensuring consistency.
 
-The publication backend also handles quiz results. When a user completes an AR quiz,
-their score is returned to the frontend and temporarily saved in the Supabase `lead` table
-inside the `phone` field. A dedicated field for quiz results will be added later.
+## Setup and Development
 
-## Library Configuration Flow
+```bash
+# Install dependencies from the project root
+pnpm install
 
-The server now supports user-selectable library sources to solve CDN blocking:
+# Build the workspace package
+pnpm --filter @universo/publish-srv build
 
-1. **Frontend Selection**: User chooses library sources through UI controls
-2. **Configuration Storage**: Settings stored in `chatbotConfig.arjs.libraryConfig`
-3. **Server Response**: `utilBuildUPDLflow` extracts and returns library configuration
-4. **HTML Generation**: Frontend `ARJSBuilder` uses configuration to generate appropriate script tags
-
-### Supported Sources:
-
--   **Official (CDN)**: External CDN sources (aframe.io, raw.githack.com)
--   **Kiberplano (Local)**: Local files served by main Flowise server at `/assets/libs/`
-
-## Demo Mode
-
-Demo mode is implemented only on the frontend side (`ARJSPublisher.jsx` component) through `DEMO_MODE = true/false` constant. In demo mode, frontend doesn't send requests to API, but uses predefined links.
-
-## Dependencies
-
--   **Main Flowise Server**: Publication system integrates directly with main server
--   **`utilBuildUPDLflow` Function**: Builds UPDL space from chatflow nodes and extracts library configuration
--   **Static Asset Serving**: Main server serves AR.js libraries through `/assets` route
-
-## Key Architecture Benefits
-
-1. **Unified Infrastructure**: Single server handles API, static files, and authentication
-2. **CDN Independence**: Local library serving solves regional CDN blocking issues
-3. **User Choice**: Library source selection without code changes
-4. **Performance**: Optimized serving through main Flowise infrastructure
-5. **Maintenance**: Simplified deployment and updates
+# Run in development/watch mode
+pnpm --filter @universo/publish-srv dev
+```
 
 ---
 
-_Universo Platformo | AR.js Publisher_
+_Universo Platformo | Publication Service_

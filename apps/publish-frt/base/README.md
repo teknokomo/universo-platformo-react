@@ -32,6 +32,7 @@ apps/publish-frt/base/
    │  ├─ common/           # Shared builder infrastructure
    │  │  ├─ BaseBuilder.ts          # Abstract base class for all builders
    │  │  ├─ BuilderRegistry.ts      # Registry for managing builders
+   │  │  ├─ UPDLProcessor.ts        # UPDL flow processing (migrated from backend)
    │  │  ├─ types.ts               # Common types and interfaces
    │  │  └─ setup.ts               # Builder registration setup
    │  ├─ arjs/             # AR.js specific builder
@@ -59,6 +60,8 @@ apps/publish-frt/base/
    └─ index.ts             # Entry point
 
 ```
+
+**Type System**: UPDL types are imported from `@universo/publish-srv` package, ensuring centralized type definitions and consistency across frontend and backend components.
 
 ## Critical Architecture: Iframe-Based AR.js Rendering
 
@@ -157,6 +160,38 @@ console.log(result.html) // Generated AR.js HTML
 console.log(result.metadata) // Build metadata
 ```
 
+## UPDL Processing Architecture
+
+The frontend now includes independent UPDL processing capabilities through the `UPDLProcessor` class, eliminating dependencies on backend utilities.
+
+### Key Components
+
+-   **UPDLProcessor**: Central class for UPDL flow processing (migrated from `packages/server/src/utils/buildUPDLflow.ts`)
+-   **Type Imports**: UPDL types imported from `@universo/publish-srv` package
+-   **Frontend Independence**: Complete UPDL processing on frontend without backend dependencies
+
+### Features
+
+-   **Flow Analysis**: Identifies UPDL nodes and ending nodes
+-   **Space Chain Processing**: Handles multi-space scenarios and scene sequences
+-   **Data Integration**: Processes Data nodes connected to Spaces
+-   **Object Relationships**: Maps Object nodes to Data nodes
+-   **Type Safety**: Full TypeScript support with centralized type definitions
+
+### Usage
+
+```typescript
+import { UPDLProcessor } from './builders/common/UPDLProcessor'
+import { IUPDLSpace, IUPDLMultiScene } from '@universo/publish-srv'
+
+const result = UPDLProcessor.processFlowData(flowDataString)
+if (result.multiScene) {
+    // Handle multi-space scenario
+} else if (result.updlSpace) {
+    // Handle single space scenario
+}
+```
+
 ## Library Configuration System
 
 User-selectable library sources for AR.js and A-Frame to solve CDN blocking issues.
@@ -210,16 +245,32 @@ Library preferences are stored in Supabase `chatbotConfig.arjs.libraryConfig`:
 
 ## Backend Integration
 
-The application interacts with the backend exclusively through REST API using API clients from the `api/` directory.
-Direct imports from other applications are not used to ensure modularity and independence.
+The application maintains modular architecture with clean separation between frontend and backend components.
 
-### Integration with Flowise Core
+### Current Architecture
 
--   The frontend interacts with the publication backend, which imports the `utilBuildUPDLflow` function from `packages/server`
--   `utilBuildUPDLflow` retrieves the chatflow from the Flowise database by `chatflowId`, assembles UPDL nodes, and executes them
--   The resulting space object with `libraryConfig` is returned to the frontend as JSON
--   Publication settings are persisted using the same Supabase structure as the main Flowise system
--   **Static Libraries**: Local AR.js libraries served directly by main Flowise server through `/assets` route
+-   **Frontend Processing**: UPDL flow processing handled by `UPDLProcessor` class in frontend
+-   **API Communication**: Backend interaction exclusively through REST API using clients from `api/` directory
+-   **Type Sharing**: UPDL types centralized in `@universo/publish-srv` package and imported by frontend
+-   **Service Layer**: Backend provides `FlowDataService` for flow data management
+-   **Independence**: No direct imports from `packages/server` - complete modular independence
+
+### Flow Processing Workflow
+
+1. **Frontend Request**: User initiates publication through `ARJSPublisher` component
+2. **API Call**: Frontend sends request to `/api/v1/publish/arjs` endpoint
+3. **Backend Processing**: `FlowDataService` retrieves flow data from Flowise database
+4. **Frontend Processing**: `UPDLProcessor` analyzes and converts flow data to UPDL structures
+5. **Builder Generation**: `ARJSBuilder` converts UPDL to AR.js HTML with selected library sources
+6. **Result**: Generated content served through public URLs with iframe rendering
+
+### Migration Benefits
+
+-   **Performance**: Frontend processing reduces backend load
+-   **Modularity**: Clear separation of concerns between frontend and backend
+-   **Type Safety**: Centralized type definitions prevent inconsistencies
+-   **Scalability**: Frontend can handle complex UPDL processing independently
+-   **Maintenance**: Simplified architecture with fewer cross-package dependencies
 
 ### Integration with Bots System
 
@@ -242,6 +293,7 @@ Publication state persistence is handled through Supabase integration:
 
 ## Main Components
 
+-   `UPDLProcessor` - Central class for UPDL flow processing (migrated from backend)
 -   `ARJSPublisher` - Component for AR.js project streaming publication with Supabase integration
 -   `ARJSExporter` - Demo component for AR.js code export
 -   `ARViewPage` - Page component for AR space viewing using iframe approach
@@ -277,7 +329,6 @@ AR quizzes are built using a chain of UPDL **Space** nodes. Each space may inclu
 
 Spaces can form a sequence via their `nextSpace` connection to create multi‑question quizzes. A space with no Data nodes can collect user info (`collectName`, `collectEmail`, `collectPhone`) and save it to Supabase leads. The final space in a chain can enable `showPoints` to display the participant score. Currently this score is stored in the `lead.phone` field as a temporary solution.
 
-
 ## Workflow
 
 The implementation uses streaming generation for AR.js from UPDL nodes with persistent configuration:
@@ -288,9 +339,10 @@ The implementation uses streaming generation for AR.js from UPDL nodes with pers
 4. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `chatflowId` and selected options
 5. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata
 6. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered
-7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns a JSON with the UPDL space data and `libraryConfig`
-8. The `ARJSBuilder` system converts the UPDL space to A-Frame elements with user-selected library sources
-9. **Critical**: Generated HTML is rendered in iframe for proper script execution and library loading
+7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns flow data from the backend
+8. The `UPDLProcessor` analyzes the flow data and converts it to UPDL structures on the frontend
+9. The `ARJSBuilder` system converts the UPDL space to A-Frame elements with user-selected library sources
+10. **Critical**: Generated HTML is rendered in iframe for proper script execution and library loading
 
 ## Setup and Development
 

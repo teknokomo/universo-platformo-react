@@ -1195,9 +1195,9 @@ export const handleDocumentLoaderDocuments = async (loader: DocumentLoader, text
     const documents: Document[] = []
     try {
         const docs = await loader.load()
-        if (textSplitter) {
+    if (textSplitter) {
             documents.push(...(await textSplitter.splitDocuments(docs)))
-        } else {
+    } else {
             documents.push(...docs)
         }
     } catch (error) {

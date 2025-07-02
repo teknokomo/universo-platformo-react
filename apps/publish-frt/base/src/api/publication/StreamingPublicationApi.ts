@@ -3,7 +3,7 @@
 
 import axios, { AxiosError } from 'axios'
 import { getAuthHeaders, getApiBaseUrl } from '../common'
-import { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult } from '@server/interface'
+import { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult, IPublicationDataResult } from '@universo/publish-srv'
 
 // Get base URL when initializing module
 const API_BASE_URL = getApiBaseUrl()
@@ -64,16 +64,12 @@ export class StreamingPublicationApi {
      * @param publicationId Publication ID
      * @returns Publication data with UPDL space
      */
-    static async getPublicationData(
-        publicationId: string
-    ): Promise<IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string; libraryConfig?: any }> {
+    static async getPublicationData(publicationId: string): Promise<IPublicationDataResult> {
         try {
             const publicationUrl = `${API_BASE_URL}/api/v1/publish/arjs/public/${publicationId}`
             console.log('🚀 [StreamingPublicationApi] Loading publication:', publicationId)
 
-            const response = await axios.get<
-                IUPDLFlowResult & { id: string; projectId: string; settings: any; createdAt: string; libraryConfig?: any }
-            >(publicationUrl, {
+            const response = await axios.get<IPublicationDataResult>(publicationUrl, {
                 headers: {
                     'Cache-Control': 'no-cache',
                     Pragma: 'no-cache',
