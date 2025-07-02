@@ -355,6 +355,3 @@ export interface IVariableOverride {
 
 // DocumentStore related
 export * from './Interface.DocumentStore'
-
-// UPDL related
-export * from './Interface.UPDL'
