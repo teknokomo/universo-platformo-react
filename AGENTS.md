@@ -1,3 +1,8 @@
+These guidelines apply to all interactions:
+- Always reply in the same language as the user.
+- Write task prompts in English.
+- Return to the user's language when summarizing work or asking questions.
+
 # Agent Instructions
 
 Welcome to the repository! This project Universo Platformo React extends **Flowise AI** with Supabase-powered multi-user features and integrates **UPDL** (Universal Platform Description Language) to build cross-platform 3D/AR/VR applications. See [README.md](README.md) for a full overview.
