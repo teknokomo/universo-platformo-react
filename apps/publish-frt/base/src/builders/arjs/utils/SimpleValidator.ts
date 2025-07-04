@@ -1,146 +1,91 @@
-// Universo Platformo | Simple AR.js Object Validator
-// Ensures data integrity for UPDL objects before AR.js rendering
-
-import { IUPDLObject } from '@universo/publish-srv'
+// Universo Platformo | Simple Validator Utility
+// Basic validation utilities for UPDL objects
 
 /**
- * Simple validator for UPDL objects used in AR.js generation
+ * Simple validation utilities for UPDL objects
  */
 export class SimpleValidator {
-    private static validObjectTypes = ['box', 'sphere', 'cylinder', 'plane', 'text', 'circle', 'cone']
-
     /**
-     * Validates array of UPDL objects
-     * @param objects Array of objects to validate
-     * @returns Validated objects with corrections applied
+     * Validate that value is a number and within range
      */
-    static validateObjects(objects: IUPDLObject[]): IUPDLObject[] {
-        if (!Array.isArray(objects)) {
-            return []
+    static isValidNumber(value: any, min?: number, max?: number): boolean {
+        if (typeof value !== 'number' || isNaN(value)) {
+            return false
         }
 
-        return objects.map((obj) => this.validateSingleObject(obj)).filter((obj) => obj !== null) as IUPDLObject[]
+        if (min !== undefined && value < min) {
+            return false
+        }
+
+        if (max !== undefined && value > max) {
+            return false
+        }
+
+        return true
     }
 
     /**
-     * Validates single UPDL object
-     * @param obj Object to validate
-     * @returns Validated object or null if invalid
+     * Validate that value is a non-empty string
      */
-    private static validateSingleObject(obj: any): IUPDLObject | null {
+    static isValidString(value: any, minLength = 1): boolean {
+        return typeof value === 'string' && value.length >= minLength
+    }
+
+    /**
+     * Validate position object
+     */
+    static isValidPosition(position: any): boolean {
+        return position && this.isValidNumber(position.x) && this.isValidNumber(position.y) && this.isValidNumber(position.z)
+    }
+
+    /**
+     * Validate color object
+     */
+    static isValidColor(color: any): boolean {
+        if (!color) return false
+
+        return (
+            this.isValidNumber(color.r, 0, 255) &&
+            this.isValidNumber(color.g, 0, 255) &&
+            this.isValidNumber(color.b, 0, 255) &&
+            (color.a === undefined || this.isValidNumber(color.a, 0, 1))
+        )
+    }
+
+    /**
+     * Validate that object has required properties
+     */
+    static hasRequiredProperties(obj: any, requiredProps: string[]): boolean {
         if (!obj || typeof obj !== 'object') {
-            return null
+            return false
         }
 
-        return {
-            id: obj.id || 'unknown',
-            name: obj.name || 'Object',
-            type: this.validateObjectType(obj.type),
-            position: this.validatePosition(obj.position),
-            rotation: this.validateRotation(obj.rotation),
-            scale: this.validateScale(obj.scale),
-            material: {
-                color: this.validateColorObject(obj.color || obj.material?.color)
-            },
-            geometry: {
-                width: this.validateNumber(obj.width || obj.geometry?.width, 1),
-                height: this.validateNumber(obj.height || obj.geometry?.height, 1),
-                depth: this.validateNumber(obj.depth || obj.geometry?.depth, 1),
-                radius: this.validateNumber(obj.radius || obj.geometry?.radius, 0.5)
-            }
-        }
+        return requiredProps.every((prop) => obj.hasOwnProperty(prop))
     }
 
     /**
-     * Validates object type
+     * Sanitize string for HTML output
      */
-    private static validateObjectType(type: any): string {
-        if (typeof type === 'string' && this.validObjectTypes.includes(type.toLowerCase())) {
-            return type.toLowerCase()
+    static sanitizeString(value: any): string {
+        if (typeof value !== 'string') {
+            return ''
         }
-        return 'box' // default fallback
+
+        return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
     }
 
     /**
-     * Validates position object
+     * Clamp number to range
      */
-    private static validatePosition(position: any): { x: number; y: number; z: number } {
-        return {
-            x: this.validateNumber(position?.x, 0),
-            y: this.validateNumber(position?.y, 0.5),
-            z: this.validateNumber(position?.z, 0)
-        }
+    static clamp(value: number, min: number, max: number): number {
+        return Math.min(Math.max(value, min), max)
     }
 
     /**
-     * Validates rotation object
+     * Safe number conversion with default
      */
-    private static validateRotation(rotation: any): { x: number; y: number; z: number } {
-        return {
-            x: this.validateNumber(rotation?.x, 0),
-            y: this.validateNumber(rotation?.y, 0),
-            z: this.validateNumber(rotation?.z, 0)
-        }
-    }
-
-    /**
-     * Validates scale object
-     */
-    private static validateScale(scale: any): { x: number; y: number; z: number } {
-        const defaultScale = 1
-        return {
-            x: this.validateNumber(scale?.x, defaultScale),
-            y: this.validateNumber(scale?.y, defaultScale),
-            z: this.validateNumber(scale?.z, defaultScale)
-        }
-    }
-
-    /**
-     * Validates color object (RGBA format)
-     */
-    private static validateColorObject(color: any): { r: number; g: number; b: number; a?: number } {
-        // If it's a string color (legacy format), convert to RGB
-        if (typeof color === 'string') {
-            return this.hexToRgb(color)
-        }
-
-        // If it's already an RGB object
-        if (color && typeof color === 'object') {
-            return {
-                r: this.validateNumber(color.r, 1),
-                g: this.validateNumber(color.g, 0),
-                b: this.validateNumber(color.b, 0),
-                a: color.a !== undefined ? this.validateNumber(color.a, 1) : undefined
-            }
-        }
-
-        return { r: 1, g: 0, b: 0 } // default red
-    }
-
-    /**
-     * Converts hex color to RGB object
-     */
-    private static hexToRgb(hex: string): { r: number; g: number; b: number } {
-        // Remove # if present
-        hex = hex.replace('#', '')
-
-        // Default to red if invalid
-        if (!/^[0-9A-Fa-f]{6}$/.test(hex)) {
-            return { r: 1, g: 0, b: 0 }
-        }
-
-        const r = parseInt(hex.substring(0, 2), 16) / 255
-        const g = parseInt(hex.substring(2, 4), 16) / 255
-        const b = parseInt(hex.substring(4, 6), 16) / 255
-
-        return { r, g, b }
-    }
-
-    /**
-     * Validates number with fallback
-     */
-    private static validateNumber(value: any, fallback: number): number {
+    static toNumber(value: any, defaultValue = 0): number {
         const num = Number(value)
-        return isNaN(num) ? fallback : num
+        return isNaN(num) ? defaultValue : num
     }
 }

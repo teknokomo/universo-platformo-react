@@ -143,6 +143,22 @@ export interface IUPDLSpace {
 }
 
 /**
+ * Flow data interface for template system
+ * Used to pass processed flow data to template builders
+ */
+export interface IFlowData {
+    flowData?: string | IUPDLFlowResult
+    updlSpace?: IUPDLSpace
+    multiScene?: IUPDLMultiScene
+    metadata?: {
+        nodeCount?: number
+        processingTime?: number
+        flowId?: string
+        templateId?: string
+    }
+}
+
+/**
  * Universo Platformo | Scene representation in space chain
  */
 export interface IUPDLScene {

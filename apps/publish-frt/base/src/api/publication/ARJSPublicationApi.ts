@@ -16,6 +16,7 @@ export interface ARJSPublicationSettings {
     markerType: string
     markerValue: string
     generationMode: string
+    templateId?: string
     libraryConfig?: ILibraryConfig
 }
 

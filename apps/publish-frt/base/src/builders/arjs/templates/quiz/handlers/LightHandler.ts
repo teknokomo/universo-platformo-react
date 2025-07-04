@@ -1,8 +1,8 @@
-// Universo Platformo | AR.js Light Handler
-// Handles processing of UPDL Light nodes for AR.js
+// Universo Platformo | AR.js Light Handler (Quiz Template)
+// Handles processing of UPDL Light nodes for AR.js quiz generation
 
 import { IUPDLLight } from '@universo/publish-srv'
-import { BuildOptions } from '../../common/types'
+import { BuildOptions } from '../../../../common/types'
 
 /**
  * Processes UPDL Light nodes for AR.js generation

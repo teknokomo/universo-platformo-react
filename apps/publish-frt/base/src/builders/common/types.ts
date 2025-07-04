@@ -15,6 +15,8 @@ export interface BuildResult {
         buildTime: number
         markerType: string
         markerValue: string
+        templateId?: string
+        templateInfo?: TemplateInfo
         libraryVersions: {
             arjs: string
             aframe: string
@@ -42,6 +44,7 @@ export interface BuildOptions {
     markerType?: string
     markerValue?: string
     debug?: boolean
+    templateId?: string
     [key: string]: any
 }
 
@@ -82,6 +85,44 @@ export class BuildErrorClass extends Error {
         super(message)
         this.name = 'BuildError'
     }
+}
+
+/**
+ * Template configuration information
+ */
+export interface TemplateConfig {
+    id: string
+    name: string
+    description: string
+    version: string
+    supportedNodes: string[]
+    features: string[]
+    defaults: {
+        [key: string]: any
+    }
+}
+
+/**
+ * Template builder interface
+ * All template builders must implement this interface
+ */
+export interface ITemplateBuilder {
+    build(flowData: any, options?: BuildOptions): Promise<string>
+    getTemplateInfo(): TemplateConfig
+}
+
+/**
+ * Template information for registry
+ */
+export interface TemplateInfo {
+    id: string
+    name: string
+    description: string
+    version: string
+    supportedNodes: string[]
+    features: string[]
+    defaults?: Record<string, any>
+    builder: new () => ITemplateBuilder
 }
 
 // Types removed: UPDL structure types and LibraryConfig now imported from @universo/publish-srv
