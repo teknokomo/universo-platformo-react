@@ -1,10 +1,10 @@
-// Universo Platformo | AR.js Object Handler
-// Handles processing of UPDL Object nodes for AR.js
+// Universo Platformo | AR.js Object Handler (Quiz Template)
+// Handles processing of UPDL Object nodes for AR.js quiz generation
 // Logic transferred from UPDLToARJSConverter.ts
 
 import { IUPDLObject, IUPDLMultiScene } from '@universo/publish-srv'
-import { BuildOptions } from '../../common/types'
-import { SimpleValidator } from '../utils/SimpleValidator'
+import { BuildOptions } from '../../../../common/types'
+import { SimpleValidator } from '../../../utils/SimpleValidator'
 
 /**
  * Processes UPDL Object nodes for AR.js generation
@@ -26,8 +26,8 @@ export class ObjectHandler {
                 return '<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>\n'
             }
 
-            // ✅ FIX: Validate and position objects
-            const validatedObjects = SimpleValidator.validateObjects(objects)
+            // Filter valid objects
+            const validatedObjects = objects.filter((obj) => obj && typeof obj === 'object' && obj.id && obj.name)
             console.log(
                 `[ObjectHandler] Validated ${validatedObjects.length} objects (removed ${objects.length - validatedObjects.length} invalid)`
             )
@@ -81,8 +81,8 @@ export class ObjectHandler {
 
                 console.log(`[ObjectHandler] Processing ${objects.length} objects for scene ${sceneIndex}`)
 
-                // Validate objects for this scene
-                const validatedObjects = SimpleValidator.validateObjects(objects)
+                // Filter valid objects for this scene
+                const validatedObjects = objects.filter((obj) => obj && typeof obj === 'object' && obj.id && obj.name)
 
                 // Choose layout: 'circle' (legacy) or 'line' (default MVP)
                 const layout = options.layout === 'circle' ? 'circle' : 'line'

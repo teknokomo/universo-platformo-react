@@ -1,8 +1,8 @@
-// Universo Platformo | AR.js Camera Handler
-// Handles processing of UPDL Camera nodes for AR.js
+// Universo Platformo | AR.js Camera Handler (Quiz Template)
+// Handles processing of UPDL Camera nodes for AR.js quiz generation
 
 import { IUPDLCamera } from '@universo/publish-srv'
-import { BuildOptions } from '../../common/types'
+import { BuildOptions } from '../../../../common/types'
 
 /**
  * Processes UPDL Camera nodes for AR.js generation

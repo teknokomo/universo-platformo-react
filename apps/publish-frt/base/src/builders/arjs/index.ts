@@ -2,4 +2,4 @@
 // Main exports for AR.js builder functionality
 
 export { ARJSBuilder } from './ARJSBuilder'
-export * from './handlers'
+export * from './templates'

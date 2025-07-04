@@ -182,6 +182,13 @@
             "viewAR": "Open AR view",
             "generatingScene": "Generating AR scene...",
             "showMarker": "Show this marker to the camera to activate AR"
+        },
+        "templates": {
+            "label": "Export Template",
+            "selectTemplate": "Select template",
+            "noTemplatesFound": "No templates found",
+            "version": "v{{version}}",
+            "description": "Template description"
         }
     },
     "arPublication": {

@@ -35,6 +35,7 @@ import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
 import GenerationModeSelect from '../../components/GenerationModeSelect'
 // CRITICAL: This component is responsible for displaying the publication link
 import PublicationLink from '../../components/PublicationLink'
+import TemplateSelect from '../../components/TemplateSelect'
 
 // QR Code component (optional dependency)
 let QRCode
@@ -105,7 +106,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 projectTitle: projectTitle,
                 markerType: markerType,
                 markerValue: markerValue,
+                templateId: templateType,
                 generationMode: generationMode,
+                templateType: templateType,
                 // NEW: Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
@@ -151,6 +154,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     setMarkerType(savedSettings.markerType || 'preset')
                     setMarkerValue(savedSettings.markerValue || 'hiro')
                     setGenerationMode(savedSettings.generationMode || 'streaming')
+                    setTemplateType(savedSettings.templateType || 'quiz')
 
                     // NEW: Load library configuration
                     if (savedSettings.libraryConfig) {
@@ -204,8 +208,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     /**
      * Handle template type change (for demo mode)
      */
-    const handleTemplateTypeChange = (event) => {
-        setTemplateType(event.target.value)
+    const handleTemplateTypeChange = (templateId) => {
+        setTemplateType(templateId)
     }
 
     /**
@@ -237,28 +241,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     }
 
     /**
-     * Template selector component for demo mode
-     */
-    const TemplateSelector = () => {
-        if (!DEMO_MODE) return null
-
-        return (
-            <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel id='template-type-label'>Автоматические шаблоны</InputLabel>
-                <Select
-                    labelId='template-type-label'
-                    value={templateType}
-                    label='Автоматические шаблоны'
-                    onChange={handleTemplateTypeChange}
-                >
-                    <MenuItem value='quiz'>Квиз по школьным предметам</MenuItem>
-                </Select>
-            </FormControl>
-        )
-    }
-
-    /**
-     * Handle public toggle change
+     * Handle public/private toggle and publication process
      */
     const handlePublicChange = async (value) => {
         // CRITICAL: Check for flow.id before proceeding
@@ -283,7 +266,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         projectTitle: projectTitle,
                         markerType: markerType,
                         markerValue: markerValue,
+                        templateId: templateType,
                         generationMode: generationMode,
+                        templateType: templateType,
                         // NEW: Include library configuration
                         libraryConfig: {
                             arjs: { version: arjsVersion, source: arjsSource },
@@ -329,7 +314,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 projectTitle: projectTitle,
                 markerType: markerType,
                 markerValue: markerValue,
+                templateId: templateType,
                 generationMode: generationMode,
+                templateType: templateType,
                 // NEW: Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
@@ -354,6 +341,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     projectTitle: projectTitle,
                     markerType: markerType,
                     markerValue: markerValue,
+                    templateId: templateType,
                     // NEW: Include library configuration
                     libraryConfig: {
                         arjs: { version: arjsVersion, source: arjsSource },
@@ -510,6 +498,13 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     disabled={!!publishedUrl}
                                 />
 
+                                {/* Template Selection */}
+                                <TemplateSelect
+                                    selectedTemplate={templateType}
+                                    onTemplateChange={setTemplateType}
+                                    disabled={!!publishedUrl}
+                                />
+
                                 {/* Type of Marker */}
                                 <FormControl fullWidth variant='outlined' margin='normal'>
                                     <InputLabel>{t('marker.type')}</InputLabel>
@@ -537,9 +532,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         </Select>
                                     </FormControl>
                                 )}
-
-                                {/* Demo Templates */}
-                                <TemplateSelector />
 
                                 {/* NEW: Library Configuration Section */}
                                 <Box sx={{ mt: 3, mb: 2 }}>

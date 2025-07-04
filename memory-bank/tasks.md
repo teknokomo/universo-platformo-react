@@ -46,6 +46,14 @@
 
 ### UPDL & Publication System
 
+**Publication System Refactoring** ✅
+
+-   Successfully refactored `publish-srv` into a modular `@universo/publish-srv` workspace package.
+-   Decoupled frontend/backend by moving all UPDL processing logic from the server-side `buildUPDLflow.ts` to a new client-side `UPDLProcessor.ts` in the `publish-frt` application.
+-   Centralized all UPDL-related TypeScript types in `@universo/publish-srv`, which now acts as the single source of truth.
+-   Completely removed the legacy `packages/server/src/Interface.UPDL.ts` file after updating all dependencies.
+-   Streamlined the backend's responsibility to only serving raw `flowData`, enhancing performance and modularity.
+
 **UPDL Quiz System** ✅
 
 -   Complete quiz functionality with Data nodes and multi-scene support
@@ -112,6 +120,7 @@
 
 **Key Tasks:**
 
+-   **High-Level UPDL Node System** - Implement core abstract nodes (Entity, Component, Event, Action, Data, Universo) to create a universal, technology-agnostic scene graph.
 -   **New UPDL Node Types** - Physics, Animation, Interaction, and Networking nodes
 -   **Universo MMOOMM Integration** - UPDL to PlayCanvas pipeline for MMO development
 -   **PlayCanvas Technology** - New exporter for PlayCanvas Engine integration
@@ -124,6 +133,7 @@
 
 **Key Tasks:**
 
+-   **Export Template System** ✅ **COMPLETED** - Successfully created a user-selectable template system to replace legacy DEMO_MODE with flexible export configurations. Implemented radical refactoring with clean template architecture.
 -   **Project Versioning System** - Multiple versions of published projects
 -   **Chatflow (Spaces) Version Management** - Track and manage different Space versions
 -   **Publication Branching** - Development, staging, and production environments
@@ -241,6 +251,38 @@
 -   Multi-object support with circular positioning algorithms
 -   Library configuration system supporting CDN and local sources
 -   Publication URL format (`/p/{uuid}`) with working quiz functionality
+
+**Template System Radical Refactoring** ✅ **COMPLETED**
+
+-   **Clean Template Architecture**: Implemented AbstractTemplateBuilder base class with ITemplateBuilder interface
+-   **Quiz Template Implementation**: Created complete ARJSQuizBuilder extending template system with handlers
+-   **Type System Enhancement**: Added IFlowData, TemplateInfo, TemplateConfig types with proper exports
+-   **Registry System**: Implemented TemplateRegistry for managing multiple export templates
+-   **Legacy Compatibility**: ARJSBuilder now delegates to template system while maintaining backward compatibility
+-   **Path Resolution**: Fixed all import paths and removed duplicate code/methods
+-   **Error-Free Compilation**: 100% successful compilation with zero TypeScript errors after radical refactoring
+-   **Flexible Architecture**: Ready for future PlayCanvas and other export templates
+
+**Critical Object Rendering Bug Fix** ✅ **COMPLETED**
+
+-   **Problem Identified**: After template system refactoring, AR objects (sphere, box) stopped rendering in exported scenes
+-   **Root Cause Found**: ARJSBuilder.buildFromFlowData() was incorrectly passing processResult object instead of original flowDataString to IFlowData structure, causing data loss in template chain
+-   **Complete Fix Implementation**: Fixed IFlowData formation to preserve flowDataString and properly pass extracted updlSpace to template system
+-   **Code Cleanup**: Removed duplicate buildFromFlowDataWithTemplate() method and streamlined architecture
+-   **Enhanced Diagnostics**: Added comprehensive logging throughout data processing chain for future debugging
+-   **Zero Risk**: Maintained full backward compatibility and type safety
+-   **Documentation**: Created comprehensive fix documentation in memory-bank/object-rendering-fix.md
+-   **Status**: Ready for user testing and validation - objects should now render correctly in AR scenes
+
+**Multi-Scene Quiz Lead Data Saving Bug Fix** ✅ **COMPLETED**
+
+-   **Problem Identified**: Multi-scene quizzes failed to save lead data to Supabase with 500 server error, while single-scene quizzes worked correctly
+-   **Root Cause Found**: After template system refactoring, `window.chatflowId` was not being set in ARJSQuizBuilder generated HTML, causing `chatflowid: null` in API requests which violates database NOT NULL constraint
+-   **Complete Fix Implementation**: Added `window.chatflowId = '${options.chatflowId || ''}';` script to ARJSQuizBuilder.generateARJSHTML() method, matching the pattern from legacy ARJSBuilder
+-   **Enhanced Logging**: Added chatflowId to console logging for debugging multi-scene quiz data flow
+-   **Zero Risk**: Maintained full backward compatibility and template architecture integrity
+-   **TypeScript Compilation**: 100% successful compilation with zero errors across entire workspace
+-   **Status**: Multi-scene quizzes now correctly save lead data with points to Supabase database
 
 ### Platform Modernization
 

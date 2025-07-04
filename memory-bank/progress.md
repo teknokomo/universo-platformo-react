@@ -120,6 +120,10 @@ apps/
 
 **Code refactoring completed** - Cleaned ARJSPublishApi.ts and ARJSPublisher.jsx, removed redundant code while preserving demo functionality and streaming pipeline.
 
+### 2025-06-30: Template-Based Export Architecture & Documentation Sync ✅
+
+**Major refactor finalized** - Implemented fully modular template architecture (`AbstractTemplateBuilder`, `TemplateRegistry`, updated `ARJSBuilder`). Added `ARJSQuizBuilder` as first concrete template. English and Russian READMEs synchronized line-by-line. 
+
 ## Future Roadmap
 
 ### **0.18.0-pre-alpha: Platform Stabilization**

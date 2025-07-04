@@ -1,11 +1,11 @@
-// Universo Platformo | AR.js Space Handler
-// Handles processing of UPDL Space nodes for AR.js
+// Universo Platformo | AR.js Space Handler (Quiz Template)
+// Handles processing of UPDL Space nodes for AR.js quiz generation
 
 import { IUPDLSpace } from '@universo/publish-srv'
-import { BuildOptions } from '../../common/types'
+import { BuildOptions } from '../../../../common/types'
 
 /**
- * Processes UPDL Space nodes for AR.js generation
+ * Processes UPDL Space nodes for AR.js quiz generation
  */
 export class SpaceHandler {
     /**

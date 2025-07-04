@@ -30,22 +30,20 @@ apps/publish-frt/base/
    │     └─ index.ts       # Publication API exports with compatibility aliases
    ├─ builders/            # UPDL to target platform builders
    │  ├─ common/           # Shared builder infrastructure
-   │  │  ├─ BaseBuilder.ts          # Abstract base class for all builders
-   │  │  ├─ BuilderRegistry.ts      # Registry for managing builders
-   │  │  ├─ UPDLProcessor.ts        # UPDL flow processing (migrated from backend)
+   │  │  ├─ AbstractTemplateBuilder.ts # NEW: Abstract base class for all templates
+   │  │  ├─ TemplateRegistry.ts       # NEW: Registry for managing templates
+   │  │  ├─ UPDLProcessor.ts        # UPDL flow processing
    │  │  ├─ types.ts               # Common types and interfaces
-   │  │  └─ setup.ts               # Builder registration setup
+   │  │  └─ setup.ts               # Builder and template registration setup
    │  ├─ arjs/             # AR.js specific builder
-   │  │  ├─ ARJSBuilder.ts         # Main AR.js builder class
-   │  │  ├─ handlers/              # Node-specific processors
-   │  │  │  ├─ SpaceHandler.ts     # Space node processor
-   │  │  │  ├─ ObjectHandler.ts    # Object node processor with multi-object support
-   │  │  │  ├─ CameraHandler.ts    # Camera node processor
-   │  │  │  ├─ LightHandler.ts     # Light node processor
-   │  │  │  └─ index.ts           # Handlers export
-   │  │  ├─ utils/                 # AR.js utilities
-   │  │  │  └─ SimpleValidator.ts  # Object validation and cleanup
-   │  │  └─ index.ts              # AR.js builder export
+   │  │  ├─ ARJSBuilder.ts         # Main AR.js builder class (delegates to templates)
+   │  │  └─ templates/             # NEW: Template-specific implementations
+   │  │     └─ quiz/               # AR.js Quiz Template
+   │  │        ├─ ARJSQuizBuilder.ts   # Builder for the quiz template
+   │  │        ├─ handlers/            # Handlers specific to the quiz template
+   │  │        │  ├─ ObjectHandler.ts
+   │  │        │  └─ ... (other handlers)
+   │  │        └─ index.ts
    │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
    ├─ features/            # Functional modules for different technologies
@@ -119,26 +117,26 @@ this.app.use('/assets', express.static(publishFrtAssetsPath))
 -   **Performance**: Direct serving from main Flowise instance
 -   **Maintenance**: Libraries bundled with frontend distribution
 
-## Builders Architecture
+## Template-Based Builders Architecture
 
-The builders system provides a modular, extensible architecture for converting UPDL spaces to different target platforms:
+The builders system has been refactored into a **modular, template-based architecture**. This provides maximum flexibility and extensibility for converting UPDL spaces to different target platforms (AR.js, PlayCanvas, etc.).
 
 #### Key Components
 
--   **BaseBuilder**: Abstract base class that all platform builders extend
--   **BuilderRegistry**: Central registry for managing different platform builders
--   **ARJSBuilder**: Concrete implementation for AR.js HTML generation
--   **Handlers**: Specialized processors for different UPDL node types (Space, Object, Camera, Light)
+-   **`AbstractTemplateBuilder`**: A new abstract base class that all templates (e.g., for AR.js quizzes, PlayCanvas scenes) must extend. It provides common functionality like library management and document structure wrapping.
+-   **`TemplateRegistry`**: A central registry for managing and creating instances of different template builders.
+-   **`ARJSBuilder`**: The high-level builder that now acts as a controller. It identifies the required template and delegates the entire build process to the corresponding template builder from the registry.
+-   **`ARJSQuizBuilder`**: A concrete implementation of a template for generating AR.js HTML quizzes. It contains its own set of `Handlers` to process different UPDL nodes.
+-   **`Handlers`**: Specialized processors for different UPDL node types (Space, Object, Camera, Light) are now encapsulated within each template (e.g., `apps/.../arjs/templates/quiz/handlers/`). This makes each template self-contained.
 
 #### Features
 
--   **Modular Design**: Each UPDL node type has its own handler for specialized processing
--   **Multi-Object Support**: Handles multiple objects with automatic circular positioning to prevent overlaps
--   **Extensible**: Easy to add new target platforms (PlayCanvas, Three.js, etc.)
--   **Type Safe**: Full TypeScript support with proper interfaces
--   **Error Handling**: Robust error handling with fallbacks
--   **Validation**: Built-in validation for UPDL data integrity with SimpleValidator
--   **Positioning Algorithm**: Automatic circular arrangement for multiple objects in AR space
+-   **Maximum Extensibility**: Easy to add new target platforms (e.g., PlayCanvas) by creating a new template class that extends `AbstractTemplateBuilder`.
+-   **Clear Separation of Concerns**: The high-level `ARJSBuilder` is simple and only manages the process, while templates contain all the specific implementation details.
+-   **Self-Contained Templates**: Each template bundles its own logic, handlers, and required libraries, preventing conflicts.
+-   **Type Safe**: Full TypeScript support with robust interfaces (`ITemplateBuilder`, `TemplateConfig`).
+-   **Shared Functionality**: Common logic like library source resolution and HTML document wrapping is handled by the abstract base class, reducing code duplication.
+-   **Future-Ready**: The architecture is prepared for `Universo MMOOMM` integration with a dedicated PlayCanvas template.
 
 #### Usage
 
@@ -146,7 +144,9 @@ The builders system provides a modular, extensible architecture for converting U
 import { ARJSBuilder } from './builders'
 
 const builder = new ARJSBuilder()
-const result = await builder.build(updlSpace, {
+
+// Build using the default 'quiz' template
+const result = await builder.buildFromFlowData(flowDataString, {
     projectName: 'My AR Experience',
     markerType: 'preset',
     markerValue: 'hiro',
@@ -154,6 +154,12 @@ const result = await builder.build(updlSpace, {
         arjs: { version: '3.4.7', source: 'kiberplano' },
         aframe: { version: '1.7.1', source: 'official' }
     }
+})
+
+// Or specify a different template if available
+const anotherResult = await builder.buildFromFlowData(flowDataString, {
+    templateId: 'another-template'
+    // ... other options
 })
 
 console.log(result.html) // Generated AR.js HTML
@@ -261,7 +267,7 @@ The application maintains modular architecture with clean separation between fro
 2. **API Call**: Frontend sends request to `/api/v1/publish/arjs` endpoint
 3. **Backend Processing**: `FlowDataService` retrieves flow data from Flowise database
 4. **Frontend Processing**: `UPDLProcessor` analyzes and converts flow data to UPDL structures
-5. **Builder Generation**: `ARJSBuilder` converts UPDL to AR.js HTML with selected library sources
+5. **Builder Generation**: **The `ARJSBuilder` delegates the build process to a registered template builder (e.g., `ARJSQuizBuilder`), which converts the UPDL space to A-Frame elements.**
 6. **Result**: Generated content served through public URLs with iframe rendering
 
 ### Migration Benefits
@@ -297,7 +303,8 @@ Publication state persistence is handled through Supabase integration:
 -   `ARJSPublisher` - Component for AR.js project streaming publication with Supabase integration
 -   `ARJSExporter` - Demo component for AR.js code export
 -   `ARViewPage` - Page component for AR space viewing using iframe approach
--   `ARJSBuilder` - Modular builder for converting UPDL data to AR.js HTML (replaces UPDLToARJSConverter)
+-   `ARJSBuilder` - **The high-level controller that delegates to the template system.**
+-   `ARJSQuizBuilder` - **A concrete template implementation for AR.js quizzes.**
 
 ## API Architecture
 
@@ -341,7 +348,7 @@ The implementation uses streaming generation for AR.js from UPDL nodes with pers
 6. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered
 7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns flow data from the backend
 8. The `UPDLProcessor` analyzes the flow data and converts it to UPDL structures on the frontend
-9. The `ARJSBuilder` system converts the UPDL space to A-Frame elements with user-selected library sources
+9. The `ARJSBuilder` system converts the UPDL space to A-Frame elements using the appropriate template
 10. **Critical**: Generated HTML is rendered in iframe for proper script execution and library loading
 
 ## Setup and Development
@@ -408,7 +415,6 @@ For testing and demonstration, the `ARJSPublisher` component has a DEMO_MODE tha
 
 -   No support for offline mode or space caching for reuse
 -   No optimization for mobile devices
--   Only the "hiro" marker is currently supported
 -   The Export tab is a demo only, without full HTML/ZIP export functionality
 
 ---

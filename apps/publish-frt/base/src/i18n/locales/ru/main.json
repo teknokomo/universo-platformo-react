@@ -183,6 +183,13 @@
             "viewAR": "Открыть AR просмотр",
             "generatingScene": "Генерация AR сцены...",
             "showMarker": "Покажите этот маркер камере для активации AR"
+        },
+        "templates": {
+            "label": "Шаблон экспорта",
+            "selectTemplate": "Выберите шаблон",
+            "noTemplatesFound": "Шаблоны не найдены",
+            "version": "v{{version}}",
+            "description": "Описание шаблона"
         }
     },
     "arPublication": {
