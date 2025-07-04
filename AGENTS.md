@@ -2,6 +2,7 @@ These guidelines apply to all interactions:
 - Always reply in the same language as the user.
 - Write task prompts in English.
 - Return to the user's language when summarizing work or asking questions.
+- Use English-only names for all Git branches.
 
 # Agent Instructions
 
