@@ -35,6 +35,35 @@ export class DataNode extends BaseUPDLNode {
                     default: 'My Data'
                 },
                 {
+                    name: 'key',
+                    type: 'string',
+                    label: 'Key',
+                    description: 'Data key identifier',
+                    optional: true,
+                    additionalParams: true
+                },
+                {
+                    name: 'scope',
+                    type: 'options',
+                    label: 'Scope',
+                    description: 'Variable scope',
+                    options: [
+                        { label: 'Local', name: 'Local' },
+                        { label: 'Space', name: 'Space' },
+                        { label: 'Global', name: 'Global' }
+                    ],
+                    default: 'Local',
+                    additionalParams: true
+                },
+                {
+                    name: 'value',
+                    type: 'string',
+                    label: 'Value',
+                    description: 'Stored value',
+                    optional: true,
+                    additionalParams: true
+                },
+                {
                     name: 'dataType',
                     type: 'options',
                     label: 'Data Type',
@@ -146,6 +175,9 @@ export class DataNode extends BaseUPDLNode {
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
         // Extract properties via nodeData.inputs
         const dataName = (nodeData.inputs?.dataName as string) || 'My Data'
+        const key = (nodeData.inputs?.key as string) || ''
+        const scope = (nodeData.inputs?.scope as string) || 'Local'
+        const value = (nodeData.inputs?.value as string) || ''
         const dataType = (nodeData.inputs?.dataType as string) || 'question'
         const content = (nodeData.inputs?.content as string) || ''
         const isCorrect = nodeData.inputs?.isCorrect ? true : false
@@ -168,6 +200,9 @@ export class DataNode extends BaseUPDLNode {
             id,
             type: 'UPDLDataNode',
             name: dataName,
+            key,
+            scope,
+            value,
             dataType,
             content,
             isCorrect,
