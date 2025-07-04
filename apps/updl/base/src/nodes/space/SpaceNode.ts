@@ -36,6 +36,27 @@ export class SpaceNode extends BaseUPDLNode {
                     default: 'My Space'
                 },
                 {
+                    name: 'spaceType',
+                    type: 'options',
+                    label: 'Space Type',
+                    description: 'Classification of the space',
+                    options: [
+                        { label: 'Root', name: 'root' },
+                        { label: 'Module', name: 'module' },
+                        { label: 'Block', name: 'block' }
+                    ],
+                    default: 'root',
+                    additionalParams: true
+                },
+                {
+                    name: 'settings',
+                    type: 'json',
+                    label: 'Settings',
+                    description: 'Generic configuration object',
+                    optional: true,
+                    additionalParams: true
+                },
+                {
                     name: 'backgroundColor',
                     type: 'string',
                     label: 'Background Color',
@@ -197,6 +218,8 @@ export class SpaceNode extends BaseUPDLNode {
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
         // Extract properties via nodeData.inputs
         const spaceName = (nodeData.inputs?.spaceName as string) || 'My Space'
+        const spaceType = (nodeData.inputs?.spaceType as string) || 'root'
+        const settings = (nodeData.inputs?.settings as any) || {}
         const backgroundColor = (nodeData.inputs?.backgroundColor as string) || '' // Use default from input definition
         const enableSkybox = nodeData.inputs?.skybox ? true : false
         const skyboxTexture = nodeData.inputs?.skyboxTexture as string
@@ -227,6 +250,8 @@ export class SpaceNode extends BaseUPDLNode {
             id,
             type: 'UPDLSpaceNode',
             name: spaceName,
+            spaceType,
+            settings,
             isRootNode: true,
             backgroundColor,
             skybox: {
