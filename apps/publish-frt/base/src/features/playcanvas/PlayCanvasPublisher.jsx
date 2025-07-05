@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
     Box,
@@ -21,6 +21,11 @@ const DEFAULT_TEMPLATE = 'mmoomm'
 
 const PlayCanvasPublisher = ({ flow }) => {
     const { t } = useTranslation('publish')
+    // Universo Platformo | keep latest flow.id for delayed saves
+    const flowIdRef = useRef(flow?.id)
+    useEffect(() => {
+        flowIdRef.current = flow?.id
+    }, [flow?.id])
     const [projectTitle, setProjectTitle] = useState(flow?.name || '')
     const [isPublic, setIsPublic] = useState(false)
     const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE)
@@ -54,9 +59,11 @@ const PlayCanvasPublisher = ({ flow }) => {
     }, [flow?.id])
 
     const saveSettings = async () => {
-        if (!flow?.id) return
+        // Universo Platformo | always use the latest flow.id
+        const currentFlowId = flowIdRef.current
+        if (!currentFlowId) return
         try {
-            await PlayCanvasPublicationApi.savePlayCanvasSettings(flow.id, {
+            await PlayCanvasPublicationApi.savePlayCanvasSettings(currentFlowId, {
                 isPublic,
                 projectTitle,
                 generationMode: 'streaming',
@@ -73,7 +80,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             const tId = setTimeout(saveSettings, 500)
             return () => clearTimeout(tId)
         }
-    }, [projectTitle, isPublic, templateId, libraryVersion, loading])
+    }, [projectTitle, isPublic, templateId, libraryVersion, loading, flow?.id]) // Universo Platformo | re-run when flow changes
 
     if (loading) return (
         <Box sx={{ p: 2 }}><CircularProgress /></Box>
