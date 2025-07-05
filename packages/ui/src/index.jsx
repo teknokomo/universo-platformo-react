@@ -16,9 +16,13 @@ import { Provider } from 'react-redux'
 import { SnackbarProvider } from 'notistack'
 import ConfirmContextProvider from '@/store/context/ConfirmContextProvider'
 import { ReactFlowContext } from '@/store/context/ReactFlowContext'
+import { setupBuilders } from '@apps/publish-frt/base/src/builders'
 
 const container = document.getElementById('root')
 const root = createRoot(container)
+
+// Universo Platformo | initialize UPDL builders
+setupBuilders()
 
 root.render(
     <React.StrictMode>
