@@ -17,10 +17,7 @@ export interface BuildResult {
         markerValue: string
         templateId?: string
         templateInfo?: TemplateInfo
-        libraryVersions: {
-            arjs: string
-            aframe: string
-        }
+        libraryVersions: Record<string, string>
     }
 }
 

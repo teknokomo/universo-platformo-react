@@ -58,7 +58,11 @@ export class PlayCanvasBuilder extends BaseBuilder {
                     buildTime: Date.now(),
                     markerType: options.markerType || '',
                     markerValue: options.markerValue || '',
-                    libraryVersions: { arjs: '', aframe: '' }
+                    libraryVersions: {
+                        playcanvas:
+                            (options.libraryConfig as any)?.playcanvas?.version ||
+                            '2.9.0'
+                    }
                 }
             }
         } catch (error) {
