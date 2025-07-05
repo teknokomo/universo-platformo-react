@@ -48,13 +48,13 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
 
     async build(_flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
         const sceneScript = this.generateSceneScript()
-        const sceneContent = `<canvas id='application-canvas'></canvas>\n<script src='https://code.playcanvas.com/playcanvas-2.9.0.js'></script>\n<script>${sceneScript}</script>`
+        const sceneContent = `<canvas id='application-canvas'></canvas>\n<script>${sceneScript}</script>`
         return this.wrapWithDocumentStructure(sceneContent, options)
     }
 
     protected generateHTML(_content: { spaceContent: string; objectContent: string; cameraContent: string; lightContent: string; dataContent: string; template: string; error?: boolean }, options: BuildOptions = {}): string {
         const sceneScript = this.generateSceneScript()
-        const sceneContent = `<canvas id='application-canvas'></canvas>\n<script src='https://code.playcanvas.com/playcanvas-2.9.0.js'></script>\n<script>${sceneScript}</script>`
+        const sceneContent = `<canvas id='application-canvas'></canvas>\n<script>${sceneScript}</script>`
         return this.wrapWithDocumentStructure(sceneContent, options)
     }
 
@@ -71,7 +71,7 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
     }
 
     getRequiredLibraries(): string[] {
-        return []
+        return ['playcanvas']
     }
 
     private generateSceneScript(): string {

@@ -122,7 +122,8 @@ ${libraryScripts}
         const defaultVersions: Record<string, string> = {
             aframe: '1.7.1',
             arjs: '3.4.7',
-            playcanvas: '1.65.0'
+            // Universo Platformo | Updated PlayCanvas default version
+            playcanvas: '2.9.0'
         }
 
         const baseUrls = {

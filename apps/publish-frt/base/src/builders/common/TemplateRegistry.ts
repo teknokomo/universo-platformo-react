@@ -3,6 +3,7 @@
 
 import { ITemplateBuilder, TemplateInfo } from './types'
 import { ARJSQuizBuilder, QuizTemplateConfig } from '../arjs/templates/quiz'
+import { PlayCanvasMMOOMMBuilder } from '../playcanvas/templates/mmoomm/PlayCanvasMMOOMMBuilder'
 
 /**
  * Central registry for all export templates
@@ -26,6 +27,19 @@ export class TemplateRegistry {
             features: QuizTemplateConfig.features,
             defaults: QuizTemplateConfig.defaults,
             builder: ARJSQuizBuilder
+        })
+
+        // Universo Platformo | Register PlayCanvas MMOOMM template
+        const mmoommInfo = new PlayCanvasMMOOMMBuilder().getTemplateInfo()
+        this.registerTemplate({
+            id: mmoommInfo.id,
+            name: mmoommInfo.name,
+            description: mmoommInfo.description,
+            version: mmoommInfo.version,
+            supportedNodes: mmoommInfo.supportedNodes,
+            features: mmoommInfo.features,
+            defaults: mmoommInfo.defaults,
+            builder: PlayCanvasMMOOMMBuilder
         })
 
         console.log(`[TemplateRegistry] Registered ${this.templates.size} templates`)
