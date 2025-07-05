@@ -1,7 +1,7 @@
 // Universo Platformo | AR.js Publisher
 // React component for publishing AR.js experiences using streaming mode
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi } from '../../api'
 
@@ -51,6 +51,11 @@ try {
  */
 const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
     const { t } = useTranslation('publish')
+    // Universo Platformo | reference to latest flow.id
+    const flowIdRef = useRef(flow?.id)
+    useEffect(() => {
+        flowIdRef.current = flow?.id
+    }, [flow?.id])
 
     // CRITICAL DEBUG: Diagnose flow.id undefined issue
     useEffect(() => {
@@ -96,12 +101,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
     // Universo Platformo | Function to save current settings
     const saveCurrentSettings = async () => {
-        if (!flow?.id || DEMO_MODE || settingsLoading) {
+        // Universo Platformo | always save with the latest flow.id
+        const currentFlowId = flowIdRef.current
+        if (!currentFlowId || DEMO_MODE || settingsLoading) {
             return
         }
 
         try {
-            await ChatflowsApi.saveSettings(flow.id, {
+            await ChatflowsApi.saveSettings(currentFlowId, {
                 isPublic: isPublic,
                 projectTitle: projectTitle,
                 markerType: markerType,
@@ -131,7 +138,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
             return () => clearTimeout(debounceTimeout)
         }
-    }, [projectTitle, markerType, markerValue, generationMode, arjsVersion, arjsSource, aframeVersion, aframeSource, settingsLoading])
+    }, [projectTitle, markerType, markerValue, generationMode, arjsVersion, arjsSource, aframeVersion, aframeSource, settingsLoading, flow?.id]) // Universo Platformo | re-run when flow changes
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
