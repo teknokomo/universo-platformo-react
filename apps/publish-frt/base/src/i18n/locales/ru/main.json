@@ -209,5 +209,11 @@
         "configSaved": "Настройки публикации PlayCanvas сохранены",
         "saveError": "Ошибка при сохранении настроек PlayCanvas",
         "libraryHint": "Выберите версию движка PlayCanvas"
+    },
+    "playcanvasTemplates": {
+        "mmoomm": {
+            "name": "Шаблон PlayCanvas MMOOMM",
+            "description": "Прототип MMO сцены на основе примитивов PlayCanvas"
+        }
     }
 }
