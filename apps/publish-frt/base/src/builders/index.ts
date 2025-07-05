@@ -9,6 +9,7 @@ export * from './common/types'
 
 // AR.js Builder with template support
 export { ARJSBuilder } from './arjs/ARJSBuilder'
+export { PlayCanvasBuilder } from './playcanvas/PlayCanvasBuilder'
 
 // Template system exports
 export * from './arjs/templates'
