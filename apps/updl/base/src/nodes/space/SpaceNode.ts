@@ -252,7 +252,8 @@ export class SpaceNode extends BaseUPDLNode {
             name: spaceName,
             spaceType,
             settings,
-            isRootNode: true,
+            // Universo Platformo | Determine root node status from spaceType
+            isRootNode: spaceType === 'root',
             backgroundColor,
             skybox: {
                 enabled: enableSkybox,

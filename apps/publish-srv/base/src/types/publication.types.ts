@@ -115,6 +115,10 @@ export interface IUPDLData {
 export interface IUPDLSpace {
     id: string
     name: string
+    // Universo Platformo | Classification of space
+    spaceType?: string
+    // Universo Platformo | Root node indicator
+    isRootNode?: boolean
     description?: string
     objects: IUPDLObject[]
     cameras?: IUPDLCamera[]
