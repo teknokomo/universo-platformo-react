@@ -31,6 +31,7 @@ import Configuration from './Configuration'
 import ChatBotSettings from '@/views/publish/bots/ChatBotSettings'
 import ARJSPublisher from '@apps/publish-frt/base/src/features/arjs/ARJSPublisher.jsx'
 import ARJSExporter from '@apps/publish-frt/base/src/features/arjs/ARJSExporter.jsx'
+import PlayCanvasPublisher from '@apps/publish-frt/base/src/features/playcanvas/PlayCanvasPublisher.jsx'
 import EmbedChat from './EmbedChat'
 
 // Const
@@ -800,6 +801,9 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                         )}
                         {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && displayMode === 'arjs' && (
                             <ARJSPublisher flow={chatflow} unikId={unikId} />
+                        )}
+                        {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && displayMode === 'playcanvas' && (
+                            <PlayCanvasPublisher flow={chatflow} />
                         )}
                         {codeLang === tPub('tabs.publish') && !chatflowApiKeyId && displayMode === 'chat' && (
                             <ChatBotSettings

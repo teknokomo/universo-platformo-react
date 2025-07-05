@@ -183,6 +183,13 @@
             "generatingScene": "Generating AR scene...",
             "showMarker": "Show this marker to the camera to activate AR"
         },
+        "playcanvas": {
+            "projectTitle": "Project Title",
+            "libraryVersion": {
+                "label": "PlayCanvas Version",
+                "hint": "Select library version"
+            }
+        },
         "templates": {
             "label": "Export Template",
             "selectTemplate": "Select template",
@@ -196,5 +203,10 @@
         "saveError": "Error saving publication settings",
         "streamingModeEnabled": "Streaming generation mode enabled",
         "publicLinkAvailable": "Public link is available"
+    },
+    "playcanvasPublication": {
+        "configSaved": "PlayCanvas publication settings saved",
+        "saveError": "Error saving PlayCanvas settings",
+        "libraryHint": "Choose PlayCanvas engine version"
     }
 }
