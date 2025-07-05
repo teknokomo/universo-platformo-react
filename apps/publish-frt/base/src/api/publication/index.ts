@@ -4,6 +4,7 @@
 export { PublicationApi } from './PublicationApi'
 export { ARJSPublicationApi, type ARJSPublicationSettings } from './ARJSPublicationApi'
 export { StreamingPublicationApi } from './StreamingPublicationApi'
+export { PlayCanvasPublicationApi, type PlayCanvasPublicationSettings } from './PlayCanvasPublicationApi'
 
 // Export centralized types
 export type { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult, IPublicationDataResult } from '@universo/publish-srv'
