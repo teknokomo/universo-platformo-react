@@ -3,6 +3,7 @@
 
 import { BuilderRegistry } from './BuilderRegistry'
 import { ARJSBuilder } from '../arjs/ARJSBuilder'
+import { PlayCanvasBuilder } from '../playcanvas/PlayCanvasBuilder'
 
 /**
  * Setup and register all available builders
@@ -12,7 +13,9 @@ export function setupBuilders(): void {
     // Register AR.js builder
     BuilderRegistry.register('arjs', ARJSBuilder)
 
+    // Register PlayCanvas builder
+    BuilderRegistry.register('playcanvas', PlayCanvasBuilder)
+
     // Future builders will be registered here
-    // BuilderRegistry.register('playcanvas', PlayCanvasBuilder)
     // BuilderRegistry.register('threejs', ThreeJSBuilder)
 }
