@@ -184,6 +184,13 @@
             "generatingScene": "Генерация AR сцены...",
             "showMarker": "Покажите этот маркер камере для активации AR"
         },
+        "playcanvas": {
+            "projectTitle": "Название проекта",
+            "libraryVersion": {
+                "label": "Версия PlayCanvas",
+                "hint": "Выберите версию библиотеки"
+            }
+        },
         "templates": {
             "label": "Шаблон экспорта",
             "selectTemplate": "Выберите шаблон",
@@ -197,5 +204,10 @@
         "saveError": "Ошибка при сохранении настроек",
         "streamingModeEnabled": "Режим потоковой генерации включен",
         "publicLinkAvailable": "Публичная ссылка доступна"
+    },
+    "playcanvasPublication": {
+        "configSaved": "Настройки публикации PlayCanvas сохранены",
+        "saveError": "Ошибка при сохранении настроек PlayCanvas",
+        "libraryHint": "Выберите версию движка PlayCanvas"
     }
 }

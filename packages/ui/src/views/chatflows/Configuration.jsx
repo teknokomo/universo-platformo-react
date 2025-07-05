@@ -19,6 +19,7 @@ import useNotifier from '@/utils/useNotifier'
 
 // Components
 import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
+import PlayCanvasPublisher from '@apps/publish-frt/base/src/features/playcanvas/PlayCanvasPublisher.jsx'
 
 const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDisplayMode, setDisplayMode: propSetDisplayMode }) => {
     const dispatch = useDispatch()
@@ -290,6 +291,11 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                         />
                     </RadioGroup>
                 </FormControl>
+                {displayMode === 'playcanvas' && (
+                    <Box sx={{ mt: 2 }}>
+                        <PlayCanvasPublisher flow={chatflow} />
+                    </Box>
+                )}
             </Paper>
         </Box>
     )
