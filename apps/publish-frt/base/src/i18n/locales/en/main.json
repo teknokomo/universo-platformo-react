@@ -208,5 +208,11 @@
         "configSaved": "PlayCanvas publication settings saved",
         "saveError": "Error saving PlayCanvas settings",
         "libraryHint": "Choose PlayCanvas engine version"
+    },
+    "playcanvasTemplates": {
+        "mmoomm": {
+            "name": "PlayCanvas MMOOMM Template",
+            "description": "Prototype MMO scene using PlayCanvas primitives"
+        }
     }
 }

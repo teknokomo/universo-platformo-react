@@ -37,6 +37,7 @@ This service is implemented as a **pnpm workspace package** that:
 -   **Flow Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend.
 -   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types for use across the platform.
 -   **Modular and Decoupled**: Fully independent from `packages/server` business logic. It no longer contains UPDL generation code.
+-   **PlayCanvas Ready**: The same raw data endpoints are used by the PlayCanvas builder and templates.
 
 ## Integration with Main Flowise Server
 
@@ -71,6 +72,8 @@ The API is now streamlined to handle publication records and serve raw flow data
 
 -   `POST /api/v1/publish/arjs` - Creates or updates a publication record.
 -   `GET /api/v1/publish/arjs/public/:publicationId` - Gets the raw `flowData` for a given publication.
+-   `POST /api/v1/publish/playcanvas` - (planned) create a PlayCanvas publication.
+-   `GET /api/v1/publish/playcanvas/public/:publicationId` - (planned) return raw flow data for PlayCanvas builder.
 
 ### `POST /api/v1/publish/arjs`
 
@@ -106,6 +109,8 @@ Retrieves the raw `flowData` (as a JSON string) and `libraryConfig` for a given 
     }
 }
 ```
+
+PlayCanvas publications will follow the same pattern once the endpoints are implemented.
 
 ## Architectural Changes Summary
 

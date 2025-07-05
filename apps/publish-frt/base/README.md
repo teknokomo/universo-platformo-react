@@ -166,6 +166,26 @@ console.log(result.html) // Generated AR.js HTML
 console.log(result.metadata) // Build metadata
 ```
 
+### PlayCanvas Builder Usage
+
+```typescript
+import { PlayCanvasBuilder } from './builders'
+
+const builder = new PlayCanvasBuilder()
+const result = await builder.buildFromFlowData(flowDataString, {
+    projectName: 'MMOOMM Demo',
+    templateId: 'mmoomm'
+})
+
+console.log(result.html) // PlayCanvas HTML
+```
+
+### Universo MMOOMM Example
+
+The `mmoomm` template produces a small demo scene with a ship, asteroids and a gate.
+Select **PlayCanvas MMOOMM Template** in the configuration or pass `templateId: 'mmoomm'` when using the builder.
+Publish the project and open the public link to explore the prototype MMO environment.
+
 ## UPDL Processing Architecture
 
 The frontend now includes independent UPDL processing capabilities through the `UPDLProcessor` class, eliminating dependencies on backend utilities.
@@ -305,6 +325,8 @@ Publication state persistence is handled through Supabase integration:
 -   `ARViewPage` - Page component for AR space viewing using iframe approach
 -   `ARJSBuilder` - **The high-level controller that delegates to the template system.**
 -   `ARJSQuizBuilder` - **A concrete template implementation for AR.js quizzes.**
+-   `PlayCanvasPublisher` - Component for PlayCanvas publication settings
+-   `PlayCanvasBuilder` - Builder for PlayCanvas HTML output with template support
 
 ## API Architecture
 

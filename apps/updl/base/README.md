@@ -110,8 +110,15 @@ The UPDL module provides node definitions that integrate with Flowise:
 -   **Data Node**: Question and answer content for quiz scenes
 -   **Camera Node**: Space viewpoint configuration
 -   **Light Node**: Lighting setup (point, directional, ambient)
+-   **Entity Node**: Runtime entity instance with transform data
+-   **Component Node**: Behaviour component attached to an entity
+-   **Event Node**: Trigger for actions within the scene
+-   **Action Node**: Response logic for events
+-   **Universo Node**: MMOOMM-specific functionality placeholder
 
 Data nodes are used for creating quizzes. A question node can have multiple answer nodes connected to it. Answers may be marked with `isCorrect` and can optionally define `pointsValue`. These answers can also link to Object nodes that appear when chosen.
+
+These additional nodes lay the groundwork for the **PlayCanvas MMOOMM template**, enabling future game-style exports with entities, components and event-driven logic.
 
 Each node includes:
 
