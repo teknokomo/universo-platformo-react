@@ -87,8 +87,8 @@ export class UniversoNode extends BaseUPDLNode {
         const namespace = (nodeData.inputs?.namespace as string) || 'universo.mmoomm'
         const syncMode = (nodeData.inputs?.syncMode as string) || 'realtime'
 
-        return {
-            type: 'universo',
+        const obj = {
+            type: 'UPDLUniverso',
             connectionType,
             endpoint,
             authentication,
@@ -99,6 +99,8 @@ export class UniversoNode extends BaseUPDLNode {
             connected: false,
             lastSync: null
         }
+
+        return obj
     }
 }
 

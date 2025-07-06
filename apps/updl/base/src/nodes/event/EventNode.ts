@@ -40,7 +40,8 @@ export class EventNode extends BaseUPDLNode {
                     name: 'eventArgs',
                     label: 'Event Arguments (JSON)',
                     type: 'json',
-                    description: 'Event-specific parameters (e.g., {"delay": 5000} for On Timer, {"targetTag": "Asteroid"} for On Collision)',
+                    description:
+                        'Event-specific parameters (e.g., {"delay": 5000} for On Timer, {"targetTag": "Asteroid"} for On Collision)',
                     optional: true,
                     additionalParams: true
                 }
@@ -54,13 +55,19 @@ export class EventNode extends BaseUPDLNode {
 
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
         const eventType = (nodeData.inputs?.eventType as string) || 'onStart'
-        const eventArgs = nodeData.inputs?.eventArgs ? JSON.parse(nodeData.inputs.eventArgs as string) : {}
-        
+
+        let eventArgs
+        try {
+            eventArgs = nodeData.inputs?.eventArgs ? JSON.parse(nodeData.inputs.eventArgs as string) : {}
+        } catch (error) {
+            eventArgs = {}
+        }
+
         // Connected actions are handled by Flowise graph execution
         const actions = nodeData.inputs?.actions || []
-        
+
         const id = `event-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-        
+
         return {
             id,
             type: 'UPDLEvent',

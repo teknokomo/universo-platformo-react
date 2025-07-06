@@ -232,9 +232,17 @@ export class SpaceNode extends BaseUPDLNode {
      */
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
         // Extract properties via nodeData.inputs
-        const spaceName = (nodeData.inputs?.spaceName as string) || 'My Space'
-        const spaceType = (nodeData.inputs?.spaceType as string) || 'root'
-        const settings = (nodeData.inputs?.settings as any) || {}
+        const sceneId = (nodeData.inputs?.sceneId as string) || `scene-${Date.now()}`
+        const spaceType = (nodeData.inputs?.spaceType as string) || 'standard'
+
+        let settings
+        try {
+            const settingsInput = nodeData.inputs?.settings as string
+            settings = settingsInput ? JSON.parse(settingsInput) : {}
+        } catch (error) {
+            settings = {}
+        }
+
         const backgroundColor = (nodeData.inputs?.backgroundColor as string) || '' // Use default from input definition
         const enableSkybox = nodeData.inputs?.skybox ? true : false
         const skyboxTexture = nodeData.inputs?.skyboxTexture as string
@@ -265,8 +273,8 @@ export class SpaceNode extends BaseUPDLNode {
         // Return space configuration
         return {
             id,
-            type: 'UPDLSpaceNode',
-            name: spaceName,
+            type: 'UPDLSpace',
+            name: sceneId,
             spaceType,
             settings,
             // Universo Platformo | Determine root node status from spaceType
