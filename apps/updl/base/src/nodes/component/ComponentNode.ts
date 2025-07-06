@@ -14,25 +14,56 @@ export class ComponentNode extends BaseUPDLNode {
             description: 'Component attached to an entity',
             inputs: [
                 {
-                    name: 'type',
-                    type: 'string',
+                    name: 'componentType',
                     label: 'Component Type',
-                    description: 'Type identifier of the component'
+                    type: 'options',
+                    description: 'Type of component to attach',
+                    options: [
+                        { label: 'Render', name: 'render' },
+                        { label: 'Script', name: 'script' }
+                    ],
+                    default: 'render'
                 },
+                // Fields for Render Component
+                {
+                    name: 'primitive',
+                    label: 'Primitive Shape',
+                    type: 'options',
+                    description: 'Basic 3D shape to render',
+                    options: [
+                        { label: 'Box', name: 'box' },
+                        { label: 'Sphere', name: 'sphere' },
+                        { label: 'Torus', name: 'torus' },
+                        { label: 'Cylinder', name: 'cylinder' }
+                    ],
+                    default: 'box',
+                    show: { 'inputs.componentType': ['render'] }
+                },
+                {
+                    name: 'color',
+                    label: 'Color (HEX)',
+                    type: 'string',
+                    description: 'Color of the rendered primitive',
+                    default: '#FFFFFF',
+                    show: { 'inputs.componentType': ['render'] }
+                },
+                // Fields for Script Component
+                {
+                    name: 'scriptName',
+                    label: 'Script Name',
+                    type: 'string',
+                    description: 'Name of the script file (e.g., playerController.js)',
+                    default: 'myScript.js',
+                    show: { 'inputs.componentType': ['script'] }
+                },
+                // Generic props for advanced use
                 {
                     name: 'props',
-                    type: 'object',
-                    label: 'Props',
-                    description: 'Component properties',
+                    label: 'Additional Properties (JSON)',
+                    type: 'json',
+                    description: 'Additional component properties as JSON',
                     optional: true,
                     additionalParams: true
-                },
-                {
-                    label: 'Target',
-                    name: 'target',
-                    type: 'UPDLEntity',
-                    description: 'Entity to attach this component to',
-                    optional: true
                 }
             ]
         })
@@ -43,16 +74,22 @@ export class ComponentNode extends BaseUPDLNode {
     }
 
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
-        const type = (nodeData.inputs?.type as string) || ''
-        const props = (nodeData.inputs?.props as any) || {}
-        const target = nodeData.inputs?.target || null
+        const componentType = (nodeData.inputs?.componentType as string) || 'render'
+        const primitive = (nodeData.inputs?.primitive as string) || 'box'
+        const color = (nodeData.inputs?.color as string) || '#FFFFFF'
+        const scriptName = (nodeData.inputs?.scriptName as string) || 'myScript.js'
+        const props = nodeData.inputs?.props ? JSON.parse(nodeData.inputs.props as string) : {}
+
         const id = `component-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+
         return {
             id,
             type: 'UPDLComponent',
-            componentType: type,
-            props,
-            target
+            componentType,
+            primitive,
+            color,
+            scriptName,
+            props
         }
     }
 }

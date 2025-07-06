@@ -3,7 +3,7 @@ import { INodeData, ICommonObject } from '../interfaces'
 import { BaseUPDLNode } from '../base/BaseUPDLNode'
 
 /**
- * UniversoNode defines cross-system settings
+ * UniversoNode provides global connectivity to the Kiberplano network
  */
 export class UniversoNode extends BaseUPDLNode {
     constructor() {
@@ -11,51 +11,93 @@ export class UniversoNode extends BaseUPDLNode {
             name: 'Universo',
             type: 'UPDLUniverso',
             icon: 'universo.svg',
-            description: 'Universo platform configuration',
+            description: 'Global connectivity to Kiberplano network (GraphQL, MQTT UNS, OPC UA)',
             inputs: [
+                // Configuration settings only - no input connectors needed for MVP
                 {
-                    name: 'transports',
-                    type: 'object',
-                    label: 'Transports',
-                    description: 'Transport layer settings',
-                    optional: true,
+                    name: 'connectionType',
+                    label: 'Connection Type',
+                    type: 'options',
+                    options: [
+                        { label: 'GraphQL API', name: 'graphql' },
+                        { label: 'MQTT UNS', name: 'mqtt' },
+                        { label: 'OPC UA', name: 'opcua' },
+                        { label: 'WebSocket', name: 'websocket' }
+                    ],
+                    default: 'graphql',
                     additionalParams: true
                 },
                 {
-                    name: 'discovery',
-                    type: 'object',
-                    label: 'Discovery',
-                    description: 'Discovery settings',
-                    optional: true,
+                    name: 'endpoint',
+                    label: 'Endpoint URL',
+                    type: 'string',
+                    placeholder: 'wss://api.kiberplano.com/graphql',
                     additionalParams: true
                 },
                 {
-                    name: 'security',
-                    type: 'object',
-                    label: 'Security',
-                    description: 'Security configuration',
-                    optional: true,
+                    name: 'authentication',
+                    label: 'Authentication',
+                    type: 'options',
+                    options: [
+                        { label: 'API Key', name: 'apikey' },
+                        { label: 'JWT Token', name: 'jwt' },
+                        { label: 'OAuth2', name: 'oauth2' },
+                        { label: 'None', name: 'none' }
+                    ],
+                    default: 'apikey',
+                    additionalParams: true
+                },
+                {
+                    name: 'credentials',
+                    label: 'Credentials',
+                    type: 'string',
+                    placeholder: 'API key or token',
+                    additionalParams: true,
+                    optional: true
+                },
+                {
+                    name: 'namespace',
+                    label: 'Namespace',
+                    type: 'string',
+                    placeholder: 'universo.mmoomm',
+                    default: 'universo.mmoomm',
+                    additionalParams: true
+                },
+                {
+                    name: 'syncMode',
+                    label: 'Sync Mode',
+                    type: 'options',
+                    options: [
+                        { label: 'Real-time', name: 'realtime' },
+                        { label: 'Periodic', name: 'periodic' },
+                        { label: 'On-demand', name: 'ondemand' }
+                    ],
+                    default: 'realtime',
                     additionalParams: true
                 }
             ]
         })
     }
 
-    async init(nodeData: INodeData, input: string = ''): Promise<any> {
-        return this
-    }
+    async run(nodeData: INodeData): Promise<ICommonObject> {
+        const connectionType = (nodeData.inputs?.connectionType as string) || 'graphql'
+        const endpoint = (nodeData.inputs?.endpoint as string) || ''
+        const authentication = (nodeData.inputs?.authentication as string) || 'apikey'
+        const credentials = (nodeData.inputs?.credentials as string) || ''
+        const namespace = (nodeData.inputs?.namespace as string) || 'universo.mmoomm'
+        const syncMode = (nodeData.inputs?.syncMode as string) || 'realtime'
 
-    async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
-        const transports = (nodeData.inputs?.transports as any) || {}
-        const discovery = (nodeData.inputs?.discovery as any) || {}
-        const security = (nodeData.inputs?.security as any) || {}
-        const id = `universo-${Date.now()}-${Math.floor(Math.random() * 1000)}`
         return {
-            id,
-            type: 'UPDLUniverso',
-            transports,
-            discovery,
-            security
+            type: 'universo',
+            connectionType,
+            endpoint,
+            authentication,
+            credentials: credentials ? '***' : '', // Mask credentials in output
+            namespace,
+            syncMode,
+            // Runtime connection state (will be handled by the export template)
+            connected: false,
+            lastSync: null
         }
     }
 }

@@ -21,6 +21,60 @@
     - Connections are validated for type compatibility
     - The editor prevents incompatible connections
 
+### Connector Implementation Guide
+
+Based on recent refactoring, here are the best practices for implementing input/output connectors in UPDL nodes to ensure they work correctly within the Flowise editor.
+
+1.  **Defining Input Connectors**
+
+    -   To allow a node (e.g., `EntityNode`) to accept another node (e.g., `ComponentNode`) as an input, you must explicitly define this connection in the parent node's class definition.
+    -   This is done by adding an object to the `inputs` array. The `type` property of this object must match the `name` of the child node (e.g., `UPDLComponent`).
+
+    **Example (`EntityNode.ts`):**
+
+    ```typescript
+    this.inputs = [
+        {
+            label: 'Components',
+            name: 'components',
+            type: 'UPDLComponent', // Must match the 'name' of ComponentNode
+            list: true
+        },
+        {
+            label: 'Events',
+            name: 'events',
+            type: 'UPDLEvent', // Must match the 'name' of EventNode
+            list: true
+        }
+    ]
+    ```
+
+2.  **Handling Output Connectors**
+
+    -   **Problem**: A common issue was the disappearance of output connectors after trying to standardize them in a base class.
+    -   **Solution**: Flowise automatically creates a single, standard output connector for any node that has an empty `outputs` array (`outputs: []`) or no `outputs` property defined at all.
+    -   **Best Practice**: Do not programmatically add a default output in a base class. Simply define `this.outputs = [];` in your node's constructor (or in a shared base class like `BaseUPDLNode`) to get the default output behavior. If you need custom outputs, define them explicitly in the `outputs` array.
+
+3.  **Centralizing Connectable Types**
+
+    -   To improve maintainability and avoid typos, it's highly recommended to centralize all connectable node type names into a single constant array.
+
+    **Example (`BaseUPDLNode.ts`):**
+
+    ```typescript
+    export const CONNECTABLE_TYPES = ['UPDLSpace', 'UPDLEntity', 'UPDLComponent', 'UPDLEvent', 'UPDLAction', 'UPDLData', 'UPDLUniverso']
+    ```
+
+    This allows you to reference types safely (e.g., `type: CONNECTABLE_TYPES[2]`) and provides a single place to see all valid connection types.
+
+4.  **Terminal Nodes (No Connectors)**
+    -   Some nodes, like `ActionNode`, may not need any input or output connectors. Their logic can be entirely self-contained and configured via internal parameters.
+    -   In such cases, simply define empty `inputs` and `outputs` arrays:
+        `this.inputs = [];`
+        `this.outputs = [];`
+
+By following these guidelines, you can ensure that all custom UPDL nodes will have predictable and correct connector behavior in the visual editor.
+
 ### Common Node Patterns
 
 #### Basic AR Space Pattern

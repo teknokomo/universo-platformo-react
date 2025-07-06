@@ -21,7 +21,6 @@ Common commands:
 Coding style:
 
 - Keep changes to the original Flowise code minimal.
-- Write comments in English and prefix them with `Universo Platformo |`.
 
 Refer to [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing.
 

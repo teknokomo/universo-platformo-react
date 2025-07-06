@@ -11,54 +11,131 @@ export class ActionNode extends BaseUPDLNode {
             name: 'Action',
             type: 'UPDLAction',
             icon: 'action.svg',
-            description: 'Action performed on a target',
+            description: 'Performs a gameplay action, like moving an entity or setting data.',
             inputs: [
+                // Action configuration
                 {
                     name: 'actionType',
-                    type: 'options',
                     label: 'Action Type',
-                    description: 'Type of action',
+                    type: 'options',
                     options: [
-                        { label: 'Animate', name: 'animate' },
-                        { label: 'Sound', name: 'sound' },
-                        { label: 'Custom', name: 'custom' }
+                        { label: 'Move', name: 'move' },
+                        { label: 'Rotate', name: 'rotate' },
+                        { label: 'Shoot', name: 'shoot' },
+                        { label: 'SetData', name: 'setData' },
+                        { label: 'LoadSpace', name: 'loadSpace' },
+                        { label: 'Destroy', name: 'destroy' }
                     ],
-                    default: 'animate'
+                    default: 'move',
+                    additionalParams: true
                 },
                 {
-                    label: 'Target',
-                    name: 'target',
-                    type: 'UPDLEntity',
-                    description: 'Target entity for the action',
+                    name: 'targetId',
+                    label: 'Target Entity ID',
+                    type: 'string',
+                    description: 'ID or tag of target Entity. If empty, action applies to the event source entity.',
+                    placeholder: 'player, enemy_1, #boss',
+                    optional: true,
+                    additionalParams: true
+                },
+
+                // Parameters for Move/Rotate
+                {
+                    name: 'vector',
+                    label: 'Vector',
+                    type: 'json',
+                    description: 'JSON object with x, y, z values for translation or rotation',
+                    placeholder: '{ "x": 0, "y": 1, "z": 0 }',
+                    show: {
+                        'inputs.actionType': ['move', 'rotate']
+                    },
+                    additionalParams: true,
                     optional: true
                 },
                 {
-                    name: 'params',
-                    type: 'object',
-                    label: 'Params',
-                    description: 'Additional parameters',
-                    optional: true,
-                    additionalParams: true
+                    name: 'duration',
+                    label: 'Duration (s)',
+                    type: 'number',
+                    description: 'Time in seconds to complete the action',
+                    default: 1,
+                    show: {
+                        'inputs.actionType': ['move', 'rotate']
+                    },
+                    additionalParams: true,
+                    optional: true
+                },
+
+                // Parameters for SetData
+                {
+                    name: 'dataKey',
+                    label: 'Data Key',
+                    type: 'string',
+                    placeholder: 'score, health, ammo',
+                    show: {
+                        'inputs.actionType': ['setData']
+                    },
+                    additionalParams: true,
+                    optional: true
+                },
+                {
+                    name: 'dataValue',
+                    label: 'Data Value',
+                    type: 'string',
+                    description: 'Value to set. Can be a literal or a variable expression (e.g., {{current_score + 10}}).',
+                    placeholder: '100, "game_over", {{player_health}}',
+                    show: {
+                        'inputs.actionType': ['setData']
+                    },
+                    additionalParams: true,
+                    optional: true
+                },
+
+                // Parameters for LoadSpace
+                {
+                    name: 'spaceId',
+                    label: 'Space ID',
+                    type: 'string',
+                    description: 'ID of the Space to load',
+                    placeholder: 'level_2, main_menu',
+                    show: {
+                        'inputs.actionType': ['loadSpace']
+                    },
+                    additionalParams: true,
+                    optional: true
                 }
+
+                // No parameters needed for Shoot or Destroy, they are contextual
             ]
         })
     }
 
-    async init(nodeData: INodeData, input: string = ''): Promise<any> {
-        return this
-    }
+    async run(nodeData: INodeData): Promise<ICommonObject> {
+        const actionType = (nodeData.inputs?.actionType as string) || 'move'
+        const targetId = (nodeData.inputs?.targetId as string) || '' // Default to self
+        const vectorStr = (nodeData.inputs?.vector as string) || '{}'
+        const duration = (nodeData.inputs?.duration as number) || 1
+        const dataKey = (nodeData.inputs?.dataKey as string) || ''
+        const dataValue = (nodeData.inputs?.dataValue as string) || ''
+        const spaceId = (nodeData.inputs?.spaceId as string) || ''
 
-    async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
-        const actionType = (nodeData.inputs?.actionType as string) || 'animate'
-        const target = nodeData.inputs?.target || null
-        const params = (nodeData.inputs?.params as any) || {}
-        const id = `action-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        let vector = {}
+        try {
+            vector = JSON.parse(vectorStr)
+        } catch (e) {
+            // Ignore parsing errors, use default empty object
+        }
+
         return {
-            id,
-            type: 'UPDLAction',
+            type: 'action',
             actionType,
-            target,
-            params
+            targetId,
+            params: {
+                vector,
+                duration,
+                dataKey,
+                dataValue,
+                spaceId
+            }
         }
     }
 }

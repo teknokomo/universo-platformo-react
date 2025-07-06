@@ -193,6 +193,21 @@ export class SpaceNode extends BaseUPDLNode {
                     description: 'Connect Camera nodes to add them to the space',
                     list: true,
                     optional: true
+                },
+                {
+                    label: 'Entities',
+                    name: 'entities',
+                    type: 'UPDLEntity',
+                    description: 'Connect Entity nodes to add them to the space',
+                    list: true,
+                    optional: true
+                },
+                {
+                    label: 'Universo',
+                    name: 'universo',
+                    type: 'UPDLUniverso',
+                    description: 'Connect a Universo node for global settings',
+                    optional: true
                 }
             ]
             // properties: [], // Removed properties array
@@ -237,10 +252,12 @@ export class SpaceNode extends BaseUPDLNode {
 
         // Use empty arrays for connected elements; connections are handled by Flowise graph execution
         const inputSpace = nodeData.inputs?.spaces || null
-        const objects = []
-        const cameras = []
-        const lights = []
-        const data = []
+        const objects = nodeData.inputs?.objects || []
+        const cameras = nodeData.inputs?.cameras || []
+        const lights = nodeData.inputs?.lights || []
+        const data = nodeData.inputs?.data || []
+        const entities = nodeData.inputs?.entities || []
+        const universo = nodeData.inputs?.universo || null
 
         // Generate a unique ID for the space
         const id = `space-${Date.now()}-${Math.floor(Math.random() * 1000)}`
@@ -275,7 +292,9 @@ export class SpaceNode extends BaseUPDLNode {
             objects,
             cameras,
             lights,
-            data
+            data,
+            entities,
+            universo
         }
     }
 }

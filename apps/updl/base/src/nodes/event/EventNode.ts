@@ -13,24 +13,36 @@ export class EventNode extends BaseUPDLNode {
             icon: 'event.svg',
             description: 'Event definition for UPDL flows',
             inputs: [
+                // Input connector for actions
+                {
+                    label: 'Actions',
+                    name: 'actions',
+                    type: 'UPDLAction',
+                    description: 'Connect Action nodes to execute when this event triggers',
+                    list: true,
+                    optional: true
+                },
+                // Event configuration
                 {
                     name: 'eventType',
-                    type: 'options',
                     label: 'Event Type',
-                    description: 'Type of event',
+                    type: 'options',
+                    description: 'Type of event that triggers the actions',
                     options: [
-                        { label: 'Click', name: 'click' },
-                        { label: 'Hover', name: 'hover' },
-                        { label: 'Custom', name: 'custom' }
+                        { label: 'On Start', name: 'onStart', description: 'Triggers when the scene/entity loads' },
+                        { label: 'On Click', name: 'onClick', description: 'Triggers on mouse click' },
+                        { label: 'On Collision Start', name: 'onCollisionStart', description: 'Triggers on collision enter' },
+                        { label: 'On Timer', name: 'onTimer', description: 'Triggers after a delay' }
                     ],
-                    default: 'click'
+                    default: 'onStart'
                 },
                 {
-                    label: 'Source',
-                    name: 'source',
-                    type: 'UPDLEntity',
-                    description: 'Entity emitting the event',
-                    optional: true
+                    name: 'eventArgs',
+                    label: 'Event Arguments (JSON)',
+                    type: 'json',
+                    description: 'Event-specific parameters (e.g., {"delay": 5000} for On Timer, {"targetTag": "Asteroid"} for On Collision)',
+                    optional: true,
+                    additionalParams: true
                 }
             ]
         })
@@ -41,14 +53,20 @@ export class EventNode extends BaseUPDLNode {
     }
 
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
-        const eventType = (nodeData.inputs?.eventType as string) || 'click'
-        const source = nodeData.inputs?.source || null
+        const eventType = (nodeData.inputs?.eventType as string) || 'onStart'
+        const eventArgs = nodeData.inputs?.eventArgs ? JSON.parse(nodeData.inputs.eventArgs as string) : {}
+        
+        // Connected actions are handled by Flowise graph execution
+        const actions = nodeData.inputs?.actions || []
+        
         const id = `event-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        
         return {
             id,
             type: 'UPDLEvent',
             eventType,
-            source
+            eventArgs,
+            actions
         }
     }
 }

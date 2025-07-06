@@ -5,6 +5,25 @@ import { INode, INodeData, INodeOutputsValue, INodeParams, ICommonObject } from 
 import { UPDLNode, UPDLNodePort, UPDLPortType } from '../../interfaces/UPDLInterfaces'
 
 /**
+ * A list of types that represent connectable inputs, used to distinguish them from regular UI parameter fields.
+ */
+const CONNECTABLE_TYPES = [
+    // Legacy types (for backward compatibility)
+    'space',
+    'object',
+    'camera',
+    'light',
+    // Modern UPDL types
+    'UPDLSpace',
+    'UPDLEntity',
+    'UPDLComponent',
+    'UPDLEvent',
+    'UPDLAction',
+    'UPDLData',
+    'UPDLUniverso'
+]
+
+/**
  * Base class for all UPDL nodes that integrates with Flowise
  */
 export abstract class BaseUPDLNode implements INode {
@@ -50,7 +69,12 @@ export abstract class BaseUPDLNode implements INode {
         this.properties = config.properties || []
 
         if (config.inputs) this.inputs = config.inputs
-        if (config.outputs) this.outputs = config.outputs
+
+        // Only set outputs if explicitly provided in config
+        if (config.outputs) {
+            this.outputs = config.outputs
+        }
+        // Otherwise, let Flowise handle the default output behavior
 
         // Make sure the base classes include the type
         this.baseClasses = [this.type, ...this.baseClasses.filter((c) => c !== this.type)]
@@ -106,7 +130,7 @@ export abstract class BaseUPDLNode implements INode {
     private mapPortsToUPDL(params: INodeParams[]): UPDLNodePort[] {
         // Map only parameters that are connection points, not UI fields
         return params
-            .filter((param) => param.type === 'space' || param.type === 'object' || param.type === 'camera' || param.type === 'light')
+            .filter((param) => CONNECTABLE_TYPES.includes(param.type))
             .map((param) => ({
                 id: param.name,
                 name: param.label || param.name,
@@ -135,30 +159,38 @@ export abstract class BaseUPDLNode implements INode {
     private mapParamTypeToPortType(paramType: string): UPDLPortType {
         // Map Flowise parameter types to UPDL port types
         switch (paramType) {
+            // Legacy types (for backward compatibility)
             case 'space':
-            case 'UPDLSpaceNode':
                 return UPDLPortType.SCENE // Using SCENE port type for backward compatibility
             case 'object':
-            case 'UPDLObjectNode':
                 return UPDLPortType.OBJECT
             case 'camera':
-            case 'UPDLCameraNode':
                 return UPDLPortType.CAMERA
             case 'light':
-            case 'UPDLLightNode':
                 return UPDLPortType.LIGHT
             case 'material':
                 return UPDLPortType.MATERIAL
             case 'trigger':
                 return UPDLPortType.TRIGGER
-            case 'action':
+
+            // Modern UPDL types
+            case 'UPDLSpace':
+                return UPDLPortType.SCENE
+            case 'UPDLEntity':
+                return UPDLPortType.OBJECT // Entities are positioned objects
+            case 'UPDLComponent':
+                return UPDLPortType.CONTROLLER // Components control entity behavior
+            case 'UPDLEvent':
+                return UPDLPortType.TRIGGER // Events are triggers
+            case 'UPDLAction':
                 return UPDLPortType.ACTION
-            case 'animation':
-                return UPDLPortType.ANIMATION
-            case 'controller':
-                return UPDLPortType.CONTROLLER
+            case 'UPDLData':
+                return UPDLPortType.CONTROLLER // Data controls application state
+            case 'UPDLUniverso':
+                return UPDLPortType.CONTROLLER // Universo controls global connectivity
+
+            // Default fallback
             default:
-                // Default to OBJECT for unknown types
                 return UPDLPortType.OBJECT
         }
     }
