@@ -66,9 +66,16 @@ export class EntityNode extends BaseUPDLNode {
 
     async run(nodeData: INodeData, input: string, options?: ICommonObject): Promise<any> {
         const entityType = (nodeData.inputs?.entityType as string) || 'StaticObject'
-        const transform = nodeData.inputs?.transform
-            ? JSON.parse(nodeData.inputs.transform as string)
-            : { pos: [0, 0, 0], rot: [0, 0, 0], scale: [1, 1, 1] }
+
+        let transform
+        try {
+            transform = nodeData.inputs?.transform
+                ? JSON.parse(nodeData.inputs.transform as string)
+                : { pos: [0, 0, 0], rot: [0, 0, 0], scale: [1, 1, 1] }
+        } catch (error) {
+            transform = { pos: [0, 0, 0], rot: [0, 0, 0], scale: [1, 1, 1] }
+        }
+
         const tags = (nodeData.inputs?.tags as string[]) || []
 
         // Connected components and events are handled by Flowise graph execution

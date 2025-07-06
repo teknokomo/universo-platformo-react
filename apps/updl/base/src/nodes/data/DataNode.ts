@@ -198,7 +198,7 @@ export class DataNode extends BaseUPDLNode {
         // Return data configuration
         return {
             id,
-            type: 'UPDLDataNode',
+            type: 'UPDLData',
             name: dataName,
             key,
             scope,

@@ -78,7 +78,13 @@ export class ComponentNode extends BaseUPDLNode {
         const primitive = (nodeData.inputs?.primitive as string) || 'box'
         const color = (nodeData.inputs?.color as string) || '#FFFFFF'
         const scriptName = (nodeData.inputs?.scriptName as string) || 'myScript.js'
-        const props = nodeData.inputs?.props ? JSON.parse(nodeData.inputs.props as string) : {}
+
+        let props
+        try {
+            props = nodeData.inputs?.props ? JSON.parse(nodeData.inputs.props as string) : {}
+        } catch (error) {
+            props = {}
+        }
 
         const id = `component-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 

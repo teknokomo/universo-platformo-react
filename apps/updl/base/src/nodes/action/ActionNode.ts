@@ -125,18 +125,23 @@ export class ActionNode extends BaseUPDLNode {
             // Ignore parsing errors, use default empty object
         }
 
-        return {
-            type: 'action',
-            actionType,
-            targetId,
-            params: {
-                vector,
-                duration,
-                dataKey,
-                dataValue,
-                spaceId
+        const obj = {
+            type: 'UPDLAction',
+            name: 'Action',
+            args: {
+                actionType,
+                targetId,
+                params: {
+                    vector,
+                    duration,
+                    dataKey,
+                    dataValue,
+                    spaceId
+                }
             }
         }
+
+        return obj
     }
 }
 
