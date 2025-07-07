@@ -11,11 +11,21 @@ interface TemplateSelectProps {
     onTemplateChange: (templateId: string) => void
     disabled?: boolean
     className?: string
+    technology?: string
 }
 
-export const TemplateSelect: React.FC<TemplateSelectProps> = ({ selectedTemplate, onTemplateChange, disabled = false, className = '' }) => {
+export const TemplateSelect: React.FC<TemplateSelectProps> = ({
+    selectedTemplate,
+    onTemplateChange,
+    disabled = false,
+    className = '',
+    technology
+}) => {
     const { t } = useTranslation('publish')
-    const templates = TemplateRegistry.getTemplates()
+    const allTemplates = TemplateRegistry.getTemplates()
+
+    // Filter templates by technology if specified
+    const templates = technology ? allTemplates.filter((template) => template.technology === technology) : allTemplates
 
     const handleTemplateChange = (event: any) => {
         onTemplateChange(event.target.value as string)

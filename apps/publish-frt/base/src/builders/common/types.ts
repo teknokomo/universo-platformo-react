@@ -92,6 +92,7 @@ export interface TemplateConfig {
     name: string
     description: string
     version: string
+    technology: string
     supportedNodes: string[]
     features: string[]
     defaults: {
@@ -116,6 +117,7 @@ export interface TemplateInfo {
     name: string
     description: string
     version: string
+    technology: string
     supportedNodes: string[]
     features: string[]
     defaults?: Record<string, any>

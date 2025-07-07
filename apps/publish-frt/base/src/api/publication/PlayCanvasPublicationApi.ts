@@ -26,10 +26,7 @@ export class PlayCanvasPublicationApi extends PublicationApi {
      * @param spaceId Space ID (formerly chatflowId)
      * @param settings PlayCanvas publication settings to save
      */
-    static async savePlayCanvasSettings(
-        spaceId: string,
-        settings: PlayCanvasPublicationSettings
-    ): Promise<void> {
+    static async savePlayCanvasSettings(spaceId: string, settings: PlayCanvasPublicationSettings): Promise<void> {
         return this.savePublicationSettings(spaceId, 'playcanvas', settings)
     }
 

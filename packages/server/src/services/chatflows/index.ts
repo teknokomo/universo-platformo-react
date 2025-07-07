@@ -317,12 +317,31 @@ const getSinglePublicChatflow = async (chatflowId: string): Promise<any> => {
         const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
             id: chatflowId
         })
-        if (dbResponse && dbResponse.isPublic) {
-            return dbResponse
-        } else if (dbResponse && !dbResponse.isPublic) {
-            throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Unauthorized`)
+
+        if (!dbResponse) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
         }
-        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
+
+        // Check legacy isPublic flag first
+        if (dbResponse.isPublic) {
+            return dbResponse
+        }
+
+        // Check technology-specific isPublic flags in chatbotConfig
+        if (dbResponse.chatbotConfig) {
+            try {
+                const chatbotConfig = JSON.parse(dbResponse.chatbotConfig)
+                const hasPublicTech = Object.keys(chatbotConfig).some((tech) => chatbotConfig[tech]?.isPublic === true)
+
+                if (hasPublicTech) {
+                    return dbResponse
+                }
+            } catch (parseError) {
+                // If parsing fails, fall back to legacy check already done above
+            }
+        }
+
+        throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Unauthorized`)
     } catch (error) {
         if (error instanceof InternalFlowiseError && error.statusCode === StatusCodes.UNAUTHORIZED) {
             throw error

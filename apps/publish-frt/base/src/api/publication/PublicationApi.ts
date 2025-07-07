@@ -73,7 +73,7 @@ export class PublicationApi {
             // First, get current space configuration
             const currentResponse = await this.getSpaceById(unikId, spaceId)
             const currentSpace = currentResponse.data
-            let existingConfig = {}
+            let existingConfig: Record<string, any> = {}
 
             // Parse existing chatbotConfig to preserve other technology settings
             if (currentSpace.chatbotConfig) {
@@ -90,6 +90,16 @@ export class PublicationApi {
             const newConfig = {
                 ...existingConfig,
                 [technology]: settings
+            }
+
+            // Implement exclusive publication logic
+            if (settings.isPublic) {
+                // If this technology is being set to public, disable all other technologies
+                for (const key in newConfig) {
+                    if (key !== technology && typeof newConfig[key] === 'object' && newConfig[key] !== null) {
+                        newConfig[key].isPublic = false
+                    }
+                }
             }
 
             // Check if any technology is public for global isPublic flag
@@ -175,6 +185,9 @@ export class PublicationApi {
 
             // Check AR.js technology
             if (config.arjs?.isPublic) return true
+
+            // Check PlayCanvas technology
+            if (config.playcanvas?.isPublic) return true
 
             // Add other technology checks here as they are implemented
             // if (config.web?.isPublic) return true

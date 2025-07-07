@@ -257,6 +257,7 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
             name: 'AR.js Quiz Template',
             description: 'Interactive AR quiz with 3D objects and questionnaire',
             version: '1.0.0',
+            technology: 'arjs',
             supportedNodes: ['Space', 'Object', 'Camera', 'Light', 'Data'],
             features: ['AR marker tracking', 'Interactive 3D objects', 'Quiz functionality', 'Multi-scene support', 'Lead data collection'],
             defaults: {

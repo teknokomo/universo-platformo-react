@@ -6,6 +6,7 @@ export interface QuizTemplateConfig {
     name: string
     description: string
     version: string
+    technology: string
     supportedNodes: string[]
     features: string[]
     defaults: {
@@ -27,6 +28,7 @@ export const QuizTemplateConfig: QuizTemplateConfig = {
     name: 'Квиз-приложение',
     description: 'Интерактивные квизы с системой баллов и сбором контактов',
     version: '0.1.0',
+    technology: 'arjs',
 
     // Supported nodes (existing)
     supportedNodes: ['Space', 'Object', 'Camera', 'Light', 'Data'],

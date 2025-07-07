@@ -188,7 +188,10 @@
             "libraryVersion": {
                 "label": "PlayCanvas Version",
                 "hint": "Select library version"
-            }
+            },
+            "publishedUrl": "Published URL",
+            "openInBrowser": "Open this link in a browser to view your PlayCanvas application",
+            "viewApp": "View PlayCanvas App"
         },
         "templates": {
             "label": "Export Template",
