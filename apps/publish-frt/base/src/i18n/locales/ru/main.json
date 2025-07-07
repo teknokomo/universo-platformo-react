@@ -189,7 +189,10 @@
             "libraryVersion": {
                 "label": "Версия PlayCanvas",
                 "hint": "Выберите версию библиотеки"
-            }
+            },
+            "publishedUrl": "Ссылка на публикацию",
+            "openInBrowser": "Откройте эту ссылку в браузере для просмотра вашего PlayCanvas приложения",
+            "viewApp": "Просмотр PlayCanvas приложения"
         },
         "templates": {
             "label": "Шаблон экспорта",

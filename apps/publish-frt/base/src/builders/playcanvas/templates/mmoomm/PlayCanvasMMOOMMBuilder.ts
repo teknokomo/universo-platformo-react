@@ -52,7 +52,18 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
         return this.wrapWithDocumentStructure(sceneContent, options)
     }
 
-    protected generateHTML(_content: { spaceContent: string; objectContent: string; cameraContent: string; lightContent: string; dataContent: string; template: string; error?: boolean }, options: BuildOptions = {}): string {
+    protected generateHTML(
+        _content: {
+            spaceContent: string
+            objectContent: string
+            cameraContent: string
+            lightContent: string
+            dataContent: string
+            template: string
+            error?: boolean
+        },
+        options: BuildOptions = {}
+    ): string {
         const sceneScript = this.generateSceneScript()
         const sceneContent = `<canvas id='application-canvas'></canvas>\n<script>${sceneScript}</script>`
         return this.wrapWithDocumentStructure(sceneContent, options)
@@ -64,6 +75,7 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             name: 'PlayCanvas MMOOMM Template',
             description: 'Prototype MMO scene using PlayCanvas primitives',
             version: '0.1.0',
+            technology: 'playcanvas',
             supportedNodes: ['Space', 'Entity', 'Component', 'Event', 'Action', 'Universo'],
             features: ['playcanvas-2.9.0'],
             defaults: {}
@@ -78,4 +90,3 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
         return `const canvas=document.getElementById('application-canvas');\nconst app=new pc.Application(canvas,{});\napp.start();\napp.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);\napp.setCanvasResolution(pc.RESOLUTION_AUTO);\nwindow.addEventListener('resize',()=>app.resizeCanvas());\nconst ship=new pc.Entity('ship');\nship.addComponent('model',{type:'box'});\nship.setLocalScale(1,1,2);\nship.setLocalPosition(0,0,0);\napp.root.addChild(ship);\nfor(let i=0;i<3;i++){const ast=new pc.Entity('asteroid'+i);ast.addComponent('model',{type:'sphere'});ast.setLocalPosition(Math.random()*6-3,Math.random()*2-1,-4-i*2);app.root.addChild(ast);}\nconst station=new pc.Entity('station');\nstation.addComponent('model',{type:'cylinder'});\nstation.setLocalScale(2,1,2);\nstation.setLocalPosition(4,0,-10);\napp.root.addChild(station);\nconst gate=new pc.Entity('gate');\ngate.addComponent('model',{type:'torus'});\ngate.setLocalScale(2,2,0.5);\ngate.setLocalPosition(-4,0,-10);\napp.root.addChild(gate);\nconst camera=new pc.Entity('camera');\ncamera.addComponent('camera',{clearColor:new pc.Color(0.1,0.1,0.1)});\ncamera.setLocalPosition(0,2,8);\napp.root.addChild(camera);\nconst light=new pc.Entity('light');\nlight.addComponent('light');\nlight.setLocalPosition(5,5,15);\napp.root.addChild(light);`
     }
 }
-

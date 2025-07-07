@@ -8,7 +8,6 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { ChatflowType } from '../../Interface'
 import chatflowsService from '../../services/chatflows'
-import { getDataSource } from '../../DataSource'
 import logger from '../../utils/logger'
 import { accessControlService } from '../../services/access-control'
 
@@ -264,26 +263,8 @@ const getSinglePublicChatflow = async (req: Request, res: Response, next: NextFu
             )
         }
 
-        // Get the chatflow first to check its Unik ID
+        // Get the chatflow - service will handle public access validation
         const chatflow = await chatflowsService.getSinglePublicChatflow(req.params.id)
-
-        // If the chatflow is associated with a Unik, check if the user has access
-        if (chatflow && chatflow.unikId) {
-            // Universo Platformo | Check user access to this Unik
-            const userId = (req as any).user?.sub
-            if (!userId) {
-                return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-            }
-
-            // Get auth token from request
-            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-            // Check if user has access to this Unik using AccessControlService
-            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unikId, authToken)
-            if (!hasAccess) {
-                return res.status(403).json({ error: 'Access denied: You do not have permission to access this chatflow' })
-            }
-        }
 
         return res.json(chatflow)
     } catch (error) {

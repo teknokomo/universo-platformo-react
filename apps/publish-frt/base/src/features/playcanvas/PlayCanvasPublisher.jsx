@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 
 import TemplateSelect from '../../components/TemplateSelect'
+import PublicationLink from '../../components/PublicationLink'
 import { PlayCanvasPublicationApi } from '../../api'
 
 const DEFAULT_VERSION = '2.9.0'
@@ -32,6 +33,7 @@ const PlayCanvasPublisher = ({ flow }) => {
     const [libraryVersion, setLibraryVersion] = useState(DEFAULT_VERSION)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [publishedUrl, setPublishedUrl] = useState('')
 
     useEffect(() => {
         const load = async () => {
@@ -47,6 +49,12 @@ const PlayCanvasPublisher = ({ flow }) => {
                     setTemplateId(settings.templateId || DEFAULT_TEMPLATE)
                     const libVer = settings.libraryConfig?.playcanvas?.version
                     setLibraryVersion(libVer || DEFAULT_VERSION)
+
+                    // Generate published URL if public
+                    if (settings.isPublic) {
+                        const fullPublicUrl = `${window.location.origin}/p/${flow.id}`
+                        setPublishedUrl(fullPublicUrl)
+                    }
                 }
             } catch (e) {
                 console.error('PlayCanvasPublisher: load error', e)
@@ -82,12 +90,30 @@ const PlayCanvasPublisher = ({ flow }) => {
         }
     }, [projectTitle, isPublic, templateId, libraryVersion, loading, flow?.id]) // Universo Platformo | re-run when flow changes
 
-    if (loading) return (
-        <Box sx={{ p: 2 }}><CircularProgress /></Box>
-    )
-    if (error) return (
-        <Box sx={{ p: 2 }}><Typography color='error'>{error}</Typography></Box>
-    )
+    // Update published URL when isPublic changes
+    useEffect(() => {
+        if (!loading && flow?.id) {
+            if (isPublic) {
+                const fullPublicUrl = `${window.location.origin}/p/${flow.id}`
+                setPublishedUrl(fullPublicUrl)
+            } else {
+                setPublishedUrl('')
+            }
+        }
+    }, [isPublic, flow?.id, loading])
+
+    if (loading)
+        return (
+            <Box sx={{ p: 2 }}>
+                <CircularProgress />
+            </Box>
+        )
+    if (error)
+        return (
+            <Box sx={{ p: 2 }}>
+                <Typography color='error'>{error}</Typography>
+            </Box>
+        )
 
     return (
         <Box sx={{ p: 2 }}>
@@ -98,12 +124,9 @@ const PlayCanvasPublisher = ({ flow }) => {
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
             />
-            <FormControlLabel
-                control={<Switch checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />}
-                label={t('configuration.makePublic')}
-                sx={{ my: 1 }}
-            />
-            <TemplateSelect selectedTemplate={templateId} onTemplateChange={setTemplateId} />
+
+            <TemplateSelect selectedTemplate={templateId} onTemplateChange={setTemplateId} technology='playcanvas' />
+
             <FormControl fullWidth margin='normal'>
                 <InputLabel>{t('playcanvas.libraryVersion.label')}</InputLabel>
                 <Select
@@ -115,6 +138,38 @@ const PlayCanvasPublisher = ({ flow }) => {
                 </Select>
             </FormControl>
             <Typography variant='caption'>{t('playcanvas.libraryVersion.hint')}</Typography>
+
+            {/* Make Public Toggle - moved to bottom like in ARJSPublisher */}
+            <Box sx={{ my: 3, width: '100%' }}>
+                <FormControl fullWidth variant='outlined'>
+                    <FormControlLabel
+                        control={<Switch checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />}
+                        label={t('configuration.makePublic')}
+                        sx={{
+                            width: '100%',
+                            margin: 0,
+                            '& .MuiFormControlLabel-label': {
+                                width: '100%',
+                                flexGrow: 1
+                            }
+                        }}
+                        labelPlacement='start'
+                    />
+                </FormControl>
+                <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                    {t('configuration.description')}
+                </Typography>
+            </Box>
+
+            {/* Publication Link - moved to bottom after toggle */}
+            {isPublic && publishedUrl && (
+                <PublicationLink
+                    url={publishedUrl}
+                    labelKey='playcanvas.publishedUrl'
+                    helpTextKey='playcanvas.openInBrowser'
+                    viewTooltipKey='playcanvas.viewApp'
+                />
+            )}
         </Box>
     )
 }

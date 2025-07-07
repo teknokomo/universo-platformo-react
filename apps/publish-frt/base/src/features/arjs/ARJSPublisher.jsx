@@ -138,7 +138,18 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
             return () => clearTimeout(debounceTimeout)
         }
-    }, [projectTitle, markerType, markerValue, generationMode, arjsVersion, arjsSource, aframeVersion, aframeSource, settingsLoading, flow?.id]) // Universo Platformo | re-run when flow changes
+    }, [
+        projectTitle,
+        markerType,
+        markerValue,
+        generationMode,
+        arjsVersion,
+        arjsSource,
+        aframeVersion,
+        aframeSource,
+        settingsLoading,
+        flow?.id
+    ]) // Universo Platformo | re-run when flow changes
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
@@ -510,6 +521,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     selectedTemplate={templateType}
                                     onTemplateChange={setTemplateType}
                                     disabled={!!publishedUrl}
+                                    technology='arjs'
                                 />
 
                                 {/* Type of Marker */}
