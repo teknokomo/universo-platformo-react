@@ -1,6 +1,6 @@
 # UNIVERSO PLATFORMO | TASK TRACKING
 
-## CURRENT STATUS (v0.17.0+)
+## CURRENT STATUS (v0.18.0)
 
 **Project**: Universo Platformo React (Flowise-based platform)  
 **Base Version**: Flowise 2.2.8  
@@ -45,6 +45,13 @@
 -   API endpoints with proper error handling and type safety
 
 ### UPDL & Publication System
+
+**Publication System Documentation Update** ✅ **NEW**
+
+-   **Architecture Analysis**: Conducted a deep analysis of the `publish-frt` application's new architecture.
+-   **README Update**: Fully updated `README.md` and `README-RU.md` to reflect the template-based builder system, PlayCanvas integration, and multi-technology API.
+-   **Structural Integrity**: Ensured both README files have identical structure and line count for consistency.
+-   **Key Features Documented**: Added detailed sections for `PlayCanvasBuilder`, the `mmoomm` template, `PublicationApi`, and the overall workflow for multi-technology publishing.
 
 **Publication System Refactoring** ✅
 
@@ -212,6 +219,13 @@
 -   Complete English/Russian internationalization support
 -   Professional package structure prepared for future plugin extraction
 
+**Publication Architecture Refactoring** ✅ **NEW**
+
+-   **Template-Based Builders**: Migrated to a modular, template-based architecture with `AbstractTemplateBuilder` and `TemplateRegistry`.
+-   **PlayCanvas Integration**: Added full support for PlayCanvas project publication, including `PlayCanvasBuilder`, `PlayCanvasPublisher` UI, and a dedicated `PlayCanvasViewPage`.
+-   **Universo MMOOMM Template**: Implemented the `mmoomm` template for PlayCanvas, complete with handlers for high-level UPDL nodes (`Entity`, `Component`, etc.).
+-   **Universal Publication API**: Created a base `PublicationApi` to manage settings for multiple technologies (`arjs`, `playcanvas`, `chatbot`) within a unified `chatbotConfig` structure, enforcing exclusive publication.
+
 ---
 
 ## 🔧 TECHNICAL ACHIEVEMENTS
@@ -291,6 +305,13 @@
 -   **Zero Risk**: Maintained full backward compatibility and template architecture integrity
 -   **TypeScript Compilation**: 100% successful compilation with zero errors across entire workspace
 -   **Status**: Multi-scene quizzes now correctly save lead data with points to Supabase database
+
+**PlayCanvas Publication & Rendering** ✅ **NEW**
+
+-   **Problem Identified**: The initial implementation of PlayCanvas rendering was not functional.
+-   **Root Cause Found**: The `PlayCanvasViewPage.tsx` component was incorrectly attempting to use React state and `useEffect` to manage the PlayCanvas application lifecycle, which conflicted with the engine's own initialization process.
+-   **Complete Fix Implementation**: Refactored `PlayCanvasViewPage.tsx` to directly manipulate the DOM and use an `iframe` for clean script execution, mirroring the successful pattern from `ARViewPage.tsx`. The builder logic was corrected to generate a self-contained HTML file.
+-   **Status**: PlayCanvas scenes now render correctly in the public view, enabling the full development pipeline for the Universo MMOOMM project.
 
 ### Platform Modernization
 

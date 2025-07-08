@@ -192,7 +192,14 @@
             },
             "publishedUrl": "Ссылка на публикацию",
             "openInBrowser": "Откройте эту ссылку в браузере для просмотра вашего PlayCanvas приложения",
-            "viewApp": "Просмотр PlayCanvas приложения"
+            "viewApp": "Просмотр PlayCanvas приложения",
+            "generationMode": {
+                "label": "Режим генерации",
+                "streaming": "Потоковая генерация",
+                "pregeneration": "Предварительная генерация",
+                "streamingDescription": "Генерация сцены в реальном времени на стороне клиента",
+                "pregenerationDescription": "Предварительная генерация сцены на сервере (в разработке)"
+            }
         },
         "templates": {
             "label": "Шаблон экспорта",

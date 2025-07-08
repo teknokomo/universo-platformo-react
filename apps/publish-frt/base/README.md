@@ -1,6 +1,6 @@
 # Publication Frontend (publish-frt)
 
-Frontend for the AR.js publication system in Universo Platformo.
+Frontend for the publication system in Universo Platformo, supporting AR.js and PlayCanvas.
 
 ## Project Structure
 
@@ -15,17 +15,16 @@ apps/publish-frt/base/
    ├─ assets/              # Static files (images, fonts, icons)
    │  ├─ icons/            # SVG icons for components and UI
    │  ├─ images/           # Images for UI elements
-   │  └─ libs/             # Local AR.js and A-Frame libraries for CDN-blocked regions
+   │  └─ libs/             # Local libraries for CDN-blocked regions
    │     ├─ aframe/        # A-Frame library versions
-   │     │  └─ 1.7.1/      # A-Frame 1.7.1 files
    │     └─ arjs/          # AR.js library versions
-   │        └─ 3.4.7/      # AR.js 3.4.7 files
    ├─ api/                 # HTTP clients for backend interaction
    │  ├─ common.ts         # Base API utilities (auth, URL parsing, base URL)
    │  ├─ index.ts          # Central API exports module
    │  └─ publication/      # Publication-specific API clients
    │     ├─ PublicationApi.ts        # Base publication API for all technologies
    │     ├─ ARJSPublicationApi.ts    # AR.js specific publication API
+   │     ├─ PlayCanvasPublicationApi.ts # PlayCanvas specific publication API
    │     ├─ StreamingPublicationApi.ts # Streaming publication API
    │     └─ index.ts       # Publication API exports with compatibility aliases
    ├─ builders/            # UPDL to target platform builders
@@ -40,23 +39,22 @@ apps/publish-frt/base/
    │  │  └─ templates/             # NEW: Template-specific implementations
    │  │     └─ quiz/               # AR.js Quiz Template
    │  │        ├─ ARJSQuizBuilder.ts   # Builder for the quiz template
-   │  │        ├─ handlers/            # Handlers specific to the quiz template
-   │  │        │  ├─ ObjectHandler.ts
-   │  │        │  └─ ... (other handlers)
-   │  │        └─ index.ts
+   │  │        └─ ...
+   │  ├─ playcanvas/         # PlayCanvas specific builder
+   │  │  ├─ PlayCanvasBuilder.ts     # Main PlayCanvas builder class
+   │  │  └─ templates/             # PlayCanvas template implementations
+   │  │     └─ mmoomm/             # Universo MMOOMM Template
+   │  │        ├─ PlayCanvasMMOOMMBuilder.ts
+   │  │        └─ ...
    │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
    ├─ features/            # Functional modules for different technologies
-   │  └─ arjs/             # AR.js components and logic
-   ├─ hooks/               # Custom React hooks
+   │  ├─ arjs/             # AR.js components and logic
+   │  └─ playcanvas/       # PlayCanvas components and logic
    ├─ pages/               # Page components
-   │  └─ public/           # Public pages (ARViewPage)
-   ├─ routes/              # Route configuration
-   ├─ i18n/                # Localization
-   ├─ services/            # Service layer for backend communication
-   ├─ interfaces/          # TypeScript types and interfaces
+   │  ├─ public/           # Public pages (ARViewPage, PlayCanvasViewPage)
+   │  └─ ...
    └─ index.ts             # Entry point
-
 ```
 
 **Type System**: UPDL types are imported from `@universo/publish-srv` package, ensuring centralized type definitions and consistency across frontend and backend components.
@@ -72,9 +70,9 @@ The AR.js libraries (A-Frame and AR.js) require proper script execution context 
 -   **Script Isolation**: Iframe creates isolated execution context for AR.js scripts
 -   **Library Loading**: Enables proper loading of external/local JavaScript libraries
 -   **Browser Compatibility**: Prevents conflicts with React's virtual DOM
--   **Security**: Isolates AR.js code from main application context
+-   **Security**: Isolates AR.js/PlayCanvas code from main application context
 
-### Implementation Pattern (ARViewPage.tsx)
+### Implementation Pattern (ARViewPage.tsx, PlayCanvasViewPage.tsx)
 
 ```typescript
 // ❌ WRONG: dangerouslySetInnerHTML (scripts don't execute)
@@ -138,7 +136,7 @@ The builders system has been refactored into a **modular, template-based archite
 -   **Shared Functionality**: Common logic like library source resolution and HTML document wrapping is handled by the abstract base class, reducing code duplication.
 -   **Future-Ready**: The architecture is prepared for `Universo MMOOMM` integration with a dedicated PlayCanvas template.
 
-#### Usage
+#### AR.js Builder Usage
 
 ```typescript
 import { ARJSBuilder } from './builders'
@@ -283,12 +281,12 @@ The application maintains modular architecture with clean separation between fro
 
 ### Flow Processing Workflow
 
-1. **Frontend Request**: User initiates publication through `ARJSPublisher` component
-2. **API Call**: Frontend sends request to `/api/v1/publish/arjs` endpoint
-3. **Backend Processing**: `FlowDataService` retrieves flow data from Flowise database
-4. **Frontend Processing**: `UPDLProcessor` analyzes and converts flow data to UPDL structures
-5. **Builder Generation**: **The `ARJSBuilder` delegates the build process to a registered template builder (e.g., `ARJSQuizBuilder`), which converts the UPDL space to A-Frame elements.**
-6. **Result**: Generated content served through public URLs with iframe rendering
+1. **Frontend Request**: User initiates publication through `ARJSPublisher` or `PlayCanvasPublisher` component.
+2. **API Call**: Frontend sends request to `/api/v1/publish/arjs` (or other tech-specific endpoint).
+3. **Backend Processing**: `FlowDataService` retrieves flow data from Flowise database.
+4. **Frontend Processing**: `UPDLProcessor` analyzes and converts flow data to UPDL structures.
+5. **Builder Generation**: The high-level builder (`ARJSBuilder`, `PlayCanvasBuilder`) delegates the build process to a registered template builder (e.g., `ARJSQuizBuilder`, `PlayCanvasMMOOMMBuilder`), which converts the UPDL space to the target format.
+6. **Result**: Generated content served through public URLs with iframe rendering.
 
 ### Migration Benefits
 
@@ -304,15 +302,16 @@ This frontend application is closely integrated with the main bots publication s
 
 -   **Configuration Integration**: The AR.js publisher is accessible through the main publication interface in the bots system
 -   **Shared Publication State**: Publication settings are stored in Supabase using the same `chatbotConfig` structure as the main bots system
--   **Technology-Specific Configuration**: AR.js settings are stored in the `arjs` block within `chatbotConfig`, maintaining separation from chatbot settings
+-   **Technology-Specific Configuration**: AR.js and PlayCanvas settings are stored in their respective blocks (`arjs`, `playcanvas`) within `chatbotConfig`, maintaining separation from chatbot settings.
 -   **API Route Consistency**: Uses the same Flowise API routes (`/api/v1/uniks/{unikId}/chatflows/{chatflowId}`) as the main system
 
 ### Supabase Integration
 
 Publication state persistence is handled through Supabase integration:
 
--   **Multi-Technology Structure**: Settings stored in `chatbotConfig` field with structure `{"chatbot": {...}, "arjs": {...}}`
--   **Independent Publication States**: Each technology (chatbot, AR.js) has its own `isPublic` flag
+-   **Multi-Technology Structure**: Settings stored in `chatbotConfig` field with structure `{"chatbot": {...}, "arjs": {...}, "playcanvas": {...}}`
+-   **Independent Publication States**: Each technology (chatbot, AR.js, PlayCanvas) has its own `isPublic` flag.
+-   **Exclusive Publication**: The system ensures only one technology can be public at a time. If one is enabled, all others are automatically disabled.
 -   **Auto-save Functionality**: Settings automatically saved when parameters change
 -   **State Restoration**: Previous settings restored when component mounts
 -   **Global Publication Status**: Overall `isPublic` flag set to true if any technology is public
@@ -323,10 +322,12 @@ Publication state persistence is handled through Supabase integration:
 -   `ARJSPublisher` - Component for AR.js project streaming publication with Supabase integration
 -   `ARJSExporter` - Demo component for AR.js code export
 -   `ARViewPage` - Page component for AR space viewing using iframe approach
--   `ARJSBuilder` - **The high-level controller that delegates to the template system.**
--   `ARJSQuizBuilder` - **A concrete template implementation for AR.js quizzes.**
--   `PlayCanvasPublisher` - Component for PlayCanvas publication settings
--   `PlayCanvasBuilder` - Builder for PlayCanvas HTML output with template support
+-   `ARJSBuilder` - The high-level controller that delegates to the template system.
+-   `ARJSQuizBuilder` - A concrete template implementation for AR.js quizzes.
+-   `PlayCanvasPublisher` - Component for PlayCanvas publication settings.
+-   `PlayCanvasBuilder` - Builder for PlayCanvas HTML output with template support.
+-   `PlayCanvasViewPage` - Page component for viewing PlayCanvas scenes.
+-   `PlayCanvasMMOOMMBuilder` - A concrete template implementation for the Universo MMOOMM project.
 
 ## API Architecture
 
@@ -340,13 +341,14 @@ The application uses a modular API architecture organized into layers:
 
 #### Publication API Layer (`api/publication/`)
 
--   **`PublicationApi`** - Base class for publication functionality across all technologies
+-   **`PublicationApi`** - Base class for publication functionality across all technologies. Manages multi-technology settings in `chatbotConfig`.
 -   **`ARJSPublicationApi`** - AR.js specific publication settings management (extends PublicationApi)
+-   **`PlayCanvasPublicationApi`** - PlayCanvas specific publication settings management (extends PublicationApi)
 -   **`StreamingPublicationApi`** - Real-time content generation and streaming publication
 
 #### API Integration Features
 
--   **Multi-Technology Support**: Publication API designed to support AR.js, Chatbot, and future technologies
+-   **Multi-Technology Support**: Publication API designed to support AR.js, PlayCanvas, Chatbot, and future technologies
 -   **Supabase Integration**: Persistent storage using `chatbotConfig` structure with technology-specific blocks
 -   **Backward Compatibility**: Includes compatibility aliases (`ChatflowsApi`, `ARJSPublishApi`) for seamless migration
 -   **Proper Authentication**: Uses correct Flowise routes with `unikId` and `x-request-from: internal` headers
@@ -367,11 +369,11 @@ The implementation uses streaming generation for AR.js from UPDL nodes with pers
 3. User toggles "Make Public" - triggers publication and saves state to Supabase
 4. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `chatflowId` and selected options
 5. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata
-6. When accessing the public URL (`/p/{publicationId}`), the `ARViewPage` component is rendered
-7. The component makes a GET request to `/api/v1/publish/arjs/public/:publicationId`, which returns flow data from the backend
-8. The `UPDLProcessor` analyzes the flow data and converts it to UPDL structures on the frontend
-9. The `ARJSBuilder` system converts the UPDL space to A-Frame elements using the appropriate template
-10. **Critical**: Generated HTML is rendered in iframe for proper script execution and library loading
+6. When accessing the public URL (`/p/{publicationId}`), the `PublicFlowView` component is rendered, which then determines the technology and renders the appropriate viewer (`ARViewPage` or `PlayCanvasViewPage`).
+7. The page component makes a GET request to `/api/v1/publish/arjs/public/:publicationId` (or similar for other techs), which returns flow data from the backend.
+8. The `UPDLProcessor` analyzes the flow data and converts it to UPDL structures on the frontend.
+9. The appropriate Builder system (`ARJSBuilder`, `PlayCanvasBuilder`) converts the UPDL space to renderable elements using the correct template.
+10. **Critical**: Generated HTML is rendered in an iframe for proper script execution and library loading.
 
 ## Setup and Development
 
