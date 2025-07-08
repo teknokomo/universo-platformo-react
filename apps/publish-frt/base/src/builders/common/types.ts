@@ -124,5 +124,10 @@ export interface TemplateInfo {
     builder: new () => ITemplateBuilder
 }
 
+/**
+ * Supported publication technologies for exclusive publication logic
+ */
+export const SUPPORTED_TECHNOLOGIES = ['chatbot', 'arjs', 'playcanvas'] as const
+
 // Types removed: UPDL structure types and LibraryConfig now imported from @universo/publish-srv
 // This file now contains only frontend-specific builder types

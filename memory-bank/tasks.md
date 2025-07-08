@@ -78,6 +78,15 @@
 -   Separate `apps/analytics-frt` with TypeScript + JSX integration
 -   Quiz performance tracking and visualization
 
+**Technical Debt Resolution** ✅ **NEW**
+
+-   **Exclusive Publication Logic Fix**: Fixed unsafe `for...in` loop in `PublicationApi.savePublicationSettings()` to only affect supported technologies (`chatbot`, `arjs`, `playcanvas`) using `SUPPORTED_TECHNOLOGIES` constant, preventing accidental modification of unrelated configuration properties.
+-   **Localization Enhancement**: Added missing `publish.playcanvas.loading` translation keys in both English and Russian localization files for complete multilingual support.
+-   **PlayCanvasViewPage Architecture Refactoring**: Migrated from direct `PlayCanvasMMOOMMBuilder` import to `TemplateRegistry` usage, enabling dynamic template selection via `config.templateId` parameter and improving extensibility.
+-   **Backend Fetch Optimization**: Added `ENABLE_BACKEND_FETCH` feature flag (default: false) for optional backend data fetching. When disabled, component expects data via props, improving security and reliability.
+-   **Modern Iframe Implementation**: Upgraded both `ARViewPage` and `PlayCanvasViewPage` from legacy `iframe.contentDocument.write()` approach to modern `iframe.srcdoc` attribute for improved performance and browser compatibility.
+-   **Documentation Comprehensive Update**: Enhanced README files in both English and Russian with identical structure and content. Updated UPDL documentation with detailed table of 7 core high-level nodes (Space, Entity, Component, Event, Action, Data, Universo) and marked legacy nodes (Object, Camera, Light) for deprecation. Added detailed exclusive publication logic documentation to publish-frt README files. All changes maintain careful preservation of existing important information.
+
 ### TypeScript & Dependencies Resolution
 
 **TypeORM Conflict Resolution** ✅

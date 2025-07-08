@@ -3,7 +3,10 @@ import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { UPDLProcessor } from '../../builders/common/UPDLProcessor'
-import { PlayCanvasMMOOMMBuilder } from '../../builders/playcanvas/templates/mmoomm/PlayCanvasMMOOMMBuilder'
+import { TemplateRegistry } from '../../builders/common/TemplateRegistry'
+
+// Feature flag for backend fetch - set to false as default per user requirements
+const ENABLE_BACKEND_FETCH = false
 
 interface PlayCanvasViewPageProps {
     flowData?: string
@@ -36,12 +39,12 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
                 let flowData: string
                 let config: any
 
-                // Use props if available, otherwise fetch from API
+                // Use props if available, otherwise fetch from API (if enabled)
                 if (propFlowData && propConfig) {
                     flowData = propFlowData
                     config = propConfig
                     console.log('🎮 [PlayCanvasViewPage] Using provided props data')
-                } else if (publicationId) {
+                } else if (ENABLE_BACKEND_FETCH && publicationId) {
                     console.log('🎮 [PlayCanvasViewPage] Fetching data for publicationId:', publicationId)
 
                     const response = await fetch(`/api/v1/publish/playcanvas/public/${publicationId}`)
@@ -63,7 +66,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
                     flowData = publicationData.flowData
                     config = publicationData.config || {}
                 } else {
-                    throw new Error('No flow data or publication ID provided')
+                    throw new Error('No flow data provided - component expects props or ENABLE_BACKEND_FETCH must be enabled')
                 }
 
                 // Process flow data using UPDLProcessor
@@ -75,9 +78,10 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
                     hasMultiScene: !!processedData.multiScene
                 })
 
-                // Generate HTML using PlayCanvasMMOOMMBuilder
-                console.log('🏗️ [PlayCanvasViewPage] Generating HTML with PlayCanvasMMOOMMBuilder')
-                const builder = new PlayCanvasMMOOMMBuilder()
+                // Generate HTML using TemplateRegistry
+                console.log('🏗️ [PlayCanvasViewPage] Generating HTML with TemplateRegistry')
+                const templateId = config.templateId || 'mmoomm'
+                const builder = TemplateRegistry.createBuilder(templateId)
 
                 const buildOptions = {
                     projectName: config.projectTitle || 'PlayCanvas Application',
@@ -116,36 +120,27 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
     // Render iframe when HTML is ready
     useEffect(() => {
         if (htmlContent && !loading && !error) {
-            console.log('🖼️ [PlayCanvasViewPage] Rendering HTML in iframe')
+            console.log('🖼️ [PlayCanvasViewPage] Rendering HTML in iframe with srcDoc')
 
             const container = document.getElementById('playcanvas-container')
             if (container) {
                 // Clear any existing content
                 container.innerHTML = ''
 
-                // Create iframe for script isolation
+                // Create iframe with srcDoc (modern approach)
                 const iframe = document.createElement('iframe')
                 iframe.style.width = '100%'
                 iframe.style.height = '100%'
                 iframe.style.border = 'none'
                 iframe.title = 'PlayCanvas Application'
+                iframe.srcdoc = htmlContent
                 container.appendChild(iframe)
 
-                // Write HTML to iframe
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-                if (iframeDoc) {
-                    console.log('📝 [PlayCanvasViewPage] Writing HTML to iframe document')
-                    iframeDoc.open()
-                    iframeDoc.write(htmlContent)
-                    iframeDoc.close()
+                console.log('📝 [PlayCanvasViewPage] HTML set via srcDoc')
 
-                    // Monitor iframe loading
-                    iframe.onload = () => {
-                        console.log('✅ [PlayCanvasViewPage] Iframe loaded successfully')
-                    }
-                } else {
-                    console.error('❌ [PlayCanvasViewPage] Could not access iframe document')
-                    setError('Failed to initialize PlayCanvas iframe')
+                // Monitor iframe loading
+                iframe.onload = () => {
+                    console.log('✅ [PlayCanvasViewPage] Iframe loaded successfully')
                 }
             } else {
                 console.error('❌ [PlayCanvasViewPage] Container not found')

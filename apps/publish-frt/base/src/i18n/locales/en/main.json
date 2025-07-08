@@ -189,6 +189,7 @@
                 "label": "PlayCanvas Version",
                 "hint": "Select library version"
             },
+            "loading": "Loading PlayCanvas Application...",
             "publishedUrl": "Published URL",
             "openInBrowser": "Open this link in a browser to view your PlayCanvas application",
             "viewApp": "View PlayCanvas App",

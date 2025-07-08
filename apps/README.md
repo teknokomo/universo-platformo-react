@@ -90,7 +90,8 @@ The UPDL application provides a unified node system for describing 3D/AR/VR spac
 
 **Key Features:**
 
--   Universal node system (Space, Object, Camera, Light, etc.)
+-   7 core high-level nodes for universal 3D/AR/VR scene description
+-   Legacy nodes (Object, Camera, Light) for backward compatibility
 -   Node definitions and icons
 -   Pure Flowise integration
 -   TypeScript interfaces

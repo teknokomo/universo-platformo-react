@@ -48,17 +48,31 @@ The UPDL module provides node definitions that integrate with the Flowise editor
 
 ### Supported Node Types
 
--   **Core Nodes**:
-    -   **Space**: The root container for a 3D space with global settings.
-    -   **Data**: Key-value data store, often used for quizzes or game state.
-    -   **Camera**: Defines the space's viewpoint and projection.
-    -   **Light**: Configures lighting (point, directional, ambient).
--   **High-Level MMOOMM Nodes**:
-    -   **Universo**: A global node for defining world-level rules and connectivity for an MMOOMM project. Connects to `Space`.
-    -   **Entity**: A runtime instance of an object or actor in the game. Accepts `Component` and `Event` nodes as input.
-    -   **Component**: Attachable behavior or data, such as a renderer (`Render`) or a `Script`. Connects to an `Entity`.
-    -   **Event**: A trigger for actions, such as `OnClick` or `OnCollision`. Accepts `Action` nodes as input and connects to an `Entity`.
-    -   **Action**: The logic that executes in response to an `Event`, like `Move` or `Shoot`. This is a terminal node configured via its internal properties.
+The UPDL system is built around **7 core high-level nodes** that provide a complete framework for describing interactive 3D/AR/VR experiences:
+
+| Node          | Purpose                                                          | Key Fields                             |
+| ------------- | ---------------------------------------------------------------- | -------------------------------------- |
+| **Space**     | Scene/screen containers. Can be nested                           | id, type (root/module/block), settings |
+| **Entity**    | Positioned object/actor within Space                             | transform, tags                        |
+| **Component** | Adds data/behavior to Entity (render, sound, script)             | type, props                            |
+| **Event**     | Trigger (OnStart, OnClick, OnTimer...)                           | eventType, source                      |
+| **Action**    | Executor (Move, PlaySound, SetData...)                           | actionType, target, params             |
+| **Data**      | Value storage; scoped as Local, Space, Global                    | key, scope, value                      |
+| **Universo**  | Gateway to Kiberplano global network (GraphQL, MQTT UNS, OPC UA) | transports, discovery, security        |
+
+#### Core UPDL Nodes Support
+
+The template system is primarily designed to process the 7 core high-level UPDL nodes:
+
+-   **Space**: Scene/screen containers
+-   **Entity**: Positioned objects/actors
+-   **Component**: Behavior/data attachments
+-   **Event**: Triggers (OnStart, OnClick, etc.)
+-   **Action**: Executors (Move, PlaySound, etc.)
+-   **Data**: Key-value storage
+-   **Universo**: Global network connectivity
+
+**Note**: Other nodes (Object, Camera, Light) are legacy/testing nodes and may be significantly changed or removed in future versions. Focus development on the 7 core nodes.
 
 ### Connector Implementation Guide
 

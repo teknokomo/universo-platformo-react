@@ -100,45 +100,36 @@ const ARViewPage: React.FC = () => {
                     containsOfficialCDN: html?.includes('aframe.io') || html?.includes('githack.com') || false
                 })
 
-                // Universo Platformo | Use iframe approach for proper script execution (from working backup)
-                console.log('🖼️ [ARViewPage] Rendering HTML in iframe for script isolation')
+                // Universo Platformo | Use modern iframe with srcDoc for proper script execution
+                console.log('🖼️ [ARViewPage] Rendering HTML in iframe with srcDoc for script isolation')
 
                 const container = document.getElementById('ar-container')
                 if (container && html) {
                     // Clear any existing content
                     container.innerHTML = ''
 
-                    // Create iframe for isolation (allows script execution)
+                    // Create iframe with srcDoc (modern approach)
                     const iframe = document.createElement('iframe')
                     iframe.style.width = '100%'
                     iframe.style.height = '100%'
                     iframe.style.border = 'none'
+                    iframe.title = 'AR.js Application'
+                    iframe.srcdoc = html
                     container.appendChild(iframe)
 
-                    // Write HTML to iframe
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-                    if (iframeDoc) {
-                        console.log('📝 [ARViewPage] Writing HTML to iframe document')
-                        iframeDoc.open()
-                        iframeDoc.write(html)
-                        iframeDoc.close()
+                    console.log('📝 [ARViewPage] HTML set via srcDoc')
 
-                        // Monitor iframe loading
-                        iframe.onload = () => {
-                            console.log('✅ [ARViewPage] Iframe loaded successfully')
-                            setLoading(false)
-                        }
-
-                        // Fallback: hide loading after 3 seconds
-                        setTimeout(() => {
-                            console.log('⏰ [ARViewPage] Timeout reached, hiding loading screen')
-                            setLoading(false)
-                        }, 3000)
-                    } else {
-                        console.error('❌ [ARViewPage] Could not access iframe document')
-                        setError('Failed to initialize AR.js iframe')
+                    // Monitor iframe loading
+                    iframe.onload = () => {
+                        console.log('✅ [ARViewPage] Iframe loaded successfully')
                         setLoading(false)
                     }
+
+                    // Fallback: hide loading after 3 seconds
+                    setTimeout(() => {
+                        console.log('⏰ [ARViewPage] Timeout reached, hiding loading screen')
+                        setLoading(false)
+                    }, 3000)
                 } else {
                     console.error('❌ [ARViewPage] Container not found or no HTML generated')
                     setError('Failed to initialize AR.js container')
