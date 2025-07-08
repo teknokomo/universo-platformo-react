@@ -3,6 +3,7 @@
 
 import axios from 'axios'
 import { getAuthHeaders, getCurrentUrlIds } from '../common'
+import { SUPPORTED_TECHNOLOGIES } from '../../builders/common/types'
 
 const API_BASE = '/api/v1'
 
@@ -94,10 +95,10 @@ export class PublicationApi {
 
             // Implement exclusive publication logic
             if (settings.isPublic) {
-                // If this technology is being set to public, disable all other technologies
-                for (const key in newConfig) {
-                    if (key !== technology && typeof newConfig[key] === 'object' && newConfig[key] !== null) {
-                        newConfig[key].isPublic = false
+                // If this technology is being set to public, disable all other supported technologies
+                for (const tech of SUPPORTED_TECHNOLOGIES) {
+                    if (tech !== technology && newConfig[tech]?.isPublic) {
+                        newConfig[tech].isPublic = false
                     }
                 }
             }

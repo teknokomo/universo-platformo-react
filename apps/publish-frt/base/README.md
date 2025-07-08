@@ -136,6 +136,13 @@ The builders system has been refactored into a **modular, template-based archite
 -   **Shared Functionality**: Common logic like library source resolution and HTML document wrapping is handled by the abstract base class, reducing code duplication.
 -   **Future-Ready**: The architecture is prepared for `Universo MMOOMM` integration with a dedicated PlayCanvas template.
 
+#### Recent Improvements
+
+-   **PlayCanvasViewPage Refactoring**: Migrated from direct `PlayCanvasMMOOMMBuilder` import to `TemplateRegistry` usage, enabling dynamic template selection via `config.templateId` parameter.
+-   **ENABLE_BACKEND_FETCH Flag**: Added feature flag (default: false) for optional backend data fetching. When disabled, component expects data via props, improving security and reliability.
+-   **Exclusive Publication Logic**: Fixed logic in `PublicationApi.savePublicationSettings()` to only affect supported technologies (`chatbot`, `arjs`, `playcanvas`) and prevent accidental modification of unrelated config properties.
+-   **Localization Enhancement**: Added missing `publish.playcanvas.loading` translation keys for improved multilingual support.
+
 #### AR.js Builder Usage
 
 ```typescript
@@ -315,6 +322,13 @@ Publication state persistence is handled through Supabase integration:
 -   **Auto-save Functionality**: Settings automatically saved when parameters change
 -   **State Restoration**: Previous settings restored when component mounts
 -   **Global Publication Status**: Overall `isPublic` flag set to true if any technology is public
+
+#### Exclusive Publication Logic
+
+The system implements exclusive publication: only one technology can be public at a time.
+When enabling publication for one technology (AR.js, PlayCanvas, Chatbot),
+all other technologies are automatically disabled. This ensures clear content delivery
+and prevents conflicts between different publication modes.
 
 ## Main Components
 
