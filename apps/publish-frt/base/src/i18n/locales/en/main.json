@@ -191,7 +191,14 @@
             },
             "publishedUrl": "Published URL",
             "openInBrowser": "Open this link in a browser to view your PlayCanvas application",
-            "viewApp": "View PlayCanvas App"
+            "viewApp": "View PlayCanvas App",
+            "generationMode": {
+                "label": "Generation Mode",
+                "streaming": "Streaming Generation",
+                "pregeneration": "Pre-generation",
+                "streamingDescription": "Real-time scene generation on the client side",
+                "pregenerationDescription": "Pre-generated scene on the server (coming soon)"
+            }
         },
         "templates": {
             "label": "Export Template",

@@ -10,10 +10,13 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    CircularProgress
+    CircularProgress,
+    Card,
+    CardContent
 } from '@mui/material'
 
 import TemplateSelect from '../../components/TemplateSelect'
+import GenerationModeSelect from '../../components/GenerationModeSelect'
 import PublicationLink from '../../components/PublicationLink'
 import { PlayCanvasPublicationApi } from '../../api'
 
@@ -31,6 +34,7 @@ const PlayCanvasPublisher = ({ flow }) => {
     const [isPublic, setIsPublic] = useState(false)
     const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE)
     const [libraryVersion, setLibraryVersion] = useState(DEFAULT_VERSION)
+    const [generationMode, setGenerationMode] = useState('streaming') // New state for generation mode
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [publishedUrl, setPublishedUrl] = useState('')
@@ -47,6 +51,7 @@ const PlayCanvasPublisher = ({ flow }) => {
                     setProjectTitle(settings.projectTitle || flow?.name || '')
                     setIsPublic(!!settings.isPublic)
                     setTemplateId(settings.templateId || DEFAULT_TEMPLATE)
+                    setGenerationMode(settings.generationMode || 'streaming') // Load generation mode
                     const libVer = settings.libraryConfig?.playcanvas?.version
                     setLibraryVersion(libVer || DEFAULT_VERSION)
 
@@ -74,7 +79,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             await PlayCanvasPublicationApi.savePlayCanvasSettings(currentFlowId, {
                 isPublic,
                 projectTitle,
-                generationMode: 'streaming',
+                generationMode, // Include generation mode in save
                 templateId,
                 libraryConfig: { playcanvas: { version: libraryVersion, source: 'official' } }
             })
@@ -88,7 +93,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             const tId = setTimeout(saveSettings, 500)
             return () => clearTimeout(tId)
         }
-    }, [projectTitle, isPublic, templateId, libraryVersion, loading, flow?.id]) // Universo Platformo | re-run when flow changes
+    }, [projectTitle, isPublic, templateId, libraryVersion, generationMode, loading, flow?.id]) // Add generationMode to dependencies
 
     // Update published URL when isPublic changes
     useEffect(() => {
@@ -116,7 +121,18 @@ const PlayCanvasPublisher = ({ flow }) => {
         )
 
     return (
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ width: '100%' }}>
+            {/* Technology Description Header */}
+            <Typography variant='h4' gutterBottom>
+                {t('technologies.playcanvas')}
+            </Typography>
+            <Typography variant='body2' color='text.secondary' paragraph>
+                {t('technologies.playcanvasDescription')}
+            </Typography>
+
+            {/* Main Content Card */}
+            <Card variant='outlined' sx={{ mb: 3 }}>
+                <CardContent>
             <TextField
                 fullWidth
                 label={t('playcanvas.projectTitle')}
@@ -124,6 +140,14 @@ const PlayCanvasPublisher = ({ flow }) => {
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
             />
+
+                    {/* Generation Mode Selector */}
+                    <GenerationModeSelect
+                        value={generationMode}
+                        onChange={setGenerationMode}
+                        disabled={!!publishedUrl}
+                        technology='playcanvas'
+                    />
 
             <TemplateSelect selectedTemplate={templateId} onTemplateChange={setTemplateId} technology='playcanvas' />
 
@@ -170,6 +194,8 @@ const PlayCanvasPublisher = ({ flow }) => {
                     viewTooltipKey='playcanvas.viewApp'
                 />
             )}
+                </CardContent>
+            </Card>
         </Box>
     )
 }

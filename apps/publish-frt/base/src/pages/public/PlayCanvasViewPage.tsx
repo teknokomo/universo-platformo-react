@@ -1,50 +1,208 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { Box, Typography, CircularProgress, Alert } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { UPDLProcessor } from '../../builders/common/UPDLProcessor'
+import { PlayCanvasMMOOMMBuilder } from '../../builders/playcanvas/templates/mmoomm/PlayCanvasMMOOMMBuilder'
 
 interface PlayCanvasViewPageProps {
-    flowData: string
-    config: any
+    flowData?: string
+    config?: any
 }
 
-const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ config }) => {
+/**
+ * Page for viewing PlayCanvas applications in streaming generation mode
+ */
+const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propFlowData, config: propConfig }) => {
+    // Support both URL params and props
+    const { flowId, id } = useParams<{ flowId?: string; id?: string }>()
+    const publicationId = flowId || id
+
+    const { t } = useTranslation()
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [htmlContent, setHtmlContent] = useState<string>('')
+
+    useEffect(() => {
+        // Debug URL parameters
+        console.log('🎮 [PlayCanvasViewPage] URL params:', { flowId, id, publicationId })
+        console.log('🎮 [PlayCanvasViewPage] Props:', { hasFlowData: !!propFlowData, hasConfig: !!propConfig })
+
+        const loadPlayCanvasSpace = async () => {
+            try {
+                setLoading(true)
+                console.log('🎮 [PlayCanvasViewPage] Loading PlayCanvas space')
+
+                let flowData: string
+                let config: any
+
+                // Use props if available, otherwise fetch from API
+                if (propFlowData && propConfig) {
+                    flowData = propFlowData
+                    config = propConfig
+                    console.log('🎮 [PlayCanvasViewPage] Using provided props data')
+                } else if (publicationId) {
+                    console.log('🎮 [PlayCanvasViewPage] Fetching data for publicationId:', publicationId)
+
+                    const response = await fetch(`/api/v1/publish/playcanvas/public/${publicationId}`)
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch publication data: ${response.status}`)
+                    }
+
+                    const publicationData = await response.json()
+                    console.log('🎮 [PlayCanvasViewPage] API Response:', {
+                        success: !!publicationData.success,
+                        hasFlowData: !!publicationData?.flowData,
+                        hasConfig: !!publicationData?.config
+                    })
+
+                    if (!publicationData.success || !publicationData.flowData) {
+                        throw new Error('Publication data not found')
+                    }
+
+                    flowData = publicationData.flowData
+                    config = publicationData.config || {}
+                } else {
+                    throw new Error('No flow data or publication ID provided')
+                }
+
+                // Process flow data using UPDLProcessor
+                console.log('🔧 [PlayCanvasViewPage] Processing flow data with UPDLProcessor')
+                const processedData = UPDLProcessor.processFlowData(flowData)
+
+                console.log('🔧 [PlayCanvasViewPage] UPDLProcessor result:', {
+                    hasUpdlSpace: !!processedData.updlSpace,
+                    hasMultiScene: !!processedData.multiScene
+                })
+
+                // Generate HTML using PlayCanvasMMOOMMBuilder
+                console.log('🏗️ [PlayCanvasViewPage] Generating HTML with PlayCanvasMMOOMMBuilder')
+                const builder = new PlayCanvasMMOOMMBuilder()
+
+                const buildOptions = {
+                    projectName: config.projectTitle || 'PlayCanvas Application',
+                    libraryConfig: config.libraryConfig || { playcanvas: { version: '2.9.0' } }
+                }
+
+                const generatedHTML = await builder.build(
+                    {
+                        updlSpace: processedData.updlSpace,
+                        multiScene: processedData.multiScene
+                    },
+                    buildOptions
+                )
+
+                console.log('🏗️ [PlayCanvasViewPage] HTML generation completed:', {
+                    htmlLength: generatedHTML?.length || 0,
+                    hasHTML: !!generatedHTML
+                })
+
+                if (!generatedHTML) {
+                    throw new Error('Failed to generate PlayCanvas HTML')
+                }
+
+                setHtmlContent(generatedHTML)
+                setLoading(false)
+            } catch (error) {
+                console.error('💥 [PlayCanvasViewPage] Error loading PlayCanvas space:', error)
+                setError(`Failed to load PlayCanvas application: ${(error as Error).message}`)
+                setLoading(false)
+            }
+        }
+
+        loadPlayCanvasSpace()
+    }, [publicationId, propFlowData, propConfig])
+
+    // Render iframe when HTML is ready
+    useEffect(() => {
+        if (htmlContent && !loading && !error) {
+            console.log('🖼️ [PlayCanvasViewPage] Rendering HTML in iframe')
+
+            const container = document.getElementById('playcanvas-container')
+            if (container) {
+                // Clear any existing content
+                container.innerHTML = ''
+
+                // Create iframe for script isolation
+                const iframe = document.createElement('iframe')
+                iframe.style.width = '100%'
+                iframe.style.height = '100%'
+                iframe.style.border = 'none'
+                iframe.title = 'PlayCanvas Application'
+                container.appendChild(iframe)
+
+                // Write HTML to iframe
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+                if (iframeDoc) {
+                    console.log('📝 [PlayCanvasViewPage] Writing HTML to iframe document')
+                    iframeDoc.open()
+                    iframeDoc.write(htmlContent)
+                    iframeDoc.close()
+
+                    // Monitor iframe loading
+                    iframe.onload = () => {
+                        console.log('✅ [PlayCanvasViewPage] Iframe loaded successfully')
+                    }
+                } else {
+                    console.error('❌ [PlayCanvasViewPage] Could not access iframe document')
+                    setError('Failed to initialize PlayCanvas iframe')
+                }
+            } else {
+                console.error('❌ [PlayCanvasViewPage] Container not found')
+                setError('Failed to find PlayCanvas container')
+            }
+        }
+    }, [htmlContent, loading, error])
+
     return (
-        <div
-            style={{
-                padding: '20px',
-                fontFamily: 'Arial, sans-serif',
-                backgroundColor: '#f5f5f5',
-                minHeight: '100vh'
+        <Box
+            sx={{
+                width: '100%',
+                height: '100vh',
+                position: 'relative',
+                overflow: 'hidden'
             }}
         >
-            <h1 style={{ color: '#333', marginBottom: '20px' }}>PlayCanvas Application Loaded</h1>
-            <p style={{ color: '#666', fontSize: '16px', marginBottom: '20px' }}>
-                This page will display the PlayCanvas application. Currently showing configuration:
-            </p>
+            {loading && (
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        zIndex: 10,
+                        color: 'white'
+                    }}
+                >
+                    <CircularProgress color='primary' size={60} />
+                    <Typography variant='h6' sx={{ mt: 2 }}>
+                        {t('publish.playcanvas.loading', 'Loading PlayCanvas Application...')}
+                    </Typography>
+                </Box>
+            )}
+
+            {error && (
+                <Alert severity='error' sx={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 20 }}>
+                    {error}
+                </Alert>
+            )}
+
+            {/* PlayCanvas container */}
             <div
+                id='playcanvas-container'
                 style={{
-                    backgroundColor: '#fff',
-                    padding: '15px',
-                    borderRadius: '5px',
-                    border: '1px solid #ddd',
-                    fontFamily: 'monospace',
-                    fontSize: '14px',
-                    overflow: 'auto'
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#000'
                 }}
-            >
-                <pre>{JSON.stringify(config, null, 2)}</pre>
-            </div>
-            <div
-                style={{
-                    marginTop: '20px',
-                    padding: '15px',
-                    backgroundColor: '#e8f4fd',
-                    borderRadius: '5px',
-                    border: '1px solid #bee5eb'
-                }}
-            >
-                <h3 style={{ margin: '0 0 10px 0', color: '#0c5460' }}>Coming Soon: Universo MMOOMM Gameplay</h3>
-                <p style={{ margin: 0, color: '#0c5460' }}>This will be replaced with the full PlayCanvas MMO game implementation.</p>
-            </div>
-        </div>
+            />
+        </Box>
     )
 }
 

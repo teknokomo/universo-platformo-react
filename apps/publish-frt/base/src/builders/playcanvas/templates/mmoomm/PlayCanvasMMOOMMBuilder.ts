@@ -1,38 +1,11 @@
+// Universo Platformo | PlayCanvas MMOOMM Builder
+// Advanced MMO template builder with full handler system
+
 import { AbstractTemplateBuilder } from '../../../common/AbstractTemplateBuilder'
 import { BuildOptions, TemplateConfig } from '../../../common/types'
-import type { IFlowData } from '@universo/publish-srv'
-
-// Basic handlers (placeholders for future high-level logic)
-class SpaceHandler {
-    process(space: any, _options: BuildOptions = {}): string {
-        return ''
-    }
-}
-class EntityHandler {
-    process(entities: any[], _options: BuildOptions = {}): string {
-        return ''
-    }
-}
-class ComponentHandler {
-    process(components: any[], _options: BuildOptions = {}): string {
-        return ''
-    }
-}
-class EventHandler {
-    process(events: any[], _options: BuildOptions = {}): string {
-        return ''
-    }
-}
-class ActionHandler {
-    process(actions: any[], _options: BuildOptions = {}): string {
-        return ''
-    }
-}
-class UniversoHandler {
-    process(nodes: any[], _options: BuildOptions = {}): string {
-        return ''
-    }
-}
+import type { IFlowData, IUPDLMultiScene } from '@universo/publish-srv'
+import { MMOOMMTemplateConfig } from './config'
+import { SpaceHandler, EntityHandler, ComponentHandler, EventHandler, ActionHandler, DataHandler, UniversoHandler } from './handlers'
 
 export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
     private spaceHandler = new SpaceHandler()
@@ -40,20 +13,348 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
     private componentHandler = new ComponentHandler()
     private eventHandler = new EventHandler()
     private actionHandler = new ActionHandler()
+    private dataHandler = new DataHandler()
     private universoHandler = new UniversoHandler()
 
     constructor() {
         super('mmoomm')
     }
 
-    async build(_flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
-        const sceneScript = this.generateSceneScript()
-        const sceneContent = `<canvas id='application-canvas'></canvas>\n<script>${sceneScript}</script>`
-        return this.wrapWithDocumentStructure(sceneContent, options)
+    /**
+     * Build PlayCanvas MMOOMM HTML from flow data
+     */
+    async build(flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
+        console.log('[PlayCanvasMMOOMMBuilder] Building MMOOMM project')
+
+        try {
+            // Single scene processing
+            if (flowData.updlSpace && !flowData.multiScene) {
+                console.log('[PlayCanvasMMOOMMBuilder] Building single scene MMOOMM')
+                const nodes = this.extractMMOOMMNodes(flowData)
+
+                // Check if we have only Space node with no other content
+                const hasContent =
+                    nodes.entities.length > 0 ||
+                    nodes.components.length > 0 ||
+                    nodes.events.length > 0 ||
+                    nodes.actions.length > 0 ||
+                    nodes.data.length > 0 ||
+                    nodes.universo.length > 0
+
+                if (!hasContent) {
+                    console.log('[PlayCanvasMMOOMMBuilder] Only Space node found, generating default red box scene')
+                    return this.generateDefaultScene(options)
+                }
+
+                return this.buildSingleScene(flowData, options)
+            }
+
+            // Multi-scene processing
+            if (flowData.multiScene) {
+                console.log('[PlayCanvasMMOOMMBuilder] Building multi-scene MMOOMM:', {
+                    totalScenes: flowData.multiScene.totalScenes
+                })
+                return this.buildMultiScene(flowData.multiScene, options)
+            }
+
+            // Fallback - generate default scene with red box
+            console.warn('[PlayCanvasMMOOMMBuilder] No updlSpace or multiScene, generating default scene')
+            return this.generateDefaultScene(options)
+        } catch (error) {
+            console.error('[PlayCanvasMMOOMMBuilder] Build error:', error)
+            return this.generateDefaultScene(options)
+        }
     }
 
+    /**
+     * Build single scene MMOOMM
+     */
+    private buildSingleScene(flowData: IFlowData, options: BuildOptions): string {
+        const nodes = this.extractMMOOMMNodes(flowData)
+
+        // Process all node types using handlers
+        const spaceScript = this.spaceHandler.process(nodes.spaces[0], options)
+        const entityScript = this.entityHandler.process(nodes.entities, options)
+        const componentScript = this.componentHandler.process(nodes.components, options)
+        const eventScript = this.eventHandler.process(nodes.events, options)
+        const actionScript = this.actionHandler.process(nodes.actions, options)
+        const dataScript = this.dataHandler.process(nodes.data, options)
+        const universoScript = this.universoHandler.process(nodes.universo, options)
+
+        // Combine all scripts into executable code
+        const combinedScript = [
+            '// PlayCanvas MMOOMM Scene - Generated by Universo Platformo',
+            '// Multi-user virtual world with real-time synchronization',
+            '',
+            '// Initialize PlayCanvas engine',
+            this.generatePlayCanvasInit(),
+            '',
+            '// MMO Space setup',
+            spaceScript,
+            '',
+            '// Entities with MMO capabilities',
+            entityScript,
+            '',
+            '// MMO Components',
+            componentScript,
+            '',
+            '// Real-time Events',
+            eventScript,
+            '',
+            '// Network Actions',
+            actionScript,
+            '',
+            '// Data synchronization',
+            dataScript,
+            '',
+            '// Universo networking gateway',
+            universoScript,
+            '',
+            '// Start PlayCanvas application',
+            'app.start();',
+            '',
+            '// Initialize MMO systems',
+            'console.log("[MMOOMM] Virtual world initialized - ready for players");'
+        ].join('\n')
+
+        return this.generateMMOOMMDocument(combinedScript, options)
+    }
+
+    /**
+     * Build multi-scene MMOOMM
+     */
+    private buildMultiScene(multiScene: IUPDLMultiScene, options: BuildOptions): string {
+        // For multi-scene, we process each scene and combine them
+        const scenes = multiScene.scenes || []
+        const allEntities: any[] = []
+        const allComponents: any[] = []
+        const allEvents: any[] = []
+        const allActions: any[] = []
+        const allData: any[] = []
+        const allUniverso: any[] = []
+
+        // Collect nodes from all scenes
+        scenes.forEach((scene) => {
+            if (scene.spaceData) {
+                allEntities.push(...(scene.spaceData.entities || []))
+                allComponents.push(...(scene.spaceData.components || []))
+                allEvents.push(...(scene.spaceData.events || []))
+                allActions.push(...(scene.spaceData.actions || []))
+                allData.push(...(scene.spaceData.data || []))
+                allUniverso.push(...(scene.spaceData.universo || []))
+            }
+        })
+
+        // Process using handlers
+        const spaceScript = this.spaceHandler.process({ data: { type: 'root', id: 'multi-scene' } }, options)
+        const entityScript = this.entityHandler.process(allEntities, options)
+        const componentScript = this.componentHandler.process(allComponents, options)
+        const eventScript = this.eventHandler.process(allEvents, options)
+        const actionScript = this.actionHandler.process(allActions, options)
+        const dataScript = this.dataHandler.process(allData, options)
+        const universoScript = this.universoHandler.process(allUniverso, options)
+
+        // Combine multi-scene script
+        const combinedScript = [
+            '// PlayCanvas MMOOMM Multi-Scene - Generated by Universo Platformo',
+            `// Total scenes: ${scenes.length}`,
+            '',
+            this.generatePlayCanvasInit(),
+            '',
+            spaceScript,
+            entityScript,
+            componentScript,
+            eventScript,
+            actionScript,
+            dataScript,
+            universoScript,
+            '',
+            'app.start();',
+            'console.log("[MMOOMM] Multi-scene virtual world initialized");'
+        ].join('\n')
+
+        return this.generateMMOOMMDocument(combinedScript, options)
+    }
+
+    /**
+     * Generate PlayCanvas initialization code
+     */
+    private generatePlayCanvasInit(): string {
+        return `
+// Initialize PlayCanvas application with MMO support
+const canvas = document.getElementById('application-canvas');
+const app = new pc.Application(canvas, {
+    mouse: new pc.Mouse(canvas),
+    touch: new pc.TouchDevice(canvas),
+    keyboard: new pc.Keyboard(window),
+    elementInput: new pc.ElementInput(canvas)
+});
+
+// Configure application for MMO
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+app.setCanvasResolution(pc.RESOLUTION_AUTO);
+window.addEventListener('resize', () => app.resizeCanvas());
+
+// Physics world setup for MMO interactions
+app.systems.rigidbody.gravity.set(0, -9.81, 0);
+
+// Basic lighting for the MMO world
+const ambientLight = new pc.Entity('ambient');
+ambientLight.addComponent('light', {
+    type: pc.LIGHTTYPE_DIRECTIONAL,
+    color: new pc.Color(1, 1, 1),
+    intensity: 0.8
+});
+ambientLight.setLocalEulerAngles(45, 30, 0);
+app.root.addChild(ambientLight);
+
+// Default camera setup
+const camera = new pc.Entity('camera');
+camera.addComponent('camera', {
+    clearColor: new pc.Color(0.2, 0.4, 0.6), // Sky blue
+    fov: 60,
+    nearClip: 0.1,
+    farClip: 1000
+});
+camera.setLocalPosition(0, 5, 10);
+camera.lookAt(0, 0, 0);
+app.root.addChild(camera);
+
+// Make app globally available
+window.app = app;
+`
+    }
+
+    /**
+     * Extract MMOOMM-specific nodes from flow data
+     */
+    private extractMMOOMMNodes(flowData: IFlowData): {
+        spaces: any[]
+        entities: any[]
+        components: any[]
+        events: any[]
+        actions: any[]
+        data: any[]
+        universo: any[]
+    } {
+        // Extract base nodes using parent method
+        const baseNodes = this.extractNodes(flowData)
+
+        // For now, return empty arrays for high-level nodes until we have real UPDL data
+        // This is a placeholder that can be extended when we have actual MMOOMM node data
+        return {
+            spaces: baseNodes.spaces,
+            entities: [], // Will be populated from actual Entity nodes
+            components: [], // Will be populated from actual Component nodes
+            events: [], // Will be populated from actual Event nodes
+            actions: [], // Will be populated from actual Action nodes
+            data: baseNodes.data,
+            universo: [] // Will be populated from actual Universo nodes
+        }
+    }
+
+    /**
+     * Generate MMOOMM-specific HTML document structure
+     */
+    private generateMMOOMMDocument(sceneScript: string, options: BuildOptions): string {
+        const projectName = options.projectName || 'Universo MMOOMM Virtual World'
+        const librarySources = this.getLibrarySourcesForTemplate(options)
+
+        // Generate script tags for required libraries
+        const libraryScripts = librarySources.map((src) => `    <script src="${src}"></script>`).join('\n')
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${projectName}</title>
+    <meta name="description" content="PlayCanvas MMOOMM - Universo Platformo">
+${libraryScripts}
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #mmo-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #application-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="mmo-ui">
+        <div>MMOOMM Virtual World</div>
+        <div id="player-count">Players: 0</div>
+        <div id="connection-status">Status: Connecting...</div>
+    </div>
+    <canvas id="application-canvas"></canvas>
+    
+    <script>
+        ${sceneScript}
+    </script>
+</body>
+</html>`
+    }
+
+    /**
+     * Generate error scene for debugging
+     */
+    private generateErrorScene(options: BuildOptions): string {
+        const errorScript = `
+${this.generatePlayCanvasInit()}
+
+// Default scene - red box indicating minimal MMOOMM setup
+const defaultBox = new pc.Entity('default-box');
+defaultBox.addComponent('model', { type: 'box' });
+
+// Create red material
+const material = new pc.StandardMaterial();
+material.diffuse.set(1, 0, 0); // Red color
+material.update();
+
+defaultBox.model.material = material;
+defaultBox.setLocalScale(2, 2, 2);
+app.root.addChild(defaultBox);
+
+// Add rotation animation to make it more interesting
+defaultBox.script = {
+    update: function(dt) {
+        this.entity.rotate(0, 30 * dt, 0);
+    }
+};
+
+app.start();
+console.log('[MMOOMM] Default scene loaded - red box displayed');
+`
+        return this.generateMMOOMMDocument(errorScript, options)
+    }
+
+    /**
+     * Generate default scene with red box (for empty flows)
+     */
+    private generateDefaultScene(options: BuildOptions): string {
+        return this.generateErrorScene(options)
+    }
+
+    /**
+     * Implementation of abstract method from AbstractTemplateBuilder
+     */
     protected generateHTML(
-        _content: {
+        content: {
             spaceContent: string
             objectContent: string
             cameraContent: string
@@ -64,29 +365,22 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
         },
         options: BuildOptions = {}
     ): string {
-        const sceneScript = this.generateSceneScript()
-        const sceneContent = `<canvas id='application-canvas'></canvas>\n<script>${sceneScript}</script>`
-        return this.wrapWithDocumentStructure(sceneContent, options)
+        // This method is required by AbstractTemplateBuilder but not used in our implementation
+        // We use build() method instead for more advanced processing
+        return this.generateErrorScene(options)
     }
 
+    /**
+     * Get template configuration
+     */
     getTemplateInfo(): TemplateConfig {
-        return {
-            id: 'mmoomm',
-            name: 'PlayCanvas MMOOMM Template',
-            description: 'Prototype MMO scene using PlayCanvas primitives',
-            version: '0.1.0',
-            technology: 'playcanvas',
-            supportedNodes: ['Space', 'Entity', 'Component', 'Event', 'Action', 'Universo'],
-            features: ['playcanvas-2.9.0'],
-            defaults: {}
-        }
+        return MMOOMMTemplateConfig
     }
 
+    /**
+     * Get required libraries for this template
+     */
     getRequiredLibraries(): string[] {
         return ['playcanvas']
-    }
-
-    private generateSceneScript(): string {
-        return `const canvas=document.getElementById('application-canvas');\nconst app=new pc.Application(canvas,{});\napp.start();\napp.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);\napp.setCanvasResolution(pc.RESOLUTION_AUTO);\nwindow.addEventListener('resize',()=>app.resizeCanvas());\nconst ship=new pc.Entity('ship');\nship.addComponent('model',{type:'box'});\nship.setLocalScale(1,1,2);\nship.setLocalPosition(0,0,0);\napp.root.addChild(ship);\nfor(let i=0;i<3;i++){const ast=new pc.Entity('asteroid'+i);ast.addComponent('model',{type:'sphere'});ast.setLocalPosition(Math.random()*6-3,Math.random()*2-1,-4-i*2);app.root.addChild(ast);}\nconst station=new pc.Entity('station');\nstation.addComponent('model',{type:'cylinder'});\nstation.setLocalScale(2,1,2);\nstation.setLocalPosition(4,0,-10);\napp.root.addChild(station);\nconst gate=new pc.Entity('gate');\ngate.addComponent('model',{type:'torus'});\ngate.setLocalScale(2,2,0.5);\ngate.setLocalPosition(-4,0,-10);\napp.root.addChild(gate);\nconst camera=new pc.Entity('camera');\ncamera.addComponent('camera',{clearColor:new pc.Color(0.1,0.1,0.1)});\ncamera.setLocalPosition(0,2,8);\napp.root.addChild(camera);\nconst light=new pc.Entity('light');\nlight.addComponent('light');\nlight.setLocalPosition(5,5,15);\napp.root.addChild(light);`
     }
 }

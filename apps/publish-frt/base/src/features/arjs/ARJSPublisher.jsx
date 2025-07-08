@@ -391,20 +391,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     }
 
     /**
-     * Handle generation mode change
-     */
-    const handleGenerationModeChange = (mode) => {
-        setGenerationMode(mode)
-        console.log('📱 [ARJSPublisher] Generation mode changed to:', mode)
-
-        // Reset URL state if mode changed
-        if (publishedUrl) {
-            setPublishedUrl('')
-            setIsPublic(false)
-        }
-    }
-
-    /**
      * Handle copy URL button click
      */
     const handleCopyUrl = (url) => {
@@ -512,8 +498,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 {/* Generation Mode Selector */}
                                 <GenerationModeSelect
                                     value={generationMode}
-                                    onChange={handleGenerationModeChange}
+                                    onChange={setGenerationMode}
                                     disabled={!!publishedUrl}
+                                    technology='arjs'
                                 />
 
                                 {/* Template Selection */}
