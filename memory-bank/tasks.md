@@ -53,6 +53,15 @@
 -   **Structural Integrity**: Ensured both README files have identical structure and line count for consistency.
 -   **Key Features Documented**: Added detailed sections for `PlayCanvasBuilder`, the `mmoomm` template, `PublicationApi`, and the overall workflow for multi-technology publishing.
 
+**Template-First Architecture Refactoring** ✅ **NEW**
+
+-   **Architecture Paradigm Shift**: Successfully migrated from technology-first structure (`arjs/`, `playcanvas/`) to template-first structure (`templates/quiz/arjs/`, `templates/mmoomm/playcanvas/`).
+-   **File Structure Reorganization**: Reorganized builders directory with proper template-based hierarchy for improved code organization and template reusability.
+-   **Import Path Corrections**: Fixed all TypeScript imports and exports to work with the new directory structure, maintaining clean compilation.
+-   **Build System Validation**: Verified complete project builds successfully with zero TypeScript errors after the refactoring.
+-   **Documentation Synchronization**: Updated both English and Russian README files with identical structure (506 lines each) reflecting the new architecture.
+-   **Template Reusability**: Enabled template reuse across multiple technologies, allowing templates to be implemented with different engines (e.g., `quiz` template with both AR.js and future PlayCanvas implementations).
+
 **Publication System Refactoring** ✅
 
 -   Successfully refactored `publish-srv` into a modular `@universo/publish-srv` workspace package.

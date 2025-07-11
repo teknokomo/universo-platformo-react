@@ -4,7 +4,7 @@
 
 import { IUPDLObject, IUPDLMultiScene } from '@universo/publish-srv'
 import { BuildOptions } from '../../../../common/types'
-import { SimpleValidator } from '../../../utils/SimpleValidator'
+import { SimpleValidator } from '../utils/SimpleValidator'
 
 /**
  * Processes UPDL Object nodes for AR.js generation

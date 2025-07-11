@@ -2,8 +2,8 @@
 // Central registry for managing export templates
 
 import { ITemplateBuilder, TemplateInfo } from './types'
-import { ARJSQuizBuilder, QuizTemplateConfig } from '../arjs/templates/quiz'
-import { PlayCanvasMMOOMMBuilder } from '../playcanvas/templates/mmoomm/PlayCanvasMMOOMMBuilder'
+import { ARJSQuizBuilder, QuizTemplateConfig } from '../templates/quiz/arjs'
+import { PlayCanvasMMOOMMBuilder } from '../templates/mmoomm/playcanvas/PlayCanvasMMOOMMBuilder'
 
 /**
  * Central registry for all export templates

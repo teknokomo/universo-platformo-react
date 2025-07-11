@@ -2,8 +2,8 @@
 // Setup function to register all available builders
 
 import { BuilderRegistry } from './BuilderRegistry'
-import { ARJSBuilder } from '../arjs/ARJSBuilder'
-import { PlayCanvasBuilder } from '../playcanvas/PlayCanvasBuilder'
+import { ARJSBuilder } from '../templates/quiz/arjs/ARJSBuilder'
+import { PlayCanvasBuilder } from '../templates/mmoomm/playcanvas/PlayCanvasBuilder'
 
 /**
  * Setup and register all available builders

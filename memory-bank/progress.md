@@ -102,6 +102,10 @@ apps/
 
 ## Latest Achievements
 
+### 2025-01-27: Template-First Architecture Refactoring ✅
+
+**Publication system architecture modernized** - Successfully migrated from technology-first structure to template-first structure in `publish-frt` application. Changed from `builders/arjs/` and `builders/playcanvas/` to `builders/templates/quiz/arjs/` and `builders/templates/mmoomm/playcanvas/` for improved template reusability. Fixed all import paths, achieved zero TypeScript errors, and updated documentation with synchronized README files (506 lines each).
+
 ### 2025-01-27: Flowise 2.2.8 Platform Upgrade ✅
 
 **Platform modernization completed** - Upgraded from 2.2.7-patch.1 to 2.2.8 with enhanced ASSISTANT type support, improved TypeScript compatibility, and preserved user isolation. Zero data loss, all builds successful.
@@ -122,7 +126,7 @@ apps/
 
 ### 2025-06-30: Template-Based Export Architecture & Documentation Sync ✅
 
-**Major refactor finalized** - Implemented fully modular template architecture (`AbstractTemplateBuilder`, `TemplateRegistry`, updated `ARJSBuilder`). Added `ARJSQuizBuilder` as first concrete template. English and Russian READMEs synchronized line-by-line. 
+**Major refactor finalized** - Implemented fully modular template architecture (`AbstractTemplateBuilder`, `TemplateRegistry`, updated `ARJSBuilder`). Added `ARJSQuizBuilder` as first concrete template. English and Russian READMEs synchronized line-by-line.
 
 ## Future Roadmap
 

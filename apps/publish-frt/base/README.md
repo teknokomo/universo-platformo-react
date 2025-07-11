@@ -27,25 +27,51 @@ apps/publish-frt/base/
    │     ├─ PlayCanvasPublicationApi.ts # PlayCanvas specific publication API
    │     ├─ StreamingPublicationApi.ts # Streaming publication API
    │     └─ index.ts       # Publication API exports with compatibility aliases
-   ├─ builders/            # UPDL to target platform builders
+   ├─ builders/            # UPDL to target platform builders with template-first architecture
    │  ├─ common/           # Shared builder infrastructure
-   │  │  ├─ AbstractTemplateBuilder.ts # NEW: Abstract base class for all templates
-   │  │  ├─ TemplateRegistry.ts       # NEW: Registry for managing templates
-   │  │  ├─ UPDLProcessor.ts        # UPDL flow processing
-   │  │  ├─ types.ts               # Common types and interfaces
-   │  │  └─ setup.ts               # Builder and template registration setup
-   │  ├─ arjs/             # AR.js specific builder
-   │  │  ├─ ARJSBuilder.ts         # Main AR.js builder class (delegates to templates)
-   │  │  └─ templates/             # NEW: Template-specific implementations
-   │  │     └─ quiz/               # AR.js Quiz Template
-   │  │        ├─ ARJSQuizBuilder.ts   # Builder for the quiz template
-   │  │        └─ ...
-   │  ├─ playcanvas/         # PlayCanvas specific builder
-   │  │  ├─ PlayCanvasBuilder.ts     # Main PlayCanvas builder class
-   │  │  └─ templates/             # PlayCanvas template implementations
-   │  │     └─ mmoomm/             # Universo MMOOMM Template
-   │  │        ├─ PlayCanvasMMOOMMBuilder.ts
-   │  │        └─ ...
+   │  │  ├─ AbstractTemplateBuilder.ts # Abstract base class for all templates
+   │  │  ├─ BaseBuilder.ts           # Base builder class for high-level builders
+   │  │  ├─ BuilderRegistry.ts       # Registry for managing high-level builders
+   │  │  ├─ TemplateRegistry.ts      # Registry for managing template implementations
+   │  │  ├─ UPDLProcessor.ts         # UPDL flow processing
+   │  │  ├─ types.ts                 # Common types and interfaces
+   │  │  └─ setup.ts                 # Builder and template registration setup
+   │  ├─ templates/        # Template-first organization (NEW ARCHITECTURE)
+   │  │  ├─ quiz/          # Quiz template for educational content
+   │  │  │  └─ arjs/       # AR.js implementation of quiz template
+   │  │  │     ├─ ARJSBuilder.ts         # High-level AR.js builder
+   │  │  │     ├─ ARJSQuizBuilder.ts     # Quiz template implementation
+   │  │  │     ├─ config.ts              # Quiz template configuration
+   │  │  │     ├─ handlers/              # UPDL node processors for quiz
+   │  │  │     │  ├─ ActionHandler.ts    # Action node processing
+   │  │  │     │  ├─ CameraHandler.ts    # Camera node processing
+   │  │  │     │  ├─ ComponentHandler.ts # Component node processing
+   │  │  │     │  ├─ DataHandler.ts      # Data/Questions processing
+   │  │  │     │  ├─ EntityHandler.ts    # Entity node processing
+   │  │  │     │  ├─ EventHandler.ts     # Event node processing
+   │  │  │     │  ├─ LightHandler.ts     # Light node processing
+   │  │  │     │  ├─ ObjectHandler.ts    # Object node processing
+   │  │  │     │  ├─ SpaceHandler.ts     # Space node processing
+   │  │  │     │  ├─ UniversoHandler.ts  # Universo node processing
+   │  │  │     │  └─ index.ts            # Handlers export
+   │  │  │     ├─ utils/                 # Template-specific utilities
+   │  │  │     │  └─ SimpleValidator.ts  # Validation utilities
+   │  │  │     └─ index.ts               # Quiz AR.js exports
+   │  │  └─ mmoomm/        # MMOOMM template for MMO gaming
+   │  │     └─ playcanvas/ # PlayCanvas implementation of MMOOMM template
+   │  │        ├─ PlayCanvasBuilder.ts       # High-level PlayCanvas builder
+   │  │        ├─ PlayCanvasMMOOMMBuilder.ts # MMOOMM template implementation
+   │  │        ├─ config.ts                  # MMOOMM template configuration
+   │  │        ├─ handlers/                  # UPDL node processors for MMOOMM
+   │  │        │  ├─ ActionHandler.ts        # Action node processing
+   │  │        │  ├─ ComponentHandler.ts     # Component node processing
+   │  │        │  ├─ DataHandler.ts          # Data node processing
+   │  │        │  ├─ EntityHandler.ts        # Entity node processing
+   │  │        │  ├─ EventHandler.ts         # Event node processing
+   │  │        │  ├─ SpaceHandler.ts         # Space node processing
+   │  │        │  ├─ UniversoHandler.ts      # Universo node processing
+   │  │        │  └─ index.ts                # Handlers export
+   │  │        └─ index.ts                   # MMOOMM PlayCanvas exports
    │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
    ├─ features/            # Functional modules for different technologies
@@ -125,16 +151,36 @@ The builders system has been refactored into a **modular, template-based archite
 -   **`TemplateRegistry`**: A central registry for managing and creating instances of different template builders.
 -   **`ARJSBuilder`**: The high-level builder that now acts as a controller. It identifies the required template and delegates the entire build process to the corresponding template builder from the registry.
 -   **`ARJSQuizBuilder`**: A concrete implementation of a template for generating AR.js HTML quizzes. It contains its own set of `Handlers` to process different UPDL nodes.
--   **`Handlers`**: Specialized processors for different UPDL node types (Space, Object, Camera, Light) are now encapsulated within each template (e.g., `apps/.../arjs/templates/quiz/handlers/`). This makes each template self-contained.
+-   **`PlayCanvasMMOOMMBuilder`**: A concrete implementation of a template for generating PlayCanvas MMOOMM scenes with MMO-specific functionality.
+-   **`Handlers`**: Specialized processors for different UPDL node types are now encapsulated within each template (e.g., `builders/templates/quiz/arjs/handlers/`, `builders/templates/mmoomm/playcanvas/handlers/`). This makes each template self-contained.
+
+#### Template-First Architecture
+
+The new architecture organizes code by **template first, then by technology**:
+
+```
+builders/templates/
+├─ quiz/                    # Educational quiz template
+│  └─ arjs/                 # AR.js implementation
+│     ├─ ARJSBuilder.ts     # High-level controller
+│     ├─ ARJSQuizBuilder.ts # Template implementation
+│     └─ handlers/          # Quiz-specific processors
+└─ mmoomm/                  # MMO gaming template
+   └─ playcanvas/           # PlayCanvas implementation
+      ├─ PlayCanvasBuilder.ts       # High-level controller
+      ├─ PlayCanvasMMOOMMBuilder.ts # Template implementation
+      └─ handlers/                  # MMOOMM-specific processors
+```
 
 #### Features
 
--   **Maximum Extensibility**: Easy to add new target platforms (e.g., PlayCanvas) by creating a new template class that extends `AbstractTemplateBuilder`.
--   **Clear Separation of Concerns**: The high-level `ARJSBuilder` is simple and only manages the process, while templates contain all the specific implementation details.
+-   **Maximum Extensibility**: Easy to add new target platforms (e.g., Three.js) by creating a new template implementation under existing template folders.
+-   **Template Reusability**: The same template (e.g., `quiz`) can support multiple technologies (AR.js, PlayCanvas, etc.) with shared abstract logic.
+-   **Clear Separation of Concerns**: High-level builders are simple controllers, while template implementations contain all specific logic.
 -   **Self-Contained Templates**: Each template bundles its own logic, handlers, and required libraries, preventing conflicts.
 -   **Type Safe**: Full TypeScript support with robust interfaces (`ITemplateBuilder`, `TemplateConfig`).
 -   **Shared Functionality**: Common logic like library source resolution and HTML document wrapping is handled by the abstract base class, reducing code duplication.
--   **Future-Ready**: The architecture is prepared for `Universo MMOOMM` integration with a dedicated PlayCanvas template.
+-   **Future-Ready**: The architecture supports unlimited template and technology combinations.
 
 #### Recent Improvements
 

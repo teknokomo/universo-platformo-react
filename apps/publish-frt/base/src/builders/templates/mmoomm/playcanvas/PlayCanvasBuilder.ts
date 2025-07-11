@@ -1,10 +1,10 @@
-// Universo Platformo | Basic PlayCanvas builder
-// Minimal PlayCanvas builder converting UPDL spaces into HTML
+// Universo Platformo | PlayCanvas Builder
+// PlayCanvasBuilder generates simple PlayCanvas HTML from UPDL data
 
-import { BaseBuilder } from '../common/BaseBuilder'
-import { UPDLProcessor } from '../common/UPDLProcessor'
-import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../common/types'
-import { IUPDLSpace } from '@universo/publish-srv'
+import { BaseBuilder } from '../../../common/BaseBuilder'
+import { UPDLProcessor } from '../../../common/UPDLProcessor'
+import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../../../common/types'
+import { IUPDLSpace, IFlowData } from '@universo/publish-srv'
 
 /**
  * PlayCanvasBuilder generates simple PlayCanvas HTML from UPDL data
@@ -59,9 +59,7 @@ export class PlayCanvasBuilder extends BaseBuilder {
                     markerType: options.markerType || '',
                     markerValue: options.markerValue || '',
                     libraryVersions: {
-                        playcanvas:
-                            (options.libraryConfig as any)?.playcanvas?.version ||
-                            '2.9.0'
+                        playcanvas: (options.libraryConfig as any)?.playcanvas?.version || '2.9.0'
                     }
                 }
             }
