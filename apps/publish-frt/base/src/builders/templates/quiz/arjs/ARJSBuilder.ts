@@ -1,12 +1,12 @@
 // Universo Platformo | AR.js Builder
 // Main AR.js builder with template system support
 
-import { BaseBuilder } from '../common/BaseBuilder'
-import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../common/types'
+import { BaseBuilder } from '../../../common/BaseBuilder'
+import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../../../common/types'
 import { IUPDLSpace, IUPDLMultiScene, ILibraryConfig, DEFAULT_LIBRARY_CONFIG, IFlowData } from '@universo/publish-srv'
-import { getLibrarySources, debugLog, appConfig } from '../../config/appConfig'
-import { UPDLProcessor } from '../common/UPDLProcessor'
-import { TemplateRegistry } from '../common/TemplateRegistry'
+import { getLibrarySources, debugLog, appConfig } from '../../../../config/appConfig'
+import { UPDLProcessor } from '../../../common/UPDLProcessor'
+import { TemplateRegistry } from '../../../common/TemplateRegistry'
 
 /**
  * AR.js Builder for generating AR.js HTML from UPDL space data

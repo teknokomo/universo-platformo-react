@@ -173,6 +173,33 @@ This architecture allows us to focus on completing AR.js implementation now whil
 
 ### Publication System
 
+#### Template-First Architecture (v0.18.0+)
+
+The publication system has been refactored to follow a **template-first architecture** that prioritizes template reusability over technology-specific organization:
+
+**New Structure:**
+
+```
+builders/templates/
+├── quiz/                    # Educational quiz template
+│   └── arjs/               # AR.js implementation
+│       ├── ARJSBuilder.ts  # High-level controller
+│       ├── ARJSQuizBuilder.ts # Template implementation
+│       └── handlers/       # Quiz-specific processors
+└── mmoomm/                 # MMO gaming template
+    └── playcanvas/         # PlayCanvas implementation
+        ├── PlayCanvasBuilder.ts       # High-level controller
+        ├── PlayCanvasMMOOMMBuilder.ts # Template implementation
+        └── handlers/                  # MMOOMM-specific processors
+```
+
+**Benefits:**
+
+-   **Template Reusability**: Same template (e.g., `quiz`) can be implemented across multiple technologies
+-   **Clear Separation**: Each template contains its own handlers and logic for specific use cases
+-   **Extensibility**: Easy addition of new templates or technology implementations
+-   **Self-contained**: Templates are independent modules with complete functionality
+
 #### URL Scheme
 
 The publication system implements a modern URL scheme to provide consistent access to published projects:
