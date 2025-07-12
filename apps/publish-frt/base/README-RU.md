@@ -71,6 +71,10 @@ apps/publish-frt/base/
    │  │        │  ├─ SpaceHandler.ts         # Обработка узлов Space
    │  │        │  ├─ UniversoHandler.ts      # Обработка узлов Universo
    │  │        │  └─ index.ts                # Экспорт обработчиков
+   │  │        ├─ scripts/                   # Система скриптов PlayCanvas
+   │  │        │  ├─ BaseScript.ts           # Абстрактный базовый класс для скриптов
+   │  │        │  ├─ RotatorScript.ts        # Скрипт анимации поворота
+   │  │        │  └─ index.ts                # Экспорт модуля скриптов
    │  │        └─ index.ts                   # Экспорт MMOOMM PlayCanvas
    │  └─ index.ts          # Экспорт основных билдеров
    ├─ components/          # Презентационные React-компоненты
@@ -231,6 +235,33 @@ const result = await builder.buildFromFlowData(flowDataString, {
 console.log(result.html) // HTML для PlayCanvas
 ```
 
+### Система скриптов PlayCanvas
+
+Шаблон MMOOMM включает простую систему скриптов для переиспользуемых поведений PlayCanvas:
+
+```typescript
+import { RotatorScript, getDefaultRotatorScript } from './scripts'
+
+// Создание скрипта поворота
+const rotator = RotatorScript.createDefault()
+
+// Получение стандартного ротатора для демо-режима
+const defaultRotator = getDefaultRotatorScript()
+```
+
+#### Ключевые особенности
+
+-   **Простая архитектура**: Чистая, минимальная реализация для MVP
+-   **Типобезопасность**: Полная поддержка TypeScript
+-   **Модульный дизайн**: Скрипты организованы как отдельные модули
+-   **Интеграция с демо**: Обеспечивает плавные анимации для демо-режимов
+
+#### Встроенные скрипты
+
+-   **RotatorScript**: Простая анимация поворота по оси Y для демо-куба
+
+Система скриптов обеспечивает плавную анимацию поворота для стандартного красного куба в демо-режиме, извлеченную из основного билдера для лучшей организации кода.
+
 ### Пример Universo MMOOMM
 
 Шаблон `mmoomm` создает небольшую демо-сцену с кораблем, астероидами и воротами.
@@ -388,6 +419,9 @@ if (result.multiScene) {
 -   `PlayCanvasBuilder` - Билдер для вывода HTML PlayCanvas с поддержкой шаблонов.
 -   `PlayCanvasViewPage` - Компонент страницы для просмотра сцен PlayCanvas.
 -   `PlayCanvasMMOOMMBuilder` - Конкретная реализация шаблона для проекта Universo MMOOMM.
+-   `Система скриптов PlayCanvas` - Простая система для переиспользуемых поведений PlayCanvas:
+    -   `BaseScript` - Абстрактный базовый класс для скриптов PlayCanvas
+    -   `RotatorScript` - Простой скрипт анимации поворота по оси Y
 
 ## Архитектура API
 

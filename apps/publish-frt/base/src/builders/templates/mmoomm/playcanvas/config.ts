@@ -5,8 +5,8 @@ import { TemplateConfig } from '../../../common/types'
 
 export const MMOOMMTemplateConfig: TemplateConfig = {
     id: 'mmoomm',
-    name: 'Universo MMOOMM',
-    description: 'Multi-user virtual worlds with real-time synchronization and networking',
+    name: 'playcanvasTemplates.mmoomm.name',
+    description: 'playcanvasTemplates.mmoomm.description',
     version: '0.1.0',
     technology: 'playcanvas',
     supportedNodes: [
@@ -25,7 +25,10 @@ export const MMOOMMTemplateConfig: TemplateConfig = {
         'multi-user',
         'universo-gateway',
         'websocket-protocol',
-        'mmoomm-systems'
+        'mmoomm-systems',
+        'script-system',
+        'modular-scripts',
+        'script-registry'
     ],
     defaults: {
         maxPlayers: 10,
@@ -34,6 +37,11 @@ export const MMOOMMTemplateConfig: TemplateConfig = {
         spaceType: 'persistent',
         enableVoiceChat: false,
         enableTextChat: true,
-        worldPersistence: true
+        worldPersistence: true,
+        scriptSystem: {
+            enableBuiltInScripts: true,
+            defaultRotationSpeed: 20,
+            scriptRegistrySize: 50
+        }
     }
 }
