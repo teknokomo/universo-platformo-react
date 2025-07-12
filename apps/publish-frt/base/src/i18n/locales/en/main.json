@@ -199,6 +199,14 @@
                 "pregeneration": "Pre-generation",
                 "streamingDescription": "Real-time scene generation on the client side",
                 "pregenerationDescription": "Pre-generated scene on the server (coming soon)"
+            },
+            "demoMode": {
+                "label": "Demo Mode",
+                "off": "Off",
+                "primitives": "Graphic Primitives",
+                "hint": "Choose how the scene will be displayed when there's no logic",
+                "offHint": "Empty scene with background",
+                "primitivesHint": "Scene with rotating red cube"
             }
         },
         "templates": {
@@ -207,6 +215,12 @@
             "noTemplatesFound": "No templates found",
             "version": "v{{version}}",
             "description": "Template description"
+        },
+        "playcanvasTemplates": {
+            "mmoomm": {
+                "name": "Universo MMOOMM",
+                "description": "Multi-user virtual worlds with real-time synchronization and networking"
+            }
         }
     },
     "arPublication": {
@@ -219,11 +233,5 @@
         "configSaved": "PlayCanvas publication settings saved",
         "saveError": "Error saving PlayCanvas settings",
         "libraryHint": "Choose PlayCanvas engine version"
-    },
-    "playcanvasTemplates": {
-        "mmoomm": {
-            "name": "PlayCanvas MMOOMM Template",
-            "description": "Prototype MMO scene using PlayCanvas primitives"
-        }
     }
 }

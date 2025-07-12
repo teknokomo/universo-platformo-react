@@ -12,13 +12,15 @@ import {
     MenuItem,
     CircularProgress,
     Card,
-    CardContent
+    CardContent,
+    FormHelperText
 } from '@mui/material'
 
 import TemplateSelect from '../../components/TemplateSelect'
 import GenerationModeSelect from '../../components/GenerationModeSelect'
 import PublicationLink from '../../components/PublicationLink'
 import { PlayCanvasPublicationApi } from '../../api'
+import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
 
 const DEFAULT_VERSION = '2.9.0'
 const DEFAULT_TEMPLATE = 'mmoomm'
@@ -35,6 +37,7 @@ const PlayCanvasPublisher = ({ flow }) => {
     const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE)
     const [libraryVersion, setLibraryVersion] = useState(DEFAULT_VERSION)
     const [generationMode, setGenerationMode] = useState('streaming') // New state for generation mode
+    const [demoMode, setDemoMode] = useState(DEFAULT_DEMO_MODE) // New state for demo mode
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [publishedUrl, setPublishedUrl] = useState('')
@@ -52,6 +55,7 @@ const PlayCanvasPublisher = ({ flow }) => {
                     setIsPublic(!!settings.isPublic)
                     setTemplateId(settings.templateId || DEFAULT_TEMPLATE)
                     setGenerationMode(settings.generationMode || 'streaming') // Load generation mode
+                    setDemoMode(settings.demoMode || DEFAULT_DEMO_MODE) // Load demo mode
                     const libVer = settings.libraryConfig?.playcanvas?.version
                     setLibraryVersion(libVer || DEFAULT_VERSION)
 
@@ -81,6 +85,7 @@ const PlayCanvasPublisher = ({ flow }) => {
                 projectTitle,
                 generationMode, // Include generation mode in save
                 templateId,
+                demoMode, // Include demo mode in save
                 libraryConfig: { playcanvas: { version: libraryVersion, source: 'official' } }
             })
         } catch (e) {
@@ -93,7 +98,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             const tId = setTimeout(saveSettings, 500)
             return () => clearTimeout(tId)
         }
-    }, [projectTitle, isPublic, templateId, libraryVersion, generationMode, loading, flow?.id]) // Add generationMode to dependencies
+    }, [projectTitle, isPublic, templateId, libraryVersion, generationMode, demoMode, loading, flow?.id]) // Add demoMode to dependencies
 
     // Update published URL when isPublic changes
     useEffect(() => {
@@ -133,67 +138,72 @@ const PlayCanvasPublisher = ({ flow }) => {
             {/* Main Content Card */}
             <Card variant='outlined' sx={{ mb: 3 }}>
                 <CardContent>
-            <TextField
-                fullWidth
-                label={t('playcanvas.projectTitle')}
-                margin='normal'
-                value={projectTitle}
-                onChange={(e) => setProjectTitle(e.target.value)}
-            />
+                    <TextField
+                        fullWidth
+                        label={t('playcanvas.projectTitle')}
+                        margin='normal'
+                        value={projectTitle}
+                        onChange={(e) => setProjectTitle(e.target.value)}
+                    />
 
                     {/* Generation Mode Selector */}
-                    <GenerationModeSelect
-                        value={generationMode}
-                        onChange={setGenerationMode}
-                        disabled={!!publishedUrl}
-                        technology='playcanvas'
-                    />
+                    <GenerationModeSelect value={generationMode} onChange={setGenerationMode} disabled={false} technology='playcanvas' />
 
-            <TemplateSelect selectedTemplate={templateId} onTemplateChange={setTemplateId} technology='playcanvas' />
+                    <TemplateSelect selectedTemplate={templateId} onTemplateChange={setTemplateId} technology='playcanvas' />
 
-            <FormControl fullWidth margin='normal'>
-                <InputLabel>{t('playcanvas.libraryVersion.label')}</InputLabel>
-                <Select
-                    value={libraryVersion}
-                    label={t('playcanvas.libraryVersion.label')}
-                    onChange={(e) => setLibraryVersion(e.target.value)}
-                >
-                    <MenuItem value='2.9.0'>2.9.0</MenuItem>
-                </Select>
-            </FormControl>
-            <Typography variant='caption'>{t('playcanvas.libraryVersion.hint')}</Typography>
+                    <FormControl fullWidth margin='normal'>
+                        <InputLabel>{t('playcanvas.libraryVersion.label')}</InputLabel>
+                        <Select
+                            value={libraryVersion}
+                            label={t('playcanvas.libraryVersion.label')}
+                            onChange={(e) => setLibraryVersion(e.target.value)}
+                        >
+                            <MenuItem value='2.9.0'>2.9.0</MenuItem>
+                        </Select>
+                        <FormHelperText>{t('playcanvas.libraryVersion.hint')}</FormHelperText>
+                    </FormControl>
 
-            {/* Make Public Toggle - moved to bottom like in ARJSPublisher */}
-            <Box sx={{ my: 3, width: '100%' }}>
-                <FormControl fullWidth variant='outlined'>
-                    <FormControlLabel
-                        control={<Switch checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />}
-                        label={t('configuration.makePublic')}
-                        sx={{
-                            width: '100%',
-                            margin: 0,
-                            '& .MuiFormControlLabel-label': {
-                                width: '100%',
-                                flexGrow: 1
-                            }
-                        }}
-                        labelPlacement='start'
-                    />
-                </FormControl>
-                <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
-                    {t('configuration.description')}
-                </Typography>
-            </Box>
+                    {/* Demo Mode Selector */}
+                    <FormControl fullWidth margin='normal'>
+                        <InputLabel>{t('playcanvas.demoMode.label')}</InputLabel>
+                        <Select value={demoMode} label={t('playcanvas.demoMode.label')} onChange={(e) => setDemoMode(e.target.value)}>
+                            <MenuItem value='off'>{t('playcanvas.demoMode.off')}</MenuItem>
+                            <MenuItem value='primitives'>{t('playcanvas.demoMode.primitives')}</MenuItem>
+                        </Select>
+                        <FormHelperText>{t('playcanvas.demoMode.hint')}</FormHelperText>
+                    </FormControl>
 
-            {/* Publication Link - moved to bottom after toggle */}
-            {isPublic && publishedUrl && (
-                <PublicationLink
-                    url={publishedUrl}
-                    labelKey='playcanvas.publishedUrl'
-                    helpTextKey='playcanvas.openInBrowser'
-                    viewTooltipKey='playcanvas.viewApp'
-                />
-            )}
+                    {/* Make Public Toggle - moved to bottom like in ARJSPublisher */}
+                    <Box sx={{ my: 3, width: '100%' }}>
+                        <FormControl fullWidth variant='outlined'>
+                            <FormControlLabel
+                                control={<Switch checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />}
+                                label={t('configuration.makePublic')}
+                                sx={{
+                                    width: '100%',
+                                    margin: 0,
+                                    '& .MuiFormControlLabel-label': {
+                                        width: '100%',
+                                        flexGrow: 1
+                                    }
+                                }}
+                                labelPlacement='start'
+                            />
+                        </FormControl>
+                        <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                            {t('configuration.description')}
+                        </Typography>
+                    </Box>
+
+                    {/* Publication Link - moved to bottom after toggle */}
+                    {isPublic && publishedUrl && (
+                        <PublicationLink
+                            url={publishedUrl}
+                            labelKey='playcanvas.publishedUrl'
+                            helpTextKey='playcanvas.openInBrowser'
+                            viewTooltipKey='playcanvas.viewApp'
+                        />
+                    )}
                 </CardContent>
             </Card>
         </Box>

@@ -2,6 +2,7 @@
 // PlayCanvas-specific publication functionality
 
 import { PublicationApi } from './PublicationApi'
+import type { DemoMode } from '../../types/publication.types'
 
 // Local interface to avoid server dependencies
 interface ILibraryConfig {
@@ -15,6 +16,7 @@ export interface PlayCanvasPublicationSettings {
     generationMode: string
     templateId?: string
     libraryConfig?: ILibraryConfig
+    demoMode?: DemoMode
 }
 
 /**

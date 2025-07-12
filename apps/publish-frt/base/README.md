@@ -71,6 +71,10 @@ apps/publish-frt/base/
    │  │        │  ├─ SpaceHandler.ts         # Space node processing
    │  │        │  ├─ UniversoHandler.ts      # Universo node processing
    │  │        │  └─ index.ts                # Handlers export
+   │  │        ├─ scripts/                   # PlayCanvas scripts system
+   │  │        │  ├─ BaseScript.ts           # Abstract base class for scripts
+   │  │        │  ├─ RotatorScript.ts        # Rotation animation script
+   │  │        │  └─ index.ts                # Scripts module exports
    │  │        └─ index.ts                   # MMOOMM PlayCanvas exports
    │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
@@ -231,6 +235,33 @@ const result = await builder.buildFromFlowData(flowDataString, {
 console.log(result.html) // PlayCanvas HTML
 ```
 
+### PlayCanvas Scripts System
+
+The MMOOMM template includes a simple scripts system for reusable PlayCanvas behaviors:
+
+```typescript
+import { RotatorScript, getDefaultRotatorScript } from './scripts'
+
+// Create a rotation script
+const rotator = RotatorScript.createDefault()
+
+// Get default rotator for demo mode
+const defaultRotator = getDefaultRotatorScript()
+```
+
+#### Key Features
+
+-   **Simple Architecture**: Clean, minimal implementation for MVP
+-   **Type Safety**: Full TypeScript support
+-   **Modular Design**: Scripts organized as separate modules
+-   **Demo Integration**: Provides smooth animations for demo modes
+
+#### Built-in Scripts
+
+-   **RotatorScript**: Simple Y-axis rotation animation for demo cube
+
+The scripts system provides smooth rotation animation for the default red cube in demo mode, extracted from the main builder for better code organization.
+
 ### Universo MMOOMM Example
 
 The `mmoomm` template produces a small demo scene with a ship, asteroids and a gate.
@@ -388,6 +419,9 @@ and prevents conflicts between different publication modes.
 -   `PlayCanvasBuilder` - Builder for PlayCanvas HTML output with template support.
 -   `PlayCanvasViewPage` - Page component for viewing PlayCanvas scenes.
 -   `PlayCanvasMMOOMMBuilder` - A concrete template implementation for the Universo MMOOMM project.
+-   `PlayCanvas Scripts System` - Simple system for reusable PlayCanvas behaviors:
+    -   `BaseScript` - Abstract base class for PlayCanvas scripts
+    -   `RotatorScript` - Simple Y-axis rotation animation script
 
 ## API Architecture
 

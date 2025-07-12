@@ -85,7 +85,8 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
 
                 const buildOptions = {
                     projectName: config.projectTitle || 'PlayCanvas Application',
-                    libraryConfig: config.libraryConfig || { playcanvas: { version: '2.9.0' } }
+                    libraryConfig: config.libraryConfig || { playcanvas: { version: '2.9.0' } },
+                    demoMode: config.demoMode || 'off'
                 }
 
                 const generatedHTML = await builder.build(

@@ -200,6 +200,14 @@
                 "pregeneration": "Предварительная генерация",
                 "streamingDescription": "Генерация сцены в реальном времени на стороне клиента",
                 "pregenerationDescription": "Предварительная генерация сцены на сервере (в разработке)"
+            },
+            "demoMode": {
+                "label": "Демо-режим",
+                "off": "Выключено",
+                "primitives": "Графические примитивы",
+                "hint": "Выберите, как будет отображаться сцена при отсутствии логики",
+                "offHint": "Пустая сцена с фоном",
+                "primitivesHint": "Сцена с вращающимся красным кубом"
             }
         },
         "templates": {
@@ -208,6 +216,12 @@
             "noTemplatesFound": "Шаблоны не найдены",
             "version": "v{{version}}",
             "description": "Описание шаблона"
+        },
+        "playcanvasTemplates": {
+            "mmoomm": {
+                "name": "Universo MMOOMM",
+                "description": "Многопользовательские виртуальные миры с синхронизацией и сетью в реальном времени"
+            }
         }
     },
     "arPublication": {
@@ -220,11 +234,5 @@
         "configSaved": "Настройки публикации PlayCanvas сохранены",
         "saveError": "Ошибка при сохранении настроек PlayCanvas",
         "libraryHint": "Выберите версию движка PlayCanvas"
-    },
-    "playcanvasTemplates": {
-        "mmoomm": {
-            "name": "Шаблон PlayCanvas MMOOMM",
-            "description": "Прототип MMO сцены на основе примитивов PlayCanvas"
-        }
     }
 }

@@ -50,7 +50,7 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
                     templates.map((template: TemplateInfo) => (
                         <MenuItem key={template.id} value={template.id}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {template.name}
+                                {t(template.name)}
                                 <Chip
                                     label={t('templates.version', { version: template.version })}
                                     size='small'
@@ -64,7 +64,7 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
             </Select>
             {/* Template description */}
             {selectedTemplateInfo && selectedTemplateInfo.description && (
-                <FormHelperText>{selectedTemplateInfo.description}</FormHelperText>
+                <FormHelperText>{t(selectedTemplateInfo.description)}</FormHelperText>
             )}
         </FormControl>
     )

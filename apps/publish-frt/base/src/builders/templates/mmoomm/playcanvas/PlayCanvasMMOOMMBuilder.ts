@@ -6,6 +6,7 @@ import { BuildOptions, TemplateConfig } from '../../../common/types'
 import type { IFlowData, IUPDLMultiScene } from '@universo/publish-srv'
 import { MMOOMMTemplateConfig } from './config'
 import { SpaceHandler, EntityHandler, ComponentHandler, EventHandler, ActionHandler, DataHandler, UniversoHandler } from './handlers'
+import { getDefaultRotatorScript, setupScriptSystem } from './scripts'
 
 export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
     private spaceHandler = new SpaceHandler()
@@ -18,6 +19,9 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
 
     constructor() {
         super('mmoomm')
+
+        // Initialize script system for MMOOMM template
+        setupScriptSystem()
     }
 
     /**
@@ -314,7 +318,21 @@ ${libraryScripts}
      * Generate error scene for debugging
      */
     private generateErrorScene(options: BuildOptions): string {
-        const errorScript = `
+        const demoMode = options.demoMode || 'off'
+
+        if (demoMode === 'off') {
+            // Empty scene with just camera and lighting
+            const emptyScript = `
+${this.generatePlayCanvasInit()}
+
+// Empty scene - no demo objects
+app.start();
+console.log('[MMOOMM] Empty scene loaded - demo mode disabled');
+`
+            return this.generateMMOOMMDocument(emptyScript, options)
+        } else if (demoMode === 'primitives') {
+            // Scene with rotating red cube
+            const demoScript = `
 ${this.generatePlayCanvasInit()}
 
 // Default scene - red box indicating minimal MMOOMM setup
@@ -330,21 +348,32 @@ defaultBox.model.material = material;
 defaultBox.setLocalScale(2, 2, 2);
 app.root.addChild(defaultBox);
 
-// Add rotation animation to make it more interesting
-defaultBox.script = {
-    update: function(dt) {
-        this.entity.rotate(0, 30 * dt, 0);
-    }
-};
+// Add rotation script for smooth animation using new script system
+${this.generateRotatorScriptCode()}
+
+defaultBox.addComponent('script');
+defaultBox.script.create('rotator');
 
 app.start();
-console.log('[MMOOMM] Default scene loaded - red box displayed');
+console.log('[MMOOMM] Demo scene loaded - rotating red cube displayed');
 `
-        return this.generateMMOOMMDocument(errorScript, options)
+            return this.generateMMOOMMDocument(demoScript, options)
+        }
+
+        // Fallback - empty scene
+        return this.generateErrorScene({ ...options, demoMode: 'off' })
     }
 
     /**
-     * Generate default scene with red box (for empty flows)
+     * Generate rotator script code using the new script system
+     */
+    private generateRotatorScriptCode(): string {
+        const rotatorScript = getDefaultRotatorScript()
+        return rotatorScript.generateScript()
+    }
+
+    /**
+     * Generate default scene with configurable demo mode (for empty flows)
      */
     private generateDefaultScene(options: BuildOptions): string {
         return this.generateErrorScene(options)
