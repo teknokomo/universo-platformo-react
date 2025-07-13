@@ -260,6 +260,11 @@ export class UPDLProcessor {
         const cameraNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'camera')
         const lightNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'light')
         const dataNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'data')
+        const entityNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'entity')
+        const componentNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'component')
+        const eventNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'event')
+        const actionNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'action')
+        const universoNodes = nodes.filter((node) => node.data?.name?.toLowerCase() === 'universo')
 
         const objects: IUPDLObject[] = objectNodes.map((node) => {
             const nodeData = node.data || {}
@@ -348,6 +353,69 @@ export class UPDLProcessor {
             }
         })
 
+        const components = componentNodes.map((node) => {
+            const nodeData = node.data || {}
+            const inputs = nodeData.inputs || {}
+            let props
+            try {
+                props = inputs.props ? JSON.parse(inputs.props as string) : {}
+            } catch {
+                props = {}
+            }
+            return {
+                id: node.id,
+                componentType: inputs.componentType || 'render',
+                primitive: inputs.primitive,
+                color: inputs.color,
+                scriptName: inputs.scriptName,
+                props
+            }
+        })
+
+        const entities = entityNodes.map((node) => {
+            const nodeData = node.data || {}
+            const inputs = nodeData.inputs || {}
+            let transform
+            try {
+                transform = inputs.transform ? JSON.parse(inputs.transform as string) : undefined
+            } catch {
+                transform = undefined
+            }
+            return {
+                id: node.id,
+                name: nodeData.label || 'Entity',
+                entityType: inputs.entityType,
+                transform,
+                tags: inputs.tags ? (Array.isArray(inputs.tags) ? inputs.tags : [inputs.tags]) : [],
+                components: [],
+                events: []
+            }
+        })
+
+        const events = eventNodes.map((node) => {
+            const nodeData = node.data || {}
+            const inputs = nodeData.inputs || {}
+            return {
+                id: node.id,
+                eventType: inputs.eventType || 'generic',
+                source: inputs.source,
+                actions: []
+            }
+        })
+
+        const actions = actionNodes.map((node) => {
+            const nodeData = node.data || {}
+            const inputs = nodeData.inputs || {}
+            return {
+                id: node.id,
+                actionType: inputs.actionType || 'custom',
+                target: inputs.target,
+                params: inputs.params || {}
+            }
+        })
+
+        const universo = universoNodes.map((node) => ({ id: node.id, data: node.data }))
+
         return {
             id: spaceNode.id,
             name: spaceData.label || 'UPDL Space',
@@ -355,6 +423,11 @@ export class UPDLProcessor {
             cameras,
             lights,
             datas,
+            entities,
+            components,
+            events,
+            actions,
+            universo,
             showPoints: spaceData.inputs?.showPoints || false,
             leadCollection: {
                 collectName: spaceData.inputs?.collectLeadName || false,
@@ -388,7 +461,9 @@ export class UPDLProcessor {
             } else {
                 // Build single UPDL space
                 const updlSpace = this.buildUPDLSpaceFromNodes(nodes)
-                console.log(`[UPDLProcessor] Single space built: ${updlSpace.objects.length} objects`)
+                console.log(
+                    `[UPDLProcessor] Single space built: ${updlSpace.entities?.length || 0} entities, ${updlSpace.objects.length} objects`
+                )
                 return { updlSpace }
             }
         } catch (error) {
