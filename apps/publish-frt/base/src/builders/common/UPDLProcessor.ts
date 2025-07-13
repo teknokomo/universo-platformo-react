@@ -246,7 +246,7 @@ export class UPDLProcessor {
      * Build a UPDL space from the flow nodes
      * Moved from buildUPDLflow.ts
      */
-    static buildUPDLSpaceFromNodes(nodes: IReactFlowNode[]): IUPDLSpace {
+    static buildUPDLSpaceFromNodes(nodes: IReactFlowNode[], edges: any[] = []): any {
         // Find the space node
         const spaceNode = nodes.find((node) => node.data?.name?.toLowerCase() === 'space')
 
@@ -356,39 +356,85 @@ export class UPDLProcessor {
         const components = componentNodes.map((node) => {
             const nodeData = node.data || {}
             const inputs = nodeData.inputs || {}
+
             let props
-            try {
-                props = inputs.props ? JSON.parse(inputs.props as string) : {}
-            } catch {
+            if (inputs.props) {
+                if (typeof inputs.props === 'string') {
+                    try {
+                        props = JSON.parse(inputs.props)
+                    } catch {
+                        props = {}
+                    }
+                } else if (typeof inputs.props === 'object') {
+                    props = inputs.props
+                } else {
+                    props = {}
+                }
+            } else {
                 props = {}
             }
+
             return {
                 id: node.id,
-                componentType: inputs.componentType || 'render',
-                primitive: inputs.primitive,
-                color: inputs.color,
-                scriptName: inputs.scriptName,
-                props
+                data: {
+                    componentType: inputs.componentType || 'render',
+                    primitive: inputs.primitive,
+                    color: inputs.color,
+                    scriptName: inputs.scriptName,
+                    props
+                }
             }
         })
 
         const entities = entityNodes.map((node) => {
             const nodeData = node.data || {}
             const inputs = nodeData.inputs || {}
-            let transform
-            try {
-                transform = inputs.transform ? JSON.parse(inputs.transform as string) : undefined
-            } catch {
-                transform = undefined
+
+            let transform: any
+            if (inputs.transform) {
+                let parsed: any = undefined
+                if (typeof inputs.transform === 'string') {
+                    try {
+                        parsed = JSON.parse(inputs.transform)
+                    } catch {
+                        parsed = undefined
+                    }
+                } else if (typeof inputs.transform === 'object') {
+                    parsed = inputs.transform
+                }
+                if (parsed) {
+                    transform = {} as any
+                    if (parsed.pos || parsed.position) {
+                        const pos = parsed.pos || parsed.position
+                        transform.position = Array.isArray(pos)
+                            ? { x: Number(pos[0]) || 0, y: Number(pos[1]) || 0, z: Number(pos[2]) || 0 }
+                            : pos
+                    }
+                    if (parsed.rot || parsed.rotation) {
+                        const rot = parsed.rot || parsed.rotation
+                        transform.rotation = Array.isArray(rot)
+                            ? { x: Number(rot[0]) || 0, y: Number(rot[1]) || 0, z: Number(rot[2]) || 0 }
+                            : rot
+                    }
+                    if (parsed.scale) {
+                        const sc = parsed.scale
+                        transform.scale = Array.isArray(sc)
+                            ? { x: Number(sc[0]) || 1, y: Number(sc[1]) || 1, z: Number(sc[2]) || 1 }
+                            : sc
+                    }
+                }
             }
+
             return {
                 id: node.id,
-                name: nodeData.label || 'Entity',
-                entityType: inputs.entityType,
-                transform,
-                tags: inputs.tags ? (Array.isArray(inputs.tags) ? inputs.tags : [inputs.tags]) : [],
-                components: [],
-                events: []
+                data: {
+                    name: nodeData.label || 'Entity',
+                    entityType: inputs.entityType,
+                    transform,
+                    tags: inputs.tags ? (Array.isArray(inputs.tags) ? inputs.tags : [inputs.tags]) : [],
+                    components: [] as any[],
+                    events: [] as any[]
+                }
             }
         })
 
@@ -397,9 +443,11 @@ export class UPDLProcessor {
             const inputs = nodeData.inputs || {}
             return {
                 id: node.id,
-                eventType: inputs.eventType || 'generic',
-                source: inputs.source,
-                actions: []
+                data: {
+                    eventType: inputs.eventType || 'generic',
+                    source: inputs.source,
+                    actions: [] as any[]
+                }
             }
         })
 
@@ -408,9 +456,32 @@ export class UPDLProcessor {
             const inputs = nodeData.inputs || {}
             return {
                 id: node.id,
-                actionType: inputs.actionType || 'custom',
-                target: inputs.target,
-                params: inputs.params || {}
+                data: {
+                    actionType: inputs.actionType || 'custom',
+                    target: inputs.target,
+                    params: inputs.params || {}
+                }
+            }
+        })
+
+        // Map edges to attach components and actions
+        const entityMap = new Map(entities.map((e) => [e.id, e]))
+        const componentMap = new Map(components.map((c) => [c.id, c]))
+        const eventMap = new Map(events.map((ev) => [ev.id, ev]))
+        const actionMap = new Map(actions.map((a) => [a.id, a]))
+
+        edges.forEach((edge) => {
+            const sourceId = edge.source
+            const targetId = edge.target
+            if (componentMap.has(sourceId) && entityMap.has(targetId)) {
+                const ent = entityMap.get(targetId)!
+                ent.data.components.push(componentMap.get(sourceId)!)
+            } else if (eventMap.has(sourceId) && entityMap.has(targetId)) {
+                const ent = entityMap.get(targetId)!
+                ent.data.events.push(eventMap.get(sourceId)!)
+            } else if (actionMap.has(sourceId) && eventMap.has(targetId)) {
+                const ev = eventMap.get(targetId)!
+                ev.data.actions.push(actionMap.get(sourceId)!)
             }
         })
 
@@ -460,7 +531,7 @@ export class UPDLProcessor {
                 return { multiScene }
             } else {
                 // Build single UPDL space
-                const updlSpace = this.buildUPDLSpaceFromNodes(nodes)
+                const updlSpace = this.buildUPDLSpaceFromNodes(nodes, edges) as IUPDLSpace
                 console.log(
                     `[UPDLProcessor] Single space built: ${updlSpace.entities?.length || 0} entities, ${updlSpace.objects.length} objects`
                 )
