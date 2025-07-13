@@ -16,13 +16,13 @@ export class ComponentHandler {
             case 'render':
                 return this.generateRenderAttachment(component, entityVar)
             default:
-                return ''
+                return `// TODO: attach component ${component.id} of type ${type}`
         }
     }
 
     private processComponent(component: any, options: BuildOptions): string {
         const componentType = component.data?.componentType || 'custom'
-        const componentId = component.data?.id || `component_${Math.random().toString(36).substr(2, 9)}`
+        const componentId = component.id || `component_${Math.random().toString(36).substr(2, 9)}`
         const targetEntity = component.data?.targetEntity || 'default'
         const properties = component.data?.properties || {}
 
@@ -145,6 +145,7 @@ export class ComponentHandler {
     }
 
     private generateRenderComponent(id: string, props: any): string {
+        const safeId = id.replace(/[^a-zA-Z0-9_$]/g, '_')
         return `
     // Render component for MMO
     const renderComponent = {
@@ -153,12 +154,12 @@ export class ComponentHandler {
 
         applyToEntity(entity) {
             entity.addComponent('model', { type: this.primitive });
-            const mcol_${id} = new pc.Color();
-            mcol_${id}.fromString(this.color);
-            const mat_${id} = new pc.StandardMaterial();
-            mat_${id}.diffuse = mcol_${id};
-            mat_${id}.update();
-            entity.model.material = mat_${id};
+            const mcol_${safeId} = new pc.Color();
+            mcol_${safeId}.fromString(this.color);
+            const mat_${safeId} = new pc.StandardMaterial();
+            mat_${safeId}.diffuse = mcol_${safeId};
+            mat_${safeId}.update();
+            entity.model.material = mat_${safeId};
         }
     };
 
@@ -167,13 +168,14 @@ export class ComponentHandler {
     }
 
     private generateCustomComponent(id: string, props: any): string {
+        const safeId = id.replace(/[^a-zA-Z0-9_$]/g, '_')
         return `
     // Custom MMO component
     const customComponent = {
         properties: ${JSON.stringify(props)},
-        
+
         applyToEntity(entity) {
-            entity.customComponent_${id} = this.properties;
+            entity.customComponent_${safeId} = this.properties;
             console.log('[MMO Component] Custom component ${id} applied to', entity.name);
         }
     };
@@ -185,15 +187,16 @@ export class ComponentHandler {
     private generateRenderAttachment(component: any, entityVar: string): string {
         const primitive = component.data?.primitive || 'box'
         const color = component.data?.color || '#ffffff'
+        const safeId = String(component.id).replace(/[^a-zA-Z0-9_$]/g, '_')
         return `
     // Render component ${component.id}
     ${entityVar}.addComponent('model', { type: '${primitive}' });
-    const mat_${component.id} = new pc.StandardMaterial();
-    const col_${component.id} = new pc.Color();
-    col_${component.id}.fromString('${color}');
-    mat_${component.id}.diffuse = col_${component.id};
-    mat_${component.id}.update();
-    ${entityVar}.model.material = mat_${component.id};
+    const mat_${safeId} = new pc.StandardMaterial();
+    const col_${safeId} = new pc.Color();
+    col_${safeId}.fromString('${color}');
+    mat_${safeId}.diffuse = col_${safeId};
+    mat_${safeId}.update();
+    ${entityVar}.model.material = mat_${safeId};
     `
     }
 }

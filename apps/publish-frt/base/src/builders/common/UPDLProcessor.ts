@@ -246,7 +246,9 @@ export class UPDLProcessor {
      * Build a UPDL space from the flow nodes
      * Moved from buildUPDLflow.ts
      */
-    static buildUPDLSpaceFromNodes(nodes: IReactFlowNode[], edges: any[] = []): IUPDLSpace {
+
+    static buildUPDLSpaceFromNodes(nodes: IReactFlowNode[], edges: any[] = []): any {
+      
         // Find the space node
         const spaceNode = nodes.find((node) => node.data?.name?.toLowerCase() === 'space')
 
@@ -390,7 +392,8 @@ export class UPDLProcessor {
             const nodeData = node.data || {}
             const inputs = nodeData.inputs || {}
 
-            let transform
+            let transform: any
+
             if (inputs.transform) {
                 let parsed: any = undefined
                 if (typeof inputs.transform === 'string') {
@@ -403,7 +406,8 @@ export class UPDLProcessor {
                     parsed = inputs.transform
                 }
                 if (parsed) {
-                    transform = {}
+                    transform = {} as any
+
                     if (parsed.pos || parsed.position) {
                         const pos = parsed.pos || parsed.position
                         transform.position = Array.isArray(pos)
@@ -432,8 +436,8 @@ export class UPDLProcessor {
                     entityType: inputs.entityType,
                     transform,
                     tags: inputs.tags ? (Array.isArray(inputs.tags) ? inputs.tags : [inputs.tags]) : [],
-                    components: [],
-                    events: []
+                    components: [] as any[],
+                    events: [] as any[]
                 }
             }
         })
@@ -446,7 +450,7 @@ export class UPDLProcessor {
                 data: {
                     eventType: inputs.eventType || 'generic',
                     source: inputs.source,
-                    actions: []
+                    actions: [] as any[]
                 }
             }
         })
@@ -474,14 +478,14 @@ export class UPDLProcessor {
             const sourceId = edge.source
             const targetId = edge.target
             if (componentMap.has(sourceId) && entityMap.has(targetId)) {
-                const ent = entityMap.get(targetId)
-                ent.data.components.push(componentMap.get(sourceId))
+                const ent = entityMap.get(targetId)!
+                ent.data.components.push(componentMap.get(sourceId)!)
             } else if (eventMap.has(sourceId) && entityMap.has(targetId)) {
-                const ent = entityMap.get(targetId)
-                ent.data.events.push(eventMap.get(sourceId))
+                const ent = entityMap.get(targetId)!
+                ent.data.events.push(eventMap.get(sourceId)!)
             } else if (actionMap.has(sourceId) && eventMap.has(targetId)) {
-                const ev = eventMap.get(targetId)
-                ev.data.actions.push(actionMap.get(sourceId))
+                const ev = eventMap.get(targetId)!
+                ev.data.actions.push(actionMap.get(sourceId)!)
             }
         })
 
@@ -531,7 +535,7 @@ export class UPDLProcessor {
                 return { multiScene }
             } else {
                 // Build single UPDL space
-                const updlSpace = this.buildUPDLSpaceFromNodes(nodes, edges)
+                const updlSpace = this.buildUPDLSpaceFromNodes(nodes, edges) as IUPDLSpace
                 console.log(
                     `[UPDLProcessor] Single space built: ${updlSpace.entities?.length || 0} entities, ${updlSpace.objects.length} objects`
                 )
