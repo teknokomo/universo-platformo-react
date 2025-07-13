@@ -74,6 +74,8 @@ The template system is primarily designed to process the 7 core high-level UPDL 
 
 **Note**: Other nodes (Object, Camera, Light) are legacy/testing nodes and may be significantly changed or removed in future versions. Focus development on the 7 core nodes.
 
+In a typical scene, **Entities** act as containers for **Components** which add behaviour or visuals. **Events** attached to an Entity trigger **Actions** when certain conditions occur. This chain `Entity → Component → Event → Action` defines interactive logic of the space.
+
 ### Connector Implementation Guide
 
 To ensure nodes connect correctly on the Flowise canvas, follow these rules:
