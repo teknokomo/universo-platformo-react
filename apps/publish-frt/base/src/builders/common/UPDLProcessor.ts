@@ -246,7 +246,9 @@ export class UPDLProcessor {
      * Build a UPDL space from the flow nodes
      * Moved from buildUPDLflow.ts
      */
+
     static buildUPDLSpaceFromNodes(nodes: IReactFlowNode[], edges: any[] = []): any {
+      
         // Find the space node
         const spaceNode = nodes.find((node) => node.data?.name?.toLowerCase() === 'space')
 
@@ -391,6 +393,7 @@ export class UPDLProcessor {
             const inputs = nodeData.inputs || {}
 
             let transform: any
+
             if (inputs.transform) {
                 let parsed: any = undefined
                 if (typeof inputs.transform === 'string') {
@@ -404,6 +407,7 @@ export class UPDLProcessor {
                 }
                 if (parsed) {
                     transform = {} as any
+
                     if (parsed.pos || parsed.position) {
                         const pos = parsed.pos || parsed.position
                         transform.position = Array.isArray(pos)
