@@ -2,8 +2,10 @@
 // Handles Entity nodes with networking capabilities for MMO
 
 import { BuildOptions } from '../../../../common/types'
+import { ComponentHandler } from './ComponentHandler'
 
 export class EntityHandler {
+    private componentHandler = new ComponentHandler()
     /**
      * Process array of Entity nodes for MMO environment
      */
@@ -14,12 +16,13 @@ export class EntityHandler {
     }
 
     private processEntity(entity: any, options: BuildOptions): string {
-        const entityId = entity.data?.id || `entity_${Math.random().toString(36).substr(2, 9)}`
+        const entityId = entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`
         const entityType = entity.data?.entityType || 'static'
         const position = entity.data?.transform?.position || { x: 0, y: 0, z: 0 }
         const rotation = entity.data?.transform?.rotation || { x: 0, y: 0, z: 0 }
         const scale = entity.data?.transform?.scale || { x: 1, y: 1, z: 1 }
         const isNetworked = entity.data?.networked || false
+        const components = entity.data?.components || []
 
         return `
 // MMO Entity: ${entityId}
@@ -35,6 +38,9 @@ export class EntityHandler {
     
     // Entity type specific setup
     ${this.generateEntityTypeLogic(entityType, entityId)}
+
+    // Attached components
+    ${ components.map((c: any) => this.componentHandler.attach(c, 'entity')).join('\n    ') }
     
     // Add to scene
     app.root.addChild(entity);

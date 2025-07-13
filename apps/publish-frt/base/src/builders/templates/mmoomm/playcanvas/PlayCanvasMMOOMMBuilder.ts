@@ -76,6 +76,8 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
     private buildSingleScene(flowData: IFlowData, options: BuildOptions): string {
         const nodes = this.extractMMOOMMNodes(flowData)
 
+        console.log(`[PlayCanvasMMOOMMBuilder] Entities: ${nodes.entities.length}, Components: ${nodes.components.length}`)
+
         // Process all node types using handlers
         const spaceScript = this.spaceHandler.process(nodes.spaces[0], options)
         const entityScript = this.entityHandler.process(nodes.entities, options)
@@ -98,9 +100,6 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             '',
             '// Entities with MMO capabilities',
             entityScript,
-            '',
-            '// MMO Components',
-            componentScript,
             '',
             '// Real-time Events',
             eventScript,
@@ -149,6 +148,8 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             }
         })
 
+        console.log(`[PlayCanvasMMOOMMBuilder] Multi-scene totals: entities ${allEntities.length}, components ${allComponents.length}`)
+
         // Process using handlers
         const spaceScript = this.spaceHandler.process({ data: { type: 'root', id: 'multi-scene' } }, options)
         const entityScript = this.entityHandler.process(allEntities, options)
@@ -167,7 +168,6 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             '',
             spaceScript,
             entityScript,
-            componentScript,
             eventScript,
             actionScript,
             dataScript,

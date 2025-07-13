@@ -10,6 +10,16 @@ export class ComponentHandler {
         return components.map((component) => this.processComponent(component, options)).join('\n')
     }
 
+    attach(component: any, entityVar: string): string {
+        const type = component.data?.componentType || 'custom'
+        switch (type) {
+            case 'render':
+                return this.generateRenderAttachment(component, entityVar)
+            default:
+                return ''
+        }
+    }
+
     private processComponent(component: any, options: BuildOptions): string {
         const componentType = component.data?.componentType || 'custom'
         const componentId = component.data?.id || `component_${Math.random().toString(36).substr(2, 9)}`
@@ -39,6 +49,8 @@ export class ComponentHandler {
                 return this.generateNetworkingComponent(id, properties)
             case 'audio':
                 return this.generateAudioComponent(id, properties)
+            case 'render':
+                return this.generateRenderComponent(id, properties)
             default:
                 return this.generateCustomComponent(id, properties)
         }
@@ -132,6 +144,28 @@ export class ComponentHandler {
 `
     }
 
+    private generateRenderComponent(id: string, props: any): string {
+        return `
+    // Render component for MMO
+    const renderComponent = {
+        primitive: '${props.primitive || 'box'}',
+        color: '${props.color || '#ffffff'}',
+
+        applyToEntity(entity) {
+            entity.addComponent('model', { type: this.primitive });
+            const mcol_${id} = new pc.Color();
+            mcol_${id}.fromString(this.color);
+            const mat_${id} = new pc.StandardMaterial();
+            mat_${id}.diffuse = mcol_${id};
+            mat_${id}.update();
+            entity.model.material = mat_${id};
+        }
+    };
+
+    console.log('[MMO Component] Render component ${id} ready');
+`
+    }
+
     private generateCustomComponent(id: string, props: any): string {
         return `
     // Custom MMO component
@@ -146,5 +180,20 @@ export class ComponentHandler {
     
     console.log('[MMO Component] Custom component ${id} ready');
 `
+    }
+
+    private generateRenderAttachment(component: any, entityVar: string): string {
+        const primitive = component.data?.primitive || 'box'
+        const color = component.data?.color || '#ffffff'
+        return `
+    // Render component ${component.id}
+    ${entityVar}.addComponent('model', { type: '${primitive}' });
+    const mat_${component.id} = new pc.StandardMaterial();
+    const col_${component.id} = new pc.Color();
+    col_${component.id}.fromString('${color}');
+    mat_${component.id}.diffuse = col_${component.id};
+    mat_${component.id}.update();
+    ${entityVar}.model.material = mat_${component.id};
+    `
     }
 }
