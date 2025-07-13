@@ -244,16 +244,16 @@ window.app = app;
         // Extract base nodes using parent method
         const baseNodes = this.extractNodes(flowData)
 
-        // For now, return empty arrays for high-level nodes until we have real UPDL data
-        // This is a placeholder that can be extended when we have actual MMOOMM node data
+        const firstSpace = baseNodes.spaces[0] || {}
+
         return {
             spaces: baseNodes.spaces,
-            entities: [], // Will be populated from actual Entity nodes
-            components: [], // Will be populated from actual Component nodes
-            events: [], // Will be populated from actual Event nodes
-            actions: [], // Will be populated from actual Action nodes
+            entities: (firstSpace as any).entities || [],
+            components: (firstSpace as any).components || [],
+            events: (firstSpace as any).events || [],
+            actions: (firstSpace as any).actions || [],
             data: baseNodes.data,
-            universo: [] // Will be populated from actual Universo nodes
+            universo: (firstSpace as any).universo || []
         }
     }
 

@@ -68,6 +68,55 @@ export interface IUPDLObject extends IUPDLBaseObject {
 }
 
 /**
+ * UPDL Component attached to an entity
+ */
+export interface IUPDLComponent {
+    id: string
+    componentType: string
+    primitive?: string
+    color?: string
+    scriptName?: string
+    props?: Record<string, any>
+}
+
+/**
+ * UPDL Entity representing a scene object with transform
+ */
+export interface IUPDLEntity {
+    id: string
+    name?: string
+    entityType?: string
+    transform?: {
+        position?: IUPDLPosition
+        rotation?: IUPDLRotation
+        scale?: IUPDLPosition
+    }
+    tags?: string[]
+    components?: IUPDLComponent[]
+    events?: IUPDLEvent[]
+}
+
+/**
+ * UPDL Event triggering actions
+ */
+export interface IUPDLEvent {
+    id: string
+    eventType: string
+    source?: string
+    actions?: IUPDLAction[]
+}
+
+/**
+ * UPDL Action executed by events
+ */
+export interface IUPDLAction {
+    id: string
+    actionType: string
+    target?: string
+    params?: Record<string, any>
+}
+
+/**
  * UPDL Camera
  */
 export interface IUPDLCamera extends IUPDLBaseObject {
@@ -124,6 +173,11 @@ export interface IUPDLSpace {
     cameras?: IUPDLCamera[]
     lights?: IUPDLLight[]
     datas?: IUPDLData[]
+    entities?: IUPDLEntity[]
+    components?: IUPDLComponent[]
+    events?: IUPDLEvent[]
+    actions?: IUPDLAction[]
+    universo?: any[]
     // Universo Platformo | Points system display option
     showPoints?: boolean
     // Universo Platformo | Lead data collection settings
