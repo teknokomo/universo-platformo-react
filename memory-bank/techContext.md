@@ -30,236 +30,77 @@
 -   **Components**: Publisher UI, Builder logic, API integration
 -   **Risk**: Medium - Isolated from core Flowise changes but needs verification
 
-## Flowise AI
+## Platform Foundation
 
-Original project that serves as the foundation. Version 2.2.8 (upgraded from 2.2.7‑patch.1 on 2025-06-27).
-
-## Supabase Integration
-
-Added to implement multi‑user functionality. When creating Universo Platformo React based on Flowise AI, **only** the Postgres/Supabase option is now used; other DBMS are disabled. New migrations are created only for Postgres.
+**Flowise AI 2.2.8** - Enhanced platform with ASSISTANT support (upgraded 2025-07-01)
+**Supabase Integration** - Multi-user functionality with Postgres-only database support
 
 ### Authentication Architecture
 
-**Universo Platformo** implements a secure authentication flow with Supabase:
+**Secure Supabase JWT authentication** with multi-user support:
 
-1. **Server-side Integration**:
+-   **Server-side**: JWT validation, secure token handling, HTTP-only cookies
+-   **Frontend**: React context with automatic token refresh
+-   **Security**: No exposed keys, backend-only Supabase operations
+-   **Environment**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
 
-    - Authentication through `/packages/server/src/controllers/up-auth/auth.ts`
-    - Endpoints in `/packages/server/src/routes/up-auth/index.ts`: register, login, logout, me, refresh
-    - Secure token handling with HTTP-only cookies for refresh tokens
-    - Environment variables in `.env`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
+## APPs Architecture (v0.20.0-alpha)
 
-2. **Frontend Authentication Context**:
+**6 Working Applications** with modular architecture minimizing core Flowise changes:
 
-    - React context in `/packages/ui/src/utils/authProvider.jsx`
-    - Implements login, logout, automatic token refresh, and authentication state
-    - Utilizes localStorage for access tokens and HTTP-only cookies for refresh tokens
-    - Periodic token refresh (every 50 minutes) to maintain sessions
+-   **UPDL**: High-level abstract nodes (Space, Entity, Component, Event, Action, Data, Universo)
+-   **Publish Frontend/Backend**: Multi-technology export (AR.js, PlayCanvas)
+-   **Analytics**: Quiz performance tracking
+-   **Profile Frontend/Backend**: Enhanced user management with workspace packages
 
-3. **Protected Routes**:
+### Key Architecture Benefits
 
-    - Route protection via `/packages/ui/src/routes/AuthGuard.jsx`
-    - Redirects unauthenticated users to login page
-    - Shows loading indicator during authentication check
+-   **Workspace Packages**: `@universo/profile-srv` with clean imports and professional structure
+-   **Template-First**: Reusable export templates across multiple technologies
+-   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
+-   **Future-Ready**: Prepared for plugin extraction and microservices evolution
 
-4. **Security Features**:
-    - No Supabase keys exposed to frontend
-    - All Supabase operations through backend API
-    - JWT validation and secure token storage
-    - Compatible with future desktop app wrapping (Electron/Tauri)
+## UPDL Core System (v0.20.0-alpha)
 
-## APPs Architecture Implementation
+### High-Level Abstract Nodes ✅ **COMPLETE**
 
-The project has successfully implemented a modular APPs architecture with 6 working applications that separate functionality while minimizing changes to the core Flowise codebase.
+**7 Core Nodes:** Space, Entity, Component, Event, Action, Data, Universo
 
-### Workspace Package Architecture
+**Key Features:**
 
-#### Profile Service Workspace Package
-
-The profile service has been successfully converted to a **workspace package** architecture:
-
-**Package Structure:**
-
--   **Package Name**: `@universo/profile-srv` (scoped workspace package)
--   **Integration**: Main server imports via `import { Profile, profileMigrations, createProfileRoutes } from '@universo/profile-srv'`
--   **Exports**: All components exported via `src/index.ts` for clean package interface
--   **Dependencies**: Workspace dependency `"@universo/profile-srv": "workspace:*"` in main server
-
-**Benefits Achieved:**
-
--   **Eliminated Complex Relative Paths**: No more `../../../../apps/profile-srv/base/dist` imports
--   **Professional Package Structure**: Scoped package with proper metadata
--   **Automatic Dependency Resolution**: pnpm workspace handles build ordering
--   **Future-Ready**: Prepared for extraction to separate repository as plugin
--   **Type Safety**: Full TypeScript integration with workspace resolution
-
-**Implementation Pattern:**
-This workspace package pattern can be applied to other backend services for similar benefits. Frontend applications continue to use REST API communication for appropriate separation.
-
-### Current APPs Implementation (v0.17.0+)
-
-**6 Working Applications:** UPDL, Publish Frontend/Backend, Analytics, Profile Frontend/Backend
-
-**Detailed Directory Structure:** See [apps/README.md](../apps/README.md) for complete architecture documentation, build instructions, and current application structure.
-
-### Interface Architecture (Two-Layer System)
-
-**UPDL Core Interfaces** (`apps/updl/base/src/interfaces/UPDLInterfaces.ts`):
-
--   **Purpose**: Complete UPDL ecosystem definitions for flows, graphs, and detailed node properties
--   **Scope**: Full UPDL specification with advanced properties (materials, physics, animations)
--   **Usage**: Internal UPDL nodes, graph processing, complex scene definitions
--   **Export**: Available via UPDL module exports for advanced consumers
-
-**Integration Interfaces** (`packages/server/src/Interface.UPDL.ts`):
-
--   **Purpose**: Simplified interfaces for backend/frontend integration
--   **Scope**: Essential properties for space processing and publication
--   **Usage**: Publication system, API communication, AR.js conversion
--   **Export**: Available via `@server/interface` alias
-
-**Benefits of Separation**:
-
--   **Clean Integration**: Publication system uses only necessary interfaces
--   **Future Flexibility**: Core UPDL can evolve without breaking integrations
--   **Optimal Performance**: Smaller interface footprint for production use
--   **No Duplication**: Each serves distinct architectural purpose
-
-## UPDL Core Components (v0.17.0+)
-
-### Key Node Types
-
-**Implemented Nodes:** Space (root), Object, Camera, Light, Data (quiz), Interaction, Controller, Animation
-
-**Core Features:**
-
--   Hierarchical structure with parent-child relationships
--   Typed ports with connection validation
+-   Universal cross-platform description layer
+-   Template-based export to multiple technologies (AR.js, PlayCanvas)
+-   Hierarchical structure with typed connections
 -   JSON serialization with version compatibility
--   Platform-independent intermediate representation
 
-**Export Process:** Flowise JSON → UPDL objects → Platform-specific code → Published applications
+**Export Process:** UPDL Graph → Template System → Technology-specific code → Published applications
 
-**Detailed UPDL Patterns:** See [systemPatterns.md](systemPatterns.md) for comprehensive node architecture and design principles.
+**Architecture Details:** See [systemPatterns.md](systemPatterns.md) for comprehensive patterns and design principles.
 
-### AR.js and A-Frame Architecture
+### Multi-Technology Export Architecture
 
-Following a clear design decision, we have separated AR.js and A-Frame implementations to improve maintainability and future extensibility:
+**Template-Based System** with clear technology separation:
 
-1. **File Naming Convention**:
+-   **AR.js**: Production-ready with iframe-based rendering and quiz functionality
+-   **PlayCanvas**: Complete integration with MMOOMM template for MMO development
+-   **Naming Convention**: Technology-specific prefixes (ARJS, PlayCanvas)
+-   **API Structure**: Clean endpoints (`/api/updl/publish/{technology}`)
+-   **Future-Ready**: Extensible for additional technologies (Babylon.js, Three.js)
 
-    - AR.js specific files use the `ARJS` prefix (e.g., `updlToARJSBuilder.ts`, `ARJSHTMLGenerator.ts`, `UPDLToARJS.ts`)
-    - A-Frame VR implementations will use `AFrame` prefix in the future
+### Publication System ✅ **COMPLETE**
 
-2. **Interface Separation**:
+**Template-First Architecture** with reusable templates across technologies:
 
-    - Created separate UPDL-specific interfaces in `Interface.UPDL.ts`
-    - Proper type handling with implementations for AR.js-specific primitives (ARJSPrimitive)
-    - Clean separation between UPDL core model and presentation technologies
+-   **Quiz Template**: Educational AR experiences with scoring and lead collection
+-   **MMOOMM Template**: MMO gaming experiences with PlayCanvas integration
+-   **URL Scheme**: `/p/{uuid}` for public view, `/e/p/{uuid}` for embedding
+-   **Multi-Technology**: AR.js (production), PlayCanvas (ready), extensible system
 
-3. **API Structure**:
+## Development Environment
 
-    - AR.js endpoints follow `/api/updl/publish/arjs` naming pattern
-    - Publication retrieval endpoints use `/api/updl/publication/arjs/:publishId`
-    - Clean separation from future A-Frame VR endpoints
-
-4. **Implementation Benefits**:
-    - Reduced code complexity through specialized implementations
-    - Improved maintainability with clear separation of concerns
-    - Future-proofing for additional technologies (A-Frame VR, PlayCanvas, etc.)
-    - Clear architecture for new developers to understand the system
-
-This architecture allows us to focus on completing AR.js implementation now while postponing A-Frame VR and other technologies for future development phases.
-
-### Publication System
-
-#### Template-First Architecture (v0.18.0+)
-
-The publication system has been refactored to follow a **template-first architecture** that prioritizes template reusability over technology-specific organization:
-
-**New Structure:**
-
-```
-builders/templates/
-├── quiz/                    # Educational quiz template
-│   └── arjs/               # AR.js implementation
-│       ├── ARJSBuilder.ts  # High-level controller
-│       ├── ARJSQuizBuilder.ts # Template implementation
-│       └── handlers/       # Quiz-specific processors
-└── mmoomm/                 # MMO gaming template
-    └── playcanvas/         # PlayCanvas implementation
-        ├── PlayCanvasBuilder.ts       # High-level controller
-        ├── PlayCanvasMMOOMMBuilder.ts # Template implementation
-        └── handlers/                  # MMOOMM-specific processors
-```
-
-**Benefits:**
-
--   **Template Reusability**: Same template (e.g., `quiz`) can be implemented across multiple technologies
--   **Clear Separation**: Each template contains its own handlers and logic for specific use cases
--   **Extensibility**: Easy addition of new templates or technology implementations
--   **Self-contained**: Templates are independent modules with complete functionality
-
-#### URL Scheme
-
-The publication system implements a modern URL scheme to provide consistent access to published projects:
-
-```
-/p/{uuid}         # Main public view with Universo Platformo header/footer
-/e/p/{uuid}       # Embedded view (frameless) for external embedding
-```
-
-This approach is inspired by PlayCanvas and other professional publishing platforms, providing:
-
-1. **Consistent access pattern** - All published content follows the same URL structure regardless of technology
-2. **Unique identifiers** - UUID ensures no collisions between different projects
-3. **Versioning support** - Future implementations can add version numbers (/p/{uuid}/v/{version})
-4. **Security through obscurity** - Hard-to-guess URLs prevent unauthorized access while public
-
-#### Publication Process
-
-1. **Client-Side Export**:
-
-    - User selects AR.js technology in "Configuration" tab
-    - They configure settings in "Publication" tab (title, marker type, etc.)
-    - UPDL flow is processed and converted to A-Frame model via `UPDLToAFrameConverter`
-    - HTML is generated client-side with `ARJSExporter`
-
-2. **Server-Side Storage**:
-
-    - Generated HTML is sent to server via `publishARJSProject` API
-    - `UPDLController` saves the HTML file with unique ID
-    - Metadata is stored for future reference
-    - Server returns public URL to the client
-
-3. **Access Control**:
-    - The "Make Public" toggle controls whether URL is accessible without authentication
-    - Future implementations will add more granular permissions
-
-#### AR.js Publication Flow
-
-The AR.js publication flow specifically handles:
-
-1. **Marker Selection** - Preset markers (Hiro, Kanji) or custom marker URL
-2. **Scene Configuration** - Title, background color, text color
-3. **3D Model Settings** - Model URL for GLB/GLTF files, scale, position
-4. **HTML Generation** - A-Frame scene with AR.js integration
-5. **QR Code Display** - For easy access on mobile devices
-
-#### Project Sharing
-
-When a project is published:
-
-1. Public URL is generated in format `/p/{uuid}`
-2. QR code is displayed for scanning with mobile devices
-3. Copy button allows easy sharing of the URL
-4. Options for social media sharing are provided
-
-This implementation creates a professional publication flow similar to established platforms like PlayCanvas, while maintaining compatibility with the UPDL architecture.
-
-## Package Management
-
-Using **pnpm** for package management. All commands should be run from the project root directory.
+**Package Management**: PNPM workspaces with monorepo architecture
+**Build System**: TypeScript + React frontend, Node.js + Express backend
+**Base Platform**: Flowise 2.2.8 with enhanced ASSISTANT support
 
 ## Technology Stack & Base Platform
 
@@ -281,134 +122,34 @@ These engines cover a broad spectrum of web 3D/AR development. Initially, our fo
 
 By leveraging this tech stack and workflow, we ensure that UPDL development is robust: we use proven frameworks (Flowise, React, Node, Three.js, etc.), enforce good practices (linting, CI), keep the AI assistant informed (Memory Bank), and maintain agility in development (monorepo tools for speed, GitHub for collaboration). All these technical considerations set a solid foundation for implementing UPDL as envisioned.
 
-## Current Development Focus (June 2025, v0.17.0+)
+## Current Development Status (v0.20.0-alpha)
 
-**Platform Status:** Successfully implemented with 6 working applications, workspace packages, and AR.js publication system.
+**Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
 
-**Next Development Priorities (v0.18.0-0.20.0):**
+**Key Achievements:**
 
-1. **Platform Stabilization (0.18.0-pre-alpha)**
+-   ✅ High-level UPDL nodes (7 core abstract nodes)
+-   ✅ Multi-technology export (AR.js production, PlayCanvas ready)
+-   ✅ Template-first architecture with reusable components
+-   ✅ Enhanced Flowise 2.2.8 platform with TypeScript modernization
 
-    - Enhanced user profile system and architecture consolidation
-    - Comprehensive testing framework implementation
-    - Performance optimization and stability improvements
+**Next Focus**: Advanced UPDL features and Universo MMOOMM expansion
 
-2. **Advanced UPDL Development (0.19.0-pre-alpha)**
+## Critical Technical Patterns
 
-    - New UPDL node types (Physics, Animation, Interaction, Networking)
-    - Universo MMOOMM integration with PlayCanvas technology
-    - Multi-scene projects and collaborative features
+### React Performance Optimization
 
-3. **Publication System Evolution (0.20.0-alpha)**
-    - Advanced project versioning and Chatflow (Spaces) management
-    - **Transition to Alpha status** - production-ready stability
+-   Avoid API objects in useEffect dependencies
+-   Use useRef for API request state tracking
+-   Minimize useEffect dependencies
 
-## Known Technical Issues & Risks
+### AR.js Rendering Architecture
 
--   **PlayCanvas click events**: first release will inject a ray‑cast helper script to emulate OnClick in 3‑D scenes.
--   **Flowise hierarchy UX**: no tree view; we currently prefix node names (`Parent:`) and may add a custom outline later.
+**Iframe-Based Rendering** - Essential for proper script execution in React context
 
-## React Component Performance Optimization
+**Key Implementation Details:**
 
-When working with React components integrated with original Flowise code, follow these optimization patterns:
-
-1. **Avoid API Objects in useEffect Dependencies** - API objects created with hooks like useApi should not be added to useEffect dependencies as this can create cyclical updates.
-
-2. **Use useRef for API Request State Tracking** - When tracking whether API requests have been made, use useRef instead of useState to avoid re-renders:
-
-    ```javascript
-    const apiRequestMadeRef = useRef({
-        specificRequest: false
-    })
-
-    useEffect(() => {
-        if (!apiRequestMadeRef.current.specificRequest) {
-            apiService.request()
-            apiRequestMadeRef.current.specificRequest = true
-        }
-    }, [necessaryDepsOnly])
-    ```
-
-3. **Minimize useEffect Dependencies** - Only include truly necessary dependencies while keeping Unik-related dependencies (e.g. unikId).
-
-## AR.js Publication Architecture
-
-**Publication Flow:** Client-side generation with streaming mode for dynamic UPDL to AR.js HTML conversion
-
-**URL Scheme:** `/p/{uuid}` for published projects with iframe-based rendering for proper script execution
-
-**Key Features:**
-
--   Browser-based UPDL to A-Frame conversion
--   Local library serving for CDN-blocked regions
--   QR code generation for mobile access
--   Quiz functionality with Data nodes and lead collection
-
-## Critical AR.js Rendering Architecture
-
-### Iframe-Based Rendering (ESSENTIAL)
-
-**Problem**: React's `dangerouslySetInnerHTML` prevents JavaScript execution, breaking AR.js library loading.
-
-**Solution**: Iframe approach for proper script isolation and execution:
-
-```typescript
-// ❌ WRONG: Scripts don't execute in React context
-;<div dangerouslySetInnerHTML={{ __html: arjsHtml }} />
-
-// ✅ CORRECT: Iframe provides isolated execution context
-const iframe = document.createElement('iframe')
-iframe.style.width = '100%'
-iframe.style.height = '100%'
-iframe.style.border = 'none'
-container.appendChild(iframe)
-
-const iframeDoc = iframe.contentDocument
-iframeDoc.open()
-iframeDoc.write(arjsHtml) // AR.js HTML with <script> tags executes properly
-iframeDoc.close()
-```
-
-**Implementation**: `apps/publish-frt/base/src/pages/public/ARViewPage.tsx`
-
-### Static Library Integration with Main Server
-
-**Architecture**: Main Flowise server serves AR.js libraries directly instead of separate static server.
-
-**Server Configuration** (`packages/server/src/index.ts`):
-
-```typescript
-// Serve static assets from publish-frt for AR.js libraries
-const publishFrtAssetsPath = path.join(__dirname, '../../../apps/publish-frt/base/dist/assets')
-this.app.use('/assets', express.static(publishFrtAssetsPath))
-```
-
-**Library Paths**:
-
--   **A-Frame**: `/assets/libs/aframe/1.7.1/aframe.min.js`
--   **AR.js**: `/assets/libs/arjs/3.4.7/aframe-ar.js`
--   **Source**: `apps/publish-frt/base/dist/assets/libs/` (built via Gulp)
-
-**Benefits**:
-
--   **Single Server**: No separate static file server needed
--   **CDN Independence**: Solves CDN blocking in restricted regions
--   **Performance**: Direct serving from main Flowise instance
--   **Maintenance**: Libraries bundled with frontend distribution
-
-### User-Selectable Library Sources
-
-**Configuration Flow**:
-
-1. **UI Selection**: User chooses "Official server" (CDN) or "Kiberplano server" (local)
-2. **Storage**: Settings saved in Supabase `chatbotConfig.arjs.libraryConfig`
-3. **Backend**: `utilBuildUPDLflow` extracts and returns library configuration
-4. **Frontend**: `ARJSBuilder` generates appropriate script tags based on user selection
-5. **Rendering**: Iframe executes HTML with user-selected library sources
-
-**Path Resolution**:
-
--   **CDN Sources**: `https://aframe.io/releases/1.7.1/aframe.min.js`
--   **Local Sources**: `/assets/libs/aframe/1.7.1/aframe.min.js` (absolute paths from main server)
-
-**Critical Fix**: Changed relative paths (`./assets/libs/`) to absolute paths (`/assets/libs/`) in `ARJSBuilder.generateCustomLibrarySources()` for proper browser loading.
+-   Iframe-based rendering for proper script execution
+-   Static library integration with main Flowise server
+-   User-selectable library sources (CDN vs local)
+-   CDN independence for restricted regions
