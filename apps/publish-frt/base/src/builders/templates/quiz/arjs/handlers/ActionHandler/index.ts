@@ -2,7 +2,7 @@
 // Handles processing of UPDL Action nodes for AR.js quiz generation
 // HIGH-LEVEL NODE - Future implementation
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 // Future interface for Action nodes
 interface IUPDLAction {

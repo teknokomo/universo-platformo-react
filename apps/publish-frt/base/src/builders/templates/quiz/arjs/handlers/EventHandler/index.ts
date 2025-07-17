@@ -2,7 +2,7 @@
 // Handles processing of UPDL Event nodes for AR.js quiz generation
 // HIGH-LEVEL NODE - Future implementation
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 // Future interface for Event nodes
 interface IUPDLEvent {

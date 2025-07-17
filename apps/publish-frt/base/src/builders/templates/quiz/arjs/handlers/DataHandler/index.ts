@@ -2,7 +2,7 @@
 // Handles processing of UPDL Data nodes for AR.js quiz functionality
 
 import { IUPDLData, IUPDLMultiScene, IUPDLScene } from '@universo/publish-srv'
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 /**
  * Processes UPDL Data nodes for AR.js quiz generation
