@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Data Handler
 // Handles Data nodes with real-time synchronization
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 export class DataHandler {
     process(dataNodes: any[], options: BuildOptions = {}): string {

@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Action Handler
 // Handles Action nodes for MMO actions and responses
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 export class ActionHandler {
     process(actions: any[], options: BuildOptions = {}): string {

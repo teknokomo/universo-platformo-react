@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Event Handler
 // Handles Event nodes for real-time MMO events
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 export class EventHandler {
     process(events: any[], options: BuildOptions = {}): string {

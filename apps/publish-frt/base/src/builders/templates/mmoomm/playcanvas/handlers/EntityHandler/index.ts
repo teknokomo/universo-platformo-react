@@ -1,8 +1,8 @@
 // Universo Platformo | MMOOMM Entity Handler
 // Handles Entity nodes with networking capabilities for MMO
 
-import { BuildOptions } from '../../../../common/types'
-import { ComponentHandler } from './ComponentHandler'
+import { BuildOptions } from '../../../../../common/types'
+import { ComponentHandler } from '../ComponentHandler'
 
 export class EntityHandler {
     private componentHandler = new ComponentHandler()
