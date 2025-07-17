@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Space Handler
 // Handles Space nodes for MMO environments with multi-scene support
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 export class SpaceHandler {
     /**

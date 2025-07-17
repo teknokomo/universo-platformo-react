@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Component Handler
 // Handles Component nodes for MMO-specific components
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 export class ComponentHandler {
     process(components: any[], options: BuildOptions = {}): string {

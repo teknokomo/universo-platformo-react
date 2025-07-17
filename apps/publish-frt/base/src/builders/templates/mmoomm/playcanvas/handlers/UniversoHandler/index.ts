@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Universo Handler
 // Handles Universo nodes - Network gateway to Kiberplano ecosystem
 
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 export class UniversoHandler {
     /**
