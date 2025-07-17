@@ -2,7 +2,7 @@
 // Handles processing of UPDL Space nodes for AR.js quiz generation
 
 import { IUPDLSpace } from '@universo/publish-srv'
-import { BuildOptions } from '../../../../common/types'
+import { BuildOptions } from '../../../../../common/types'
 
 /**
  * Processes UPDL Space nodes for AR.js quiz generation
