@@ -109,6 +109,10 @@ apps/
 
 ## Latest Achievements
 
+### 2025-01-27: MMOOMM Template Ship Movement & Console Optimization ✅
+
+**PlayCanvas MMOOMM template stabilized** - Fixed critical ship movement issues and optimized console logging for local development. Implemented physics body initialization with direct movement fallback, eliminated repetitive error message spam, and optimized WebSocket connection logging. Ship now responds smoothly to WASD+QZ controls with clean console output and transparent fallback system.
+
 ### 2025-01-27: Template-First Architecture Refactoring ✅
 
 **Publication system architecture modernized** - Successfully migrated from technology-first structure to template-first structure in `publish-frt` application. Changed from `builders/arjs/` and `builders/playcanvas/` to `builders/templates/quiz/arjs/` and `builders/templates/mmoomm/playcanvas/` for improved template reusability. Fixed all import paths, achieved zero TypeScript errors, and updated documentation with synchronized README files (506 lines each).

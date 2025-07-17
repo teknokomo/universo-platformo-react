@@ -168,7 +168,7 @@ ${libraryScripts}
             case 'playcanvas':
                 return sourceType === 'kiberplano'
                     ? `/playcanvas/${version}/playcanvas.min.js`
-                    : `${baseUrls.official.playcanvas}/playcanvas-${version}.js`
+                    : `https://cdn.jsdelivr.net/npm/playcanvas@${version}/build/playcanvas.min.js`
 
             default:
                 console.warn(`[AbstractTemplateBuilder] Unknown library: ${libraryName}`)

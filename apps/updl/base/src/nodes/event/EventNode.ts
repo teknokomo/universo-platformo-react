@@ -32,7 +32,13 @@ export class EventNode extends BaseUPDLNode {
                         { label: 'On Start', name: 'onStart', description: 'Triggers when the scene/entity loads' },
                         { label: 'On Click', name: 'onClick', description: 'Triggers on mouse click' },
                         { label: 'On Collision Start', name: 'onCollisionStart', description: 'Triggers on collision enter' },
-                        { label: 'On Timer', name: 'onTimer', description: 'Triggers after a delay' }
+                        { label: 'On Timer', name: 'onTimer', description: 'Triggers after a delay' },
+                        // Universo Platformo | Space MMO events
+                        { label: 'On Mining Complete', name: 'onMiningComplete', description: 'Triggers when mining is finished' },
+                        { label: 'On Trade Interaction', name: 'onTradeInteraction', description: 'Triggers when player interacts with trading station' },
+                        { label: 'On Portal Enter', name: 'onPortalEnter', description: 'Triggers when entering a portal' },
+                        { label: 'On Proximity', name: 'onProximity', description: 'Triggers when entities are within range' },
+                        { label: 'On Inventory Full', name: 'onInventoryFull', description: 'Triggers when inventory reaches capacity' }
                     ],
                     default: 'onStart'
                 },

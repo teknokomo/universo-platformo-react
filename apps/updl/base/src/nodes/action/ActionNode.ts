@@ -24,7 +24,15 @@ export class ActionNode extends BaseUPDLNode {
                         { label: 'Shoot', name: 'shoot' },
                         { label: 'SetData', name: 'setData' },
                         { label: 'LoadSpace', name: 'loadSpace' },
-                        { label: 'Destroy', name: 'destroy' }
+                        { label: 'Destroy', name: 'destroy' },
+                        // Universo Platformo | Space MMO actions
+                        { label: 'Mine', name: 'mine' },
+                        { label: 'Trade', name: 'trade' },
+                        { label: 'Travel', name: 'travel' },
+                        { label: 'Dock', name: 'dock' },
+                        { label: 'Undock', name: 'undock' },
+                        { label: 'AddToInventory', name: 'addToInventory' },
+                        { label: 'RemoveFromInventory', name: 'removeFromInventory' }
                     ],
                     default: 'move',
                     additionalParams: true
@@ -102,6 +110,56 @@ export class ActionNode extends BaseUPDLNode {
                     },
                     additionalParams: true,
                     optional: true
+                },
+
+                // Universo Platformo | Parameters for Space MMO actions
+                {
+                    name: 'resourceType',
+                    label: 'Resource Type',
+                    type: 'string',
+                    description: 'Type of resource to mine or trade',
+                    placeholder: 'asteroidMass, ore, fuel',
+                    show: {
+                        'inputs.actionType': ['mine', 'trade', 'addToInventory', 'removeFromInventory']
+                    },
+                    additionalParams: true,
+                    optional: true
+                },
+                {
+                    name: 'amount',
+                    label: 'Amount',
+                    type: 'number',
+                    description: 'Amount of resource or currency',
+                    default: 1,
+                    show: {
+                        'inputs.actionType': ['mine', 'trade', 'addToInventory', 'removeFromInventory']
+                    },
+                    additionalParams: true,
+                    optional: true
+                },
+                {
+                    name: 'targetWorldId',
+                    label: 'Target World ID',
+                    type: 'string',
+                    description: 'ID of the target world for travel',
+                    placeholder: 'kubio, konkordo, triumfo',
+                    show: {
+                        'inputs.actionType': ['travel']
+                    },
+                    additionalParams: true,
+                    optional: true
+                },
+                {
+                    name: 'stationId',
+                    label: 'Station ID',
+                    type: 'string',
+                    description: 'ID of the station for docking',
+                    placeholder: 'station_espero, station_alpha',
+                    show: {
+                        'inputs.actionType': ['dock', 'undock']
+                    },
+                    additionalParams: true,
+                    optional: true
                 }
 
                 // No parameters needed for Shoot or Destroy, they are contextual
@@ -117,6 +175,12 @@ export class ActionNode extends BaseUPDLNode {
         const dataKey = (nodeData.inputs?.dataKey as string) || ''
         const dataValue = (nodeData.inputs?.dataValue as string) || ''
         const spaceId = (nodeData.inputs?.spaceId as string) || ''
+
+        // Universo Platformo | Space MMO action parameters
+        const resourceType = (nodeData.inputs?.resourceType as string) || ''
+        const amount = Number(nodeData.inputs?.amount) || 1
+        const targetWorldId = (nodeData.inputs?.targetWorldId as string) || ''
+        const stationId = (nodeData.inputs?.stationId as string) || ''
 
         let vector = {}
         try {
@@ -136,7 +200,12 @@ export class ActionNode extends BaseUPDLNode {
                     duration,
                     dataKey,
                     dataValue,
-                    spaceId
+                    spaceId,
+                    // Space MMO parameters
+                    resourceType,
+                    amount,
+                    targetWorldId,
+                    stationId
                 }
             }
         }

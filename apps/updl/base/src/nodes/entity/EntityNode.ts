@@ -33,9 +33,20 @@ export class EntityNode extends BaseUPDLNode {
                 // Entity configuration fields
                 {
                     name: 'entityType',
-                    type: 'string',
+                    type: 'options',
                     label: 'Entity Type',
-                    description: 'Semantic type for the export template (e.g., Ship, Asteroid, Station)',
+                    description: 'Semantic type for the export template',
+                    options: [
+                        { label: 'Static Object', name: 'StaticObject' },
+                        { label: 'Player', name: 'player' },
+                        { label: 'Interactive', name: 'interactive' },
+                        { label: 'Vehicle', name: 'vehicle' },
+                        // Universo Platformo | Space MMO entity types
+                        { label: 'Ship', name: 'ship' },
+                        { label: 'Station', name: 'station' },
+                        { label: 'Asteroid', name: 'asteroid' },
+                        { label: 'Gate', name: 'gate' }
+                    ],
                     default: 'StaticObject'
                 },
                 {
