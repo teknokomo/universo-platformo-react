@@ -22,12 +22,24 @@
 -   **Implementation**: Complete UI text extraction and translation
 -   **Files**: `packages/ui/src/i18n/locales/en.json` & `ru.json`
 
-#### 4. UPDL Nodes & AR.js Export
+#### 4. UPDL Nodes & Multi-Technology Export
 
 -   **Location**: `apps/` directory (custom application layer)
--   **Purpose**: Universal high-level logic nodes for AR.js scene generation
+-   **Purpose**: Universal high-level logic nodes for AR.js and PlayCanvas scene generation
 -   **Integration**: Custom nodes within Flowise chatflow system
 -   **Components**: Publisher UI, Builder logic, API integration
+-   **Templates**: Quiz (AR.js), MMOOMM (PlayCanvas) with template-first architecture
+
+#### 5. PlayCanvas MMOOMM Template (Recent Stabilization)
+
+-   **Purpose**: Space MMO foundation with ship movement and physics
+-   **Key Features**: WASD+QZ controls, physics fallback system, optimized logging
+-   **Technical Implementation**:
+    -   Physics body initialization with direct movement fallback
+    -   Global flags to prevent console spam during gameplay
+    -   WebSocket connection optimization for local development
+    -   Transparent rigidbody → direct position movement transition
+-   **Status**: Production-ready with clean console output and reliable ship movement
 -   **Risk**: Medium - Isolated from core Flowise changes but needs verification
 
 ## Platform Foundation

@@ -46,17 +46,20 @@ window.UniversoGateway = {
     isConnected: false,
     reconnectAttempts: 0,
     maxReconnectAttempts: 5,
+    connectionErrorLogged: false,
     
     // Initialize connection to Universo network
     connect() {
-        console.log('[Universo Gateway] Connecting to Kiberplano:', this.endpoint);
-        
+        // Only log first connection attempt
+        if (this.reconnectAttempts === 0) {
+            console.log('[Universo Gateway] Connecting to Kiberplano:', this.endpoint);
+        }
+
         if (this.protocol === 'websocket') {
             this.connectWebSocket();
         }
-        
-        // Auto-subscribe to configured topics
-        this.subscribeToTopics();
+
+        // Note: subscribeToTopics() will be called after successful connection
     },
     
     connectWebSocket() {
@@ -64,7 +67,11 @@ window.UniversoGateway = {
             this.ws = new WebSocket(this.endpoint);
             this.setupWebSocketHandlers();
         } catch (error) {
-            console.error('[Universo Gateway] Connection failed:', error);
+            // Only log error once for local development
+            if (!this.connectionErrorLogged) {
+                console.warn('[Universo Gateway] Connection failed (local development mode):', error.message);
+                this.connectionErrorLogged = true;
+            }
             this.handleReconnect();
         }
     },
@@ -74,7 +81,7 @@ window.UniversoGateway = {
             console.log('[Universo Gateway] Connected to Kiberplano network');
             this.isConnected = true;
             this.reconnectAttempts = 0;
-            
+
             // Send authentication if token provided
             if (this.authToken) {
                 this.send({
@@ -83,6 +90,9 @@ window.UniversoGateway = {
                     timestamp: Date.now()
                 });
             }
+
+            // Subscribe to topics after successful connection
+            this.subscribeToTopics();
         };
         
         this.ws.onmessage = (event) => {
@@ -95,14 +105,18 @@ window.UniversoGateway = {
         };
         
         this.ws.onclose = () => {
-            console.log('[Universo Gateway] Connection closed');
             this.isConnected = false;
+            // Only log close once for local development
+            if (!this.connectionErrorLogged) {
+                console.log('[Universo Gateway] Connection closed (local development mode)');
+                this.connectionErrorLogged = true;
+            }
             this.handleReconnect();
         };
-        
-        this.ws.onerror = (error) => {
-            console.error('[Universo Gateway] WebSocket error:', error);
+
+        this.ws.onerror = () => {
             this.isConnected = false;
+            // Error logging is handled in connectWebSocket()
         };
     },
     
@@ -110,34 +124,43 @@ window.UniversoGateway = {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = Math.pow(2, this.reconnectAttempts) * 1000; // Exponential backoff
-            
-            console.log(\`[Universo Gateway] Reconnect attempt \${this.reconnectAttempts} in \${delay}ms\`);
-            
+
+            // Only log first few reconnection attempts
+            if (this.reconnectAttempts <= 2) {
+                console.log(\`[Universo Gateway] Reconnect attempt \${this.reconnectAttempts}/\${this.maxReconnectAttempts} in \${delay}ms\`);
+            }
+
             setTimeout(() => {
                 this.connect();
             }, delay);
         } else {
-            console.error('[Universo Gateway] Max reconnection attempts reached');
+            if (!this.connectionErrorLogged) {
+                console.warn('[Universo Gateway] Running in offline mode (local development)');
+                this.connectionErrorLogged = true;
+            }
         }
     },
     
     subscribeToTopics() {
-        this.topics.forEach(topic => {
-            console.log('[Universo Gateway] Subscribing to topic:', topic);
-            this.send({
-                type: 'subscribe',
-                topic: topic,
-                timestamp: Date.now()
+        if (this.isConnected) {
+            // Log subscription summary instead of individual topics
+            console.log(\`[Universo Gateway] Subscribing to \${this.topics.length} topics\`);
+
+            this.topics.forEach(topic => {
+                this.send({
+                    type: 'subscribe',
+                    topic: topic,
+                    timestamp: Date.now()
+                });
             });
-        });
+        }
     },
     
     send(data) {
         if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(data));
-        } else {
-            console.warn('[Universo Gateway] Cannot send - not connected:', data);
         }
+        // Note: Connection warnings are handled elsewhere to avoid spam
     },
     
     handleMessage(data) {

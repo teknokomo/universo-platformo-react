@@ -37,6 +37,19 @@
 -   **Space** accepts: Entities, Universo, legacy nodes
 -   **Universo** connects to Space for global context
 
+### Template-Specific Implementation Patterns
+
+#### PlayCanvas MMOOMM Template Patterns
+
+**Physics Fallback Pattern:**
+
+```typescript
+// Graceful degradation from physics to direct movement
+if (!entity.rigidbody.body) {
+    this.moveDirectly(direction) // Fallback method
+}
+```
+
 ### Common UPDL Patterns
 
 **High-Level Node Patterns:**

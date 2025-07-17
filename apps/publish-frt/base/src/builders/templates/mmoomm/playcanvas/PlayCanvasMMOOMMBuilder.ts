@@ -116,7 +116,28 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             '// Start PlayCanvas application',
             'app.start();',
             '',
-            '// Initialize MMO systems',
+            '// Initialize MMO systems after app starts',
+            'console.log("[MMOOMM] Setting up app start event listener");',
+            'app.on("start", () => {',
+            '    console.log("[MMOOMM] App start event fired");',
+            '    if (typeof initializeSpaceControls === "function") {',
+            '        console.log("[MMOOMM] Calling initializeSpaceControls");',
+            '        initializeSpaceControls();',
+            '    } else {',
+            '        console.log("[MMOOMM] initializeSpaceControls not found");',
+            '    }',
+            '    if (typeof startHUDUpdates === "function") startHUDUpdates();',
+            '});',
+            '',
+            '// Also try to initialize immediately after a delay',
+            'setTimeout(() => {',
+            '    console.log("[MMOOMM] Timeout initialization attempt");',
+            '    if (typeof initializeSpaceControls === "function") {',
+            '        console.log("[MMOOMM] Calling initializeSpaceControls from timeout");',
+            '        initializeSpaceControls();',
+            '    }',
+            '}, 1000);',
+            '',
             'console.log("[MMOOMM] Virtual world initialized - ready for players");'
         ].join('\n')
 
@@ -174,6 +195,29 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             universoScript,
             '',
             'app.start();',
+            '',
+            '// Initialize MMO systems after app starts',
+            'console.log("[MMOOMM] Setting up app start event listener");',
+            'app.on("start", () => {',
+            '    console.log("[MMOOMM] App start event fired");',
+            '    if (typeof initializeSpaceControls === "function") {',
+            '        console.log("[MMOOMM] Calling initializeSpaceControls");',
+            '        initializeSpaceControls();',
+            '    } else {',
+            '        console.log("[MMOOMM] initializeSpaceControls not found");',
+            '    }',
+            '    if (typeof startHUDUpdates === "function") startHUDUpdates();',
+            '});',
+            '',
+            '// Also try to initialize immediately after a delay',
+            'setTimeout(() => {',
+            '    console.log("[MMOOMM] Timeout initialization attempt");',
+            '    if (typeof initializeSpaceControls === "function") {',
+            '        console.log("[MMOOMM] Calling initializeSpaceControls from timeout");',
+            '        initializeSpaceControls();',
+            '    }',
+            '}, 1000);',
+            '',
             'console.log("[MMOOMM] Multi-scene virtual world initialized");'
         ].join('\n')
 
@@ -194,35 +238,56 @@ const app = new pc.Application(canvas, {
     elementInput: new pc.ElementInput(canvas)
 });
 
+// Enable physics system
+console.log('[MMOOMM] Enabling physics system...');
+if (app.systems.rigidbody) {
+    app.systems.rigidbody.enabled = true;
+    // Universo Platformo | Space physics setup - no gravity for space environment
+    app.systems.rigidbody.gravity.set(0, 0, 0);
+    console.log('[MMOOMM] Physics system enabled with zero gravity for space');
+} else {
+    console.error('[MMOOMM] Physics system not found!');
+}
+
 // Configure application for MMO
 app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
 app.setCanvasResolution(pc.RESOLUTION_AUTO);
 window.addEventListener('resize', () => app.resizeCanvas());
-
-// Physics world setup for MMO interactions
-app.systems.rigidbody.gravity.set(0, -9.81, 0);
 
 // Basic lighting for the MMO world
 const ambientLight = new pc.Entity('ambient');
 ambientLight.addComponent('light', {
     type: pc.LIGHTTYPE_DIRECTIONAL,
     color: new pc.Color(1, 1, 1),
-    intensity: 0.8
+    intensity: 1.2 // Increased intensity for better visibility
 });
 ambientLight.setLocalEulerAngles(45, 30, 0);
 app.root.addChild(ambientLight);
 
-// Default camera setup
+// Add additional ambient light for space environment
+const spaceAmbient = new pc.Entity('space-ambient');
+spaceAmbient.addComponent('light', {
+    type: pc.LIGHTTYPE_DIRECTIONAL,
+    color: new pc.Color(0.8, 0.9, 1), // Slightly blue tint
+    intensity: 0.6
+});
+spaceAmbient.setLocalEulerAngles(-45, -30, 0); // Opposite direction
+app.root.addChild(spaceAmbient);
+
+// Universo Platformo | Space camera setup
 const camera = new pc.Entity('camera');
 camera.addComponent('camera', {
-    clearColor: new pc.Color(0.2, 0.4, 0.6), // Sky blue
-    fov: 60,
+    clearColor: new pc.Color(0.02, 0.02, 0.1), // Deep space black-blue
+    fov: 75, // Wider field of view for space
     nearClip: 0.1,
-    farClip: 1000
+    farClip: 5000 // Much larger far clip for space
 });
-camera.setLocalPosition(0, 5, 10);
+camera.setLocalPosition(0, 15, 25); // Higher and further back for space view
 camera.lookAt(0, 0, 0);
 app.root.addChild(camera);
+
+// Store camera reference for ship following
+window.spaceCamera = camera;
 
 // Make app globally available
 window.app = app;
@@ -281,17 +346,101 @@ ${libraryScripts}
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        #mmo-ui {
+
+        /* Universo Platformo | Space MMO UI System */
+        #space-hud {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
             color: white;
             font-size: 14px;
-            z-index: 1000;
-            background: rgba(0,0,0,0.7);
+        }
+
+        .hud-panel {
+            position: absolute;
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid rgba(0, 150, 255, 0.5);
+            border-radius: 5px;
+            padding: 10px;
+            pointer-events: auto;
+        }
+
+        #ship-status {
+            top: 10px;
+            left: 10px;
+            min-width: 200px;
+        }
+
+        #inventory-panel {
+            top: 10px;
+            right: 10px;
+            min-width: 180px;
+        }
+
+        #trading-panel {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 300px;
+            display: none;
+        }
+
+        #mini-map {
+            bottom: 10px;
+            right: 10px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 150, 255, 0.5);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);
+            transition: width 0.3s ease;
+        }
+
+        .currency {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .item-list {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 5px;
+        }
+
+        .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
             padding: 10px;
             border-radius: 5px;
+            font-size: 12px;
         }
+
         #application-canvas {
             width: 100%;
             height: 100%;
@@ -300,14 +449,458 @@ ${libraryScripts}
     </style>
 </head>
 <body>
-    <div id="mmo-ui">
-        <div>MMOOMM Virtual World</div>
-        <div id="player-count">Players: 0</div>
-        <div id="connection-status">Status: Connecting...</div>
+    <!-- Universo Platformo | Space MMO HUD System -->
+    <div id="space-hud">
+        <!-- Ship Status Panel -->
+        <div id="ship-status" class="hud-panel">
+            <div><strong>Ship Status</strong></div>
+            <div>Hull: <span id="ship-hull">100%</span></div>
+            <div class="progress-bar">
+                <div id="hull-bar" class="progress-fill" style="width: 100%"></div>
+            </div>
+            <div>Fuel: <span id="ship-fuel">100%</span></div>
+            <div class="progress-bar">
+                <div id="fuel-bar" class="progress-fill" style="width: 100%"></div>
+            </div>
+            <div>Currency: <span id="ship-currency" class="currency">0 Inmo</span></div>
+            <div>World: <span id="current-world">Kubio</span></div>
+        </div>
+
+        <!-- Inventory Panel -->
+        <div id="inventory-panel" class="hud-panel">
+            <div><strong>Cargo Hold</strong></div>
+            <div>Capacity: <span id="cargo-capacity">0/20 m³</span></div>
+            <div class="progress-bar">
+                <div id="cargo-bar" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="item-list" id="cargo-items">
+                <div class="item">
+                    <span>Empty</span>
+                    <span>-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Panel (hidden by default) -->
+        <div id="trading-panel" class="hud-panel">
+            <div><strong>Trading Station</strong></div>
+            <div id="station-name">Station Espero</div>
+            <div>Price: <span id="trade-price">10 Inmo/ton</span></div>
+            <div>
+                <button id="trade-all-btn" onclick="tradeAll()">Trade All</button>
+                <button id="trade-half-btn" onclick="tradeHalf()">Trade Half</button>
+                <button id="close-trade-btn" onclick="closeTrade()">Close</button>
+            </div>
+        </div>
+
+        <!-- Mini Map -->
+        <div id="mini-map" class="hud-panel">
+            <canvas id="mini-map-canvas" width="130" height="130"></canvas>
+        </div>
+
+        <!-- Controls Hint -->
+        <div class="controls-hint">
+            <div><strong>Controls:</strong></div>
+            <div>WASD - Move Ship</div>
+            <div>Space - Fire Weapon</div>
+            <div>E - Interact/Trade</div>
+            <div>M - Toggle Map</div>
+        </div>
     </div>
+
     <canvas id="application-canvas"></canvas>
     
     <script>
+        // Universo Platformo | Space MMO HUD System
+        window.SpaceHUD = {
+            // Update ship status display
+            updateShipStatus(ship) {
+                if (!ship) return;
+
+                // Update currency
+                const currency = ship.currency || 0;
+                document.getElementById('ship-currency').textContent = currency + ' Inmo';
+
+                // Update inventory
+                if (ship.inventory) {
+                    const capacity = ship.inventory.getCapacityInfo();
+                    document.getElementById('cargo-capacity').textContent =
+                        capacity.current.toFixed(1) + '/' + capacity.max + ' m³';
+                    document.getElementById('cargo-bar').style.width = capacity.percentage + '%';
+
+                    // Update item list
+                    const itemsContainer = document.getElementById('cargo-items');
+                    const items = ship.inventory.getItemList();
+
+                    if (items.length === 0) {
+                        itemsContainer.innerHTML = '<div class="item"><span>Empty</span><span>-</span></div>';
+                    } else {
+                        itemsContainer.innerHTML = items.map(item =>
+                            '<div class="item"><span>' + item.type + '</span><span>' + item.amount.toFixed(1) + '</span></div>'
+                        ).join('');
+                    }
+                }
+            },
+
+            // Show trading panel
+            showTradingPanel(stationInfo) {
+                const panel = document.getElementById('trading-panel');
+                panel.style.display = 'block';
+
+                document.getElementById('station-name').textContent = stationInfo.stationName || 'Trading Station';
+                document.getElementById('trade-price').textContent = (stationInfo.pricePerTon || 10) + ' Inmo/ton';
+            },
+
+            // Hide trading panel
+            hideTradingPanel() {
+                document.getElementById('trading-panel').style.display = 'none';
+            },
+
+            // Update mini map
+            updateMiniMap(entities) {
+                const canvas = document.getElementById('mini-map-canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Clear canvas
+                ctx.fillStyle = 'rgba(0, 0, 20, 1)';
+                ctx.fillRect(0, 0, 130, 130);
+
+                // Draw grid
+                ctx.strokeStyle = 'rgba(0, 150, 255, 0.3)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 130; i += 26) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, 130);
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(130, i);
+                    ctx.stroke();
+                }
+
+                // Draw entities
+                if (window.MMOEntities) {
+                    window.MMOEntities.forEach((entity, id) => {
+                        const pos = entity.getPosition();
+                        const x = 65 + pos.x * 2; // Scale and center
+                        const y = 65 + pos.z * 2;
+
+                        if (x >= 0 && x <= 130 && y >= 0 && y <= 130) {
+                            if (entity.shipController) {
+                                // Player ship - green
+                                ctx.fillStyle = '#00ff00';
+                                ctx.fillRect(x-2, y-2, 4, 4);
+                            } else if (entity.tradingPost) {
+                                // Station - blue
+                                ctx.fillStyle = '#0080ff';
+                                ctx.fillRect(x-3, y-3, 6, 6);
+                            } else if (entity.mineable) {
+                                // Asteroid - gray
+                                ctx.fillStyle = '#888888';
+                                ctx.fillRect(x-1, y-1, 2, 2);
+                            } else if (entity.portal) {
+                                // Gate - yellow
+                                ctx.fillStyle = '#ffff00';
+                                ctx.fillRect(x-2, y-2, 4, 4);
+                            }
+                        }
+                    });
+                }
+            },
+
+            // Update world name
+            updateWorld(worldName) {
+                document.getElementById('current-world').textContent = worldName || 'Unknown';
+                window.currentWorld = worldName;
+            }
+        };
+
+        // Trading functions
+        function tradeAll() {
+            const ship = window.playerShip;
+            const station = ship?.nearStation;
+
+            if (ship && station && ship.inventory) {
+                const items = ship.inventory.getItemList();
+                items.forEach(item => {
+                    if (item.type === 'asteroidMass') {
+                        station.tradingPost.trade(ship, item.type, item.amount);
+                    }
+                });
+                window.SpaceHUD.updateShipStatus(ship);
+            }
+        }
+
+        function tradeHalf() {
+            const ship = window.playerShip;
+            const station = ship?.nearStation;
+
+            if (ship && station && ship.inventory && ship.inventory.items.asteroidMass) {
+                const amount = ship.inventory.items.asteroidMass / 2;
+                station.tradingPost.trade(ship, 'asteroidMass', amount);
+                window.SpaceHUD.updateShipStatus(ship);
+            }
+        }
+
+        function closeTrade() {
+            window.SpaceHUD.hideTradingPanel();
+        }
+
+        // Universo Platformo | Space ship controls and camera system
+        window.SpaceControls = {
+            keys: {},
+
+            // Initialize input handling
+            init() {
+                console.log('[SpaceControls] Initializing input handling...');
+
+                // Keyboard input
+                window.addEventListener('keydown', (e) => {
+                    this.keys[e.code] = true;
+
+                    // Handle special keys
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        this.fireWeapon();
+                    } else if (e.code === 'KeyE') {
+                        this.interact();
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    this.keys[e.code] = false;
+                });
+
+                // Update loop
+                app.on('update', (dt) => {
+                    this.updateShipMovement(dt);
+                    this.updateCamera(dt);
+                });
+
+                console.log('[SpaceControls] Input handling initialized successfully');
+            },
+
+            // Update ship movement based on input
+            updateShipMovement(dt) {
+                const ship = window.playerShip;
+                if (!ship || !ship.shipController) {
+                    return;
+                }
+
+                const controller = ship.shipController;
+                let thrust = new pc.Vec3();
+                let rotation = new pc.Vec3();
+                let hasInput = false;
+
+                // Movement controls (WASD)
+                if (this.keys['KeyW']) { thrust.z -= 1; hasInput = true; } // Forward
+                if (this.keys['KeyS']) { thrust.z += 1; hasInput = true; } // Backward
+                if (this.keys['KeyA']) { thrust.x -= 1; hasInput = true; } // Left
+                if (this.keys['KeyD']) { thrust.x += 1; hasInput = true; } // Right
+                if (this.keys['KeyQ']) { thrust.y += 1; hasInput = true; } // Up
+                if (this.keys['KeyZ']) { thrust.y -= 1; hasInput = true; } // Down
+
+                // Rotation controls (Arrow keys)
+                if (this.keys['ArrowUp']) { rotation.x -= 1; hasInput = true; }
+                if (this.keys['ArrowDown']) { rotation.x += 1; hasInput = true; }
+                if (this.keys['ArrowLeft']) { rotation.y -= 1; hasInput = true; }
+                if (this.keys['ArrowRight']) { rotation.y += 1; hasInput = true; }
+
+                // Movement input detected (logging removed to prevent spam)
+                // Only log occasionally for debugging
+                if (hasInput && Math.random() < 0.001) {
+                    console.log('[SpaceControls] Movement input detected (rare log)');
+                }
+
+                // Apply movement
+                if (thrust.length() > 0) {
+                    thrust.normalize();
+                    // Transform thrust to world space based on ship rotation
+                    const worldThrust = ship.getRotation().transformVector(thrust);
+                    controller.thrust(worldThrust);
+                } else if (hasInput) {
+                    // Only call stopThrust when we had input but no thrust
+                    controller.stopThrust();
+                }
+
+                // Apply rotation
+                if (rotation.length() > 0) {
+                    controller.rotate(rotation, dt);
+                }
+            },
+
+            // Update camera to follow ship
+            updateCamera(dt) {
+                const ship = window.playerShip;
+                const camera = window.spaceCamera;
+
+                if (!ship || !camera) return;
+
+                // Camera follows ship with smooth interpolation
+                const shipPos = ship.getPosition();
+                const targetPos = shipPos.clone().add(new pc.Vec3(0, 15, 25));
+                const currentPos = camera.getPosition();
+
+                // Smooth camera movement
+                const lerpFactor = 2 * dt; // Adjust for smoothness
+                const newPos = currentPos.lerp(currentPos, targetPos, lerpFactor);
+                camera.setPosition(newPos);
+
+                // Camera looks at ship
+                camera.lookAt(shipPos);
+            },
+
+            // Fire weapon
+            fireWeapon() {
+                const ship = window.playerShip;
+                if (ship && ship.weaponSystem) {
+                    const forward = ship.forward.clone();
+                    ship.weaponSystem.fire(forward);
+                }
+            },
+
+            // Interact with nearby objects
+            interact() {
+                const ship = window.playerShip;
+                if (ship && ship.nearStation) {
+                    // Show trading panel
+                    const tradingInfo = ship.nearStation.tradingPost.getTradingInfo();
+                    window.SpaceHUD.showTradingPanel(tradingInfo);
+                }
+            }
+        };
+
+        // Initialize physics for all entities after they are added to scene
+        function initializePhysics() {
+            console.log('[Space] Initializing physics for all entities...');
+
+            if (!window.MMOEntities) {
+                console.warn('[Space] No MMOEntities found');
+                return;
+            }
+
+            // Check physics system state
+            if (app && app.systems && app.systems.rigidbody) {
+                console.log('[Space] Physics system state:', {
+                    enabled: app.systems.rigidbody.enabled,
+                    gravity: app.systems.rigidbody.gravity,
+                    hasWorld: !!app.systems.rigidbody.dynamicsWorld
+                });
+            } else {
+                console.error('[Space] Physics system not available!');
+                return;
+            }
+
+            let successCount = 0;
+            let totalCount = 0;
+
+            window.MMOEntities.forEach((entity, id) => {
+                if (entity.rigidbody) {
+                    totalCount++;
+                    console.log('[Space] Initializing physics for entity:', id);
+
+                    // Detailed component check
+                    console.log('[Space] Entity components:', {
+                        hasCollision: !!entity.collision,
+                        hasRigidbody: !!entity.rigidbody,
+                        rigidbodyEnabled: entity.rigidbody.enabled,
+                        hasParent: !!entity.parent,
+                        inScene: !!entity.root
+                    });
+
+                    // Ensure collision component exists first
+                    if (!entity.collision) {
+                        console.error('[Space] Entity', id, 'missing collision component');
+                        return;
+                    }
+
+                    // Try multiple activation methods
+                    try {
+                        // Method 1: Simple enable
+                        entity.rigidbody.enabled = true;
+
+                        // Method 2: Manual body creation (if method exists)
+                        if (!entity.rigidbody.body && typeof entity.rigidbody._createBody === 'function') {
+                            entity.rigidbody._createBody();
+                        }
+
+                        // Method 3: Force add to world (if world exists and body was created)
+                        if (entity.rigidbody.body && app.systems.rigidbody.dynamicsWorld) {
+                            try {
+                                app.systems.rigidbody.dynamicsWorld.addRigidBody(entity.rigidbody.body);
+                            } catch (e) {
+                                // Body might already be in world, this is normal
+                            }
+                        }
+
+                    } catch (error) {
+                        console.error('[Space] Error during physics initialization:', error);
+                    }
+
+                    if (entity.rigidbody.body) {
+                        successCount++;
+                        console.log('[Space] Physics body created for', id);
+                    } else {
+                        console.error('[Space] Failed to create physics body for', id, 'after all attempts');
+                    }
+                }
+            });
+
+            console.log('[Space] Physics initialization complete:', successCount, '/', totalCount, 'entities');
+
+            // If no physics bodies were created, suggest fallback
+            if (successCount === 0 && totalCount > 0) {
+                console.warn('[Space] No physics bodies created - entities will use direct movement fallback');
+            }
+        }
+
+        // Initialize controls when app starts (moved after app.start())
+        function initializeSpaceControls() {
+            console.log('[Space] Initializing SpaceControls...');
+
+            // Check if SpaceControls exists
+            if (!window.SpaceControls) {
+                console.error('[Space] SpaceControls not found!');
+                return;
+            }
+
+            console.log('[Space] SpaceControls found, calling init()');
+            window.SpaceControls.init();
+            console.log('[Space] SpaceControls.init() completed');
+
+            // Find player ship
+            console.log('[Space] Looking for player ship...');
+
+            if (window.MMOEntities) {
+                window.MMOEntities.forEach((entity, id) => {
+                    if (entity.shipController) {
+                        window.playerShip = entity;
+                        console.log('[Space] Player ship found:', id);
+                    }
+                });
+            }
+
+            if (!window.playerShip) {
+                console.warn('[Space] No player ship found! Check entity creation.');
+            } else {
+                console.log('[Space] Player ship successfully assigned');
+            }
+
+            // Initialize physics after a short delay to ensure scene is fully loaded
+            setTimeout(() => {
+                initializePhysics();
+            }, 500);
+        }
+
+        // Update HUD every second (moved after app.start())
+        function startHUDUpdates() {
+            setInterval(() => {
+                if (window.playerShip) {
+                    window.SpaceHUD.updateShipStatus(window.playerShip);
+                    window.SpaceHUD.updateMiniMap();
+                }
+            }, 1000);
+        }
+
         ${sceneScript}
     </script>
 </body>
