@@ -63,13 +63,13 @@ apps/publish-frt/base/
    │  │        ├─ PlayCanvasMMOOMMBuilder.ts # MMOOMM template implementation
    │  │        ├─ config.ts                  # MMOOMM template configuration
    │  │        ├─ handlers/                  # UPDL node processors for MMOOMM
-   │  │        │  ├─ ActionHandler.ts        # Action node processing
-   │  │        │  ├─ ComponentHandler.ts     # Component node processing
-   │  │        │  ├─ DataHandler.ts          # Data node processing
-   │  │        │  ├─ EntityHandler.ts        # Entity node processing
-   │  │        │  ├─ EventHandler.ts         # Event node processing
-   │  │        │  ├─ SpaceHandler.ts         # Space node processing
-   │  │        │  ├─ UniversoHandler.ts      # Universo node processing
+   │  │        │  ├─ ActionHandler/          # Action handling module
+   │  │        │  ├─ ComponentHandler/       # Component handling (components/, attachments/)
+   │  │        │  ├─ DataHandler/            # Data handling module
+   │  │        │  ├─ EntityHandler/          # Entity handling (entityTypes/)
+   │  │        │  ├─ EventHandler/           # Event handling module
+   │  │        │  ├─ SpaceHandler/           # Space handling module
+   │  │        │  ├─ UniversoHandler/        # Universo handling module
    │  │        │  └─ index.ts                # Handlers export
    │  │        ├─ scripts/                   # PlayCanvas scripts system
    │  │        │  ├─ BaseScript.ts           # Abstract base class for scripts

@@ -58,21 +58,21 @@ apps/publish-frt/base/
    │  │  │     │  └─ SimpleValidator.ts  # Утилиты валидации
    │  │  │     └─ index.ts               # Экспорт Quiz AR.js
    │  │  └─ mmoomm/        # Шаблон MMOOMM для MMO игр
-   │  │     └─ playcanvas/ # PlayCanvas реализация шаблона MMOOMM
+   │  │     └─ playcanvas/ # Реализация шаблона MMOOMM на PlayCanvas
    │  │        ├─ PlayCanvasBuilder.ts       # Высокоуровневый PlayCanvas билдер
    │  │        ├─ PlayCanvasMMOOMMBuilder.ts # Реализация шаблона MMOOMM
    │  │        ├─ config.ts                  # Конфигурация шаблона MMOOMM
    │  │        ├─ handlers/                  # Процессоры узлов UPDL для MMOOMM
-   │  │        │  ├─ ActionHandler.ts        # Обработка узлов Action
-   │  │        │  ├─ ComponentHandler.ts     # Обработка узлов Component
-   │  │        │  ├─ DataHandler.ts          # Обработка узлов Data
-   │  │        │  ├─ EntityHandler.ts        # Обработка узлов Entity
-   │  │        │  ├─ EventHandler.ts         # Обработка узлов Event
-   │  │        │  ├─ SpaceHandler.ts         # Обработка узлов Space
-   │  │        │  ├─ UniversoHandler.ts      # Обработка узлов Universo
+   │  │        │  ├─ ActionHandler/          # Модуль обработки Action
+   │  │        │  ├─ ComponentHandler/       # Обработка Component (components/, attachments/)
+   │  │        │  ├─ DataHandler/            # Модуль обработки Data
+   │  │        │  ├─ EntityHandler/          # Обработка Entity (entityTypes/)
+   │  │        │  ├─ EventHandler/           # Модуль обработки Event
+   │  │        │  ├─ SpaceHandler/           # Модуль обработки Space
+   │  │        │  ├─ UniversoHandler/        # Модуль обработки Universo
    │  │        │  └─ index.ts                # Экспорт обработчиков
    │  │        ├─ scripts/                   # Система скриптов PlayCanvas
-   │  │        │  ├─ BaseScript.ts           # Абстрактный базовый класс для скриптов
+   │  │        │  ├─ BaseScript.ts           # Абстрактный базовый класс
    │  │        │  ├─ RotatorScript.ts        # Скрипт анимации поворота
    │  │        │  └─ index.ts                # Экспорт модуля скриптов
    │  │        └─ index.ts                   # Экспорт MMOOMM PlayCanvas
@@ -453,6 +453,8 @@ if (result.multiScene) {
 AR-квизы строятся с использованием цепочки узлов **Space** из UPDL. Каждое пространство может включать узлы **Data** с вопросами. К вопросу может быть подключено несколько узлов **Data** с ответами. Правильные ответы помечаются `isCorrect`, а узлы ответов также могут определять `enablePoints` и `pointsValue` для системы подсчета очков. Каждый узел ответа может быть связан с узлом **Object**, который появляется при выборе ответа.
 
 Пространства могут образовывать последовательность через их соединение `nextSpace` для создания квизов с несколькими вопросами. Пространство без узлов Data может собирать информацию о пользователе (`collectName`, `collectEmail`, `collectPhone`) и сохранять ее в лиды Supabase. Последнее пространство в цепочке может включать `showPoints` для отображения счета участника. В настоящее время этот счет хранится в поле `lead.phone` в качестве временного решения.
+
+Высокоуровневые узлы связаны в цепочку: **Entity** содержит **Components**, компоненты могут генерировать **Events**, а события запускают **Actions**. Эта связь `Entity → Component → Event → Action` описывает интерактивное поведение, которое используется билдерами, например PlayCanvas MMOOMM.
 
 ## Рабочий процесс
 
