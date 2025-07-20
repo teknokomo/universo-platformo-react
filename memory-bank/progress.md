@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-07-15**
+**As of 2025-07-20**
 
 ## Completed (chronological)
 
@@ -27,6 +27,7 @@
 | 0.18.0‑pre‑alpha | 2025‑07‑01 | **Flowise 2.2.8 upgrade**, TypeScript compilation fixes, TypeORM conflicts resolution                               |
 | 0.19.0‑pre‑alpha | 2025‑07‑06 | **High-level UPDL nodes**, PlayCanvas integration, template-first architecture, MMOOMM foundation                   |
 | 0.20.0‑alpha     | 2025‑07‑13 | **Alpha status achieved**, Tools Revolution, complete UPDL system, PlayCanvas rendering, template system            |
+| 0.21.0‑alpha     | 2025‑07‑20 | **Firm Resolve**, Memory Bank optimization, MMOOMM stabilization, handler refactoring, improved ship controls       |
 
 ## Stage 2 Issues & Lessons Learned
 
@@ -71,7 +72,7 @@ apps/
 
 ## Current Status ✅ **ALPHA ACHIEVED**
 
-**Platform Status:** **Alpha v0.20.0** - Production-ready stability achieved (July 2025)
+**Platform Status:** **Alpha v0.21.0** - Production-ready stability achieved (July 2025)
 
 **Core Foundation Completed:**
 
@@ -89,12 +90,6 @@ apps/
 -   **Multi-Technology** → AR.js (production), PlayCanvas (ready), extensible architecture
 -   **Flowise 2.2.8** → Enhanced platform with TypeScript modernization
 
-**Current Focus:**
-
--   Advanced UPDL node functionality and export template development
--   Universo MMOOMM implementation with PlayCanvas
--   Production deployment and user experience optimization
-
 ## UPDL Architecture Simplification ✅
 
 **Key Changes:**
@@ -108,6 +103,33 @@ apps/
 # Progress Log
 
 ## Latest Achievements
+
+### 2025-01-29: High-Level UPDL Node Refactoring Complete ✅
+
+**Major UPDL system enhancement** - Completed comprehensive refactoring of all 7 core abstract nodes with significant architectural improvements:
+
+**Connector Logic Fixed:**
+
+-   Input Connectors: Implemented correct connection logic with proper type definitions
+-   Output Connectors: Fixed critical bug by using Flowise default behavior (empty outputs array)
+
+**Architecture Unified:**
+
+-   BaseUPDLNode.ts: Extracted connector types into CONNECTABLE_TYPES constant
+-   ActionNode.ts: Redesigned with internal configuration fields instead of input connectors
+-   UniversoNode.ts: Simplified by removing all input connectors
+
+**Visual Identity Enhanced:**
+
+-   All 7 core nodes received unique SVG icons (Space: 3D cube, Entity: person silhouette, Component: modular block, Event: lightning bolt, Action: gear, Data: database cylinder, Universo: globe with network lines)
+-   Improved visual navigation and user experience
+
+**System Benefits:**
+
+-   All nodes connect correctly and logically on canvas
+-   Simplified Action node configuration
+-   Enhanced code maintainability through type centralization
+-   Ready for PlayCanvas export template development
 
 ### 2025-01-27: MMOOMM Template Ship Movement & Console Optimization ✅
 
@@ -139,31 +161,66 @@ apps/
 
 **Major refactor finalized** - Implemented fully modular template architecture (`AbstractTemplateBuilder`, `TemplateRegistry`, updated `ARJSBuilder`). Added `ARJSQuizBuilder` as first concrete template. English and Russian READMEs synchronized line-by-line.
 
+### 2025-07-20: Release 0.21.0-alpha "Firm Resolve" ✅
+
+**Major platform improvements** - Released version 0.21.0-alpha with significant enhancements to memory bank system, MMOOMM template stabilization, and handler architecture refactoring:
+
+**Memory Bank System Optimization:**
+
+-   Comprehensive refactoring of all memory bank files to comply with new guidelines
+-   Improved file structure with clear separation of concerns and cross-references
+-   Enhanced maintainability and AI context understanding
+
+**MMOOMM Template Stabilization:**
+
+-   Fixed ship movement and logging issues in PlayCanvas MMOOMM template
+-   Improved ship controls with better physics handling
+-   Optimized console output for cleaner development experience
+
+**Handler Architecture Refactoring:**
+
+-   Refactored ComponentHandler into modular files for better organization
+-   Restructured EntityHandler logic modules for improved maintainability
+-   Updated Quiz Template Handlers structure for consistency
+-   Enhanced handler exports for refactored directory structure
+
+**Documentation Updates:**
+
+-   Updated publish-frt documentation for new handler folder structure
+-   Maintained comprehensive technical documentation across all changes
+
+**System Benefits:**
+
+-   Improved code organization and maintainability
+-   Enhanced developer experience with cleaner console output
+-   Better separation of concerns in handler architecture
+-   Preserved all existing functionality while improving structure
+
 ## Future Roadmap
 
-### **✅ 0.18.0-pre-alpha: Platform Stabilization (COMPLETED)**
+### **Next: Post-Alpha Development (v0.22.0+)**
 
--   ✅ Flowise 2.2.8 upgrade with enhanced ASSISTANT support
--   ✅ TypeScript compilation fixes and TypeORM conflicts resolution
--   ✅ Enhanced platform stability and compatibility
+**Advanced UPDL Features:**
 
-### **✅ 0.19.0-pre-alpha: Advanced UPDL Development (COMPLETED)**
+-   Physics Node: Implement physics simulation node for complex interactions
+-   Animation System: Add keyframe animation node for dynamic content
+-   Networking Node: Implement multiplayer networking capabilities
+-   Advanced Scene Management: Multi-scene UPDL projects with complex interactions
 
--   ✅ High-level UPDL node system (Space, Entity, Component, Event, Action, Data, Universo)
--   ✅ PlayCanvas integration with template-first architecture
--   ✅ Universo MMOOMM foundation with PlayCanvasMMOOMMBuilder
--   ✅ Template-based export system for multi-technology support
+**Universo MMOOMM Expansion:**
 
-### **✅ 0.20.0-alpha: Alpha Status Achievement (COMPLETED)**
+-   Full MMO development pipeline with multiplayer features
+-   Advanced game mechanics and territorial control systems
+-   Integration with Kiberplano for real-world implementation
 
--   ✅ Complete UPDL system with 7 core abstract nodes
--   ✅ PlayCanvas rendering and publication system
--   ✅ Template system with quiz and MMOOMM templates
--   ✅ **Alpha status achieved** - production-ready platform
+**Production Deployment:**
 
-### **Next: Post-Alpha Development (v0.21.0+)**
+-   Enterprise-grade hosting and scaling solutions
+-   Performance optimization and monitoring systems
+-   Security enhancements for production environments
 
--   **Advanced UPDL Features**: Physics, Animation, Networking nodes
--   **Universo MMOOMM Expansion**: Full MMO development pipeline
--   **Production Deployment**: Enterprise-grade hosting and scaling
--   **Community Features**: Collaborative editing and template sharing
+**Community Features:**
+
+-   Template sharing and collaboration marketplace
+-   Real-time collaborative editing capabilities
+-   Community-driven template and component library

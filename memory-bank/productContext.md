@@ -78,7 +78,7 @@ By addressing these needs, UPDL will streamline development workflows. Teams can
 -   Publication URL format (`/p/{uuid}`) with iframe-based rendering
 -   Proven scalability with production-ready AR.js and PlayCanvas support
 
-## Current Status: Alpha Achieved (v0.20.0-alpha, July 2025)
+## Current Status: Alpha Achieved (v0.21.0-alpha, July 2025)
 
 **Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
 
@@ -117,3 +117,7 @@ By addressing these needs, UPDL will streamline development workflows. Teams can
 -   Enterprise-grade hosting and scaling solutions
 -   Community features for template sharing and collaboration
 -   Advanced analytics and performance optimization
+
+---
+
+_For detailed timeline of development milestones, see [progress.md](progress.md). For current project status, see [activeContext.md](activeContext.md)._

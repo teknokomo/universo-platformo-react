@@ -1,107 +1,54 @@
 # Current Active Context
 
-## CURRENT PROJECT STATUS: Alpha Achieved (v0.20.0-alpha)
+## Current Project Status
 
-### 🎯 ✅ Completed Milestones (0.18.0-0.20.0)
+**Status**: **Alpha Achieved (v0.21.0-alpha, July 2025)** - Production-ready platform with complete UPDL system
 
-**Status**: **Alpha Status Achieved** - Production-ready platform with complete UPDL system
+**Platform Maturity**: Alpha-grade stability with 6 working applications and complete high-level UPDL node system
 
-1. **✅ Platform Stabilization (0.18.0)** - Flowise 2.2.8 upgrade, TypeScript modernization, enhanced stability
-2. **✅ Advanced UPDL Development (0.19.0)** - High-level UPDL nodes, PlayCanvas integration, template-first architecture
-3. **✅ Alpha Achievement (0.20.0)** - Complete UPDL system, PlayCanvas rendering, production-ready platform
+## Current Focus
 
-### ✅ Recent Key Achievements
+**Post-Alpha Development** - Expanding advanced UPDL features and Universo MMOOMM capabilities:
 
-**Platform Foundation Complete:**
+-   **Advanced UPDL Node Types**: Physics, Animation, Networking nodes for complex interactions
+-   **Universo MMOOMM Expansion**: Full MMO development pipeline with PlayCanvas
+-   **Production Deployment**: Enterprise-grade hosting and scaling solutions
+-   **Community Features**: Template sharing and collaborative development tools
 
--   ✅ **Flowise 2.2.8 Platform Upgrade** - Enhanced ASSISTANT support, preserved user isolation
--   ✅ **Publication System Refactor** - Decoupled frontend/backend, moved UPDL logic to client-side `UPDLProcessor`.
--   ✅ **Profile-SRV Workspace Package** - Converted to `@universo/profile-srv` with clean imports
--   ✅ **Enhanced User Profiles** - Secure email/password updates, nickname system
--   ✅ **Menu Improvements** - Updated navigation and external documentation links
--   ✅ **Export Template System Radical Refactoring** - Successfully completed with zero TypeScript errors, clean architecture
--   ✅ **Template-First Architecture Refactoring** - Migrated from technology-first to template-first structure, enabling template reusability across multiple technologies
+## Recent Status (July 2025)
 
-**High-Level UPDL System Complete:**
+**Release 0.21.0-alpha "Firm Resolve"** - Major improvements completed:
 
--   ✅ **Core Abstract Nodes Implemented** - Space, Entity, Component, Event, Action, Data, Universo nodes fully developed
--   ✅ **PlayCanvas Integration** - PlayCanvasBuilder, PlayCanvasPublicationApi, template-based export system
--   ✅ **Universo MMOOMM Foundation** - PlayCanvasMMOOMMBuilder for MMO development pipeline
--   ✅ **Template Architecture** - Flexible export system supporting multiple target technologies with template-first paradigm
--   ✅ **PlayCanvas UI Bug Fix** - Fixed duplicate settings display in Configuration vs Publication tabs
+-   Memory Bank system optimization with improved file structure and guidelines
+-   MMOOMM template stabilization with enhanced ship controls and physics handling
+-   Handler architecture refactoring for better code organization and maintainability
+-   Documentation updates reflecting new handler folder structure
 
-### 🎯 **CURRENT STATUS: ALPHA ACHIEVED (v0.20.0)**
+## System Architecture
 
-**Major Milestone Achieved (July 2025):**
+**6 Working Applications** (see [productContext.md](productContext.md) for details):
 
--   ✅ **Alpha Status**: Production-ready platform with complete UPDL system
--   ✅ **High-Level UPDL Nodes**: All 7 core abstract nodes fully operational
--   ✅ **Multi-Technology Export**: AR.js (production), PlayCanvas (ready), extensible architecture
--   ✅ **Template-First Architecture**: Reusable export templates across technologies
--   ✅ **Platform Modernization**: Flowise 2.2.8 with enhanced TypeScript support
+-   **UPDL**: High-level abstract nodes (Space, Entity, Component, Event, Action, Data, Universo)
+-   **Publish Frontend/Backend**: Multi-technology export (AR.js, PlayCanvas)
+-   **Analytics**: Quiz performance tracking
+-   **Profile Frontend/Backend**: Enhanced user management with workspace packages
 
-**System Status:**
+**Core Technologies**: React + Material-UI, Node.js + TypeScript, Supabase integration, PNPM workspaces
 
--   ✅ **Build Quality**: 100% TypeScript compilation success across entire workspace
--   ✅ **Export Pipeline**: Complete template-based system for multi-technology support
--   ✅ **Production Ready**: Alpha-grade stability and feature completeness
--   ✅ **Technology Support**: AR.js (production), PlayCanvas (ready), Universo MMOOMM foundation
+## Technical Status
 
-**Ready for**: Advanced UPDL features and Universo MMOOMM expansion
+**Base Platform**: Flowise 2.2.8 with enhanced ASSISTANT support
+**Build Quality**: 100% TypeScript compilation success across entire workspace
+**Export Pipeline**: Template-based system for AR.js (production) and PlayCanvas (ready)
+**Security**: Enhanced Supabase authentication with secure profile management
 
-### 🔧 **Recent Critical Fixes (January 2025):**
+## Next Steps
 
-**MMOOMM Template Stabilization:**
+**Immediate Priorities**:
 
--   ✅ **Ship Movement Fixed** - WASD+QZ controls now work reliably with physics fallback
--   ✅ **Console Optimization** - Eliminated repetitive error message spam during gameplay
--   ✅ **WebSocket Logging** - Optimized connection attempts for local development mode
--   ✅ **Physics System** - Implemented transparent fallback from rigidbody to direct movement
--   ✅ **Local Development** - Improved developer experience with clean console output
+-   Advanced UPDL node development (Physics, Animation, Networking)
+-   Universo MMOOMM feature expansion
+-   Production deployment preparation
+-   Community collaboration features
 
-### 🏗️ APPs Architecture Overview
-
-**6 Working Applications:**
-
--   **UPDL** (`apps/updl/`) - Pure node definitions for Flowise editor
--   **Publish Frontend/Backend** (`apps/publish-frt/`, `apps/publish-srv/`) - AR.js publication system
--   **Analytics** (`apps/analytics-frt/`) - Quiz analytics and reporting
--   **Profile Frontend** (`apps/profile-frt/`) - User profile management with i18n
--   **Profile Backend** (`@universo/profile-srv`) - Workspace package backend service
-
-**Core Technologies:**
-
--   React + Material-UI frontend with APPs architecture
--   Node.js + TypeScript backend with Supabase integration
--   Enhanced authentication with secure profile management
--   UPDL system for AR.js export with quiz functionality
-
-_Detailed architecture available in [productContext.md](productContext.md)_
-
-### 🔄 Current System Status
-
-**Base Platform**: Flowise 2.2.8 with Universo-specific enhancements
-**User Management**: Supabase auth + enhanced profiles with nickname system
-**Publication**: Working AR.js quiz system with analytics
-**Security**: Enhanced with current password verification and encrypted storage
-**Build System**: PNPM workspaces with professional package structure
-
-### 💡 Strategic Direction
-
-**Post-Alpha Goals:**
-
--   Expand Universo MMOOMM with full MMO development pipeline
--   Implement advanced UPDL node types (Physics, Animation, Networking)
--   Develop collaborative features and real-time editing
--   Build enterprise-grade hosting and scaling solutions
--   Create community features for template sharing
-
-**Development Approach:**
-
--   Maintain Alpha-grade stability and backward compatibility
--   Focus on advanced features and production deployment
--   Expand UPDL ecosystem for complex interactive experiences
--   Implement enterprise-ready collaboration and scaling features
-
-**CURRENT COMPLEXITY LEVEL**: Level 4+ (Advanced Features & Production Deployment)
-**PLATFORM MATURITY**: **Alpha Status Achieved** (v0.20.0) - Production-ready platform
+_For detailed progress history, see [progress.md](progress.md). For current tasks, see [tasks.md](tasks.md)._
