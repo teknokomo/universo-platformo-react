@@ -15,24 +15,47 @@ export function generateShipLogic(id: string): string {
         mass: 100,
         linearDamping: 0.1,
         angularDamping: 0.1,
-        enabled: false  // Start disabled, will be enabled after entity is in scene
+        enabled: true  // FIXED: Start enabled for immediate physics
     });
 
-    // Add ship material for visibility
+    // IMPROVED: Enhanced ship material for better visibility
     const shipMaterial = new pc.StandardMaterial();
     shipMaterial.diffuse.set(0.2, 0.8, 0.2); // Green for player ship
+    shipMaterial.emissive.set(0.1, 0.4, 0.1); // Slight glow
+    shipMaterial.shininess = 40;
+    shipMaterial.metalness = 0.3;
     shipMaterial.update();
     entity.model.material = shipMaterial;
 
-    // Ship controller for space movement
+    // ADDED: Ensure entity is visible and properly scaled
+    entity.enabled = true;
+    entity.setLocalScale(2, 1, 3); // Make ship more visible (wider and longer)
+
+    // CRITICAL FIX: Keep ship in default orientation (nose pointing forward in +Z direction)
+    // Camera will be positioned behind the ship instead
+    entity.setLocalEulerAngles(0, 0, 0);
+
+    // ADDED: Debug ship creation
+    console.log('[Ship] Created ship entity with position:', entity.getPosition().toString());
+    console.log('[Ship] Initial rotation set to:', entity.getLocalEulerAngles().toString());
+
+    // IMPROVED: Ship controller for rotation-based space movement
     entity.shipController = {
         speed: 10,
-        rotationSpeed: 50,
-        thrustForce: 500,
+        rotationSpeed: 60,                // Degrees per second for ship rotation
+        thrustForce: 500,                 // Forward/backward thrust force
+        backwardThrustRatio: 0.7,         // Backward thrust is weaker
         isThrusting: false,
         physicsInitialized: false,
         initializationAttempted: false,
         fallbackWarningShown: false,
+
+        // NEW: Configurable rotation parameters for gimbal lock prevention
+        maxPitchAngle: 85,                // Maximum pitch angle (degrees) - prevents gimbal lock
+        rotationSmoothing: 5,             // Speed of rotation smoothing
+        enableGimbalProtection: true,     // Enable gimbal lock protection
+        maxRotationPerFrame: 180,         // Maximum rotation per frame (degrees)
+        debugRotation: false,             // Disable debug logging for clean testing
 
         // Movement controls
         thrust(direction) {
@@ -64,6 +87,17 @@ export function generateShipLogic(id: string): string {
             }
 
             this.isThrusting = true;
+        },
+
+        // ADDED: Stop thrust method
+        stopThrust() {
+            this.isThrusting = false;
+            // Optional: Apply slight damping to reduce drift
+            if (entity.rigidbody && entity.rigidbody.body) {
+                const currentVelocity = entity.rigidbody.linearVelocity;
+                const dampedVelocity = currentVelocity.clone().scale(0.98); // 2% damping
+                entity.rigidbody.linearVelocity = dampedVelocity;
+            }
         },
 
         // Fallback movement method
@@ -120,10 +154,59 @@ export function generateShipLogic(id: string): string {
             }
         },
 
-        rotate(axis, angle) {
+        // IMPROVED: Rotation with both physics and fallback
+        rotate(rotationVector, dt) {
             if (entity.rigidbody && entity.rigidbody.body) {
-                const torque = axis.clone().scale(angle * this.rotationSpeed);
+                // Physics-based rotation using torque
+                const torque = rotationVector.clone().scale(this.rotationSpeed * 10); // Scale for torque
                 entity.rigidbody.applyTorque(torque);
+            } else {
+                // Fallback: Direct rotation for immediate response
+                this.rotateDirectly(rotationVector, dt);
+            }
+        },
+
+        // IMPROVED: Direct rotation using quaternions to prevent gimbal lock
+        rotateDirectly(rotationVector, dt) {
+            // Validation of input parameters
+            if (!rotationVector || isNaN(dt) || dt <= 0) {
+                if (this.debugRotation) {
+                    console.warn('[Ship] Invalid rotation parameters');
+                }
+                return;
+            }
+
+            const rotationAmount = this.rotationSpeed * dt;
+
+            // Protection against extreme values on each axis
+            const maxRotation = this.maxRotationPerFrame || 180;
+            const clampedX = pc.math.clamp(rotationVector.x * rotationAmount, -maxRotation, maxRotation);
+            const clampedY = pc.math.clamp(rotationVector.y * rotationAmount, -maxRotation, maxRotation);
+            const clampedZ = pc.math.clamp(rotationVector.z * rotationAmount, -maxRotation, maxRotation);
+
+            // REVISED: Build quaternions around SHIP-LOCAL axes so inputs stay consistent even after rolls
+            const right   = entity.right.clone().normalize();    // Local X (wing direction)
+            const up      = entity.up.clone().normalize();       // Local Y (top of ship)
+            const forward = entity.forward.clone().normalize();  // Local Z (nose direction)
+
+            const qPitch = new pc.Quat().setFromAxisAngle(right,   clampedX); // pitch around local X
+            const qYaw   = new pc.Quat().setFromAxisAngle(up,      clampedY); // yaw   around local Y
+            const qRoll  = new pc.Quat().setFromAxisAngle(forward, clampedZ); // roll  around local Z
+
+            // Compose: yaw · pitch · roll  (common flight order)
+            const qDelta = new pc.Quat();
+            qDelta.mul2(qYaw, qPitch); // yaw * pitch
+            qDelta.mul(qRoll);         // * roll
+
+            // Apply delta to current orientation
+            const currentQuat = entity.getRotation().clone();
+            currentQuat.mul2(qDelta, currentQuat);
+            currentQuat.normalize();   // safety renormalize
+            entity.setRotation(currentQuat);
+
+            // Optional debug output
+            if (this.debugRotation && Math.random() < 0.005) {
+                console.log('[Ship] Quaternion rotation:', currentQuat.toString());
             }
         },
 
@@ -167,6 +250,113 @@ export function generateShipLogic(id: string): string {
         }
     };
 
+    // ADDED: Camera controller for ship following
+    entity.cameraController = {
+        target: entity,                    // The ship entity
+        offset: new pc.Vec3(0, 8, -18),   // Camera slightly lower
+        distance: 15,                     // Current distance from ship
+        offsetRot: new pc.Quat().setFromEulerAngles(-5, 180, 0), // Camera pitched down 5°
+        minDistance: 5,                   // Minimum zoom distance
+        maxDistance: 50,                  // Maximum zoom distance
+
+        // Camera smoothing settings
+        followSpeed: 4.0,                 // How fast camera follows ship (increased)
+        lookSpeed: 3.0,                   // How fast camera rotates to look at ship (increased)
+
+        // NEW: Configurable camera parameters for stability
+        maxPitch: 80,                     // Maximum pitch angle for camera stability
+        rotationSmoothing: 5,             // Speed of rotation smoothing
+        enableSmoothLimits: true,         // Enable smooth angle limits
+        debugCamera: false,               // Enable camera debug logging
+
+        // Get the camera entity
+        getCamera() {
+            return window.spaceCamera;
+        },
+
+        // IMPROVED: Update camera position with ship rotation tracking and stabilization
+        update(dt) {
+            const camera = this.getCamera();
+            if (!camera || !this.target) return;
+
+            // DISABLED: Remove pitch limiting that was causing rotation blocks
+            // The gimbal lock protection is now handled in rotateDirectly() method
+            // Camera will follow ship rotation naturally without artificial limits
+            if (this.debugCamera && this.enableSmoothLimits) {
+                const shipEuler = this.target.getLocalEulerAngles();
+                const maxPitch = this.maxPitch || 80;
+
+                // Only warn about extreme angles, don't limit them
+                if (Math.abs(shipEuler.x) > maxPitch && Math.random() < 0.1) {
+                    console.warn('[Camera] Ship at extreme pitch angle:', shipEuler.x);
+                }
+            }
+
+            // Get ship position and rotation
+            const shipPos = this.target.getPosition();
+            const shipRotation = this.target.getRotation();
+
+            // CRITICAL FIX: Transform camera offset by ship rotation
+            // This makes camera rigidly attached behind the ship
+            const rotatedOffset = shipRotation.transformVector(this.offset.clone());
+            const scaledOffset = rotatedOffset.scale(this.distance / 15);
+            const targetPos = shipPos.clone().add(scaledOffset);
+
+            // FIXED: Safe camera movement with validation
+            const currentPos = camera.getPosition();
+
+            // Validate current position
+            if (isNaN(currentPos.x) || isNaN(currentPos.y) || isNaN(currentPos.z)) {
+                // Reset camera to safe position if NaN detected
+                camera.setPosition(targetPos);
+                console.warn('[Camera] Reset camera position due to NaN values');
+                return;
+            }
+
+            // Smooth camera movement with safe lerp
+            const lerpFactor = Math.min(this.followSpeed * dt, 1);
+            const newPos = new pc.Vec3(
+                currentPos.x + (targetPos.x - currentPos.x) * lerpFactor,
+                currentPos.y + (targetPos.y - currentPos.y) * lerpFactor,
+                currentPos.z + (targetPos.z - currentPos.z) * lerpFactor
+            );
+
+            camera.setPosition(newPos);
+            const desiredRot = shipRotation.clone().mul(this.offsetRot);
+            camera.setRotation(desiredRot);
+
+            // IMPROVED: Debug camera with configurable logging
+            if (this.debugCamera && Math.random() < 0.001) {
+                console.log('[Camera] Following ship at:', shipPos.toString(), 'camera at:', newPos.toString());
+            }
+        },
+
+        // Handle zoom input (will be used later)
+        zoom(delta) {
+            this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, this.distance + delta));
+        },
+
+        // IMPROVED: Initialize camera with ship rotation awareness
+        initializeCamera() {
+            const camera = this.getCamera();
+            if (camera && this.target) {
+                // Set initial camera position relative to ship with rotation
+                const shipPos = this.target.getPosition();
+                const shipRotation = this.target.getRotation();
+
+                // Transform offset by ship rotation for proper initial positioning
+                const rotatedOffset = shipRotation.transformVector(this.offset.clone());
+                const scaledOffset = rotatedOffset.scale(this.distance / 15);
+                const initialPos = shipPos.clone().add(scaledOffset);
+
+                camera.setPosition(initialPos);
+                const desiredRot = shipRotation.clone().mul(this.offsetRot);
+                camera.setRotation(desiredRot);
+                console.log('[Camera] Initialized at position:', initialPos.toString());
+            }
+        }
+    };
+
     // Ship weapon system
     entity.weaponSystem = {
         canFire: true,
@@ -184,7 +374,7 @@ export function generateShipLogic(id: string): string {
         },
 
         createProjectile(direction) {
-            // Create projectile entity
+            // IMPROVED: Memory-managed projectile creation
             const projectile = new pc.Entity('projectile_' + Date.now());
             projectile.addComponent('model', { type: 'sphere' });
             projectile.addComponent('rigidbody', {
@@ -195,6 +385,10 @@ export function generateShipLogic(id: string): string {
                 type: 'sphere',
                 radius: 0.1
             });
+
+            // ADDED: Track projectiles for cleanup
+            if (!window.activeProjectiles) window.activeProjectiles = new Set();
+            window.activeProjectiles.add(projectile);
 
             // Position projectile at ship's front
             const shipPos = entity.getPosition();
@@ -208,9 +402,12 @@ export function generateShipLogic(id: string): string {
             // Add to scene
             app.root.addChild(projectile);
 
-            // Auto-destroy after 5 seconds
+            // IMPROVED: Auto-destroy with cleanup after 5 seconds
             setTimeout(() => {
                 if (projectile.parent) {
+                    if (window.activeProjectiles) {
+                        window.activeProjectiles.delete(projectile);
+                    }
                     projectile.destroy();
                 }
             }, 5000);
@@ -218,5 +415,12 @@ export function generateShipLogic(id: string): string {
             console.log('[Ship] Projectile fired from', '${id}');
         }
     };
+
+    // ADDED: Initialize camera to follow this ship
+    if (window.spaceCamera) {
+        entity.cameraController.target = entity;
+        entity.cameraController.initializeCamera();
+        console.log('[Ship] Camera controller initialized for ship');
+    }
 `;
 }

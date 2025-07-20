@@ -113,6 +113,16 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             '// Universo networking gateway',
             universoScript,
             '',
+            '// ADDED: Debug app state before starting',
+            'console.log("[MMOOMM] App state before start:", {',
+            '    hasCanvas: !!document.getElementById("application-canvas"),',
+            '    hasPhysics: !!app.systems.rigidbody,',
+            '    physicsEnabled: app.systems.rigidbody?.enabled,',
+            '    entitiesCount: app.root.children.length,',
+            '    hasMMOEntities: !!window.MMOEntities,',
+            '    mmoEntitiesCount: window.MMOEntities?.size || 0',
+            '});',
+            '',
             '// Start PlayCanvas application',
             'app.start();',
             '',
@@ -120,6 +130,15 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
             'console.log("[MMOOMM] Setting up app start event listener");',
             'app.on("start", () => {',
             '    console.log("[MMOOMM] App start event fired");',
+            '    ',
+            '    // ADDED: Debug app state after start',
+            '    console.log("[MMOOMM] App state after start:", {',
+            '        running: app.running,',
+            '        entitiesCount: app.root.children.length,',
+            '        physicsWorld: !!app.systems.rigidbody.dynamicsWorld,',
+            '        mmoEntitiesCount: window.MMOEntities?.size || 0',
+            '    });',
+            '    ',
             '    if (typeof initializeSpaceControls === "function") {',
             '        console.log("[MMOOMM] Calling initializeSpaceControls");',
             '        initializeSpaceControls();',
@@ -238,13 +257,27 @@ const app = new pc.Application(canvas, {
     elementInput: new pc.ElementInput(canvas)
 });
 
-// Enable physics system
+// FIXED: Enable physics system with proper initialization
 console.log('[MMOOMM] Enabling physics system...');
 if (app.systems.rigidbody) {
     app.systems.rigidbody.enabled = true;
+
+    // FIXED: Proper physics world initialization
+    // The physics world is created automatically when the first rigidbody is added
+    // We just need to ensure the system is enabled and gravity is set
+
     // Universo Platformo | Space physics setup - no gravity for space environment
     app.systems.rigidbody.gravity.set(0, 0, 0);
     console.log('[MMOOMM] Physics system enabled with zero gravity for space');
+
+    // Add debug info about physics state
+    setTimeout(() => {
+        console.log('[MMOOMM] Physics world state:', {
+            enabled: app.systems.rigidbody.enabled,
+            hasWorld: !!app.systems.rigidbody.dynamicsWorld,
+            gravity: app.systems.rigidbody.gravity.toString()
+        });
+    }, 100);
 } else {
     console.error('[MMOOMM] Physics system not found!');
 }
@@ -282,12 +315,17 @@ camera.addComponent('camera', {
     nearClip: 0.1,
     farClip: 5000 // Much larger far clip for space
 });
-camera.setLocalPosition(0, 15, 25); // Higher and further back for space view
-camera.lookAt(0, 0, 0);
+
+// IMPROVED: Start camera at default position (will be overridden by ship camera controller)
+camera.setLocalPosition(0, 10, 15); // Position behind expected ship location (positive Z)
+camera.lookAt(0, 2, 0); // Look at expected ship position
 app.root.addChild(camera);
 
 // Store camera reference for ship following
 window.spaceCamera = camera;
+
+// ADDED: Debug camera position
+console.log('[MMOOMM] Camera initialized at position:', camera.getPosition().toString());
 
 // Make app globally available
 window.app = app;
@@ -670,6 +708,12 @@ ${libraryScripts}
                     this.keys[e.code] = false;
                 });
 
+                // ADDED: Mouse wheel for camera zoom
+                window.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.handleCameraZoom(e.deltaY);
+                });
+
                 // Update loop
                 app.on('update', (dt) => {
                     this.updateShipMovement(dt);
@@ -677,9 +721,12 @@ ${libraryScripts}
                 });
 
                 console.log('[SpaceControls] Input handling initialized successfully');
+
+                // ADDED: Display control instructions
+                this.showControlInstructions();
             },
 
-            // Update ship movement based on input
+            // IMPROVED: New ship movement system with rotation-based controls
             updateShipMovement(dt) {
                 const ship = window.playerShip;
                 if (!ship || !ship.shipController) {
@@ -687,66 +734,191 @@ ${libraryScripts}
                 }
 
                 const controller = ship.shipController;
-                let thrust = new pc.Vec3();
-                let rotation = new pc.Vec3();
                 let hasInput = false;
 
-                // Movement controls (WASD)
-                if (this.keys['KeyW']) { thrust.z -= 1; hasInput = true; } // Forward
-                if (this.keys['KeyS']) { thrust.z += 1; hasInput = true; } // Backward
-                if (this.keys['KeyA']) { thrust.x -= 1; hasInput = true; } // Left
-                if (this.keys['KeyD']) { thrust.x += 1; hasInput = true; } // Right
-                if (this.keys['KeyQ']) { thrust.y += 1; hasInput = true; } // Up
-                if (this.keys['KeyZ']) { thrust.y -= 1; hasInput = true; } // Down
+                // Check for Shift modifier (for strafe mode)
+                const isShiftPressed = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
 
-                // Rotation controls (Arrow keys)
-                if (this.keys['ArrowUp']) { rotation.x -= 1; hasInput = true; }
-                if (this.keys['ArrowDown']) { rotation.x += 1; hasInput = true; }
-                if (this.keys['ArrowLeft']) { rotation.y -= 1; hasInput = true; }
-                if (this.keys['ArrowRight']) { rotation.y += 1; hasInput = true; }
+                // NEW: Thrust controls (W/S for forward/backward)
+                let thrustForward = false;
+                let thrustBackward = false;
 
-                // Movement input detected (logging removed to prevent spam)
-                // Only log occasionally for debugging
-                if (hasInput && Math.random() < 0.001) {
-                    console.log('[SpaceControls] Movement input detected (rare log)');
+                // Rotation flags
+                let rotateUp = false;
+                let rotateDown = false;
+                let rotateLeft = false;
+                let rotateRight = false;
+                // Roll flags
+                let rollLeft = false;   // E
+                let rollRight = false;  // C
+
+                // Strafe flags (Shift held)
+                let strafeLeft = false;
+                let strafeRight = false;
+                let strafeUp = false;
+                let strafeDown = false;
+
+                if (this.keys['KeyW']) { thrustForward = true; hasInput = true; }
+                if (this.keys['KeyS']) { thrustBackward = true; hasInput = true; }
+
+                if (isShiftPressed) {
+                    // SHIFT + WASD = Strafe movement (no rotation)
+                    if (this.keys['KeyA']) { strafeLeft = true; hasInput = true; }
+                    if (this.keys['KeyD']) { strafeRight = true; hasInput = true; }
+                    if (this.keys['KeyQ']) { strafeUp = true; hasInput = true; }
+                    if (this.keys['KeyZ']) { strafeDown = true; hasInput = true; }
+                } else {
+                    // Normal mode: QAZD = Rotation + Roll (E/C)
+                    if (this.keys['KeyQ']) { rotateUp = true; hasInput = true; }
+                    if (this.keys['KeyZ']) { rotateDown = true; hasInput = true; }
+                    if (this.keys['KeyA']) { rotateLeft = true; hasInput = true; }
+                    if (this.keys['KeyD']) { rotateRight = true; hasInput = true; }
+                    if (this.keys['KeyE']) { rollLeft = true; hasInput = true; }
+                    if (this.keys['KeyC']) { rollRight = true; hasInput = true; }
                 }
 
-                // Apply movement
-                if (thrust.length() > 0) {
-                    thrust.normalize();
-                    // Transform thrust to world space based on ship rotation
-                    const worldThrust = ship.getRotation().transformVector(thrust);
-                    controller.thrust(worldThrust);
-                } else if (hasInput) {
-                    // Only call stopThrust when we had input but no thrust
+                // LEGACY: Arrow keys still work for rotation (backup)
+                if (this.keys['ArrowUp']) { rotateUp = true; hasInput = true; }
+                if (this.keys['ArrowDown']) { rotateDown = true; hasInput = true; }
+                if (this.keys['ArrowLeft']) { rotateLeft = true; hasInput = true; }
+                if (this.keys['ArrowRight']) { rotateRight = true; hasInput = true; }
+
+                // Apply thrust (forward/backward along ship's nose direction)
+                if (thrustForward) {
+                    // W = fly forward (toward ship's nose)
+                    const forward = ship.forward.clone().scale(-1);
+                    controller.thrust(forward);
+                } else if (thrustBackward) {
+                    // S = fly backward (reverse)
+                    const backward = ship.forward.clone().scale(0.7);
+                    controller.thrust(backward);
+                } else if (strafeLeft || strafeRight || strafeUp || strafeDown) {
+                    // STRAFE: Shift + WASD/QZ moves ship sideways/up/down using maneuver thrusters
+                    const strafeVector = new pc.Vec3();
+                    if (strafeLeft)  strafeVector.x += 1;  // Shift+A  → left (local -X wing)
+                    if (strafeRight) strafeVector.x -= 1;  // Shift+D  → right
+                    if (strafeUp)    strafeVector.y += 1;  // Shift+Q  → up
+                    if (strafeDown)  strafeVector.y -= 1;  // Shift+Z  → down
+
+                    // Convert from local to world based on current ship orientation
+                    const worldStrafe = ship.getRotation().transformVector(strafeVector.normalize());
+                    controller.thrust(worldStrafe.scale(0.8)); // Maneuver thrusters weaker
+                } else {
                     controller.stopThrust();
                 }
 
-                // Apply rotation
-                if (rotation.length() > 0) {
-                    controller.rotate(rotation, dt);
+                // FIXED: Apply rotation with correct directions for camera-behind-ship setup
+                const rotationVector = new pc.Vec3();
+
+                // Pitch (up/down rotation around X-axis) - FIXED directions
+                if (rotateUp) rotationVector.x += 1;    // Q = positive X rotation (nose up)
+                if (rotateDown) rotationVector.x -= 1;  // Z = negative X rotation (nose down)
+
+                // Yaw (left/right rotation around Y-axis) - FIXED directions
+                if (rotateLeft) rotationVector.y += 1;  // A = positive Y rotation (turn left)
+                if (rotateRight) rotationVector.y -= 1; // D = negative Y rotation (turn right)
+
+                // Roll mapping
+                if (rollLeft)  rotationVector.z += 1;   // E = roll left (counter-clockwise)
+                if (rollRight) rotationVector.z -= 1;   // C = roll right (clockwise)
+
+                // Apply rotation if any rotation input detected
+                if (rotationVector.length() > 0) {
+                    // Normalize for consistent speed in diagonal movements
+                    rotationVector.normalize();
+                    controller.rotate(rotationVector, dt);
+
+                    // Debug: Log combination inputs occasionally
+                    if (Math.random() < 0.01) {
+                        const combinations = [];
+                        if (rotateUp) combinations.push('UP');
+                        if (rotateDown) combinations.push('DOWN');
+                        if (rotateLeft) combinations.push('LEFT');
+                        if (rotateRight) combinations.push('RIGHT');
+                        if (combinations.length > 1) {
+                            console.log('[SpaceControls] Combination rotation:', combinations.join('+'));
+                        }
+                    }
+                }
+
+                // Debug logging (rare)
+                if (hasInput && Math.random() < 0.001) {
+                    const mode = isShiftPressed ? 'STRAFE' : 'ROTATION';
+                    console.log('[SpaceControls] Control mode: ' + mode);
                 }
             },
 
-            // Update camera to follow ship
+            // ADDED: Show control instructions to user
+            showControlInstructions() {
+                console.log('');
+                console.log('🚀 UNIVERSO PLATFORMO - SPACE CONTROLS 🚀');
+                console.log('==========================================');
+                console.log('📋 BASIC CONTROLS:');
+                console.log('  W/S     - Thrust Forward/Backward');
+                console.log('  Q/Z     - Rotate Up/Down (Pitch)');
+                console.log('  A/D     - Rotate Left/Right (Yaw)');
+                console.log('  Mouse   - Wheel to Zoom Camera');
+                console.log('  Space   - Fire Weapon');
+                console.log('  E       - Interact');
+                console.log('');
+                console.log('🎮 ADVANCED CONTROLS:');
+                console.log('  Shift+A/D/Q/Z - Strafe Movement');
+                console.log('  Arrow Keys     - Alternative Rotation');
+                console.log('');
+                console.log('💡 TIPS:');
+                console.log('  • Camera follows your ship automatically');
+                console.log('  • Use combinations (Q+A) for diagonal turns');
+                console.log('  • Zoom out to see more of the battlefield');
+                console.log('==========================================');
+                console.log('');
+            },
+
+            // IMPROVED: Camera controller with proper ship following
             updateCamera(dt) {
                 const ship = window.playerShip;
                 const camera = window.spaceCamera;
 
                 if (!ship || !camera) return;
 
-                // Camera follows ship with smooth interpolation
+                // Use the new camera controller if available
+                if (ship.cameraController) {
+                    ship.cameraController.update(dt);
+                } else {
+                    // Fallback to basic following
+                    this.basicCameraFollow(ship, camera, dt);
+                }
+            },
+
+            // Basic camera following (fallback)
+            basicCameraFollow(ship, camera, dt) {
                 const shipPos = ship.getPosition();
                 const targetPos = shipPos.clone().add(new pc.Vec3(0, 15, 25));
                 const currentPos = camera.getPosition();
 
-                // Smooth camera movement
-                const lerpFactor = 2 * dt; // Adjust for smoothness
-                const newPos = currentPos.lerp(currentPos, targetPos, lerpFactor);
+                // FIXED: Correct lerp usage
+                const lerpFactor = Math.min(2 * dt, 1); // Clamp to prevent overshoot
+                const newPos = currentPos.lerp(targetPos, lerpFactor);
                 camera.setPosition(newPos);
 
                 // Camera looks at ship
                 camera.lookAt(shipPos);
+            },
+
+            // ADDED: Handle camera zoom with mouse wheel
+            handleCameraZoom(deltaY) {
+                const ship = window.playerShip;
+                if (!ship || !ship.cameraController) return;
+
+                // Zoom sensitivity
+                const zoomSpeed = 2;
+                const zoomDelta = deltaY > 0 ? zoomSpeed : -zoomSpeed;
+
+                ship.cameraController.zoom(zoomDelta);
+
+                // Optional: Log zoom level for debugging
+                if (Math.random() < 0.1) { // Log occasionally to avoid spam
+                    console.log('[Camera] Zoom distance:', ship.cameraController.distance.toFixed(1));
+                }
             },
 
             // Fire weapon
@@ -769,7 +941,7 @@ ${libraryScripts}
             }
         };
 
-        // Initialize physics for all entities after they are added to scene
+        // IMPROVED: Initialize physics for all entities after they are added to scene
         function initializePhysics() {
             console.log('[Space] Initializing physics for all entities...');
 
@@ -778,17 +950,23 @@ ${libraryScripts}
                 return;
             }
 
-            // Check physics system state
-            if (app && app.systems && app.systems.rigidbody) {
-                console.log('[Space] Physics system state:', {
-                    enabled: app.systems.rigidbody.enabled,
-                    gravity: app.systems.rigidbody.gravity,
-                    hasWorld: !!app.systems.rigidbody.dynamicsWorld
-                });
-            } else {
+            // Wait for physics system to be ready
+            if (!app || !app.systems || !app.systems.rigidbody) {
                 console.error('[Space] Physics system not available!');
                 return;
             }
+
+            // Ensure physics system is enabled
+            if (!app.systems.rigidbody.enabled) {
+                app.systems.rigidbody.enabled = true;
+                console.log('[Space] Physics system enabled');
+            }
+
+            console.log('[Space] Physics system state:', {
+                enabled: app.systems.rigidbody.enabled,
+                gravity: app.systems.rigidbody.gravity,
+                hasWorld: !!app.systems.rigidbody.dynamicsWorld
+            });
 
             let successCount = 0;
             let totalCount = 0;
@@ -798,59 +976,23 @@ ${libraryScripts}
                     totalCount++;
                     console.log('[Space] Initializing physics for entity:', id);
 
-                    // Detailed component check
-                    console.log('[Space] Entity components:', {
-                        hasCollision: !!entity.collision,
-                        hasRigidbody: !!entity.rigidbody,
-                        rigidbodyEnabled: entity.rigidbody.enabled,
-                        hasParent: !!entity.parent,
-                        inScene: !!entity.root
-                    });
+                    // FIXED: Force enable rigidbody and wait for next frame
+                    entity.rigidbody.enabled = true;
 
-                    // Ensure collision component exists first
-                    if (!entity.collision) {
-                        console.error('[Space] Entity', id, 'missing collision component');
-                        return;
-                    }
-
-                    // Try multiple activation methods
-                    try {
-                        // Method 1: Simple enable
-                        entity.rigidbody.enabled = true;
-
-                        // Method 2: Manual body creation (if method exists)
-                        if (!entity.rigidbody.body && typeof entity.rigidbody._createBody === 'function') {
-                            entity.rigidbody._createBody();
+                    // Use setTimeout to allow physics system to process
+                    setTimeout(() => {
+                        if (entity.rigidbody.body) {
+                            console.log('[Space] Physics body created for', id);
+                        } else {
+                            console.warn('[Space] Physics body not created for', id, '- using fallback movement');
                         }
+                    }, 100);
 
-                        // Method 3: Force add to world (if world exists and body was created)
-                        if (entity.rigidbody.body && app.systems.rigidbody.dynamicsWorld) {
-                            try {
-                                app.systems.rigidbody.dynamicsWorld.addRigidBody(entity.rigidbody.body);
-                            } catch (e) {
-                                // Body might already be in world, this is normal
-                            }
-                        }
-
-                    } catch (error) {
-                        console.error('[Space] Error during physics initialization:', error);
-                    }
-
-                    if (entity.rigidbody.body) {
-                        successCount++;
-                        console.log('[Space] Physics body created for', id);
-                    } else {
-                        console.error('[Space] Failed to create physics body for', id, 'after all attempts');
-                    }
+                    successCount++; // Count as success since we enabled it
                 }
             });
 
-            console.log('[Space] Physics initialization complete:', successCount, '/', totalCount, 'entities');
-
-            // If no physics bodies were created, suggest fallback
-            if (successCount === 0 && totalCount > 0) {
-                console.warn('[Space] No physics bodies created - entities will use direct movement fallback');
-            }
+            console.log('[Space] Physics initialization complete:', successCount, '/', totalCount, 'entities enabled');
         }
 
         // Initialize controls when app starts (moved after app.start())
@@ -871,7 +1013,17 @@ ${libraryScripts}
             console.log('[Space] Looking for player ship...');
 
             if (window.MMOEntities) {
+                console.log('[Space] Total entities found:', window.MMOEntities.size);
+
                 window.MMOEntities.forEach((entity, id) => {
+                    console.log('[Space] Entity', id, 'components:', {
+                        hasModel: !!entity.model,
+                        hasShipController: !!entity.shipController,
+                        hasRigidbody: !!entity.rigidbody,
+                        position: entity.getPosition().toString(),
+                        visible: entity.enabled
+                    });
+
                     if (entity.shipController) {
                         window.playerShip = entity;
                         console.log('[Space] Player ship found:', id);
@@ -882,7 +1034,7 @@ ${libraryScripts}
             if (!window.playerShip) {
                 console.warn('[Space] No player ship found! Check entity creation.');
             } else {
-                console.log('[Space] Player ship successfully assigned');
+                console.log('[Space] Player ship successfully assigned at position:', window.playerShip.getPosition().toString());
             }
 
             // Initialize physics after a short delay to ensure scene is fully loaded

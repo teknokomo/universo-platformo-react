@@ -15,9 +15,12 @@ export function generateAsteroidLogic(id: string): string {
     const scale = Math.random() * 2 + 0.5; // 0.5 to 2.5
     entity.setLocalScale(scale, scale, scale);
 
-    // Add asteroid material for visibility
+    // IMPROVED: Enhanced asteroid material for better visibility
     const asteroidMaterial = new pc.StandardMaterial();
     asteroidMaterial.diffuse.set(0.6, 0.5, 0.4); // Brown/gray for asteroids
+    asteroidMaterial.emissive.set(0.2, 0.15, 0.1); // Warm glow
+    asteroidMaterial.shininess = 20;
+    asteroidMaterial.metalness = 0.1;
     asteroidMaterial.update();
     entity.model.material = asteroidMaterial;
 
@@ -119,12 +122,17 @@ export function generateAsteroidLogic(id: string): string {
         }
     };
 
-    // Handle collision with projectiles
+    // OPTIMIZED: Handle collision with projectiles
     entity.collision.on('collisionstart', (result) => {
         const otherEntity = result.other;
         if (otherEntity.name && otherEntity.name.startsWith('projectile_')) {
             entity.mineable.onHit(otherEntity);
-            otherEntity.destroy(); // Destroy projectile
+
+            // IMPROVED: Cleanup projectile from tracking
+            if (window.activeProjectiles) {
+                window.activeProjectiles.delete(otherEntity);
+            }
+            otherEntity.destroy();
         }
     });
 

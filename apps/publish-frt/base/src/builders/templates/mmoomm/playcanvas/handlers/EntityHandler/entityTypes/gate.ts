@@ -45,11 +45,16 @@ export function generateGateLogic(id: string): string {
 
             console.log('[Gate] Transporting ship to', this.targetWorld);
 
+            // IMPROVED: World switching with proper cleanup
+            if (window.MMOSpace && typeof window.MMOSpace.switchWorld === 'function') {
+                window.MMOSpace.switchWorld(this.targetWorld);
+            }
+
             // Trigger world change event
             if (window.MMOEvents) {
                 window.MMOEvents.emit('world_change', {
                     shipId: ship.name,
-                    fromWorld: window.currentWorld || 'kubio',
+                    fromWorld: window.MMOSpace?.name || 'kubio',
                     toWorld: this.targetWorld,
                     gateId: '${id}'
                 });
@@ -57,6 +62,12 @@ export function generateGateLogic(id: string): string {
 
             // Visual effect - flash gate
             this.flashPortal();
+
+            // ADDED: Simulate world reload (in real implementation this would reload the scene)
+            setTimeout(() => {
+                console.log('[Gate] World switch simulation complete - would reload scene with', this.targetWorld, 'entities');
+                // In real implementation: location.reload() or scene reconstruction
+            }, 1000);
 
             return true;
         },
