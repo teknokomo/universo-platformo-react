@@ -14,7 +14,7 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 > • [Universo MMOOMM Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-MMOOMM)  
 > • [Universo Platformo Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-Platformo)
 
-## Current Status: Alpha Achieved (v0.20.0-alpha, July 2025)
+## Current Status: Alpha Achieved (v0.21.0-alpha, July 2025)
 
 **Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
 **Base Platform**: Flowise AI 2.2.8 with enhanced ASSISTANT support
@@ -22,11 +22,12 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 
 ### ✅ Completed Milestones
 
-| Version              | Status      | Key Achievements                                                           |
-| -------------------- | ----------- | -------------------------------------------------------------------------- |
-| **0.18.0-pre-alpha** | ✅ COMPLETE | Flowise 2.2.8 upgrade, TypeScript modernization, platform stabilization    |
-| **0.19.0-pre-alpha** | ✅ COMPLETE | High-level UPDL nodes, PlayCanvas integration, template-first architecture |
-| **0.20.0-alpha**     | ✅ COMPLETE | **Alpha status achieved**, complete UPDL system, production-ready platform |
+| Version              | Status      | Key Achievements                                                                      |
+| -------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| **0.18.0-pre-alpha** | ✅ COMPLETE | Flowise 2.2.8 upgrade, TypeScript modernization, platform stabilization               |
+| **0.19.0-pre-alpha** | ✅ COMPLETE | High-level UPDL nodes, PlayCanvas integration, template-first architecture            |
+| **0.20.0-alpha**     | ✅ COMPLETE | **Alpha status achieved**, complete UPDL system, production-ready platform            |
+| **0.21.0-alpha**     | ✅ COMPLETE | **Firm Resolve**, memory bank optimization, MMOOMM stabilization, handler refactoring |
 
 ## UPDL Architecture
 
@@ -127,6 +128,7 @@ SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 -   **Detailed APPs Structure**: [apps/README.md](../apps/README.md)
 -   **Technical Context**: [memory-bank/techContext.md](techContext.md)
 -   **System Patterns**: [memory-bank/systemPatterns.md](systemPatterns.md)
+-   **Progress Timeline**: [memory-bank/progress.md](progress.md)
 -   **Current Tasks**: [memory-bank/tasks.md](tasks.md)
 
 ## License Information

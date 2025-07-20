@@ -56,7 +56,7 @@
 -   **Security**: No exposed keys, backend-only Supabase operations
 -   **Environment**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
 
-## APPs Architecture (v0.20.0-alpha)
+## APPs Architecture (v0.21.0-alpha)
 
 **6 Working Applications** with modular architecture minimizing core Flowise changes:
 
@@ -72,7 +72,7 @@
 -   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
 -   **Future-Ready**: Prepared for plugin extraction and microservices evolution
 
-## UPDL Core System (v0.20.0-alpha)
+## UPDL Core System (v0.21.0-alpha)
 
 ### High-Level Abstract Nodes ✅ **COMPLETE**
 
@@ -116,25 +116,32 @@
 
 ## Technology Stack & Base Platform
 
-The project is built on the **universo-platformo-react** repository – a monorepo primarily written in JavaScript and TypeScript (React for frontend, Node.js / Express for backend). This platform already integrates the **FlowiseAI** engine – an open-source tool for building node-based flows (originally for LLM orchestration) which we are adapting for visual editing of UPDL node graphs. Flowise provides a ready-made infrastructure: a **React frontend** for drag-and-drop node editing and a **Node.js backend** for storing and running flows. We will extend or modify Flowise with our UPDL-specific nodes, leveraging its interface while injecting our custom logic where needed. This base means we don't build the editor from scratch – we reuse Flowise's UI and database, integrating our node system into it.
+**Base Platform**: Universo-platformo-react monorepo built on **Flowise AI 2.2.8** - TypeScript/React frontend with Node.js/Express backend. Flowise provides the visual node editor infrastructure, which we extend with UPDL-specific nodes for 3D/AR/VR development.
 
-**Key technologies for export (target engines):** We prioritize support for web-oriented engines and libraries, specifically:
+**Export Target Technologies**:
 
--   **AR.js** – a lightweight JS library for augmented reality on the web (supports marker-based and location-based AR). AR.js is typically used in conjunction with A-Frame or Three.js. In our context, we'll use AR.js with A-Frame to quickly create web AR scenes.
--   **PlayCanvas Engine** and **PlayCanvas React** – PlayCanvas is a high-performance WebGL engine for browser-based 3D. We plan two export strategies: one directly to the engine (imperative JavaScript using the PlayCanvas API), and one via the React wrapper (@playcanvas/react) which allows describing a scene declaratively in JSX. The React approach aligns well with our platform (since we use React) and can simplify integration (embedding the scene as a component).
--   **Babylon.js** – a comprehensive 3D engine for the web (WebGL/WebGPU) with a rich feature set (materials, model loading, VR/AR via WebXR, etc.). Babylon will be another export target, ensuring that UPDL can drive a complex engine. We expect to handle things like setting up scenes, cameras, lights, and basic interactions in Babylon.
--   **Three.js** – the popular low-level 3D library underpinning many other frameworks (including AR.js and A-Frame). Three.js serves as a "baseline" for 3D scene export. Exporting to Three.js means we cover generic WebGL use cases and by extension have the building blocks for other frameworks. Many concepts (cameras, lights, meshes) are similar across Three.js and Babylon, so we can reuse logic.
--   **A-Frame** – a declarative framework from Mozilla for WebVR/AR, allowing us to describe scenes in HTML. We are using it for AR (with AR.js) and potentially for simple VR scenes. A-Frame provides an easy way to structure a scene with markup, which our exporters can generate. It also handles VR setup if needed. Essentially, A-Frame will be our method of exporting AR experiences (with AR.js for camera and tracking) and possibly standalone VR experiences.
+-   **AR.js** - Lightweight web AR library (production-ready with A-Frame integration)
+-   **PlayCanvas Engine** - High-performance WebGL engine for browser-based 3D (ready for deployment)
+-   **Babylon.js** - Comprehensive 3D engine with WebGL/WebGPU support (planned)
+-   **Three.js** - Popular low-level 3D library serving as baseline for WebGL (planned)
+-   **A-Frame** - Declarative WebVR/AR framework for HTML-based scenes (planned)
 
-These engines cover a broad spectrum of web 3D/AR development. Initially, our focus is AR.js (because it delivers an immediate AR use-case). After that, we will tackle PlayCanvas (React) and Babylon.js, then Three.js, then A-Frame VR and pure PlayCanvas (non-React). This order (AR -> Babylon/PlayCanvas -> Three/A-Frame -> etc.) is chosen based on project priorities and reuse of code (Babylon and Three are similar, so doing Babylon first gives us a lot for Three.js). Each exporter will reside in the `apps/updl` module and output platform-specific code or assets.
+**Development Environment**:
 
-**Development Environment:** The monorepo is managed with **pnpm** and **Turborepo** for efficient builds (see `pnpm-workspace.yaml` and `turbo.json` in the repo). This allows simultaneous development of multiple sub-projects (apps). This approach aligns with an architecture based on separate **APPs** modules in the repository. Code style and quality are enforced via ESLint (see the `.eslintrc.js` in the project) and formatting rules (likely Prettier). The project already has a Docker setup, i18n files (internationalization for UI text), and CI scripts configured; we will adhere to these established practices. As we add new modules (like `apps/updl` and `apps/publish`), we integrate them into the existing pipeline and maintain consistency. For example, any user-facing text in the new modules will use the existing i18n system (with translation files residing under the respective `apps/` module as needed) rather than hard-coding strings. We will also update build scripts and configuration so that the new apps are included when running the monorepo (development server, build, etc.).
+-   **Package Management**: PNPM with workspace architecture
+-   **Build System**: Turborepo for efficient monorepo builds
+-   **Code Quality**: ESLint, Prettier, TypeScript strict mode
+-   **Internationalization**: Modular i18n system with English/Russian support
+-   **Version Control**: GitHub with standard PR workflow and CI/CD
 
-**Version Control and Collaboration:** The repository is hosted on GitHub. The team uses GitHub Issues and Projects boards to track tasks and progress (we have relevant issues for adding UPDL nodes and exporters already). Our project is open source (Apache-2.0 license and Omsk Open License), meaning we design with openness in mind, and we may eventually invite community contributions. In development, we follow standard practices: feature branches, pull requests, code reviews, and CI checks (lint/tests) before merging. This helps maintain code quality and consistency. Each significant feature (like a new exporter or a new node type) will likely have an issue and possibly an entry in `tasks.md` for AI context. Communication is key: developers, the node designer, and the tester coordinate closely. We have daily stand-up meetings to monitor progress and quickly address blockers. Any change in plan or scope is promptly updated in documentation (Memory Bank and/or issues) so the AI and team remain in sync.
+**Architecture Principles**:
 
-By leveraging this tech stack and workflow, we ensure that UPDL development is robust: we use proven frameworks (Flowise, React, Node, Three.js, etc.), enforce good practices (linting, CI), keep the AI assistant informed (Memory Bank), and maintain agility in development (monorepo tools for speed, GitHub for collaboration). All these technical considerations set a solid foundation for implementing UPDL as envisioned.
+-   Modular APPs structure minimizing core Flowise changes
+-   Template-first export system for multi-technology support
+-   Workspace packages for backend services (`@universo/package-name`)
+-   Open source dual licensing (Apache 2.0 + Omsk Open License)
 
-## Current Development Status (v0.20.0-alpha)
+## Current Development Status (v0.21.0-alpha)
 
 **Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
 
@@ -165,3 +172,7 @@ By leveraging this tech stack and workflow, we ensure that UPDL development is r
 -   Static library integration with main Flowise server
 -   User-selectable library sources (CDN vs local)
 -   CDN independence for restricted regions
+
+---
+
+_For system architecture patterns, see [systemPatterns.md](systemPatterns.md). For project overview, see [projectbrief.md](projectbrief.md). For current development status, see [activeContext.md](activeContext.md)._

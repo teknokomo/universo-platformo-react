@@ -64,7 +64,13 @@ if (!entity.rigidbody.body) {
 -   Platform-specific transformations and optimizations
 -   Technology-specific parameter handling
 
-## APPs Architecture Pattern (v0.20.0-alpha)
+**Rendering Patterns:**
+
+-   **Iframe-based Rendering**: Isolated script execution for proper library loading and security
+-   **Template System**: Reusable export templates across multiple technologies
+-   **Static Library Integration**: CDN and local library sources with fallback support
+
+## APPs Architecture Pattern (v0.21.0-alpha)
 
 **6 Working Applications** with modular architecture:
 
@@ -82,7 +88,7 @@ if (!entity.rigidbody.body) {
 
 ## UPDL Node System ✅ **COMPLETE**
 
-**High-Level Abstract Nodes** (v0.20.0-alpha):
+**High-Level Abstract Nodes** (v0.21.0-alpha):
 
 ### 7 Core Node Types
 
@@ -123,4 +129,4 @@ if (!entity.rigidbody.body) {
 
 ---
 
-_For detailed application structure and development guidelines, see [apps/README.md](../apps/README.md)_
+_For detailed application structure and development guidelines, see [apps/README.md](../apps/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._
