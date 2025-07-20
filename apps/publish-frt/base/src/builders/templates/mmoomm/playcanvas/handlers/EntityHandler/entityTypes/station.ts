@@ -8,9 +8,12 @@ export function generateStationLogic(id: string): string {
     });
     entity.setLocalScale(4, 2, 4);
 
-    // Add station material for visibility
+    // IMPROVED: Enhanced station material for better visibility
     const stationMaterial = new pc.StandardMaterial();
     stationMaterial.diffuse.set(0.2, 0.5, 0.8); // Blue for stations
+    stationMaterial.emissive.set(0.1, 0.2, 0.4); // Blue glow
+    stationMaterial.shininess = 60;
+    stationMaterial.metalness = 0.7;
     stationMaterial.update();
     entity.model.material = stationMaterial;
 

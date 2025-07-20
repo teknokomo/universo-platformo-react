@@ -37,9 +37,13 @@ export class EntityHandler {
   private processEntity(entity: any, options: BuildOptions): string {
     const entityId = entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`
     const entityType = entity.data?.entityType || 'static'
-    const position = entity.data?.transform?.position || { x: 0, y: 0, z: 0 }
-    const rotation = entity.data?.transform?.rotation || { x: 0, y: 0, z: 0 }
-    const scale = entity.data?.transform?.scale || { x: 1, y: 1, z: 1 }
+
+    // FIXED: Proper transform parsing with fallback for both formats
+    const transform = entity.data?.transform || {}
+    const position = transform.position || { x: 0, y: 0, z: 0 }
+    const rotation = transform.rotation || { x: 0, y: 0, z: 0 }
+    const scale = transform.scale || { x: 1, y: 1, z: 1 }
+
     const isNetworked = entity.data?.networked || false
     const components = entity.data?.components || []
 
@@ -67,6 +71,24 @@ export class EntityHandler {
     // Store reference for networking
     if (!window.MMOEntities) window.MMOEntities = new Map();
     window.MMOEntities.set('${entityId}', entity);
+
+    // ADDED: Debug entity creation
+    console.log('[Entity] Created ${entityType} entity:', {
+        id: '${entityId}',
+        position: entity.getPosition().toString(),
+        enabled: entity.enabled,
+        hasModel: !!entity.model,
+        hasRigidbody: !!entity.rigidbody,
+        hasCollision: !!entity.collision,
+        inScene: !!entity.parent
+    });
+
+    // ADDED: Cleanup handler for memory management
+    entity.on('destroy', () => {
+        if (window.MMOEntities) {
+            window.MMOEntities.delete('${entityId}');
+        }
+    });
 })();
 `
   }

@@ -43,6 +43,7 @@ export class ComponentNode extends BaseUPDLNode {
                         { label: 'Cylinder', name: 'cylinder' }
                     ],
                     default: 'box',
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['render'] }
                 },
                 {
@@ -51,6 +52,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'string',
                     description: 'Color of the rendered primitive',
                     default: '#FFFFFF',
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['render'] }
                 },
                 // Fields for Script Component
@@ -60,6 +62,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'string',
                     description: 'Name of the script file (e.g., playerController.js)',
                     default: 'myScript.js',
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['script'] }
                 },
                 // Universo Platformo | Fields for Inventory Component
@@ -69,6 +72,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Maximum cargo capacity in cubic meters',
                     default: 20,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['inventory'] }
                 },
                 {
@@ -77,6 +81,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Current cargo load in cubic meters',
                     default: 0,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['inventory'] }
                 },
                 // Fields for Weapon Component
@@ -86,6 +91,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Weapon fire rate in shots per second',
                     default: 2,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['weapon'] }
                 },
                 {
@@ -94,6 +100,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Damage per shot',
                     default: 1,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['weapon'] }
                 },
                 // Fields for Trading Component
@@ -103,6 +110,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Trading price per ton in Inmo currency',
                     default: 10,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['trading'] }
                 },
                 {
@@ -111,6 +119,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Range for trading interaction',
                     default: 8,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['trading'] }
                 },
                 // Fields for Mineable Component
@@ -120,6 +129,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'string',
                     description: 'Type of resource that can be mined',
                     default: 'asteroidMass',
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['mineable'] }
                 },
                 {
@@ -128,6 +138,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Maximum resource yield in tons',
                     default: 3,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['mineable'] }
                 },
                 // Fields for Portal Component
@@ -137,6 +148,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'string',
                     description: 'Target world for portal transportation',
                     default: 'konkordo',
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['portal'] }
                 },
                 {
@@ -145,6 +157,7 @@ export class ComponentNode extends BaseUPDLNode {
                     type: 'number',
                     description: 'Portal cooldown time in milliseconds',
                     default: 2000,
+                    additionalParams: true,
                     show: { 'inputs.componentType': ['portal'] }
                 },
                 // Generic props for advanced use
