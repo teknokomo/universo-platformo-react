@@ -1,7 +1,12 @@
 export function generatePlayerLogic(id: string): string {
     return `
     // Player entity setup
-    entity.addComponent('model', { type: 'capsule' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'capsule' });
+    }
+
+    // Physics setup (always needed for player movement)
     entity.addComponent('rigidbody', {
         type: pc.BODYTYPE_DYNAMIC,
         mass: 70

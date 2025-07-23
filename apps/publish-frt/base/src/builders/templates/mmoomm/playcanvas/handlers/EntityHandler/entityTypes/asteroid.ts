@@ -1,7 +1,12 @@
 export function generateAsteroidLogic(id: string): string {
     return `
     // Asteroid entity setup
-    entity.addComponent('model', { type: 'sphere' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'sphere' });
+    }
+
+    // Collision setup (always needed for game mechanics)
     entity.addComponent('collision', {
         type: 'sphere',
         radius: Math.random() * 2 + 1 // Random size between 1-3
@@ -15,14 +20,16 @@ export function generateAsteroidLogic(id: string): string {
     const scale = Math.random() * 2 + 0.5; // 0.5 to 2.5
     entity.setLocalScale(scale, scale, scale);
 
-    // IMPROVED: Enhanced asteroid material for better visibility
-    const asteroidMaterial = new pc.StandardMaterial();
-    asteroidMaterial.diffuse.set(0.6, 0.5, 0.4); // Brown/gray for asteroids
-    asteroidMaterial.emissive.set(0.2, 0.15, 0.1); // Warm glow
-    asteroidMaterial.shininess = 20;
-    asteroidMaterial.metalness = 0.1;
-    asteroidMaterial.update();
-    entity.model.material = asteroidMaterial;
+    // IMPROVED: Enhanced asteroid material (only if no custom material from Component)
+    if (entity.model && !entity.model.material) {
+        const asteroidMaterial = new pc.StandardMaterial();
+        asteroidMaterial.diffuse.set(0.6, 0.5, 0.4); // Brown/gray for asteroids
+        asteroidMaterial.emissive.set(0.2, 0.15, 0.1); // Warm glow
+        asteroidMaterial.shininess = 20;
+        asteroidMaterial.metalness = 0.1;
+        asteroidMaterial.update();
+        entity.model.material = asteroidMaterial;
+    }
 
     // Asteroid mineable properties
     entity.mineable = {

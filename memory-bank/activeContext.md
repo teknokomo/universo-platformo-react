@@ -17,6 +17,13 @@
 
 ## Recent Status (July 2025)
 
+**Release 0.21.1-alpha "UPDL Priority Fix"** - Critical architecture fix completed:
+
+-   Fixed Entity Type Logic vs Component Render execution order in MMOOMM template
+-   UPDL Component Render settings now properly override hardcoded Entity Type defaults
+-   Preserved all MMO game mechanics (physics, collision, mining, trading) while making visuals configurable
+-   Simplified implementation without complex architecture changes
+
 **Release 0.21.0-alpha "Firm Resolve"** - Major improvements completed:
 
 -   Memory Bank system optimization with improved file structure and guidelines

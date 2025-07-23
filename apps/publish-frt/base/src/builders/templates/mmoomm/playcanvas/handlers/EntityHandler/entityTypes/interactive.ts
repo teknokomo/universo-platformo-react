@@ -1,7 +1,12 @@
 export function generateInteractiveLogic(id: string): string {
     return `
     // Interactive entity setup
-    entity.addComponent('model', { type: 'box' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'box' });
+    }
+
+    // Collision setup (always needed for interaction detection)
     entity.addComponent('collision', { type: 'box' });
 
     // Interaction handler

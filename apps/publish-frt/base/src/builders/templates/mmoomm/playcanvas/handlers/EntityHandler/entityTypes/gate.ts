@@ -1,19 +1,26 @@
 export function generateGateLogic(id: string): string {
     return `
     // Gate (Portal) entity setup
-    entity.addComponent('model', { type: 'torus' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'torus' });
+    }
+
+    // Collision setup (always needed for portal detection)
     entity.addComponent('collision', {
         type: 'box',
         halfExtents: new pc.Vec3(3, 3, 1)
     });
     entity.setLocalScale(3, 3, 1);
 
-    // Add gate material for visibility
-    const gateMaterial = new pc.StandardMaterial();
-    gateMaterial.diffuse.set(1, 1, 0); // Yellow for gates
-    gateMaterial.emissive.set(0.2, 0.2, 0); // Slight glow
-    gateMaterial.update();
-    entity.model.material = gateMaterial;
+    // Add gate material (only if no custom material from Component)
+    if (entity.model && !entity.model.material) {
+        const gateMaterial = new pc.StandardMaterial();
+        gateMaterial.diffuse.set(1, 1, 0); // Yellow for gates
+        gateMaterial.emissive.set(0.2, 0.2, 0); // Slight glow
+        gateMaterial.update();
+        entity.model.material = gateMaterial;
+    }
 
     // Gate portal properties
     entity.portal = {
