@@ -126,6 +126,9 @@ flowchart TD
   - **Dependencies**: [Internal and external dependencies]
   - **Special considerations**: [Important notes]
 
+### Key Files and Components Affected (from tasks.md)
+[Summary or direct copy of file/component checklists from the original tasks.md for this project. This provides a quick reference to the scope of changes at a component/file level.]
+
 ### Algorithms and Complex Logic
 [Documentation of key algorithms and complex business logic]
 

@@ -1,9 +1,7 @@
 ---
-description:
-globs:
+description: When you want to update any file in memory-bank, including activeContext.md, tasks.md and any other in this folder
 alwaysApply: false
 ---
-
 # Rules for Memory Bank
 
 * **Always Use All Core Files:** Update and utilize all memory bank files appropriately (e.g. `projectbrief.md`, `productContext.md`, `activeContext.md`, `systemPatterns.md`, `techContext.md`, `progress.md`, `tasks.md`, `currentResearch.md`). Do not ignore any core file.
