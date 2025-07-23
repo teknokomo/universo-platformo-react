@@ -1,21 +1,28 @@
 export function generateStationLogic(id: string): string {
     return `
     // Space station entity setup
-    entity.addComponent('model', { type: 'box' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'box' });
+    }
+
+    // Collision setup (always needed for trading mechanics)
     entity.addComponent('collision', {
         type: 'box',
         halfExtents: new pc.Vec3(4, 2, 4)
     });
     entity.setLocalScale(4, 2, 4);
 
-    // IMPROVED: Enhanced station material for better visibility
-    const stationMaterial = new pc.StandardMaterial();
-    stationMaterial.diffuse.set(0.2, 0.5, 0.8); // Blue for stations
-    stationMaterial.emissive.set(0.1, 0.2, 0.4); // Blue glow
-    stationMaterial.shininess = 60;
-    stationMaterial.metalness = 0.7;
-    stationMaterial.update();
-    entity.model.material = stationMaterial;
+    // IMPROVED: Enhanced station material (only if no custom material from Component)
+    if (entity.model && !entity.model.material) {
+        const stationMaterial = new pc.StandardMaterial();
+        stationMaterial.diffuse.set(0.2, 0.5, 0.8); // Blue for stations
+        stationMaterial.emissive.set(0.1, 0.2, 0.4); // Blue glow
+        stationMaterial.shininess = 60;
+        stationMaterial.metalness = 0.7;
+        stationMaterial.update();
+        entity.model.material = stationMaterial;
+    }
 
     // Station trading system
     entity.tradingPost = {

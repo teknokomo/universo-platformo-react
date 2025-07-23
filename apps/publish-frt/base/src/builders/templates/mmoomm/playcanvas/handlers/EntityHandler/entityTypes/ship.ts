@@ -1,9 +1,12 @@
 export function generateShipLogic(id: string): string {
     return `
     // Space ship entity setup
-    entity.addComponent('model', { type: 'box' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'box' });
+    }
 
-    // IMPORTANT: Add collision component first
+    // IMPORTANT: Add collision component first (always needed for game mechanics)
     entity.addComponent('collision', {
         type: 'box',
         halfExtents: new pc.Vec3(1, 0.5, 2)
@@ -18,14 +21,16 @@ export function generateShipLogic(id: string): string {
         enabled: true  // FIXED: Start enabled for immediate physics
     });
 
-    // IMPROVED: Enhanced ship material for better visibility
-    const shipMaterial = new pc.StandardMaterial();
-    shipMaterial.diffuse.set(0.2, 0.8, 0.2); // Green for player ship
-    shipMaterial.emissive.set(0.1, 0.4, 0.1); // Slight glow
-    shipMaterial.shininess = 40;
-    shipMaterial.metalness = 0.3;
-    shipMaterial.update();
-    entity.model.material = shipMaterial;
+    // IMPROVED: Enhanced ship material (only if no custom material from Component)
+    if (entity.model && !entity.model.material) {
+        const shipMaterial = new pc.StandardMaterial();
+        shipMaterial.diffuse.set(0.2, 0.8, 0.2); // Green for player ship
+        shipMaterial.emissive.set(0.1, 0.4, 0.1); // Slight glow
+        shipMaterial.shininess = 40;
+        shipMaterial.metalness = 0.3;
+        shipMaterial.update();
+        entity.model.material = shipMaterial;
+    }
 
     // ADDED: Ensure entity is visible and properly scaled
     entity.enabled = true;

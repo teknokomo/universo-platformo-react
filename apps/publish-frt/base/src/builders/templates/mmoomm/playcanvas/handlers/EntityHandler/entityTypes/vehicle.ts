@@ -1,7 +1,12 @@
 export function generateVehicleLogic(id: string): string {
     return `
     // Vehicle entity setup
-    entity.addComponent('model', { type: 'box' });
+    // Only add default model if not already set by Component Render
+    if (!entity.model) {
+        entity.addComponent('model', { type: 'box' });
+    }
+
+    // Physics setup (always needed for vehicle movement)
     entity.addComponent('rigidbody', {
         type: pc.BODYTYPE_DYNAMIC,
         mass: 1000

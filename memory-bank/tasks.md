@@ -40,6 +40,7 @@
 
 ## Recently Completed Tasks
 
+-   [x] **UPDL Priority Fix**: Fixed Entity Type Logic vs Component Render execution order in MMOOMM template - UPDL Component Render settings now properly override hardcoded Entity Type defaults while preserving all MMO game mechanics (2025-07-22)
 -   [x] Release 0.21.0-alpha "Firm Resolve": Major platform improvements with memory bank optimization, MMOOMM stabilization, and handler refactoring (2025-07-20)
 -   [x] Handler Architecture Refactoring: Refactored ComponentHandler and EntityHandler into modular files for better organization (2025-07-20)
 -   [x] Memory Bank System Optimization: Updated all memory bank files to comply with new guidelines (2025-07-20)

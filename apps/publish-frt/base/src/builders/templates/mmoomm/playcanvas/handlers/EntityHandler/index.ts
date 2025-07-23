@@ -59,11 +59,11 @@ export class EntityHandler {
 
     ${isNetworked ? generateNetworkComponent(entityId, entityType) : '// Local entity (not networked)'}
 
-    // Entity type specific setup
-    ${this.generateEntityTypeLogic(entityType, entityId)}
-
-    // Attached components
+    // Attached components (executed first to allow UPDL overrides)
     ${components.map((c: any) => this.componentHandler.attach(c, 'entity')).join('\n    ')}
+
+    // Entity type specific setup (executed after components)
+    ${this.generateEntityTypeLogic(entityType, entityId)}
 
     // Add to scene
     app.root.addChild(entity);
