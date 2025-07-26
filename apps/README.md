@@ -135,14 +135,16 @@ The Publish application provides mechanisms for exporting UPDL spaces to AR.js a
 
 #### Publish Frontend (publish-frt)
 
-The frontend application is responsible for the entire user-facing publication workflow, including the final conversion of data to a viewable AR format.
+The frontend application is responsible for the entire user-facing publication workflow, including the final conversion of data to viewable AR.js and PlayCanvas formats.
 
 **Key Features:**
 
--   **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into a valid AR.js experience. All heavy processing is done on the client.
--   **Modular Builders**: A flexible `ARJSBuilder` system constructs the final HTML from UPDL data.
+-   **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences. All heavy processing is done on the client.
+-   **Template-Based Builders**: Flexible builder system with `ARJSBuilder` and `PlayCanvasBuilder` supporting multiple templates (Quiz, MMOOMM).
+-   **MMOOMM Space MMO Template**: Comprehensive space MMO environment with industrial laser mining, physics-based flight, and real-time inventory management.
+-   **Advanced Game Mechanics**: Entity system with ships, asteroids, stations, gates, and networking capabilities.
 -   **Supabase Integration**: Persists publication configurations.
--   **AR Quiz Support**: A feature to build educational quizzes with scoring and lead collection.
+-   **AR Quiz Support**: Educational quizzes with scoring and lead collection.
 
 **Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 

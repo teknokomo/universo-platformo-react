@@ -1,6 +1,7 @@
 export function generateAsteroidLogic(id: string): string {
     return `
     // Asteroid entity setup
+    entity.tags.add('asteroid');
     // Only add default model if not already set by Component Render
     if (!entity.model) {
         entity.addComponent('model', { type: 'sphere' });
@@ -129,19 +130,7 @@ export function generateAsteroidLogic(id: string): string {
         }
     };
 
-    // OPTIMIZED: Handle collision with projectiles
-    entity.collision.on('collisionstart', (result) => {
-        const otherEntity = result.other;
-        if (otherEntity.name && otherEntity.name.startsWith('projectile_')) {
-            entity.mineable.onHit(otherEntity);
-
-            // IMPROVED: Cleanup projectile from tracking
-            if (window.activeProjectiles) {
-                window.activeProjectiles.delete(otherEntity);
-            }
-            otherEntity.destroy();
-        }
-    });
+    // NOTE: Projectile collision handling removed - now using laser mining system
 
     // Slow rotation for visual effect
     entity.rotationSpeed = (Math.random() - 0.5) * 10; // Random rotation speed

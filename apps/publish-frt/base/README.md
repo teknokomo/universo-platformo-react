@@ -262,11 +262,51 @@ const defaultRotator = getDefaultRotatorScript()
 
 The scripts system provides smooth rotation animation for the default red cube in demo mode, extracted from the main builder for better code organization.
 
-### Universo MMOOMM Example
+### Universo MMOOMM Template
 
-The `mmoomm` template produces a small demo scene with a ship, asteroids and a gate.
+The `mmoomm` template provides a fully functional space MMO environment with advanced game mechanics:
+
+#### Core Features
+
+-   **Industrial Laser Mining System**: Auto-targeting laser mining with 3-second cycles and inventory integration
+-   **Space Ship Controls**: WASD+QZ movement with physics-based flight mechanics
+-   **Inventory Management**: 20m³ cargo hold with real-time capacity tracking
+-   **Entity System**: Ships, asteroids, stations, and gates with networking capabilities
+-   **Real-time HUD**: Mining progress, cargo status, and system indicators
+
+#### Game Mechanics
+
+-   **Mining**: Target asteroids within 75-unit range, extract 1.5m³ resources per cycle
+-   **Movement**: Full 6DOF ship movement with camera following
+-   **Physics**: Collision detection, rigidbody dynamics, and realistic space physics
+
 Select **PlayCanvas MMOOMM Template** in the configuration or pass `templateId: 'mmoomm'` when using the builder.
-Publish the project and open the public link to explore the prototype MMO environment.
+Publish the project and open the public link to explore the fully functional MMO environment.
+
+**Detailed Documentation:** [MMOOMM PlayCanvas Template](./src/builders/templates/mmoomm/playcanvas/README.md)
+
+### Entity Types System
+
+The MMOOMM template includes a comprehensive entity system with specialized types for space MMO gameplay:
+
+#### Available Entity Types
+
+-   **Ship**: Player-controlled spacecraft with laser mining system, inventory, and physics
+-   **Asteroid**: Mineable objects with resource yield and destruction mechanics
+-   **Station**: Trading posts and docking facilities for commerce
+-   **Gate**: Teleportation portals for inter-system travel
+-   **Player**: Network-aware player entities for multiplayer support
+-   **Interactive**: Objects with custom interaction behaviors
+-   **Vehicle**: Alternative movement entities with different physics
+-   **Static**: Non-interactive environmental objects
+
+#### Entity Features
+
+-   **Modular Architecture**: Each entity type has dedicated logic in `entityTypes/` directory
+-   **Component Integration**: Entities work seamlessly with UPDL Component nodes
+-   **Network Support**: Built-in networking capabilities for multiplayer scenarios
+-   **Physics Integration**: Collision detection, rigidbody dynamics, and spatial relationships
+-   **Memory Management**: Automatic cleanup and reference management
 
 ## UPDL Processing Architecture
 
@@ -418,7 +458,11 @@ and prevents conflicts between different publication modes.
 -   `PlayCanvasPublisher` - Component for PlayCanvas publication settings.
 -   `PlayCanvasBuilder` - Builder for PlayCanvas HTML output with template support.
 -   `PlayCanvasViewPage` - Page component for viewing PlayCanvas scenes.
--   `PlayCanvasMMOOMMBuilder` - A concrete template implementation for the Universo MMOOMM project.
+-   `PlayCanvasMMOOMMBuilder` - A concrete template implementation for the Universo MMOOMM project with:
+    -   Industrial laser mining system with auto-targeting and state machine
+    -   Comprehensive entity system (ships, asteroids, stations, gates)
+    -   Physics-based space flight mechanics and inventory management
+    -   Real-time HUD with mining progress and cargo status
 -   `PlayCanvas Scripts System` - Simple system for reusable PlayCanvas behaviors:
     -   `BaseScript` - Abstract base class for PlayCanvas scripts
     -   `RotatorScript` - Simple Y-axis rotation animation script
