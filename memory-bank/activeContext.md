@@ -17,7 +17,7 @@
 
 ## Recent Status
 
-**Current Development**: Universo MMOOMM laser mining system completed with full functionality. Industrial laser mining with auto-targeting, 3-second mining cycles, and inventory integration now working without visual artifacts. System includes state machine (idle, targeting, mining, collecting) with instant laser beam hide/show for smooth gameplay experience.
+**Current Development**: Enhanced Resource System with Material Density implemented successfully. Created realistic material physics with separate weight/volume tracking, 16 material types with proper densities (0.001-21.5 t/m³), enhanced inventory system supporting both tons and m³, and improved mineable components with hardness/volume properties. MMOOMM ship.ts refactoring also completed with 90.6% code reduction and modular shared templates architecture.
 
 ## System Architecture
 

@@ -141,6 +141,24 @@ export class ComponentNode extends BaseUPDLNode {
                     additionalParams: true,
                     show: { 'inputs.componentType': ['mineable'] }
                 },
+                {
+                    name: 'asteroidVolume',
+                    label: 'Asteroid Volume (m³)',
+                    type: 'number',
+                    description: 'Physical volume of the asteroid',
+                    default: 5,
+                    additionalParams: true,
+                    show: { 'inputs.componentType': ['mineable'] }
+                },
+                {
+                    name: 'hardness',
+                    label: 'Hardness',
+                    type: 'number',
+                    description: 'Mining difficulty (1=soft, 5=very hard)',
+                    default: 1,
+                    additionalParams: true,
+                    show: { 'inputs.componentType': ['mineable'] }
+                },
                 // Fields for Portal Component
                 {
                     name: 'targetWorld',
@@ -194,6 +212,8 @@ export class ComponentNode extends BaseUPDLNode {
         const interactionRange = Number(nodeData.inputs?.interactionRange) || 8
         const resourceType = (nodeData.inputs?.resourceType as string) || 'asteroidMass'
         const maxYield = Number(nodeData.inputs?.maxYield) || 3
+        const asteroidVolume = Number(nodeData.inputs?.asteroidVolume) || 5
+        const hardness = Number(nodeData.inputs?.hardness) || 1
         const targetWorld = (nodeData.inputs?.targetWorld as string) || 'konkordo'
         const cooldownTime = Number(nodeData.inputs?.cooldownTime) || 2000
 
@@ -223,6 +243,8 @@ export class ComponentNode extends BaseUPDLNode {
             interactionRange,
             resourceType,
             maxYield,
+            asteroidVolume,
+            hardness,
             targetWorld,
             cooldownTime,
             // Additional properties
