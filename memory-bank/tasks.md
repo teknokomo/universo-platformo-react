@@ -3,6 +3,22 @@
 **Project**: Universo Platformo (v0.21.0-alpha, Alpha achieved)
 **Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
 
+## Current Implementation Tasks
+
+### MMOOMM Template Refactoring - Safe Cleanup Phase ✅ COMPLETE
+
+-   [x] Verify current laser system functionality: Test that current laser mining system in ship.ts works correctly before removing backup files
+-   [x] Remove laserSystem_design.js: Delete obsolete design file from entityTypes directory
+-   [x] Remove ship_weaponSystem_backup.js: Delete obsolete backup file from entityTypes directory
+-   [x] Test MMOOMM template build: Verify that MMOOMM template builds successfully after file removal
+
+### MMOOMM Template Refactoring - Inventory Consolidation Phase (MVP) ✅ COMPLETE
+
+-   [x] Create shared inventory template: Create shared/inventoryTemplate.ts with minimal working implementation
+-   [x] Update attachments/inventory.ts: Replace duplicated code with shared template reference (preserves UPDL Component integration)
+-   [x] Update components/inventory.ts: Update components/inventory.ts to use shared template while preserving logging and events functionality
+-   [x] Test inventory functionality: Verify that laser mining and UPDL Component attachment still work correctly
+
 ## Open Tasks
 
 ### Post-Alpha Features
