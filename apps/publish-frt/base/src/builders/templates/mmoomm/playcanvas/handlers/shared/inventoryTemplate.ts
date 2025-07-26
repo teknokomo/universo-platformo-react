@@ -95,13 +95,13 @@ export function generateInventoryCode(
     includeLogging: boolean = false,
     includeEvents: boolean = false
 ): string {
-    const itemListMethod = includeItemList ? `
+    const itemListMethod = includeItemList ? `,
         getItemList() {
             return Object.keys(this.items).map(itemType => ({
                 type: itemType,
                 amount: this.items[itemType]
             }));
-        },` : '';
+        }` : '';
 
     const addItemLogging = includeLogging ? `
                 console.log('[Inventory] Added', amount, itemType, '- Load:', this.currentLoad + '/' + this.maxCapacity);` : '';
