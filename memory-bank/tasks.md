@@ -40,6 +40,16 @@
 
 ## Recently Completed Tasks
 
+-   [x] **Laser System Critical Fix (v0.21.3-alpha)**: Fixed critical recursive initialization error and visual artifacts in laser mining system (2025-01-29)
+    -   Fixed recursive `this.laserSystem.init()` call causing black screen crashes
+    -   Replaced complex line mesh with reliable box model for laser beam rendering
+    -   Fixed update loop using `app.on('update')` instead of `entity.on('update')`
+    -   Added missing `getItemList()` method to ship inventory for HUD updates
+    -   Removed fade-out animation to prevent laser beam detachment during ship movement
+-   [x] **Laser Mining System (v0.21.2-alpha)**: Industrial laser mining implementation with auto-targeting and state machine (2025-01-28)
+    -   Replaced projectile weapons with industrial laser mining system
+    -   Implemented state machine (idle, targeting, mining, collecting) with 3-second cycles
+    -   Added visual red laser beam with target detection and inventory integration
 -   [x] **UPDL Priority Fix**: Fixed Entity Type Logic vs Component Render execution order in MMOOMM template - UPDL Component Render settings now properly override hardcoded Entity Type defaults while preserving all MMO game mechanics (2025-07-22)
 -   [x] Release 0.21.0-alpha "Firm Resolve": Major platform improvements with memory bank optimization, MMOOMM stabilization, and handler refactoring (2025-07-20)
 -   [x] Handler Architecture Refactoring: Refactored ComponentHandler and EntityHandler into modular files for better organization (2025-07-20)

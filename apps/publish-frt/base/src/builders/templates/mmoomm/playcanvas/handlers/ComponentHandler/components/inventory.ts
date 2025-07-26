@@ -11,6 +11,9 @@ export default function inventory(id: string, props: any): string {
                 this.items[itemType] = (this.items[itemType] || 0) + amount;
                 this.currentLoad += amount;
                 console.log('[Inventory] Added', amount, itemType, '- Load:', this.currentLoad + '/' + this.maxCapacity);
+            if (typeof app !== 'undefined') {
+                app.fire('cargo:changed', this.currentLoad, this.maxCapacity);
+            }
                 return true;
             }
             console.log('[Inventory] Cannot add', amount, itemType, '- Insufficient space');

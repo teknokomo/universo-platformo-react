@@ -252,6 +252,13 @@ export function generateShipLogic(id: string): string {
                 free: this.maxCapacity - this.currentLoad,
                 percentage: (this.currentLoad / this.maxCapacity) * 100
             };
+        },
+
+        getItemList() {
+            return Object.keys(this.items).map(itemType => ({
+                type: itemType,
+                amount: this.items[itemType]
+            }));
         }
     };
 
@@ -362,62 +369,505 @@ export function generateShipLogic(id: string): string {
         }
     };
 
-    // Ship weapon system
-    entity.weaponSystem = {
-        canFire: true,
-        fireRate: 2, // shots per second
-        lastFireTime: 0,
+    // Ship laser mining system
+    entity.laserSystem = {
+        // State management
+        state: 'idle', // idle, targeting, mining, collecting
+        currentTarget: null,
+        miningStartTime: 0,
+        cycleProgress: 0,
 
-        fire(direction) {
-            const now = Date.now();
-            if (this.canFire && now - this.lastFireTime >= 1000 / this.fireRate) {
-                this.createProjectile(direction);
-                this.lastFireTime = now;
-                return true;
-            }
-            return false;
+        // Visual components
+        laserBeam: null,
+
+        // Configuration
+        config: {
+            maxRange: 75, // 50-100 units optimal range
+            miningDuration: 3000, // 3 seconds in milliseconds
+            resourceYield: 1.5, // 1-2 cubic meters per cycle
+            fadeInDuration: 200,
+            fadeOutDuration: 300,
         },
 
-        createProjectile(direction) {
-            // IMPROVED: Memory-managed projectile creation
-            const projectile = new pc.Entity('projectile_' + Date.now());
-            projectile.addComponent('model', { type: 'sphere' });
-            projectile.addComponent('rigidbody', {
-                type: pc.BODYTYPE_DYNAMIC,
-                mass: 0.1
+        // Debug and visual components
+        debugMode: false,
+        rangeIndicator: null,
+
+        // Initialize system
+        init() {
+            console.log('[LaserSystem] Initializing laser system');
+            this.state = 'idle';
+            this.currentTarget = null;
+            this.laserBeam = null;
+            this.miningStartTime = 0;
+            this.cycleProgress = 0;
+            console.log('[LaserSystem] Initialization complete');
+        },
+
+        // State transition methods
+        setState(newState, reason = '') {
+            const oldState = this.state;
+            this.state = newState;
+            console.log('[LaserSystem] ' + oldState + ' -> ' + newState + (reason ? ' (' + reason + ')' : ''));
+
+            // Handle state entry actions
+            this.onStateEnter(newState, oldState);
+        },
+
+        onStateEnter(newState, oldState) {
+            switch (newState) {
+                case 'idle':
+                    this.currentTarget = null;
+                    this.miningStartTime = 0;
+                    this.cycleProgress = 0;
+                    this.hideLaser();
+                    break;
+
+                case 'targeting':
+                    this.findTarget();
+                    break;
+
+                case 'mining':
+                    this.miningStartTime = Date.now();
+                    this.cycleProgress = 0;
+                    this.showLaser();
+                    break;
+
+                case 'collecting':
+                    this.hideLaser();
+                    this.collectResources();
+                    break;
+            }
+        },
+
+        // Target finding and validation - simplified version
+        findTarget() {
+            if (!window.app || !window.playerShip) {
+                console.warn('[LaserSystem] Cannot find target - app or playerShip missing');
+                this.setState('idle', 'no app or ship');
+                return;
+            }
+
+            const asteroids = window.app.root.findByTag ? window.app.root.findByTag('asteroid') : [];
+            if (!asteroids || asteroids.length === 0) {
+                this.setState('idle', 'no asteroids');
+                return;
+            }
+
+            let closest = null;
+            let closestDist = Infinity;
+            const shipPos = window.playerShip.getPosition();
+
+            asteroids.forEach((ast) => {
+                if (!this.isValidTarget(ast)) return;
+                const dist = shipPos.distance(ast.getPosition());
+                if (dist < closestDist) {
+                    closest = ast;
+                    closestDist = dist;
+                }
             });
-            projectile.addComponent('collision', {
-                type: 'sphere',
-                radius: 0.1
-            });
 
-            // ADDED: Track projectiles for cleanup
-            if (!window.activeProjectiles) window.activeProjectiles = new Set();
-            window.activeProjectiles.add(projectile);
+            if (closest) {
+                this.currentTarget = closest;
+                console.log('[LaserSystem] Target acquired', closest.name || closest.getGuid?.());
+                // Immediately proceed to mining state
+                this.setState('mining', 'target found');
+            } else {
+                this.setState('idle', 'no target in range');
+            }
+        },
 
-            // Position projectile at ship's front
-            const shipPos = entity.getPosition();
-            const shipForward = entity.forward.clone();
-            projectile.setPosition(shipPos.add(shipForward.scale(3)));
+        // Validation methods
+        isValidTarget(target) {
+            if (!target || target.mineable?.isDestroyed) return false;
 
-            // Apply velocity
-            const velocity = direction.clone().scale(50);
-            projectile.rigidbody.linearVelocity = velocity;
+            const distance = this.getDistanceToTarget(target);
+            if (distance > this.config.maxRange) return false;
+
+            // Add line-of-sight check here if needed
+            return true;
+        },
+
+        getDistanceToTarget(target) {
+            if (!target || !window.playerShip) return Infinity;
+
+            const shipPos = window.playerShip.getPosition();
+            const targetPos = target.getPosition();
+            return shipPos.distance(targetPos);
+        },
+
+        hasLineOfSight(from, to) {
+            // Enhanced line-of-sight check using raycast
+            if (!app.systems.rigidbody) {
+                console.warn('[LaserSystem] No rigidbody system available for raycast');
+                return true; // Fallback to allow targeting
+            }
+
+            // Check if physics world is properly initialized
+            if (!app.systems.rigidbody.dynamicsWorld) {
+                console.log('[LaserSystem] Physics world not initialized, assuming clear line of sight');
+                return true; // Fallback to allow targeting
+            }
+
+            const direction = to.clone().sub(from).normalize();
+            const distance = from.distance(to);
+
+            // Offset start position slightly to avoid self-collision
+            const startPos = from.clone().add(direction.clone().scale(1));
+
+            try {
+                const result = app.systems.rigidbody.raycastFirst(startPos, to);
+
+                if (result) {
+                    // Check if we hit our intended target
+                    if (result.entity === this.currentTarget) {
+                        return true; // Clear line of sight to target
+                    }
+
+                    // Check if we hit something very close to the target (tolerance for collision shapes)
+                    const hitDistance = startPos.distance(result.point);
+                    const targetDistance = startPos.distance(to);
+
+                    if (Math.abs(hitDistance - targetDistance) < 2.0) {
+                        return true; // Hit is close enough to target
+                    }
+
+                    console.log('[LaserSystem] Line of sight blocked by ' + (result.entity.name || 'unknown entity'));
+                    return false; // Something is blocking the path
+                }
+
+                return true; // No obstacles detected
+
+            } catch (error) {
+                console.warn('[LaserSystem] Raycast error:', error);
+                return true; // Fallback to allow targeting
+            }
+        },
+
+        // Laser visual management with animations
+        showLaser() {
+            if (!this.currentTarget) return;
+
+            // Create laser beam if it doesn't exist
+            if (!this.laserBeam) {
+                this.createLaserBeam();
+            }
+
+            // Update laser position and make visible
+            this.updateLaserPosition();
+            this.laserBeam.enabled = true;
+
+            // Fade in animation
+            this.animateLaserOpacity(0, 0.9, this.config.fadeInDuration);
+
+            console.log('[LaserSystem] Laser beam activated with fade-in');
+        },
+
+        hideLaser() {
+            if (this.laserBeam && this.laserBeam.enabled) {
+                // Instant hide - no fade out animation to prevent visual lag
+                this.laserBeam.enabled = false;
+
+                // Reset material opacity for next use
+                if (this.laserBeam.model && this.laserBeam.model.material) {
+                    this.laserBeam.model.material.opacity = 0.9;
+                    this.laserBeam.model.material.update();
+                }
+            }
+        },
+
+        animateLaserOpacity(fromOpacity, toOpacity, duration, onComplete = null) {
+            if (!this.laserBeam || !this.laserBeam.model || !this.laserBeam.model.material) return;
+
+            const material = this.laserBeam.model.material;
+            const startTime = Date.now();
+
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Smooth easing
+                const easedProgress = progress * progress * (3 - 2 * progress);
+                const currentOpacity = fromOpacity + (toOpacity - fromOpacity) * easedProgress;
+
+                material.opacity = currentOpacity;
+                material.update();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else if (onComplete) {
+                    onComplete();
+                }
+            };
+
+            animate();
+        },
+
+        createLaserBeam() {
+            // Create laser beam entity using simple box model (more reliable than lines)
+            this.laserBeam = new pc.Entity('laserBeam');
+
+            // Add model component with box geometry
+            this.laserBeam.addComponent('model', { type: 'box' });
+
+            // Create red emissive material
+            const mat = new pc.StandardMaterial();
+            mat.diffuse.set(1, 0, 0);
+            mat.emissive.set(1, 0, 0);
+            mat.update();
+
+            // Apply material
+            this.laserBeam.model.material = mat;
+
+            // Set initial scale (thin beam, Z length will be updated)
+            this.laserBeam.setLocalScale(0.05, 0.05, 1);
 
             // Add to scene
-            app.root.addChild(projectile);
+            app.root.addChild(this.laserBeam);
 
-            // IMPROVED: Auto-destroy with cleanup after 5 seconds
-            setTimeout(() => {
-                if (projectile.parent) {
-                    if (window.activeProjectiles) {
-                        window.activeProjectiles.delete(projectile);
-                    }
-                    projectile.destroy();
+            // Initially hidden
+            this.laserBeam.enabled = false;
+
+            console.log('[LaserSystem] Laser beam entity created with box rendering');
+        },
+
+        updateLaserPosition() {
+            if (!this.laserBeam || !this.currentTarget) return;
+
+            const shipPos = entity.getPosition();
+            const targetPos = this.currentTarget.getPosition();
+
+            const dir = new pc.Vec3();
+            dir.sub2(targetPos, shipPos);
+            const length = dir.length();
+
+            const mid = new pc.Vec3();
+            mid.add2(shipPos, dir.clone().scale(0.5));
+
+            this.laserBeam.setPosition(mid);
+            this.laserBeam.lookAt(targetPos);
+            this.laserBeam.setLocalScale(0.05, 0.05, length);
+        },
+
+        // Resource collection
+        collectResources() {
+            if (!this.currentTarget || !entity.inventory) {
+                this.setState('idle', 'collection failed');
+                return;
+            }
+
+            const resourceAmount = this.config.resourceYield;
+
+            // Check if ship has space
+            if (entity.inventory.currentLoad + resourceAmount > entity.inventory.maxCapacity) {
+                console.log('[LaserSystem] Cargo hold full, cannot collect resources');
+                this.setState('idle', 'cargo hold full');
+                return;
+            }
+
+            // Add resources to ship inventory
+            if (entity.inventory.addItem('asteroidMass', resourceAmount)) {
+                console.log('[LaserSystem] Collected ' + resourceAmount + ' asteroidMass');
+
+                // Update HUD if available
+                if (window.SpaceHUD) {
+                    window.SpaceHUD.updateShipStatus(entity);
                 }
-            }, 5000);
 
-            console.log('[Ship] Projectile fired from', '${id}');
+                // Damage the asteroid
+                if (this.currentTarget.mineable) {
+                    this.currentTarget.mineable.onHit({ damage: 1 });
+                }
+
+                // Brief delay then return to idle
+                setTimeout(() => {
+                    this.setState('idle', 'collection complete');
+                }, 500);
+            } else {
+                this.setState('idle', 'failed to add resources');
+            }
+        },
+
+        // Update method called every frame
+        update(deltaTime) {
+            switch (this.state) {
+                case 'targeting':
+                    this.updateTargeting();
+                    break;
+
+                case 'mining':
+                    this.updateMining(deltaTime);
+                    break;
+
+                case 'collecting':
+                    this.updateCollecting(deltaTime);
+                    break;
+            }
+
+            // Update debug indicators if enabled
+            this.updateDebugIndicators();
+        },
+
+        updateTargeting() {
+            // Validate current target is still valid
+            if (!this.isValidTarget(this.currentTarget)) {
+                this.setState('idle', 'target lost');
+                return;
+            }
+
+            // Start mining if target is good
+            this.setState('mining', 'target acquired');
+        },
+
+        updateMining(deltaTime) {
+            // Update beam orientation continuously
+            this.updateLaserPosition();
+
+            const elapsed = Date.now() - this.miningStartTime;
+            this.cycleProgress = elapsed / this.config.miningDuration;
+
+            // Debug logging every 30 frames (about once per second at 30fps)
+            if (Math.floor(elapsed / 100) % 10 === 0) {
+                console.log('[LaserSystem] Mining progress:', (this.cycleProgress * 100).toFixed(1) + '%', 'elapsed:', elapsed, 'duration:', this.config.miningDuration);
+            }
+
+            // Check if target is still valid
+            if (!this.isValidTarget(this.currentTarget)) {
+                this.setState('idle', 'target lost during mining');
+                return;
+            }
+
+            // Check if mining cycle is complete
+            if (elapsed >= this.config.miningDuration) {
+                console.log('[LaserSystem] Mining cycle complete, transitioning to collecting');
+                this.setState('collecting', 'mining cycle complete');
+            }
+        },
+
+        updateCollecting(deltaTime) {
+            // Schedule idle transition once
+            if (!this._collectTimeout) {
+                this._collectTimeout = setTimeout(() => {
+                    this.setState('idle', 'collection complete');
+                    this._collectTimeout = null;
+                }, 500);
+            }
+        },
+
+        // Validation methods
+        isValidTarget(target) {
+            if (!target || target.mineable?.isDestroyed) return false;
+
+            const distance = this.getDistanceToTarget(target);
+            if (distance > this.config.maxRange) return false;
+
+            return this.hasLineOfSight(entity.getPosition(), target.getPosition());
+        },
+
+        getDistanceToTarget(target) {
+            if (!target) return Infinity;
+
+            const shipPos = entity.getPosition();
+            const targetPos = target.getPosition();
+            return shipPos.distance(targetPos);
+        },
+
+        // Public interface
+        activate() {
+            console.log('[LaserSystem] Activation requested, current state: ' + this.state);
+
+            if (this.state === 'idle') {
+                this.setState('targeting', 'player activated');
+                return true;
+            }
+
+            // Enhanced feedback for different states
+            const stateMessages = {
+                'targeting': 'already searching for target',
+                'mining': 'mining in progress (' + (this.cycleProgress * 100).toFixed(0) + '%)',
+                'collecting': 'collecting resources'
+            };
+
+            const message = stateMessages[this.state] || ('unknown state: ' + this.state);
+            console.log('[LaserSystem] Cannot activate - ' + message);
+
+            // Force reset if stuck in targeting state for too long
+            if (this.state === 'targeting') {
+                console.log('[LaserSystem] Force resetting stuck targeting state');
+                this.setState('idle', 'force reset from targeting');
+                return this.activate(); // Try again
+            }
+
+            return false; // Already active or busy
+        },
+
+        canActivate() {
+            return this.state === 'idle';
+        },
+
+        getStatus() {
+            return {
+                state: this.state,
+                progress: this.cycleProgress,
+                hasTarget: !!this.currentTarget,
+                targetDistance: this.currentTarget ? this.getDistanceToTarget(this.currentTarget) : null
+            };
+        },
+
+        // Debug mode functionality
+        enableDebugMode() {
+            this.debugMode = true;
+            this.createRangeIndicator();
+            console.log('[LaserSystem] Debug mode enabled');
+        },
+
+        disableDebugMode() {
+            this.debugMode = false;
+            this.removeRangeIndicator();
+            console.log('[LaserSystem] Debug mode disabled');
+        },
+
+        createRangeIndicator() {
+            if (this.rangeIndicator) return;
+
+            // Create a wireframe sphere to show laser range
+            this.rangeIndicator = new pc.Entity('laser_range_indicator');
+
+            // Create wireframe sphere geometry
+            const material = new pc.StandardMaterial();
+            material.diffuse = new pc.Color(0, 1, 0); // Green
+            material.opacity = 0.3;
+            material.blendType = pc.BLEND_NORMAL;
+            material.cull = pc.CULLFACE_NONE;
+            material.update();
+
+            this.rangeIndicator.addComponent('render', {
+                type: 'sphere',
+                material: material
+            });
+
+            // Scale to laser range
+            this.rangeIndicator.setLocalScale(this.config.maxRange * 2, this.config.maxRange * 2, this.config.maxRange * 2);
+
+            // Position at ship
+            this.rangeIndicator.setPosition(entity.getPosition());
+
+            // Add to scene
+            app.root.addChild(this.rangeIndicator);
+        },
+
+        removeRangeIndicator() {
+            if (this.rangeIndicator) {
+                this.rangeIndicator.destroy();
+                this.rangeIndicator = null;
+            }
+        },
+
+        updateDebugIndicators() {
+            if (this.debugMode && this.rangeIndicator) {
+                // Update range indicator position
+                this.rangeIndicator.setPosition(entity.getPosition());
+            }
         }
     };
 
@@ -427,5 +877,17 @@ export function generateShipLogic(id: string): string {
         entity.cameraController.initializeCamera();
         console.log('[Ship] Camera controller initialized for ship');
     }
+
+    // Initialize laser system
+    if (entity.laserSystem && entity.laserSystem.init) {
+        entity.laserSystem.init();
+    }
+
+    // ADDED: Laser system update loop using app.on('update')
+    app.on('update', (dt) => {
+        if (entity.laserSystem && entity.laserSystem.update) {
+            entity.laserSystem.update(dt);
+        }
+    });
 `;
 }

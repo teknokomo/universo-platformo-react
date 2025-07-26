@@ -578,6 +578,51 @@ ${libraryScripts}
                         ).join('');
                     }
                 }
+
+                // Update laser system status
+                if (ship.laserSystem) {
+                    const status = ship.laserSystem.getStatus();
+                    let statusText = '';
+                    let statusColor = '#00ff00';
+
+                    switch (status.state) {
+                        case 'idle':
+                            statusText = 'Ready';
+                            statusColor = '#00ff00';
+                            break;
+                        case 'targeting':
+                            statusText = 'Targeting...';
+                            statusColor = '#ffff00';
+                            break;
+                        case 'mining':
+                            const progress = Math.round(status.progress * 100);
+                            statusText = 'Mining ' + progress + '%';
+                            statusColor = '#ff6600';
+                            break;
+                        case 'collecting':
+                            statusText = 'Collecting';
+                            statusColor = '#00ffff';
+                            break;
+                        default:
+                            statusText = status.state;
+                            statusColor = '#ffffff';
+                    }
+
+                    // Update laser status display (create if doesn't exist)
+                    let laserStatus = document.getElementById('laser-status');
+                    if (!laserStatus) {
+                        laserStatus = document.createElement('div');
+                        laserStatus.id = 'laser-status';
+                        laserStatus.style.cssText = 'position: absolute; top: 120px; left: 10px; color: white; font-family: monospace; font-size: 12px; background: rgba(0,0,0,0.7); padding: 5px; border-radius: 3px;';
+                        document.body.appendChild(laserStatus);
+                    }
+
+                    laserStatus.innerHTML = '<span style="color: ' + statusColor + '">Laser: ' + statusText + '</span>';
+
+                    if (status.hasTarget && status.targetDistance !== null) {
+                        laserStatus.innerHTML += '<br><span style="color: #cccccc">Range: ' + status.targetDistance.toFixed(1) + 'u</span>';
+                    }
+                }
             },
 
             // Show trading panel
@@ -921,12 +966,18 @@ ${libraryScripts}
                 }
             },
 
-            // Fire weapon
+            // Activate laser mining system
             fireWeapon() {
                 const ship = window.playerShip;
-                if (ship && ship.weaponSystem) {
-                    const forward = ship.forward.clone();
-                    ship.weaponSystem.fire(forward);
+                if (ship && ship.laserSystem) {
+                    const activated = ship.laserSystem.activate();
+                    if (activated) {
+                        console.log('[SpaceControls] Laser mining system activated');
+                    } else {
+                        console.log('[SpaceControls] Laser system busy or unavailable');
+                    }
+                } else {
+                    console.warn('[SpaceControls] No laser system found on player ship');
                 }
             },
 
