@@ -28,6 +28,8 @@
 | 0.19.0‑pre‑alpha | 2025‑07‑06 | **High-level UPDL nodes**, PlayCanvas integration, template-first architecture, MMOOMM foundation                   |
 | 0.20.0‑alpha     | 2025‑07‑13 | **Alpha status achieved**, Tools Revolution, complete UPDL system, PlayCanvas rendering, template system            |
 | 0.21.0‑alpha     | 2025‑07‑20 | **Firm Resolve**, Memory Bank optimization, MMOOMM stabilization, handler refactoring, improved ship controls       |
+| 0.21.1‑alpha     | 2025‑07‑26 | **MMOOMM Cleanup**, Removed obsolete JavaScript files from entityTypes, standardized TypeScript usage               |
+| 0.21.2‑alpha     | 2025‑07‑26 | **Inventory Consolidation**, Created shared inventory template, eliminated code duplication in UPDL Components      |
 
 ## Stage 2 Issues & Lessons Learned
 
