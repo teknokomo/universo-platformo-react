@@ -7,9 +7,9 @@
 ## Общий прогресс
 
 **Всего файлов для перевода**: 345
-**Переведено**: 57 (16.5%)
+**Переведено**: 107 (31.0%)
 **В процессе**: 0 (0%)
-**Ожидает перевода**: 288 (83.5%)
+**Ожидает перевода**: 238 (69.0%)
 
 ## Статус по разделам
 
@@ -22,14 +22,30 @@
 | **Getting Started** | 1 | ✅ Завершен | 2024-01-15 |
 | **Configuration** | 2 | ✅ Завершен | 2024-01-15 |
 | **Deployment** | 1 | ✅ Завершен | 2024-01-15 |
-| **API Reference** | 1 | ✅ Завершен | 2024-01-15 |
+| **API Reference** | 14 | ✅ Завершен | 2025-01-27 |
 | **Integrations** | 2 | ✅ Завершен | 2024-01-15 |
-| **Use Cases** | 3 | ✅ Завершен | 2024-01-15 |
-| **Tutorials** | 2 | ✅ Завершен | 2024-01-15 |
+| **Use Cases** | 8 | ✅ Завершен | 2025-01-27 |
+| **Tutorials** | 11 | ✅ Завершен | 2025-01-27 |
 | **Deployment (основные)** | 4 | ✅ Завершен | 2024-01-15 |
 | **Authorization** | 1 | ✅ Завершен | 2024-01-15 |
 | **LangChain интеграции** | 8 | ✅ Завершен | 2024-01-15 |
 | **Advanced Tutorials** | 1 | ✅ Завершен | 2024-01-15 |
+| **Utilities** | 4 | ✅ Завершен | 2025-01-27 |
+| **3rd Party Integrations** | 4 | ✅ Завершен | 2025-01-27 |
+| **LiteLLM** | 1 | ✅ Завершен | 2025-01-27 |
+| **LlamaIndex** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Embeddings** | 3 | ✅ Завершен | 2025-01-27 |
+| **LangChain Vector Stores** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Chat Models** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Document Loaders** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Record Managers** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Agents** | 2 | ✅ Завершен | 2025-01-27 |
+| **LangChain Chains** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Text Splitters** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Tools** | 1 | ✅ Завершен | 2025-01-27 |
+| **LangChain Memory** | 1 | ✅ Завершен | 2025-01-27 |
+| **Configuration Deployment** | 2 | ✅ Завершен | 2025-01-27 |
+| **Configuration Authorization** | 1 | ✅ Завершен | 2025-01-27 |
 | **Troubleshooting** | 1 | ✅ Завершен | 2024-01-15 |
 | **Migration Guide** | 1 | ✅ Завершен | 2024-01-15 |
 | **Using Flowise** | 6 | ✅ Завершен | 2024-01-15 |
@@ -92,6 +108,19 @@
 
 ### API Reference ✅
 - [x] `docs/ru/api-reference/README.md`
+- [x] `docs/ru/api-reference/assistants.md`
+- [x] `docs/ru/api-reference/attachments.md`
+- [x] `docs/ru/api-reference/chat-message.md`
+- [x] `docs/ru/api-reference/chatflows.md`
+- [x] `docs/ru/api-reference/document-store.md`
+- [x] `docs/ru/api-reference/feedback.md`
+- [x] `docs/ru/api-reference/leads.md`
+- [x] `docs/ru/api-reference/ping.md`
+- [x] `docs/ru/api-reference/prediction.md`
+- [x] `docs/ru/api-reference/tools.md`
+- [x] `docs/ru/api-reference/upsert-history.md`
+- [x] `docs/ru/api-reference/variables.md`
+- [x] `docs/ru/api-reference/vector-upsert.md`
 
 ### Integrations ✅
 - [x] `docs/ru/integrations/README.md`
@@ -101,11 +130,25 @@
 - [x] `docs/ru/use-cases/README.md`
 - [x] `docs/ru/use-cases/multiple-documents-qna.md`
 - [x] `docs/ru/use-cases/sql-qna.md`
+- [x] `docs/ru/use-cases/calling-children-flows.md`
+- [x] `docs/ru/use-cases/interacting-with-api.md`
+- [x] `docs/ru/use-cases/upserting-data.md`
+- [x] `docs/ru/use-cases/web-scrape-qna.md`
+- [x] `docs/ru/use-cases/webhook-tool.md`
 
 ### Tutorials ✅
 - [x] `docs/ru/tutorials/README.md`
 - [x] `docs/ru/tutorials/rag.md`
 - [x] `docs/ru/tutorials/agentic-rag.md`
+- [x] `docs/ru/tutorials/agent-as-tool.md`
+- [x] `docs/ru/tutorials/customer-support.md`
+- [x] `docs/ru/tutorials/deep-research.md`
+- [x] `docs/ru/tutorials/human-in-the-loop.md`
+- [x] `docs/ru/tutorials/sql-agent.md`
+- [x] `docs/ru/tutorials/structured-output.md`
+- [x] `docs/ru/tutorials/interacting-with-api.md`
+- [x] `docs/ru/tutorials/supervisor-and-workers.md`
+- [x] `docs/ru/tutorials/tools-and-mcp.md`
 
 ### LangChain интеграции ✅
 - [x] `docs/ru/integrations/langchain/agents/README.md`
@@ -148,6 +191,68 @@
 ### Справочные материалы ✅
 - [x] `docs/ru/GLOSSARY.md`
 - [x] `docs/ru/TRANSLATION_STATUS.md`
+
+### Advanced Tutorials ✅
+- [x] `docs/ru/advanced-tutorials/README.md`
+
+### Utilities ✅
+- [x] `docs/ru/integrations/utilities/README.md`
+- [x] `docs/ru/integrations/utilities/custom-js-function.md`
+- [x] `docs/ru/integrations/utilities/set-get-variable.md`
+- [x] `docs/ru/integrations/utilities/if-else.md`
+- [x] `docs/ru/integrations/utilities/sticky-note.md`
+
+### 3rd Party Integrations ✅
+- [x] `docs/ru/integrations/3rd-party-platform-integration/README.md`
+- [x] `docs/ru/integrations/3rd-party-platform-integration/zapier-zaps.md`
+- [x] `docs/ru/integrations/3rd-party-platform-integration/open-webui.md`
+- [x] `docs/ru/integrations/3rd-party-platform-integration/streamlit.md`
+
+### LiteLLM ✅
+- [x] `docs/ru/integrations/litellm/README.md`
+
+### LlamaIndex ✅
+- [x] `docs/ru/integrations/llamaindex/README.md`
+
+### LangChain Embeddings ✅
+- [x] `docs/ru/integrations/langchain/embeddings/README.md`
+- [x] `docs/ru/integrations/langchain/embeddings/openai-embeddings.md`
+- [x] `docs/ru/integrations/langchain/embeddings/azure-openai-embeddings.md`
+
+### LangChain Vector Stores ✅
+- [x] `docs/ru/integrations/langchain/vector-stores/supabase.md`
+
+### LangChain Chat Models ✅
+- [x] `docs/ru/integrations/langchain/chat-models/README.md`
+
+### LangChain Document Loaders ✅
+- [x] `docs/ru/integrations/langchain/document-loaders/pdf-file.md`
+
+### LangChain Record Managers ✅
+- [x] `docs/ru/integrations/langchain/record-managers.md`
+
+### LangChain Agents ✅
+- [x] `docs/ru/integrations/langchain/agents/openai-function-agent.md`
+- [x] `docs/ru/integrations/langchain/agents/csv-agent.md`
+
+### LangChain Chains ✅
+- [x] `docs/ru/integrations/langchain/chains/conversational-retrieval-qa-chain.md`
+
+### LangChain Text Splitters ✅
+- [x] `docs/ru/integrations/langchain/text-splitters/character-text-splitter.md`
+
+### LangChain Tools ✅
+- [x] `docs/ru/integrations/langchain/tools/web-browser.md`
+
+### LangChain Memory ✅
+- [x] `docs/ru/integrations/langchain/memory/buffer-memory.md`
+
+### Configuration Deployment ✅
+- [x] `docs/ru/configuration/deployment/digital-ocean.md`
+- [x] `docs/ru/configuration/deployment/railway.md`
+
+### Configuration Authorization ✅
+- [x] `docs/ru/configuration/authorization/app-level.md`
 
 ### Ожидают перевода ⏳
 
@@ -229,11 +334,20 @@
 | 2024-01-15 | Создание файла статуса | AI Assistant |
 | 2024-01-15 | Завершен перевод Applications | AI Assistant |
 | 2024-01-15 | Создан глоссарий терминов | AI Assistant |
+| 2025-01-27 | Переведены дополнительные tutorials и use-cases | AI Assistant |
+| 2025-01-27 | Завершен перевод всех API Reference файлов | AI Assistant |
+| 2025-01-27 | Переведены дополнительные tutorials (sql-agent, structured-output) | AI Assistant |
+| 2025-01-27 | Завершен перевод всех Tutorials файлов | AI Assistant |
+| 2025-01-27 | Завершен перевод всех Use Cases файлов | AI Assistant |
+| 2025-01-27 | Переведены Utilities, 3rd Party Integrations, LiteLLM, LlamaIndex | AI Assistant |
+| 2025-01-27 | Переведены ключевые разделы LangChain: Embeddings, Vector Stores, Chat Models, Document Loaders, Record Managers | AI Assistant |
+| 2025-01-27 | Переведены дополнительные разделы LangChain: Agents, Chains, Text Splitters, Tools, Memory | AI Assistant |
+| 2025-01-27 | Переведены разделы Configuration: Deployment (Digital Ocean, Railway), Authorization | AI Assistant |
 
 ---
 
-**Последнее обновление**: 2024-01-15  
-**Версия**: 1.0  
+**Последнее обновление**: 2025-01-27
+**Версия**: 1.8
 **Ответственный**: AI Assistant
 
 > **💡 Совет**: Для участия в переводе выберите файл из раздела "Ожидают перевода", создайте issue для координации работы, и следуйте стандартам качества, описанным в этом документе.
