@@ -1,21 +1,27 @@
 ---
-description: Bienvenido a la documentación oficial de Flowise
+description: Bienvenido a la documentación de Universo Platformo basada en Flowise
 ---
 
-# Introduction
+# Introducción
 
-<figure><picture><source srcset=".gitbook/assets/Flowise Logo Cropped White High Res.png" media="(prefers-color-scheme: dark)"><img src=".gitbook/assets/Flowise Cropped White High Res.png" alt="" width="563"></picture><figcaption></figcaption></figure>
+> **📋 Aviso**: Esta documentación está basada en la documentación original de Flowise y actualmente se está adaptando para Universo Platformo React. Algunas secciones pueden aún hacer referencia a funcionalidades de Flowise que no han sido completamente actualizadas para las características específicas de Universo Platformo.
 
-**Flowise** es una plataforma de desarrollo de IA generativa de código abierto para construir Agentes de IA y flujos de trabajo con modelos de lenguaje (LLM).
+<figure><img src=".gitbook/assets/FlowiseIntro (1).gif" alt=""><figcaption></figcaption></figure>
+
+**Universo Platformo React** es una plataforma avanzada de código abierto construida sobre Flowise, extendiéndola con capacidades poderosas para crear Agentes de IA, flujos de trabajo LLM y experiencias inmersivas 3D/AR/VR.
 
 Ofrece una solución completa que incluye:
 
-* [x] Constructor visual
+* [x] Constructor Visual (heredado de Flowise)
 * [x] Trazabilidad y análisis
 * [x] Evaluaciones
 * [x] Intervención humana (Human in the Loop)
-* [x] API, SDK y chatbot embebido
+* [x] API, CLI, SDK, chatbot embebido
 * [x] Equipos y espacios de trabajo
+* [x] **Sistema de Nodos UPDL** - Lenguaje Universal de Descripción de Plataformas
+* [x] **Plantillas MMOOMM** - Metaversos Abiertos Multijugador Masivos en Línea
+* [x] **Exportación Multiplataforma** - Soporte para AR.js, PlayCanvas, A-Frame
+* [x] **Sistemas de Recursos Mejorados** - Gestión avanzada de recursos
 
 Existen tres constructores visuales principales:
 
