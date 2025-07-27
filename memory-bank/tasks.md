@@ -64,6 +64,63 @@
 -   [x] Phase 4.2: Create comprehensive documentation (README.md and README-RU.md)
 -   [x] Phase 4.3: Test material density system with different resource types
 
+### PlayCanvasMMOOMMBuilder.ts Modularization (v0.21.6-alpha) ✅ COMPLETE
+
+**Goal**: Refactor monolithic PlayCanvasMMOOMMBuilder.ts (1,211 lines) into modular architecture
+**Target**: 70-80% code reduction (1,211 → 200-250 lines) following Ship.ts refactoring patterns
+**Critical**: Preserve HTML-JavaScript hybrid functionality and global objects compatibility
+**Result**: Successfully reduced from 1,211 lines to 254 lines (79% reduction) with full functionality preserved
+
+#### Phase 1: Deep Analysis & Infrastructure
+
+-   [x] 1.1: Create modular directory structure (systems/, core/, initialization/, htmlSystems/, globalObjects/)
+-   [x] 1.2: Analyze current code structure and create dependency map
+-   [x] 1.3: Create baseline test for current MMOOMM template functionality
+-   [x] 1.4: Embedded JavaScript Analysis - map SpaceHUD (~150 lines), SpaceControls (~250 lines), initializePhysics (~50 lines)
+-   [x] 1.5: Global Dependencies Mapping - document window.\* objects and event listeners
+
+#### Phase 2: HTML-JavaScript Hybrid Extraction
+
+-   [x] 2.1: Extract HTML Document Generator (~150 lines pure HTML)
+-   [x] 2.2: Extract Embedded JavaScript Systems Registry
+-   [x] 2.3: Extract Global Objects Manager for window.\* lifecycle
+-   [x] 2.4: Test HTML generation with placeholders
+
+#### Phase 3: Embedded Game Systems Extraction
+
+-   [x] 3.1: Extract Embedded HUD System (~150 lines) - preserve window.SpaceHUD compatibility
+-   [x] 3.2: Extract Embedded Controls System (~250 lines) - preserve window.SpaceControls compatibility
+-   [x] 3.3: Extract Embedded Physics System (~50 lines) - initializePhysics function
+-   [x] 3.4: Extract Helper Functions (~100 lines) - tradeAll, tradeHalf, initializeSpaceControls, etc.
+-   [x] 3.5: Test embedded systems extraction and global objects accessibility
+
+#### Phase 4: PlayCanvas Core Systems Extraction
+
+-   [x] 4.1: Extract PlayCanvas Initializer (~100 lines) - generatePlayCanvasInit method
+-   [x] 4.2: Extract Scene Initializer (~100 lines) - scene initialization logic
+-   [x] 4.3: Extract Default Scene Generator - generateDefaultScene, generateErrorScene methods
+-   [x] 4.4: Test PlayCanvas core systems functionality
+
+#### Phase 5: Core Builder Refactoring
+
+-   [x] 5.1: Create BuilderSystemsManager for coordinating all systems
+-   [x] 5.2: Refactor main PlayCanvasMMOOMMBuilder class (preserve custom build() method)
+-   [x] 5.3: Create HTML-JavaScript Integration Layer
+-   [x] 5.4: Update exports and imports
+
+#### Phase 6: Integration & Testing
+
+-   [x] 6.1: Comprehensive functionality test (ship controls, laser mining, HUD, physics, trading)
+-   [x] 6.2: HTML-JavaScript Integration test (embedded systems, window.\* objects, event listeners)
+-   [x] 6.3: Performance validation (loading time, HTML size)
+-   [x] 6.4: Backward compatibility verification (AbstractTemplateBuilder, handlers, scripts)
+
+#### Phase 7: Documentation & Cleanup
+
+-   [x] 7.1: Update documentation with new architecture and HTML-JavaScript patterns
+-   [x] 7.2: Create migration guide for developers
+-   [x] 7.3: Final cleanup and linting
+
 ## Open Tasks
 
 ### Post-Alpha Features
@@ -101,6 +158,7 @@
 
 ## Recently Completed Tasks
 
+-   [x] **PlayCanvasMMOOMMBuilder.ts Modularization (v0.21.6-alpha)**: Successfully refactored monolithic PlayCanvasMMOOMMBuilder.ts from 1,211 lines to 254 lines (79% reduction) using modular architecture. Extracted embedded JavaScript systems (SpaceHUD, SpaceControls, Physics, HelperFunctions), HTML document generation, and PlayCanvas core systems into separate modules. Implemented BuilderSystemsManager for coordinating all systems while preserving full HTML-JavaScript hybrid functionality, global objects compatibility, and all game features (ship controls, laser mining, HUD, physics, trading). (2025-01-30)
 -   [x] **Enhanced Resource System with Material Density (v0.21.5-alpha)**: Implemented realistic material physics system with 16 material types, density-based weight/volume conversion, enhanced inventory supporting both tons and m³, improved mineable components with hardness/volume properties, and comprehensive documentation. System supports materials from lightweight antimatter (0.001 t/m³) to dense platinum (21.5 t/m³) with proper economic balance (2025-01-30)
 -   [x] **MMOOMM Ship Systems Refactoring (v0.21.4-alpha)**: Successfully refactored ship.ts from 894 lines to 84 lines (90.6% reduction) by extracting ship controller, camera controller, laser mining, and inventory systems into shared templates. Improved maintainability, reusability, and consistency while preserving all MVP functionality (2025-01-30)
 -   [x] **Laser System Critical Fix (v0.21.3-alpha)**: Fixed critical recursive initialization error and visual artifacts in laser mining system (2025-01-29)
