@@ -437,7 +437,7 @@
         "inputAnchors": [],
         "inputs": {
           "returnDirect": "",
-          "headers": "{\"Authorization\":\"Bearer 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\"}",
+          "headers": "{\"Authorization\":\"Bearer YOUR_OPENAI_API_KEY_HERE\"}",
           "customCode": "const fetch = require('node-fetch');\nconst url = $url;\nconsole.log('url=', url);\nconst options = $options;\nconsole.log('options=', options);\n\ntry {\n\tconst response = await fetch(url, options);\n\tconst resp = await response.json();\n    console.log('resp=', resp);\n\treturn JSON.stringify(resp);\n} catch (error) {\n\tconsole.error(error);\n\treturn '';\n}\n"
         },
         "outputAnchors": [
