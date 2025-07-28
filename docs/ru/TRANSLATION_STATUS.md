@@ -7,9 +7,9 @@
 ## Общий прогресс
 
 **Всего файлов для перевода**: 345
-**Переведено**: 107 (31.0%)
+**Переведено**: 145 (42.0%)
 **В процессе**: 0 (0%)
-**Ожидает перевода**: 238 (69.0%)
+**Ожидает перевода**: 200 (58.0%)
 
 ## Статус по разделам
 
@@ -46,6 +46,19 @@
 | **LangChain Memory** | 1 | ✅ Завершен | 2025-01-27 |
 | **Configuration Deployment** | 2 | ✅ Завершен | 2025-01-27 |
 | **Configuration Authorization** | 1 | ✅ Завершен | 2025-01-27 |
+| **CLI Reference** | 2 | ✅ Завершен | 2025-01-27 |
+| **Configuration (дополнительные)** | 3 | ✅ Завершен | 2025-01-27 |
+| **Contributing** | 2 | ✅ Завершен | 2025-01-27 |
+| **Using Flowise (дополнительные)** | 1 | ✅ Завершен | 2025-01-27 |
+| **Configuration (продакшн)** | 3 | ✅ Завершен | 2025-01-27 |
+| **Using Flowise (расширенные)** | 4 | ✅ Завершен | 2025-01-27 |
+| **Migration Guide** | 4 | ✅ Завершен | 2025-01-27 |
+| **Text Splitters** | 1 | ✅ Завершен | 2025-01-27 |
+| **Using Flowise (финальные)** | 1 | ✅ Завершен | 2025-01-27 |
+| **Using Flowise (AgentFlow V1)** | 1 | ✅ Завершен | 2025-01-27 |
+| **Using Flowise (Analytics)** | 6 | ✅ Завершен | 2025-01-27 |
+| **Using Flowise (AgentFlow V2)** | 1 | ✅ Завершен | 2025-01-27 |
+| **Integrations (LlamaIndex основные)** | 10 | ✅ Завершен | 2025-01-27 |
 | **Troubleshooting** | 1 | ✅ Завершен | 2024-01-15 |
 | **Migration Guide** | 1 | ✅ Завершен | 2024-01-15 |
 | **Using Flowise** | 6 | ✅ Завершен | 2024-01-15 |
@@ -254,6 +267,72 @@
 ### Configuration Authorization ✅
 - [x] `docs/ru/configuration/authorization/app-level.md`
 
+### CLI Reference ✅
+- [x] `docs/ru/cli-reference/README.md`
+- [x] `docs/ru/cli-reference/user.md`
+
+### Configuration (дополнительные файлы) ✅
+- [x] `docs/ru/configuration/databases.md`
+- [x] `docs/ru/configuration/rate-limit.md`
+- [x] `docs/ru/configuration/sso.md`
+
+### Contributing ✅
+- [x] `docs/ru/contributing/README.md`
+- [x] `docs/ru/contributing/building-node.md`
+
+### Using Flowise (дополнительные файлы) ✅
+- [x] `docs/ru/using-flowise/workspaces.md`
+
+### Configuration (продакшн файлы) ✅
+- [x] `docs/ru/configuration/running-in-production.md`
+- [x] `docs/ru/configuration/running-flowise-using-queue.md`
+- [x] `docs/ru/configuration/running-flowise-behind-company-proxy.md`
+
+### Using Flowise (расширенные файлы) ✅
+- [x] `docs/ru/using-flowise/evaluations.md`
+- [x] `docs/ru/using-flowise/monitoring.md`
+- [x] `docs/ru/using-flowise/uploads.md`
+- [x] `docs/ru/using-flowise/upsertion.md`
+
+### Migration Guide ✅
+- [x] `docs/ru/migration-guide/cloud-migration.md`
+- [x] `docs/ru/migration-guide/v1.3.0-migration-guide.md`
+- [x] `docs/ru/migration-guide/v1.4.3-migration-guide.md`
+- [x] `docs/ru/migration-guide/v2.1.4-migration-guide.md`
+
+### Text Splitters ✅
+- [x] `docs/ru/text-splitters/charater-text-splitter.md`
+
+### Using Flowise (финальные файлы) ✅
+- [x] `docs/ru/using-flowise/agentflowv2.md` (частично завершен)
+
+### Using Flowise (AgentFlow V1) ✅
+- [x] `docs/ru/using-flowise/agentflowv1/multi-agents.md`
+
+### Using Flowise (Analytics) ✅
+- [x] `docs/ru/using-flowise/analytics/README.md`
+- [x] `docs/ru/using-flowise/analytics/arize.md`
+- [x] `docs/ru/using-flowise/analytics/langfuse.md`
+- [x] `docs/ru/using-flowise/analytics/lunary.md`
+- [x] `docs/ru/using-flowise/analytics/opik.md`
+- [x] `docs/ru/using-flowise/analytics/phoenix.md`
+
+### Using Flowise (AgentFlow V2) ✅
+- [x] `docs/ru/using-flowise/agentflowv2.md` (полностью завершен)
+
+### Integrations (LlamaIndex основные) ✅
+- [x] `docs/ru/integrations/llamaindex/README.md`
+- [x] `docs/ru/integrations/llamaindex/agents/README.md`
+- [x] `docs/ru/integrations/llamaindex/agents/openai-tool-agent.md`
+- [x] `docs/ru/integrations/llamaindex/agents/openai-tool-agent-1.md`
+- [x] `docs/ru/integrations/llamaindex/chat-models/README.md`
+- [x] `docs/ru/integrations/llamaindex/chat-models/chatopenai.md`
+- [x] `docs/ru/integrations/llamaindex/embeddings/README.md`
+- [x] `docs/ru/integrations/llamaindex/engine/README.md`
+- [x] `docs/ru/integrations/llamaindex/tools/README.md`
+- [x] `docs/ru/integrations/llamaindex/vector-stores/README.md`
+- [x] `docs/ru/integrations/llamaindex/response-synthesizer/README.md`
+
 ### Ожидают перевода ⏳
 
 #### Getting Started (дополнительные файлы)
@@ -261,13 +340,7 @@
 - [ ] `docs/ru/getting-started/quickstart.md`
 - [ ] `docs/ru/getting-started/docker.md`
 
-#### Configuration (дополнительные файлы)
-- [ ] `docs/ru/configuration/authorization/README.md`
-- [ ] `docs/ru/configuration/databases.md`
-- [ ] `docs/ru/configuration/rate-limit.md`
-- [ ] `docs/ru/configuration/sso.md`
-
-#### API Reference (дополнительные файлы)
+#### API Reference (оставшиеся файлы)
 - [ ] `docs/ru/api-reference/chatflows.md`
 - [ ] `docs/ru/api-reference/prediction.md`
 - [ ] `docs/ru/api-reference/assistants.md`
@@ -343,11 +416,24 @@
 | 2025-01-27 | Переведены ключевые разделы LangChain: Embeddings, Vector Stores, Chat Models, Document Loaders, Record Managers | AI Assistant |
 | 2025-01-27 | Переведены дополнительные разделы LangChain: Agents, Chains, Text Splitters, Tools, Memory | AI Assistant |
 | 2025-01-27 | Переведены разделы Configuration: Deployment (Digital Ocean, Railway), Authorization | AI Assistant |
+| 2025-01-27 | Переведен раздел CLI Reference (README, user) | AI Assistant |
+| 2025-01-27 | Переведены дополнительные файлы Configuration (databases, rate-limit, sso) | AI Assistant |
+| 2025-01-27 | Переведен раздел Contributing (README, building-node) | AI Assistant |
+| 2025-01-27 | Переведен файл Using Flowise (workspaces) | AI Assistant |
+| 2025-01-27 | Переведены файлы Configuration продакшн (running-in-production, running-flowise-using-queue, running-flowise-behind-company-proxy) | AI Assistant |
+| 2025-01-27 | Переведены расширенные файлы Using Flowise (evaluations, monitoring, uploads, upsertion) | AI Assistant |
+| 2025-01-27 | Переведены все файлы Migration Guide (cloud-migration, v1.3.0, v1.4.3, v2.1.4) | AI Assistant |
+| 2025-01-27 | Переведен файл Text Splitters (charater-text-splitter) | AI Assistant |
+| 2025-01-27 | Частично переведен agentflowv2.md (основные разделы) | AI Assistant |
+| 2025-01-27 | Переведен раздел AgentFlow V1 (multi-agents.md) | AI Assistant |
+| 2025-01-27 | Переведен полный раздел Analytics (6 файлов) | AI Assistant |
+| 2025-01-27 | Полностью завершен agentflowv2.md (все узлы и разделы) | AI Assistant |
+| 2025-01-27 | Переведены основные разделы LlamaIndex (10 файлов) | AI Assistant |
 
 ---
 
 **Последнее обновление**: 2025-01-27
-**Версия**: 1.8
+**Версия**: 2.3
 **Ответственный**: AI Assistant
 
 > **💡 Совет**: Для участия в переводе выберите файл из раздела "Ожидают перевода", создайте issue для координации работы, и следуйте стандартам качества, описанным в этом документе.
