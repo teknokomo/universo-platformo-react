@@ -17,9 +17,8 @@ export function generateAsteroidLogic(id: string): string {
         mass: 0
     });
 
-    // Random scale for visual variety
-    const scale = Math.random() * 2 + 0.5; // 0.5 to 2.5
-    entity.setLocalScale(scale, scale, scale);
+    // Scale is always taken from Transform - no random scaling
+    // Future: Add separate variability component for random asteroid sizes
 
     // IMPROVED: Enhanced asteroid material (only if no custom material from Component)
     if (entity.model && !entity.model.material) {
@@ -33,10 +32,12 @@ export function generateAsteroidLogic(id: string): string {
     }
 
     // Asteroid mineable properties
+    const entityScale = entity.getLocalScale();
+    const scaleMultiplier = Math.max(entityScale.x, entityScale.y, entityScale.z); // Use largest scale dimension
     entity.mineable = {
         resourceType: 'asteroidMass',
-        maxYield: scale * 2, // Larger asteroids yield more
-        currentYield: scale * 2,
+        maxYield: scaleMultiplier * 2, // Larger asteroids yield more
+        currentYield: scaleMultiplier * 2,
         isDestroyed: false,
 
         // Handle being hit by projectile
