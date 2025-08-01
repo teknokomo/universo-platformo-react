@@ -5,7 +5,7 @@ export default function trading(id: string, props: any): string {
         pricePerTon: ${props.pricePerTon || 10},
         acceptedItems: ${JSON.stringify(props.acceptedItems || ['asteroidMass'])},
         currency: '${props.currency || 'Inmo'}',
-        interactionRange: ${props.interactionRange || 8},
+        interactionRange: ${props.interactionRange || 15},
 
         canTrade(ship, itemType, amount) {
             if (!this.acceptedItems.includes(itemType)) {

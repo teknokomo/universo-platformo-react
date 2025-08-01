@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Global Objects Template
 // Shared template for global objects management
 
-import { GlobalObjectsManager, IGlobalObjectsManager, IGlobalObject } from './GlobalObjectsManager'
+import { GlobalObjectsManager, IGlobalObjectsManager, IGlobalObject } from './globalObjectsManager'
 
 /**
  * Creates a standardized global objects manager

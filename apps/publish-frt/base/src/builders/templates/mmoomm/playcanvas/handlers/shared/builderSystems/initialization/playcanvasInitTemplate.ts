@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM PlayCanvas Initialization Template
 // Shared template for PlayCanvas initialization
 
-import { PlayCanvasInitializer, IPlayCanvasInitializer, PlayCanvasConfig, createConfigurablePlayCanvasInitializer } from './PlayCanvasInitializer'
+import { PlayCanvasInitializer, IPlayCanvasInitializer, PlayCanvasConfig, createConfigurablePlayCanvasInitializer } from './playcanvasInitializer'
 
 /**
  * Creates a standardized PlayCanvas initializer

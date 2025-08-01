@@ -1,6 +1,6 @@
 # Task Tracking
 
-**Project**: Universo Platformo (v0.21.0-alpha, Alpha achieved)
+**Project**: Universo Platformo (v0.23.0-alpha, Alpha achieved)
 **Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
 
 ## Current Implementation Tasks
@@ -64,7 +64,7 @@
 -   [x] Phase 4.2: Create comprehensive documentation (README.md and README-RU.md)
 -   [x] Phase 4.3: Test material density system with different resource types
 
-### PlayCanvasMMOOMMBuilder.ts Modularization (v0.21.6-alpha) ✅ COMPLETE
+### PlayCanvasMMOOMMBuilder.ts Modularization ✅ COMPLETE
 
 **Goal**: Refactor monolithic PlayCanvasMMOOMMBuilder.ts (1,211 lines) into modular architecture
 **Target**: 70-80% code reduction (1,211 → 200-250 lines) following Ship.ts refactoring patterns
@@ -158,16 +158,19 @@
 
 ## Recently Completed Tasks
 
--   [x] **PlayCanvasMMOOMMBuilder.ts Modularization (v0.21.6-alpha)**: Successfully refactored monolithic PlayCanvasMMOOMMBuilder.ts from 1,211 lines to 254 lines (79% reduction) using modular architecture. Extracted embedded JavaScript systems (SpaceHUD, SpaceControls, Physics, HelperFunctions), HTML document generation, and PlayCanvas core systems into separate modules. Implemented BuilderSystemsManager for coordinating all systems while preserving full HTML-JavaScript hybrid functionality, global objects compatibility, and all game features (ship controls, laser mining, HUD, physics, trading). (2025-01-30)
--   [x] **Enhanced Resource System with Material Density (v0.21.5-alpha)**: Implemented realistic material physics system with 16 material types, density-based weight/volume conversion, enhanced inventory supporting both tons and m³, improved mineable components with hardness/volume properties, and comprehensive documentation. System supports materials from lightweight antimatter (0.001 t/m³) to dense platinum (21.5 t/m³) with proper economic balance (2025-01-30)
--   [x] **MMOOMM Ship Systems Refactoring (v0.21.4-alpha)**: Successfully refactored ship.ts from 894 lines to 84 lines (90.6% reduction) by extracting ship controller, camera controller, laser mining, and inventory systems into shared templates. Improved maintainability, reusability, and consistency while preserving all MVP functionality (2025-01-30)
--   [x] **Laser System Critical Fix (v0.21.3-alpha)**: Fixed critical recursive initialization error and visual artifacts in laser mining system (2025-01-29)
+-   [x] **Entity Scale Handling Fix**: Fixed Transform scale data flow from Chatflow to PlayCanvas entities. Removed implicit random scale generation from asteroid entity type that was overriding user-defined scale values. Ensured Transform scale values (e.g., 4,4,4) from Chatflow are always respected in generated entities. Updated mineable properties calculation to use actual entity scale for proper resource yield. (2025-01-31)
+-   [x] **Trading Component Configuration Fix**: Fixed Trading Component interaction range configuration not applying from Chatflow interface. Corrected UPDLProcessor to transmit all ComponentNode fields to component generation pipeline, fixed ComponentHandler data source mapping, and prevented Entity Type logic from overriding Component settings. Trading interaction range now properly configurable (tested with 1600 units). (2025-01-31)
+-   [x] **Builder Systems File Naming Standardization**: Standardized all builderSystems directory files to consistent camelCase naming convention. Renamed files from mixed PascalCase/camelCase to uniform camelCase (e.g., EmbeddedControlsSystem.ts → embeddedControlsSystem.ts, PlayCanvasInitializer.ts → playcanvasInitializer.ts). Updated all import statements and cross-references. Improved code consistency and maintainability. (2025-01-31)
+-   [x] **PlayCanvasMMOOMMBuilder.ts Modularization**: Successfully refactored monolithic PlayCanvasMMOOMMBuilder.ts from 1,211 lines to 254 lines (79% reduction) using modular architecture. Extracted embedded JavaScript systems (SpaceHUD, SpaceControls, Physics, HelperFunctions), HTML document generation, and PlayCanvas core systems into separate modules. Implemented BuilderSystemsManager for coordinating all systems while preserving full HTML-JavaScript hybrid functionality, global objects compatibility, and all game features (ship controls, laser mining, HUD, physics, trading). (2025-01-30)
+-   [x] **Enhanced Resource System with Material Density**: Implemented realistic material physics system with 16 material types, density-based weight/volume conversion, enhanced inventory supporting both tons and m³, improved mineable components with hardness/volume properties, and comprehensive documentation. System supports materials from lightweight antimatter (0.001 t/m³) to dense platinum (21.5 t/m³) with proper economic balance
+-   [x] **MMOOMM Ship Systems Refactoring**: Successfully refactored ship.ts from 894 lines to 84 lines (90.6% reduction) by extracting ship controller, camera controller, laser mining, and inventory systems into shared templates. Improved maintainability, reusability, and consistency while preserving all MVP functionality
+-   [x] **Laser System Critical Fix**: Fixed critical recursive initialization error and visual artifacts in laser mining system
     -   Fixed recursive `this.laserSystem.init()` call causing black screen crashes
     -   Replaced complex line mesh with reliable box model for laser beam rendering
     -   Fixed update loop using `app.on('update')` instead of `entity.on('update')`
     -   Added missing `getItemList()` method to ship inventory for HUD updates
     -   Removed fade-out animation to prevent laser beam detachment during ship movement
--   [x] **Laser Mining System (v0.21.2-alpha)**: Industrial laser mining implementation with auto-targeting and state machine (2025-01-28)
+-   [x] **Laser Mining System**: Industrial laser mining implementation with auto-targeting and state machine
     -   Replaced projectile weapons with industrial laser mining system
     -   Implemented state machine (idle, targeting, mining, collecting) with 3-second cycles
     -   Added visual red laser beam with target detection and inventory integration

@@ -383,6 +383,19 @@ export class UPDLProcessor {
                     primitive: inputs.primitive,
                     color: inputs.color,
                     scriptName: inputs.scriptName,
+                    // FIXED: Include all ComponentNode fields
+                    maxCapacity: Number(inputs.maxCapacity) || 20,
+                    currentLoad: Number(inputs.currentLoad) || 0,
+                    fireRate: Number(inputs.fireRate) || 2,
+                    damage: Number(inputs.damage) || 1,
+                    pricePerTon: Number(inputs.pricePerTon) || 10,
+                    interactionRange: Number(inputs.interactionRange) || 8,
+                    resourceType: inputs.resourceType || 'asteroidMass',
+                    maxYield: Number(inputs.maxYield) || 3,
+                    asteroidVolume: Number(inputs.asteroidVolume) || 5,
+                    hardness: Number(inputs.hardness) || 1,
+                    targetWorld: inputs.targetWorld || 'konkordo',
+                    cooldownTime: Number(inputs.cooldownTime) || 2000,
                     props
                 }
             }

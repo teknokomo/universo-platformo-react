@@ -1,11 +1,11 @@
 // Universo Platformo | MMOOMM Builder Game Systems
 // Export for embedded game systems extracted from PlayCanvasMMOOMMBuilder
 
-export * from './EmbeddedHUDSystem'
+export * from './embeddedHUDSystem'
 export * from './embeddedHUDTemplate'
-export * from './EmbeddedControlsSystem'
+export * from './embeddedControlsSystem'
 export * from './embeddedControlsTemplate'
-export * from './EmbeddedPhysicsSystem'
+export * from './embeddedPhysicsSystem'
 export * from './embeddedPhysicsTemplate'
-export * from './EmbeddedHelperFunctions'
+export * from './embeddedHelperFunctions'
 export * from './embeddedHelperTemplate'

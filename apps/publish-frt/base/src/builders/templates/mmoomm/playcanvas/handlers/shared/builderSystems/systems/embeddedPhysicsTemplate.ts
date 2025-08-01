@@ -1,8 +1,8 @@
 // Universo Platformo | MMOOMM Embedded Physics Template
 // Shared template for physics system creation
 
-import { EmbeddedPhysicsSystem, IEmbeddedPhysicsSystem } from './EmbeddedPhysicsSystem'
-import { IEmbeddedSystem } from '../htmlSystems/EmbeddedSystemsRegistry'
+import { EmbeddedPhysicsSystem, IEmbeddedPhysicsSystem } from './embeddedPhysicsSystem'
+import { IEmbeddedSystem } from '../htmlSystems/embeddedSystemsRegistry'
 
 /**
  * Creates a standardized embedded physics system

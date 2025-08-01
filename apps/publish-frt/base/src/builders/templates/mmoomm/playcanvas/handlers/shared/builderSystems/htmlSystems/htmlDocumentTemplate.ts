@@ -2,7 +2,7 @@
 // Shared template for HTML document generation
 
 import { BuildOptions } from '../../../../../../../common/types'
-import { HTMLDocumentGenerator, IHTMLDocumentGenerator } from './HTMLDocumentGenerator'
+import { HTMLDocumentGenerator, IHTMLDocumentGenerator } from './htmlDocumentGenerator'
 
 /**
  * Creates a standardized HTML document generator

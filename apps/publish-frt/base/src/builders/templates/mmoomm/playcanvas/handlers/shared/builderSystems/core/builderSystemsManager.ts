@@ -2,12 +2,12 @@
 // Coordinates all extracted systems for PlayCanvasMMOOMMBuilder
 
 import { BuildOptions } from '../../../../../../../common/types'
-import { IHTMLDocumentGenerator } from '../htmlSystems/HTMLDocumentGenerator'
-import { IEmbeddedSystemsRegistry } from '../htmlSystems/EmbeddedSystemsRegistry'
-import { IGlobalObjectsManager } from '../globalObjects/GlobalObjectsManager'
-import { IPlayCanvasInitializer } from '../initialization/PlayCanvasInitializer'
-import { ISceneInitializer } from '../initialization/SceneInitializer'
-import { IDefaultSceneGenerator } from './DefaultSceneGenerator'
+import { IHTMLDocumentGenerator } from '../htmlSystems/htmlDocumentGenerator'
+import { IEmbeddedSystemsRegistry } from '../htmlSystems/embeddedSystemsRegistry'
+import { IGlobalObjectsManager } from '../globalObjects/globalObjectsManager'
+import { IPlayCanvasInitializer } from '../initialization/playcanvasInitializer'
+import { ISceneInitializer } from '../initialization/sceneInitializer'
+import { IDefaultSceneGenerator } from './defaultSceneGenerator'
 
 /**
  * Interface for builder systems manager

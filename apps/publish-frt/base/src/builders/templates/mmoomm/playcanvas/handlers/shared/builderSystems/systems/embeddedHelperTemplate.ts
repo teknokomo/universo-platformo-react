@@ -1,8 +1,8 @@
 // Universo Platformo | MMOOMM Embedded Helper Functions Template
 // Shared template for helper functions creation
 
-import { EmbeddedHelperFunctions, IEmbeddedHelperFunctions } from './EmbeddedHelperFunctions'
-import { IEmbeddedSystem } from '../htmlSystems/EmbeddedSystemsRegistry'
+import { EmbeddedHelperFunctions, IEmbeddedHelperFunctions } from './embeddedHelperFunctions'
+import { IEmbeddedSystem } from '../htmlSystems/embeddedSystemsRegistry'
 
 /**
  * Creates a standardized embedded helper functions system

@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Builder Core Systems
 // Export for core builder systems
 
-export * from './DefaultSceneGenerator'
+export * from './defaultSceneGenerator'
 export * from './defaultSceneTemplate'
-export * from './BuilderSystemsManager'
+export * from './builderSystemsManager'
 export * from './builderSystemsTemplate'

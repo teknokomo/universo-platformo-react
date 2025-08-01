@@ -1,14 +1,14 @@
 // Universo Platformo | MMOOMM Scene Initialization Template
 // Shared template for scene initialization
 
-import { 
-    SceneInitializer, 
-    ISceneInitializer, 
-    SceneInitConfig, 
+import {
+    SceneInitializer,
+    ISceneInitializer,
+    SceneInitConfig,
     createConfigurableSceneInitializer,
     createMinimalSceneInitializer,
     createDebugSceneInitializer
-} from './SceneInitializer'
+} from './sceneInitializer'
 
 /**
  * Creates a standardized scene initializer
