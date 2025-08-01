@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Embedded Systems Template
 // Shared template for embedded systems management
 
-import { EmbeddedSystemsRegistry, IEmbeddedSystemsRegistry, IEmbeddedSystem } from './EmbeddedSystemsRegistry'
+import { EmbeddedSystemsRegistry, IEmbeddedSystemsRegistry, IEmbeddedSystem } from './embeddedSystemsRegistry'
 
 /**
  * Creates a standardized embedded systems registry

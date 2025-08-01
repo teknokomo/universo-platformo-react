@@ -1,8 +1,8 @@
 // Universo Platformo | MMOOMM Embedded HUD Template
 // Shared template for HUD system creation
 
-import { EmbeddedHUDSystem, IEmbeddedHUDSystem } from './EmbeddedHUDSystem'
-import { IEmbeddedSystem } from '../htmlSystems/EmbeddedSystemsRegistry'
+import { EmbeddedHUDSystem, IEmbeddedHUDSystem } from './embeddedHUDSystem'
+import { IEmbeddedSystem } from '../htmlSystems/embeddedSystemsRegistry'
 
 /**
  * Creates a standardized embedded HUD system

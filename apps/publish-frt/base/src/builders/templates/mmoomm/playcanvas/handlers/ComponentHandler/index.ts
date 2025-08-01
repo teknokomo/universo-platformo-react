@@ -60,7 +60,8 @@ export class ComponentHandler {
         const componentType = component.data?.componentType || 'custom'
         const componentId = component.id || `component_${Math.random().toString(36).substr(2, 9)}`
         const targetEntity = component.data?.targetEntity || 'default'
-        const properties = component.data?.properties || {}
+        // FIXED: Use component.data directly instead of component.data.properties
+        const properties = component.data || {}
 
         return `
 // MMO Component: ${componentId} (${componentType})

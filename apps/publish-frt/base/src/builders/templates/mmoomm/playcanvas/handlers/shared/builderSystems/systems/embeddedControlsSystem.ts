@@ -51,7 +51,7 @@ export class EmbeddedControlsSystem extends BaseEmbeddedSystem implements IEmbed
                 window.addEventListener('wheel', (e) => {
                     e.preventDefault();
                     this.handleCameraZoom(e.deltaY);
-                });
+                }, { passive: false });
 
                 // Update loop
                 if (window.app) {
@@ -214,15 +214,21 @@ export class EmbeddedControlsSystem extends BaseEmbeddedSystem implements IEmbed
                 camera.lookAt(shipPos);
             },
 
-            // Handle camera zoom
+            // ADDED: Handle camera zoom with mouse wheel
             handleCameraZoom(deltaY) {
-                if (!window.playerShip || !window.playerShip.cameraController) return;
+                const ship = window.playerShip;
+                if (!ship || !ship.cameraController) return;
 
-                const cameraController = window.playerShip.cameraController;
-                const zoomSpeed = 0.1;
+                // Zoom sensitivity
+                const zoomSpeed = 2;
                 const zoomDelta = deltaY > 0 ? zoomSpeed : -zoomSpeed;
-                
-                cameraController.adjustZoom(zoomDelta);
+
+                ship.cameraController.zoom(zoomDelta);
+
+                // Optional: Log zoom level for debugging
+                if (Math.random() < 0.1) { // Log occasionally to avoid spam
+                    console.log('[Camera] Zoom distance:', ship.cameraController.distance.toFixed(1));
+                }
             },
 
             // Activate laser mining system

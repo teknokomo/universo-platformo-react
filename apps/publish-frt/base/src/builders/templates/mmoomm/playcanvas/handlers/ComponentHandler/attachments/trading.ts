@@ -1,6 +1,7 @@
 export default function tradingAttachment(component: any, entityVar: string): string {
+    // Use component.data directly for ComponentNode data
     const pricePerTon = component.data?.pricePerTon || 10;
-    const interactionRange = component.data?.interactionRange || 8;
+    const interactionRange = component.data?.interactionRange || 15;
     return `
     // Attach trading component ${component.id}
     ${entityVar}.tradingPost = {

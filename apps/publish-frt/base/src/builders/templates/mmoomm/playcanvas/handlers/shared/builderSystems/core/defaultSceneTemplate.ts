@@ -1,15 +1,15 @@
 // Universo Platformo | MMOOMM Default Scene Template
 // Shared template for default scene generation
 
-import { 
-    DefaultSceneGenerator, 
-    IDefaultSceneGenerator, 
+import {
+    DefaultSceneGenerator,
+    IDefaultSceneGenerator,
     DefaultSceneConfig,
     DemoMode,
     createConfigurableDefaultSceneGenerator,
     createSpaceDemoSceneGenerator,
     createDebugSceneGenerator
-} from './DefaultSceneGenerator'
+} from './defaultSceneGenerator'
 import { BuildOptions } from '../../../../../../../common/types'
 
 /**

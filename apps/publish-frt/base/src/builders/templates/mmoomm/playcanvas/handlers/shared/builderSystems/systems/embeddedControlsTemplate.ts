@@ -1,8 +1,8 @@
 // Universo Platformo | MMOOMM Embedded Controls Template
 // Shared template for controls system creation
 
-import { EmbeddedControlsSystem, IEmbeddedControlsSystem } from './EmbeddedControlsSystem'
-import { IEmbeddedSystem } from '../htmlSystems/EmbeddedSystemsRegistry'
+import { EmbeddedControlsSystem, IEmbeddedControlsSystem } from './embeddedControlsSystem'
+import { IEmbeddedSystem } from '../htmlSystems/embeddedSystemsRegistry'
 
 /**
  * Creates a standardized embedded controls system

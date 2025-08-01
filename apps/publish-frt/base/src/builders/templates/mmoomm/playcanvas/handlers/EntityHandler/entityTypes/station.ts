@@ -24,11 +24,12 @@ export function generateStationLogic(id: string): string {
         entity.model.material = stationMaterial;
     }
 
-    // Station trading system
-    entity.tradingPost = {
-        isActive: true,
-        pricePerTon: 10, // Inmo per ton of asteroid mass
-        interactionRange: 8,
+    // Station trading system (only create if not already set by Trading Component)
+    if (!entity.tradingPost) {
+        entity.tradingPost = {
+            isActive: true,
+            pricePerTon: 10, // Inmo per ton of asteroid mass
+            interactionRange: 15,
 
         // Check if ship is in range
         isShipInRange(ship) {
@@ -79,6 +80,7 @@ export function generateStationLogic(id: string): string {
             };
         }
     };
+    } // End of if (!entity.tradingPost)
 
     // Station interaction zone
     entity.interactionZone = {

@@ -1,7 +1,7 @@
 // Universo Platformo | MMOOMM Builder Systems Template
 // Shared template for builder systems manager creation
 
-import { BuilderSystemsManager, IBuilderSystemsManager, BuilderSystemsConfig, createBuilderSystemsManager } from './BuilderSystemsManager'
+import { BuilderSystemsManager, IBuilderSystemsManager, BuilderSystemsConfig, createBuilderSystemsManager } from './builderSystemsManager'
 import { createHTMLDocumentGenerator } from '../htmlSystems/htmlDocumentTemplate'
 import { createMMOOMMEmbeddedSystemsRegistry } from '../htmlSystems/embeddedSystemsTemplate'
 import { createMMOOMMGlobalObjectsManager } from '../globalObjects/globalObjectsTemplate'

@@ -56,7 +56,7 @@ export function generateShipLogic(id: string): string {
     entity.inventory = ${generateInventoryCode(20, 0, true, true, true)};
 
     // Camera controller for ship following (using shared template)
-    entity.cameraController = ${generateCameraControllerCode(15, 4.0, false, true)};
+    entity.cameraController = ${generateCameraControllerCode(18, 4.0, false, true)};
 
     // Ship laser mining system (using shared template)
     entity.laserSystem = ${generateLaserMiningCode(75, 3000, 1.5, false, true)};
