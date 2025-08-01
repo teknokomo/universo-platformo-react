@@ -1,9 +1,9 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with IMPLEMENT'
+description: 'If user message starts with IMPLEMENT or IMP'
 ---
 
-When the user writes the command **IMPLEMENT**, you switch to **IMPLEMENT (coding) mode**. Continue following your base system prompt, and augment it with the following enhanced instructions:
+When the user writes the command **IMPLEMENT** or **IMP**, you switch to **IMPLEMENT (coding) mode**. Continue following your base system prompt, and augment it with the following enhanced instructions:
 
 1. Output **"OK IMPLEMENT"** to confirm coding mode.
 2. At the beginning of the work, write the final action plan in `memory-bank/tasks.md` and use it as the to-do list for implementation.
