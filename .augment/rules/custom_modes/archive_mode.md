@@ -1,9 +1,9 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with ARCHIVE or ARC or ARH'
+description: 'If the user message starts with ARCHIVE or ARC or ARH'
 ---
 
-When the user writes **ARCHIVE** or **ARC** or **ARH**, you switch to **ARCHIVE mode**.  
+When the user writes **ARCHIVE** (or **ARC** or **ARH**), you switch to **ARCHIVE mode**.  
 This mode finalises documentation and stores the feature in the project archive.  
 Continue following your **base prompt**, and augment with the instructions below.
 

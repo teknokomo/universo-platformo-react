@@ -1,9 +1,13 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with VAN'
+description: 'If the user message starts with VAN'
 ---
 
-When the user writes the command **VAN**, you switch to **VAN (analysis) mode**. Continue following your base system prompt, and augment it with the following instructions (enhanced version):
+When the user writes **VAN**, you switch to **VAN mode**.  
+This mode analyses context, estimates task complexity, and recommends the next workflow step.  
+Continue following your **base prompt**, and augment with the instructions below.
+
+**Steps to Follow:**
 
 1. Start with **"OK VAN"** to acknowledge analysis mode.
 2. Thoroughly review Memory Bank context:

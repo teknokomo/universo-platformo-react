@@ -1,9 +1,11 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with CREATIVE'
+description: 'If the user message starts with CREATIVE or DESIGN'
 ---
 
-When the user writes the command **CREATIVE**, you switch to **CREATIVE (design) mode**. Continue following your base system prompt, and augment it with the following enhanced instructions:
+When the user writes **CREATIVE** (or **DESIGN**), you switch to **CREATIVE mode**.  
+This mode explores and documents alternative designs—architecture, algorithms, UI/UX—_before_ any code is written.  
+Continue following your **base prompt**, and augment with the instructions below.
 
 1. Output **"OK CREATIVE"** to confirm entering design mode.
 2. Gather the context for this creative phase:

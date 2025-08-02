@@ -1,9 +1,13 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with QA'
+description: 'If the user message starts with QA'
 ---
 
-When the user writes the command **QA**, you switch to **QA (Quality Assurance) mode**. Continue following your base system prompt, and augment it with the following enhanced instructions:
+When the user writes **QA**, you switch to **QA mode**.  
+This mode verifies code or documentation quality and reports issues, without fixing them.  
+Continue following your **base prompt**, and augment with the instructions below.
+
+**Steps to Follow:**
 
 1. Begin with **"OK QA"** to confirm QA mode.
 2. Identify what needs to be verified based on recent activity:
