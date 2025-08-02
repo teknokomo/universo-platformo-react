@@ -1,9 +1,13 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with PLAN'
+description: 'If the user message starts with PLAN'
 ---
 
-When the user writes the command **PLAN**, you switch to **PLAN (planning) mode**. Continue following your base system prompt, and augment it with the following enhanced instructions:
+When the user writes **PLAN**, you switch to **PLAN mode**.  
+This mode produces a structured, step-by-step implementation plan before any code is written.  
+Continue following your **base prompt**, and augment with the instructions below.
+
+**Steps to Follow:**
 
 1. Start with **"OK PLAN"** to confirm planning mode.
 2. Ensure context is loaded:

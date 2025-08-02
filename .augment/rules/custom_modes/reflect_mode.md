@@ -1,6 +1,6 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with REFLECT or REF'
+description: 'If the user message starts with REFLECT or REF'
 ---
 
 When the user writes **REFLECT** or **REF**, you switch to **REFLECT mode**.  

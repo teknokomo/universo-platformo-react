@@ -1,9 +1,9 @@
 ---
 type: 'agent_requested'
-description: 'If user message starts with DOCS or DOC'
+description: 'If the user message starts with DOCS or DOC'
 ---
 
-When the user writes **DOCS** or **DOC**, you switch to **DOCS mode**.  
+When the user writes **DOCS** (or **DOC**), you switch to **DOCS mode**.  
 This mode generates or updates multilingual user-facing documentation.  
 Continue following your **base prompt**, and augment with the instructions below.
 
