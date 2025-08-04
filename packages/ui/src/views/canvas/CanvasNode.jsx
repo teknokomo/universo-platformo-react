@@ -15,6 +15,7 @@ import NodeInputHandler from './NodeInputHandler'
 import NodeOutputHandler from './NodeOutputHandler'
 import AdditionalParamsDialog from '@/ui-component/dialog/AdditionalParamsDialog'
 import NodeInfoDialog from '@/ui-component/dialog/NodeInfoDialog'
+import { shouldShowInputParam } from '@/utils/genericHelper'
 
 // const
 import { baseURL } from '@/store/constant'
@@ -234,12 +235,17 @@ const CanvasNode = ({ data }) => {
                                     }}
                                 />
                             ))}
-                        {data.inputParams.find((param) => param.additionalParams) && (
+                        {data.inputParams
+                            .filter((param) => param.additionalParams)
+                            .filter((param) => shouldShowInputParam(param, data))
+                            .length > 0 && (
                             <div
                                 style={{
                                     textAlign: 'center',
                                     marginTop:
-                                        data.inputParams.filter((param) => param.additionalParams).length ===
+                                        data.inputParams
+                                            .filter((param) => param.additionalParams)
+                                            .filter((param) => shouldShowInputParam(param, data)).length ===
                                         data.inputParams.length + data.inputAnchors.length
                                             ? 20
                                             : 0

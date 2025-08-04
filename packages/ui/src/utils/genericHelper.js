@@ -931,3 +931,36 @@ export const getCustomConditionOutputs = (value, nodeId, existingEdges, isDataGr
 
     return { outputAnchors, toBeRemovedEdgeIds }
 }
+
+/**
+ * Determines whether an input parameter should be shown based on its show conditions
+ * Used for conditional parameter display in UPDL nodes
+ * @param {Object} inputParam - The input parameter object with potential show conditions
+ * @param {Object} nodeData - The node data containing current input values
+ * @returns {boolean} - True if the parameter should be shown, false otherwise
+ */
+export const shouldShowInputParam = (inputParam, nodeData) => {
+    // If no show condition is defined, always show the parameter
+    if (!inputParam.show) return true
+
+    // Check each condition in the show object
+    for (const [key, values] of Object.entries(inputParam.show)) {
+        // Support both 'inputs.fieldName' and 'data.fieldName' syntax
+        const fieldName = key.replace('inputs.', '').replace('data.', '')
+
+        // Get current value from node inputs or data
+        const currentValue = nodeData.inputs?.[fieldName] ?? nodeData.data?.[fieldName]
+
+        // Support both array and single value conditions
+        if (Array.isArray(values)) {
+            // Array condition: current value must be in the array
+            if (!values.includes(currentValue)) return false
+        } else {
+            // Single value condition: current value must match exactly
+            if (currentValue !== values) return false
+        }
+    }
+
+    // All conditions passed, show the parameter
+    return true
+}

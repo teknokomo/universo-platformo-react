@@ -8,106 +8,132 @@ The Universal Platform Description Language (UPDL) Node System is the core of Un
 
 UPDL provides a visual, node-based approach to creating complex 3D/AR/VR experiences. Each node type serves a specific purpose in building immersive digital environments.
 
+## Node Features
+
+### Conditional Parameter Display
+
+UPDL nodes support intelligent parameter display that shows only relevant fields based on your current configuration. This feature reduces interface clutter and improves usability by dynamically showing parameters that apply to your selected options.
+
+[Learn more about Conditional Parameters →](conditional-parameters.md)
+
 ## Node Categories
 
 ### Space Nodes
+
 Define virtual spaces and environments where your experience takes place.
 
 **Key Features:**
-- Environment setup and configuration
-- Lighting and atmosphere control
-- Physics world initialization
-- Spatial boundaries definition
+
+-   Environment setup and configuration
+-   Lighting and atmosphere control
+-   Physics world initialization
+-   Spatial boundaries definition
 
 **Use Cases:**
-- Creating game worlds
-- Setting up AR/VR environments
-- Defining interaction spaces
+
+-   Creating game worlds
+-   Setting up AR/VR environments
+-   Defining interaction spaces
 
 [Learn more about Space Nodes →](space-nodes.md)
 
 ### Entity Nodes
+
 Create interactive objects, characters, and elements within your spaces.
 
 **Key Features:**
-- 3D model loading and management
-- Character creation and animation
-- Interactive object definition
-- Asset management
+
+-   3D model loading and management
+-   Character creation and animation
+-   Interactive object definition
+-   Asset management
 
 **Use Cases:**
-- Player characters and NPCs
-- Interactive objects and items
-- Environmental elements
-- Collectible resources
+
+-   Player characters and NPCs
+-   Interactive objects and items
+-   Environmental elements
+-   Collectible resources
 
 [Learn more about Entity Nodes →](entity-nodes.md)
 
 ### Component Nodes
+
 Add behaviors, properties, and capabilities to entities.
 
 **Key Features:**
-- Behavior attachment system
-- Property management
-- State tracking
-- Component composition
+
+-   Behavior attachment system
+-   Property management
+-   State tracking
+-   Component composition
 
 **Use Cases:**
-- Movement and physics
-- Health and status systems
-- Inventory management
-- Interaction capabilities
+
+-   Movement and physics
+-   Health and status systems
+-   Inventory management
+-   Interaction capabilities
 
 [Learn more about Component Nodes →](component-nodes.md)
 
 ### Action Nodes
+
 Define interactions, behaviors, and responses within your experience.
 
 **Key Features:**
-- User interaction handling
-- Automated behaviors
-- Conditional logic
-- Action sequencing
+
+-   User interaction handling
+-   Automated behaviors
+-   Conditional logic
+-   Action sequencing
 
 **Use Cases:**
-- Player input handling
-- AI behavior scripting
-- Game mechanics implementation
-- System responses
+
+-   Player input handling
+-   AI behavior scripting
+-   Game mechanics implementation
+-   System responses
 
 [Learn more about Action Nodes →](action-nodes.md)
 
 ### Event Nodes
+
 Handle user interactions, system events, and communication between elements.
 
 **Key Features:**
-- Event listening and dispatching
-- Message passing systems
-- State change notifications
-- Cross-system communication
+
+-   Event listening and dispatching
+-   Message passing systems
+-   State change notifications
+-   Cross-system communication
 
 **Use Cases:**
-- User interface events
-- Game state changes
-- Multiplayer synchronization
-- System notifications
+
+-   User interface events
+-   Game state changes
+-   Multiplayer synchronization
+-   System notifications
 
 [Learn more about Event Nodes →](event-nodes.md)
 
 ### Data Nodes
+
 Manage data flow, state, and information storage throughout your experience.
 
 **Key Features:**
-- Data storage and retrieval
-- State management
-- Variable tracking
-- Data transformation
+
+-   Data storage and retrieval
+-   State management
+-   Variable tracking
+-   Data transformation
 
 **Use Cases:**
-- Player progress tracking
-- Game state persistence
-- Resource management
-- Configuration storage
+
+-   Player progress tracking
+-   Game state persistence
+-   Resource management
+-   Configuration storage
 
 [Learn more about Data Nodes →](data-nodes.md)
 
@@ -125,30 +151,33 @@ Event Nodes ← Data Nodes ← Data Nodes ← Data Nodes
 
 UPDL nodes seamlessly integrate with existing Flowise nodes:
 
-- **Chat Models** can drive NPC conversations
-- **Tools** can be used for external API integration
-- **Memory** systems can store player progress
-- **Embeddings** can power semantic search in game content
+-   **Chat Models** can drive NPC conversations
+-   **Tools** can be used for external API integration
+-   **Memory** systems can store player progress
+-   **Embeddings** can power semantic search in game content
 
 ## Best Practices
 
 ### Node Organization
-- Group related nodes logically
-- Use clear naming conventions
-- Document complex flows
-- Maintain consistent data flow patterns
+
+-   Group related nodes logically
+-   Use clear naming conventions
+-   Document complex flows
+-   Maintain consistent data flow patterns
 
 ### Performance Optimization
-- Minimize unnecessary node connections
-- Use efficient data structures
-- Implement proper resource cleanup
-- Consider platform-specific optimizations
+
+-   Minimize unnecessary node connections
+-   Use efficient data structures
+-   Implement proper resource cleanup
+-   Consider platform-specific optimizations
 
 ### Debugging and Testing
-- Use built-in debugging tools
-- Test on target platforms early
-- Monitor performance metrics
-- Validate user interactions
+
+-   Use built-in debugging tools
+-   Test on target platforms early
+-   Monitor performance metrics
+-   Validate user interactions
 
 ## Getting Started
 
@@ -161,23 +190,23 @@ UPDL nodes seamlessly integrate with existing Flowise nodes:
 
 ## Advanced Topics
 
-- **Custom Node Development** - Creating your own UPDL nodes
-- **Platform-Specific Optimizations** - Tailoring for AR.js, PlayCanvas, etc.
-- **Multiplayer Integration** - Synchronizing UPDL flows across clients
-- **Performance Profiling** - Optimizing complex UPDL flows
+-   **Custom Node Development** - Creating your own UPDL nodes
+-   **Platform-Specific Optimizations** - Tailoring for AR.js, PlayCanvas, etc.
+-   **Multiplayer Integration** - Synchronizing UPDL flows across clients
+-   **Performance Profiling** - Optimizing complex UPDL flows
 
 ## Examples
 
-- **Simple AR Scene** - Basic AR.js implementation
-- **3D Game World** - PlayCanvas-based game environment
-- **VR Experience** - A-Frame virtual reality setup
-- **Multiplayer Space** - MMOOMM template usage
+-   **Simple AR Scene** - Basic AR.js implementation
+-   **3D Game World** - PlayCanvas-based game environment
+-   **VR Experience** - A-Frame virtual reality setup
+-   **Multiplayer Space** - MMOOMM template usage
 
 ## Next Steps
 
-- [Space Nodes](space-nodes.md) - Learn about environment setup
-- [Entity Nodes](entity-nodes.md) - Create interactive objects
-- [Component Nodes](component-nodes.md) - Add behaviors and properties
-- [Action Nodes](action-nodes.md) - Define interactions
-- [Event Nodes](event-nodes.md) - Handle events and communication
-- [Data Nodes](data-nodes.md) - Manage data and state
+-   [Space Nodes](space-nodes.md) - Learn about environment setup
+-   [Entity Nodes](entity-nodes.md) - Create interactive objects
+-   [Component Nodes](component-nodes.md) - Add behaviors and properties
+-   [Action Nodes](action-nodes.md) - Define interactions
+-   [Event Nodes](event-nodes.md) - Handle events and communication
+-   [Data Nodes](data-nodes.md) - Manage data and state
