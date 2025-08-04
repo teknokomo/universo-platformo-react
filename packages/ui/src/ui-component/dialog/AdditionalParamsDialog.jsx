@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from '@mui/material'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import NodeInputHandler from '@/views/canvas/NodeInputHandler'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
+import { shouldShowInputParam } from '@/utils/genericHelper'
 
 const AdditionalParamsDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
@@ -47,15 +48,17 @@ const AdditionalParamsDialog = ({ show, dialogProps, onCancel }) => {
                         overflowX: 'hidden'
                     }}
                 >
-                    {inputParams.map((inputParam, index) => (
-                        <NodeInputHandler
-                            disabled={dialogProps.disabled}
-                            key={index}
-                            inputParam={inputParam}
-                            data={data}
-                            isAdditionalParams={true}
-                        />
-                    ))}
+                    {inputParams
+                        .filter((inputParam) => shouldShowInputParam(inputParam, data))
+                        .map((inputParam, index) => (
+                            <NodeInputHandler
+                                disabled={dialogProps.disabled}
+                                key={index}
+                                inputParam={inputParam}
+                                data={data}
+                                isAdditionalParams={true}
+                            />
+                        ))}
                 </PerfectScrollbar>
             </DialogContent>
         </Dialog>
