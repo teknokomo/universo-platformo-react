@@ -39,11 +39,25 @@ export function generateShipLogic(id: string): string {
 
     // ADDED: Ensure entity is visible and properly scaled
     entity.enabled = true;
-    entity.setLocalScale(2, 1, 3); // Make ship more visible (wider and longer)
-
-    // CRITICAL FIX: Keep ship in default orientation (nose pointing forward in +Z direction)
-    // Camera will be positioned behind the ship instead
-    entity.setLocalEulerAngles(0, 0, 0);
+    
+    // Apply default transform values only if not set by UPDL  
+    // Ship default scale: wider and longer for visibility
+    const currentScale = entity.getLocalScale();
+    if (currentScale.x === 1 && currentScale.y === 1 && currentScale.z === 1) {
+        entity.setLocalScale(2, 1, 3);
+        console.log('[Ship] Applied default scale: { x: 2, y: 1, z: 3 }');
+    } else {
+        console.log('[Ship] Preserving UPDL scale values');
+    }
+    
+    // Ship default rotation: nose pointing forward in +Z direction
+    const currentRotation = entity.getLocalEulerAngles();
+    if (currentRotation.x === 0 && currentRotation.y === 0 && currentRotation.z === 0) {
+        entity.setLocalEulerAngles(0, 0, 0);
+        console.log('[Ship] Applied default rotation: { x: 0, y: 0, z: 0 }');
+    } else {
+        console.log('[Ship] Preserving UPDL rotation values');
+    }
 
     // ADDED: Debug ship creation
     console.log('[Ship] Created ship entity with position:', entity.getPosition().toString());

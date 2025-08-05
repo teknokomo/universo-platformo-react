@@ -261,3 +261,9 @@ apps/
 -   Template sharing and collaboration marketplace
 -   Real-time collaborative editing capabilities
 -   Community-driven template and component library
+
+## Recently Completed Enhancements
+
+### 2025-08-06: MMOOMM Entity Hardcode Elimination Fix
+
+Successfully eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. See [archive entry](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md) for complete documentation.
