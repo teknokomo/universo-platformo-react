@@ -11,7 +11,17 @@ export function generateGateLogic(id: string): string {
         type: 'box',
         halfExtents: new pc.Vec3(3, 3, 1)
     });
-    entity.setLocalScale(3, 3, 1);
+    
+    // Apply default scale only if not set by UPDL
+    // Store default for animation use
+    const defaultGateScale = { x: 3, y: 3, z: 1 };
+    const currentScale = entity.getLocalScale();
+    if (currentScale.x === 1 && currentScale.y === 1 && currentScale.z === 1) {
+        entity.setLocalScale(defaultGateScale.x, defaultGateScale.y, defaultGateScale.z);
+        console.log('[Gate] Applied default scale:', defaultGateScale);
+    } else {
+        console.log('[Gate] Preserving UPDL scale values');
+    }
 
     // Add gate material (only if no custom material from Component)
     if (entity.model && !entity.model.material) {
@@ -123,12 +133,14 @@ export function generateGateLogic(id: string): string {
         entity.rotateLocal(0, 0, 30 * dt); // Rotate around Z-axis
     });
 
-    // Pulsing scale effect
+    // Pulsing scale effect (respects UPDL scale values)
     entity.pulseTime = 0;
+    // Store base scale for animation (either UPDL or default)
+    const baseScale = entity.getLocalScale();
     entity.on('update', (dt) => {
         entity.pulseTime += dt;
         const pulse = 1 + Math.sin(entity.pulseTime * 2) * 0.1;
-        entity.setLocalScale(3 * pulse, 3 * pulse, 1);
+        entity.setLocalScale(baseScale.x * pulse, baseScale.y * pulse, baseScale.z * pulse);
     });
 `;
 }

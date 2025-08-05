@@ -8,8 +8,8 @@ The Publication System provides comprehensive mechanisms for exporting UPDL spac
 
 The Publication System consists of two main components working together to provide a complete content publishing solution:
 
-- **Frontend (publish-frt)**: Client-side processing, template builders, and user interface
-- **Backend (publish-srv)**: Data management, API endpoints, and type definitions
+-   **Frontend (publish-frt)**: Client-side processing, template builders, and user interface
+-   **Backend (publish-srv)**: Data management, API endpoints, and type definitions
 
 ## Architecture
 
@@ -36,12 +36,12 @@ The frontend application handles the entire user-facing publication workflow, in
 
 ### Key Features
 
-- **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences
-- **Template-Based Builders**: Flexible builder system with `ARJSBuilder` and `PlayCanvasBuilder` supporting multiple templates
-- **MMOOMM Space MMO Template**: Comprehensive space MMO environment with industrial laser mining, physics-based flight, and real-time inventory management
-- **Advanced Game Mechanics**: Entity system with ships, asteroids, stations, gates, and networking capabilities
-- **Supabase Integration**: Persists publication configurations
-- **AR Quiz Support**: Educational quizzes with scoring and lead collection
+-   **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences
+-   **Template-Based Builders**: Flexible builder system with `ARJSBuilder` and `PlayCanvasBuilder` supporting multiple templates
+-   **MMOOMM Space MMO Template**: Comprehensive space MMO environment with industrial laser mining, physics-based flight, and real-time inventory management
+-   **Advanced Game Mechanics**: Entity system with ships, asteroids, stations, gates, and networking capabilities
+-   **Supabase Integration**: Persists publication configurations
+-   **AR Quiz Support**: Educational quizzes with scoring and lead collection
 
 ### Template Architecture
 
@@ -64,16 +64,18 @@ builders/templates/
 ### Supported Platforms
 
 #### AR.js Export
-- **Marker-based AR**: Pattern, barcode, and NFT markers
-- **Library Configuration**: User-selectable library sources (CDN or local)
-- **Quiz Templates**: Educational content with scoring
-- **Mobile Optimization**: Responsive design for mobile devices
+
+-   **Marker-based AR**: Pattern, barcode, and NFT markers
+-   **Library Configuration**: User-selectable library sources (CDN or local)
+-   **Quiz Templates**: Educational content with scoring
+-   **Mobile Optimization**: Responsive design for mobile devices
 
 #### PlayCanvas Export
-- **3D Environments**: Full 3D scene rendering
-- **MMOOMM Template**: Space MMO with mining and trading
-- **Physics Integration**: Realistic physics simulation
-- **Entity Systems**: Complex game object management
+
+-   **3D Environments**: Full 3D scene rendering
+-   **MMOOMM Template**: Space MMO with mining and trading
+-   **Physics Integration**: Realistic physics simulation
+-   **Entity Systems**: Complex game object management
 
 ### Critical Implementation: Iframe-Based Rendering
 
@@ -98,10 +100,12 @@ iframeDoc.close()
 User-selectable library sources solve CDN blocking issues:
 
 **Library Sources:**
-- **Official CDN**: External CDN sources for global access
-- **Kiberplano Server**: Local server sources for restricted regions
+
+-   **Official CDN**: External CDN sources for global access
+-   **Kiberplano Server**: Local server sources for restricted regions
 
 **Configuration Storage:**
+
 ```json
 {
     "arjs": {
@@ -119,15 +123,16 @@ The backend service provides data management and API endpoints as a workspace pa
 
 ### Key Features
 
-- **Publication Management**: API endpoints to create and retrieve publication records
-- **Flow Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend
-- **Centralized Types**: Exports shared UPDL and publication-related TypeScript types
-- **Modular and Decoupled**: Fully independent from `packages/server` business logic
-- **Asynchronous Route Initialization**: Prevents race conditions with database connections
+-   **Publication Management**: API endpoints to create and retrieve publication records
+-   **Flow Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend
+-   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types
+-   **Modular and Decoupled**: Fully independent from `packages/server` business logic
+-   **Asynchronous Route Initialization**: Prevents race conditions with database connections
 
 ### API Endpoints
 
 #### Create Publication
+
 ```
 POST /api/v1/publish/arjs
 POST /api/v1/publish/playcanvas
@@ -141,6 +146,7 @@ Body: {
 ```
 
 #### Get Publication Data
+
 ```
 GET /api/v1/publish/arjs/public/:publicationId
 GET /api/v1/publish/playcanvas/public/:publicationId
@@ -156,10 +162,10 @@ Response: {
 
 The backend is implemented as a **pnpm workspace package**:
 
-- **Package Name**: `@universo/publish-srv`
-- **Integration**: Used as dependency in main server
-- **Exports**: Routes, types, services, controllers via `src/index.ts`
-- **Type Sharing**: Source of truth for UPDL types consumed by frontend
+-   **Package Name**: `@universo/publish-srv`
+-   **Integration**: Used as dependency in main server
+-   **Exports**: Routes, types, services, controllers via `src/index.ts`
+-   **Type Sharing**: Source of truth for UPDL types consumed by frontend
 
 ## UPDL Processing Architecture
 
@@ -167,24 +173,26 @@ The frontend includes independent UPDL processing capabilities through the `UPDL
 
 ### Key Components
 
-- **UPDLProcessor**: Central class for UPDL flow processing
-- **Type Imports**: UPDL types imported from `@universo/publish-srv` package
-- **Frontend Independence**: Complete UPDL processing without backend dependencies
+-   **UPDLProcessor**: Central class for UPDL flow processing
+-   **Type Imports**: UPDL types imported from `@universo/publish-srv` package
+-   **Frontend Independence**: Complete UPDL processing without backend dependencies
 
 ### Features
 
-- **Flow Analysis**: Identifies UPDL nodes and ending nodes
-- **Space Chain Processing**: Handles multi-space scenarios and scene sequences
-- **Data Integration**: Processes Data nodes connected to Spaces
-- **Object Relationships**: Maps Object nodes to Data nodes
-- **Type Safety**: Full TypeScript support with centralized type definitions
+-   **Flow Analysis**: Identifies UPDL nodes and ending nodes
+-   **Space Chain Processing**: Handles multi-space scenarios and scene sequences
+-   **Data Integration**: Processes Data nodes connected to Spaces
+-   **Object Relationships**: Maps Object nodes to Data nodes
+-   **Type Safety**: Full TypeScript support with centralized type definitions
 
 ## Supabase Integration
 
 Publication state persistence is handled through Supabase:
 
 ### Multi-Technology Structure
+
 Settings stored in `chatbotConfig` field with structure:
+
 ```json
 {
     "chatbot": { ... },
@@ -194,10 +202,12 @@ Settings stored in `chatbotConfig` field with structure:
 ```
 
 ### Exclusive Publication Logic
+
 The system ensures only one technology can be public at a time:
-- Independent publication states for each technology
-- Automatic disabling of other technologies when one is enabled
-- Global publication status management
+
+-   Independent publication states for each technology
+-   Automatic disabling of other technologies when one is enabled
+-   Global publication status management
 
 ## Workflow
 
@@ -218,27 +228,31 @@ The complete publication workflow:
 The MMOOMM (Massive Multiplayer Online Object Mining Management) template provides:
 
 ### Core Features
-- **Industrial Laser Mining System**: Auto-targeting laser mining with 3-second cycles
-- **Space Ship Controls**: WASD+QZ movement with physics-based flight mechanics
-- **Inventory Management**: 20m³ cargo hold with real-time capacity tracking
-- **Entity System**: Ships, asteroids, stations, and gates with networking capabilities
-- **Real-time HUD**: Mining progress, cargo status, and system indicators
+
+-   **Industrial Laser Mining System**: Auto-targeting laser mining with 3-second cycles
+-   **Space Ship Controls**: WASD+QZ movement with physics-based flight mechanics
+-   **Inventory Management**: 20m³ cargo hold with real-time capacity tracking
+-   **Entity System**: Ships, asteroids, stations, and gates with networking capabilities
+-   **Real-time HUD**: Mining progress, cargo status, and system indicators
 
 ### Game Mechanics
-- **Mining**: Target asteroids within 75-unit range, extract 1.5m³ resources per cycle
-- **Movement**: Full 6DOF ship movement with camera following
-- **Physics**: Collision detection, rigidbody dynamics, and realistic space physics
+
+-   **Mining**: Target asteroids within 75-unit range, extract 1.5m³ resources per cycle
+-   **Movement**: Full 6DOF ship movement with camera following
+-   **Physics**: Collision detection, rigidbody dynamics, and realistic space physics
 
 ### Entity Types
-- **Ship**: Player-controlled spacecraft with laser mining system
-- **Asteroid**: Mineable objects with resource yield and destruction mechanics
-- **Station**: Trading posts and docking facilities for commerce
-- **Gate**: Teleportation portals for inter-system travel
-- **Player**: Network-aware player entities for multiplayer support
+
+-   **Ship**: Player-controlled spacecraft with laser mining system
+-   **Asteroid**: Mineable objects with resource yield and destruction mechanics
+-   **Station**: Trading posts and docking facilities for commerce
+-   **Gate**: Teleportation portals for inter-system travel
+-   **Player**: Network-aware player entities for multiplayer support
 
 ## Development
 
 ### Setup
+
 ```bash
 # Install dependencies
 pnpm install
@@ -251,6 +265,7 @@ pnpm --filter @universo/publish-srv build
 ```
 
 ### Development Mode
+
 ```bash
 # Frontend development
 pnpm --filter publish-frt dev
@@ -262,42 +277,46 @@ pnpm --filter @universo/publish-srv dev
 ### Build Process
 
 **Frontend:**
+
 1. TypeScript compilation
 2. Gulp tasks for static assets (SVG, PNG, JSON, CSS, JS libraries)
 
 **Backend:**
+
 1. TypeScript compilation
 2. Type definitions generation
 
 ## Integration Points
 
 ### With Main Flowise Platform
-- **Route Integration**: Publication routes mounted in main server
-- **Authentication**: Uses shared JWT authentication system
-- **Database**: Accesses Flowise database via TypeORM DataSource
+
+-   **Route Integration**: Publication routes mounted in main server
+-   **Authentication**: Uses shared JWT authentication system
+-   **Database**: Accesses Flowise database via TypeORM DataSource
 
 ### With UPDL System
-- **Node Processing**: Converts UPDL nodes to platform-specific formats
-- **Type Definitions**: Shared interfaces for consistent data structures
-- **Template System**: Extensible architecture for new platforms
+
+-   **Node Processing**: Converts UPDL nodes to platform-specific formats
+-   **Type Definitions**: Shared interfaces for consistent data structures
+-   **Template System**: Extensible architecture for new platforms
 
 ## Security Considerations
 
-- **Authentication**: JWT token validation for all operations
-- **Input Validation**: Comprehensive request validation
-- **Iframe Isolation**: Secure content rendering in isolated contexts
-- **CORS Configuration**: Proper cross-origin request handling
+-   **Authentication**: JWT token validation for all operations
+-   **Input Validation**: Comprehensive request validation
+-   **Iframe Isolation**: Secure content rendering in isolated contexts
+-   **CORS Configuration**: Proper cross-origin request handling
 
 ## Future Enhancements
 
-- **Additional Platforms**: Support for Three.js, Babylon.js, and other engines
-- **Real-time Collaboration**: Multi-user editing and publishing
-- **Version Control**: Publication versioning and rollback capabilities
-- **Analytics Integration**: Usage tracking and performance metrics
-- **CDN Integration**: Global content delivery optimization
+-   **Additional Platforms**: Support for Three.js, Babylon.js, and other engines
+-   **Real-time Collaboration**: Multi-user editing and publishing
+-   **Version Control**: Publication versioning and rollback capabilities
+-   **Analytics Integration**: Usage tracking and performance metrics
+-   **CDN Integration**: Global content delivery optimization
 
 ## Next Steps
 
-- [UPDL System](../updl/README.md) - Learn about the Universal Platform Definition Language
-- [MMOOMM Templates](../../universo-platformo/mmoomm-templates/README.md) - Explore pre-built templates
-- [Multi-Platform Export](../../universo-platformo/export/README.md) - Export to different platforms
+-   [UPDL System](../updl/README.md) - Learn about the Universal Platform Definition Language
+-   [MMOOMM Templates](../../universo-platformo/mmoomm-templates/README.md) - Explore pre-built templates
+-   [Multi-Platform Export](../../universo-platformo/export/README.md) - Export to different platforms

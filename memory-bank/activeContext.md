@@ -15,9 +15,11 @@
 -   **Production Deployment**: Enterprise-grade hosting and scaling solutions
 -   **Community Features**: Template sharing and collaborative development tools
 
-## Recent Status
+## Recently Completed
 
-**Current Development**: Enhanced Resource System with Material Density implemented successfully. Created realistic material physics with separate weight/volume tracking, 16 material types with proper densities (0.001-21.5 t/m³), enhanced inventory system supporting both tons and m³, and improved mineable components with hardness/volume properties. MMOOMM ship.ts refactoring also completed with 90.6% code reduction and modular shared templates architecture.
+**MMOOMM Entity Hardcode Elimination Fix**: Successfully completed on 2025-08-06. Eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. Archive: [docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md)
+
+**Previous Development**: Enhanced Resource System with Material Density implemented successfully. Created realistic material physics with separate weight/volume tracking, 16 material types with proper densities (0.001-21.5 t/m³), enhanced inventory system supporting both tons and m³, and improved mineable components with hardness/volume properties. MMOOMM ship.ts refactoring also completed with 90.6% code reduction and modular shared templates architecture.
 
 ## System Architecture
 

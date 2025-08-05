@@ -11,7 +11,15 @@ export function generateStationLogic(id: string): string {
         type: 'box',
         halfExtents: new pc.Vec3(4, 2, 4)
     });
-    entity.setLocalScale(4, 2, 4);
+    
+    // Apply default scale only if not set by UPDL
+    const currentScale = entity.getLocalScale();
+    if (currentScale.x === 1 && currentScale.y === 1 && currentScale.z === 1) {
+        entity.setLocalScale(4, 2, 4);
+        console.log('[Station] Applied default scale: { x: 4, y: 2, z: 4 }');
+    } else {
+        console.log('[Station] Preserving UPDL scale values');
+    }
 
     // IMPROVED: Enhanced station material (only if no custom material from Component)
     if (entity.model && !entity.model.material) {

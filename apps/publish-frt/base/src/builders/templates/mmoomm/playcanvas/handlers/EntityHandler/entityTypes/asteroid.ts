@@ -8,9 +8,14 @@ export function generateAsteroidLogic(id: string): string {
     }
 
     // Collision setup (always needed for game mechanics)
+    // Use scale from UPDL for collision radius calculation
+    const entityScale = entity.getLocalScale();
+    const scaleMultiplier = Math.max(entityScale.x, entityScale.y, entityScale.z);
+    const collisionRadius = scaleMultiplier > 1 ? scaleMultiplier : (Math.random() * 2 + 1);
+    
     entity.addComponent('collision', {
         type: 'sphere',
-        radius: Math.random() * 2 + 1 // Random size between 1-3
+        radius: collisionRadius
     });
     entity.addComponent('rigidbody', {
         type: pc.BODYTYPE_STATIC,
@@ -32,12 +37,12 @@ export function generateAsteroidLogic(id: string): string {
     }
 
     // Asteroid mineable properties
-    const entityScale = entity.getLocalScale();
-    const scaleMultiplier = Math.max(entityScale.x, entityScale.y, entityScale.z); // Use largest scale dimension
+    const mineableScale = entity.getLocalScale();
+    const mineableScaleMultiplier = Math.max(mineableScale.x, mineableScale.y, mineableScale.z); // Use largest scale dimension
     entity.mineable = {
         resourceType: 'asteroidMass',
-        maxYield: scaleMultiplier * 2, // Larger asteroids yield more
-        currentYield: scaleMultiplier * 2,
+        maxYield: mineableScaleMultiplier * 2, // Larger asteroids yield more
+        currentYield: mineableScaleMultiplier * 2,
         isDestroyed: false,
 
         // Handle being hit by projectile
