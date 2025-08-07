@@ -19,6 +19,29 @@ apps/
 │       ├── tsconfig.json
 │       ├── gulpfile.ts
 │       └── README.md
+├── uniks-frt/           # Workspace management frontend
+│   └── base/            # Core workspace functionality
+│       ├── src/         # Source code
+│       │   ├── i18n/    # Internationalization
+│       │   ├── pages/   # Page components (UnikList, UnikDetail, UnikDialog)
+│       │   ├── menu-items/ # Menu configurations
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── gulpfile.ts
+│       └── README.md
+├── uniks-srv/           # Workspace management backend (workspace package)
+│   └── base/            # Core workspace functionality
+│       ├── src/         # Source code
+│       │   ├── routes/  # Express routes for Uniks CRUD operations
+│       │   ├── database/ # TypeORM entities and migrations
+│       │   ├── types/   # TypeScript declarations
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
 ├── profile-frt/         # User profile management frontend
 │   └── base/            # Core profile functionality
 │       ├── src/         # Source code
@@ -81,6 +104,36 @@ apps/
 ```
 
 ## Applications
+
+### Uniks (Workspace Management)
+
+The Uniks application provides workspace management functionality, allowing users to create, manage, and organize their workspaces. It consists of a frontend application and a backend workspace package.
+
+#### Uniks Frontend (uniks-frt)
+
+**Key Features:**
+
+-   Workspace creation and management interface
+-   User-friendly workspace listing and navigation
+-   Workspace member management
+-   Responsive design with Material-UI components
+-   Internationalization support (English and Russian)
+
+**Documentation:** See [apps/uniks-frt/base/README.md](./uniks-frt/base/README.md)
+
+#### Uniks Server (uniks-srv)
+
+This is a backend service, structured as a workspace package (`@universo/uniks-srv`), responsible for handling workspace data and operations.
+
+**Key Features:**
+
+-   Express routes for Uniks CRUD operations
+-   TypeORM entities (`Unik`, `UserUnik`) for database management
+-   PostgreSQL database migrations
+-   Supabase integration for authentication
+-   Nested route mounting for Flowise routes under `/:unikId` prefix
+
+**Documentation:** See [apps/uniks-srv/base/README.md](./uniks-srv/base/README.md)
 
 ### UPDL (Universal Platform Definition Language)
 
@@ -270,11 +323,13 @@ pnpm build
 # Build specific frontend application
 pnpm build --filter publish-frt
 pnpm build --filter profile-frt
+pnpm build --filter uniks-frt
 pnpm build --filter updl
 
 # Build specific backend application
 pnpm build --filter publish-srv
 pnpm build --filter profile-srv
+pnpm build --filter uniks-srv
 ```
 
 ## Development
@@ -284,8 +339,10 @@ To run a specific application in development mode (watches for changes and rebui
 ```bash
 pnpm --filter publish-frt dev
 pnpm --filter profile-frt dev
+pnpm --filter uniks-frt dev
 pnpm --filter publish-srv dev
 pnpm --filter profile-srv dev
+pnpm --filter uniks-srv dev
 pnpm --filter updl dev
 ```
 

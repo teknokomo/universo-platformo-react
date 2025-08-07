@@ -66,12 +66,12 @@ const UnikDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ p: 2 }}>
-                    <Typography variant='overline'>{t('uniks.name')}</Typography>
+                    <Typography variant='overline'>{t('name')}</Typography>
                     <OutlinedInput
                         id='unikName'
                         type='text'
                         fullWidth
-                        placeholder={t('uniks.namePlaceholder')}
+                        placeholder={t('namePlaceholder')}
                         value={unikName}
                         onChange={(e) => setUnikName(e.target.value)}
                     />

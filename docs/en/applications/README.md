@@ -15,6 +15,8 @@ All applications follow a consistent modular structure designed for scalability 
 ```
 apps/
 ├── updl/                # UPDL node system for universal 3D/AR/VR spaces
+├── uniks-frt/           # Workspace management frontend
+├── uniks-srv/           # Workspace management backend
 ├── publish-frt/         # Publication system frontend
 ├── publish-srv/         # Publication system backend
 ├── profile-frt/         # User profile management frontend
@@ -25,70 +27,104 @@ apps/
 
 ## Core Applications
 
+### Workspace Management (Uniks)
+
+A comprehensive workspace management system that allows users to create, organize, and collaborate within dedicated workspaces.
+
+**Frontend (uniks-frt):**
+
+-   Workspace creation and management interface
+-   User-friendly workspace listing and navigation
+-   Workspace member management
+-   Responsive Material-UI design
+-   Full internationalization support (English and Russian)
+
+**Backend (uniks-srv):**
+
+-   Express routes for workspace CRUD operations
+-   TypeORM entities and PostgreSQL migrations
+-   Supabase integration for authentication
+-   Nested route mounting under `/:unikId` prefix
+-   TypeScript declarations for external modules
+
+[Learn more about Workspace Management →](uniks/README.md)
+
 ### UPDL (Universal Platform Definition Language)
+
 The foundation of Universo Platformo's 3D/AR/VR capabilities, providing a unified node system for describing interactive spaces.
 
 **Key Features:**
-- 7 core high-level nodes for universal scene description
-- Legacy nodes for backward compatibility
-- Pure Flowise integration
-- TypeScript interfaces and type safety
+
+-   7 core high-level nodes for universal scene description
+-   Legacy nodes for backward compatibility
+-   Pure Flowise integration
+-   TypeScript interfaces and type safety
 
 [Learn more about UPDL →](updl/README.md)
 
 ### Publication System
+
 A comprehensive system for exporting UPDL spaces to various platforms and sharing them with public URLs.
 
 **Frontend (publish-frt):**
-- Client-side UPDL processing
-- Template-based builders (AR.js, PlayCanvas)
-- MMOOMM space MMO template
-- Supabase integration
+
+-   Client-side UPDL processing
+-   Template-based builders (AR.js, PlayCanvas)
+-   MMOOMM space MMO template
+-   Supabase integration
 
 **Backend (publish-srv):**
-- Raw data provider
-- Publication management
-- Centralized type definitions
-- Asynchronous route initialization
+
+-   Raw data provider
+-   Publication management
+-   Centralized type definitions
+-   Asynchronous route initialization
 
 [Learn more about Publication System →](publish/README.md)
 
 ### Profile Management
+
 Complete user profile and authentication system with secure data management.
 
 **Frontend (profile-frt):**
-- Email and password updates
-- JWT token-based authentication
-- Mobile-friendly responsive design
-- Internationalization support
+
+-   Email and password updates
+-   JWT token-based authentication
+-   Mobile-friendly responsive design
+-   Internationalization support
 
 **Backend (profile-srv):**
-- Secure endpoints for user data
-- SQL functions with SECURITY DEFINER
-- Row Level Security (RLS) policies
-- TypeORM integration
+
+-   Secure endpoints for user data
+-   SQL functions with SECURITY DEFINER
+-   Row Level Security (RLS) policies
+-   TypeORM integration
 
 [Learn more about Profile Management →](profile/README.md)
 
 ### Analytics System
+
 Frontend module for displaying quiz analytics and user interaction data.
 
 **Features:**
-- Quiz performance analytics
-- User engagement metrics
-- Data visualization components
-- Integration with main platform
+
+-   Quiz performance analytics
+-   User engagement metrics
+-   Data visualization components
+-   Integration with main platform
 
 [Learn more about Analytics →](analytics/README.md)
 
 ### Authentication System
+
 Modern Supabase-based authentication system replacing legacy authentication.
 
 **Features:**
-- Email/password authentication
-- JWT token management
-- Route protection
-- Centralized error handling
+
+-   Email/password authentication
+-   JWT token management
+-   Route protection
+-   Centralized error handling
 
 [Learn more about Authentication →](auth/README.md)
 
@@ -163,43 +199,50 @@ app-name/
 ## Integration Points
 
 ### Database Integration
-- **TypeORM Entities**: Shared entity definitions
-- **Migration System**: Coordinated database migrations
-- **Connection Pooling**: Efficient database connections
+
+-   **TypeORM Entities**: Shared entity definitions
+-   **Migration System**: Coordinated database migrations
+-   **Connection Pooling**: Efficient database connections
 
 ### Authentication Integration
-- **JWT Tokens**: Consistent authentication across applications
-- **Supabase Integration**: Centralized user management
-- **Route Protection**: Unified access control
+
+-   **JWT Tokens**: Consistent authentication across applications
+-   **Supabase Integration**: Centralized user management
+-   **Route Protection**: Unified access control
 
 ### API Integration
-- **RESTful Endpoints**: Standardized API design
-- **Error Handling**: Consistent error responses
-- **Type Safety**: Shared TypeScript interfaces
+
+-   **RESTful Endpoints**: Standardized API design
+-   **Error Handling**: Consistent error responses
+-   **Type Safety**: Shared TypeScript interfaces
 
 ## Security Considerations
 
 ### Authentication & Authorization
-- JWT token-based authentication
-- Row Level Security (RLS) policies
-- Secure password hashing with bcrypt
-- Input validation and sanitization
+
+-   JWT token-based authentication
+-   Row Level Security (RLS) policies
+-   Secure password hashing with bcrypt
+-   Input validation and sanitization
 
 ### Data Protection
-- HTTPS-only communication
-- Secure token storage
-- SQL injection prevention
-- XSS protection
+
+-   HTTPS-only communication
+-   Secure token storage
+-   SQL injection prevention
+-   XSS protection
 
 ### API Security
-- Rate limiting
-- CORS configuration
-- Request validation
-- Error message sanitization
+
+-   Rate limiting
+-   CORS configuration
+-   Request validation
+-   Error message sanitization
 
 ## Deployment Architecture
 
 ### Development Environment
+
 ```bash
 # Start all applications in development mode
 pnpm dev
@@ -209,6 +252,7 @@ pnpm --filter <app-name> dev
 ```
 
 ### Production Build
+
 ```bash
 # Clean build all applications
 pnpm clean
@@ -219,24 +263,27 @@ pnpm deploy
 ```
 
 ### Environment Configuration
-- Database connection strings
-- Supabase configuration
-- JWT secrets
-- API endpoints
+
+-   Database connection strings
+-   Supabase configuration
+-   JWT secrets
+-   API endpoints
 
 ## Monitoring & Logging
 
 ### Application Monitoring
-- Performance metrics
-- Error tracking
-- User analytics
-- System health checks
+
+-   Performance metrics
+-   Error tracking
+-   User analytics
+-   System health checks
 
 ### Logging Strategy
-- Structured logging
-- Error aggregation
-- Audit trails
-- Debug information
+
+-   Structured logging
+-   Error aggregation
+-   Audit trails
+-   Debug information
 
 ## Future Expansion
 
@@ -252,15 +299,15 @@ When creating new applications:
 
 ### Planned Enhancements
 
-- **Real-time Communication**: WebSocket integration for live updates
-- **Microservices Architecture**: Further modularization of services
-- **Container Deployment**: Docker containerization for scalability
-- **API Gateway**: Centralized API management and routing
+-   **Real-time Communication**: WebSocket integration for live updates
+-   **Microservices Architecture**: Further modularization of services
+-   **Container Deployment**: Docker containerization for scalability
+-   **API Gateway**: Centralized API management and routing
 
 ## Next Steps
 
-- [UPDL System](updl/README.md) - Learn about the Universal Platform Definition Language
-- [Publication System](publish/README.md) - Explore content publishing and sharing
-- [Profile Management](profile/README.md) - Understand user management features
-- [Analytics System](analytics/README.md) - Discover analytics capabilities
-- [Authentication System](auth/README.md) - Learn about security features
+-   [UPDL System](updl/README.md) - Learn about the Universal Platform Definition Language
+-   [Publication System](publish/README.md) - Explore content publishing and sharing
+-   [Profile Management](profile/README.md) - Understand user management features
+-   [Analytics System](analytics/README.md) - Discover analytics capabilities
+-   [Authentication System](auth/README.md) - Learn about security features

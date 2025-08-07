@@ -71,7 +71,7 @@ import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
 import { analyticsTranslations } from '@apps/analytics-frt/base/src/i18n'
 // Universo Platformo | Import profile module translations
 import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
-import { uniksTranslations } from '@apps/uniks-frt/i18n'
+import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)

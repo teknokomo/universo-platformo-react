@@ -17,6 +17,8 @@
 
 ## Recently Completed
 
+**Uniks Functionality Extraction and Build System Fixes**: Successfully completed on 2025-08-07. Extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. Archive: [docs/archive/enhancements/2025-08/uniks-functionality-extraction.md](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md)
+
 **MMOOMM Entity Hardcode Elimination Fix**: Successfully completed on 2025-08-06. Eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. Archive: [docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md)
 
 **Previous Development**: Enhanced Resource System with Material Density implemented successfully. Created realistic material physics with separate weight/volume tracking, 16 material types with proper densities (0.001-21.5 t/m³), enhanced inventory system supporting both tons and m³, and improved mineable components with hardness/volume properties. MMOOMM ship.ts refactoring also completed with 90.6% code reduction and modular shared templates architecture.
@@ -29,6 +31,7 @@
 -   **Publish Frontend/Backend**: Multi-technology export (AR.js, PlayCanvas)
 -   **Analytics**: Quiz performance tracking
 -   **Profile Frontend/Backend**: Enhanced user management with workspace packages
+-   **Uniks Frontend/Backend**: Modular workspace functionality (newly extracted)
 
 **Core Technologies**: React + Material-UI, Node.js + TypeScript, Supabase integration, PNPM workspaces
 
@@ -38,6 +41,7 @@
 **Build Quality**: 100% TypeScript compilation success across entire workspace
 **Export Pipeline**: Template-based system for AR.js (production) and PlayCanvas (ready)
 **Security**: Enhanced Supabase authentication with secure profile management
+**Modular Architecture**: Clean package separation with eliminated circular dependencies
 
 ## Next Steps
 
@@ -47,5 +51,6 @@
 -   Universo MMOOMM feature expansion
 -   Production deployment preparation
 -   Community collaboration features
+-   Additional package extractions following Uniks pattern
 
 _For detailed progress history, see [progress.md](progress.md). For current tasks, see [tasks.md](tasks.md)._

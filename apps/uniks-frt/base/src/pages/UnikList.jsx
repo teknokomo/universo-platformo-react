@@ -73,8 +73,8 @@ const UnikList = () => {
     // Open modal for adding new Unik
     const openAddUnikDialog = () => {
         setUnikDialogProps({
-            title: t('uniks.unikList.addNewUnik'),
-            confirmButtonName: t('uniks.unikList.addUnik'),
+            title: t('unikList.addNewUnik'),
+            confirmButtonName: t('unikList.addUnik'),
             type: 'ADD'
         })
         setUnikDialogOpen(true)
@@ -131,8 +131,8 @@ const UnikList = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={true}
-                        searchPlaceholder={t('uniks.unikList.searchPlaceholder')}
-                        title={t('uniks.unikList.title')}
+                        searchPlaceholder={t('unikList.searchPlaceholder')}
+                        title={t('unikList.title')}
                     >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -149,7 +149,7 @@ const UnikList = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('uniks.unikList.cardView')}
+                                title={t('unikList.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -161,7 +161,7 @@ const UnikList = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('uniks.unikList.listView')}
+                                title={t('unikList.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
@@ -172,7 +172,7 @@ const UnikList = () => {
                             startIcon={<IconPlus />}
                             sx={{ borderRadius: 2, height: 40 }}
                         >
-                            {t('uniks.unikList.addUnik')}
+                            {t('unikList.addUnik')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -207,7 +207,7 @@ const UnikList = () => {
                             <Box sx={{ p: 2, height: 'auto' }}>
                                 <img style={{ objectFit: 'cover', height: '25vh', width: 'auto' }} src={APIEmptySVG} alt='No Uniks' />
                             </Box>
-                            <div>{t('uniks.unikList.noUniksFound')}</div>
+                            <div>{t('unikList.noUniksFound')}</div>
                         </Stack>
                     )}
                 </Stack>
