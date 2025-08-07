@@ -10,9 +10,6 @@ import ruTranslation from './locales/ru.json'
 import enAuthTranslation from './locales/en/views/auth.json'
 import ruAuthTranslation from './locales/ru/views/auth.json'
 
-// Universo Platformo | Import uniks namespaces
-import enUniksTranslation from './locales/en/views/uniks.json'
-import ruUniksTranslation from './locales/ru/views/uniks.json'
 
 // Universo Platformo | Import admin namespaces
 import enAdminTranslation from './locales/en/views/admin.json'
@@ -74,6 +71,7 @@ import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
 import { analyticsTranslations } from '@apps/analytics-frt/base/src/i18n'
 // Universo Platformo | Import profile module translations
 import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
+import { uniksTranslations } from '@apps/uniks-frt/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
@@ -84,7 +82,7 @@ i18n.use(LanguageDetector)
                 en: {
                     translation: enTranslation,
                     auth: enAuthTranslation,
-                    uniks: enUniksTranslation,
+                    uniks: uniksTranslations.en.uniks,
                     admin: enAdminTranslation,
                     menu: enMenuTranslation,
                     assistants: enAssistantsTranslation,
@@ -105,7 +103,7 @@ i18n.use(LanguageDetector)
                 ru: {
                     translation: ruTranslation,
                     auth: ruAuthTranslation,
-                    uniks: ruUniksTranslation,
+                    uniks: uniksTranslations.ru.uniks,
                     admin: ruAdminTranslation,
                     menu: ruMenuTranslation,
                     assistants: ruAssistantsTranslation,

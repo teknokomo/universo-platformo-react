@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { IVariable } from '../../Interface'
-import { Unik } from './Unik'
+import { Unik } from '@universo/uniks-srv'
 
 @Entity('variable')
 export class Variable implements IVariable {

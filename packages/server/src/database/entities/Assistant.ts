@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm'
 import { AssistantType, IAssistant } from '../../Interface'
-import { Unik } from './Unik'
+import { Unik } from '@universo/uniks-srv'
 
 @Entity('assistant')
 export class Assistant implements IAssistant {

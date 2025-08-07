@@ -13,9 +13,8 @@ import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
 
 // New entities
-import { Unik } from './Unik'
+import { Unik, UserUnik } from '@universo/uniks-srv'
 import { User } from './User'
-import { UserUnik } from './UserUnik'
 
 // Profile entities
 import { Profile } from '@universo/profile-srv'

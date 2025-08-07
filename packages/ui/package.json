@@ -62,7 +62,8 @@
         "remark-gfm": "^3.0.1",
         "remark-math": "^5.1.1",
         "uuid": "^9.0.1",
-        "yup": "^0.32.9"
+        "yup": "^0.32.9",
+        "@universo/uniks-frt": "workspace:*"
     },
     "scripts": {
         "dev": "vite",

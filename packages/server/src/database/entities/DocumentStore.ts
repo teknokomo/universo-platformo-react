@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { DocumentStoreStatus, IDocumentStore } from '../../Interface'
-import { Unik } from './Unik'
+import { Unik } from '@universo/uniks-srv'
 
 @Entity('document_store')
 export class DocumentStore implements IDocumentStore {

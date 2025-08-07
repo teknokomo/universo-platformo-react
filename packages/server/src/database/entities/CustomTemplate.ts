@@ -1,6 +1,6 @@
 import { ICustomTemplate } from '../../Interface'
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
-import { Unik } from './Unik'
+import { Unik } from '@universo/uniks-srv'
 @Entity('custom_template')
 export class CustomTemplate implements ICustomTemplate {
     @PrimaryGeneratedColumn('uuid')

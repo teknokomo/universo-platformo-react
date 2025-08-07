@@ -53,7 +53,8 @@ import verifyRouter from './verify'
 import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import upAuthRouter from './up-auth'
-import upUniksRouter from './up-uniks/uniks'
+import { createUniksRouter } from '@universo/uniks-srv'
+import { supabase } from '../utils/supabase'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Chatflows Streaming
@@ -125,7 +126,7 @@ router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
 // Apply ensureAuth middleware to /uniks route
-router.use('/uniks', upAuth.ensureAuth, upUniksRouter)
+router.use('/uniks', createUniksRouter(upAuth.ensureAuth, supabase))
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots

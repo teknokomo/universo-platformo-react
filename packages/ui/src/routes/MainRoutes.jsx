@@ -12,10 +12,10 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
-const UnikList = Loadable(lazy(() => import('@/views/up-uniks/UnikList')))
+const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
 
 // Workspace dashboard component
-const UnikDetail = Loadable(lazy(() => import('@/views/up-uniks/UnikDetail')))
+const UnikDetail = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikDetail.jsx')))
 
 // chatflows routing
 const Chatflows = Loadable(lazy(() => import('@/views/chatflows')))
@@ -58,7 +58,7 @@ const Analytics = Loadable(lazy(() => import('@apps/analytics-frt/base/src/pages
 const Profile = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Profile.jsx')))
 
 // Example for other common pages
-const CommonPage = Loadable(lazy(() => import('@/views/up-uniks/CommonPage')))
+const CommonPage = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/CommonPage.jsx')))
 const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
 
 const UniksContainer = () => <Outlet />

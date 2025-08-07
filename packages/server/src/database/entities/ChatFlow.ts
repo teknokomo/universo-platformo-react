@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { ChatflowType, IChatFlow } from '../../Interface'
-import { Unik } from './Unik'
+import { Unik } from '@universo/uniks-srv'
 
 @Entity('chat_flow')
 export class ChatFlow implements IChatFlow {
