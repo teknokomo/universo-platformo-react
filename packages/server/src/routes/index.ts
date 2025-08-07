@@ -1,27 +1,19 @@
 import express from 'express'
-// Remove global mounting of apikeyRouter as apikeys are now accessible via /uniks/:unikId/apikey
-// import apikeyRouter from './apikey'
-// Remove global mounting of assistantsRouter as assistants are now accessible via /uniks/:unikId/assistants
-// import assistantsRouter from './assistants'
+import apikeyRouter from './apikey'
+import assistantsRouter from './assistants'
 import attachmentsRouter from './attachments'
 import chatMessageRouter from './chat-messages'
-// Remove global mounting of chatflowsRouter as chatflows are now accessible via /uniks/:unikId/chatflows
-// import chatflowsRouter from './chatflows'
-// Remove global mounting of chatflowsStreamingRouter as it's now accessible via /uniks/:unikId/chatflows-streaming
-// import chatflowsStreamingRouter from './chatflows-streaming'
-// Remove global mounting of chatflowsUploadsRouter as it's now accessible via /uniks/:unikId/chatflows-uploads
-// import chatflowsUploadsRouter from './chatflows-uploads'
+import chatflowsRouter from './chatflows'
+import chatflowsStreamingRouter from './chatflows-streaming'
+import chatflowsUploadsRouter from './chatflows-uploads'
 import componentsCredentialsRouter from './components-credentials'
 import componentsCredentialsIconRouter from './components-credentials-icon'
-// Remove global mounting of credentialsRouter as credentials are now accessible via /uniks/:unikId/credentials
-// import credentialsRouter from './credentials'
-// Remove global mounting of documentStoreRouter as document store is now accessible via /uniks/:unikId/document-stores
-// import documentStoreRouter from './documentstore'
+import credentialsRouter from './credentials'
+import documentStoreRouter from './documentstore'
 import exportImportRouter from './export-import'
 import feedbackRouter from './feedback'
 import fetchLinksRouter from './fetch-links'
-// Remove global mounting of flowConfigRouter as it's now accessible via /uniks/:unikId/flow-config
-// import flowConfigRouter from './flow-config'
+import flowConfigRouter from './flow-config'
 import getUploadFileRouter from './get-upload-file'
 import getUploadPathRouter from './get-upload-path'
 import internalChatmessagesRouter from './internal-chat-messages'
@@ -43,11 +35,9 @@ import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
 import publicChatflowsRouter from './public-chatflows'
 import statsRouter from './stats'
-// Remove global mounting of toolsRouter as tools are now accessible via /uniks/:unikId/tools
-// import toolsRouter from './tools'
+import toolsRouter from './tools'
 import upsertHistoryRouter from './upsert-history'
-// Remove global mounting of variablesRouter as variables are now accessible via /uniks/:unikId/variables
-// import variablesRouter from './variables'
+import variablesRouter from './variables'
 import vectorRouter from './vectors'
 import verifyRouter from './verify'
 import versionRouter from './versions'
@@ -57,8 +47,6 @@ import { createUniksRouter } from '@universo/uniks-srv'
 import { supabase } from '../utils/supabase'
 // Universo Platformo | Bots
 import botsRouter from './bots'
-// Universo Platformo | Chatflows Streaming
-import chatflowsStreamingRouter from './chatflows-streaming'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
@@ -126,7 +114,25 @@ router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
 // Apply ensureAuth middleware to /uniks route
-router.use('/uniks', createUniksRouter(upAuth.ensureAuth, supabase))
+router.use(
+    '/uniks',
+    createUniksRouter(
+        upAuth.ensureAuth,
+        supabase,
+        chatflowsRouter,
+        chatflowsStreamingRouter,
+        chatflowsUploadsRouter,
+        flowConfigRouter,
+        toolsRouter,
+        variablesRouter,
+        exportImportRouter,
+        credentialsRouter,
+        assistantsRouter,
+        apikeyRouter,
+        documentStoreRouter,
+        marketplacesRouter
+    )
+)
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots

@@ -264,6 +264,10 @@ apps/
 
 ## Recently Completed Enhancements
 
+### 2025-08-07: Uniks Functionality Extraction and Build System Fixes
+
+Successfully extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. All packages build successfully with improved maintainability and scalability. See [archive entry](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md) for complete documentation.
+
 ### 2025-08-06: MMOOMM Entity Hardcode Elimination Fix
 
 Successfully eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. See [archive entry](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md) for complete documentation.

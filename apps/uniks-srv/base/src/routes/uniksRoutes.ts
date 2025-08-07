@@ -1,19 +1,22 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { SupabaseClient } from '@supabase/supabase-js'
-import chatflowsRouter from 'flowise/dist/routes/chatflows'
-import chatflowsStreamingRouter from 'flowise/dist/routes/chatflows-streaming'
-import chatflowsUploadsRouter from 'flowise/dist/routes/chatflows-uploads'
-import flowConfigRouter from 'flowise/dist/routes/flow-config'
-import toolsRouter from 'flowise/dist/routes/tools'
-import variablesRouter from 'flowise/dist/routes/variables'
-import exportImportRouter from 'flowise/dist/routes/export-import'
-import credentialsRouter from 'flowise/dist/routes/credentials'
-import assistantsRouter from 'flowise/dist/routes/assistants'
-import apikeyRouter from 'flowise/dist/routes/apikey'
-import documentStoreRouter from 'flowise/dist/routes/documentstore'
-import marketplacesRouter from 'flowise/dist/routes/marketplaces'
 
-export function createUniksRouter(ensureAuth: RequestHandler, supabase: SupabaseClient) {
+export function createUniksRouter(
+    ensureAuth: RequestHandler,
+    supabase: SupabaseClient,
+    chatflowsRouter: Router,
+    chatflowsStreamingRouter: Router,
+    chatflowsUploadsRouter: Router,
+    flowConfigRouter: Router,
+    toolsRouter: Router,
+    variablesRouter: Router,
+    exportImportRouter: Router,
+    credentialsRouter: Router,
+    assistantsRouter: Router,
+    apikeyRouter: Router,
+    documentStoreRouter: Router,
+    marketplacesRouter: Router
+) {
     const router = Router()
 
     // Apply ensureAuth middleware to all routes

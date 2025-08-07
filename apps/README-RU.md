@@ -9,6 +9,22 @@ apps/
 ├── updl/                # Система узлов UPDL для создания 3D/AR/VR‑пространств
 │   └── base/            # Ключевая функциональность UPDL
 │       └── ...
+├── uniks-frt/           # Фронтенд управления рабочими пространствами
+│   └── base/            # Ключевая функциональность рабочих пространств
+│       ├── src/
+│       │   ├── i18n/    # Интернационализация
+│       │   ├── pages/   # Компоненты страниц (UnikList, UnikDetail, UnikDialog)
+│       │   ├── menu-items/ # Конфигурации меню
+│       │   └── index.ts
+│       └── ...
+├── uniks-srv/           # Бекенд управления рабочими пространствами (workspace-пакет)
+│   └── base/            # Ключевая функциональность рабочих пространств
+│       ├── src/
+│       │   ├── routes/  # Express-роуты для CRUD операций с Uniks
+│       │   ├── database/ # TypeORM сущности и миграции
+│       │   ├── types/   # TypeScript декларации
+│       │   └── index.ts
+│       └── ...
 ├── profile-frt/         # Фронтенд управления профилем пользователя
 │   └── base/            # Ключевая функциональность профиля
 │       └── ...
@@ -37,6 +53,36 @@ apps/
 ```
 
 ## Приложения
+
+### Uniks (Управление рабочими пространствами)
+
+Приложение Uniks предоставляет функциональность управления рабочими пространствами, позволяя пользователям создавать, управлять и организовывать свои рабочие пространства. Оно состоит из фронтенд-приложения и бекенд workspace-пакета.
+
+#### Uniks Frontend (uniks-frt)
+
+**Ключевые возможности:**
+
+-   Интерфейс создания и управления рабочими пространствами
+-   Удобный список и навигация по рабочим пространствам
+-   Управление участниками рабочих пространств
+-   Адаптивный дизайн с компонентами Material-UI
+-   Поддержка интернационализации (английский и русский языки)
+
+**Документация:** [apps/uniks-frt/base/README.md](./uniks-frt/base/README.md)
+
+#### Uniks Server (uniks-srv)
+
+Это бекенд-сервис, структурированный как workspace-пакет (`@universo/uniks-srv`), отвечающий за обработку данных и операций с рабочими пространствами.
+
+**Ключевые возможности:**
+
+-   Express-роуты для CRUD операций с Uniks
+-   TypeORM сущности (`Unik`, `UserUnik`) для управления базой данных
+-   Миграции PostgreSQL базы данных
+-   Интеграция с Supabase для аутентификации
+-   Вложенное монтирование роутов Flowise под префиксом `/:unikId`
+
+**Документация:** [apps/uniks-srv/base/README.md](./uniks-srv/base/README.md)
 
 ### UPDL (Universal Platform Definition Language)
 
@@ -204,11 +250,13 @@ pnpm build
 # Сборка конкретного фронтенд-приложения
 pnpm build --filter publish-frt
 pnpm build --filter profile-frt
+pnpm build --filter uniks-frt
 pnpm build --filter updl
 
 # Сборка конкретного бекенд-приложения
 pnpm build --filter publish-srv
 pnpm build --filter profile-srv
+pnpm build --filter uniks-srv
 ```
 
 ## Разработка
@@ -218,8 +266,10 @@ pnpm build --filter profile-srv
 ```bash
 pnpm --filter publish-frt dev
 pnpm --filter profile-frt dev
+pnpm --filter uniks-frt dev
 pnpm --filter publish-srv dev
 pnpm --filter profile-srv dev
+pnpm --filter uniks-srv dev
 pnpm --filter updl dev
 ```
 
