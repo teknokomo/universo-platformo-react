@@ -18,7 +18,7 @@ apps/uniks-frt/base/
 
 ## Exports
 
-- `UnikList`, `UnikDetail`, `UnikDialog`, `CommonPage`
+ - `UnikList`, `UnikDetail`, `UnikDialog`
 - `unikDashboard` menu configuration
 - `uniksTranslations` for i18next
 

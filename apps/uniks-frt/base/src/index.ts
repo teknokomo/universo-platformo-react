@@ -1,6 +1,5 @@
 export { default as UnikList } from './pages/UnikList.jsx'
 export { default as UnikDialog } from './pages/UnikDialog.jsx'
 export { default as UnikDetail } from './pages/UnikDetail.jsx'
-export { default as CommonPage } from './pages/CommonPage.jsx'
 export { default as unikDashboard } from './menu-items/unikDashboard.js'
 export { uniksTranslations } from './i18n'
