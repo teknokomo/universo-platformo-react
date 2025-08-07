@@ -133,7 +133,6 @@ export class AddUniks1741277504476 implements MigrationInterface {
       FOR DELETE
       USING (auth.role() = 'authenticated')
     `)
-
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
@@ -157,7 +156,6 @@ export class AddUniks1741277504476 implements MigrationInterface {
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow insert user_uniks for authenticated users" ON "user_uniks";`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow update user_uniks for authenticated users" ON "user_uniks";`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow delete user_uniks for authenticated users" ON "user_uniks";`)
-
 
         for (const tbl of tables) {
             await queryRunner.query(`
