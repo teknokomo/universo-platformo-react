@@ -31,6 +31,7 @@ export default defineConfig(async ({ mode }) => {
                 '@apps/publish-srv': resolve(__dirname, '../../apps/publish-srv'),
                 '@apps/analytics-frt': resolve(__dirname, '../../apps/analytics-frt'),
                 '@apps/profile-frt': resolve(__dirname, '../../apps/profile-frt'),
+                '@apps/uniks-frt': resolve(__dirname, '../../apps/uniks-frt'),
                 '@codemirror/state': resolve(__dirname, '../../node_modules/@codemirror/state'),
                 '@codemirror/view': resolve(__dirname, '../../node_modules/@codemirror/view'),
                 '@codemirror/language': resolve(__dirname, '../../node_modules/@codemirror/language'),
@@ -43,6 +44,7 @@ export default defineConfig(async ({ mode }) => {
                 '@lezer/highlight': resolve(__dirname, '../../node_modules/@lezer/highlight'),
                 '@apps/publish-frt/i18n': resolve(__dirname, '../../apps/publish-frt/base/src/i18n'),
                 '@apps/profile-frt/i18n': resolve(__dirname, '../../apps/profile-frt/base/src/i18n'),
+                '@apps/uniks-frt/i18n': resolve(__dirname, '../../apps/uniks-frt/base/src/i18n'),
             }
         },
         root: resolve(__dirname),

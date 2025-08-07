@@ -2,7 +2,7 @@ import React from 'react'
 import { useLocation } from 'react-router-dom'
 import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
-import unikDashboard from '@/menu-items/unikDashboard'
+import unikDashboard from '@apps/uniks-frt/base/src/menu-items/unikDashboard'
 
 const MenuList = () => {
     const location = useLocation()

@@ -28,8 +28,8 @@ import { AddCustomTemplate1725629836652 } from './1725629836652-AddCustomTemplat
 import { AddArtifactsToChatMessage1726156258465 } from './1726156258465-AddArtifactsToChatMessage'
 import { AddFollowUpPrompts1726666309552 } from './1726666309552-AddFollowUpPrompts'
 import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssistant'
-import { AddUniks1741277504476 } from './1741277504476-AddUniks'
 import { profileMigrations } from '@universo/profile-srv'
+import { uniksMigrations } from '@universo/uniks-srv'
 
 export const postgresMigrations = [
     Init1693891895163,
@@ -62,6 +62,6 @@ export const postgresMigrations = [
     AddArtifactsToChatMessage1726156258465,
     AddFollowUpPrompts1726666309552,
     AddTypeToAssistant1733011290987,
-    AddUniks1741277504476,
+    ...uniksMigrations,
     ...profileMigrations
 ]
