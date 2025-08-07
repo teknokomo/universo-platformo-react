@@ -14,7 +14,6 @@ import { CustomTemplate } from './CustomTemplate'
 
 // New entities
 import { Unik, UserUnik } from '@universo/uniks-srv'
-import { User } from './User'
 
 // Profile entities
 import { Profile } from '@universo/profile-srv'
@@ -35,7 +34,6 @@ export const entities = {
     CustomTemplate,
     // New entities
     Unik,
-    User,
     UserUnik,
     // Profile entities
     Profile
