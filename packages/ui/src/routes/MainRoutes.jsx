@@ -57,8 +57,6 @@ const VectorStoreQuery = Loadable(lazy(() => import('@/views/docstore/VectorStor
 const Analytics = Loadable(lazy(() => import('@apps/analytics-frt/base/src/pages/Analytics.jsx')))
 const Profile = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Profile.jsx')))
 
-// Example for other common pages
-const CommonPage = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/CommonPage.jsx')))
 const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
 
 const UniksContainer = () => <Outlet />
@@ -181,10 +179,6 @@ const MainRoutes = {
                     ]
                 }
             ]
-        },
-        {
-            path: '/common',
-            element: <CommonPage />
         },
         {
             path: '/admin',

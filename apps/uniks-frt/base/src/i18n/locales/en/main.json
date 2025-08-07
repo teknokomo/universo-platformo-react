@@ -9,8 +9,6 @@
     "conflict": "Another user is editing this Flow. Please wait or coordinate.",
     "multipleEditors": "Multiple users are editing this Unik.",
     "namePlaceholder": "Enter Unik name",
-    "loading": "Loading...",
-    "notFound": "Global Workspace Not Found",
     "unikDetail": {
       "dashboard": "Uniks Dashboard",
       "welcome": "Welcome to your unik:",

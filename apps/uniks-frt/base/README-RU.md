@@ -18,7 +18,7 @@ apps/uniks-frt/base/
 
 ## Экспорты
 
-- `UnikList`, `UnikDetail`, `UnikDialog`, `CommonPage`
+ - `UnikList`, `UnikDetail`, `UnikDialog`
 - пункт меню `unikDashboard`
 - `uniksTranslations` для i18next
 
