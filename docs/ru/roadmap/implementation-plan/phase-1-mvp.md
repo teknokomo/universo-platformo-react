@@ -6,11 +6,11 @@
 
 ## Содержание
 
-- [Цели и задачи](#цели-и-задачи)
-- [Приоритетные приложения](#приоритетные-приложения)
-- [Технические требования](#технические-требования)
-- [План разработки](#план-разработки)
-- [Критерии готовности](#критерии-готовности)
+-   [Цели и задачи](#цели-и-задачи)
+-   [Приоритетные приложения](#приоритетные-приложения)
+-   [Технические требования](#технические-требования)
+-   [План разработки](#план-разработки)
+-   [Критерии готовности](#критерии-готовности)
 
 ## Цели и задачи
 
@@ -28,10 +28,10 @@
 
 ### Бизнес-ценность
 
-- **Демонстрация возможностей**: Показать потенциал UPDL для создания сложных приложений
-- **Привлечение пользователей**: Создать интересный игровой опыт
-- **Техническая валидация**: Проверить архитектурные решения
-- **Основа для развития**: Заложить фундамент для будущих функций
+-   **Демонстрация возможностей**: Показать потенциал UPDL для создания сложных приложений
+-   **Привлечение пользователей**: Создать интересный игровой опыт
+-   **Техническая валидация**: Проверить архитектурные решения
+-   **Основа для развития**: Заложить фундамент для будущих функций
 
 ## Приоритетные приложения
 
@@ -44,27 +44,29 @@
 #### Функциональные требования
 
 **Frontend (resources-frt)**:
-- Интерфейс инвентаря с отображением веса/объема
-- Калькулятор плотности материалов
-- Система передачи ресурсов между локациями
-- Визуализация типов материалов
+
+-   Интерфейс инвентаря с отображением веса/объема
+-   Калькулятор плотности материалов
+-   Система передачи ресурсов между локациями
+-   Визуализация типов материалов
 
 **Backend (resources-srv)**:
-- API управления инвентарем
-- Расчеты физических свойств материалов
-- Валидация ограничений по весу/объему
-- Система логов перемещения ресурсов
+
+-   API управления инвентарем
+-   Расчеты физических свойств материалов
+-   Валидация ограничений по весу/объему
+-   Система логов перемещения ресурсов
 
 #### 16 типов материалов
 
 ```typescript
 interface MaterialType {
-    id: string;
-    name: string;
-    density: number; // кг/м³
-    baseValue: number; // базовая стоимость в Inmo
-    rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-    uses: string[];
+    id: string
+    name: string
+    density: number // кг/м³
+    baseValue: number // базовая стоимость в Inmo
+    rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+    uses: string[]
 }
 
 const materials: MaterialType[] = [
@@ -84,7 +86,7 @@ const materials: MaterialType[] = [
     { id: 'aluminum', name: 'Алюминий', density: 2700, baseValue: 6, rarity: 'uncommon', uses: ['легкие компоненты'] },
     { id: 'lithium', name: 'Литий', density: 534, baseValue: 25, rarity: 'rare', uses: ['батареи'] },
     { id: 'rare_earth', name: 'Редкоземельные', density: 7000, baseValue: 300, rarity: 'legendary', uses: ['спецтехнологии'] }
-];
+]
 ```
 
 #### API спецификация
@@ -92,30 +94,30 @@ const materials: MaterialType[] = [
 ```typescript
 // GET /api/v1/resources/inventory/:playerId
 interface InventoryResponse {
-    playerId: string;
+    playerId: string
     locations: {
         [locationId: string]: {
-            type: 'ship' | 'station' | 'storage';
-            name: string;
-            materials: MaterialStack[];
+            type: 'ship' | 'station' | 'storage'
+            name: string
+            materials: MaterialStack[]
             capacity: {
-                maxMass: number;
-                maxVolume: number;
-                currentMass: number;
-                currentVolume: number;
-            };
-        };
-    };
+                maxMass: number
+                maxVolume: number
+                currentMass: number
+                currentVolume: number
+            }
+        }
+    }
 }
 
 // POST /api/v1/resources/transfer
 interface TransferRequest {
-    fromLocation: string;
-    toLocation: string;
+    fromLocation: string
+    toLocation: string
     materials: {
-        materialId: string;
-        quantity: number;
-    }[];
+        materialId: string
+        quantity: number
+    }[]
 }
 ```
 
@@ -128,36 +130,38 @@ interface TransferRequest {
 #### Функциональные требования
 
 **Frontend (ships-frt)**:
-- Интерфейс флота игрока
-- Базовый конфигуратор кораблей
-- Система назначения кораблей на задачи
-- Мониторинг состояния кораблей
+
+-   Интерфейс флота игрока
+-   Базовый конфигуратор кораблей
+-   Система назначения кораблей на задачи
+-   Мониторинг состояния кораблей
 
 **Backend (ships-srv)**:
-- API управления кораблями
-- Система конфигураций и модулей
-- Расчеты производительности
-- Базовая система повреждений
+
+-   API управления кораблями
+-   Система конфигураций и модулей
+-   Расчеты производительности
+-   Базовая система повреждений
 
 #### Типы кораблей
 
 ```typescript
 interface ShipType {
-    id: string;
-    name: string;
-    category: 'miner' | 'trader' | 'explorer' | 'fighter';
+    id: string
+    name: string
+    category: 'miner' | 'trader' | 'explorer' | 'fighter'
     baseStats: {
-        cargoCapacity: number; // м³
-        speed: number; // единиц/сек
-        durability: number; // очки прочности
-        energyCapacity: number; // единицы энергии
-    };
+        cargoCapacity: number // м³
+        speed: number // единиц/сек
+        durability: number // очки прочности
+        energyCapacity: number // единицы энергии
+    }
     moduleSlots: {
-        engine: number;
-        cargo: number;
-        utility: number;
-        weapon?: number;
-    };
+        engine: number
+        cargo: number
+        utility: number
+        weapon?: number
+    }
 }
 
 const shipTypes: ShipType[] = [
@@ -175,7 +179,7 @@ const shipTypes: ShipType[] = [
         baseStats: { cargoCapacity: 200, speed: 80, durability: 80, energyCapacity: 150 },
         moduleSlots: { engine: 1, cargo: 3, utility: 1 }
     }
-];
+]
 ```
 
 ### 3. Economy System (economy-frt/srv)
@@ -187,29 +191,31 @@ const shipTypes: ShipType[] = [
 #### Функциональные требования
 
 **Frontend (economy-frt)**:
-- Интерфейс кошелька Inmo
-- Калькулятор курсов между мирами
-- История транзакций
-- Базовая торговая аналитика
+
+-   Интерфейс кошелька Inmo
+-   Калькулятор курсов между мирами
+-   История транзакций
+-   Базовая торговая аналитика
 
 **Backend (economy-srv)**:
-- API управления балансами
-- Система межмировых переводов
-- Динамическое ценообразование
-- Экономическая аналитика
+
+-   API управления балансами
+-   Система межмировых переводов
+-   Динамическое ценообразование
+-   Экономическая аналитика
 
 #### Экономические системы миров
 
 ```typescript
 interface WorldEconomy {
-    worldId: 'kubio' | 'konkordo' | 'triumfo';
+    worldId: 'kubio' | 'konkordo' | 'triumfo'
     characteristics: {
-        primaryIndustry: string;
-        demandMultipliers: { [materialId: string]: number };
-        supplyMultipliers: { [materialId: string]: number };
-        volatility: number; // 0-1, влияет на колебания цен
-        tradingFee: number; // комиссия за торговлю
-    };
+        primaryIndustry: string
+        demandMultipliers: { [materialId: string]: number }
+        supplyMultipliers: { [materialId: string]: number }
+        volatility: number // 0-1, влияет на колебания цен
+        tradingFee: number // комиссия за торговлю
+    }
 }
 
 const worldEconomies: WorldEconomy[] = [
@@ -243,7 +249,7 @@ const worldEconomies: WorldEconomy[] = [
             tradingFee: 0.005
         }
     }
-];
+]
 ```
 
 ## Технические требования
@@ -257,32 +263,32 @@ const worldEconomies: WorldEconomy[] = [
 
 ### Технологический стек
 
-- **Frontend**: React 18+ + TypeScript + Material-UI
-- **Backend**: Node.js + Express + TypeScript
-- **Database**: Supabase (PostgreSQL)
-- **Real-time**: Supabase Realtime для игровых событий
-- **Build**: Vite для frontend, tsc для backend
-- **Testing**: Jest + React Testing Library
+-   **Frontend**: React 18+ + TypeScript + Material-UI
+-   **Backend**: Node.js + Express + TypeScript
+-   **Database**: Supabase (PostgreSQL)
+-   **Real-time**: Supabase Realtime для игровых событий
+-   **Build**: Vite для frontend, tsc для backend
+-   **Testing**: Jest + React Testing Library
 
 ### Интеграция с PlayCanvas
 
 ```typescript
 interface PlayCanvasIntegration {
     resourceVisualization: {
-        materialModels: string[]; // 3D модели материалов
-        inventoryUI: string; // UI компоненты инвентаря
-        transferAnimations: string[]; // анимации передачи ресурсов
-    };
+        materialModels: string[] // 3D модели материалов
+        inventoryUI: string // UI компоненты инвентаря
+        transferAnimations: string[] // анимации передачи ресурсов
+    }
     shipVisualization: {
-        shipModels: { [shipType: string]: string };
-        customizationUI: string;
-        movementSystem: string;
-    };
+        shipModels: { [shipType: string]: string }
+        customizationUI: string
+        movementSystem: string
+    }
     economyVisualization: {
-        tradingUI: string;
-        marketGraphs: string;
-        transactionEffects: string[];
-    };
+        tradingUI: string
+        marketGraphs: string
+        transactionEffects: string[]
+    }
 }
 ```
 
@@ -291,101 +297,119 @@ interface PlayCanvasIntegration {
 ### Неделя 1-2: Инфраструктура и Resources System
 
 **Задачи**:
-- Настройка workspace структуры для новых приложений
-- Создание базовой архитектуры resources-frt/srv
-- Реализация API для управления материалами
-- Создание UI компонентов инвентаря
+
+-   Настройка workspace структуры для новых приложений
+-   Создание базовой архитектуры resources-frt/srv
+-   Реализация API для управления материалами
+-   Создание UI компонентов инвентаря
+-   Добавить каталог ресурсов с версиями и BOM (draft → publish), валидация DAG
 
 **Deliverables**:
-- Рабочий API для ресурсов
-- Базовый интерфейс инвентаря
-- Система расчета плотности материалов
 
-### Неделя 3-4: Ships System
+-   Рабочий API для ресурсов
+-   Базовый интерфейс инвентаря
+-   Система расчета плотности материалов
+-   Базовая модель ResourceVersion + BOM
+
+### Неделя 3-4: Ships System и ECS Entities (база)
 
 **Задачи**:
-- Создание архитектуры ships-frt/srv
-- Реализация API управления кораблями
-- Интеграция с системой ресурсов
-- Создание UI управления флотом
+
+-   Создание архитектуры ships-frt/srv
+-   Реализация API управления кораблями
+-   Интеграция с системой ресурсов
+-   Создание UI управления флотом
+-   Ввести `entities-srv` (MVP): сущности (Entity) + компонентная модель (Component JSONB)
+-   Endpoints: instantiate (по ResourceVersion), move/update-state, get/tree
 
 **Deliverables**:
-- API управления кораблями
-- Интерфейс флота
-- Базовая система конфигурации кораблей
 
-### Неделя 5-6: Economy System
+-   API управления кораблями
+-   Интерфейс флота
+-   Базовая система конфигурации кораблей
+-   Базовые операции ECS: создание сущности из версии ресурса, чтение/перемещение
+
+### Неделя 5-6: Economy System и визуальные состояния
 
 **Задачи**:
-- Создание архитектуры economy-frt/srv
-- Реализация системы валюты Inmo
-- Создание межмировой экономики
-- Интеграция с системами ресурсов и кораблей
+
+-   Создание архитектуры economy-frt/srv
+-   Реализация системы валюты Inmo
+-   Создание межмировой экономики
+-   Интеграция с системами ресурсов и кораблей
+-   Добавить компоненты: Visual (варианты по состояниям), Health/Integrity (пороги), публикация событий в шаблон PlayCanvas
 
 **Deliverables**:
-- API экономической системы
-- Интерфейс кошелька и торговли
-- Система динамического ценообразования
+
+-   API экономической системы
+-   Интерфейс кошелька и торговли
+-   Система динамического ценообразования
+-   Визуальное переключение состояний (целый/поврежденный) на основе компонент
 
 ### Неделя 7-8: Интеграция и тестирование
 
 **Задачи**:
-- Интеграция всех систем
-- Обновление PlayCanvas шаблона MMOOMM
-- Комплексное тестирование
-- Оптимизация производительности
+
+-   Интеграция всех систем
+-   Обновление PlayCanvas шаблона MMOOMM
+-   Комплексное тестирование
+-   Оптимизация производительности
 
 **Deliverables**:
-- Полностью интегрированный MVP
-- Обновленный PlayCanvas шаблон
-- Документация API
-- Результаты тестирования
+
+-   Полностью интегрированный MVP
+-   Обновленный PlayCanvas шаблон
+-   Документация API
+-   Результаты тестирования
 
 ### Неделя 9-10: Полировка и релиз
 
 **Задачи**:
-- Исправление найденных багов
-- UI/UX улучшения
-- Подготовка релизной документации
-- Развертывание на staging и production
+
+-   Исправление найденных багов
+-   UI/UX улучшения
+-   Подготовка релизной документации
+-   Развертывание на staging и production
 
 **Deliverables**:
-- Готовый к релизу MVP
-- Полная документация
-- Релизные заметки
+
+-   Готовый к релизу MVP
+-   Полная документация
+-   Релизные заметки
 
 ## Критерии готовности
 
 ### Функциональные критерии
 
-- [ ] **Система ресурсов**: Все 16 типов материалов реализованы с корректной физикой
-- [ ] **Управление кораблями**: Минимум 2 типа кораблей с базовой кастомизацией
-- [ ] **Экономика**: Функционирующая валюта Inmo между 3 мирами
-- [ ] **Интеграция**: Все системы работают совместно без критических ошибок
-- [ ] **PlayCanvas**: Обновленный шаблон поддерживает новые механики
+-   [ ] **Система ресурсов**: Все 16 типов материалов реализованы с корректной физикой; ресурсные версии и BOM (draft→publish)
+-   [ ] **ECS**: Создание сущностей из ResourceVersion; компоненты Transform/Visual/Health; операции move/update-state
+-   [ ] **Управление кораблями**: Минимум 2 типа кораблей с базовой кастомизацией
+-   [ ] **Экономика**: Функционирующая валюта Inmo между 3 мирами
+-   [ ] **Интеграция**: Все системы работают совместно без критических ошибок
+-   [ ] **PlayCanvas**: Обновленный шаблон поддерживает новые механики и визуальные состояния
 
 ### Технические критерии
 
-- [ ] **API Coverage**: 100% покрытие API документацией
-- [ ] **Test Coverage**: Минимум 80% покрытие тестами для критических функций
-- [ ] **Performance**: Время отклика API < 200ms для 95% запросов
-- [ ] **Stability**: Отсутствие критических багов в течение недели тестирования
-- [ ] **Security**: Все API защищены авторизацией
+-   [ ] **API Coverage**: 100% покрытие API документацией
+-   [ ] **Test Coverage**: Минимум 80% покрытие тестами для критических функций
+-   [ ] **Performance**: Время отклика API < 200ms для 95% запросов
+-   [ ] **Stability**: Отсутствие критических багов в течение недели тестирования
+-   [ ] **Security**: Все API защищены авторизацией
 
 ### Пользовательские критерии
 
-- [ ] **Usability**: Интуитивно понятные интерфейсы для всех основных функций
-- [ ] **Responsiveness**: Адаптивный дизайн для разных размеров экрана
-- [ ] **Feedback**: Четкая обратная связь для всех пользовательских действий
-- [ ] **Error Handling**: Понятные сообщения об ошибках
-- [ ] **Help**: Базовая справочная информация для новых пользователей
+-   [ ] **Usability**: Интуитивно понятные интерфейсы для всех основных функций
+-   [ ] **Responsiveness**: Адаптивный дизайн для разных размеров экрана
+-   [ ] **Feedback**: Четкая обратная связь для всех пользовательских действий
+-   [ ] **Error Handling**: Понятные сообщения об ошибках
+-   [ ] **Help**: Базовая справочная информация для новых пользователей
 
 ### Бизнес-критерии
 
-- [ ] **Demo Ready**: Готовность для демонстрации потенциальным пользователям
-- [ ] **Scalability**: Архитектура поддерживает будущее расширение
-- [ ] **Maintainability**: Код легко поддерживается и расширяется
-- [ ] **Documentation**: Полная техническая и пользовательская документация
+-   [ ] **Demo Ready**: Готовность для демонстрации потенциальным пользователям
+-   [ ] **Scalability**: Архитектура поддерживает будущее расширение
+-   [ ] **Maintainability**: Код легко поддерживается и расширяется
+-   [ ] **Documentation**: Полная техническая и пользовательская документация
 
 ## Риски и митигация
 
@@ -410,18 +434,19 @@ interface PlayCanvasIntegration {
 
 ## Связанные страницы
 
-- [План реализации](README.md)
-- [Фаза 2: Базовые системы](phase-2-core.md)
-- [Приложения MMOOMM](../target-architecture/mmoomm-apps.md)
-- [Технические спецификации](../technical-specifications/README.md)
+-   [План реализации](README.md)
+-   [Фаза 2: Базовые системы](phase-2-core.md)
+-   [Приложения MMOOMM](../target-architecture/mmoomm-apps.md)
+-   [Технические спецификации](../technical-specifications/README.md)
 
 ## Статус выполнения
 
-- [x] Планирование архитектуры
-- [x] Определение требований
-- [x] Создание технических спецификаций
-- [ ] Начало разработки
-- [ ] Реализация MVP
+-   [x] Планирование архитектуры
+-   [x] Определение требований
+-   [x] Создание технических спецификаций
+-   [ ] Начало разработки
+-   [ ] Реализация MVP
 
 ---
-*Последнее обновление: 5 августа 2025*
+
+_Последнее обновление: 5 августа 2025_
