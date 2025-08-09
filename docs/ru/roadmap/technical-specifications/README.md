@@ -150,6 +150,17 @@ interface EventHandler {
 }
 ```
 
+### Компонентная модель (ECS) и ресурсные версии
+
+-   **ResourceVersion**: неизменяемые опубликованные версии типов объектов; состав (BOM) с опциональными/альтернативными узлами; валидация DAG
+-   **Entity (ECS)**: минимальная сущность (id + transform + world), прикладные данные — в компонентах
+-   **Components** (минимальный набор для MVP):
+    -   Transform (позиция/ориентация/масштаб)
+    -   Visual (варианты визуализации по состояниям/LOD)
+    -   Health/Integrity (целостность + пороги переключения визуала)
+-   **API (высокоуровнево)**: instantiate по ResourceVersion, move/update-state, get/tree
+-   **Events**: resource.version.published, resource.bom.updated, entity.created/moved/state.updated
+
 ### API Gateway спецификации
 
 #### Маршрутизация

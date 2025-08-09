@@ -1,0 +1,54 @@
+# Metaverse Backend (metaverse-srv) — [Статус: Планируется]
+
+## Назначение
+
+Бэкенд домена «метавселенные»: управление жизненным циклом метавселенных, связями (дочерние/партнёрские), правами доступа, публикацией, интеграцией с ECS и UPDL.
+
+Широкий контекст и роль метавселенных см. [Об Universo Platformo](../../universo-platformo/about.md).
+
+## Границы сервиса
+
+-   Внутри: `metaverse`, `unik`, `space`, `link` (meta↔meta), ACL
+-   Снаружи: ECS (`entities-srv`), ресурсы (`resources-srv`), экономика (`economy-srv`), публикация (`template-engine-srv`, `publish-frt`)
+
+## Интерфейсы
+
+-   REST API (минимум):
+    -   POST `/api/v1/metaverses` — создание
+    -   POST `/api/v1/metaverses/default` — инициализация дефолтной метавселенной для пользователя
+    -   PATCH `/api/v1/metaverses/:id` — настройки/доступ
+    -   POST `/api/v1/metaverses/:id/links` — дочерние/партнёрские связи; подключаемые локации
+    -   POST `/api/v1/metaverses/:id/import` — импорт проекта с конвертацией в UPDL
+    -   GET `/api/v1/metaverses/:id/overview` — обзор (Uniks, Spaces, связи)
+    -   POST `/api/v1/metaverses/:id/publish` — публикация по шаблону
+-   События: `metaverse.created`, `metaverse.linked`, `metaverse.published`
+
+## Структура каталогов (ожидаемая)
+
+```txt
+apps/metaverse-srv/base/
+  src/
+    api/
+    domain/
+    infra/
+    integrations/
+```
+
+## Данные (высокоуровнево)
+
+-   Таблицы: `metaverse.metaverses`, `metaverse.uniks`, `metaverse.spaces`, `metaverse.links`
+-   Связь с ECS: `ecs.entities` (world/metaverse scope)
+
+## Безопасность
+
+-   Supabase Auth, ACL на уровне мета/спейс
+-   RLS политики для разделения арендаторов (owner/team/org)
+
+## Метрики
+
+-   Кол-во мета/связей, латентность публикации, ошибки ACL
+
+## Интеграции и конвертация
+
+-   Импорт существующих проектов → конвертация в UPDL-графы Space
+-   Управление совместимостью версий UPDL и шаблонов публикации
