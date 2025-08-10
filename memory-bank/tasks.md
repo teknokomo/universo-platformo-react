@@ -5,6 +5,15 @@
 
 ## Current Implementation Tasks
 
+### Space Builder MVP (Prompt-to-Flow) ✅ COMPLETED
+
+-   [x] Frontend: FAB + MUI Dialog, model selector (Credentials), i18n, authenticated requests
+-   [x] Frontend: Append/Replace modes, node hydration (anchors/handles), placeholder/label fix
+-   [x] Backend: /api/v1/space-builder/{health,config,generate} with ensureAuth and rate-limit
+-   [x] Backend: ModelFactory (OpenAI-compatible incl. Groq), credential resolution by provider
+-   [x] ENV: `SPACE_BUILDER_TEST_MODE`, `GROQ_TEST_API_KEY` in packages/server/.env (+ .env.example)
+-   [x] Docs: EN/RU pages and links in Applications and SUMMARY
+
 ### MMOOMM Entity Hardcode Elimination ✅ COMPLETED
 
 **Status**: ✅ Implementation ✅ Reflection ✅ Archive ✅ **COMPLETED**
