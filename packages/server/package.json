@@ -61,6 +61,7 @@
         "@universo/profile-srv": "workspace:*",
         "@universo/publish-srv": "workspace:*",
         "@universo/uniks-srv": "workspace:*",
+        "@universo/space-builder-srv": "workspace:*",
         "@oclif/core": "4.0.7",
         "@opentelemetry/api": "^1.3.0",
         "@opentelemetry/auto-instrumentations-node": "^0.52.0",

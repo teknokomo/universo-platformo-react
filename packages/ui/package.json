@@ -63,7 +63,8 @@
         "remark-math": "^5.1.1",
         "uuid": "^9.0.1",
         "yup": "^0.32.9",
-        "@universo/uniks-frt": "workspace:*"
+        "@universo/uniks-frt": "workspace:*",
+        "@universo/space-builder-frt": "workspace:*"
     },
     "scripts": {
         "dev": "vite",

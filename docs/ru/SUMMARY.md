@@ -107,6 +107,7 @@
         -   [Система UPDL](applications/updl/README.md)
         -   [Система публикации](applications/publish/README.md)
         -   [Управление профилями](applications/profile/README.md)
+        -   [Space Builder](applications/space-builder/README.md)
         -   [Система аналитики](applications/analytics/README.md)
         -   [Система аутентификации](applications/auth/README.md)
 -   [Руководство по участию](contributing/README.md)

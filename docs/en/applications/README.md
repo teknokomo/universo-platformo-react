@@ -22,7 +22,8 @@ apps/
 ├── profile-frt/         # User profile management frontend
 ├── profile-srv/         # User profile management backend
 ├── analytics-frt/       # Analytics and reporting frontend
-└── auth-frt/           # Authentication system frontend
+├── auth-frt/           # Authentication system frontend
+└── space-builder-*     # Prompt-to-flow generator (frontend & backend)
 ```
 
 ## Core Applications
@@ -101,6 +102,25 @@ Complete user profile and authentication system with secure data management.
 -   TypeORM integration
 
 [Learn more about Profile Management →](profile/README.md)
+
+### Space Builder (Prompt-to-Flow)
+
+Turns a natural-language request into a valid Flow graph composed of UPDL nodes.
+
+**Frontend (space-builder-frt):**
+
+-   MUI dialog + FAB for prompt input
+-   Model selection from Credentials; optional test mode
+-   Append/Replace modes on the canvas
+-   Dual build (CJS + ESM) for better bundling
+
+**Backend (space-builder-srv):**
+
+-   `/api/v1/space-builder/generate` — LLM meta-prompt → JSON graph → Zod validation
+-   `/api/v1/space-builder/config` — exposes server flag for Test mode
+-   Credential resolution integrated with platform services
+
+[Learn more about Space Builder →](../applications/space-builder/README.md)
 
 ### Analytics System
 
@@ -309,5 +329,6 @@ When creating new applications:
 -   [UPDL System](updl/README.md) - Learn about the Universal Platform Definition Language
 -   [Publication System](publish/README.md) - Explore content publishing and sharing
 -   [Profile Management](profile/README.md) - Understand user management features
+-   [Space Builder](../applications/space-builder/README.md) - Turn prompts into flows
 -   [Analytics System](analytics/README.md) - Discover analytics capabilities
 -   [Authentication System](auth/README.md) - Learn about security features

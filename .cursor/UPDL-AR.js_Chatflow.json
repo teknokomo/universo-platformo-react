@@ -1,0 +1,3204 @@
+{
+  "nodes": [
+    {
+      "id": "Space_0",
+      "position": {
+        "x": 829.5775961088707,
+        "y": 161.19380884416523
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Space_0",
+        "label": "Space",
+        "version": 1,
+        "name": "Space",
+        "type": "UPDLSpace",
+        "baseClasses": [
+          "UPDLSpace",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Root node for a 3D space that contains global space settings",
+        "inputParams": [
+          {
+            "name": "spaceName",
+            "type": "string",
+            "label": "Space Name",
+            "description": "Name of the space",
+            "default": "My Space",
+            "id": "Space_0-input-spaceName-string"
+          },
+          {
+            "name": "backgroundColor",
+            "type": "string",
+            "label": "Background Color",
+            "description": "Background color of the space (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "id": "Space_0-input-backgroundColor-string"
+          },
+          {
+            "name": "skybox",
+            "type": "boolean",
+            "label": "Enable Skybox",
+            "description": "Whether to use a skybox",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_0-input-skybox-boolean"
+          },
+          {
+            "name": "skyboxTexture",
+            "type": "string",
+            "label": "Skybox Texture",
+            "description": "URL to the skybox texture (optional)",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.skybox": [
+                true
+              ]
+            },
+            "id": "Space_0-input-skyboxTexture-string"
+          },
+          {
+            "name": "fog",
+            "type": "boolean",
+            "label": "Enable Fog",
+            "description": "Whether to use fog effect",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_0-input-fog-boolean"
+          },
+          {
+            "name": "fogColor",
+            "type": "string",
+            "label": "Fog Color",
+            "description": "Color of the fog (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_0-input-fogColor-string"
+          },
+          {
+            "name": "fogDensity",
+            "type": "number",
+            "label": "Fog Density",
+            "description": "Density of the fog (0-1)",
+            "default": 0.1,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_0-input-fogDensity-number"
+          },
+          {
+            "name": "isRootNode",
+            "type": "boolean",
+            "label": "Is Root Node",
+            "description": "Space must be the root node of a UPDL flow",
+            "default": true,
+            "hidden": true,
+            "id": "Space_0-input-isRootNode-boolean"
+          },
+          {
+            "name": "showPoints",
+            "type": "boolean",
+            "label": "Show Points Counter",
+            "description": "Display points counter in the AR interface",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_0-input-showPoints-boolean"
+          },
+          {
+            "name": "collectLeadName",
+            "type": "boolean",
+            "label": "Collect Name",
+            "description": "Collect participant name for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_0-input-collectLeadName-boolean"
+          },
+          {
+            "name": "collectLeadEmail",
+            "type": "boolean",
+            "label": "Collect Email",
+            "description": "Collect participant email for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_0-input-collectLeadEmail-boolean"
+          },
+          {
+            "name": "collectLeadPhone",
+            "type": "boolean",
+            "label": "Collect Phone",
+            "description": "Collect participant phone for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_0-input-collectLeadPhone-boolean"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Spaces",
+            "name": "spaces",
+            "type": "UPDLSpace",
+            "description": "Connect Space nodes to create space chains",
+            "list": true,
+            "optional": true,
+            "id": "Space_0-input-spaces-UPDLSpace"
+          },
+          {
+            "label": "Datas",
+            "name": "data",
+            "type": "UPDLData",
+            "description": "Connect Data nodes for quiz questions, answers, and logic",
+            "list": true,
+            "optional": true,
+            "id": "Space_0-input-data-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_0-input-objects-UPDLObject"
+          },
+          {
+            "label": "Lights",
+            "name": "lights",
+            "type": "UPDLLight",
+            "description": "Connect Light nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_0-input-lights-UPDLLight"
+          },
+          {
+            "label": "Cameras",
+            "name": "cameras",
+            "type": "UPDLCamera",
+            "description": "Connect Camera nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_0-input-cameras-UPDLCamera"
+          }
+        ],
+        "inputs": {
+          "spaces": "",
+          "spaceName": "Start",
+          "backgroundColor": "",
+          "skybox": "",
+          "skyboxTexture": "",
+          "fog": "",
+          "fogColor": "",
+          "fogDensity": 0.1,
+          "isRootNode": true,
+          "showPoints": "",
+          "collectLeadName": true,
+          "collectLeadEmail": "",
+          "collectLeadPhone": "",
+          "data": "",
+          "objects": "",
+          "lights": "",
+          "cameras": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "Space_0-output-Space-UPDLSpace|UPDLNode",
+            "name": "Space",
+            "label": "UPDLSpace",
+            "description": "Root node for a 3D space that contains global space settings",
+            "type": "UPDLSpace | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Space": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 585,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 829.5775961088707,
+        "y": 161.19380884416523
+      }
+    },
+    {
+      "id": "Space_1",
+      "position": {
+        "x": 841.8663323013642,
+        "y": 926.4899980961807
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Space_1",
+        "label": "Space",
+        "version": 1,
+        "name": "Space",
+        "type": "UPDLSpace",
+        "baseClasses": [
+          "UPDLSpace",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Root node for a 3D space that contains global space settings",
+        "inputParams": [
+          {
+            "name": "spaceName",
+            "type": "string",
+            "label": "Space Name",
+            "description": "Name of the space",
+            "default": "My Space",
+            "id": "Space_1-input-spaceName-string"
+          },
+          {
+            "name": "backgroundColor",
+            "type": "string",
+            "label": "Background Color",
+            "description": "Background color of the space (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "id": "Space_1-input-backgroundColor-string"
+          },
+          {
+            "name": "skybox",
+            "type": "boolean",
+            "label": "Enable Skybox",
+            "description": "Whether to use a skybox",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_1-input-skybox-boolean"
+          },
+          {
+            "name": "skyboxTexture",
+            "type": "string",
+            "label": "Skybox Texture",
+            "description": "URL to the skybox texture (optional)",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.skybox": [
+                true
+              ]
+            },
+            "id": "Space_1-input-skyboxTexture-string"
+          },
+          {
+            "name": "fog",
+            "type": "boolean",
+            "label": "Enable Fog",
+            "description": "Whether to use fog effect",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_1-input-fog-boolean"
+          },
+          {
+            "name": "fogColor",
+            "type": "string",
+            "label": "Fog Color",
+            "description": "Color of the fog (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_1-input-fogColor-string"
+          },
+          {
+            "name": "fogDensity",
+            "type": "number",
+            "label": "Fog Density",
+            "description": "Density of the fog (0-1)",
+            "default": 0.1,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_1-input-fogDensity-number"
+          },
+          {
+            "name": "isRootNode",
+            "type": "boolean",
+            "label": "Is Root Node",
+            "description": "Space must be the root node of a UPDL flow",
+            "default": true,
+            "hidden": true,
+            "id": "Space_1-input-isRootNode-boolean"
+          },
+          {
+            "name": "showPoints",
+            "type": "boolean",
+            "label": "Show Points Counter",
+            "description": "Display points counter in the AR interface",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_1-input-showPoints-boolean"
+          },
+          {
+            "name": "collectLeadName",
+            "type": "boolean",
+            "label": "Collect Name",
+            "description": "Collect participant name for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_1-input-collectLeadName-boolean"
+          },
+          {
+            "name": "collectLeadEmail",
+            "type": "boolean",
+            "label": "Collect Email",
+            "description": "Collect participant email for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_1-input-collectLeadEmail-boolean"
+          },
+          {
+            "name": "collectLeadPhone",
+            "type": "boolean",
+            "label": "Collect Phone",
+            "description": "Collect participant phone for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_1-input-collectLeadPhone-boolean"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Spaces",
+            "name": "spaces",
+            "type": "UPDLSpace",
+            "description": "Connect Space nodes to create space chains",
+            "list": true,
+            "optional": true,
+            "id": "Space_1-input-spaces-UPDLSpace"
+          },
+          {
+            "label": "Datas",
+            "name": "data",
+            "type": "UPDLData",
+            "description": "Connect Data nodes for quiz questions, answers, and logic",
+            "list": true,
+            "optional": true,
+            "id": "Space_1-input-data-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_1-input-objects-UPDLObject"
+          },
+          {
+            "label": "Lights",
+            "name": "lights",
+            "type": "UPDLLight",
+            "description": "Connect Light nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_1-input-lights-UPDLLight"
+          },
+          {
+            "label": "Cameras",
+            "name": "cameras",
+            "type": "UPDLCamera",
+            "description": "Connect Camera nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_1-input-cameras-UPDLCamera"
+          }
+        ],
+        "inputs": {
+          "spaces": [
+            "{{Space_0.data.instance}}"
+          ],
+          "spaceName": "Level 1",
+          "backgroundColor": "",
+          "skybox": "",
+          "skyboxTexture": "",
+          "fog": "",
+          "fogColor": "",
+          "fogDensity": 0.1,
+          "isRootNode": true,
+          "showPoints": true,
+          "collectLeadName": false,
+          "collectLeadEmail": "",
+          "collectLeadPhone": "",
+          "data": [
+            "{{Data_0.data.instance}}"
+          ],
+          "objects": "",
+          "lights": "",
+          "cameras": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "Space_1-output-Space-UPDLSpace|UPDLNode",
+            "name": "Space",
+            "label": "UPDLSpace",
+            "description": "Root node for a 3D space that contains global space settings",
+            "type": "UPDLSpace | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Space": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 585,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 841.8663323013642,
+        "y": 926.4899980961807
+      }
+    },
+    {
+      "id": "Data_0",
+      "position": {
+        "x": 416.77543525053557,
+        "y": 924.669120881188
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Data_0",
+        "label": "Data",
+        "version": 1,
+        "name": "Data",
+        "type": "UPDLData",
+        "baseClasses": [
+          "UPDLData",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Universal node for quiz data, questions, answers, and transitions",
+        "inputParams": [
+          {
+            "name": "dataName",
+            "type": "string",
+            "label": "Data Name",
+            "description": "Name of the data element",
+            "default": "My Data",
+            "id": "Data_0-input-dataName-string"
+          },
+          {
+            "name": "dataType",
+            "type": "options",
+            "label": "Data Type",
+            "description": "Type of data this node represents",
+            "options": [
+              {
+                "label": "Question",
+                "name": "question",
+                "description": "Quiz question"
+              },
+              {
+                "label": "Answer",
+                "name": "answer",
+                "description": "Quiz answer option"
+              },
+              {
+                "label": "Intro",
+                "name": "intro",
+                "description": "Introduction screen"
+              },
+              {
+                "label": "Transition",
+                "name": "transition",
+                "description": "Screen transition"
+              }
+            ],
+            "default": "question",
+            "id": "Data_0-input-dataType-options"
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "label": "Content",
+            "description": "Main content text (question text, answer text, etc.)",
+            "multiline": true,
+            "rows": 3,
+            "default": "",
+            "id": "Data_0-input-content-string"
+          },
+          {
+            "name": "isCorrect",
+            "type": "boolean",
+            "label": "Is Correct Answer",
+            "description": "Mark this as the correct answer (only for answer type)",
+            "default": false,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "answer"
+              ]
+            },
+            "id": "Data_0-input-isCorrect-boolean"
+          },
+          {
+            "name": "nextSpace",
+            "type": "string",
+            "label": "Next Space ID",
+            "description": "ID of the next space to transition to",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "transition",
+                "answer"
+              ]
+            },
+            "id": "Data_0-input-nextSpace-string"
+          },
+          {
+            "name": "userInputType",
+            "type": "options",
+            "label": "User Input Type",
+            "description": "Type of user input expected",
+            "options": [
+              {
+                "label": "Button Click",
+                "name": "button",
+                "description": "Simple button interaction"
+              },
+              {
+                "label": "Text Input",
+                "name": "text",
+                "description": "Text input field"
+              },
+              {
+                "label": "None",
+                "name": "none",
+                "description": "No user input"
+              }
+            ],
+            "default": "button",
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "intro",
+                "transition"
+              ]
+            },
+            "id": "Data_0-input-userInputType-options"
+          },
+          {
+            "name": "enablePoints",
+            "type": "boolean",
+            "label": "Enable Points",
+            "description": "Enable point calculation for this data element",
+            "default": false,
+            "additionalParams": true,
+            "id": "Data_0-input-enablePoints-boolean"
+          },
+          {
+            "name": "pointsValue",
+            "type": "number",
+            "label": "Points Value",
+            "description": "Points to add/subtract when interacting with this element (-100 to +100)",
+            "default": 1,
+            "min": -100,
+            "max": 100,
+            "additionalParams": true,
+            "show": {
+              "inputs.enablePoints": [
+                true
+              ]
+            },
+            "id": "Data_0-input-pointsValue-number"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Datas",
+            "name": "datas",
+            "type": "UPDLData",
+            "description": "Connect Data nodes to create data chains",
+            "list": true,
+            "optional": true,
+            "id": "Data_0-input-datas-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to associate with this data",
+            "list": true,
+            "optional": true,
+            "id": "Data_0-input-objects-UPDLObject"
+          }
+        ],
+        "inputs": {
+          "datas": [
+            "{{Data_1.data.instance}}",
+            "{{Data_2.data.instance}}"
+          ],
+          "dataName": "Q1",
+          "dataType": "question",
+          "content": "Как дела?",
+          "isCorrect": "",
+          "nextSpace": "",
+          "userInputType": "button",
+          "enablePoints": "",
+          "pointsValue": 1,
+          "objects": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "Data_0-output-Data-UPDLData|UPDLNode",
+            "name": "Data",
+            "label": "UPDLData",
+            "description": "Universal node for quiz data, questions, answers, and transitions",
+            "type": "UPDLData | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Data": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 705,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 416.77543525053557,
+        "y": 924.669120881188
+      },
+      "dragging": false
+    },
+    {
+      "id": "Data_1",
+      "position": {
+        "x": -46.44396893216786,
+        "y": 931.6081836157756
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Data_1",
+        "label": "Data",
+        "version": 1,
+        "name": "Data",
+        "type": "UPDLData",
+        "baseClasses": [
+          "UPDLData",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Universal node for quiz data, questions, answers, and transitions",
+        "inputParams": [
+          {
+            "name": "dataName",
+            "type": "string",
+            "label": "Data Name",
+            "description": "Name of the data element",
+            "default": "My Data",
+            "id": "Data_1-input-dataName-string"
+          },
+          {
+            "name": "dataType",
+            "type": "options",
+            "label": "Data Type",
+            "description": "Type of data this node represents",
+            "options": [
+              {
+                "label": "Question",
+                "name": "question",
+                "description": "Quiz question"
+              },
+              {
+                "label": "Answer",
+                "name": "answer",
+                "description": "Quiz answer option"
+              },
+              {
+                "label": "Intro",
+                "name": "intro",
+                "description": "Introduction screen"
+              },
+              {
+                "label": "Transition",
+                "name": "transition",
+                "description": "Screen transition"
+              }
+            ],
+            "default": "question",
+            "id": "Data_1-input-dataType-options"
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "label": "Content",
+            "description": "Main content text (question text, answer text, etc.)",
+            "multiline": true,
+            "rows": 3,
+            "default": "",
+            "id": "Data_1-input-content-string"
+          },
+          {
+            "name": "isCorrect",
+            "type": "boolean",
+            "label": "Is Correct Answer",
+            "description": "Mark this as the correct answer (only for answer type)",
+            "default": false,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "answer"
+              ]
+            },
+            "id": "Data_1-input-isCorrect-boolean"
+          },
+          {
+            "name": "nextSpace",
+            "type": "string",
+            "label": "Next Space ID",
+            "description": "ID of the next space to transition to",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "transition",
+                "answer"
+              ]
+            },
+            "id": "Data_1-input-nextSpace-string"
+          },
+          {
+            "name": "userInputType",
+            "type": "options",
+            "label": "User Input Type",
+            "description": "Type of user input expected",
+            "options": [
+              {
+                "label": "Button Click",
+                "name": "button",
+                "description": "Simple button interaction"
+              },
+              {
+                "label": "Text Input",
+                "name": "text",
+                "description": "Text input field"
+              },
+              {
+                "label": "None",
+                "name": "none",
+                "description": "No user input"
+              }
+            ],
+            "default": "button",
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "intro",
+                "transition"
+              ]
+            },
+            "id": "Data_1-input-userInputType-options"
+          },
+          {
+            "name": "enablePoints",
+            "type": "boolean",
+            "label": "Enable Points",
+            "description": "Enable point calculation for this data element",
+            "default": false,
+            "additionalParams": true,
+            "id": "Data_1-input-enablePoints-boolean"
+          },
+          {
+            "name": "pointsValue",
+            "type": "number",
+            "label": "Points Value",
+            "description": "Points to add/subtract when interacting with this element (-100 to +100)",
+            "default": 1,
+            "min": -100,
+            "max": 100,
+            "additionalParams": true,
+            "show": {
+              "inputs.enablePoints": [
+                true
+              ]
+            },
+            "id": "Data_1-input-pointsValue-number"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Datas",
+            "name": "datas",
+            "type": "UPDLData",
+            "description": "Connect Data nodes to create data chains",
+            "list": true,
+            "optional": true,
+            "id": "Data_1-input-datas-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to associate with this data",
+            "list": true,
+            "optional": true,
+            "id": "Data_1-input-objects-UPDLObject"
+          }
+        ],
+        "inputs": {
+          "datas": "",
+          "dataName": "A1",
+          "dataType": "answer",
+          "content": "Норм!",
+          "isCorrect": true,
+          "nextSpace": "",
+          "userInputType": "button",
+          "enablePoints": true,
+          "pointsValue": 1,
+          "objects": [
+            "{{Object_0.data.instance}}"
+          ]
+        },
+        "outputAnchors": [
+          {
+            "id": "Data_1-output-Data-UPDLData|UPDLNode",
+            "name": "Data",
+            "label": "UPDLData",
+            "description": "Universal node for quiz data, questions, answers, and transitions",
+            "type": "UPDLData | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Data": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 705,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -46.44396893216786,
+        "y": 931.6081836157756
+      },
+      "dragging": false
+    },
+    {
+      "id": "Object_0",
+      "position": {
+        "x": -42.590517779166746,
+        "y": 1703.231959701922
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Object_0",
+        "label": "Object",
+        "version": 1,
+        "name": "Object",
+        "type": "UPDLObject",
+        "baseClasses": [
+          "UPDLObject",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "3D object that can be added to a scene",
+        "inputParams": [
+          {
+            "name": "name",
+            "type": "string",
+            "label": "Object Name",
+            "description": "Name of the object",
+            "default": "My Object",
+            "id": "Object_0-input-name-string"
+          },
+          {
+            "name": "objectType",
+            "type": "options",
+            "label": "Object Type",
+            "description": "Type of 3D object",
+            "options": [
+              {
+                "name": "box",
+                "label": "Box"
+              },
+              {
+                "name": "sphere",
+                "label": "Sphere"
+              },
+              {
+                "name": "cylinder",
+                "label": "Cylinder"
+              },
+              {
+                "name": "plane",
+                "label": "Plane"
+              }
+            ],
+            "default": "box",
+            "id": "Object_0-input-objectType-options"
+          },
+          {
+            "name": "positionX",
+            "type": "number",
+            "label": "Position X",
+            "description": "X position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_0-input-positionX-number"
+          },
+          {
+            "name": "positionY",
+            "type": "number",
+            "label": "Position Y",
+            "description": "Y position of the object",
+            "default": 0.5,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_0-input-positionY-number"
+          },
+          {
+            "name": "positionZ",
+            "type": "number",
+            "label": "Position Z",
+            "description": "Z position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_0-input-positionZ-number"
+          },
+          {
+            "name": "scale",
+            "type": "number",
+            "label": "Scale",
+            "description": "Uniform scale of the object",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_0-input-scale-number"
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "label": "Color",
+            "description": "Color of the object (hex code)",
+            "default": "#ff0000",
+            "additionalParams": true,
+            "id": "Object_0-input-color-string"
+          },
+          {
+            "name": "width",
+            "type": "number",
+            "label": "Width",
+            "description": "Width of the box or plane",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane"
+              ]
+            },
+            "id": "Object_0-input-width-number"
+          },
+          {
+            "name": "height",
+            "type": "number",
+            "label": "Height",
+            "description": "Height of the box, plane or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane",
+                "cylinder"
+              ]
+            },
+            "id": "Object_0-input-height-number"
+          },
+          {
+            "name": "depth",
+            "type": "number",
+            "label": "Depth",
+            "description": "Depth of the box",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box"
+              ]
+            },
+            "id": "Object_0-input-depth-number"
+          },
+          {
+            "name": "radius",
+            "type": "number",
+            "label": "Radius",
+            "description": "Radius of the sphere or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "sphere",
+                "cylinder"
+              ]
+            },
+            "id": "Object_0-input-radius-number"
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "name": "A1",
+          "objectType": "sphere",
+          "positionX": "",
+          "positionY": 0.5,
+          "positionZ": "",
+          "scale": 1,
+          "color": "#00ff00",
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "radius": 1
+        },
+        "outputAnchors": [
+          {
+            "id": "Object_0-output-Object-UPDLObject|UPDLNode",
+            "name": "Object",
+            "label": "UPDLObject",
+            "description": "3D object that can be added to a scene",
+            "type": "UPDLObject | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Object": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 427,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -42.590517779166746,
+        "y": 1703.231959701922
+      },
+      "dragging": false
+    },
+    {
+      "id": "Data_2",
+      "position": {
+        "x": -447.2118085035824,
+        "y": 928.8325585219405
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Data_2",
+        "label": "Data",
+        "version": 1,
+        "name": "Data",
+        "type": "UPDLData",
+        "baseClasses": [
+          "UPDLData",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Universal node for quiz data, questions, answers, and transitions",
+        "inputParams": [
+          {
+            "name": "dataName",
+            "type": "string",
+            "label": "Data Name",
+            "description": "Name of the data element",
+            "default": "My Data",
+            "id": "Data_2-input-dataName-string"
+          },
+          {
+            "name": "dataType",
+            "type": "options",
+            "label": "Data Type",
+            "description": "Type of data this node represents",
+            "options": [
+              {
+                "label": "Question",
+                "name": "question",
+                "description": "Quiz question"
+              },
+              {
+                "label": "Answer",
+                "name": "answer",
+                "description": "Quiz answer option"
+              },
+              {
+                "label": "Intro",
+                "name": "intro",
+                "description": "Introduction screen"
+              },
+              {
+                "label": "Transition",
+                "name": "transition",
+                "description": "Screen transition"
+              }
+            ],
+            "default": "question",
+            "id": "Data_2-input-dataType-options"
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "label": "Content",
+            "description": "Main content text (question text, answer text, etc.)",
+            "multiline": true,
+            "rows": 3,
+            "default": "",
+            "id": "Data_2-input-content-string"
+          },
+          {
+            "name": "isCorrect",
+            "type": "boolean",
+            "label": "Is Correct Answer",
+            "description": "Mark this as the correct answer (only for answer type)",
+            "default": false,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "answer"
+              ]
+            },
+            "id": "Data_2-input-isCorrect-boolean"
+          },
+          {
+            "name": "nextSpace",
+            "type": "string",
+            "label": "Next Space ID",
+            "description": "ID of the next space to transition to",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "transition",
+                "answer"
+              ]
+            },
+            "id": "Data_2-input-nextSpace-string"
+          },
+          {
+            "name": "userInputType",
+            "type": "options",
+            "label": "User Input Type",
+            "description": "Type of user input expected",
+            "options": [
+              {
+                "label": "Button Click",
+                "name": "button",
+                "description": "Simple button interaction"
+              },
+              {
+                "label": "Text Input",
+                "name": "text",
+                "description": "Text input field"
+              },
+              {
+                "label": "None",
+                "name": "none",
+                "description": "No user input"
+              }
+            ],
+            "default": "button",
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "intro",
+                "transition"
+              ]
+            },
+            "id": "Data_2-input-userInputType-options"
+          },
+          {
+            "name": "enablePoints",
+            "type": "boolean",
+            "label": "Enable Points",
+            "description": "Enable point calculation for this data element",
+            "default": false,
+            "additionalParams": true,
+            "id": "Data_2-input-enablePoints-boolean"
+          },
+          {
+            "name": "pointsValue",
+            "type": "number",
+            "label": "Points Value",
+            "description": "Points to add/subtract when interacting with this element (-100 to +100)",
+            "default": 1,
+            "min": -100,
+            "max": 100,
+            "additionalParams": true,
+            "show": {
+              "inputs.enablePoints": [
+                true
+              ]
+            },
+            "id": "Data_2-input-pointsValue-number"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Datas",
+            "name": "datas",
+            "type": "UPDLData",
+            "description": "Connect Data nodes to create data chains",
+            "list": true,
+            "optional": true,
+            "id": "Data_2-input-datas-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to associate with this data",
+            "list": true,
+            "optional": true,
+            "id": "Data_2-input-objects-UPDLObject"
+          }
+        ],
+        "inputs": {
+          "datas": "",
+          "dataName": "A2",
+          "dataType": "answer",
+          "content": "Так и сяк",
+          "isCorrect": false,
+          "nextSpace": "",
+          "userInputType": "button",
+          "enablePoints": false,
+          "pointsValue": 1,
+          "objects": [
+            "{{Object_1.data.instance}}"
+          ]
+        },
+        "outputAnchors": [
+          {
+            "id": "Data_2-output-Data-UPDLData|UPDLNode",
+            "name": "Data",
+            "label": "UPDLData",
+            "description": "Universal node for quiz data, questions, answers, and transitions",
+            "type": "UPDLData | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Data": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 705,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -447.2118085035824,
+        "y": 928.8325585219405
+      },
+      "dragging": false
+    },
+    {
+      "id": "Object_1",
+      "position": {
+        "x": -447.5217949913343,
+        "y": 1699.0685220611695
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Object_1",
+        "label": "Object",
+        "version": 1,
+        "name": "Object",
+        "type": "UPDLObject",
+        "baseClasses": [
+          "UPDLObject",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "3D object that can be added to a scene",
+        "inputParams": [
+          {
+            "name": "name",
+            "type": "string",
+            "label": "Object Name",
+            "description": "Name of the object",
+            "default": "My Object",
+            "id": "Object_1-input-name-string"
+          },
+          {
+            "name": "objectType",
+            "type": "options",
+            "label": "Object Type",
+            "description": "Type of 3D object",
+            "options": [
+              {
+                "name": "box",
+                "label": "Box"
+              },
+              {
+                "name": "sphere",
+                "label": "Sphere"
+              },
+              {
+                "name": "cylinder",
+                "label": "Cylinder"
+              },
+              {
+                "name": "plane",
+                "label": "Plane"
+              }
+            ],
+            "default": "box",
+            "id": "Object_1-input-objectType-options"
+          },
+          {
+            "name": "positionX",
+            "type": "number",
+            "label": "Position X",
+            "description": "X position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_1-input-positionX-number"
+          },
+          {
+            "name": "positionY",
+            "type": "number",
+            "label": "Position Y",
+            "description": "Y position of the object",
+            "default": 0.5,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_1-input-positionY-number"
+          },
+          {
+            "name": "positionZ",
+            "type": "number",
+            "label": "Position Z",
+            "description": "Z position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_1-input-positionZ-number"
+          },
+          {
+            "name": "scale",
+            "type": "number",
+            "label": "Scale",
+            "description": "Uniform scale of the object",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_1-input-scale-number"
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "label": "Color",
+            "description": "Color of the object (hex code)",
+            "default": "#ff0000",
+            "additionalParams": true,
+            "id": "Object_1-input-color-string"
+          },
+          {
+            "name": "width",
+            "type": "number",
+            "label": "Width",
+            "description": "Width of the box or plane",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane"
+              ]
+            },
+            "id": "Object_1-input-width-number"
+          },
+          {
+            "name": "height",
+            "type": "number",
+            "label": "Height",
+            "description": "Height of the box, plane or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane",
+                "cylinder"
+              ]
+            },
+            "id": "Object_1-input-height-number"
+          },
+          {
+            "name": "depth",
+            "type": "number",
+            "label": "Depth",
+            "description": "Depth of the box",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box"
+              ]
+            },
+            "id": "Object_1-input-depth-number"
+          },
+          {
+            "name": "radius",
+            "type": "number",
+            "label": "Radius",
+            "description": "Radius of the sphere or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "sphere",
+                "cylinder"
+              ]
+            },
+            "id": "Object_1-input-radius-number"
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "name": "A2",
+          "objectType": "box",
+          "positionX": "",
+          "positionY": 0.5,
+          "positionZ": "",
+          "scale": 1,
+          "color": "#0000ff",
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "radius": 1
+        },
+        "outputAnchors": [
+          {
+            "id": "Object_1-output-Object-UPDLObject|UPDLNode",
+            "name": "Object",
+            "label": "UPDLObject",
+            "description": "3D object that can be added to a scene",
+            "type": "UPDLObject | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Object": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 427,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -447.5217949913343,
+        "y": 1699.0685220611695
+      },
+      "dragging": false
+    },
+    {
+      "id": "Space_2",
+      "position": {
+        "x": 851.1308521743415,
+        "y": 3684.245013345725
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Space_2",
+        "label": "Space",
+        "version": 1,
+        "name": "Space",
+        "type": "UPDLSpace",
+        "baseClasses": [
+          "UPDLSpace",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Root node for a 3D space that contains global space settings",
+        "inputParams": [
+          {
+            "name": "spaceName",
+            "type": "string",
+            "label": "Space Name",
+            "description": "Name of the space",
+            "default": "My Space",
+            "id": "Space_2-input-spaceName-string"
+          },
+          {
+            "name": "backgroundColor",
+            "type": "string",
+            "label": "Background Color",
+            "description": "Background color of the space (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "id": "Space_2-input-backgroundColor-string"
+          },
+          {
+            "name": "skybox",
+            "type": "boolean",
+            "label": "Enable Skybox",
+            "description": "Whether to use a skybox",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_2-input-skybox-boolean"
+          },
+          {
+            "name": "skyboxTexture",
+            "type": "string",
+            "label": "Skybox Texture",
+            "description": "URL to the skybox texture (optional)",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.skybox": [
+                true
+              ]
+            },
+            "id": "Space_2-input-skyboxTexture-string"
+          },
+          {
+            "name": "fog",
+            "type": "boolean",
+            "label": "Enable Fog",
+            "description": "Whether to use fog effect",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_2-input-fog-boolean"
+          },
+          {
+            "name": "fogColor",
+            "type": "string",
+            "label": "Fog Color",
+            "description": "Color of the fog (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_2-input-fogColor-string"
+          },
+          {
+            "name": "fogDensity",
+            "type": "number",
+            "label": "Fog Density",
+            "description": "Density of the fog (0-1)",
+            "default": 0.1,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_2-input-fogDensity-number"
+          },
+          {
+            "name": "isRootNode",
+            "type": "boolean",
+            "label": "Is Root Node",
+            "description": "Space must be the root node of a UPDL flow",
+            "default": true,
+            "hidden": true,
+            "id": "Space_2-input-isRootNode-boolean"
+          },
+          {
+            "name": "showPoints",
+            "type": "boolean",
+            "label": "Show Points Counter",
+            "description": "Display points counter in the AR interface",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_2-input-showPoints-boolean"
+          },
+          {
+            "name": "collectLeadName",
+            "type": "boolean",
+            "label": "Collect Name",
+            "description": "Collect participant name for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_2-input-collectLeadName-boolean"
+          },
+          {
+            "name": "collectLeadEmail",
+            "type": "boolean",
+            "label": "Collect Email",
+            "description": "Collect participant email for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_2-input-collectLeadEmail-boolean"
+          },
+          {
+            "name": "collectLeadPhone",
+            "type": "boolean",
+            "label": "Collect Phone",
+            "description": "Collect participant phone for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_2-input-collectLeadPhone-boolean"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Spaces",
+            "name": "spaces",
+            "type": "UPDLSpace",
+            "description": "Connect Space nodes to create space chains",
+            "list": true,
+            "optional": true,
+            "id": "Space_2-input-spaces-UPDLSpace"
+          },
+          {
+            "label": "Datas",
+            "name": "data",
+            "type": "UPDLData",
+            "description": "Connect Data nodes for quiz questions, answers, and logic",
+            "list": true,
+            "optional": true,
+            "id": "Space_2-input-data-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_2-input-objects-UPDLObject"
+          },
+          {
+            "label": "Lights",
+            "name": "lights",
+            "type": "UPDLLight",
+            "description": "Connect Light nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_2-input-lights-UPDLLight"
+          },
+          {
+            "label": "Cameras",
+            "name": "cameras",
+            "type": "UPDLCamera",
+            "description": "Connect Camera nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_2-input-cameras-UPDLCamera"
+          }
+        ],
+        "inputs": {
+          "spaces": [
+            "{{Space_3.data.instance}}"
+          ],
+          "spaceName": "Stop",
+          "backgroundColor": "",
+          "skybox": "",
+          "skyboxTexture": "",
+          "fog": "",
+          "fogColor": "",
+          "fogDensity": 0.1,
+          "isRootNode": true,
+          "showPoints": true,
+          "collectLeadName": false,
+          "collectLeadEmail": "",
+          "collectLeadPhone": "",
+          "data": [],
+          "objects": "",
+          "lights": "",
+          "cameras": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "Space_2-output-Space-UPDLSpace|UPDLNode",
+            "name": "Space",
+            "label": "UPDLSpace",
+            "description": "Root node for a 3D space that contains global space settings",
+            "type": "UPDLSpace | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Space": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 585,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 851.1308521743415,
+        "y": 3684.245013345725
+      }
+    },
+    {
+      "id": "Space_3",
+      "position": {
+        "x": 843.2827435028152,
+        "y": 2216.9828470947095
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Space_3",
+        "label": "Space",
+        "version": 1,
+        "name": "Space",
+        "type": "UPDLSpace",
+        "baseClasses": [
+          "UPDLSpace",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Root node for a 3D space that contains global space settings",
+        "inputParams": [
+          {
+            "name": "spaceName",
+            "type": "string",
+            "label": "Space Name",
+            "description": "Name of the space",
+            "default": "My Space",
+            "id": "Space_3-input-spaceName-string"
+          },
+          {
+            "name": "backgroundColor",
+            "type": "string",
+            "label": "Background Color",
+            "description": "Background color of the space (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "id": "Space_3-input-backgroundColor-string"
+          },
+          {
+            "name": "skybox",
+            "type": "boolean",
+            "label": "Enable Skybox",
+            "description": "Whether to use a skybox",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_3-input-skybox-boolean"
+          },
+          {
+            "name": "skyboxTexture",
+            "type": "string",
+            "label": "Skybox Texture",
+            "description": "URL to the skybox texture (optional)",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.skybox": [
+                true
+              ]
+            },
+            "id": "Space_3-input-skyboxTexture-string"
+          },
+          {
+            "name": "fog",
+            "type": "boolean",
+            "label": "Enable Fog",
+            "description": "Whether to use fog effect",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_3-input-fog-boolean"
+          },
+          {
+            "name": "fogColor",
+            "type": "string",
+            "label": "Fog Color",
+            "description": "Color of the fog (hex code)",
+            "default": "",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_3-input-fogColor-string"
+          },
+          {
+            "name": "fogDensity",
+            "type": "number",
+            "label": "Fog Density",
+            "description": "Density of the fog (0-1)",
+            "default": 0.1,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "additionalParams": true,
+            "show": {
+              "inputs.fog": [
+                true
+              ]
+            },
+            "id": "Space_3-input-fogDensity-number"
+          },
+          {
+            "name": "isRootNode",
+            "type": "boolean",
+            "label": "Is Root Node",
+            "description": "Space must be the root node of a UPDL flow",
+            "default": true,
+            "hidden": true,
+            "id": "Space_3-input-isRootNode-boolean"
+          },
+          {
+            "name": "showPoints",
+            "type": "boolean",
+            "label": "Show Points Counter",
+            "description": "Display points counter in the AR interface",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_3-input-showPoints-boolean"
+          },
+          {
+            "name": "collectLeadName",
+            "type": "boolean",
+            "label": "Collect Name",
+            "description": "Collect participant name for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_3-input-collectLeadName-boolean"
+          },
+          {
+            "name": "collectLeadEmail",
+            "type": "boolean",
+            "label": "Collect Email",
+            "description": "Collect participant email for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_3-input-collectLeadEmail-boolean"
+          },
+          {
+            "name": "collectLeadPhone",
+            "type": "boolean",
+            "label": "Collect Phone",
+            "description": "Collect participant phone for quiz data",
+            "default": false,
+            "additionalParams": true,
+            "id": "Space_3-input-collectLeadPhone-boolean"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Spaces",
+            "name": "spaces",
+            "type": "UPDLSpace",
+            "description": "Connect Space nodes to create space chains",
+            "list": true,
+            "optional": true,
+            "id": "Space_3-input-spaces-UPDLSpace"
+          },
+          {
+            "label": "Datas",
+            "name": "data",
+            "type": "UPDLData",
+            "description": "Connect Data nodes for quiz questions, answers, and logic",
+            "list": true,
+            "optional": true,
+            "id": "Space_3-input-data-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_3-input-objects-UPDLObject"
+          },
+          {
+            "label": "Lights",
+            "name": "lights",
+            "type": "UPDLLight",
+            "description": "Connect Light nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_3-input-lights-UPDLLight"
+          },
+          {
+            "label": "Cameras",
+            "name": "cameras",
+            "type": "UPDLCamera",
+            "description": "Connect Camera nodes to add them to the space",
+            "list": true,
+            "optional": true,
+            "id": "Space_3-input-cameras-UPDLCamera"
+          }
+        ],
+        "inputs": {
+          "spaces": [
+            "{{Space_1.data.instance}}"
+          ],
+          "spaceName": "Level 2",
+          "backgroundColor": "",
+          "skybox": "",
+          "skyboxTexture": "",
+          "fog": "",
+          "fogColor": "",
+          "fogDensity": 0.1,
+          "isRootNode": true,
+          "showPoints": true,
+          "collectLeadName": false,
+          "collectLeadEmail": "",
+          "collectLeadPhone": "",
+          "data": [
+            "{{Data_3.data.instance}}"
+          ],
+          "objects": "",
+          "lights": "",
+          "cameras": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "Space_3-output-Space-UPDLSpace|UPDLNode",
+            "name": "Space",
+            "label": "UPDLSpace",
+            "description": "Root node for a 3D space that contains global space settings",
+            "type": "UPDLSpace | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Space": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 585,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 843.2827435028152,
+        "y": 2216.9828470947095
+      }
+    },
+    {
+      "id": "Data_3",
+      "position": {
+        "x": 406.41781491097976,
+        "y": 2221.12406264382
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Data_3",
+        "label": "Data",
+        "version": 1,
+        "name": "Data",
+        "type": "UPDLData",
+        "baseClasses": [
+          "UPDLData",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Universal node for quiz data, questions, answers, and transitions",
+        "inputParams": [
+          {
+            "name": "dataName",
+            "type": "string",
+            "label": "Data Name",
+            "description": "Name of the data element",
+            "default": "My Data",
+            "id": "Data_3-input-dataName-string"
+          },
+          {
+            "name": "dataType",
+            "type": "options",
+            "label": "Data Type",
+            "description": "Type of data this node represents",
+            "options": [
+              {
+                "label": "Question",
+                "name": "question",
+                "description": "Quiz question"
+              },
+              {
+                "label": "Answer",
+                "name": "answer",
+                "description": "Quiz answer option"
+              },
+              {
+                "label": "Intro",
+                "name": "intro",
+                "description": "Introduction screen"
+              },
+              {
+                "label": "Transition",
+                "name": "transition",
+                "description": "Screen transition"
+              }
+            ],
+            "default": "question",
+            "id": "Data_3-input-dataType-options"
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "label": "Content",
+            "description": "Main content text (question text, answer text, etc.)",
+            "multiline": true,
+            "rows": 3,
+            "default": "",
+            "id": "Data_3-input-content-string"
+          },
+          {
+            "name": "isCorrect",
+            "type": "boolean",
+            "label": "Is Correct Answer",
+            "description": "Mark this as the correct answer (only for answer type)",
+            "default": false,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "answer"
+              ]
+            },
+            "id": "Data_3-input-isCorrect-boolean"
+          },
+          {
+            "name": "nextSpace",
+            "type": "string",
+            "label": "Next Space ID",
+            "description": "ID of the next space to transition to",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "transition",
+                "answer"
+              ]
+            },
+            "id": "Data_3-input-nextSpace-string"
+          },
+          {
+            "name": "userInputType",
+            "type": "options",
+            "label": "User Input Type",
+            "description": "Type of user input expected",
+            "options": [
+              {
+                "label": "Button Click",
+                "name": "button",
+                "description": "Simple button interaction"
+              },
+              {
+                "label": "Text Input",
+                "name": "text",
+                "description": "Text input field"
+              },
+              {
+                "label": "None",
+                "name": "none",
+                "description": "No user input"
+              }
+            ],
+            "default": "button",
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "intro",
+                "transition"
+              ]
+            },
+            "id": "Data_3-input-userInputType-options"
+          },
+          {
+            "name": "enablePoints",
+            "type": "boolean",
+            "label": "Enable Points",
+            "description": "Enable point calculation for this data element",
+            "default": false,
+            "additionalParams": true,
+            "id": "Data_3-input-enablePoints-boolean"
+          },
+          {
+            "name": "pointsValue",
+            "type": "number",
+            "label": "Points Value",
+            "description": "Points to add/subtract when interacting with this element (-100 to +100)",
+            "default": 1,
+            "min": -100,
+            "max": 100,
+            "additionalParams": true,
+            "show": {
+              "inputs.enablePoints": [
+                true
+              ]
+            },
+            "id": "Data_3-input-pointsValue-number"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Datas",
+            "name": "datas",
+            "type": "UPDLData",
+            "description": "Connect Data nodes to create data chains",
+            "list": true,
+            "optional": true,
+            "id": "Data_3-input-datas-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to associate with this data",
+            "list": true,
+            "optional": true,
+            "id": "Data_3-input-objects-UPDLObject"
+          }
+        ],
+        "inputs": {
+          "datas": [
+            "{{Data_4.data.instance}}",
+            "{{Data_5.data.instance}}"
+          ],
+          "dataName": "Q2",
+          "dataType": "question",
+          "content": "Сделаем?",
+          "isCorrect": "",
+          "nextSpace": "",
+          "userInputType": "button",
+          "enablePoints": "",
+          "pointsValue": 1,
+          "objects": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "Data_3-output-Data-UPDLData|UPDLNode",
+            "name": "Data",
+            "label": "UPDLData",
+            "description": "Universal node for quiz data, questions, answers, and transitions",
+            "type": "UPDLData | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Data": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 705,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 406.41781491097976,
+        "y": 2221.12406264382
+      },
+      "dragging": false
+    },
+    {
+      "id": "Data_4",
+      "position": {
+        "x": -42.43810115232451,
+        "y": 2216.4825128953835
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Data_4",
+        "label": "Data",
+        "version": 1,
+        "name": "Data",
+        "type": "UPDLData",
+        "baseClasses": [
+          "UPDLData",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Universal node for quiz data, questions, answers, and transitions",
+        "inputParams": [
+          {
+            "name": "dataName",
+            "type": "string",
+            "label": "Data Name",
+            "description": "Name of the data element",
+            "default": "My Data",
+            "id": "Data_4-input-dataName-string"
+          },
+          {
+            "name": "dataType",
+            "type": "options",
+            "label": "Data Type",
+            "description": "Type of data this node represents",
+            "options": [
+              {
+                "label": "Question",
+                "name": "question",
+                "description": "Quiz question"
+              },
+              {
+                "label": "Answer",
+                "name": "answer",
+                "description": "Quiz answer option"
+              },
+              {
+                "label": "Intro",
+                "name": "intro",
+                "description": "Introduction screen"
+              },
+              {
+                "label": "Transition",
+                "name": "transition",
+                "description": "Screen transition"
+              }
+            ],
+            "default": "question",
+            "id": "Data_4-input-dataType-options"
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "label": "Content",
+            "description": "Main content text (question text, answer text, etc.)",
+            "multiline": true,
+            "rows": 3,
+            "default": "",
+            "id": "Data_4-input-content-string"
+          },
+          {
+            "name": "isCorrect",
+            "type": "boolean",
+            "label": "Is Correct Answer",
+            "description": "Mark this as the correct answer (only for answer type)",
+            "default": false,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "answer"
+              ]
+            },
+            "id": "Data_4-input-isCorrect-boolean"
+          },
+          {
+            "name": "nextSpace",
+            "type": "string",
+            "label": "Next Space ID",
+            "description": "ID of the next space to transition to",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "transition",
+                "answer"
+              ]
+            },
+            "id": "Data_4-input-nextSpace-string"
+          },
+          {
+            "name": "userInputType",
+            "type": "options",
+            "label": "User Input Type",
+            "description": "Type of user input expected",
+            "options": [
+              {
+                "label": "Button Click",
+                "name": "button",
+                "description": "Simple button interaction"
+              },
+              {
+                "label": "Text Input",
+                "name": "text",
+                "description": "Text input field"
+              },
+              {
+                "label": "None",
+                "name": "none",
+                "description": "No user input"
+              }
+            ],
+            "default": "button",
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "intro",
+                "transition"
+              ]
+            },
+            "id": "Data_4-input-userInputType-options"
+          },
+          {
+            "name": "enablePoints",
+            "type": "boolean",
+            "label": "Enable Points",
+            "description": "Enable point calculation for this data element",
+            "default": false,
+            "additionalParams": true,
+            "id": "Data_4-input-enablePoints-boolean"
+          },
+          {
+            "name": "pointsValue",
+            "type": "number",
+            "label": "Points Value",
+            "description": "Points to add/subtract when interacting with this element (-100 to +100)",
+            "default": 1,
+            "min": -100,
+            "max": 100,
+            "additionalParams": true,
+            "show": {
+              "inputs.enablePoints": [
+                true
+              ]
+            },
+            "id": "Data_4-input-pointsValue-number"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Datas",
+            "name": "datas",
+            "type": "UPDLData",
+            "description": "Connect Data nodes to create data chains",
+            "list": true,
+            "optional": true,
+            "id": "Data_4-input-datas-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to associate with this data",
+            "list": true,
+            "optional": true,
+            "id": "Data_4-input-objects-UPDLObject"
+          }
+        ],
+        "inputs": {
+          "datas": "",
+          "dataName": "A1",
+          "dataType": "answer",
+          "content": "Неа!",
+          "isCorrect": false,
+          "nextSpace": "",
+          "userInputType": "button",
+          "enablePoints": true,
+          "pointsValue": 1,
+          "objects": [
+            "{{Object_2.data.instance}}"
+          ]
+        },
+        "outputAnchors": [
+          {
+            "id": "Data_4-output-Data-UPDLData|UPDLNode",
+            "name": "Data",
+            "label": "UPDLData",
+            "description": "Universal node for quiz data, questions, answers, and transitions",
+            "type": "UPDLData | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Data": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 705,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -42.43810115232451,
+        "y": 2216.4825128953835
+      },
+      "dragging": false
+    },
+    {
+      "id": "Data_5",
+      "position": {
+        "x": -441.8820735790109,
+        "y": 2222.9739578146446
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Data_5",
+        "label": "Data",
+        "version": 1,
+        "name": "Data",
+        "type": "UPDLData",
+        "baseClasses": [
+          "UPDLData",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "Universal node for quiz data, questions, answers, and transitions",
+        "inputParams": [
+          {
+            "name": "dataName",
+            "type": "string",
+            "label": "Data Name",
+            "description": "Name of the data element",
+            "default": "My Data",
+            "id": "Data_5-input-dataName-string"
+          },
+          {
+            "name": "dataType",
+            "type": "options",
+            "label": "Data Type",
+            "description": "Type of data this node represents",
+            "options": [
+              {
+                "label": "Question",
+                "name": "question",
+                "description": "Quiz question"
+              },
+              {
+                "label": "Answer",
+                "name": "answer",
+                "description": "Quiz answer option"
+              },
+              {
+                "label": "Intro",
+                "name": "intro",
+                "description": "Introduction screen"
+              },
+              {
+                "label": "Transition",
+                "name": "transition",
+                "description": "Screen transition"
+              }
+            ],
+            "default": "question",
+            "id": "Data_5-input-dataType-options"
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "label": "Content",
+            "description": "Main content text (question text, answer text, etc.)",
+            "multiline": true,
+            "rows": 3,
+            "default": "",
+            "id": "Data_5-input-content-string"
+          },
+          {
+            "name": "isCorrect",
+            "type": "boolean",
+            "label": "Is Correct Answer",
+            "description": "Mark this as the correct answer (only for answer type)",
+            "default": false,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "answer"
+              ]
+            },
+            "id": "Data_5-input-isCorrect-boolean"
+          },
+          {
+            "name": "nextSpace",
+            "type": "string",
+            "label": "Next Space ID",
+            "description": "ID of the next space to transition to",
+            "optional": true,
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "transition",
+                "answer"
+              ]
+            },
+            "id": "Data_5-input-nextSpace-string"
+          },
+          {
+            "name": "userInputType",
+            "type": "options",
+            "label": "User Input Type",
+            "description": "Type of user input expected",
+            "options": [
+              {
+                "label": "Button Click",
+                "name": "button",
+                "description": "Simple button interaction"
+              },
+              {
+                "label": "Text Input",
+                "name": "text",
+                "description": "Text input field"
+              },
+              {
+                "label": "None",
+                "name": "none",
+                "description": "No user input"
+              }
+            ],
+            "default": "button",
+            "additionalParams": true,
+            "show": {
+              "inputs.dataType": [
+                "intro",
+                "transition"
+              ]
+            },
+            "id": "Data_5-input-userInputType-options"
+          },
+          {
+            "name": "enablePoints",
+            "type": "boolean",
+            "label": "Enable Points",
+            "description": "Enable point calculation for this data element",
+            "default": false,
+            "additionalParams": true,
+            "id": "Data_5-input-enablePoints-boolean"
+          },
+          {
+            "name": "pointsValue",
+            "type": "number",
+            "label": "Points Value",
+            "description": "Points to add/subtract when interacting with this element (-100 to +100)",
+            "default": 1,
+            "min": -100,
+            "max": 100,
+            "additionalParams": true,
+            "show": {
+              "inputs.enablePoints": [
+                true
+              ]
+            },
+            "id": "Data_5-input-pointsValue-number"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Datas",
+            "name": "datas",
+            "type": "UPDLData",
+            "description": "Connect Data nodes to create data chains",
+            "list": true,
+            "optional": true,
+            "id": "Data_5-input-datas-UPDLData"
+          },
+          {
+            "label": "Objects",
+            "name": "objects",
+            "type": "UPDLObject",
+            "description": "Connect Object nodes to associate with this data",
+            "list": true,
+            "optional": true,
+            "id": "Data_5-input-objects-UPDLObject"
+          }
+        ],
+        "inputs": {
+          "datas": "",
+          "dataName": "A2",
+          "dataType": "answer",
+          "content": "Конеш",
+          "isCorrect": true,
+          "nextSpace": "",
+          "userInputType": "button",
+          "enablePoints": false,
+          "pointsValue": 1,
+          "objects": [
+            "{{Object_3.data.instance}}"
+          ]
+        },
+        "outputAnchors": [
+          {
+            "id": "Data_5-output-Data-UPDLData|UPDLNode",
+            "name": "Data",
+            "label": "UPDLData",
+            "description": "Universal node for quiz data, questions, answers, and transitions",
+            "type": "UPDLData | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Data": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 705,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -441.8820735790109,
+        "y": 2222.9739578146446
+      },
+      "dragging": false
+    },
+    {
+      "id": "Object_2",
+      "position": {
+        "x": -36.569710426699515,
+        "y": 3085.4979406856387
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Object_2",
+        "label": "Object",
+        "version": 1,
+        "name": "Object",
+        "type": "UPDLObject",
+        "baseClasses": [
+          "UPDLObject",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "3D object that can be added to a scene",
+        "inputParams": [
+          {
+            "name": "name",
+            "type": "string",
+            "label": "Object Name",
+            "description": "Name of the object",
+            "default": "My Object",
+            "id": "Object_2-input-name-string"
+          },
+          {
+            "name": "objectType",
+            "type": "options",
+            "label": "Object Type",
+            "description": "Type of 3D object",
+            "options": [
+              {
+                "name": "box",
+                "label": "Box"
+              },
+              {
+                "name": "sphere",
+                "label": "Sphere"
+              },
+              {
+                "name": "cylinder",
+                "label": "Cylinder"
+              },
+              {
+                "name": "plane",
+                "label": "Plane"
+              }
+            ],
+            "default": "box",
+            "id": "Object_2-input-objectType-options"
+          },
+          {
+            "name": "positionX",
+            "type": "number",
+            "label": "Position X",
+            "description": "X position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_2-input-positionX-number"
+          },
+          {
+            "name": "positionY",
+            "type": "number",
+            "label": "Position Y",
+            "description": "Y position of the object",
+            "default": 0.5,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_2-input-positionY-number"
+          },
+          {
+            "name": "positionZ",
+            "type": "number",
+            "label": "Position Z",
+            "description": "Z position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_2-input-positionZ-number"
+          },
+          {
+            "name": "scale",
+            "type": "number",
+            "label": "Scale",
+            "description": "Uniform scale of the object",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_2-input-scale-number"
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "label": "Color",
+            "description": "Color of the object (hex code)",
+            "default": "#ff0000",
+            "additionalParams": true,
+            "id": "Object_2-input-color-string"
+          },
+          {
+            "name": "width",
+            "type": "number",
+            "label": "Width",
+            "description": "Width of the box or plane",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane"
+              ]
+            },
+            "id": "Object_2-input-width-number"
+          },
+          {
+            "name": "height",
+            "type": "number",
+            "label": "Height",
+            "description": "Height of the box, plane or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane",
+                "cylinder"
+              ]
+            },
+            "id": "Object_2-input-height-number"
+          },
+          {
+            "name": "depth",
+            "type": "number",
+            "label": "Depth",
+            "description": "Depth of the box",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box"
+              ]
+            },
+            "id": "Object_2-input-depth-number"
+          },
+          {
+            "name": "radius",
+            "type": "number",
+            "label": "Radius",
+            "description": "Radius of the sphere or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "sphere",
+                "cylinder"
+              ]
+            },
+            "id": "Object_2-input-radius-number"
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "name": "A1",
+          "objectType": "box",
+          "positionX": "",
+          "positionY": 0.5,
+          "positionZ": "",
+          "scale": 1,
+          "color": "#00ffff",
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "radius": 1
+        },
+        "outputAnchors": [
+          {
+            "id": "Object_2-output-Object-UPDLObject|UPDLNode",
+            "name": "Object",
+            "label": "UPDLObject",
+            "description": "3D object that can be added to a scene",
+            "type": "UPDLObject | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Object": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 427,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -36.569710426699515,
+        "y": 3085.4979406856387
+      },
+      "dragging": false
+    },
+    {
+      "id": "Object_3",
+      "position": {
+        "x": -454.8562145082749,
+        "y": 3094.689729914294
+      },
+      "type": "customNode",
+      "data": {
+        "id": "Object_3",
+        "label": "Object",
+        "version": 1,
+        "name": "Object",
+        "type": "UPDLObject",
+        "baseClasses": [
+          "UPDLObject",
+          "UPDLNode"
+        ],
+        "tags": [
+          "UPDL"
+        ],
+        "category": "UPDL",
+        "description": "3D object that can be added to a scene",
+        "inputParams": [
+          {
+            "name": "name",
+            "type": "string",
+            "label": "Object Name",
+            "description": "Name of the object",
+            "default": "My Object",
+            "id": "Object_3-input-name-string"
+          },
+          {
+            "name": "objectType",
+            "type": "options",
+            "label": "Object Type",
+            "description": "Type of 3D object",
+            "options": [
+              {
+                "name": "box",
+                "label": "Box"
+              },
+              {
+                "name": "sphere",
+                "label": "Sphere"
+              },
+              {
+                "name": "cylinder",
+                "label": "Cylinder"
+              },
+              {
+                "name": "plane",
+                "label": "Plane"
+              }
+            ],
+            "default": "box",
+            "id": "Object_3-input-objectType-options"
+          },
+          {
+            "name": "positionX",
+            "type": "number",
+            "label": "Position X",
+            "description": "X position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_3-input-positionX-number"
+          },
+          {
+            "name": "positionY",
+            "type": "number",
+            "label": "Position Y",
+            "description": "Y position of the object",
+            "default": 0.5,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_3-input-positionY-number"
+          },
+          {
+            "name": "positionZ",
+            "type": "number",
+            "label": "Position Z",
+            "description": "Z position of the object",
+            "default": 0,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_3-input-positionZ-number"
+          },
+          {
+            "name": "scale",
+            "type": "number",
+            "label": "Scale",
+            "description": "Uniform scale of the object",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "id": "Object_3-input-scale-number"
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "label": "Color",
+            "description": "Color of the object (hex code)",
+            "default": "#ff0000",
+            "additionalParams": true,
+            "id": "Object_3-input-color-string"
+          },
+          {
+            "name": "width",
+            "type": "number",
+            "label": "Width",
+            "description": "Width of the box or plane",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane"
+              ]
+            },
+            "id": "Object_3-input-width-number"
+          },
+          {
+            "name": "height",
+            "type": "number",
+            "label": "Height",
+            "description": "Height of the box, plane or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box",
+                "plane",
+                "cylinder"
+              ]
+            },
+            "id": "Object_3-input-height-number"
+          },
+          {
+            "name": "depth",
+            "type": "number",
+            "label": "Depth",
+            "description": "Depth of the box",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "box"
+              ]
+            },
+            "id": "Object_3-input-depth-number"
+          },
+          {
+            "name": "radius",
+            "type": "number",
+            "label": "Radius",
+            "description": "Radius of the sphere or cylinder",
+            "default": 1,
+            "step": 0.1,
+            "additionalParams": true,
+            "show": {
+              "inputs.objectType": [
+                "sphere",
+                "cylinder"
+              ]
+            },
+            "id": "Object_3-input-radius-number"
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "name": "A2",
+          "objectType": "sphere",
+          "positionX": "",
+          "positionY": 0.5,
+          "positionZ": "",
+          "scale": 1,
+          "color": "#ff00ff",
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "radius": 1
+        },
+        "outputAnchors": [
+          {
+            "id": "Object_3-output-Object-UPDLObject|UPDLNode",
+            "name": "Object",
+            "label": "UPDLObject",
+            "description": "3D object that can be added to a scene",
+            "type": "UPDLObject | UPDLNode"
+          }
+        ],
+        "outputs": {
+          "Object": ""
+        },
+        "selected": false
+      },
+      "width": 300,
+      "height": 427,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -454.8562145082749,
+        "y": 3094.689729914294
+      },
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "Space_0",
+      "sourceHandle": "Space_0-output-Space-UPDLSpace|UPDLNode",
+      "target": "Space_1",
+      "targetHandle": "Space_1-input-spaces-UPDLSpace",
+      "type": "buttonedge",
+      "id": "Space_0-Space_0-output-Space-UPDLSpace|UPDLNode-Space_1-Space_1-input-spaces-UPDLSpace"
+    },
+    {
+      "source": "Data_0",
+      "sourceHandle": "Data_0-output-Data-UPDLData|UPDLNode",
+      "target": "Space_1",
+      "targetHandle": "Space_1-input-data-UPDLData",
+      "type": "buttonedge",
+      "id": "Data_0-Data_0-output-Data-UPDLData|UPDLNode-Space_1-Space_1-input-data-UPDLData"
+    },
+    {
+      "source": "Data_1",
+      "sourceHandle": "Data_1-output-Data-UPDLData|UPDLNode",
+      "target": "Data_0",
+      "targetHandle": "Data_0-input-datas-UPDLData",
+      "type": "buttonedge",
+      "id": "Data_1-Data_1-output-Data-UPDLData|UPDLNode-Data_0-Data_0-input-datas-UPDLData"
+    },
+    {
+      "source": "Object_0",
+      "sourceHandle": "Object_0-output-Object-UPDLObject|UPDLNode",
+      "target": "Data_1",
+      "targetHandle": "Data_1-input-objects-UPDLObject",
+      "type": "buttonedge",
+      "id": "Object_0-Object_0-output-Object-UPDLObject|UPDLNode-Data_1-Data_1-input-objects-UPDLObject"
+    },
+    {
+      "source": "Data_2",
+      "sourceHandle": "Data_2-output-Data-UPDLData|UPDLNode",
+      "target": "Data_0",
+      "targetHandle": "Data_0-input-datas-UPDLData",
+      "type": "buttonedge",
+      "id": "Data_2-Data_2-output-Data-UPDLData|UPDLNode-Data_0-Data_0-input-datas-UPDLData"
+    },
+    {
+      "source": "Object_1",
+      "sourceHandle": "Object_1-output-Object-UPDLObject|UPDLNode",
+      "target": "Data_2",
+      "targetHandle": "Data_2-input-objects-UPDLObject",
+      "type": "buttonedge",
+      "id": "Object_1-Object_1-output-Object-UPDLObject|UPDLNode-Data_2-Data_2-input-objects-UPDLObject"
+    },
+    {
+      "source": "Space_1",
+      "sourceHandle": "Space_1-output-Space-UPDLSpace|UPDLNode",
+      "target": "Space_3",
+      "targetHandle": "Space_3-input-spaces-UPDLSpace",
+      "type": "buttonedge",
+      "id": "Space_1-Space_1-output-Space-UPDLSpace|UPDLNode-Space_3-Space_3-input-spaces-UPDLSpace"
+    },
+    {
+      "source": "Space_3",
+      "sourceHandle": "Space_3-output-Space-UPDLSpace|UPDLNode",
+      "target": "Space_2",
+      "targetHandle": "Space_2-input-spaces-UPDLSpace",
+      "type": "buttonedge",
+      "id": "Space_3-Space_3-output-Space-UPDLSpace|UPDLNode-Space_2-Space_2-input-spaces-UPDLSpace"
+    },
+    {
+      "source": "Data_3",
+      "sourceHandle": "Data_3-output-Data-UPDLData|UPDLNode",
+      "target": "Space_3",
+      "targetHandle": "Space_3-input-data-UPDLData",
+      "type": "buttonedge",
+      "id": "Data_3-Data_3-output-Data-UPDLData|UPDLNode-Space_3-Space_3-input-data-UPDLData"
+    },
+    {
+      "source": "Data_4",
+      "sourceHandle": "Data_4-output-Data-UPDLData|UPDLNode",
+      "target": "Data_3",
+      "targetHandle": "Data_3-input-datas-UPDLData",
+      "type": "buttonedge",
+      "id": "Data_4-Data_4-output-Data-UPDLData|UPDLNode-Data_3-Data_3-input-datas-UPDLData"
+    },
+    {
+      "source": "Data_5",
+      "sourceHandle": "Data_5-output-Data-UPDLData|UPDLNode",
+      "target": "Data_3",
+      "targetHandle": "Data_3-input-datas-UPDLData",
+      "type": "buttonedge",
+      "id": "Data_5-Data_5-output-Data-UPDLData|UPDLNode-Data_3-Data_3-input-datas-UPDLData"
+    },
+    {
+      "source": "Object_2",
+      "sourceHandle": "Object_2-output-Object-UPDLObject|UPDLNode",
+      "target": "Data_4",
+      "targetHandle": "Data_4-input-objects-UPDLObject",
+      "type": "buttonedge",
+      "id": "Object_2-Object_2-output-Object-UPDLObject|UPDLNode-Data_4-Data_4-input-objects-UPDLObject"
+    },
+    {
+      "source": "Object_3",
+      "sourceHandle": "Object_3-output-Object-UPDLObject|UPDLNode",
+      "target": "Data_5",
+      "targetHandle": "Data_5-input-objects-UPDLObject",
+      "type": "buttonedge",
+      "id": "Object_3-Object_3-output-Object-UPDLObject|UPDLNode-Data_5-Data_5-input-objects-UPDLObject"
+    }
+  ]
+}

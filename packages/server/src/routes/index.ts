@@ -56,6 +56,9 @@ import { createPublishRoutes } from '@universo/publish-srv'
 // Universo Platformo | Profile service integration
 import { createProfileRoutes } from '@universo/profile-srv'
 import { getDataSource } from '../DataSource'
+import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
+import rateLimit from 'express-rate-limit'
+import credentialsService from '../services/credentials'
 
 const router = express.Router()
 
@@ -137,6 +140,33 @@ router.use(
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots
 router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
+
+// Universo Platformo | Space Builder
+const spaceBuilderLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true })
+router.use(
+    '/space-builder',
+    upAuth.ensureAuth,
+    spaceBuilderLimiter,
+    createSpaceBuilderRouter({
+        resolveCredential: async (credentialId: string) => {
+            const cred = await credentialsService.getCredentialById(credentialId)
+            const data: any = cred?.plainDataObj || {}
+            const name: string = (cred as any)?.credentialName || ''
+            // Strict provider-specific key selection to avoid cross-provider mixups
+            if (name === 'groqApi') {
+                return data.groqApiKey || data.GROQ_API_KEY || ''
+            }
+            if (name === 'openAIApi') {
+                return data.openAIApiKey || data.OPENAI_API_KEY || ''
+            }
+            if (name === 'azureOpenAIApi') {
+                return data.azureOpenAIApiKey || data.AZURE_OPENAI_API_KEY || ''
+            }
+            // Fallback: try common field names, but avoid leaking mismatched keys
+            return data.apiKey || data.API_KEY || ''
+        }
+    })
+)
 
 // Universo Platformo | Publishing Routes
 router.use('/publish', createPublishRoutes(getDataSource()))

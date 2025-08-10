@@ -165,6 +165,54 @@ export class UPDLProcessor {
                 )
             })
 
+            // Universo Platformo | Derive visual objects from Entity + Component(render)
+            const derivedObjects = (() => {
+                try {
+                    // Map componentId -> render config
+                    const compMap = new Map<string, any>()
+                    nodes.forEach((n) => {
+                        if ((n.data?.name || '').toLowerCase() === 'component') {
+                            const i = n.data?.inputs || {}
+                            const ctype = (i.componentType || 'render').toLowerCase()
+                            if (ctype === 'render') compMap.set(n.id, i)
+                        }
+                    })
+                    // Collect pairs component(render) -> entity by edges
+                    const entMap = new Map<string, any>()
+                    nodes.forEach((n) => {
+                        if ((n.data?.name || '').toLowerCase() === 'entity') entMap.set(n.id, n)
+                    })
+                    const pairs: { entity: any; render: any }[] = []
+                    edges.forEach((e) => {
+                        const render = compMap.get(e.source)
+                        const ent = entMap.get(e.target)
+                        if (render && ent) pairs.push({ entity: ent, render })
+                    })
+                    // Only keep entities that are related to this scene (connected to its data via any path)
+                    const sceneEntityIds = new Set<string>()
+                    pairs.forEach((p) => sceneEntityIds.add(p.entity.id))
+                    const toObject = (p: { entity: any; render: any }) => {
+                        const t = (p.entity.data?.inputs?.transform) || {}
+                        const pos = t.position || t.pos || { x: 0, y: 0.5, z: 0 }
+                        const sc = t.scale || { x: 1, y: 1, z: 1 }
+                        const prim = (p.render.primitive || 'box').toLowerCase()
+                        const color = p.render.color || '#ff0000'
+                        return {
+                            id: p.entity.id,
+                            name: p.entity.data?.label || 'EntityRender',
+                            type: prim,
+                            position: { x: Number(pos.x) || 0, y: Number(pos.y) || 0.5, z: Number(pos.z) || 0 },
+                            rotation: { x: 0, y: 0, z: 0 },
+                            scale: { x: Number(sc.x) || 1, y: Number(sc.y) || 1, z: Number(sc.z) || 1 },
+                            color
+                        }
+                    }
+                    return pairs.filter((p) => sceneEntityIds.has(p.entity.id)).map(toObject)
+                } catch {
+                    return [] as any[]
+                }
+            })()
+
             const nextSpaceId = spaceEdgeMap.get(currentSpaceId)
             const isLast = !nextSpaceId
 
@@ -198,7 +246,7 @@ export class UPDLProcessor {
                         tags: node.data?.inputs?.tags || []
                     }
                 })),
-                objectNodes: connectedObjectNodes.map((node) => {
+                objectNodes: [...connectedObjectNodes, ...derivedObjects].map((node) => {
                     const nodeData = node.data || {}
                     const inputs = nodeData.inputs || {}
                     return {

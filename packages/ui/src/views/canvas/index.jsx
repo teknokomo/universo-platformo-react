@@ -54,6 +54,26 @@ import { usePrompt } from '@/utils/usePrompt'
 
 // const
 import { FLOWISE_CREDENTIAL_ID } from '@/store/constant'
+// Space Builder i18n and FAB
+import { SpaceBuilderFab, registerSpaceBuilderI18n } from '@universo/space-builder-frt'
+import credentialsApi from '@/api/credentials'
+import i18n from '@/i18n'
+import client from '@/api/client'
+
+const SUPPORTED_CREDENTIALS = [
+  'openAIApi',
+  'azureOpenAIApi',
+  'groqApi',
+  'groqWhisper'
+]
+
+const TEST_MODE_MODEL = {
+  key: 'groq_test:llama-3.3-70b-versatile:test',
+  label: 'groq • llama-3.3-70b-versatile (Test mode)',
+  provider: 'groq_test',
+  modelName: 'llama-3.3-70b-versatile',
+  credentialId: 'test'
+}
 
 const nodeTypes = { customNode: CanvasNode, stickyNote: StickyNote }
 const edgeTypes = { buttonedge: ButtonEdge }
@@ -105,6 +125,7 @@ const Canvas = () => {
     const [selectedNode, setSelectedNode] = useState(null)
     const [isUpsertButtonEnabled, setIsUpsertButtonEnabled] = useState(false)
     const [isSyncNodesButtonEnabled, setIsSyncNodesButtonEnabled] = useState(false)
+    const [availableChatModels, setAvailableChatModels] = useState([])
 
     const reactFlowWrapper = useRef(null)
 
@@ -174,6 +195,158 @@ const Canvas = () => {
 
             setNodes(nodes)
             setEdges(flowData.edges || [])
+            setTimeout(() => setDirty(), 0)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    // Hydrate minimal nodes/edges coming from Space Builder into full Canvas nodes with anchors/handles
+    const hydrateGeneratedGraph = (graph) => {
+        const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : []
+        const rawEdges = Array.isArray(graph?.edges) ? graph.edges : []
+        const componentNodes = canvas.componentNodes || []
+        const byName = new Map(componentNodes.map((c) => [c.name, c]))
+
+        const nodesHydrated = rawNodes.map((n) => {
+            const name = n?.data?.name
+            const def = byName.get(name)
+            if (!def) return n
+            const defClone = cloneDeep(def)
+            const nodeId = n.id || getUniqueNodeId(defClone, reactFlowInstance?.getNodes?.() || [])
+            const initData = initNode(defClone, nodeId)
+            const mergedInputs = { ...initData.inputs, ...(n?.data?.inputs || {}) }
+            const data = {
+                ...initData,
+                inputs: mergedInputs,
+                label: initData.label || name,
+                category: initData.category || 'UPDL',
+                selected: false
+            }
+            return {
+                id: nodeId,
+                type: 'customNode',
+                position: n.position || { x: 0, y: 0 },
+                data
+            }
+        })
+
+        const idToNode = new Map(nodesHydrated.map((n) => [n.id, n]))
+
+        const getDefaultSourceHandle = (node) => {
+            const oa = node?.data?.outputAnchors?.[0]
+            if (!oa) return undefined
+            if (Array.isArray(oa.options) && oa.options.length > 0) return oa.options[0].id
+            return oa.id
+        }
+
+        const resolveTargetHandle = (targetNode, preferredName) => {
+            if (!targetNode) return undefined
+            const anchors = targetNode.data?.inputAnchors || []
+            const byName = anchors.find((a) => a.name === preferredName)
+            return (byName || anchors[0])?.id
+        }
+
+        const preferredTargetByPair = (srcName, tgtName) => {
+            const pair = `${srcName}->${tgtName}`
+            switch (pair) {
+                case 'Data->Space':
+                    return 'data'
+                case 'Data->Data':
+                    return 'datas'
+                case 'Component->Entity':
+                    return 'components'
+                case 'Entity->Space':
+                    return 'entities'
+                case 'Light->Space':
+                    return 'lights'
+                case 'Camera->Space':
+                    return 'cameras'
+                case 'Object->Space':
+                    return 'objects'
+                case 'Space->Space':
+                    return 'spaces'
+                default:
+                    return undefined
+            }
+        }
+
+        const edgesHydrated = rawEdges.map((e) => {
+            if (e.sourceHandle && e.targetHandle) return { ...e, type: e.type || 'buttonedge' }
+            const src = idToNode.get(e.source)
+            const tgt = idToNode.get(e.target)
+            const srcName = src?.data?.name
+            const tgtName = tgt?.data?.name
+            const preferred = preferredTargetByPair(srcName, tgtName)
+            const sourceHandle = getDefaultSourceHandle(src)
+            const targetHandle = resolveTargetHandle(tgt, preferred)
+            const id = sourceHandle && targetHandle ? `${e.source}-${sourceHandle}-${e.target}-${targetHandle}` : `${e.source}-${e.target}`
+            return { ...e, sourceHandle, targetHandle, id, type: e.type || 'buttonedge' }
+        })
+
+        return { nodes: nodesHydrated, edges: edgesHydrated }
+    }
+
+    // Apply a generated graph directly without requiring stringified JSON
+    const handleApplyGeneratedGraph = (graph) => {
+        try {
+            const { nodes, edges } = hydrateGeneratedGraph(graph)
+            setNodes(nodes)
+            setEdges(edges)
+            setTimeout(() => setDirty(), 0)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    const remapIds = (nodes, edges, existingIds) => {
+        const map = new Map()
+        const uniq = (base) => {
+            let i = 1
+            let id = String(base || 'N')
+            while (existingIds.has(id)) id = `${base}_${i++}`
+            existingIds.add(id)
+            return id
+        }
+        const n2 = (nodes || []).map((n) => {
+            const old = String(n?.id || 'N')
+            const id = uniq(old)
+            map.set(old, id)
+            return { ...n, id, data: { ...n.data } }
+        })
+        const e2 = (edges || []).map((e) => {
+            const newSource = map.get(e.source) || e.source
+            const newTarget = map.get(e.target) || e.target
+            const newSourceHandle = e.sourceHandle ? e.sourceHandle.replace(e.source, newSource) : e.sourceHandle
+            const newTargetHandle = e.targetHandle ? e.targetHandle.replace(e.target, newTarget) : e.targetHandle
+            const newId = newSourceHandle && newTargetHandle ? `${newSource}-${newSourceHandle}-${newTarget}-${newTargetHandle}` : `${newSource}-${newTarget}`
+            return {
+                ...e,
+                id: newId,
+                source: newSource,
+                target: newTarget,
+                sourceHandle: newSourceHandle,
+                targetHandle: newTargetHandle,
+                type: e.type || 'buttonedge'
+            }
+        })
+        return { nodes: n2, edges: e2 }
+    }
+
+    const handleAppendGeneratedGraph = (graph) => {
+        try {
+            const hydrated = hydrateGeneratedGraph(graph)
+            const nodesNew = Array.isArray(hydrated?.nodes) ? hydrated.nodes : []
+            const edgesNew = Array.isArray(hydrated?.edges) ? hydrated.edges : []
+            const existingIds = new Set((reactFlowInstance?.getNodes() || []).map((n) => n.id))
+            const { nodes: remappedNodes, edges: remappedEdges } = remapIds(nodesNew, edgesNew, existingIds)
+            const offset = { x: 300, y: 80 }
+            const shifted = remappedNodes.map((n) => ({
+                ...n,
+                position: n.position ? { x: Number(n.position.x || 0) + offset.x, y: Number(n.position.y || 0) + offset.y } : { x: offset.x, y: offset.y }
+            }))
+            setNodes((curr) => [...curr, ...shifted])
+            setEdges((curr) => [...curr, ...remappedEdges])
             setTimeout(() => setDirty(), 0)
         } catch (e) {
             console.error(e)
@@ -516,6 +689,53 @@ const Canvas = () => {
 
         getNodesApi.request()
 
+        // load available chat models from credentials
+        ;(async () => {
+            try {
+                if (!parentUnikId) return
+                const res = await credentialsApi.getAllCredentials(parentUnikId)
+                const creds = res?.data || []
+                const mapProvider = (credName = '') => {
+                    const n = String(credName).toLowerCase()
+                    if (n.includes('groq')) return 'groq'
+                    if (n.includes('azureopenai')) return 'openai'
+                    if (n.includes('openai')) return 'openai'
+                    return 'unsupported'
+                }
+                const defaultsByProvider = {
+                    openai: ['gpt-4o-mini'],
+                    groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
+                }
+                const models = creds
+                    .filter((c) => SUPPORTED_CREDENTIALS.includes(c.credentialName))
+                    .map((c) => {
+                        const provider = mapProvider(c.credentialName)
+                        if (provider === 'unsupported') return null
+                        const modelName = defaultsByProvider[provider][0]
+                        return {
+                            key: `${provider}:${modelName}:${c.id}`,
+                            label: `${provider} • ${modelName}`,
+                            provider,
+                            modelName,
+                            credentialId: c.id
+                        }
+                    })
+                    .filter(Boolean)
+                //  Request Space Builder configuration from the server
+                let testModeEnabled = false
+                try {
+                    const resp = await client.get('/space-builder/config')
+                    testModeEnabled = !!resp?.data?.testMode
+                } catch (e) {
+                    // ignore config fetch errors
+                }
+                if (testModeEnabled) models.push(TEST_MODE_MODEL)
+                setAvailableChatModels(models)
+            } catch (e) {
+                console.error('[SpaceBuilder] load models failed', e)
+            }
+        })()
+
         // Clear dirty state before leaving and remove any ongoing test triggers and webhooks
         return () => {
             setTimeout(() => dispatch({ type: REMOVE_DIRTY }), 0)
@@ -555,6 +775,12 @@ const Canvas = () => {
     }, [templateFlowData])
 
     usePrompt(t('canvas.dirty'), canvas.isDirty)
+
+    // Register space-builder translations once
+    useEffect(() => {
+        try { registerSpaceBuilderI18n(i18n) } catch {/* no-op */}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     return (
         <>
@@ -608,7 +834,27 @@ const Canvas = () => {
                                     }}
                                 />
                                 <Background color='#aaa' gap={16} />
-                                <AddNodes isAgentCanvas={isAgentCanvas} nodesData={getNodesApi.data} node={selectedNode} />
+                                <AddNodes
+                                    isAgentCanvas={isAgentCanvas}
+                                    nodesData={getNodesApi.data}
+                                    node={selectedNode}
+                                    onApplyGraph={handleApplyGeneratedGraph}
+                                />
+                                <SpaceBuilderFab
+                                    sx={{ position: 'absolute', left: 76, top: 20, zIndex: 1100 }}
+                                    models={availableChatModels}
+                                    onApply={(graph, mode) => {
+                                        if (mode === 'append') return handleAppendGeneratedGraph(graph)
+                                        handleApplyGeneratedGraph(graph)
+                                    }}
+                                    onError={(message) => enqueueSnackbar({
+                                        message,
+                                        options: {
+                                            key: new Date().getTime() + Math.random(),
+                                            variant: 'error'
+                                        }
+                                    })}
+                                />
                                 {isSyncNodesButtonEnabled && (
                                     <Fab
                                         sx={{
