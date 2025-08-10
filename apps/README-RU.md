@@ -126,6 +126,34 @@ apps/
 
 **Документация:** [apps/profile-srv/base/README.md](./profile-srv/base/README.md)
 
+### Space Builder
+
+Приложение Space Builder преобразует текстовые запросы в граф Flow из узлов UPDL. Состоит из фронтенд‑приложения и бекенд workspace‑пакета.
+
+#### Space Builder Frontend (space-builder-frt)
+
+**Ключевые возможности:**
+
+-   Генерация графа из текста (MUI диалог + FAB)
+-   Выбор модели из Credentials; опциональный Test mode (через переменные окружения сервера)
+-   Режимы дополнения/замены на холсте
+-   Интеграция i18n и двойная сборка (CJS + ESM)
+
+**Документация:** [apps/space-builder-frt/base/README.md](./space-builder-frt/base/README.md)
+
+#### Space Builder Server (space-builder-srv)
+
+Бекенд‑сервис, структурированный как workspace‑пакет (`@universo/space-builder-srv`), отвечающий за вызов LLM и безопасную выдачу JSON‑графа.
+
+**Ключевые возможности:**
+
+-   Эндпоинты: `/api/v1/space-builder/health`, `/config`, `/generate`
+-   Мета‑промпт → вызов провайдера → извлечение RAW JSON
+-   Резолв ключей через сервисы платформы
+-   Валидация на базе Zod и нормализация на сервере
+
+**Документация:** [apps/space-builder-srv/base/README.md](./space-builder-srv/base/README.md)
+
 ### Publish
 
 Приложение Publish предоставляет механизмы для экспорта UPDL-пространств в AR.js и их публикации по публичным ссылкам.

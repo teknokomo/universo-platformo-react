@@ -182,6 +182,34 @@ This is a backend service, structured as a workspace package (`@universo/profile
 
 **Documentation:** See [apps/profile-srv/base/README.md](./profile-srv/base/README.md)
 
+### Space Builder
+
+The Space Builder application turns natural‑language prompts into Flow graphs composed of UPDL nodes. It consists of a frontend application and a backend workspace package.
+
+#### Space Builder Frontend (space-builder-frt)
+
+**Key Features:**
+
+-   Prompt‑to‑flow generation (MUI dialog + FAB)
+-   Model selection from Credentials; optional Test mode (via server env)
+-   Append/Replace modes on the canvas
+-   I18n integration and dual build (CJS + ESM)
+
+**Documentation:** See [apps/space-builder-frt/base/README.md](./space-builder-frt/base/README.md)
+
+#### Space Builder Server (space-builder-srv)
+
+This is a backend service, structured as a workspace package (`@universo/space-builder-srv`), responsible for LLM call and safe JSON graph return.
+
+**Key Features:**
+
+-   Endpoints: `/api/v1/space-builder/health`, `/config`, `/generate`
+-   Meta‑prompt → provider call → RAW JSON extraction
+-   Credential resolution integrated with platform services
+-   Zod‑based validation and server‑side normalization
+
+**Documentation:** See [apps/space-builder-srv/base/README.md](./space-builder-srv/base/README.md)
+
 ### Publish
 
 The Publish application provides mechanisms for exporting UPDL spaces to AR.js and publishing them with shareable URLs.

@@ -59,6 +59,7 @@
     -   [UPDL System](applications/updl/README.md)
     -   [Publication System](applications/publish/README.md)
     -   [Profile Management](applications/profile/README.md)
+    -   [Space Builder](applications/space-builder/README.md)
     -   [Analytics System](applications/analytics/README.md)
     -   [Authentication System](applications/auth/README.md)
 -   [Contribution Guide](contributing/README.md)

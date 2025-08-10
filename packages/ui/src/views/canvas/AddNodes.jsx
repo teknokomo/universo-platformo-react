@@ -47,6 +47,7 @@ import ArjsSVG from '@/assets/images/arjs.svg'
 // const
 import { baseURL } from '@/store/constant'
 import { SET_COMPONENT_NODES } from '@/store/actions'
+// Universo Platformo | Space Builder (prompt-to-flow)
 
 // ==============================|| ADD NODES||============================== //
 function a11yProps(index) {
@@ -71,7 +72,7 @@ const blacklistForChatflowCanvas = {
     Memory: agentMemoryNodes
 }
 
-const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
+const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
@@ -595,7 +596,8 @@ const AddNodes = ({ nodesData, node, isAgentCanvas }) => {
 AddNodes.propTypes = {
     nodesData: PropTypes.array,
     node: PropTypes.object,
-    isAgentCanvas: PropTypes.bool
+    isAgentCanvas: PropTypes.bool,
+    onApplyGraph: PropTypes.func
 }
 
 export default AddNodes

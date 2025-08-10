@@ -1,0 +1,14 @@
+{
+  "spaceBuilder": {
+    "fabTooltip": "Build from prompt",
+    "title": "Build Space from Prompt",
+    "prompt": "Describe what to build",
+    "model": "Model",
+    "append": "Append to current flow",
+    "noModels": "No models available. Add credentials to proceed.",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "cancel": "Cancel",
+    "error": "Generation failed"
+  }
+}
