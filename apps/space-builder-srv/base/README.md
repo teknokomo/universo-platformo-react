@@ -6,8 +6,11 @@ Backend API for prompt-to-flow generation in Universo Platformo (Spaces/Chatflow
 
 -   `GET /api/v1/space-builder/health` → `{ ok: true }`
 -   `GET /api/v1/space-builder/config` → `{ testMode: boolean }` (auth required)
+-   `POST /api/v1/space-builder/prepare`
+    -   Body: `{ sourceText: string (1..2000), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
+    -   Response: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
 -   `POST /api/v1/space-builder/generate`
-    -   Body: `{ question: string, selectedChatModel: { provider: string, modelName: string, credentialId?: string } }`
+    -   Body: either `{ question: string, selectedChatModel: {...} }` or `{ quizPlan: QuizPlan, selectedChatModel: {...} }`
     -   Response: `{ nodes: any[], edges: any[] }`
 
 The service constructs a meta‑prompt, calls the selected LLM provider, extracts RAW JSON safely, validates using Zod (`GraphSchema`), and returns a graph ready to insert on the canvas.

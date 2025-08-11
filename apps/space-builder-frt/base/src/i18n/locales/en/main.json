@@ -3,12 +3,19 @@
     "fabTooltip": "Build from prompt",
     "title": "Build Space from Prompt",
     "prompt": "Describe what to build",
+    "source": "Paste study material (up to 2000 characters)",
+    "questionsCount": "Number of questions",
+    "answersPerQuestion": "Answers per question",
+    "previewTitle": "Quiz preview",
+    "prepare": "Prepare",
+    "preparing": "Preparing…",
     "model": "Model",
     "append": "Append to current flow",
     "noModels": "No models available. Add credentials to proceed.",
     "generate": "Generate",
     "generating": "Generating…",
     "cancel": "Cancel",
+    "back": "Back",
     "error": "Generation failed"
   }
 }
