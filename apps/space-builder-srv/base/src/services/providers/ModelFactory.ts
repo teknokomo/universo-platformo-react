@@ -17,6 +17,11 @@ type CallArgs = { provider: string; model: string; credentialId?: string; prompt
 
 export async function callProvider(args: CallArgs): Promise<string> {
   const provider = String(args.provider || '').toLowerCase()
+  const testMode = String(process.env.SPACE_BUILDER_TEST_MODE || '').toLowerCase() === 'true'
+  if (testMode) {
+    // Prefer test provider without credentials dependency
+    return callGroqTest({ provider: 'groq_test', model: args.model || 'llama-3-8b-8192', prompt: args.prompt })
+  }
   if (provider === 'openai' || provider === 'azureopenai') return callOpenAI(args)
   if (provider === 'groq') return callOpenAICompatible(args)
   if (provider === 'groq_test') return callGroqTest(args)

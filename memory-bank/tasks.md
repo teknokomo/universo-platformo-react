@@ -14,6 +14,19 @@
 -   [x] ENV: `SPACE_BUILDER_TEST_MODE`, `GROQ_TEST_API_KEY` in packages/server/.env (+ .env.example)
 -   [x] Docs: EN/RU pages and links in Applications and SUMMARY
 
+### Space Builder Two-step Quiz Flow (Prepare → Preview → Generate)
+
+-   [x] Backend: Add `/prepare` endpoint with strict Zod `QuizPlan` schema and JSON-only prompt
+-   [x] Backend: Implement `proposeQuiz`, `generateFromPlan`, deterministic fallback graph with Space node
+-   [x] Backend: Test-mode provider fallback (`groq_test`) in ModelFactory when `SPACE_BUILDER_TEST_MODE=true`
+-   [x] Frontend: Two-step dialog (input with N×M controls → preview → generate)
+-   [x] Frontend: Synthetic model in test mode when models list is empty
+-   [x] Validation: Increase `sourceText` limit to 2000 (server + UI + i18n + docs)
+-   [x] Documentation: Update apps READMEs and docs/en|ru with new flow and endpoints
+-   [x] Build: Full monorepo build green
+-   [ ] Next: Editable quiz preview (allow editing questions/answers before generate)
+-   [ ] Next: Credentials selection stabilization (non-test mode reliability improvements)
+
 ### MMOOMM Entity Hardcode Elimination ✅ COMPLETED
 
 **Status**: ✅ Implementation ✅ Reflection ✅ Archive ✅ **COMPLETED**

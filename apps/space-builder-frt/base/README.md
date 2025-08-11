@@ -53,7 +53,6 @@ registerSpaceBuilderI18n(i18n)
 ```tsx
 // Render FAB and handle onApply
 import { SpaceBuilderFab } from '@universo/space-builder-frt'
-
 ;<SpaceBuilderFab
     models={availableChatModels}
     onApply={(graph, mode) => {
@@ -74,3 +73,28 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 -   Keep UI code isolated from server dependencies
 -   Use the shared Axios client in the host app for authenticated calls
 -   No secrets are stored in this package; model keys are resolved on the server side
+
+## Two-step flow (Prepare → Preview → Generate)
+
+1. Prepare
+
+-   Paste study material into the input (limit 2000 characters)
+-   Select a chat model/credential
+-   Choose number of questions (1–10, default 1) and answers per question (2–5, default 2)
+-   Click "Prepare" → the UI calls `POST /api/v1/space-builder/prepare` and receives a `quizPlan`
+
+2. Preview
+
+-   The dialog shows the proposed questions and answers (exactly one correct per question)
+-   Editing is not available at this stage
+-   You can click "Back" to adjust the source text or settings
+
+3. Generate
+
+-   Click "Generate" → the UI calls `POST /api/v1/space-builder/generate` with the `quizPlan`
+-   The resulting UPDL graph is applied to the canvas (Append or Replace based on the checkbox)
+
+Notes:
+
+-   In test mode (`SPACE_BUILDER_TEST_MODE=true` on the server), if the host app supplies no models, the UI exposes a synthetic provider entry `Groq Test: llama-3-8b-8192` so that the feature works without user credentials.
+-   Endpoints are protected; the client uses a refresh flow on 401 to retry requests.
