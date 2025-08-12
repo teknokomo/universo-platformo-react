@@ -6,8 +6,8 @@ import { QuizPlanSchema } from '../schemas/quiz'
 export async function prepareController(req: Request, res: Response) {
   const { sourceText, selectedChatModel, options } = req.body || {}
   const text = String(sourceText || '').trim()
-  if (!text || text.length > 2000) {
-    return res.status(400).json({ error: 'Invalid input: sourceText length must be 1..2000' })
+  if (!text || text.length > 5000) {
+    return res.status(400).json({ error: 'Invalid input: sourceText length must be 1..5000' })
   }
   const qCount = Number(options?.questionsCount ?? 1)
   const aPerQ = Number(options?.answersPerQuestion ?? 2)
@@ -38,10 +38,10 @@ export async function prepareController(req: Request, res: Response) {
 }
 
 export async function generateController(req: Request, res: Response) {
-  const { question, selectedChatModel, quizPlan } = req.body || {}
+  const { question, selectedChatModel, quizPlan, options } = req.body || {}
   if (quizPlan) {
     try {
-      const graph = await spaceBuilderService.generateFromPlan({ quizPlan, selectedChatModel })
+      const graph = await spaceBuilderService.generateFromPlan({ quizPlan, selectedChatModel, options })
       const parsed = GraphSchema.safeParse(graph)
       if (!parsed.success) {
         return res.status(422).json({ error: 'Invalid graph', issues: parsed.error.issues })

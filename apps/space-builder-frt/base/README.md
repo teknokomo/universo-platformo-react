@@ -11,6 +11,12 @@ This package provides reusable React components:
 -   Hook `useSpaceBuilder` to call the backend API `/api/v1/space-builder/generate`
 -   I18n helper `registerSpaceBuilderI18n` to merge translations (EN/RU) into the host app
 
+## Deterministic builder (stable output)
+
+-   The final UPDL graph is built by a deterministic local builder from a validated quiz plan (no LLM involved at this stage).
+-   This stabilizes results, avoids hallucinations and reduces token usage.
+-   Node naming and coordinates are fully assigned by our builder.
+
 ## Environment
 
 The Space Builder UI reads a server-side config to toggle Test mode:
@@ -78,7 +84,7 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 1. Prepare
 
--   Paste study material into the input (limit 2000 characters)
+-   Paste study material into the input (limit 5000 characters)
 -   Select a chat model/credential
 -   Choose number of questions (1–10, default 1) and answers per question (2–5, default 2)
 -   Click "Prepare" → the UI calls `POST /api/v1/space-builder/prepare` and receives a `quizPlan`
