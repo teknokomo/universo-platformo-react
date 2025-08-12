@@ -176,6 +176,45 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
             chatflowId: options.chatflowId || 'not-provided'
         })
 
+        // Wallpaper mode support (default to 'marker' for compatibility)
+        const displayType = (options as any).arDisplayType || 'marker'
+        if (displayType === 'wallpaper') {
+            const wallpaperEntity = `
+    <a-entity geometry="primitive: sphere; radius: 25; segmentsWidth: 48; segmentsHeight: 32"
+              material="wireframe: true; color: #00e6ff; opacity: 0.35; side: back; transparent: true"
+              animation="property: rotation; to: 0 360 0; loop: true; dur: 90000; easing: linear"></a-entity>`
+
+            return `
+<a-scene embedded
+         class="ar-scene${errorClass}"
+         arjs="sourceType: webcam; debugUIEnabled: false;"
+         vr-mode-ui="enabled: false"
+         device-orientation-permission-ui="enabled: false">
+
+    <!-- Camera with wallpaper background (no marker required) -->
+    <a-entity camera>
+        ${wallpaperEntity}
+    </a-entity>
+
+    <!-- Data UI overlay (quiz, etc.) -->
+    ${content.dataContent}
+
+    <a-assets></a-assets>
+</a-scene>
+
+<script>
+    window.chatflowId = '${options.chatflowId || ''}';
+    document.addEventListener('DOMContentLoaded', function() {
+        const scene = document.querySelector('a-scene');
+        if (scene && !scene.hasLoaded) {
+            scene.addEventListener('loaded', function() {
+                console.log('[ARJSQuizBuilder] Scene loaded successfully (wallpaper)');
+            });
+        }
+    });
+</script>`
+        }
+
         // Build marker attributes based on type
         let markerAttributes = ''
         if (markerType === 'preset') {

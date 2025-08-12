@@ -46,6 +46,7 @@ export class FlowDataService {
 
             // Extract libraryConfig from chatbotConfig if available
             let libraryConfig = null
+            let renderConfig = null
             if (chatFlow.chatbotConfig) {
                 try {
                     const config = typeof chatFlow.chatbotConfig === 'string' ? JSON.parse(chatFlow.chatbotConfig) : chatFlow.chatbotConfig
@@ -53,6 +54,13 @@ export class FlowDataService {
                     if (config.arjs && config.arjs.libraryConfig) {
                         libraryConfig = config.arjs.libraryConfig
                         logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
+                    }
+
+                    // Extract render configuration for AR.js view if available
+                    if (config.arjs) {
+                        const { arDisplayType, wallpaperType, markerType, markerValue } = config.arjs
+                        renderConfig = { arDisplayType, wallpaperType, markerType, markerValue }
+                        logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
                     }
                 } catch (parseError) {
                     logger.warn(`[FlowDataService] Failed to parse chatbotConfig for libraryConfig: ${parseError}`)
@@ -62,6 +70,7 @@ export class FlowDataService {
             return {
                 flowData: chatFlow.flowData, // Raw JSON string
                 libraryConfig: libraryConfig, // Extracted library configuration
+                renderConfig: renderConfig || undefined,
                 chatflow: {
                     // Metadata
                     id: chatFlow.id,

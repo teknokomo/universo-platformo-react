@@ -18,6 +18,8 @@ export interface ARJSPublicationSettings {
     generationMode: string
     templateId?: string
     libraryConfig?: ILibraryConfig
+    arDisplayType?: 'wallpaper' | 'marker'
+    wallpaperType?: 'standard'
 }
 
 /**

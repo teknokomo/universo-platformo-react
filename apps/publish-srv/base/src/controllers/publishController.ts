@@ -160,6 +160,7 @@ export class PublishController {
                 generationMode: 'streaming',
                 flowData: flowData.flowData, // Raw JSON string
                 libraryConfig: flowData.libraryConfig, // Extracted configuration
+                renderConfig: flowData.renderConfig, // AR display settings (wallpaper/marker)
                 chatflowId: id, // Add for compatibility
                 timestamp: new Date().toISOString()
             }

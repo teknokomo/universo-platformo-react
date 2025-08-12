@@ -387,12 +387,23 @@ export interface IPublicationDataResult {
 // ==============================================
 
 /**
+ * Render configuration for AR.js view
+ */
+export interface RenderConfig {
+    arDisplayType?: 'wallpaper' | 'marker'
+    wallpaperType?: 'standard'
+    markerType?: string
+    markerValue?: string
+}
+
+/**
  * Raw flow data extracted from database for processing
  * Used internally by FlowDataService
  */
 export interface RawFlowData {
     flowData: string
     libraryConfig: any
+    renderConfig?: RenderConfig
     chatflow: {
         id: string
         name: string

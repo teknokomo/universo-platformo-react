@@ -237,9 +237,11 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                         <FormControlLabel
                             value='babylonjs'
                             control={<Radio />}
+                            disabled
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{tPub('technologies.babylonjs')}</Typography>
+                                    <Typography variant='h5' color='text.disabled'>{tPub('technologies.babylonjs')}</Typography>
+                                    <Typography variant='caption' color='text.disabled'>({tPub('general.comingSoon')})</Typography>
                                     <TooltipWithParser title={tPub('technologies.babylonjsDescription')}>
                                         <Box
                                             sx={{
@@ -264,9 +266,11 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                         <FormControlLabel
                             value='aframevr'
                             control={<Radio />}
+                            disabled
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5'>{tPub('technologies.aframevr')}</Typography>
+                                    <Typography variant='h5' color='text.disabled'>{tPub('technologies.aframevr')}</Typography>
+                                    <Typography variant='caption' color='text.disabled'>({tPub('general.comingSoon')})</Typography>
                                     <TooltipWithParser title={tPub('technologies.aframevrDescription')}>
                                         <Box
                                             sx={{

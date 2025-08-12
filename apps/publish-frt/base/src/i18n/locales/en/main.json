@@ -118,7 +118,7 @@
             "threejs": "Three.js",
             "aframevr": "A-Frame",
             "chatDescription": "Interactive chatbot interface",
-            "arjsDescription": "Augmented reality using AR.js and A-Frame",
+            "arjsDescription": "Augmented reality using AR.js",
             "playcanvasDescription": "3D web exporter based on PlayCanvas",
             "babylonjsDescription": "3D exporter based on Babylon.js",
             "aframevrDescription": "VR exporter based on A-Frame"
@@ -175,6 +175,15 @@
                 "pregeneration": "Pre-generation",
                 "streamingDescription": "Real-time AR.js generation on the client side",
                 "pregenerationDescription": "Pre-generated AR.js on the server (coming soon)"
+            },
+            "displayType": {
+                "label": "AR display type",
+                "wallpaper": "AR wallpaper",
+                "marker": "Standard marker"
+            },
+            "wallpaper": {
+                "label": "Wallpaper type",
+                "standard": "Standard AR wallpaper"
             },
             "loading": "Loading AR scene...",
             "publishedUrl": "Publication URL",
