@@ -112,6 +112,32 @@ Retrieves the raw `flowData` (as a JSON string) and `libraryConfig` for a given 
 
 PlayCanvas publications will follow the same pattern once the endpoints are implemented.
 
+## AR.js Render Configuration in Public API
+
+The AR.js public endpoint now returns optional `renderConfig` derived from `chatbotConfig.arjs` to guide markerless or marker-based rendering on the frontend.
+
+### Response Extension
+
+```json
+{
+  "success": true,
+  "publicationId": "<id>",
+  "flowData": "{...}",
+  "libraryConfig": { /* existing */ },
+  "renderConfig": {
+    "arDisplayType": "wallpaper" | "marker",
+    "wallpaperType": "standard",
+    "markerType": "preset" | "pattern",
+    "markerValue": "hiro" | "<pattern-url>"
+  }
+}
+```
+
+### Source of Values
+
+-   Extracted by `FlowDataService` from `chatflow.chatbotConfig.arjs` if present.
+-   Absent for legacy records; the frontend falls back to marker mode.
+
 ## Architectural Changes Summary
 
 -   **Decoupling**: The `utilBuildUPDLflow` logic was entirely **removed** from the backend and moved to the `UPDLProcessor` class in the `publish-frt` package.

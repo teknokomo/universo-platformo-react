@@ -5,14 +5,18 @@
 
 ## Current Implementation Tasks
 
-### Space Builder MVP (Prompt-to-Flow) ✅ COMPLETED
+### AR.js Wallpaper Mode (Markerless)
 
--   [x] Frontend: FAB + MUI Dialog, model selector (Credentials), i18n, authenticated requests
--   [x] Frontend: Append/Replace modes, node hydration (anchors/handles), placeholder/label fix
--   [x] Backend: /api/v1/space-builder/{health,config,generate} with ensureAuth and rate-limit
--   [x] Backend: ModelFactory (OpenAI-compatible incl. Groq), credential resolution by provider
--   [x] ENV: `SPACE_BUILDER_TEST_MODE`, `GROQ_TEST_API_KEY` in packages/server/.env (+ .env.example)
--   [x] Docs: EN/RU pages and links in Applications and SUMMARY
+-   [x] UI: Add `AR Display Type` selector (default wallpaper) and `Wallpaper type` selector; hide marker controls when wallpaper
+-   [x] Persistence: Save `arDisplayType`/`wallpaperType` to `chatbotConfig.arjs`; include in publish request as `renderConfig`
+-   [x] Backend: Extract `renderConfig` in `FlowDataService` and return from public endpoint
+-   [x] Builder: Implement markerless scene with wireframe sphere; slow rotation (dur 90000)
+-   [x] Public View: Read `renderConfig` and pass to builder with legacy fallbacks
+-   [x] UX: Dim disabled technologies (Babylon.js, A‑Frame) in configuration screen
+-   [x] Docs: Update app READMEs and `docs/en|ru/applications/publish/README.md`
+-   [ ] Wallpaper types: Add more presets (e.g., gradient grid, starfield) and selector previews
+-   [ ] QA: Mobile camera performance check and battery impact for wallpaper mode
+-   [ ] Analytics: Add basic usage metric for display type selection
 
 ### Space Builder Two-step Quiz Flow (Prepare → Preview → Generate)
 
@@ -26,7 +30,6 @@
 -   [x] UI: Add options “Collect Names” (Start) and “Show Final Result” (End), enabled by default
 -   [x] UI: Wider responsive dialog (`maxWidth='md'`), spinner on Generate, state reset after success
 -   [x] Layout: Deterministic coordinates (vertical Space lane; left offsets for Q/A without overlap)
--   [x] Build: Full monorepo build green
 -   [ ] Next: Editable quiz preview (allow editing questions/answers before generate)
 -   [ ] Next: Credentials selection stabilization (non-test mode reliability improvements)
 

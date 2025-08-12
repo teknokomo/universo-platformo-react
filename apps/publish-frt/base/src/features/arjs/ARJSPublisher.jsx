@@ -90,6 +90,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [generationMode, setGenerationMode] = useState('streaming') // Only streaming generation
     // Universo Platformo | State for template type in demo mode
     const [templateType, setTemplateType] = useState('quiz')
+    // AR display mode and wallpaper type
+    const [arDisplayType, setArDisplayType] = useState('wallpaper') // 'wallpaper' | 'marker'
+    const [wallpaperType, setWallpaperType] = useState('standard') // 'standard'
     // Universo Platformo | State for settings loading
     const [settingsLoading, setSettingsLoading] = useState(true)
 
@@ -116,7 +119,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 templateId: templateType,
                 generationMode: generationMode,
                 templateType: templateType,
-                // NEW: Include library configuration
+                arDisplayType: arDisplayType,
+                wallpaperType: wallpaperType,
+                // Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
                     aframe: { version: aframeVersion, source: aframeSource }
@@ -147,6 +152,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         arjsSource,
         aframeVersion,
         aframeSource,
+        arDisplayType,
+        wallpaperType,
         settingsLoading,
         flow?.id
     ]) // Universo Platformo | re-run when flow changes
@@ -173,6 +180,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     setMarkerValue(savedSettings.markerValue || 'hiro')
                     setGenerationMode(savedSettings.generationMode || 'streaming')
                     setTemplateType(savedSettings.templateType || 'quiz')
+                    // AR display mode
+                    setArDisplayType(savedSettings.arDisplayType || (savedSettings.markerType ? 'marker' : 'wallpaper'))
+                    setWallpaperType(savedSettings.wallpaperType || 'standard')
 
                     // NEW: Load library configuration
                     if (savedSettings.libraryConfig) {
@@ -273,34 +283,37 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setIsPublic(value)
 
         // If public toggle is off, reset the URL and save settings
-        if (!value) {
-            setPublishedUrl('')
+                    if (!value) {
+                setPublishedUrl('')
 
-            // Universo Platformo | Save settings with isPublic: false
-            if (!DEMO_MODE && flow?.id) {
-                try {
-                    await ChatflowsApi.saveSettings(flow.id, {
-                        isPublic: false,
-                        projectTitle: projectTitle,
-                        markerType: markerType,
-                        markerValue: markerValue,
-                        templateId: templateType,
-                        generationMode: generationMode,
-                        templateType: templateType,
-                        // NEW: Include library configuration
-                        libraryConfig: {
-                            arjs: { version: arjsVersion, source: arjsSource },
-                            aframe: { version: aframeVersion, source: aframeSource }
-                        }
-                    })
-                    console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
-                } catch (error) {
-                    console.error('📱 [ARJSPublisher] Error saving settings:', error)
-                    setError('Failed to save settings')
+                // Universo Platformo | Save settings with isPublic: false
+                if (!DEMO_MODE && flow?.id) {
+                    try {
+                        await ChatflowsApi.saveSettings(flow.id, {
+                            isPublic: false,
+                            projectTitle: projectTitle,
+                            markerType: markerType,
+                            markerValue: markerValue,
+                            templateId: templateType,
+                            generationMode: generationMode,
+                            templateType: templateType,
+                            // New: AR display config
+                            arDisplayType: arDisplayType,
+                            wallpaperType: wallpaperType,
+                            // NEW: Include library configuration
+                            libraryConfig: {
+                                arjs: { version: arjsVersion, source: arjsSource },
+                                aframe: { version: aframeVersion, source: aframeSource }
+                            }
+                        })
+                        console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
+                    } catch (error) {
+                        console.error('📱 [ARJSPublisher] Error saving settings:', error)
+                        setError('Failed to save settings')
+                    }
                 }
+                return
             }
-            return
-        }
 
         // Universo Platformo | Special handling for demo mode
         if (DEMO_MODE) {
@@ -335,6 +348,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 templateId: templateType,
                 generationMode: generationMode,
                 templateType: templateType,
+                // Ensure AR display config is persisted when publishing
+                arDisplayType: arDisplayType,
+                wallpaperType: wallpaperType,
                 // NEW: Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
@@ -357,9 +373,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 flowData: {
                     flowId: flow.id,
                     projectTitle: projectTitle,
-                    markerType: markerType,
-                    markerValue: markerValue,
                     templateId: templateType,
+                    // New: pass render config for client-side build
+                    renderConfig: {
+                        arDisplayType,
+                        wallpaperType,
+                        markerType,
+                        markerValue
+                    },
                     // NEW: Include library configuration
                     libraryConfig: {
                         arjs: { version: arjsVersion, source: arjsSource },
@@ -511,21 +532,22 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     technology='arjs'
                                 />
 
-                                {/* Type of Marker */}
+                                {/* AR Display Type */}
                                 <FormControl fullWidth variant='outlined' margin='normal'>
-                                    <InputLabel>{t('marker.type')}</InputLabel>
+                                    <InputLabel>{t('arjs.displayType.label')}</InputLabel>
                                     <Select
-                                        value={markerType}
-                                        onChange={handleMarkerTypeChange}
-                                        label={t('marker.type')}
+                                        value={arDisplayType}
+                                        onChange={(e) => setArDisplayType(e.target.value)}
+                                        label={t('arjs.displayType.label')}
                                         disabled={!!publishedUrl}
                                     >
-                                        <MenuItem value='preset'>{t('marker.standard')}</MenuItem>
+                                        <MenuItem value='wallpaper'>{t('arjs.displayType.wallpaper')}</MenuItem>
+                                        <MenuItem value='marker'>{t('arjs.displayType.marker')}</MenuItem>
                                     </Select>
                                 </FormControl>
 
-                                {/* Marker Selection */}
-                                {markerType === 'preset' && (
+                                {/* Marker Selection (only when marker selected) */}
+                                {arDisplayType === 'marker' && (
                                     <FormControl fullWidth variant='outlined' margin='normal'>
                                         <InputLabel>{t('marker.presetLabel')}</InputLabel>
                                         <Select
@@ -535,6 +557,21 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                             disabled={!!publishedUrl}
                                         >
                                             <MenuItem value='hiro'>{t('marker.hiro')}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                )}
+
+                                {/* Wallpaper type (only when wallpaper selected) */}
+                                {arDisplayType === 'wallpaper' && (
+                                    <FormControl fullWidth variant='outlined' margin='normal'>
+                                        <InputLabel>{t('arjs.wallpaper.label')}</InputLabel>
+                                        <Select
+                                            value={wallpaperType}
+                                            onChange={(e) => setWallpaperType(e.target.value)}
+                                            label={t('arjs.wallpaper.label')}
+                                            disabled={!!publishedUrl}
+                                        >
+                                            <MenuItem value='standard'>{t('arjs.wallpaper.standard')}</MenuItem>
                                         </Select>
                                     </FormControl>
                                 )}
@@ -618,23 +655,25 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     </Box>
                                 </Box>
 
-                                {/* Marker Preview */}
-                                <Box sx={{ textAlign: 'center', my: 2 }}>
-                                    <Typography variant='body2' color='text.secondary' gutterBottom>
-                                        {t('preview.title')}
-                                    </Typography>
-                                    {markerType === 'preset' && markerValue && (
-                                        <Box
-                                            component='img'
-                                            src={getMarkerImage()}
-                                            alt={t('marker.alt')}
-                                            sx={{ maxWidth: '200px', border: '1px solid #eee' }}
-                                        />
-                                    )}
-                                    <Typography variant='caption' display='block' sx={{ mt: 1 }}>
-                                        {t('marker.instruction')}
-                                    </Typography>
-                                </Box>
+                                {/* Marker Preview (only when marker selected) */}
+                                {arDisplayType === 'marker' && (
+                                    <Box sx={{ textAlign: 'center', my: 2 }}>
+                                        <Typography variant='body2' color='text.secondary' gutterBottom>
+                                            {t('preview.title')}
+                                        </Typography>
+                                        {markerType === 'preset' && markerValue && (
+                                            <Box
+                                                component='img'
+                                                src={getMarkerImage()}
+                                                alt={t('marker.alt')}
+                                                sx={{ maxWidth: '200px', border: '1px solid #eee' }}
+                                            />
+                                        )}
+                                        <Typography variant='caption' display='block' sx={{ mt: 1 }}>
+                                            {t('marker.instruction')}
+                                        </Typography>
+                                    </Box>
+                                )}
 
                                 {/* Universo Platformo | Make Public Toggle with loading indicator */}
                                 <Box sx={{ my: 3, width: '100%' }}>
@@ -699,8 +738,16 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                             <Typography variant='body2' gutterBottom>
                                                 Инструкция по использованию:
                                             </Typography>
-                                            <Box sx={{ textAlign: 'left', pl: 2 }}>
-                                                <Typography variant='body2' component='div'>
+                                                                                    <Box sx={{ textAlign: 'left', pl: 2 }}>
+                                            <Typography variant='body2' component='div'>
+                                                {arDisplayType === 'wallpaper' ? (
+                                                    <ol>
+                                                        <li>Откройте URL на устройстве с камерой</li>
+                                                        <li>Разрешите доступ к камере</li>
+                                                        <li>Маркер не требуется — фон появится автоматически</li>
+                                                        <li>Проходите квиз</li>
+                                                    </ol>
+                                                ) : (
                                                     <ol>
                                                         <li>Откройте URL на устройстве с камерой</li>
                                                         <li>Разрешите доступ к камере</li>
@@ -709,8 +756,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                                         </li>
                                                         <li>Дождитесь появления 3D объекта</li>
                                                     </ol>
-                                                </Typography>
-                                            </Box>
+                                                )}
+                                            </Typography>
+                                        </Box>
                                         </Box>
                                     </Box>
                                 )}

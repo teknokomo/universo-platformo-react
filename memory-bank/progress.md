@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-08-11**
+**As of 2025-08-12**
 
 ## Completed (chronological)
 
@@ -45,6 +45,17 @@ The initial AR.js implementation faced several challenges:
 These insights informed our revised approach for Stage 3, leading to the simplified architecture we now have.
 
 ## Recent Major Achievements
+
+### ✅ AR.js Wallpaper Mode (Markerless) — Frontend + Server + Docs (2025‑08‑12)
+
+Delivered a markerless AR background option for quizzes:
+
+-   UI: `AR Display Type` (default wallpaper), `Wallpaper type` selector, marker controls hidden when wallpaper; disabled techs visually dimmed
+-   Persistence: `arDisplayType`/`wallpaperType` stored in `chatbotConfig.arjs`; publish request passes `renderConfig`
+-   Backend: `FlowDataService` extracts `renderConfig`; public endpoint returns it
+-   Builder: Markerless generation in `ARJSQuizBuilder` using animated wireframe sphere (rotation `dur: 90000`)
+-   Public View: `ARViewPage` reads `renderConfig`, falls back to marker when missing
+-   Documentation: Updated app READMEs (EN/RU) and `docs/en|ru/applications/publish/README.md`
 
 ### ✅ UPDL Applications Complete Refactoring (Completed)
 
@@ -105,6 +116,13 @@ apps/
 # Progress Log
 
 ## Latest Achievements
+
+### 2025-08-12: AR.js Wallpaper Mode — MVP Delivered ✅
+
+Markerless background for quizzes implemented and documented (see above). Rolling follow-ups:
+
+-   Add additional wallpaper presets and previews
+-   Mobile performance QA; analytics for display type selection
 
 ### 2025-08-10: Space Builder MVP (Prompt-to-Flow) — Frontend + Server ✅
 

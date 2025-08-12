@@ -117,6 +117,14 @@ User-selectable library sources solve CDN blocking issues:
 }
 ```
 
+### AR.js Wallpaper Mode (Markerless)
+
+-   New display option in AR.js exporter: `wallpaper` mode renders an animated wireframe background without `<a-marker>`.
+-   UI: `AR Display Type` selector (default for new projects: wallpaper), `Wallpaper type` selector when wallpaper is chosen, marker controls hidden.
+-   Builder: `ARJSQuizBuilder` renders a wireframe sphere with slower rotation (`dur: 90000`).
+-   Persistence: `chatbotConfig.arjs` stores `arDisplayType` and `wallpaperType` along with `libraryConfig`.
+-   Public API: the AR.js public endpoint returns optional `renderConfig` with the above fields; frontend falls back to marker mode if absent.
+
 ## Backend (publish-srv)
 
 The backend service provides data management and API endpoints as a workspace package (`@universo/publish-srv`).

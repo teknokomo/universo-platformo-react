@@ -10,6 +10,7 @@
 
 **Post-Alpha Development** - Expanding advanced UPDL features and Universo MMOOMM capabilities:
 
+-   **AR.js Wallpaper Mode (markerless) shipped** — verify UX and extend options
 -   **Advanced UPDL Node Types**: Physics, Animation, Networking nodes for complex interactions
 -   **Universo MMOOMM Expansion**: Full MMO development pipeline with PlayCanvas
 -   **Production Deployment**: Enterprise-grade hosting and scaling solutions
@@ -17,8 +18,14 @@
 
 ## Recently Completed
 
+-   **AR.js Wallpaper Mode (Markerless) — Frontend + Server + Docs (2025-08-12)**
+    -   UI: Added `AR Display Type` (default: wallpaper), wallpaper type selector, conditional instructions; dimmed non-working tech options (Babylon.js, A‑Frame)
+    -   Persistence: Save `arDisplayType` and `wallpaperType` into `chatbotConfig.arjs`; publish request includes `renderConfig`
+    -   Backend: `FlowDataService` extracts `renderConfig`; public endpoint returns it
+    -   Builder: Markerless scene in `ARJSQuizBuilder` with animated wireframe sphere (rotation dur 90000)
+    -   Public View: `ARViewPage` reads `renderConfig` and builds accordingly with legacy fallbacks
+    -   Docs: Updated app READMEs and `docs/en|ru/applications/publish/README.md`
 -   **Space Builder MVP (Prompt-to-Flow, Frontend + Server)**: Implemented an end-to-end generator to create UPDL flows from a natural-language prompt on the canvas. Frontend: FAB + MUI Dialog with model selector (from Credentials), authenticated calls, i18n bundle, placeholder/label fixes, append/replace modes, and hydration of nodes for anchors/handles. Server: `/api/v1/space-builder/{health,config,generate}` with `ensureAuth` and rate-limit, provider ModelFactory (OpenAI-compatible including Groq via `https://api.groq.com/openai/v1`), credential resolution by `credentialId`, meta-prompt → RAW JSON extraction → Zod validation → safe normalization. Environment: single server `.env` with `SPACE_BUILDER_TEST_MODE` and `GROQ_TEST_API_KEY`. Documentation: EN/RU pages added and linked in Applications and SUMMARY.
--   **Space Builder Two-step Quiz Flow (Prepare → Preview → Generate)**: Deterministic local builder now constructs the final UPDL graph from `quizPlan` without LLM participation (stable output, no hallucinations, fewer tokens). Implemented layout engine: vertical Space lane, left offsets for Question and Answer nodes with non-overlapping steps; optional Start (Collect Names) and End (Show Final Result) scenes toggled by default. Increased `sourceText` limit to 5000 (server + UI + i18n + docs). Dialog widened responsively (`maxWidth='md'`), spinner added to Generate, and state resets after success. Docs updated (apps READMEs and docs/en|ru). Full monorepo build green.
 
 **Uniks Functionality Extraction and Build System Fixes**: Successfully completed on 2025-08-07. Extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. Archive: [docs/archive/enhancements/2025-08/uniks-functionality-extraction.md](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md)
 
@@ -50,9 +57,9 @@
 
 **Immediate Priorities**:
 
+-   Extend wallpaper variants (additional `wallpaperType`s) and visual presets
 -   Editable quiz preview (edit questions/answers before generation)
 -   Credentials selection stabilization for non‑test mode (reliable provider key usage)
--   Advanced UPDL node development (Physics, Animation, Networking)
 -   Universo MMOOMM feature expansion
 -   Production deployment preparation
 -   Community collaboration features

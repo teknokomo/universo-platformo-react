@@ -584,3 +584,64 @@ For testing and demonstration, the `ARJSPublisher` component has a DEMO_MODE tha
 ---
 
 _Universo Platformo | Publication Frontend Module_
+
+## AR.js Wallpaper Mode (Markerless)
+
+The AR.js exporter now supports a markerless "wallpaper" display mode for quizzes.
+
+### What it does
+
+-   Renders a safe animated background behind the quiz UI without requiring a physical marker.
+-   Uses an animated wireframe sphere placed in the camera as a lightweight AR‑style backdrop.
+
+### UI changes (ARJSPublisher)
+
+-   New selector: `AR Display Type` with options `AR‑wallpaper` and `Standard marker`.
+-   When `AR‑wallpaper` is selected:
+    -   Marker selector and marker preview are hidden.
+    -   A new selector appears: `Wallpaper type` (currently `standard`).
+    -   Publication instructions switch to markerless instructions.
+-   Disabled technologies in the main mode selector are now visually dimmed (Babylon.js, A‑Frame) for clarity.
+
+### Persistence
+
+Settings are saved per space to Supabase in `chatbotConfig.arjs`:
+
+```json
+{
+    "arjs": {
+        "isPublic": true,
+        "projectTitle": "My AR Quiz",
+        "generationMode": "streaming",
+        "arDisplayType": "wallpaper",
+        "wallpaperType": "standard",
+        "libraryConfig": {
+            "arjs": { "version": "3.4.7", "source": "official" },
+            "aframe": { "version": "1.7.1", "source": "official" }
+        }
+    }
+}
+```
+
+### Builder behavior
+
+-   `ARJSQuizBuilder` renders without `<a-marker>` when `arDisplayType = 'wallpaper'`.
+-   Adds an animated wireframe sphere as background; rotation duration set to `90000ms` (slower, smoother motion).
+-   Quiz UI overlays remain unchanged.
+
+### Public view rendering
+
+-   `ARViewPage` retrieves `renderConfig` from the public API and forwards it to `ARJSBuilder.buildFromFlowData`:
+
+```json
+{
+    "renderConfig": {
+        "arDisplayType": "wallpaper",
+        "wallpaperType": "standard",
+        "markerType": "preset", // present for legacy
+        "markerValue": "hiro" // present for legacy
+    }
+}
+```
+
+-   Fallbacks preserve legacy marker behavior when `renderConfig` is missing.

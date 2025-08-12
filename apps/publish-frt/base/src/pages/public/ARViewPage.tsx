@@ -69,18 +69,22 @@ const ARViewPage: React.FC = () => {
                 const arjsBuilder = new ARJSBuilder()
 
                 // NEW: Prepare build options for raw data processing
+                const renderConfig = (publicationData && (publicationData.renderConfig || publicationData.flowData?.renderConfig)) || {}
+                const displayType = renderConfig.arDisplayType || 'marker' // Fallback to marker for legacy
                 const buildOptions = {
                     projectName: publicationData.projectName || 'AR.js Experience',
-                    markerType: 'preset',
-                    markerValue: 'hiro',
                     libraryConfig: publicationData.libraryConfig,
-                    chatflowId: publicationId
+                    chatflowId: publicationId,
+                    ...(displayType === 'wallpaper'
+                        ? { arDisplayType: 'wallpaper', wallpaperType: renderConfig.wallpaperType || 'standard' }
+                        : { markerType: renderConfig.markerType || 'preset', markerValue: renderConfig.markerValue || 'hiro' })
                 }
 
                 console.log('🔧 [ARViewPage] Calling ARJSBuilder.buildFromFlowData with raw data:', {
                     projectName: buildOptions.projectName,
-                    markerType: buildOptions.markerType,
-                    markerValue: buildOptions.markerValue,
+                    displayType,
+                    markerType: displayType === 'marker' ? (renderConfig.markerType || 'preset') : undefined,
+                    markerValue: displayType === 'marker' ? (renderConfig.markerValue || 'hiro') : undefined,
                     hasLibraryConfig: !!buildOptions.libraryConfig,
                     libraryConfigDetails: buildOptions.libraryConfig,
                     flowDataLength: publicationData.flowData.length

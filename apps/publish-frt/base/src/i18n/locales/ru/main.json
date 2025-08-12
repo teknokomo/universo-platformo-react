@@ -119,7 +119,7 @@
             "threejs": "Three.js",
             "aframevr": "A-Frame",
             "chatDescription": "Интерактивный интерфейс чатбота",
-            "arjsDescription": "Дополненная реальность с использованием AR.js и A-Frame",
+            "arjsDescription": "Дополненная реальность с использованием AR.js",
             "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
             "babylonjsDescription": "3D экспортер на основе Babylon.js",
             "aframevrDescription": "Экспортер VR на основе A-Frame"
@@ -176,6 +176,15 @@
                 "pregeneration": "Предварительная генерация",
                 "streamingDescription": "Генерация AR.js в реальном времени на стороне клиента",
                 "pregenerationDescription": "Предварительная генерация AR.js на сервере (в разработке)"
+            },
+            "displayType": {
+                "label": "Тип AR-отображения",
+                "wallpaper": "AR-обои",
+                "marker": "Стандартный маркер"
+            },
+            "wallpaper": {
+                "label": "Тип обоев",
+                "standard": "Стандартные AR-обои"
             },
             "loading": "Загрузка AR сцены...",
             "publishedUrl": "Ссылка на публикацию",

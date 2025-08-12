@@ -107,6 +107,32 @@ API теперь оптимизирован для обработки запис
 }
 ```
 
+## Параметры рендеринга AR.js в публичном API
+
+Публичный эндпоинт AR.js теперь возвращает необязательный блок `renderConfig`, извлекаемый из `chatbotConfig.arjs`, чтобы фронтенд корректно выбирал безмаркерный или маркерный режим.
+
+### Расширение ответа
+
+```json
+{
+  "success": true,
+  "publicationId": "<id>",
+  "flowData": "{...}",
+  "libraryConfig": { /* как раньше */ },
+  "renderConfig": {
+    "arDisplayType": "wallpaper" | "marker",
+    "wallpaperType": "standard",
+    "markerType": "preset" | "pattern",
+    "markerValue": "hiro" | "<pattern-url>"
+  }
+}
+```
+
+### Источник значений
+
+-   Извлекается `FlowDataService` из `chatflow.chatbotConfig.arjs`, если присутствует.
+-   Отсутствует для наследуемых записей; фронтенд использует поведение по умолчанию с маркером.
+
 ## Краткий обзор архитектурных изменений
 
 -   **Разделение логики**: Логика `utilBuildUPDLflow` была полностью **удалена** из бэкенда и перенесена в класс `UPDLProcessor` в пакете `publish-frt`.
