@@ -11,13 +11,19 @@ Space Builder consists of two packages:
 
 The UI supports a two‑step workflow for quiz building:
 
--   Prepare: paste study material (1..2000 chars), select model and counts (N questions, M answers), receive a `quizPlan`
+-   Prepare: paste study material (1..5000 chars), select model and counts (N questions, M answers), receive a `quizPlan`
 -   Generate: review the quiz preview and then generate a UPDL graph from the plan
 
 The UI can apply the generated graph in two modes:
 
 -   Append: merge with the current canvas (ID remap + position offset)
 -   Replace: clear current canvas and set the generated graph
+
+## Deterministic builder
+
+-   The final UPDL graph is built by a deterministic local builder from the validated quiz plan (no LLM step here).
+-   This stabilizes results, avoids hallucinations and reduces token usage.
+-   Node names and coordinates are assigned by the builder for consistent layouts.
 
 ## Environment
 
@@ -38,7 +44,7 @@ GROQ_TEST_API_KEY=...
 -   `GET /api/v1/space-builder/health` → `{ ok: true }`
 -   `GET /api/v1/space-builder/config` → `{ testMode: boolean }`
 -   `POST /api/v1/space-builder/prepare`
-    -   Request: `{ sourceText: string (1..2000), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
+    -   Request: `{ sourceText: string (1..5000), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
     -   Response: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
 -   `POST /api/v1/space-builder/generate`
     -   Request: either `{ question: string, selectedChatModel: {...} }` or `{ quizPlan: QuizPlan, selectedChatModel: {...} }`
@@ -50,7 +56,7 @@ Register translations once and render the FAB.
 
 Two-step UI (Prepare → Preview → Generate):
 
--   Prepare: paste material (1..2000 chars), pick model, choose N×M, click Prepare; the dialog shows a non-editable quiz preview
+-   Prepare: paste material (1..5000 chars), pick model, choose N×M, click Prepare; the dialog shows a non-editable quiz preview
 -   Generate: click Generate to build a UPDL graph from the plan; choose Append or Replace to apply to the canvas
 
 ```ts

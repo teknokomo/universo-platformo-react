@@ -24,6 +24,9 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   const [answersPerQuestion, setAnswersPerQuestion] = useState(2)
   const [quizPlan, setQuizPlan] = useState<any>(null)
   const [testMode, setTestMode] = useState(false)
+  const [collectNames, setCollectNames] = useState(true)
+  const [showFinal, setShowFinal] = useState(true)
+  const [graphicsForAnswers] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -50,8 +53,20 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   }, [models, testMode])
 
   const model = useMemo(() => effectiveModels.find((m) => m.key === modelKey) || effectiveModels?.[0], [effectiveModels, modelKey])
-  const tooLong = sourceText.length > 2000
+  const tooLong = sourceText.length > 5000
   const canPrepare = Boolean(sourceText.trim() && model && !tooLong)
+
+  function resetState() {
+    setStep('input')
+    setSourceText('')
+    setModelKey(models?.[0]?.key || '')
+    setAppend(true)
+    setQuestionsCount(1)
+    setAnswersPerQuestion(2)
+    setQuizPlan(null)
+    setCollectNames(true)
+    setShowFinal(true)
+  }
 
   if (!open) return null
 
@@ -80,8 +95,9 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     if (!quizPlan || !model) return
     setBusy(true)
     try {
-      const data = await generateFlow({ quizPlan, selectedChatModel: model! })
+      const data = await generateFlow({ quizPlan, selectedChatModel: model!, options: { includeStartCollectName: collectNames, includeEndScore: showFinal, generateAnswerGraphics: false } })
       onApply(data, append ? 'append' : 'replace')
+      resetState()
       onClose()
     } catch (err: any) {
       // eslint-disable-next-line no-console
@@ -94,7 +110,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   }
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth='sm'>
+    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth='md'>
       <DialogTitle>{t('spaceBuilder.title')}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {step === 'input' && (
@@ -107,9 +123,9 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               placeholder={t('spaceBuilder.source') || ''}
               value={sourceText}
               onChange={(e) => setSourceText(e.target.value)}
-              inputProps={{ maxLength: 2000 }}
+              inputProps={{ maxLength: 5000 }}
               error={tooLong}
-              helperText={`${sourceText.length}/2000`}
+              helperText={`${sourceText.length}/5000`}
               autoFocus
             />
             <FormControl fullWidth disabled={!effectiveModels?.length}>
@@ -153,6 +169,18 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               control={<Checkbox checked={append} onChange={(e) => setAppend(e.target.checked)} />}
               label={t('spaceBuilder.append') || 'Append to current flow'}
             />
+            <FormControlLabel
+              control={<Checkbox checked={collectNames} onChange={(e) => setCollectNames(e.target.checked)} />}
+              label={t('spaceBuilder.collectNames')}
+            />
+            <FormControlLabel
+              control={<Checkbox checked={showFinal} onChange={(e) => setShowFinal(e.target.checked)} />}
+              label={t('spaceBuilder.showFinal')}
+            />
+            <FormControlLabel
+              control={<Checkbox checked={graphicsForAnswers} disabled />}
+              label={t('spaceBuilder.graphicsForAnswers')}
+            />
           </>
         )}
 
@@ -185,7 +213,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             <Button onClick={onClose} disabled={busy}>
               {t('spaceBuilder.cancel') || 'Cancel'}
             </Button>
-            <LoadingButton loading={busy} onClick={onPrepare} disabled={!canPrepare || busy}>
+            <LoadingButton loading={busy} loadingPosition='start' onClick={onPrepare} disabled={!canPrepare || busy} variant='contained'>
               {busy ? t('spaceBuilder.preparing') || 'Preparing…' : t('spaceBuilder.prepare') || 'Prepare'}
             </LoadingButton>
           </>
@@ -194,7 +222,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             <Button onClick={() => setStep('input')} disabled={busy}>
               {t('spaceBuilder.back') || 'Back'}
             </Button>
-            <LoadingButton loading={busy} onClick={onGenerate} disabled={!quizPlan || busy}>
+            <LoadingButton loading={busy} loadingPosition='start' onClick={onGenerate} disabled={!quizPlan || busy} variant='contained'>
               {busy ? t('spaceBuilder.generating') || 'Generating…' : t('spaceBuilder.generate') || 'Generate'}
             </LoadingButton>
           </>

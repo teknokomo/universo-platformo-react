@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-08-10**
+**As of 2025-08-11**
 
 ## Completed (chronological)
 
@@ -115,16 +115,19 @@ Implemented a new Space Builder application pair enabling prompt-to-flow generat
 -   ENV: Single server `.env` with `SPACE_BUILDER_TEST_MODE` and `GROQ_TEST_API_KEY` (placeholders in `.env.example`).
 -   Docs: EN/RU pages added; linked in Applications and SUMMARY; apps READMEs updated.
 
-### 2025-08-11: Space Builder Two-step Quiz Flow and Limit Increase ✅
+### 2025-08-11: Space Builder Two-step Quiz Flow, Deterministic Builder, and UI Improvements ✅
 
-Delivered a robust two-step workflow for Space Builder and increased input size limits:
+Shipped a stable, deterministic prompt-to-flow experience with improved UX and updated docs:
 
--   Added `/api/v1/space-builder/prepare` endpoint and `QuizPlan` Zod schema; strict JSON-only prompts
--   Implemented `proposeQuiz`/`generateFromPlan` with deterministic fallback graph (includes a Space node)
--   Frontend dialog updated to Prepare → Preview → Generate with N×M controls and non-editable preview
--   Test Mode improvements: synthetic `groq_test` model shown if models are absent; server-side test-mode fallback
--   Increased `sourceText` limit from 1000 to 2000 (server validation, UI, i18n, docs)
--   Docs updated in apps and `docs/en|ru/applications/space-builder/README.md`; full monorepo build green
+-   Deterministic local builder: final UPDL graph is built from `quizPlan` without LLM, stabilizing output and avoiding hallucinations; predictable node naming and coordinates
+-   Layout engine: vertical Space lane with consistent spacing; left offsets for Question and Answer Data nodes with non-overlapping horizontal steps
+-   Optional Start/End: new UI options “Collect Names” (Start) and “Show Final Result” (End) enabled by default
+-   Input limit: increased `sourceText` limit to 5000 chars (server + UI + i18n + docs)
+-   Adaptive dialog: wider, responsive `maxWidth='md'` without horizontal scrollbar; visible spinner on Generate
+-   State reset: dialog state fully clears after successful generation
+-   Endpoints: `/prepare` (strict Zod `QuizPlan`) and `/generate` (plan-based)
+-   Docs: READMEs (apps) and `docs/en|ru/applications/space-builder/` updated to reflect deterministic builder and new options
+-   Build: full monorepo build green
 
 ### 2025-07-26: Universo MMOOMM Laser Mining System (v0.22.0-alpha development) ✅
 

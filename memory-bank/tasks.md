@@ -21,8 +21,11 @@
 -   [x] Backend: Test-mode provider fallback (`groq_test`) in ModelFactory when `SPACE_BUILDER_TEST_MODE=true`
 -   [x] Frontend: Two-step dialog (input with N×M controls → preview → generate)
 -   [x] Frontend: Synthetic model in test mode when models list is empty
--   [x] Validation: Increase `sourceText` limit to 2000 (server + UI + i18n + docs)
--   [x] Documentation: Update apps READMEs and docs/en|ru with new flow and endpoints
+-   [x] Validation: Increase `sourceText` limit to 5000 (server + UI + i18n + docs)
+-   [x] Documentation: Update apps READMEs and docs/en|ru with deterministic builder, layout rules, and options
+-   [x] UI: Add options “Collect Names” (Start) and “Show Final Result” (End), enabled by default
+-   [x] UI: Wider responsive dialog (`maxWidth='md'`), spinner on Generate, state reset after success
+-   [x] Layout: Deterministic coordinates (vertical Space lane; left offsets for Q/A without overlap)
 -   [x] Build: Full monorepo build green
 -   [ ] Next: Editable quiz preview (allow editing questions/answers before generate)
 -   [ ] Next: Credentials selection stabilization (non-test mode reliability improvements)

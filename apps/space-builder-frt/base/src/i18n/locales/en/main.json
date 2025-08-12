@@ -3,7 +3,7 @@
     "fabTooltip": "Build from prompt",
     "title": "Build Space from Prompt",
     "prompt": "Describe what to build",
-    "source": "Paste study material (up to 2000 characters)",
+    "source": "Paste study material (up to 5000 characters)",
     "questionsCount": "Number of questions",
     "answersPerQuestion": "Answers per question",
     "previewTitle": "Quiz preview",
@@ -16,6 +16,9 @@
     "generating": "Generating…",
     "cancel": "Cancel",
     "back": "Back",
-    "error": "Generation failed"
+    "error": "Generation failed",
+    "collectNames": "Collect participant names",
+    "showFinal": "Show final score",
+    "graphicsForAnswers": "Generate graphics for answers (coming soon)"
   }
 }

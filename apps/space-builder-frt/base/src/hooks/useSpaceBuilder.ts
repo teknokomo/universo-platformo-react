@@ -14,6 +14,11 @@ export interface GenerateFlowPayload {
   question?: string
   selectedChatModel: SelectedChatModel
   quizPlan?: QuizPlan
+  options?: {
+    includeStartCollectName: boolean
+    includeEndScore: boolean
+    generateAnswerGraphics: boolean
+  }
 }
 
 export interface GeneratedFlowResponse {
