@@ -53,7 +53,7 @@ import useNotifier from '@/utils/useNotifier'
 import { usePrompt } from '@/utils/usePrompt'
 
 // const
-import { FLOWISE_CREDENTIAL_ID } from '@/store/constant'
+import { FLOWISE_CREDENTIAL_ID, uiBaseURL } from '@/store/constant'
 // Space Builder i18n and FAB
 import { SpaceBuilderFab, registerSpaceBuilderI18n } from '@universo/space-builder-frt'
 import credentialsApi from '@/api/credentials'
@@ -299,6 +299,70 @@ const Canvas = () => {
         }
     }
 
+    // Append new graph below the lowest existing nodes with safe vertical margin
+    const handleAppendGeneratedGraphBelow = (graph) => {
+        try {
+            const hydrated = hydrateGeneratedGraph(graph)
+            const nodesNew = Array.isArray(hydrated?.nodes) ? hydrated.nodes : []
+            const edgesNew = Array.isArray(hydrated?.edges) ? hydrated.edges : []
+
+            const existing = reactFlowInstance?.getNodes?.() || []
+            if (!existing.length) return handleApplyGeneratedGraph(graph)
+
+            // Use measured node height when available; fall back to a conservative estimate
+            const DEFAULT_NODE_HEIGHT = 500
+            const MARGIN_Y = 260
+            const readHeight = (n) => {
+                const h = Number(n?.height || n?.measured?.height || n?.dimensions?.height || 0)
+                return Number.isFinite(h) && h > 0 ? h : DEFAULT_NODE_HEIGHT
+            }
+
+            const existingBottom = Math.max(
+                ...existing.map((n) => Number(n?.position?.y || 0) + readHeight(n))
+            )
+            const minNewY = nodesNew.length ? Math.min(...nodesNew.map((n) => Number(n?.position?.y || 0))) : 0
+            const shiftY = Math.max(existingBottom + MARGIN_Y - minNewY, 0)
+
+            const existingIds = new Set(existing.map((n) => n.id))
+            const { nodes: remappedNodes, edges: remappedEdges } = remapIds(nodesNew, edgesNew, existingIds)
+
+            const shifted = remappedNodes.map((n) => ({
+                ...n,
+                position: { x: Number(n.position?.x || 0), y: Number(n.position?.y || 0) + shiftY }
+            }))
+
+            setNodes((curr) => [...curr, ...shifted])
+            setEdges((curr) => [...curr, ...remappedEdges])
+            setTimeout(() => setDirty(), 0)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    // Open a new chatflow tab and hand off generated graph using existing duplication channel
+    const handleNewSpaceFromGeneratedGraph = (graph) => {
+        try {
+            const existing = reactFlowInstance?.getNodes?.() || []
+            if (!existing.length) return handleApplyGeneratedGraph(graph)
+
+            const { nodes, edges } = hydrateGeneratedGraph(graph)
+            const payload = JSON.stringify({ nodes, edges })
+
+            // Reuse duplication storage key consumed by /chatflows/new
+            localStorage.setItem('duplicatedFlowData', payload)
+
+            const parentId = localStorage.getItem('parentUnikId') || unikId
+            if (parentId) {
+                window.open(`${uiBaseURL}/uniks/${parentId}/chatflows/new`, '_blank', 'noopener')
+            } else {
+                // Fallback: open generic new; consumer will still try to read duplicatedFlowData
+                window.open(`${uiBaseURL}/chatflows/new`, '_blank', 'noopener')
+            }
+        } catch (e) {
+            console.error('[SpaceBuilder] open new space failed', e)
+        }
+    }
+
     const remapIds = (nodes, edges, existingIds) => {
         const map = new Map()
         const uniq = (base) => {
@@ -331,26 +395,6 @@ const Canvas = () => {
             }
         })
         return { nodes: n2, edges: e2 }
-    }
-
-    const handleAppendGeneratedGraph = (graph) => {
-        try {
-            const hydrated = hydrateGeneratedGraph(graph)
-            const nodesNew = Array.isArray(hydrated?.nodes) ? hydrated.nodes : []
-            const edgesNew = Array.isArray(hydrated?.edges) ? hydrated.edges : []
-            const existingIds = new Set((reactFlowInstance?.getNodes() || []).map((n) => n.id))
-            const { nodes: remappedNodes, edges: remappedEdges } = remapIds(nodesNew, edgesNew, existingIds)
-            const offset = { x: 300, y: 80 }
-            const shifted = remappedNodes.map((n) => ({
-                ...n,
-                position: n.position ? { x: Number(n.position.x || 0) + offset.x, y: Number(n.position.y || 0) + offset.y } : { x: offset.x, y: offset.y }
-            }))
-            setNodes((curr) => [...curr, ...shifted])
-            setEdges((curr) => [...curr, ...remappedEdges])
-            setTimeout(() => setDirty(), 0)
-        } catch (e) {
-            console.error(e)
-        }
     }
 
     const handleDeleteFlow = async () => {
@@ -844,7 +888,8 @@ const Canvas = () => {
                                     sx={{ position: 'absolute', left: 76, top: 20, zIndex: 1100 }}
                                     models={availableChatModels}
                                     onApply={(graph, mode) => {
-                                        if (mode === 'append') return handleAppendGeneratedGraph(graph)
+                                        if (mode === 'append') return handleAppendGeneratedGraphBelow(graph)
+                                        if (mode === 'newSpace') return handleNewSpaceFromGeneratedGraph(graph)
                                         handleApplyGeneratedGraph(graph)
                                     }}
                                     onError={(message) => enqueueSnackbar({

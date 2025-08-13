@@ -8,7 +8,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 export type SpaceBuilderDialogProps = {
   open: boolean
   onClose: () => void
-  onApply: (graph: { nodes: unknown[]; edges: unknown[] }, mode: 'append' | 'replace') => void
+  onApply: (graph: { nodes: unknown[]; edges: unknown[] }, mode: 'append' | 'replace' | 'newSpace') => void
   models: Array<{ key: string; label: string; provider: string; modelName: string; credentialId: string }>
   onError?: (message: string) => void
 }
@@ -21,7 +21,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   const [additionalConditions, setAdditionalConditions] = useState('')
   const [reviseText, setReviseText] = useState('')
   const [modelKey, setModelKey] = useState(models?.[0]?.key || '')
-  const [append, setAppend] = useState(true)
+  const [creationMode, setCreationMode] = useState<'replace' | 'append' | 'newSpace'>('newSpace')
   const [busy, setBusy] = useState(false)
   const [questionsCount, setQuestionsCount] = useState(1)
   const [answersPerQuestion, setAnswersPerQuestion] = useState(2)
@@ -93,7 +93,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     setAdditionalConditions('')
     setReviseText('')
     setModelKey('')
-    setAppend(true)
+    setCreationMode('newSpace')
     setQuestionsCount(1)
     setAnswersPerQuestion(2)
     setQuizPlan(null)
@@ -151,7 +151,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     setBusy(true)
     try {
       const data = await generateFlow({ quizPlan, selectedChatModel: model!, options: { includeStartCollectName: collectNames, includeEndScore: showFinal, generateAnswerGraphics: false } })
-      onApply(data, append ? 'append' : 'replace')
+      onApply(data, creationMode)
       resetState()
       onClose()
     } catch (err: any) {
@@ -226,10 +226,14 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             <>
               <Typography variant='h6'>{t('spaceBuilder.settingsTitle') || 'Generation settings'}</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <FormControlLabel
-                  control={<Checkbox checked={append} onChange={(e) => setAppend(e.target.checked)} />}
-                  label={t('spaceBuilder.append') || 'Append to current flow'}
-                />
+                <FormControl fullWidth>
+                  <InputLabel>{t('spaceBuilder.creationModeLabel') || 'Creation mode'}</InputLabel>
+                  <Select label={t('spaceBuilder.creationModeLabel') || 'Creation mode'} value={creationMode} onChange={(e) => setCreationMode(String(e.target.value) as any)}>
+                    <MenuItem value='newSpace'>{t('spaceBuilder.creationMode.newSpace')}</MenuItem>
+                    <MenuItem value='replace'>{t('spaceBuilder.creationMode.replace')}</MenuItem>
+                    <MenuItem value='append'>{t('spaceBuilder.creationMode.append')}</MenuItem>
+                  </Select>
+                </FormControl>
                 <FormControlLabel
                   control={<Checkbox checked={collectNames} onChange={(e) => setCollectNames(e.target.checked)} />}
                   label={t('spaceBuilder.collectNames')}

@@ -31,6 +31,12 @@
     "reviseInstructions": "What to change?",
     "revise": "Change",
     "revising": "Applying…",
-    "tooManyRequests": "Too many requests, please try again later."
+    "tooManyRequests": "Too many requests, please try again later.",
+    "creationModeLabel": "Creation mode",
+    "creationMode": {
+      "replace": "Clear current canvas",
+      "newSpace": "Create a new space",
+      "append": "Append to current space (as separate nodes)"
+    }
   }
 }

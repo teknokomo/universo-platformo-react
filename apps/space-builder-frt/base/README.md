@@ -28,12 +28,12 @@ The Space Builder UI reads a server-side config to toggle Test mode:
 
 Credentials-based models are discovered from existing Flowise credentials (OpenAI, AzureOpenAI, Groq) and shown in the model dropdown.
 
-## Behavior (append vs replace)
+## Behavior (creation mode)
 
--   When the option "Append to current flow" is enabled, the generated graph is merged:
-    -   New node IDs are remapped to avoid collisions
-    -   Node positions are offset so the new graph appears near the current one
--   When the option is disabled, the current canvas is replaced entirely by the generated graph
+-   The Settings step exposes a "Creation mode" select with three options:
+    -   "Clear current canvas" — replaces the current canvas with the generated graph
+    -   "Create a new space" — if the canvas has nodes, opens a new tab and transfers the graph there via `localStorage`; if empty, behaves like replace
+    -   "Append to current space (as separate nodes)" — appends with ID remap and safe vertical offset below the lowest nodes
 
 ## Why `tsconfig.esm.json`
 
@@ -62,8 +62,9 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 ;<SpaceBuilderFab
     models={availableChatModels}
     onApply={(graph, mode) => {
-        if (mode === 'append') return handleAppendGeneratedGraph(graph)
-        handleApplyGeneratedGraph(graph)
+        if (mode === 'append') return handleAppendGeneratedGraphBelow(graph)
+        if (mode === 'newSpace') return handleNewSpaceFromGeneratedGraph(graph)
+        handleApplyGeneratedGraph(graph) // replace
     }}
 />
 ```
@@ -97,13 +98,13 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 3. Settings
 
--   Click "Configure" to open the generation settings (append/collect names/show final)
+-   Click "Configure" to open the generation settings (creation mode/collect names/show final)
 -   Model selection is available from the gear icon in the bottom-left (Model settings modal)
 
 4. Generate
 
 -   Click "Generate" → the UI calls `POST /api/v1/space-builder/generate` with the `quizPlan`
--   The resulting UPDL graph is applied to the canvas (Append or Replace based on the checkbox)
+-   The resulting UPDL graph is applied according to the chosen mode (Append / Replace / New Space)
 
 Notes:
 
