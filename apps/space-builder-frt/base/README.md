@@ -7,7 +7,7 @@ Frontend UI components for prompt-to-flow generation in Universo Platformo (Spac
 This package provides reusable React components:
 
 -   SpaceBuilderFab: floating action button to open the generator dialog
--   SpaceBuilderDialog: modal to type a request and select a chat model/credential
+-   SpaceBuilderDialog: modal to type a request; model selection moved to a gear-button modal
 -   Hook `useSpaceBuilder` to call the backend API `/api/v1/space-builder/generate`
 -   I18n helper `registerSpaceBuilderI18n` to merge translations (EN/RU) into the host app
 
@@ -80,12 +80,11 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 -   Use the shared Axios client in the host app for authenticated calls
 -   No secrets are stored in this package; model keys are resolved on the server side
 
-## Two-step flow (Prepare → Preview → Generate)
+## Three-step flow (Prepare → Preview → Settings → Generate)
 
 1. Prepare
 
 -   Paste study material into the input (limit 5000 characters)
--   Select a chat model/credential
 -   Choose number of questions (1–10, default 1) and answers per question (2–5, default 2)
 -   Click "Prepare" → the UI calls `POST /api/v1/space-builder/prepare` and receives a `quizPlan`
 
@@ -95,7 +94,12 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 -   Editing is not available at this stage
 -   You can click "Back" to adjust the source text or settings
 
-3. Generate
+3. Settings
+
+-   Click "Configure" to open the generation settings (append/collect names/show final)
+-   Model selection is available from the gear icon in the bottom-left (Model settings modal)
+
+4. Generate
 
 -   Click "Generate" → the UI calls `POST /api/v1/space-builder/generate` with the `quizPlan`
 -   The resulting UPDL graph is applied to the canvas (Append or Replace based on the checkbox)
@@ -103,4 +107,5 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 Notes:
 
 -   In test mode (`SPACE_BUILDER_TEST_MODE=true` on the server), if the host app supplies no models, the UI exposes a synthetic provider entry `Groq Test: llama-3-8b-8192` so that the feature works without user credentials.
+-   In test mode the server always uses the Groq Test provider regardless of the chosen model; the Model settings modal shows an info note.
 -   Endpoints are protected; the client uses a refresh flow on 401 to retry requests.

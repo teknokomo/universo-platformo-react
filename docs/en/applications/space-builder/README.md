@@ -9,10 +9,12 @@ Space Builder consists of two packages:
 -   `apps/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
 -   `apps/space-builder-srv` — API (meta‑prompt, provider call, JSON extraction, Zod validation)
 
-The UI supports a two‑step workflow for quiz building:
+The UI supports a three‑step workflow for quiz building (Prepare → Preview → Settings → Generate):
 
--   Prepare: paste study material (1..5000 chars), select model and counts (N questions, M answers), receive a `quizPlan`
--   Generate: review the quiz preview and then generate a UPDL graph from the plan
+-   Prepare: paste study material (1..5000 chars), choose counts (N questions, M answers), click Prepare to receive a `quizPlan`
+-   Preview: review the proposed questions and answers (non‑editable) and click Configure
+-   Settings: choose generation options (Append to current flow, Collect participant names, Show final score); model selection is available from the gear button in the bottom‑left of the dialog
+-   Generate: build a UPDL graph from the plan and apply it to the canvas
 
 The UI can apply the generated graph in two modes:
 
@@ -54,9 +56,11 @@ GROQ_TEST_API_KEY=...
 
 Register translations once and render the FAB.
 
-Two-step UI (Prepare → Preview → Generate):
+Three-step UI (Prepare → Preview → Settings → Generate):
 
--   Prepare: paste material (1..5000 chars), pick model, choose N×M, click Prepare; the dialog shows a non-editable quiz preview
+-   Prepare: paste material (1..5000 chars), choose N×M, click Prepare; the dialog shows a non‑editable quiz preview
+-   Preview: click Configure to proceed to Settings
+-   Settings: pick generation options; model selection is available from the gear button in the bottom‑left of the dialog
 -   Generate: click Generate to build a UPDL graph from the plan; choose Append or Replace to apply to the canvas
 
 ```ts
