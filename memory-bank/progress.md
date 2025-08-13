@@ -4,32 +4,31 @@
 
 ## Completed (chronological)
 
-| Release          | Date       | Highlights                                                                                                                    |
-| ---------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 0.1.0‑pre‑alpha  | 2025‑03‑03 | Initial project scaffold created                                                                                              |
-| 0.2.0‑pre‑alpha  | 2025‑03‑11 | Added multi‑user (Supabase) foundation                                                                                        |
-| 0.3.0‑pre‑alpha  | 2025‑03‑17 | Basic **Uniks** functionality delivered                                                                                       |
-| 0.4.0‑pre‑alpha  | 2025‑03‑25 | Full Uniks feature‑set shipped                                                                                                |
-| 0.5.0‑pre‑alpha  | 2025‑03‑30 | Document Store, Templates, complete i18n                                                                                      |
-| 0.6.0‑pre‑alpha  | 2025‑04‑06 | Chatbots module, Auth UI, language‑file refactor                                                                              |
-| 0.7.0‑pre‑alpha  | 2025‑04‑16 | First AR prototype with **AR.js** marker scene                                                                                |
-| 0.8.0‑pre‑alpha  | 2025‑04‑22 | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created                       |
-| 0.8.5‑pre‑alpha  | 2025‑04‑29 | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                          |
-| 0.9.0‑pre‑alpha  | 2025‑05‑12 | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support           |
-| 0.10.0‑pre‑alpha | 2025‑05‑08 | Memory bank updates, Publishing/UPDL apps enhancement, authorization improvements                                             |
-| 0.11.0‑pre‑alpha | 2025‑05‑15 | Global refactoring Stage 2 results, Gulp task manager, app separation (updl/publish)                                          |
-| 0.12.0‑pre‑alpha | 2025‑05‑22 | Removed pre-generation test functionality, UPDL export cleanup                                                                |
-| 0.13.0‑pre‑alpha | 2025‑05‑28 | AR.js library location selection, flexible UPDL assembly, multiple objects support                                            |
-| 0.14.0‑pre‑alpha | 2025‑06‑04 | AR.js library loading functionality, AR bot code removal, project cleanup                                                     |
-| 0.15.0‑pre‑alpha | 2025‑06‑13 | **Flowise 3.0.1 attempted upgrade with rollback** to 2.2.7-patch.1, UPDL scoring system                                       |
-| 0.16.0‑pre‑alpha | 2025‑06‑21 | Russian localization fixes, analytics app separation, user profile enhancements                                               |
-| 0.17.0‑pre‑alpha | 2025‑06‑25 | Enhanced user profile fields, menu updates, profile-srv workspace package conversion                                          |
-| 0.18.0‑pre‑alpha | 2025‑07‑01 | **Flowise 2.2.8 upgrade**, TypeScript compilation fixes, TypeORM conflicts resolution                                         |
-| 0.19.0‑pre‑alpha | 2025‑07‑06 | **High-level UPDL nodes**, PlayCanvas integration, template-first architecture, MMOOMM foundation                             |
-| 0.20.0‑alpha     | 2025‑07‑13 | **Alpha status achieved**, Tools Revolution, complete UPDL system, PlayCanvas rendering, template system                      |
-| 0.21.0‑alpha     | 2025‑07‑20 | **Firm Resolve**, Memory Bank optimization, MMOOMM stabilization, handler refactoring, improved ship controls                 |
-| 0.22.0‑alpha     | 2025‑07‑27 | **Global Impulse**, laser mining, inventory consolidation, ship refactor, resource density, docs & memory bank updates        |
-| 0.23.0‑alpha     | 2025‑08‑05 | **Vanishing Asteroid**, docs translation updates, UPDL conditional params, MMOOMM fixes (entity scale, trading), custom modes |
+| Release          | Date       | Highlights                                                                                                             |
+| ---------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0.1.0‑pre‑alpha  | 2025‑03‑03 | Initial project scaffold created                                                                                       |
+| 0.2.0‑pre‑alpha  | 2025‑03‑11 | Added multi‑user (Supabase) foundation                                                                                 |
+| 0.3.0‑pre‑alpha  | 2025‑03‑17 | Basic **Uniks** functionality delivered                                                                                |
+| 0.4.0‑pre‑alpha  | 2025‑03‑25 | Full Uniks feature‑set shipped                                                                                         |
+| 0.5.0‑pre‑alpha  | 2025‑03‑30 | Document Store, Templates, complete i18n                                                                               |
+| 0.6.0‑pre‑alpha  | 2025‑04‑06 | Chatbots module, Auth UI, language‑file refactor                                                                       |
+| 0.7.0‑pre‑alpha  | 2025‑04‑16 | First AR prototype with **AR.js** marker scene                                                                         |
+| 0.8.0‑pre‑alpha  | 2025‑04‑22 | Enhanced Supabase authentication with secure token refresh, Memory Bank documentation structure created                |
+| 0.8.5‑pre‑alpha  | 2025‑04‑29 | UPDL to A-Frame converter implemented, exporter architecture, basic publication flow                                   |
+| 0.9.0‑pre‑alpha  | 2025‑05‑12 | Refactored "Publish & Export" interface, separated ARJSPublisher and ARJSExporter components, improved i18n support    |
+| 0.10.0‑pre‑alpha | 2025‑05‑08 | Memory bank updates, Publishing/UPDL apps enhancement, authorization improvements                                      |
+| 0.11.0‑pre‑alpha | 2025‑05‑15 | Global refactoring Stage 2 results, Gulp task manager, app separation (updl/publish)                                   |
+| 0.12.0‑pre‑alpha | 2025‑05‑22 | Removed pre-generation test functionality, UPDL export cleanup                                                         |
+| 0.13.0‑pre‑alpha | 2025‑05‑28 | AR.js library location selection, flexible UPDL assembly, multiple objects support                                     |
+| 0.14.0‑pre‑alpha | 2025‑06‑04 | AR.js library loading functionality, AR bot code removal, project cleanup                                              |
+| 0.15.0‑pre‑alpha | 2025‑06‑13 | **Flowise 3.0.1 attempted upgrade with rollback** to 2.2.7-patch.1, UPDL scoring system                                |
+| 0.16.0‑pre‑alpha | 2025‑06‑21 | Russian localization fixes, analytics app separation, user profile enhancements                                        |
+| 0.17.0‑pre‑alpha | 2025‑06‑25 | Enhanced user profile fields, menu updates, profile-srv workspace package conversion                                   |
+| 0.18.0‑pre‑alpha | 2025‑07‑01 | **Flowise 2.2.8 upgrade**, TypeScript compilation fixes, TypeORM conflicts resolution                                  |
+| 0.19.0‑pre‑alpha | 2025‑07‑06 | **High-level UPDL nodes**, PlayCanvas integration, template-first architecture, MMOOMM foundation                      |
+| 0.20.0‑alpha     | 2025‑07‑13 | **Alpha status achieved**, Tools Revolution, complete UPDL system, PlayCanvas rendering, template system               |
+| 0.21.0‑alpha     | 2025‑07‑20 | **Firm Resolve**, Memory Bank optimization, MMOOMM stabilization, handler refactoring, improved ship controls          |
+| 0.22.0‑alpha     | 2025‑07‑27 | **Global Impulse**, laser mining, inventory consolidation, ship refactor, resource density, docs & memory bank updates |
 
 ## Stage 2 Issues & Lessons Learned
 
@@ -45,6 +44,13 @@ The initial AR.js implementation faced several challenges:
 These insights informed our revised approach for Stage 3, leading to the simplified architecture we now have.
 
 ## Recent Major Achievements
+
+### ✅ 2025‑08‑13: Space Builder — Multi‑provider Test Mode & UI Enforcement
+
+-   Server: `/config` returns `{ testMode, disableUserCredentials, items[] }`; items are generated from per‑provider env without defaults and sorted; legacy `groq_test` allowed only when fully configured
+-   Provider calls unified via OpenAI‑compatible client (`baseURL + apiKey`), supports OpenAI, OpenRouter (extra headers), Groq, Cerebras, GigaChat, YandexGPT, Google, and Custom
+-   UI: authorized `/config` fetch with 401 refresh; when credentials are disabled — only test models are visible and enforced; otherwise UI merges models and removes duplicates by label
+-   Documentation: EN/RU docs updated in `docs/en|ru/applications/space-builder/README.md` and app READMEs (frt/srv)
 
 ### ✅ AR.js Wallpaper Mode (Markerless) — Frontend + Server + Docs (2025‑08‑12)
 
@@ -172,6 +178,13 @@ Delivered targeted quiz editing and stronger input guidance:
 -   Documentation:
     -   Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md`
     -   Updated app READMEs in `apps/space-builder-frt` and `apps/space-builder-srv` (EN/RU)
+
+### 2025-08-13: Space Builder — Creation Mode, Safer Append, Docs ✅
+
+-   Introduced a new Creation mode setting with three options (default: Create a new space)
+-   Host Canvas now places appended graphs safely below existing nodes using measured node heights when available and a larger vertical margin, preserving ID remap
+-   New Space flow reuses existing duplication handoff via `localStorage.duplicatedFlowData`
+-   Updated documentation in apps and `docs/en|ru/applications/space-builder/README.md`
 
 ### 2025-07-26: Universo MMOOMM Laser Mining System (v0.22.0-alpha development) ✅
 

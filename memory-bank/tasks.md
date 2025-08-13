@@ -5,6 +5,17 @@
 
 ## Current Implementation Tasks
 
+### Space Builder — Test Mode Stabilization (Multi‑provider)
+
+-   [x] Server: Implement `/config` → `{ testMode, disableUserCredentials, items[] }` (auth, no defaults)
+-   [x] Server: Collect test providers from env (ENABLE\__, _\_TEST_MODEL/API_KEY/BASE_URL, headers), OpenAI‑compatible client
+-   [x] Server: Enforce `SPACE_BUILDER_DISABLE_USER_CREDENTIALS` and legacy `groq_test` only when fully configured
+-   [x] Frontend: Read `/config` with Authorization; retry on 401; build test options list
+-   [x] Frontend: Enforce test‑only selection when credentials disabled; hide credentials from dropdown in this mode
+-   [x] Frontend: Deduplicate model list by label when mixing test and credential models
+-   [x] Docs: Update EN/RU docs in `docs/en|ru/applications/space-builder/README.md`; sync app READMEs (frt/srv)
+-   [ ] Follow‑up: Credentials selection stabilization for non‑test mode (reliability and UX)
+
 ### AR.js Wallpaper Mode (Markerless)
 
 -   [x] UI: Add `AR Display Type` selector (default wallpaper) and `Wallpaper type` selector; hide marker controls when wallpaper
@@ -40,8 +51,16 @@
 -   [x] Frontend: Replace "Generate" on Preview with "Configure" that navigates to the Settings step
 -   [x] Frontend: Implement "Model settings" modal with dropdown "Model", "Cancel" and "Save"; persist chosen model to dialog state
 -   [x] i18n: Add keys (en/ru): `spaceBuilder.configure`, `spaceBuilder.settingsTitle`, `spaceBuilder.modelSettingsTitle`, `spaceBuilder.save`, `spaceBuilder.testModeInfo`
--   [x] Docs: Update `apps/space-builder-frt/base/README.md` and `apps/space-builder-frt/base/README-RU.md` to describe 3-step flow and gear-button; sync `docs/en|ru/applications/space-builder/README.md`
+-   [x] Docs: Update `apps/space-builder-frt/base/README(.md|‑RU.md)` and `apps/space-builder-srv/base/README(.md|‑RU.md)`; sync `docs/en|ru/applications/space-builder/README.md`
 -   [x] QA: Validate state reset, disabled states, test-mode fallback; fix label behavior and paddings; reduce nested-dialog focus warnings
+
+### Space Builder – Creation Mode & Safer Append (2025-08-13)
+
+-   [x] Frontend (UI): Replace single Append checkbox with `Creation mode` Select (`newSpace` | `replace` | `append`); default `newSpace`; reorder options (New Space → Clear → Append)
+-   [x] Host Canvas: Add `handleAppendGeneratedGraphBelow` with measured height fallback and increased margin; keep ID remap; add `handleNewSpaceFromGeneratedGraph` using `duplicatedFlowData`
+-   [x] i18n: Add EN/RU keys for creation mode labels
+-   [x] Docs: Update `apps/space-builder-frt` READMEs and `docs/en|ru/applications/space-builder/README.md`
+-   [x] Build/QA: Monorepo build green; manual tests for three modes
 
 ### MMOOMM Entity Hardcode Elimination ✅ COMPLETED
 

@@ -5,7 +5,8 @@ Backend API for prompt-to-flow generation in Universo Platformo (Spaces/Chatflow
 ## Endpoints
 
 -   `GET /api/v1/space-builder/health` → `{ ok: true }`
--   `GET /api/v1/space-builder/config` → `{ testMode: boolean }` (auth required)
+-   `GET /api/v1/space-builder/config` (auth required)
+    -   Response: `{ testMode: boolean, disableUserCredentials: boolean, items: Array<{ id, provider, model, label }> }`
 -   `POST /api/v1/space-builder/prepare`
     -   Body: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
     -   Response: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
@@ -26,12 +27,33 @@ Backend API for prompt-to-flow generation in Universo Platformo (Spaces/Chatflow
 
 Configure in the main server env (`packages/server/.env`):
 
--   `SPACE_BUILDER_TEST_MODE=true|false` — toggles a synthetic "Test mode" provider in the UI
--   `GROQ_TEST_API_KEY=<key>` — optional test key for the `groq_test` provider used by Test mode
+-   Test mode flags
+    -   `SPACE_BUILDER_TEST_MODE=true|false`
+    -   `SPACE_BUILDER_DISABLE_USER_CREDENTIALS=true|false`
+-   Enable test providers (set to true as needed)
+    -   `SPACE_BUILDER_TEST_ENABLE_OPENAI`
+    -   `SPACE_BUILDER_TEST_ENABLE_OPENROUTER`
+    -   `SPACE_BUILDER_TEST_ENABLE_GROQ`
+    -   `SPACE_BUILDER_TEST_ENABLE_CEREBRAS`
+    -   `SPACE_BUILDER_TEST_ENABLE_GIGACHAT`
+    -   `SPACE_BUILDER_TEST_ENABLE_YANDEXGPT`
+    -   `SPACE_BUILDER_TEST_ENABLE_GOOGLE`
+    -   `SPACE_BUILDER_TEST_ENABLE_CUSTOM`
+-   Per‑provider settings (required when enabled)
+    -   OpenAI: `OPENAI_TEST_MODEL`, `OPENAI_TEST_API_KEY`, `OPENAI_TEST_BASE_URL` (optional)
+    -   OpenRouter: `OPENROUTER_TEST_MODEL`, `OPENROUTER_TEST_API_KEY`, `OPENROUTER_TEST_BASE_URL` (required), `OPENROUTER_TEST_REFERER?`, `OPENROUTER_TEST_TITLE?`
+    -   Groq: `GROQ_TEST_MODEL`, `GROQ_TEST_API_KEY`, `GROQ_TEST_BASE_URL`
+    -   Cerebras: `CEREBRAS_TEST_MODEL`, `CEREBRAS_TEST_API_KEY`, `CEREBRAS_TEST_BASE_URL`
+    -   GigaChat: `GIGACHAT_TEST_MODEL`, `GIGACHAT_TEST_API_KEY`, `GIGACHAT_TEST_BASE_URL`
+    -   YandexGPT: `YANDEXGPT_TEST_MODEL`, `YANDEXGPT_TEST_API_KEY`, `YANDEXGPT_TEST_BASE_URL`
+    -   Google: `GOOGLE_TEST_MODEL`, `GOOGLE_TEST_API_KEY`, `GOOGLE_TEST_BASE_URL`
+    -   Custom: `CUSTOM_TEST_NAME`, `CUSTOM_TEST_MODEL`, `CUSTOM_TEST_API_KEY`, `CUSTOM_TEST_BASE_URL`, `CUSTOM_TEST_EXTRA_HEADERS_JSON`
 
 Notes:
 
--   Real provider keys (OpenAI/Azure/Groq) are resolved from Credentials via the platform’s credential service. No keys are stored in this package.
+-   No defaults are applied; providers appear in `/config.items` only when all required variables are set for that provider.
+-   Legacy `groq_test` works only if `GROQ_TEST_MODEL`, `GROQ_TEST_API_KEY`, and `GROQ_TEST_BASE_URL` are set.
+-   Real provider keys (OpenAI/Azure/Groq/…) are resolved from Credentials via the platform’s credential service in non‑test mode.
 -   The Space Builder router is mounted at `/api/v1/space-builder` with authentication and rate‑limit middleware.
 
 ## Validation
@@ -40,7 +62,8 @@ Notes:
 
 ## Behavior
 
--   The UI supports two modes: append (merge with ID remap and position offset) or replace (clear current canvas and apply).
+-   When `SPACE_BUILDER_TEST_MODE=true` and `SPACE_BUILDER_DISABLE_USER_CREDENTIALS=true`, the server always uses one of the configured test providers (OpenAI‑compatible client via `baseURL + apiKey`).
+-   Otherwise, the server uses the provider selected by the UI: OpenAI/Azure/Groq with credentials resolved via the platform service; test providers are used only when the UI passes `provider: 'test:<id>'`.
 
 ## Commands
 

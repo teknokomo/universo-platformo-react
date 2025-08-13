@@ -32,30 +32,77 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   const [graphicsForAnswers] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tempModelKey, setTempModelKey] = useState('')
+  // new: control of credentials availability and test items from server config
+  const [disableUserCreds, setDisableUserCreds] = useState(false)
+  const [testItems, setTestItems] = useState<Array<{ id: string; label: string; provider: string; model: string }>>([])
 
   useEffect(() => {
     if (!open) return
-    fetch('/api/v1/space-builder/config', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : { testMode: false }))
-      .then((d) => setTestMode(!!d?.testMode))
-      .catch(() => setTestMode(false))
+    const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
+    const load = async () => {
+      const call = async (bearer?: string) =>
+        fetch('/api/v1/space-builder/config', {
+          method: 'GET',
+          headers: {
+            ...(bearer ? { Authorization: `Bearer ${bearer}` } : {})
+          },
+          credentials: 'include'
+        })
+      let res = await call(token)
+      if (res.status === 401) {
+        try {
+          await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+        } catch (_) {}
+        const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
+        res = await call(newToken)
+      }
+      if (!res.ok) throw new Error(`Config request failed: ${res.status}`)
+      const data = await res.json().catch(() => ({ testMode: false, disableUserCredentials: false, items: [] }))
+      setTestMode(!!data?.testMode)
+      setDisableUserCreds(!!data?.disableUserCredentials)
+      setTestItems(Array.isArray(data?.items) ? data.items : [])
+    }
+    load().catch(() => {
+      setTestMode(false)
+      setDisableUserCreds(false)
+      setTestItems([])
+    })
   }, [open])
 
+  // Build test model options from server config
+  const testModelOptions = useMemo(
+    () =>
+      (testItems || []).map((it) => ({
+        key: `test:${it.id}`,
+        label: it.label,
+        provider: `test:${it.id}`,
+        modelName: it.model,
+        credentialId: ''
+      })),
+    [testItems]
+  )
+
   const effectiveModels = useMemo(() => {
-    if (models?.length) return models
-    if (testMode) {
-      return [
-        {
-          key: 'groq_test:llama-3-8b-8192',
-          label: 'Groq Test: llama-3-8b-8192',
-          provider: 'groq_test',
-          modelName: 'llama-3-8b-8192',
-          credentialId: ''
-        }
-      ]
+    const base = Array.isArray(models) ? models : []
+    const merged = testModelOptions.length ? [...testModelOptions, ...base] : base
+    // Deduplicate by label to avoid duplicated "(Test mode)" entries coming from different sources
+    const seen = new Set<string>()
+    const unique: typeof merged = []
+    for (const m of merged) {
+      const label = String((m as any).label || '')
+      if (seen.has(label)) continue
+      seen.add(label)
+      unique.push(m)
     }
-    return []
-  }, [models, testMode])
+    return unique
+  }, [models, testModelOptions])
+
+  // Ensure active model is test when credentials are disabled
+  useEffect(() => {
+    if (testMode && disableUserCreds && (!modelKey || !String(modelKey).startsWith('test:')) && testModelOptions.length) {
+      setModelKey(testModelOptions[0].key)
+    }
+  }, [testMode, disableUserCreds, modelKey, testModelOptions])
 
   const model = useMemo(() => effectiveModels.find((m) => m.key === modelKey) || effectiveModels?.[0], [effectiveModels, modelKey])
   const tooLong = sourceText.length > 5000
@@ -81,11 +128,20 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     }
   }, [effectiveModels, modelKey])
 
+  // Auto-select the first test model when test mode is active
+  useEffect(() => {
+    if (testMode && testModelOptions.length) {
+      setModelKey(testModelOptions[0].key)
+    }
+  }, [testMode, testModelOptions])
+
   useEffect(() => {
     if (settingsOpen) {
-      setTempModelKey(modelKey || (effectiveModels?.[0]?.key || ''))
+      let initial = modelKey || (effectiveModels?.[0]?.key || '')
+      if (testMode && disableUserCreds && testModelOptions.length) initial = testModelOptions[0].key
+      setTempModelKey(initial)
     }
-  }, [settingsOpen, modelKey, effectiveModels])
+  }, [settingsOpen, modelKey, effectiveModels, testMode, disableUserCreds, testModelOptions])
 
   function resetState() {
     setStep('input')
@@ -330,17 +386,25 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {testMode && (
             <Alert severity='info'>
-              {t('spaceBuilder.testModeInfo') || 'Test mode is active: server always uses Groq Test provider; chosen model may be ignored.'}
+              {t('spaceBuilder.testModeInfo') || 'Test mode is active: server always uses test providers; chosen credential models may be disabled.'}
             </Alert>
           )}
           <FormControl fullWidth disabled={!effectiveModels?.length} sx={{ mt: 1 }}>
             <InputLabel>{t('spaceBuilder.model')}</InputLabel>
-            <Select label={t('spaceBuilder.model')} value={tempModelKey} onChange={(e) => setTempModelKey(String(e.target.value))}>
-              {(effectiveModels || []).map((m) => (
-                <MenuItem key={m.key} value={m.key}>
-                  {m.label}
-                </MenuItem>
-              ))}
+            <Select label={t('spaceBuilder.model')} value={tempModelKey} onChange={(e) => {
+              const next = String(e.target.value)
+              if (testMode && disableUserCreds && !next.startsWith('test:')) return
+              setTempModelKey(next)
+            }}>
+              {(((testMode && disableUserCreds) ? testModelOptions : effectiveModels) || []).map((m) => {
+                const isTest = String(m.key || '').startsWith('test:')
+                const disabled = testMode && disableUserCreds ? !isTest : false
+                return (
+                  <MenuItem key={m.key} value={m.key} disabled={disabled}>
+                    {m.label}
+                  </MenuItem>
+                )
+              })}
             </Select>
           </FormControl>
           {!effectiveModels?.length && (
@@ -355,7 +419,12 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
           </Button>
           <Button
             onClick={() => {
-              if (tempModelKey) setModelKey(tempModelKey)
+              let next = tempModelKey
+              if (testMode && disableUserCreds) {
+                const isTest = String(next || '').startsWith('test:')
+                if (!isTest && testModelOptions.length) next = testModelOptions[0].key
+              }
+              if (next) setModelKey(next)
               setSettingsOpen(false)
             }}
             disabled={busy || !effectiveModels?.length}

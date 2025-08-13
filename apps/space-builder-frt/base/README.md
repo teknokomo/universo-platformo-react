@@ -19,14 +19,15 @@ This package provides reusable React components:
 
 ## Environment
 
-The Space Builder UI reads a server-side config to toggle Test mode:
+The Space Builder UI reads a server-side config to toggle and configure Test mode:
 
 -   On the server (`packages/server/.env`):
-    -   `SPACE_BUILDER_TEST_MODE=true|false` — enables a synthetic provider entry "Test mode" in the UI
-    -   `GROQ_TEST_API_KEY=<key>` — optional key for Test mode (only used when test mode is enabled)
--   Endpoint: `GET /api/v1/space-builder/config` (auth required) returns `{ testMode: boolean }`
+    -   `SPACE_BUILDER_TEST_MODE=true|false`
+    -   `SPACE_BUILDER_DISABLE_USER_CREDENTIALS=true|false`
+    -   Enable one or more test providers via `SPACE_BUILDER_TEST_ENABLE_*` and set per‑provider `*_TEST_MODEL`, `*_TEST_API_KEY`, and `*_TEST_BASE_URL` when required (OpenAI base URL is optional).
+-   Endpoint: `GET /api/v1/space-builder/config` (auth required) returns `{ testMode, disableUserCredentials, items }` where `items` is a list of test providers/models.
 
-Credentials-based models are discovered from existing Flowise credentials (OpenAI, AzureOpenAI, Groq) and shown in the model dropdown.
+Credentials-based models are discovered from existing platform credentials and shown along with test models. When `disableUserCredentials=true`, only test models are available for selection.
 
 ## Behavior (creation mode)
 
@@ -78,8 +79,9 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 ## Notes
 
 -   Keep UI code isolated from server dependencies
--   Use the shared Axios client in the host app for authenticated calls
+-   Use the shared authenticated API client; the client refreshes on 401 automatically
 -   No secrets are stored in this package; model keys are resolved on the server side
+-   In Test mode, test providers/models are provided by `/api/v1/space-builder/config`; when credentials are disabled only test models can be selected; otherwise, the UI merges and deduplicates by label.
 
 ## Three-step flow (Prepare → Preview → Settings → Generate)
 
@@ -87,7 +89,7 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 -   Paste study material into the input (limit 5000 characters)
 -   Optionally provide "Additional conditions" (limit 500 chars) to strictly guide the LLM
--   Choose number of questions (1–10, default 1) and answers per question (2–5, default 2)
+-   Choose number of questions (1–10) and answers per question (2–5)
 -   Click "Prepare" → the UI calls `POST /api/v1/space-builder/prepare` and receives a `quizPlan`
 
 2. Preview
@@ -105,9 +107,3 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 -   Click "Generate" → the UI calls `POST /api/v1/space-builder/generate` with the `quizPlan`
 -   The resulting UPDL graph is applied according to the chosen mode (Append / Replace / New Space)
-
-Notes:
-
--   In test mode (`SPACE_BUILDER_TEST_MODE=true` on the server), if the host app supplies no models, the UI exposes a synthetic provider entry `Groq Test: llama-3-8b-8192` so that the feature works without user credentials.
--   In test mode the server always uses the Groq Test provider regardless of the chosen model; the Model settings modal shows an info note.
--   Endpoints are protected; the client uses a refresh flow on 401 to retry requests.

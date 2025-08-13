@@ -25,7 +25,7 @@
     "modelSettingsTitle": "Model settings",
     "modelSettings": "Model settings",
     "save": "Save",
-    "testModeInfo": "Test mode is active: server always uses Groq Test provider; chosen model may be ignored.",
+    "testModeInfo": "Test mode is active: server uses test providers; chosen credential models may be disabled.",
     "additionalConstraints": "Additional conditions",
     "reviseTitle": "Revise quiz",
     "reviseInstructions": "What to change?",

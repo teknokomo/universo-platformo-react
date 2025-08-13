@@ -15,6 +15,7 @@
 -   **Universo MMOOMM Expansion**: Full MMO development pipeline with PlayCanvas
 -   **Production Deployment**: Enterprise-grade hosting and scaling solutions
 -   **Community Features**: Template sharing and collaborative development tools
+-   **Space Builder Test Mode Stabilization**: finalize multi‑provider Test mode (OpenAI‑compatible), enforce credentials disable on UI/server, deduplicate model list, and keep docs in sync
 
 ## Recently Completed
 
@@ -32,15 +33,29 @@
     -   Added third step `settings`; moved checkboxes (Append, Collect names, Show final score) there; disabled "Generate graphics"
     -   Improved main input field: doubled height (rows=16), correct Material UI label behavior, consistent padding in DialogActions
     -   Added Tooltip to gear button; square button style for consistency; info banner in Test mode
-    -   Reduced MUI nested‑dialog warning by relaxing focus on parent (`disableEnforceFocus/disableRestoreFocus`) and using `keepMounted` on the modal
     -   i18n: added keys (configure/settings/model settings/save/testModeInfo) EN/RU
     -   Updated docs: app READMEs already 3‑step; synchronized `docs/en|ru/applications/space-builder/README.md` to 3‑step flow
     -   Full monorepo build green
 
 -   **Space Builder – Constraints & Iterative Quiz Editing (2025-08-13)**
+
     -   Backend: `/prepare` now accepts `additionalConditions` (0..500); added `/revise` endpoint with strict JSON‑only prompt and minimal‑change guarantee; invariant checks keep question/answer counts and one correct per question
     -   Frontend: added "Additional conditions" on Prepare; read‑only quiz preview; "What to change?" with iterative apply; field clears on successful change and when going Back + Prepare
     -   Docs: Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md` and packages `apps/space-builder-frt`/`apps/space-builder-srv` READMEs
+
+-   **Space Builder – Creation Mode, Safer Append, and Docs (2025-08-13)**
+
+    -   UI: Added "Creation mode" Select with three options; default set to "Create a new space"; options order updated (New Space → Clear → Append)
+    -   Canvas: Implemented safe Append placement below the lowest existing nodes using measured node height when available (fallback default) and a larger vertical margin; preserved ID remap; wired `newSpace` mode via existing `duplicatedFlowData` handoff
+    -   i18n: Added EN/RU keys for creation mode
+    -   Docs: Updated app READMEs and `docs/en|ru/applications/space-builder/README.md` with new setting and integration snippet
+    -   Build: Full workspace build green
+
+-   **Space Builder — Multi‑provider Test Mode & UI Enforcement (2025-08-13)**
+    -   Server: `/config` now returns `{ testMode, disableUserCredentials, items[] }`; items are built from per‑provider env (no defaults) and sorted alphabetically; legacy `groq_test` only when fully configured
+    -   Server: `ModelFactory` collects test providers (OpenAI/Groq/OpenRouter/Cerebras/GigaChat/YandexGPT/Google/Custom), calls via OpenAI‑compatible client (`baseURL + apiKey`), and honors `SPACE_BUILDER_DISABLE_USER_CREDENTIALS`
+    -   UI: fetches `/config` with Authorization and retries after refresh; when credentials are disabled, only test models are shown and enforced; otherwise UI merges and deduplicates by label
+    -   Docs: Updated EN/RU in `docs/en|ru/applications/space-builder/README.md` and app READMEs; documented env variables and behavior
 
 **Uniks Functionality Extraction and Build System Fixes**: Successfully completed on 2025-08-07. Extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. Archive: [docs/archive/enhancements/2025-08/uniks-functionality-extraction.md](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md)
 
