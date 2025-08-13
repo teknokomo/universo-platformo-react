@@ -13,13 +13,14 @@ The UI supports a three‑step workflow for quiz building (Prepare → Preview �
 
 -   Prepare: paste study material (1..5000 chars) and optionally add "Additional conditions" (0..500 chars) that strictly guide the LLM; choose counts (N questions, M answers); click Prepare to receive a `quizPlan`
 -   Preview: the quiz proposal is shown in a read‑only text field; below it there is a "What to change?" input (0..500 chars) and a "Change" button for iterative revision; the field is cleared when you go Back and re‑Prepare, and also after a successful change
--   Settings: choose generation options (Append to current flow, Collect participant names, Show final score); model selection is available from the gear button in the bottom‑left of the dialog
+-   Settings: choose generation options (Creation mode, Collect participant names, Show final score); model selection is available from the gear button in the bottom‑left of the dialog
 -   Generate: build a UPDL graph from the plan and apply it to the canvas
 
-The UI can apply the generated graph in two modes:
+The UI can apply the generated graph in three modes (Creation mode):
 
--   Append: merge with the current canvas (ID remap + position offset)
+-   Append: merge with the current canvas (ID remap + safe vertical offset below the lowest nodes)
 -   Replace: clear current canvas and set the generated graph
+-   Create a new space: if the current canvas has nodes, open a new tab for `.../chatflows/new` and pass the graph via `localStorage.duplicatedFlowData`; if the canvas is empty, behave like Replace
 
 ## Deterministic builder
 
@@ -64,7 +65,7 @@ Three-step UI (Prepare → Preview → Settings → Generate):
 -   Prepare: paste material (1..5000 chars) and optionally provide Additional conditions (0..500); choose N×M, click Prepare; the dialog shows a read‑only quiz preview
 -   Preview: use the "What to change?" field to request precise edits; press "Change" to apply; the edit field clears after a successful change and also after going Back and re‑preparing; click Configure to proceed to Settings
 -   Settings: pick generation options; model selection is available from the gear button in the bottom‑left of the dialog
--   Generate: click Generate to build a UPDL graph from the plan; choose Append or Replace to apply to the canvas
+-   Generate: click Generate to build a UPDL graph from the plan; choose Append / Replace / New Space to apply to the canvas
 
 ```ts
 import i18n from '@/i18n'
@@ -77,7 +78,8 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 ;<SpaceBuilderFab
     models={availableChatModels}
     onApply={(graph, mode) => {
-        if (mode === 'append') return handleAppendGeneratedGraph(graph)
+        if (mode === 'append') return handleAppendGeneratedGraphBelow(graph)
+        if (mode === 'newSpace') return handleNewSpaceFromGeneratedGraph(graph)
         handleApplyGeneratedGraph(graph)
     }}
 />

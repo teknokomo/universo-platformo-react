@@ -4,7 +4,7 @@ import type { ModelOpt } from './SpaceBuilderFab'
 
 export type SpaceBuilderButtonProps = {
   models: ModelOpt[]
-  onApply: (graph: { nodes: unknown[]; edges: unknown[] }, mode: 'append' | 'replace') => void
+  onApply: (graph: { nodes: unknown[]; edges: unknown[] }, mode: 'append' | 'replace' | 'newSpace') => void
 }
 
 export const SpaceBuilderButton: React.FC<SpaceBuilderButtonProps> = ({ models, onApply }) => {

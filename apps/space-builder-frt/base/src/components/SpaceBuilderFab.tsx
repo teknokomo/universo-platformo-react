@@ -8,7 +8,7 @@ export type ModelOpt = { key: string; label: string; provider: string; modelName
 
 export type SpaceBuilderFabProps = {
   models: ModelOpt[]
-  onApply: (graph: { nodes: any[]; edges: any[] }, mode: 'append' | 'replace') => void
+  onApply: (graph: { nodes: any[]; edges: any[] }, mode: 'append' | 'replace' | 'newSpace') => void
   onError?: (message: string) => void
   sx?: any
 }
