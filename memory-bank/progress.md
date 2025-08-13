@@ -147,6 +147,16 @@ Shipped a stable, deterministic prompt-to-flow experience with improved UX and u
 -   Docs: READMEs (apps) and `docs/en|ru/applications/space-builder/` updated to reflect deterministic builder and new options
 -   Build: full monorepo build green
 
+### 2025-08-13: Space Builder UI Refinement — Three‑step Flow + Model Settings + UX/a11y Fixes ✅
+
+-   Reworked dialog into 3 steps: Prepare → Preview → Settings → Generate
+-   Moved model selection into dedicated gear‑button modal; added Tooltip and square style for consistency
+-   Moved checkboxes (Append, Collect names, Show final score) into Settings; disabled upcoming “Generate graphics”
+-   Fixed Material UI label behavior for the main multiline input; increased height (rows=16); unified paddings in `DialogActions`
+-   Reduced nested‑dialog focus warning by tuning parent focus props and keeping the modal mounted
+-   i18n updates (EN/RU) and documentation sync in `docs/en|ru/applications/space-builder/README.md`
+-   Full monorepo build passed
+
 ### 2025-07-26: Universo MMOOMM Laser Mining System (v0.22.0-alpha development) ✅
 
 **Industrial laser mining system implementation completed** - Major enhancement to Universo MMOOMM template with fully functional laser mining system:

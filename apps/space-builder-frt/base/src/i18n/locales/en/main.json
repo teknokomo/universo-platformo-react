@@ -3,7 +3,7 @@
     "fabTooltip": "Build from prompt",
     "title": "Build Space from Prompt",
     "prompt": "Describe what to build",
-    "source": "Paste study material (up to 5000 characters)",
+    "source": "Main material",
     "questionsCount": "Number of questions",
     "answersPerQuestion": "Answers per question",
     "previewTitle": "Quiz preview",
@@ -19,6 +19,12 @@
     "error": "Generation failed",
     "collectNames": "Collect participant names",
     "showFinal": "Show final score",
-    "graphicsForAnswers": "Generate graphics for answers (coming soon)"
+    "graphicsForAnswers": "Generate graphics for answers (coming soon)",
+    "configure": "Configure",
+    "settingsTitle": "Generation settings",
+    "modelSettingsTitle": "Model settings",
+    "modelSettings": "Model settings",
+    "save": "Save",
+    "testModeInfo": "Test mode is active: server always uses Groq Test provider; chosen model may be ignored."
   }
 }

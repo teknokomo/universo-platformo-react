@@ -33,6 +33,16 @@
 -   [ ] Next: Editable quiz preview (allow editing questions/answers before generate)
 -   [ ] Next: Credentials selection stabilization (non-test mode reliability improvements)
 
+### Space Builder UI Refinement – 3-step flow + Model Settings modal
+
+-   [x] UX: Move model selection into a gear-button modal ("Model settings") anchored bottom-left in dialog actions on the Input step (implemented)
+-   [x] Frontend: Add a third step `settings` and move checkboxes there ("Append", "Collect names", "Show final score", disabled "Generate graphics")
+-   [x] Frontend: Replace "Generate" on Preview with "Configure" that navigates to the Settings step
+-   [x] Frontend: Implement "Model settings" modal with dropdown "Model", "Cancel" and "Save"; persist chosen model to dialog state
+-   [x] i18n: Add keys (en/ru): `spaceBuilder.configure`, `spaceBuilder.settingsTitle`, `spaceBuilder.modelSettingsTitle`, `spaceBuilder.save`, `spaceBuilder.testModeInfo`
+-   [x] Docs: Update `apps/space-builder-frt/base/README.md` and `apps/space-builder-frt/base/README-RU.md` to describe 3-step flow and gear-button; sync `docs/en|ru/applications/space-builder/README.md`
+-   [x] QA: Validate state reset, disabled states, test-mode fallback; fix label behavior and paddings; reduce nested-dialog focus warnings
+
 ### MMOOMM Entity Hardcode Elimination ✅ COMPLETED
 
 **Status**: ✅ Implementation ✅ Reflection ✅ Archive ✅ **COMPLETED**
@@ -100,7 +110,6 @@
 -   [x] Phase 3.3: Implement density-based pickup generation and collection
 -   [x] Phase 4.1: Update ComponentNode.ts with new mineable component fields
 -   [x] Phase 4.2: Create comprehensive documentation (README.md and README-RU.md)
--   [x] Phase 4.3: Test material density system with different resource types
 
 ### PlayCanvasMMOOMMBuilder.ts Modularization ✅ COMPLETE
 
@@ -115,7 +124,6 @@
 -   [x] 1.2: Analyze current code structure and create dependency map
 -   [x] 1.3: Create baseline test for current MMOOMM template functionality
 -   [x] 1.4: Embedded JavaScript Analysis - map SpaceHUD (~150 lines), SpaceControls (~250 lines), initializePhysics (~50 lines)
--   [x] 1.5: Global Dependencies Mapping - document window.\* objects and event listeners
 
 #### Phase 2: HTML-JavaScript Hybrid Extraction
 
@@ -198,38 +206,3 @@
 
 -   [x] **Uniks Functionality Extraction and Build System Fixes**: Successfully extracted Uniks (workspace) functionality into dedicated packages and resolved critical build issues. Extracted backend logic into `@universo/uniks-srv` package with Express routes, TypeORM entities, and PostgreSQL migrations. Created `@universo/uniks-frt` frontend package with React components, menu configurations, and i18n support. Resolved circular dependency issues by implementing proper workspace dependencies and TypeScript path aliases. Fixed Vite alias configuration for i18n imports. Corrected translation key usage by removing redundant namespace prefixes. All Uniks functionality now modularized and build system fully operational. ✅ **COMPLETED** ✅ **REFLECTION COMPLETE** ✅ **ARCHIVED** - [Archive](docs/archive/enhancements/2025-08/uniks-functionality-extraction.md) (2025-08-07)
 -   [x] **MMOOMM Entity Hardcode Elimination Fix**: Fixed all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Eliminated hardcoded scale values in Ship (2,1,3), Station (4,2,4), Gate (3,3,1), and Asteroid entities. Fixed hardcoded rotation values in Ship entity. Implemented conditional logic to apply default values only when UPDL values are unset (default 1,1,1). Fixed variable name conflicts (entityScale, scaleMultiplier) causing syntax errors. All Entity transform values (scale, position, rotation) now properly respect UPDL Component settings while maintaining fallback defaults for standalone entities. (2025-01-31)
--   [x] **Entity Scale Handling Fix**: Fixed Transform scale data flow from Chatflow to PlayCanvas entities. Removed implicit random scale generation from asteroid entity type that was overriding user-defined scale values. Ensured Transform scale values (e.g., 4,4,4) from Chatflow are always respected in generated entities. Updated mineable properties calculation to use actual entity scale for proper resource yield. (2025-01-31)
--   [x] **Trading Component Configuration Fix**: Fixed Trading Component interaction range configuration not applying from Chatflow interface. Corrected UPDLProcessor to transmit all ComponentNode fields to component generation pipeline, fixed ComponentHandler data source mapping, and prevented Entity Type logic from overriding Component settings. Trading interaction range now properly configurable (tested with 1600 units). (2025-01-31)
--   [x] **Builder Systems File Naming Standardization**: Standardized all builderSystems directory files to consistent camelCase naming convention. Renamed files from mixed PascalCase/camelCase to uniform camelCase (e.g., EmbeddedControlsSystem.ts → embeddedControlsSystem.ts, PlayCanvasInitializer.ts → playcanvasInitializer.ts). Updated all import statements and cross-references. Improved code consistency and maintainability. (2025-01-31)
--   [x] **PlayCanvasMMOOMMBuilder.ts Modularization**: Successfully refactored monolithic PlayCanvasMMOOMMBuilder.ts from 1,211 lines to 254 lines (79% reduction) using modular architecture. Extracted embedded JavaScript systems (SpaceHUD, SpaceControls, Physics, HelperFunctions), HTML document generation, and PlayCanvas core systems into separate modules. Implemented BuilderSystemsManager for coordinating all systems while preserving full HTML-JavaScript hybrid functionality, global objects compatibility, and all game features (ship controls, laser mining, HUD, physics, trading). (2025-01-30)
--   [x] **Enhanced Resource System with Material Density**: Implemented realistic material physics system with 16 material types, density-based weight/volume conversion, enhanced inventory supporting both tons and m³, improved mineable components with hardness/volume properties, and comprehensive documentation. System supports materials from lightweight antimatter (0.001 t/m³) to dense platinum (21.5 t/m³) with proper economic balance
--   [x] **MMOOMM Ship Systems Refactoring**: Successfully refactored ship.ts from 894 lines to 84 lines (90.6% reduction) by extracting ship controller, camera controller, laser mining, and inventory systems into shared templates. Improved maintainability, reusability, and consistency while preserving all MVP functionality
--   [x] **Laser System Critical Fix**: Fixed critical recursive initialization error and visual artifacts in laser mining system
-    -   Fixed recursive `this.laserSystem.init()` call causing black screen crashes
-    -   Replaced complex line mesh with reliable box model for laser beam rendering
-    -   Fixed update loop using `app.on('update')` instead of `entity.on('update')`
-    -   Added missing `getItemList()` method to ship inventory for HUD updates
-    -   Removed fade-out animation to prevent laser beam detachment during ship movement
--   [x] **Laser Mining System**: Industrial laser mining implementation with auto-targeting and state machine
-    -   Replaced projectile weapons with industrial laser mining system
-    -   Implemented state machine (idle, targeting, mining, collecting) with 3-second cycles
-    -   Added visual red laser beam with target detection and inventory integration
--   [x] **UPDL Priority Fix**: Fixed Entity Type Logic vs Component Render execution order in MMOOMM template - UPDL Component Render settings now properly override hardcoded Entity Type defaults while preserving all MMO game mechanics (2025-07-22)
--   [x] Release 0.21.0-alpha "Firm Resolve": Major platform improvements with memory bank optimization, MMOOMM stabilization, and handler refactoring (2025-07-20)
--   [x] Handler Architecture Refactoring: Refactored ComponentHandler and EntityHandler into modular files for better organization (2025-07-20)
--   [x] Memory Bank System Optimization: Updated all memory bank files to comply with new guidelines (2025-07-20)
--   [x] MMOOMM Template Stabilization: Fixed ship movement controls and console optimization (January 2025)
--   [x] Alpha Status Achievement: Complete UPDL system with production-ready stability (July 2025)
--   [x] High-Level UPDL Node Refactoring: Fixed connector logic, unified architecture, added unique icons (January 2025)
--   [x] Template-First Architecture: Migrated to template-based structure for reusability (2025)
--   [x] PlayCanvas Integration: Complete PlayCanvas publication and rendering system (2025)
-
-## Development Guidelines
-
--   All modifications maintain existing AR.js functionality
--   Code follows project linting standards
--   Russian user communication, English code documentation maintained
--   Project uses PNPM package manager exclusively
--   Maintain Alpha-grade stability and backward compatibility
-
-_For detailed progress history, see [progress.md](progress.md). For current project context, see [activeContext.md](activeContext.md)._
