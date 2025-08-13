@@ -157,6 +157,22 @@ Shipped a stable, deterministic prompt-to-flow experience with improved UX and u
 -   i18n updates (EN/RU) and documentation sync in `docs/en|ru/applications/space-builder/README.md`
 -   Full monorepo build passed
 
+### 2025-08-13: Space Builder — Constraints & Iterative Quiz Editing ✅
+
+Delivered targeted quiz editing and stronger input guidance:
+
+-   Backend:
+    -   `/prepare` accepts `additionalConditions` (0..500) and injects a strict Constraints section into the prompt
+    -   New `/revise` endpoint applies precise edits to the current `quizPlan` based on user instructions; prompts enforce RAW JSON and minimal change
+    -   Validation ensures number of questions and answers per question remain unchanged; exactly one correct answer per question
+-   Frontend:
+    -   Added "Additional conditions" field on Prepare
+    -   Read‑only quiz preview in Preview step for consistent UI
+    -   Added "What to change?" field with iterative apply; field clears after successful change and when returning Back and re‑preparing
+-   Documentation:
+    -   Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md`
+    -   Updated app READMEs in `apps/space-builder-frt` and `apps/space-builder-srv` (EN/RU)
+
 ### 2025-07-26: Universo MMOOMM Laser Mining System (v0.22.0-alpha development) ✅
 
 **Industrial laser mining system implementation completed** - Major enhancement to Universo MMOOMM template with fully functional laser mining system:

@@ -202,6 +202,23 @@
 -   [ ] Community marketplace: Create marketplace for templates and components
 -   [ ] Documentation system: Enhance documentation and tutorial systems
 
+### Space Builder – Constraints & Iterative Quiz Editing
+
+-   [x] Backend: Extend `/prepare` to accept `additionalConditions?: string (0..500)`; validate length and include in prompt
+-   [x] Backend: Add `POST /api/v1/space-builder/revise` → Body: `{ quizPlan: QuizPlan, instructions: string (1..500), selectedChatModel }` → Response: `{ quizPlan }`
+-   [x] Backend: Service `reviseQuizPlan()` with strict JSON-only output and minimal-change guarantee; preserve sizes and one correct answer per question
+-   [x] Backend: Update prompts
+    -   [x] Prepare prompt: add "Constraints" section; MUST follow; never echo constraints; preserve JSON schema
+    -   [x] Revise prompt: input current plan JSON + instructions; change only requested parts; keep other text identical; preserve counts; output RAW JSON
+-   [x] Backend: Controllers validation with `QuizPlanSchema`; verify items count and answers per item; return 422 on mismatch
+-   [x] Frontend: Input step – add `Additional conditions` textarea below `Main material` (rows≈3, max 500 chars, helper counter)
+-   [x] Frontend: Hook `useSpaceBuilder` – extend `PreparePayload` with `additionalConditions?: string`; add `reviseQuiz(payload)` calling `/revise`
+-   [x] Frontend: Preview step – add `What to change?` textarea (max 500, counter) and `Change` button; on click call `revise`, update in-place `quizPlan`, show spinner; allow multiple iterations; clear field after success
+-   [x] Frontend: Error handling – surface backend errors via `onError`; disable controls while busy
+-   [x] Frontend: i18n (en/ru) – keys added: `additionalConstraints`, `reviseTitle`, `reviseInstructions`, `revise`, `revising`, `tooManyRequests`
+-   [x] Docs: Update `apps/space-builder-frt/base/README(.md|‑RU.md)` and `apps/space-builder-srv/base/README(.md|‑RU.md)`; sync `docs/en|ru/applications/space-builder/README.md`
+-   [x] QA: Test in `SPACE_BUILDER_TEST_MODE=true`; validate limits (5000/500), sizes, single-correct; repeated revisions; clear-on-back behavior
+
 ## Recently Completed Tasks
 
 -   [x] **Uniks Functionality Extraction and Build System Fixes**: Successfully extracted Uniks (workspace) functionality into dedicated packages and resolved critical build issues. Extracted backend logic into `@universo/uniks-srv` package with Express routes, TypeORM entities, and PostgreSQL migrations. Created `@universo/uniks-frt` frontend package with React components, menu configurations, and i18n support. Resolved circular dependency issues by implementing proper workspace dependencies and TypeScript path aliases. Fixed Vite alias configuration for i18n imports. Corrected translation key usage by removing redundant namespace prefixes. All Uniks functionality now modularized and build system fully operational. ✅ **COMPLETED** ✅ **REFLECTION COMPLETE** ✅ **ARCHIVED** - [Archive](docs/archive/enhancements/2025-08/uniks-functionality-extraction.md) (2025-08-07)
