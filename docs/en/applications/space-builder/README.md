@@ -32,20 +32,40 @@ The UI can apply the generated graph in three modes (Creation mode):
 
 Configure in `packages/server/.env`:
 
-```
-SPACE_BUILDER_TEST_MODE=true|false
-GROQ_TEST_API_KEY=...
-```
+-   Test mode flags
+    -   `SPACE_BUILDER_TEST_MODE=true|false`
+    -   `SPACE_BUILDER_DISABLE_USER_CREDENTIALS=true|false`
+-   Enable test providers (set to true as needed)
+    -   `SPACE_BUILDER_TEST_ENABLE_OPENAI`
+    -   `SPACE_BUILDER_TEST_ENABLE_OPENROUTER`
+    -   `SPACE_BUILDER_TEST_ENABLE_GROQ`
+    -   `SPACE_BUILDER_TEST_ENABLE_CEREBRAS`
+    -   `SPACE_BUILDER_TEST_ENABLE_GIGACHAT`
+    -   `SPACE_BUILDER_TEST_ENABLE_YANDEXGPT`
+    -   `SPACE_BUILDER_TEST_ENABLE_GOOGLE`
+    -   `SPACE_BUILDER_TEST_ENABLE_CUSTOM`
+-   Per‑provider settings (required when enabled)
+    -   OpenAI: `OPENAI_TEST_MODEL`, `OPENAI_TEST_API_KEY`, `OPENAI_TEST_BASE_URL` (optional)
+    -   OpenRouter: `OPENROUTER_TEST_MODEL`, `OPENROUTER_TEST_API_KEY`, `OPENROUTER_TEST_BASE_URL` (required), `OPENROUTER_TEST_REFERER?`, `OPENROUTER_TEST_TITLE?`
+    -   Groq: `GROQ_TEST_MODEL`, `GROQ_TEST_API_KEY`, `GROQ_TEST_BASE_URL`
+    -   Cerebras: `CEREBRAS_TEST_MODEL`, `CEREBRAS_TEST_API_KEY`, `CEREBRAS_TEST_BASE_URL`
+    -   GigaChat: `GIGACHAT_TEST_MODEL`, `GIGACHAT_TEST_API_KEY`, `GIGACHAT_TEST_BASE_URL` (OpenAI‑compatible endpoint)
+    -   YandexGPT: `YANDEXGPT_TEST_MODEL`, `YANDEXGPT_TEST_API_KEY`, `YANDEXGPT_TEST_BASE_URL` (OpenAI‑compatible endpoint)
+    -   Google: `GOOGLE_TEST_MODEL`, `GOOGLE_TEST_API_KEY`, `GOOGLE_TEST_BASE_URL` (OpenAI‑compatible endpoint)
+    -   Custom: `CUSTOM_TEST_NAME`, `CUSTOM_TEST_MODEL`, `CUSTOM_TEST_API_KEY`, `CUSTOM_TEST_BASE_URL`, `CUSTOM_TEST_EXTRA_HEADERS_JSON` (optional JSON)
 
--   `SPACE_BUILDER_TEST_MODE` toggles the Test mode entry in the UI
--   `GROQ_TEST_API_KEY` is used only when test mode is enabled (provider `groq_test`)
+Notes:
 
-`GET /api/v1/space-builder/config` returns `{ testMode: boolean }` and is used by the UI to decide whether to display Test mode.
+-   No defaults are applied. Providers appear in the UI only when all required variables for that provider are set.
+-   Legacy `groq_test` works only if `GROQ_TEST_MODEL`, `GROQ_TEST_API_KEY`, and `GROQ_TEST_BASE_URL` are all set.
 
-## Endpoints
+## Endpoints and config
 
 -   `GET /api/v1/space-builder/health` → `{ ok: true }`
--   `GET /api/v1/space-builder/config` → `{ testMode: boolean }`
+-   `GET /api/v1/space-builder/config` → `{ testMode: boolean, disableUserCredentials: boolean, items: Array<{ id, provider, model, label }> }`
+    -   The UI requests this endpoint with Authorization (Bearer) and retries after `/api/v1/auth/refresh` on 401.
+    -   When `testMode=true` and `disableUserCredentials=true`, only the test items are shown.
+    -   Otherwise, the UI merges test items with credential‑based models, sorts by label, and de‑duplicates by label.
 -   `POST /api/v1/space-builder/prepare`
     -   Request: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
     -   Response: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
@@ -85,7 +105,7 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 />
 ```
 
-The UI fetches available models from existing Credentials and reads Test mode from `/api/v1/space-builder/config` using the shared authenticated API client.
+The UI fetches available models from existing Credentials and reads Test mode and options from `/api/v1/space-builder/config` using the shared authenticated API client.
 
 ## Build
 
