@@ -8,7 +8,7 @@ This package provides reusable React components:
 
 -   SpaceBuilderFab: floating action button to open the generator dialog
 -   SpaceBuilderDialog: modal to type a request; model selection moved to a gear-button modal
--   Hook `useSpaceBuilder` to call the backend API `/api/v1/space-builder/generate`
+-   Hook `useSpaceBuilder` to call the backend API (`/api/v1/space-builder/prepare`, `/api/v1/space-builder/revise`, `/api/v1/space-builder/generate`)
 -   I18n helper `registerSpaceBuilderI18n` to merge translations (EN/RU) into the host app
 
 ## Deterministic builder (stable output)
@@ -85,13 +85,14 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 1. Prepare
 
 -   Paste study material into the input (limit 5000 characters)
+-   Optionally provide "Additional conditions" (limit 500 chars) to strictly guide the LLM
 -   Choose number of questions (1–10, default 1) and answers per question (2–5, default 2)
 -   Click "Prepare" → the UI calls `POST /api/v1/space-builder/prepare` and receives a `quizPlan`
 
 2. Preview
 
--   The dialog shows the proposed questions and answers (exactly one correct per question)
--   Editing is not available at this stage
+-   The dialog shows the proposed questions and answers in a read‑only text field (exactly one correct per question)
+-   Use the "What to change?" field (limit 500 chars) to request iterative edits via `/revise`; the field is cleared after a successful change and when returning Back and re‑preparing
 -   You can click "Back" to adjust the source text or settings
 
 3. Settings

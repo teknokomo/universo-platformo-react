@@ -1,5 +1,6 @@
 import { getQuizMetaPrompt } from './prompts/quiz'
 import { getPreparePrompt } from './prompts/prepare'
+import { getRevisePrompt } from './prompts/revise'
 import { callProvider } from './providers/ModelFactory'
 import type { QuizPlan } from '../schemas/quiz'
 
@@ -34,8 +35,8 @@ export class SpaceBuilderService {
   }
 
   // Propose quiz plan from study material
-  async proposeQuiz(input: { sourceText: string; selectedChatModel: { provider: string; modelName: string; credentialId?: string }; options: { questionsCount: number; answersPerQuestion: number } }): Promise<QuizPlan> {
-    const prompt = getPreparePrompt({ sourceText: input.sourceText, questionsCount: input.options.questionsCount, answersPerQuestion: input.options.answersPerQuestion })
+  async proposeQuiz(input: { sourceText: string; selectedChatModel: { provider: string; modelName: string; credentialId?: string }; options: { questionsCount: number; answersPerQuestion: number }; additionalConditions?: string }): Promise<QuizPlan> {
+    const prompt = getPreparePrompt({ sourceText: input.sourceText, questionsCount: input.options.questionsCount, answersPerQuestion: input.options.answersPerQuestion, additionalConditions: input.additionalConditions?.trim() || undefined })
     const llmText = await callProvider({ provider: input.selectedChatModel.provider, model: input.selectedChatModel.modelName, credentialId: input.selectedChatModel.credentialId, prompt })
     const json = this.extractAnyJSON(llmText)
     if (!json) throw new Error('Failed to parse quiz plan JSON from provider')
@@ -46,6 +47,20 @@ export class SpaceBuilderService {
   async generateFromPlan(input: { quizPlan: QuizPlan; selectedChatModel: { provider: string; modelName: string; credentialId?: string }; options?: { includeStartCollectName?: boolean; includeEndScore?: boolean; generateAnswerGraphics?: boolean } }): Promise<{ nodes: any[]; edges: any[] }> {
     const json = this.buildGraphFromPlan(input.quizPlan, input.options)
     return this.normalize(json)
+  }
+
+  // Revise existing quiz plan with minimal changes
+  async reviseQuizPlan(input: { quizPlan: QuizPlan; instructions: string; selectedChatModel: { provider: string; modelName: string; credentialId?: string } }): Promise<QuizPlan> {
+    const currentPlanJson = JSON.stringify(input.quizPlan)
+    const prompt = getRevisePrompt({ currentPlanJson, instructions: String(input.instructions || '').slice(0, 500) })
+    let llmText = await callProvider({ provider: input.selectedChatModel.provider, model: input.selectedChatModel.modelName, credentialId: input.selectedChatModel.credentialId, prompt })
+    let json = this.extractAnyJSON(llmText)
+    if (!json) {
+      llmText = await callProvider({ provider: input.selectedChatModel.provider, model: input.selectedChatModel.modelName, credentialId: input.selectedChatModel.credentialId, prompt: `${prompt}\nSTRICT: Output RAW JSON only.` })
+      json = this.extractAnyJSON(llmText)
+    }
+    if (!json) throw new Error('Failed to parse revised quiz plan JSON from provider')
+    return this.normalizePlan(json)
   }
 
   private extractAnyJSON(text: string): any | null {

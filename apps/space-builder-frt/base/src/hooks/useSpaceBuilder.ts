@@ -8,6 +8,7 @@ export interface PreparePayload {
   sourceText: string
   selectedChatModel: SelectedChatModel
   options: { questionsCount: number; answersPerQuestion: number }
+  additionalConditions?: string
 }
 
 export interface GenerateFlowPayload {
@@ -67,9 +68,14 @@ export function useSpaceBuilder() {
     return data.quizPlan
   }
 
+  async function reviseQuiz(payload: { quizPlan: QuizPlan; instructions: string; selectedChatModel: SelectedChatModel }): Promise<QuizPlan> {
+    const data = await callWithRefresh<{ quizPlan: QuizPlan }>('/api/v1/space-builder/revise', payload)
+    return data.quizPlan
+  }
+
   async function generateFlow(payload: GenerateFlowPayload): Promise<GeneratedFlowResponse> {
     return callWithRefresh<GeneratedFlowResponse>('/api/v1/space-builder/generate', payload)
   }
 
-  return { prepareQuiz, generateFlow }
+  return { prepareQuiz, reviseQuiz, generateFlow }
 }

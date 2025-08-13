@@ -27,6 +27,7 @@
     -   Docs: Updated app READMEs and `docs/en|ru/applications/publish/README.md`
 -   **Space Builder MVP (Prompt-to-Flow, Frontend + Server)**: Implemented an end-to-end generator to create UPDL flows from a natural-language prompt on the canvas. Frontend: FAB + MUI Dialog with model selector (from Credentials), authenticated calls, i18n bundle, placeholder/label fixes, append/replace modes, and hydration of nodes for anchors/handles. Server: `/api/v1/space-builder/{health,config,generate}` with `ensureAuth` and rate-limit, provider ModelFactory (OpenAI-compatible including Groq via `https://api.groq.com/openai/v1`), credential resolution by `credentialId`, meta-prompt → RAW JSON extraction → Zod validation → safe normalization. Environment: single server `.env` with `SPACE_BUILDER_TEST_MODE` and `GROQ_TEST_API_KEY`. Documentation: EN/RU pages added and linked in Applications and SUMMARY.
 -   **Space Builder UI Refinement — 3‑step flow + Model Settings + UX/a11y fixes (2025-08-13)**
+
     -   Moved model selection into a gear‑button modal (bottom‑left of dialog actions)
     -   Added third step `settings`; moved checkboxes (Append, Collect names, Show final score) there; disabled "Generate graphics"
     -   Improved main input field: doubled height (rows=16), correct Material UI label behavior, consistent padding in DialogActions
@@ -35,6 +36,11 @@
     -   i18n: added keys (configure/settings/model settings/save/testModeInfo) EN/RU
     -   Updated docs: app READMEs already 3‑step; synchronized `docs/en|ru/applications/space-builder/README.md` to 3‑step flow
     -   Full monorepo build green
+
+-   **Space Builder – Constraints & Iterative Quiz Editing (2025-08-13)**
+    -   Backend: `/prepare` now accepts `additionalConditions` (0..500); added `/revise` endpoint with strict JSON‑only prompt and minimal‑change guarantee; invariant checks keep question/answer counts and one correct per question
+    -   Frontend: added "Additional conditions" on Prepare; read‑only quiz preview; "What to change?" with iterative apply; field clears on successful change and when going Back + Prepare
+    -   Docs: Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md` and packages `apps/space-builder-frt`/`apps/space-builder-srv` READMEs
 
 **Uniks Functionality Extraction and Build System Fixes**: Successfully completed on 2025-08-07. Extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. Archive: [docs/archive/enhancements/2025-08/uniks-functionality-extraction.md](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md)
 

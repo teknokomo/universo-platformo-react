@@ -15,9 +15,11 @@ export type SpaceBuilderDialogProps = {
 
 export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, onClose, onApply, models, onError }) => {
   const { t } = useTranslation()
-  const { prepareQuiz, generateFlow } = useSpaceBuilder()
+  const { prepareQuiz, generateFlow, reviseQuiz } = useSpaceBuilder()
   const [step, setStep] = useState<'input' | 'preview' | 'settings'>('input')
   const [sourceText, setSourceText] = useState('')
+  const [additionalConditions, setAdditionalConditions] = useState('')
+  const [reviseText, setReviseText] = useState('')
   const [modelKey, setModelKey] = useState(models?.[0]?.key || '')
   const [append, setAppend] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -57,7 +59,21 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
 
   const model = useMemo(() => effectiveModels.find((m) => m.key === modelKey) || effectiveModels?.[0], [effectiveModels, modelKey])
   const tooLong = sourceText.length > 5000
-  const canPrepare = Boolean(sourceText.trim() && model && !tooLong)
+  const acTooLong = additionalConditions.length > 500
+  const canPrepare = Boolean(sourceText.trim() && model && !tooLong && !acTooLong)
+
+  const previewText = useMemo(() => {
+    const items = Array.isArray(quizPlan?.items) ? quizPlan.items : []
+    const lines: string[] = []
+    items.forEach((it: any, idx: number) => {
+      lines.push(`${idx + 1}. ${String(it?.question || '')}`)
+      ;(Array.isArray(it?.answers) ? it.answers : []).forEach((a: any) => {
+        lines.push(`  - ${String(a?.text || '')}${a?.isCorrect ? ' ✅' : ''}`)
+      })
+      if (idx < items.length - 1) lines.push('')
+    })
+    return lines.join('\n')
+  }, [quizPlan])
 
   useEffect(() => {
     if (!modelKey && effectiveModels?.length) {
@@ -74,6 +90,8 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   function resetState() {
     setStep('input')
     setSourceText('')
+    setAdditionalConditions('')
+    setReviseText('')
     setModelKey('')
     setAppend(true)
     setQuestionsCount(1)
@@ -94,13 +112,33 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
       const plan = await prepareQuiz({
         sourceText: sourceText.trim(),
         selectedChatModel: model!,
-        options: { questionsCount, answersPerQuestion }
+        options: { questionsCount, answersPerQuestion },
+        ...(additionalConditions.trim() ? { additionalConditions: additionalConditions.trim() } : {})
       })
+      setReviseText('')
       setQuizPlan(plan)
       setStep('preview')
     } catch (err: any) {
       // eslint-disable-next-line no-console
       console.error('[SpaceBuilderDialog] prepare failed', err)
+      const base = t('spaceBuilder.error') || 'Generation failed'
+      onError?.(err?.message ? `${base}: ${err.message}` : base)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRevise() {
+    const text = reviseText.trim()
+    if (!quizPlan || !model || !text || text.length > 500) return
+    setBusy(true)
+    try {
+      const revised = await reviseQuiz({ quizPlan, instructions: text, selectedChatModel: model! })
+      setQuizPlan(revised)
+      setReviseText('')
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('[SpaceBuilderDialog] revise failed', err)
       const base = t('spaceBuilder.error') || 'Generation failed'
       onError?.(err?.message ? `${base}: ${err.message}` : base)
     } finally {
@@ -146,6 +184,18 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
                 helperText={`${sourceText.length}/5000`}
                 autoFocus
                 sx={{ mt: 1 }}
+              />
+              <TextField
+                multiline
+                rows={3}
+                fullWidth
+                variant='outlined'
+                label={t('spaceBuilder.additionalConstraints') || 'Additional conditions'}
+                value={additionalConditions}
+                onChange={(e) => setAdditionalConditions(e.target.value)}
+                inputProps={{ maxLength: 500 }}
+                error={acTooLong}
+                helperText={`${additionalConditions.length}/500`}
               />
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <FormControl fullWidth>
@@ -199,23 +249,34 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
           {step === 'preview' && (
             <>
               <Typography variant='h6'>{t('spaceBuilder.previewTitle')}</Typography>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(quizPlan?.items || []).map((it: any, idx: number) => (
-                  <div key={idx}>
-                    <strong>
-                      {idx + 1}. {it.question}
-                    </strong>
-                    <ul>
-                      {it.answers.map((a: any, j: number) => (
-                        <li key={j} style={{ color: a.isCorrect ? 'green' : undefined }}>
-                          {a.text}
-                          {a.isCorrect ? ' ✅' : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+              <TextField
+                multiline
+                rows={12}
+                fullWidth
+                variant='outlined'
+                value={previewText}
+                InputProps={{ readOnly: true }}
+                sx={{ mt: 1 }}
+              />
+              <Typography variant='h6' sx={{ mt: 2 }}>
+                {t('spaceBuilder.reviseTitle') || 'Revise quiz'}
+              </Typography>
+              <TextField
+                multiline
+                rows={3}
+                fullWidth
+                variant='outlined'
+                label={t('spaceBuilder.reviseInstructions') || 'What to change?'}
+                value={reviseText}
+                onChange={(e) => setReviseText(e.target.value)}
+                inputProps={{ maxLength: 500 }}
+                helperText={`${reviseText.length}/500`}
+              />
+              <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                <LoadingButton loading={busy} onClick={onRevise} disabled={!reviseText.trim() || busy} variant='outlined'>
+                  {busy ? t('spaceBuilder.revising') || 'Applying…' : t('spaceBuilder.revise') || 'Change'}
+                </LoadingButton>
+              </Box>
             </>
           )}
         </DialogContent>
@@ -240,7 +301,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             </Box>
           ) : step === 'preview' ? (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button onClick={() => setStep('input')} disabled={busy}>
+              <Button onClick={() => { setReviseText(''); setStep('input') }} disabled={busy}>
                 {t('spaceBuilder.back') || 'Back'}
               </Button>
               <Button onClick={() => setStep('settings')} disabled={busy} variant='contained'>

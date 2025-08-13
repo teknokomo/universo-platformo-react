@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { generateController, prepareController } from '../controllers/space-builder'
+import { generateController, prepareController, reviseController } from '../controllers/space-builder'
 
 const router = Router()
 
@@ -11,5 +11,6 @@ router.get('/config', (_req, res) => {
 // Order does not matter but keep prepare first for clarity
 router.post('/prepare', prepareController)
 router.post('/generate', generateController)
+router.post('/revise', reviseController)
 
 export default router
