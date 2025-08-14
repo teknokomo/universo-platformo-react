@@ -9,7 +9,7 @@
 
 -   [x] Create `@universo-platformo/types` — core ECS/networking types package created; docs synced (EN/RU); build green
     -   Note: Path `apps/universo-platformo-types/base`; exports from `src/index.ts` to `dist/`
--   [ ] Create `@universo-platformo/utils` — validators (Zod) and format converters (UPDL↔runtime)
+-   [x] Create `@universo-platformo/utils` — validators (Zod), ECS deltas, serialization, time sync; docs EN/RU; integrated into `@universo/publish-srv` (safe JSON parsing)
 
 ### Metaverse — Backend + Frontend MVP
 
