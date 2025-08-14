@@ -59,6 +59,8 @@ import { getDataSource } from '../DataSource'
 import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
 import rateLimit from 'express-rate-limit'
 import credentialsService from '../services/credentials'
+import { createMetaverseRouter } from '@universo/metaverse-srv'
+import { createClient } from '@supabase/supabase-js'
 
 const router = express.Router()
 
@@ -167,6 +169,15 @@ router.use(
         }
     })
 )
+
+// Universo Platformo | Metaverse routes
+const createSupabaseForReq = (req: any) =>
+    createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
+        global: { headers: { Authorization: (req.headers.authorization as string) || '' } },
+        auth: { persistSession: false }
+    })
+const metaverseLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true })
+router.use('/metaverses', upAuth.ensureAuth, metaverseLimiter, createMetaverseRouter(createSupabaseForReq))
 
 // Universo Platformo | Publishing Routes
 router.use('/publish', createPublishRoutes(getDataSource()))

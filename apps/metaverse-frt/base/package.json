@@ -1,0 +1,35 @@
+{
+  "name": "@universo/metaverse-frt",
+  "version": "0.1.0",
+  "description": "Frontend UI for Metaverse management in Universo Platformo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc && tsc -p tsconfig.esm.json && gulp",
+    "dev": "tsc -w",
+    "lint": "eslint --ext .ts,.tsx,.jsx src/"
+  },
+  "keywords": ["universo", "metaverse", "frontend"],
+  "author": "Vladimir Levadnij and Teknokomo",
+  "license": "Omsk Open License",
+  "dependencies": {
+    "react": "^18.2.0",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/gulp": "4.0.9",
+    "@types/node": "^20.11.17",
+    "@types/react": "^18.2.55",
+    "eslint": "^8.56.0",
+    "gulp": "^4.0.2",
+    "rimraf": "^5.0.5"
+  }
+}

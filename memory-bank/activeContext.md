@@ -16,6 +16,7 @@
 -   **Production Deployment**: Enterprise-grade hosting and scaling solutions
 -   **Community Features**: Template sharing and collaborative development tools
 -   **Space Builder Test Mode Stabilization**: finalize multi‑provider Test mode (OpenAI‑compatible), enforce credentials disable on UI/server, deduplicate model list, and keep docs in sync
+-   **Metaverse Module**: MVP implemented; follow-ups pending (membership & links UI, docs)
 
 ## Recently Completed
 
@@ -42,6 +43,7 @@
     -   Backend: `/prepare` now accepts `additionalConditions` (0..500); added `/revise` endpoint with strict JSON‑only prompt and minimal‑change guarantee; invariant checks keep question/answer counts and one correct per question
     -   Frontend: added "Additional conditions" on Prepare; read‑only quiz preview; "What to change?" with iterative apply; field clears on successful change and when going Back + Prepare
     -   Docs: Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md` and packages `apps/space-builder-frt`/`apps/space-builder-srv` READMEs
+    -   Build: Full workspace build green
 
 -   **Space Builder – Creation Mode, Safer Append, and Docs (2025-08-13)**
 
@@ -51,13 +53,14 @@
     -   Docs: Updated app READMEs and `docs/en|ru/applications/space-builder/README.md` with new setting and integration snippet
     -   Build: Full workspace build green
 
--   **Space Builder — Multi‑provider Test Mode & UI Enforcement (2025-08-13)**
-    -   Server: `/config` now returns `{ testMode, disableUserCredentials, items[] }`; items are built from per‑provider env (no defaults) and sorted alphabetically; legacy `groq_test` only when fully configured
-    -   Server: `ModelFactory` collects test providers (OpenAI/Groq/OpenRouter/Cerebras/GigaChat/YandexGPT/Google/Custom), calls via OpenAI‑compatible client (`baseURL + apiKey`), and honors `SPACE_BUILDER_DISABLE_USER_CREDENTIALS`
-    -   UI: fetches `/config` with Authorization and retries after refresh; when credentials are disabled, only test models are shown and enforced; otherwise UI merges and deduplicates by label
-    -   Docs: Updated EN/RU in `docs/en|ru/applications/space-builder/README.md` and app READMEs; documented env variables and behavior
+-   **Metaverse — Backend + Frontend MVP (2025-08-14)**
 
-**Uniks Functionality Extraction and Build System Fixes**: Successfully completed on 2025-08-07. Extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. Archive: [docs/archive/enhancements/2025-08/uniks-functionality-extraction.md](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md)
+    -   Backend: new package `@universo/metaverse-srv`; PostgreSQL migration creates `metaverse` schema with `metaverses`, `user_metaverses`, `metaverse_links`, strict RLS policies, and indexes; per-request Supabase client with `Authorization` header; Express router `/api/v1/metaverses` with `ensureAuth` and rate-limit; endpoints: list (by membership), create (owner)
+    -   Server integration: migrations aggregated in `packages/server/src/database/migrations/postgres/index.ts`; router mounted in `packages/server/src/routes/index.ts`
+    -   Frontend: new package `@universo/metaverse-frt`; page `MetaverseList.jsx` (list + search + create), integrated via routes and left menu; i18n bundle registered in global i18n; dual build (CJS/ESM) with gulp asset copy
+    -   Build: full monorepo build passed
+
+-   **Uniks Functionality Extraction and Build System Fixes**: Successfully completed on 2025-08-07. Extracted Uniks (workspace) functionality from monolithic codebase into dedicated packages `@universo/uniks-srv` and `@universo/uniks-frt`, resolving critical build system issues. Implemented modular architecture with clean separation of concerns, eliminated circular dependencies, fixed TypeScript compilation issues, and corrected internationalization configuration. Archive: [docs/archive/enhancements/2025-08/uniks-functionality-extraction.md](../docs/archive/enhancements/2025-08/uniks-functionality-extraction.md)
 
 **MMOOMM Entity Hardcode Elimination Fix**: Successfully completed on 2025-08-06. Eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. Archive: [docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md)
 
@@ -94,5 +97,6 @@
 -   Production deployment preparation
 -   Community collaboration features
 -   Additional package extractions following Uniks pattern
+-   Metaverse follow-ups: DB migration run on UP-test (Supabase), add update/delete/default endpoints and membership/links CRUD, front-end UI for membership/default/links, docs (EN/RU), and QA
 
 _For detailed progress history, see [progress.md](progress.md). For current tasks, see [tasks.md](tasks.md)._

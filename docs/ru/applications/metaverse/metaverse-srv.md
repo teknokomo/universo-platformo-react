@@ -1,4 +1,4 @@
-# Metaverse Backend (metaverse-srv) — [Статус: Планируется]
+# Metaverse Backend (metaverse-srv) — [Статус: MVP]
 
 ## Назначение
 

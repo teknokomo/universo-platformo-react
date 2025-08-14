@@ -5,6 +5,20 @@
 
 ## Current Implementation Tasks
 
+### Metaverse — Backend + Frontend MVP
+
+-   [x] Backend: create `@universo/metaverse-srv` with Express router `/api/v1/metaverses` (list by membership, create), `ensureAuth`, per-request Supabase client (Authorization header), Zod validation, and rate-limit
+-   [x] Database: TypeORM migrations creating schema `"metaverse"`, tables (`metaverses`, `user_metaverses`, `metaverse_links`), indexes (`uq_user_default_metaverse`, `uq_links`, etc.), and strict RLS policies (owner-only modify; public visibility read)
+-   [x] Server Integration: mount router in `packages/server/src/routes/index.ts`; aggregate migrations in `packages/server/src/database/migrations/postgres/index.ts`
+-   [x] Frontend: create `@universo/metaverse-frt` with `MetaverseList.jsx` (list/search/create), register i18n bundle, add left menu item and route `/metaverses`, dual build (CJS/ESM) with gulp assets copy
+-   [x] Build: full monorepo build green
+-   [ ] Migrations: run Postgres migrations on Supabase (UP-test), verify RLS behavior with JWT
+-   [ ] Backend endpoints: update/delete/get-by-id; toggle default (unique per user); membership CRUD (invite/remove/update role); links CRUD (create/delete) with RLS checks
+-   [ ] Frontend UI: membership management (roles), default toggle, link editor (create/remove/visualize)
+-   [ ] Documentation: complete `docs/en|ru/applications/metaverse/metaverse-(frt|srv).md` with architecture and usage
+-   [ ] QA: rate-limit tuning, error handling, i18n keys review, pagination and server-side search, basic tests
+-   [ ] Security: ensure no PII logs, per-request Supabase header, `auth.uid()` in policies, enforced `schema('metaverse')`
+
 ### Space Builder — Test Mode Stabilization (Multi‑provider)
 
 -   [x] Server: Implement `/config` → `{ testMode, disableUserCredentials, items[] }` (auth, no defaults)
