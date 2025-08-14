@@ -23,6 +23,7 @@
         -   [Resource Management](universo-platformo/resources/resource-management.md)
         -   [Trading Systems](universo-platformo/resources/trading-systems.md)
         -   [Mining Mechanics](universo-platformo/resources/mining-mechanics.md)
+    -   [Utils Package](universo-platformo/utils/README.md)
 -   [Roadmap](roadmap/README.md)
     -   [Current Architecture](roadmap/current-architecture/README.md)
         -   [Existing Applications](roadmap/current-architecture/existing-apps.md)

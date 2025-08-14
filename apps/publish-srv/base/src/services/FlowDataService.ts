@@ -5,6 +5,7 @@
 import { DataSource } from 'typeorm'
 import logger from '../utils/logger'
 import { RawFlowData, ChatFlowMinimal } from '../types/publication.types'
+import { serialization } from '@universo-platformo/utils'
 
 /**
  * Service for handling flow data extraction from Supabase
@@ -49,21 +50,24 @@ export class FlowDataService {
             let renderConfig = null
             if (chatFlow.chatbotConfig) {
                 try {
-                    const config = typeof chatFlow.chatbotConfig === 'string' ? JSON.parse(chatFlow.chatbotConfig) : chatFlow.chatbotConfig
-
-                    if (config.arjs && config.arjs.libraryConfig) {
-                        libraryConfig = config.arjs.libraryConfig
-                        logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
-                    }
-
-                    // Extract render configuration for AR.js view if available
-                    if (config.arjs) {
-                        const { arDisplayType, wallpaperType, markerType, markerValue } = config.arjs
-                        renderConfig = { arDisplayType, wallpaperType, markerType, markerValue }
-                        logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
+                    const parsed = typeof chatFlow.chatbotConfig === 'string' ? serialization.safeParseJson<any>(chatFlow.chatbotConfig) : { ok: true as const, value: chatFlow.chatbotConfig }
+                    if (!parsed.ok) {
+                        const errMsg = parsed.error?.message || 'Unknown JSON parse error'
+                        logger.warn(`[FlowDataService] Failed to parse chatbotConfig: ${errMsg}`)
+                    } else {
+                        const config = parsed.value
+                        if (config?.arjs?.libraryConfig) {
+                            libraryConfig = config.arjs.libraryConfig
+                            logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
+                        }
+                        if (config?.arjs) {
+                            const { arDisplayType, wallpaperType, markerType, markerValue } = config.arjs
+                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue }
+                            logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
+                        }
                     }
                 } catch (parseError) {
-                    logger.warn(`[FlowDataService] Failed to parse chatbotConfig for libraryConfig: ${parseError}`)
+                    logger.warn(`[FlowDataService] Unexpected error during chatbotConfig parse: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
                 }
             }
 

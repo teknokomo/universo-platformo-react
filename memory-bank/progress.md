@@ -51,6 +51,13 @@ These insights informed our revised approach for Stage 3, leading to the simplif
 -   Build and lint green; exports via `src/index.ts` → `dist/`
 -   Documentation synchronized EN/RU: added `README-RU.md` for the package; updated `docs/en|ru/roadmap/implementation-plan/phase-2-core.md` and RU tasks registry to mark completion
 
+### 2025-08-14: Core Utils Package + Docs + Backend Integration ✅
+
+-   Created workspace package `@universo-platformo/utils` at `apps/universo-platformo-utils/base` with modules: validation (Zod DTO schemas), delta (compute/apply), serialization (stableStringify, safeParseJson, hashFNV1a32), net (time sync, seq/ack), updl (passthrough schemas)
+-   Integrated into `@universo/publish-srv`: replaced unsafe `JSON.parse` with `serialization.safeParseJson` in `FlowDataService`; ensured build via workspace alias and dependency link
+-   Documentation: package READMEs (`README.md`, `README-RU.md`) added; docs pages `docs/en|ru/universo-platformo/utils/README.md` created and linked in SUMMARY
+-   Full monorepo build green for types/utils/publish-srv
+
 ### ✅ 2025‑08‑13: Space Builder — Multi‑provider Test Mode & UI Enforcement
 
 -   Server: `/config` returns `{ testMode, disableUserCredentials, items[] }`; items are generated from per‑provider env without defaults and sorted; legacy `groq_test` allowed only when fully configured

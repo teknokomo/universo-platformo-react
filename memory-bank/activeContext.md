@@ -27,6 +27,13 @@
     -   Added `README.md` and `README-RU.md` (line-by-line synchronized)
     -   Updated `docs/en|ru/roadmap/implementation-plan/phase-2-core.md` (synchronized) and RU tasks registry to mark the item as completed
 
+-   **Core Utils Package `@universo-platformo/utils` + Docs i18n + Backend Integration (2025-08-14)**
+
+    -   Created workspace package at `apps/universo-platformo-utils/base` with modules: validation (Zod DTO schemas), delta (compute/apply), serialization (stableStringify, safeParseJson, hashFNV1a32), net (time sync, seq/ack), updl (passthrough schemas)
+    -   Integrated in `@universo/publish-srv`: replaced unsafe `JSON.parse` with `serialization.safeParseJson` in `FlowDataService`; ensured build via workspace alias
+    -   Documentation added and linked: `docs/en|ru/universo-platformo/utils/README.md`; package READMEs `README.md` and `README-RU.md` created under `apps/universo-platformo-utils/base`
+    -   Full workspace build successful; types package exports path normalized earlier to `dist/index.*`
+
 -   **AR.js Wallpaper Mode (Markerless) — Frontend + Server + Docs (2025-08-12)**
     -   UI: Added `AR Display Type` (default: wallpaper), wallpaper type selector, conditional instructions; dimmed non-working tech options (Babylon.js, A‑Frame)
     -   Persistence: Save `arDisplayType` and `wallpaperType` into `chatbotConfig.arjs`; publish request includes `renderConfig`
