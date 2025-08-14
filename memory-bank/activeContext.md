@@ -20,6 +20,13 @@
 
 ## Recently Completed
 
+-   **Core Types Package `@universo-platformo/types` + Docs i18n Sync (2025-08-14)**
+
+    -   Created workspace package at `apps/universo-platformo-types/base` with ECS domain types (Transform, Health, Visual), networking DTOs (Intent, Ack, Snapshot, Delta, EventPacket), error codes, and protocol version
+    -   Build and lint green; exports from `src/index.ts` to `dist/`
+    -   Added `README.md` and `README-RU.md` (line-by-line synchronized)
+    -   Updated `docs/en|ru/roadmap/implementation-plan/phase-2-core.md` (synchronized) and RU tasks registry to mark the item as completed
+
 -   **AR.js Wallpaper Mode (Markerless) — Frontend + Server + Docs (2025-08-12)**
     -   UI: Added `AR Display Type` (default: wallpaper), wallpaper type selector, conditional instructions; dimmed non-working tech options (Babylon.js, A‑Frame)
     -   Persistence: Save `arDisplayType` and `wallpaperType` into `chatbotConfig.arjs`; publish request includes `renderConfig`

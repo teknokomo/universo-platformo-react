@@ -99,7 +99,7 @@
 
 ## Этап 2. Подготовка репозитория и пакетов (ядро платформы)
 
--   **Создать workspace‑пакет `@universo-platformo/types`**
+-   **Создать workspace‑пакет `@universo-platformo/types` — [Выполнено]**
 
     Сформировать единый источник истины по типам и контрактам протокола. Разместить в `apps/universo-platformo-types`. Содержимое: доменные типы ECS (EntityId, WorldId, Transform, базовые компоненты), сетевые DTO (Intent, Ack, Snapshot, Delta, EventPayloads), общие перечисления и коды ошибок. Настроить `tsconfig`, сборку в `dist/`, экспорты из `src/index.ts`.
 

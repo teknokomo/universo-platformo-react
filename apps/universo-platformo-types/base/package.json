@@ -1,0 +1,29 @@
+{
+    "name": "@universo-platformo/types",
+    "version": "0.1.0",
+    "description": "Core protocol and ECS domain types for Universo Platformo",
+    "private": true,
+    "main": "dist/src/index.js",
+    "types": "dist/src/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/src/index.js",
+            "require": "./dist/src/index.js",
+            "types": "./dist/src/index.d.ts"
+        }
+    },
+    "sideEffects": false,
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts src/"
+    },
+    "license": "Omsk Open License",
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "eslint": "^8.56.0",
+        "rimraf": "^5.0.5",
+        "typescript": "^5.8.3"
+    }
+}
