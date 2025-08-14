@@ -5,6 +5,12 @@
 
 ## Current Implementation Tasks
 
+### Core Platform Packages (Phase 2)
+
+-   [x] Create `@universo-platformo/types` — core ECS/networking types package created; docs synced (EN/RU); build green
+    -   Note: Path `apps/universo-platformo-types/base`; exports from `src/index.ts` to `dist/`
+-   [ ] Create `@universo-platformo/utils` — validators (Zod) and format converters (UPDL↔runtime)
+
 ### Metaverse — Backend + Frontend MVP
 
 -   [x] Backend: create `@universo/metaverse-srv` with Express router `/api/v1/metaverses` (list by membership, create), `ensureAuth`, per-request Supabase client (Authorization header), Zod validation, and rate-limit

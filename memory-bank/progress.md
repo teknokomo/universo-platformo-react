@@ -45,6 +45,12 @@ These insights informed our revised approach for Stage 3, leading to the simplif
 
 ## Recent Major Achievements
 
+### 2025-08-14: Core Types Package + Documentation i18n Sync ✅
+
+-   Created workspace package `@universo-platformo/types` at `apps/universo-platformo-types/base` with ECS domain types (Transform, Health, Visual), networking DTOs (Intent, Ack, Snapshot, Delta, EventPacket), error codes, and protocol version constant
+-   Build and lint green; exports via `src/index.ts` → `dist/`
+-   Documentation synchronized EN/RU: added `README-RU.md` for the package; updated `docs/en|ru/roadmap/implementation-plan/phase-2-core.md` and RU tasks registry to mark completion
+
 ### ✅ 2025‑08‑13: Space Builder — Multi‑provider Test Mode & UI Enforcement
 
 -   Server: `/config` returns `{ testMode, disableUserCredentials, items[] }`; items are generated from per‑provider env without defaults and sorted; legacy `groq_test` allowed only when fully configured
