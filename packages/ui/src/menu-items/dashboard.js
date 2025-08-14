@@ -43,6 +43,14 @@ const dashboard = {
             breadcrumbs: false
         },
         {
+            id: 'metaverses',
+            title: 'menu.metaverses',
+            type: 'item',
+            url: '/metaverses',
+            icon: icons.IconBuildingStore,
+            breadcrumbs: true
+        },
+        {
             id: 'chatflows',
             title: 'menu.chatflows',
             type: 'item',

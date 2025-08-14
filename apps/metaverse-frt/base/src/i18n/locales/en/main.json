@@ -1,0 +1,10 @@
+{
+  "metaverse": {
+    "list": {
+      "title": "Metaverses",
+      "searchPlaceholder": "Search metaverses",
+      "create": "Create",
+      "newName": "New metaverse name"
+    }
+  }
+}

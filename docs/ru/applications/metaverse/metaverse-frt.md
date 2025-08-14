@@ -1,4 +1,4 @@
-# Metaverse Frontend (metaverse-frt) — [Статус: Планируется]
+# Metaverse Frontend (metaverse-frt) — [Статус: MVP]
 
 ## Назначение
 

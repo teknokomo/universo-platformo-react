@@ -20,6 +20,14 @@ const unikDashboard = {
             breadcrumbs: false
         },
         {
+            id: 'metaverses',
+            title: 'menu.metaverses',
+            type: 'item',
+            url: '/metaverses',
+            icon: icons.IconBuildingStore,
+            breadcrumbs: false
+        },
+        {
             id: 'profile',
             title: 'menu.profile',
             type: 'item',

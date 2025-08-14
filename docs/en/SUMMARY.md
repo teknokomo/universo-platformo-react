@@ -62,6 +62,7 @@
     -   [Space Builder](applications/space-builder/README.md)
     -   [Analytics System](applications/analytics/README.md)
     -   [Authentication System](applications/auth/README.md)
+-   [Metaverse](applications/metaverse/README.md)
 -   [Contribution Guide](contributing/README.md)
     -   [Building Node](contributing/building-node.md)
 -   [API Reference](api-reference/README.md)

@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-08-12**
+**As of 2025-08-14**
 
 ## Completed (chronological)
 
@@ -178,6 +178,13 @@ Delivered targeted quiz editing and stronger input guidance:
 -   Documentation:
     -   Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md`
     -   Updated app READMEs in `apps/space-builder-frt` and `apps/space-builder-srv` (EN/RU)
+
+### 2025-08-14: Metaverse — Backend + Frontend MVP ✅
+
+-   Backend: `@universo/metaverse-srv` with Express router `/api/v1/metaverses` (list by membership, create), per-request Supabase client with Authorization, strict rate-limit, and TypeORM migrations creating `metaverse` schema (`metaverses`, `user_metaverses`, `metaverse_links`) with indexes and RLS policies
+-   Server Integration: Router mounted in `packages/server/src/routes/index.ts` with `ensureAuth`; migrations aggregated in `packages/server/src/database/migrations/postgres/index.ts`
+-   Frontend: `@universo/metaverse-frt` with `MetaverseList.jsx` (list/search/create), i18n bundle registration, menu item and route `/metaverses`, dual (CJS/ESM) build with gulp copy
+-   Build: Full monorepo build passed
 
 ### 2025-08-13: Space Builder — Creation Mode, Safer Append, Docs ✅
 

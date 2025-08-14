@@ -13,6 +13,7 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
+const MetaverseList = Loadable(lazy(() => import('@apps/metaverse-frt/base/src/pages/MetaverseList.jsx')))
 
 // Workspace dashboard component
 const UnikDetail = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikDetail.jsx')))
@@ -179,6 +180,14 @@ const MainRoutes = {
                     ]
                 }
             ]
+        },
+        {
+            path: '/metaverses',
+            element: (
+                <AuthGuard>
+                    <MetaverseList />
+                </AuthGuard>
+            )
         },
         {
             path: '/admin',

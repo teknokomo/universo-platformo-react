@@ -72,6 +72,7 @@ import { analyticsTranslations } from '@apps/analytics-frt/base/src/i18n'
 // Universo Platformo | Import profile module translations
 import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
 import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
+import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
@@ -98,7 +99,8 @@ i18n.use(LanguageDetector)
                     chatmessage: enChatmessageTranslation,
                     publish: publishTranslations.en.publish,
                     analytics: analyticsTranslations.en.analytics,
-                    profile: profileTranslations.en.profile
+                    profile: profileTranslations.en.profile,
+                    metaverse: metaverseTranslations.en.metaverse
                 },
                 ru: {
                     translation: ruTranslation,
@@ -119,7 +121,8 @@ i18n.use(LanguageDetector)
                     chatmessage: ruChatmessageTranslation,
                     publish: publishTranslations.ru.publish,
                     analytics: analyticsTranslations.ru.analytics,
-                    profile: profileTranslations.ru.profile
+                    profile: profileTranslations.ru.profile,
+                    metaverse: metaverseTranslations.ru.metaverse
                 }
             },
             fallbackLng: 'en',
@@ -142,7 +145,8 @@ i18n.use(LanguageDetector)
                 'chatmessage',
                 'publish',
                 'analytics',
-                'profile'
+                'profile',
+                'metaverse'
             ],
             defaultNS: 'translation',
             fallbackNS: 'translation',

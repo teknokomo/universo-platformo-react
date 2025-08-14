@@ -110,6 +110,9 @@
         -   [Space Builder](applications/space-builder/README.md)
         -   [Система аналитики](applications/analytics/README.md)
         -   [Система аутентификации](applications/auth/README.md)
+    -   Метавселенные
+        -   [Metaverse Backend](applications/metaverse/metaverse-srv.md)
+        -   [Metaverse Frontend](applications/metaverse/metaverse-frt.md)
 -   [Руководство по участию](contributing/README.md)
     -   [Создание узлов](contributing/building-node.md)
 -   [Справочник API](api-reference/README.md)
