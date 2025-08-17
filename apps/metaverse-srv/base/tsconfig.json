@@ -12,6 +12,8 @@
         "resolveJsonModule": true,
         "skipLibCheck": true,
         "moduleResolution": "node",
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         "baseUrl": ".",
         "paths": {
             "*": ["*"]

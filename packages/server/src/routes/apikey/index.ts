@@ -1,6 +1,7 @@
 import express from 'express'
+import type { Router as ExpressRouter } from 'express'
 import apikeyController from '../../controllers/apikey'
-const router = express.Router({ mergeParams: true })
+const router: ExpressRouter = express.Router({ mergeParams: true })
 
 // CREATE
 router.post('/', apikeyController.createApiKey)

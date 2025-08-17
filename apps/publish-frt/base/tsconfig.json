@@ -17,7 +17,8 @@
             "*": ["*"],
             "../common/*": ["../common/*"],
             "@universo/publish-srv": ["../../publish-srv/base/src"],
-            "@universo/publish-srv/*": ["../../publish-srv/base/src/*"]
+            "@universo/publish-srv/*": ["../../publish-srv/base/src/*"],
+            "@universo-platformo/utils": ["../../universo-platformo-utils/base/dist/index.d.ts"]
         },
         "moduleResolution": "node"
     },

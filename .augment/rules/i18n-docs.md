@@ -1,8 +1,7 @@
 ---
-type: 'agent_requested'
-description: 'When you are asked to update Reame files or other documentation files'
+type: "agent_requested"
+description: "When you are asked to update Readme files or other documentation files"
 ---
-
 # Multilingual Documentation Guidelines
 
 1.  When updating documentation, such as `README.md`, check if there is a similar file nearby with a version of the documentation in another language, primarily a file with Russian documentation, for example, `README-RU.md`. If such a file exists, it must also be updated.

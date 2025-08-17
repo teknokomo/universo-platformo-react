@@ -298,6 +298,9 @@ importers:
 
   apps/publish-srv/base:
     dependencies:
+      '@universo-platformo/utils':
+        specifier: workspace:*
+        version: link:../../universo-platformo-utils/base
       express:
         specifier: ^4.18.2
         version: 4.21.2
@@ -429,6 +432,43 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+
+  apps/universo-platformo-types/base:
+    devDependencies:
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
+  apps/universo-platformo-utils/base:
+    dependencies:
+      '@universo-platformo/types':
+        specifier: workspace:*
+        version: link:../../universo-platformo-types/base
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.67
+    devDependencies:
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
 
   apps/updl/base:
     dependencies:
@@ -3949,14 +3989,17 @@ packages:
 
   '@modelcontextprotocol/server-brave-search@0.6.2':
     resolution: {integrity: sha512-AtdnPh8zVsEooXWZD21Negz3JL6iRmKf4sUtwCrLe0e83QBJD6Hf5B3rOFkwsrnTew/6xL7oyRkhc6YuXhuuhQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     hasBin: true
 
   '@modelcontextprotocol/server-github@2025.4.8':
     resolution: {integrity: sha512-8N43bQw9MlUB0piTZHK2JMh8kYPKxH57d4Z7Wb8PS4by2MkZ0FzI5xPImg3xumpev82VZw2VWHQJJJYp+WkwEw==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     hasBin: true
 
   '@modelcontextprotocol/server-postgres@0.6.2':
     resolution: {integrity: sha512-ukbVmVxLAsdZ5pTVWbhf9fc7lqkSf7XqizNH8XAotI21GnRPtkqO+WLWpeBFU+/2Fyv63uXS7/9NnR8Y8wOP1Q==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     hasBin: true
 
   '@modelcontextprotocol/server-sequential-thinking@0.6.2':
@@ -3965,6 +4008,7 @@ packages:
 
   '@modelcontextprotocol/server-slack@2025.4.25':
     resolution: {integrity: sha512-9WBjnxl4OgYZ1kKBqUmHbd2XVoqtnO9u8kaxSaGb4NAWf2Q4D/LV6FoJUAHPPcvKcB7AQLNJa8KO3yNOcU6fvQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     hasBin: true
 
   '@mongodb-js/saslprep@1.3.0':
@@ -13940,7 +13984,7 @@ packages:
   puppeteer@20.9.0:
     resolution: {integrity: sha512-kAglT4VZ9fWEGg3oLc4/de+JcONuEJhlh3J6f5R1TLkrY/EHHIHxWXDOzXvaxQCtedmyVXBwg8M+P8YCO/wZjw==}
     engines: {node: '>=16.3.0'}
-    deprecated: < 22.8.2 is no longer supported
+    deprecated: < 24.9.0 is no longer supported
 
   pure-color@1.3.0:
     resolution: {integrity: sha512-QFADYnsVoBMw1srW7OVKEYjG+MbIa49s54w1MA1EDY6r2r/sTcKKYqRX1f4GYvnXP7eN/Pe9HFcX+hwzmrXRHA==}
@@ -15038,6 +15082,7 @@ packages:
   source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
 
   sourcemap-codec@1.4.8:
     resolution: {integrity: sha512-9NykojV5Uih4lgo5So5dtw+f0JgJX30KCNI8gwhz2J9A15wD0Ml6tjHKwf6fTSa6fAdVBdZeNOs9eJ71qCk8vA==}
