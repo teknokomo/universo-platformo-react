@@ -3,6 +3,51 @@
 **Project**: Universo Platformo (v0.24.0-alpha, Alpha achieved)
 **Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
 
+## Current VAN Analysis Tasks
+
+### Metaverse Integration Issues (2025-08-14)
+
+**Status**: 🔍 VAN Analysis In Progress
+**Type**: Level 2 (Simple Enhancement) - Integration Fix
+**Urgency**: High - Core functionality missing
+
+#### Issues Identified:
+
+1. **Missing Metaverse Menu Item**
+
+    - ✅ Analysis: Metaverse functionality works at `/metaverses` but missing from main menu
+    - ✅ Root Cause: `unikDashboard.js` does not include metaverse menu item between "Уники" and "Профиль"
+    - 📍 Location: `apps/uniks-frt/base/src/menu-items/unikDashboard.js` (lines 13-47)
+    - 📍 Integration Point: `packages/ui/src/layout/MainLayout/Sidebar/MenuList/index.jsx` (line 5)
+
+2. **Profile Migration Trigger Conflict**
+    - ✅ Analysis: Migration `AddProfile1741277504477` fails with trigger already exists error
+    - ✅ Root Cause: `create_profile_trigger` already exists in Supabase database
+    - 📍 Location: `apps/profile-srv/base/src/database/migrations/postgres/1741277504477-AddProfile.ts` (line 110)
+    - 📍 Error: `trigger "create_profile_trigger" for relation "users" already exists`
+
+#### Architecture Analysis:
+
+**Menu System Pattern:**
+
+-   ✅ `unikDashboard.js` defines menu structure for workspace context
+-   ✅ `MenuList/index.jsx` handles context switching between workspace and main menus
+-   ✅ Route integration already exists: `MetaverseList` imported in `MainRoutes.jsx` (line 16)
+-   ⚠️ Missing: Menu item in `unikDashboard.js` array
+
+**Migration System Pattern:**
+
+-   ✅ Profile migrations aggregated in `packages/server/src/database/migrations/postgres/index.ts` (line 67)
+-   ✅ Migration uses `IF NOT EXISTS` for tables but not for triggers/functions
+-   ⚠️ Database state inconsistent: tables dropped but triggers remain
+
+#### Next Steps:
+
+-   [ ] Add metaverse menu item to `unikDashboard.js`
+-   [ ] Add appropriate icon import for metaverse
+-   [ ] Fix migration to handle existing triggers gracefully
+-   [ ] Test full integration after fixes
+
 ## Current Implementation Tasks
 
 ### Core Platform Packages (Phase 2)
@@ -262,3 +307,13 @@
 
 -   [x] **Uniks Functionality Extraction and Build System Fixes**: Successfully extracted Uniks (workspace) functionality into dedicated packages and resolved critical build issues. Extracted backend logic into `@universo/uniks-srv` package with Express routes, TypeORM entities, and PostgreSQL migrations. Created `@universo/uniks-frt` frontend package with React components, menu configurations, and i18n support. Resolved circular dependency issues by implementing proper workspace dependencies and TypeScript path aliases. Fixed Vite alias configuration for i18n imports. Corrected translation key usage by removing redundant namespace prefixes. All Uniks functionality now modularized and build system fully operational. ✅ **COMPLETED** ✅ **REFLECTION COMPLETE** ✅ **ARCHIVED** - [Archive](docs/archive/enhancements/2025-08/uniks-functionality-extraction.md) (2025-08-07)
 -   [x] **MMOOMM Entity Hardcode Elimination Fix**: Fixed all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Eliminated hardcoded scale values in Ship (2,1,3), Station (4,2,4), Gate (3,3,1), and Asteroid entities. Fixed hardcoded rotation values in Ship entity. Implemented conditional logic to apply default values only when UPDL values are unset (default 1,1,1). Fixed variable name conflicts (entityScale, scaleMultiplier) causing syntax errors. All Entity transform values (scale, position, rotation) now properly respect UPDL Component settings while maintaining fallback defaults for standalone entities. (2025-01-31)
+
+### Auth System — Passport.js + Supabase (PoC, Isolated)
+
+-   [x] Create isolated packages `apps/auth-srv/base` and `apps/auth-frt/base` with server-side sessions, CSRF, rate-limit, and cookie-based client (no tokens on client)
+-   [x] Ensure PNPM workspace build for both packages is green
+-   [x] Add RU/EN READMEs with rollout plan
+-   [x] Confirm code is fully isolated and NOT integrated with current system
+-   [ ] Integration (server): adopt session-based Supabase client per request; replace header-based RLS
+-   [ ] Integration (ui): remove localStorage tokens, Authorization interceptor; switch to `withCredentials` + `/auth/me`
+-   [ ] Production hardening: Redis session store, distributed refresh lock, HTTPS & SameSite policy

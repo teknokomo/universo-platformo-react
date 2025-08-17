@@ -1,45 +1,22 @@
-// assets
-import {
-    IconUsersGroup,
-    IconHierarchy,
-    IconBuildingStore,
-    IconKey,
-    IconTool,
-    IconLock,
-    IconRobot,
-    IconVariable,
-    IconFiles,
-    IconChartBar
-} from '@tabler/icons-react'
+// Import required icons from @tabler/icons-react
+import { IconFiles, IconWorld, IconUser, IconFileText } from '@tabler/icons-react'
 
-// constant
-const icons = {
-    IconUsersGroup,
-    IconHierarchy,
-    IconBuildingStore,
-    IconKey,
-    IconTool,
-    IconLock,
-    IconRobot,
-    IconVariable,
-    IconFiles,
-    IconChartBar
-}
+// Collect them in an icons object
+const icons = { IconFiles, IconWorld, IconUser, IconFileText }
 
-// ==============================|| DASHBOARD MENU ITEMS ||============================== //
+// ==============================|| MAIN DASHBOARD MENU ITEMS ||============================== //
 
 const dashboard = {
-    id: 'dashboard',
+    id: 'main-dashboard',
     title: '',
     type: 'group',
     children: [
         {
-            id: 'unik-dashboard',
-            title: 'menu.dashboard',
+            id: 'uniks',
+            title: 'menu.uniks',
             type: 'item',
-            // Relative URL for the main page of the Unik – will be /uniks/{unikId}
-            url: '',
-            icon: icons.IconBuildingStore,
+            url: '/uniks',
+            icon: icons.IconFiles,
             breadcrumbs: false
         },
         {
@@ -47,88 +24,33 @@ const dashboard = {
             title: 'menu.metaverses',
             type: 'item',
             url: '/metaverses',
-            icon: icons.IconBuildingStore,
-            breadcrumbs: true
+            icon: icons.IconWorld,
+            breadcrumbs: false
         },
         {
-            id: 'chatflows',
-            title: 'menu.chatflows',
+            id: 'profile',
+            title: 'menu.profile',
             type: 'item',
-            url: '/chatflows',
-            icon: icons.IconHierarchy,
-            breadcrumbs: true
+            url: '/profile',
+            icon: icons.IconUser,
+            breadcrumbs: false
         },
         {
-            id: 'agentflows',
-            title: 'menu.agentflows',
+            id: 'docs',
+            title: 'menu.docs',
             type: 'item',
-            url: '/agentflows',
-            icon: icons.IconUsersGroup,
-            breadcrumbs: true
-        },
-        {
-            id: 'assistants',
-            title: 'menu.assistants',
-            type: 'item',
-            url: '/assistants',
-            icon: icons.IconRobot,
-            breadcrumbs: true
-        },
-        {
-            id: 'tools',
-            title: 'menu.tools',
-            type: 'item',
-            url: '/tools',
-            icon: icons.IconTool,
-            breadcrumbs: true
-        },
-        {
-            id: 'credentials',
-            title: 'menu.credentials',
-            type: 'item',
-            url: '/credentials',
-            icon: icons.IconLock,
-            breadcrumbs: true
-        },
-        {
-            id: 'variables',
-            title: 'menu.variables',
-            type: 'item',
-            url: '/variables',
-            icon: icons.IconVariable,
-            breadcrumbs: true
-        },
-        {
-            id: 'apikey',
-            title: 'menu.apiKeys',
-            type: 'item',
-            url: '/apikey',
-            icon: icons.IconKey,
-            breadcrumbs: true
-        },
-        {
-            id: 'document-stores',
-            title: 'menu.documentStores',
-            type: 'item',
-            url: '/document-stores',
-            icon: icons.IconFiles,
-            breadcrumbs: true
-        },
-        {
-            id: 'analytics',
-            title: 'menu.analytics',
-            type: 'item',
-            url: '/analytics',
-            icon: icons.IconChartBar,
-            breadcrumbs: true
-        },
-        {
-            id: 'templates',
-            title: 'menu.templates',
-            type: 'item',
-            url: '/templates',
-            icon: icons.IconBuildingStore,
-            breadcrumbs: true
+            url: 'https://docs.universo.pro',
+            icon: icons.IconFileText,
+            breadcrumbs: false,
+            external: true,
+            target: '_blank',
+            chip: {
+                color: 'primary',
+                variant: 'outlined',
+                size: 'small',
+                label: '⧉',
+                avatar: null
+            }
         }
     ]
 }

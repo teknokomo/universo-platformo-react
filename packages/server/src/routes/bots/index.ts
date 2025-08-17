@@ -1,8 +1,9 @@
 // Universo Platformo | Unified bot routes
 import express from 'express'
+import type { Router as ExpressRouter } from 'express'
 import botsController from '../../controllers/bots'
 
-const router = express.Router()
+const router: ExpressRouter = express.Router()
 
 
 // Universo Platformo | GET /:id/config - General endpoint for bot configuration (defaults to chat)

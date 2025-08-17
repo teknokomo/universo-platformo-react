@@ -100,6 +100,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             'document-stores': 'menu.documentStores',
             'templates': 'menu.templates',
             'uniks': 'menu.uniks',
+            'metaverses': 'menu.metaverses',
             'docs': 'menu.docs',
             'profile': 'menu.profile'
         }
@@ -135,9 +136,10 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
                 dispatch({ type: MENU_OPEN, id: item.id })
             }
 
-            // Fallback option for the root page
-            if (!location.pathname.toString().split('/')[1]) {
-                itemHandler('chatflows')
+            // Fallback option for the root page - activate "uniks" menu item
+            if (!location.pathname.toString().split('/')[1] && item.id === 'uniks') {
+                dispatch({ type: MENU_OPEN, id: item.id })
+                return
             }
         }
 

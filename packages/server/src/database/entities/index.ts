@@ -18,6 +18,9 @@ import { Unik, UserUnik } from '@universo/uniks-srv'
 // Profile entities
 import { Profile } from '@universo/profile-srv'
 
+// Metaverse entities
+import { Metaverse, UserMetaverse, MetaverseLink } from '@universo/metaverse-srv'
+
 export const entities = {
     ChatFlow,
     ChatMessage,
@@ -36,5 +39,9 @@ export const entities = {
     Unik,
     UserUnik,
     // Profile entities
-    Profile
+    Profile,
+    // Metaverse entities
+    Metaverse,
+    UserMetaverse,
+    MetaverseLink
 }

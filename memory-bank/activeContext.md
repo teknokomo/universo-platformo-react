@@ -114,3 +114,12 @@
 -   Metaverse follow-ups: DB migration run on UP-test (Supabase), add update/delete/default endpoints and membership/links CRUD, front-end UI for membership/default/links, docs (EN/RU), and QA
 
 _For detailed progress history, see [progress.md](progress.md). For current tasks, see [tasks.md](tasks.md)._
+
+## Recent Update — Auth System PoC (Isolated)
+
+-   Implemented isolated authentication PoC using Passport.js + Supabase:
+    -   New packages: `apps/auth-srv/base` (server) and `apps/auth-frt/base` (frontend)
+    -   Server stores Supabase access/refresh tokens in server-side sessions; CSRF, rate-limit, session fixation mitigation
+    -   Frontend uses cookie session with `withCredentials` and `X-CSRF-Token`; no tokens stored client-side
+-   Important: This code is fully isolated and NOT integrated into the current system yet. No existing routes or UI have been changed.
+-   Next steps (planned): phased integration into `packages/server` (replace header-based RLS with session-based) and `packages/ui` (remove localStorage tokens; use `/auth/me`).

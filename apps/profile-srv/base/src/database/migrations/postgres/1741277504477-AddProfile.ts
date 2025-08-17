@@ -54,63 +54,75 @@ export class AddProfile1741277504477 implements MigrationInterface {
             WITH CHECK (auth.uid() = user_id)
         `)
 
-        // 5. Create profile management function for automatic profile creation
+        // 5. Safely create profile management function and trigger for automatic profile creation
         await queryRunner.query(`
-            CREATE OR REPLACE FUNCTION create_user_profile()
-            RETURNS TRIGGER
-            LANGUAGE plpgsql
-            SECURITY DEFINER
-            SET search_path = public, auth
-            AS $$
-            DECLARE
-                temp_nickname VARCHAR(50);
-                attempt_count INTEGER := 0;
-                max_attempts INTEGER := 5;
+            DO $$
             BEGIN
-                -- Generate unique temporary nickname 
-                LOOP
-                    attempt_count := attempt_count + 1;
-                    temp_nickname := 'user_' || substring(NEW.id::text from 1 for 8);
-                    
-                    -- Add suffix if nickname already exists
-                    IF attempt_count > 1 THEN
-                        temp_nickname := temp_nickname || '_' || attempt_count;
-                    END IF;
-                    
-                    -- Try to insert profile with generated nickname
+                -- Safely drop existing trigger if it exists
+                DROP TRIGGER IF EXISTS create_profile_trigger ON auth.users;
+
+                -- Check if function exists and create only if needed
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_proc p
+                    JOIN pg_namespace n ON p.pronamespace = n.oid
+                    WHERE p.proname = 'create_user_profile' AND n.nspname = 'public'
+                ) THEN
+                    -- Create function only if it doesn't exist
+                    CREATE OR REPLACE FUNCTION create_user_profile()
+                    RETURNS TRIGGER
+                    LANGUAGE plpgsql
+                    SECURITY DEFINER
+                    SET search_path = public, auth
+                    AS $func$
+                    DECLARE
+                        temp_nickname VARCHAR(50);
+                        attempt_count INTEGER := 0;
+                        max_attempts INTEGER := 5;
                     BEGIN
-                        INSERT INTO public.profiles (user_id, nickname)
-                        VALUES (NEW.id, temp_nickname);
-                        EXIT; -- Success, exit loop
-                    EXCEPTION
-                        WHEN unique_violation THEN
-                            -- If nickname already exists, try again
-                            IF attempt_count >= max_attempts THEN
-                                -- Use timestamp as fallback
-                                temp_nickname := 'user_' || extract(epoch from now())::bigint;
+                        -- Generate unique temporary nickname
+                        LOOP
+                            attempt_count := attempt_count + 1;
+                            temp_nickname := 'user_' || substring(NEW.id::text from 1 for 8);
+
+                            -- Add suffix if nickname already exists
+                            IF attempt_count > 1 THEN
+                                temp_nickname := temp_nickname || '_' || attempt_count;
+                            END IF;
+
+                            -- Try to insert profile with generated nickname
+                            BEGIN
                                 INSERT INTO public.profiles (user_id, nickname)
                                 VALUES (NEW.id, temp_nickname);
-                                EXIT;
-                            END IF;
-                    END;
-                END LOOP;
-                
-                RETURN NEW;
-            EXCEPTION
-                WHEN OTHERS THEN
-                    -- Log error but don't interrupt user creation
-                    RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
-                    RETURN NEW;
-            END;
-            $$;
-        `)
+                                EXIT; -- Success, exit loop
+                            EXCEPTION
+                                WHEN unique_violation THEN
+                                    -- If nickname already exists, try again
+                                    IF attempt_count >= max_attempts THEN
+                                        -- Use timestamp as fallback
+                                        temp_nickname := 'user_' || extract(epoch from now())::bigint;
+                                        INSERT INTO public.profiles (user_id, nickname)
+                                        VALUES (NEW.id, temp_nickname);
+                                        EXIT;
+                                    END IF;
+                            END;
+                        END LOOP;
 
-        // 6. Create trigger for automatic profile creation on user registration
-        await queryRunner.query(`
-            CREATE TRIGGER create_profile_trigger
-            AFTER INSERT ON auth.users
-            FOR EACH ROW
-            EXECUTE FUNCTION create_user_profile();
+                        RETURN NEW;
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            -- Log error but don't interrupt user creation
+                            RAISE WARNING 'Failed to create profile for user %: %', NEW.id, SQLERRM;
+                            RETURN NEW;
+                    END;
+                    $func$;
+                END IF;
+
+                -- Create trigger (now safely, function exists)
+                CREATE TRIGGER create_profile_trigger
+                AFTER INSERT ON auth.users
+                FOR EACH ROW
+                EXECUTE FUNCTION create_user_profile();
+            END $$;
         `)
 
         // 7. Create profile-specific SQL functions (moved from Uniks migration)

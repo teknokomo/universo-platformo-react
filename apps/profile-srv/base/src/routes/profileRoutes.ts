@@ -1,10 +1,11 @@
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import { ProfileController } from '../controllers/profileController'
 import { ProfileService } from '../services/profileService'
 import { Profile } from '../database/entities/Profile'
 
 // Create function that will be called when DataSource is available
-export function createProfileRoutes(dataSource: any): Router {
+export function createProfileRoutes(dataSource: any, authMiddleware?: any): Router {
     const router = Router()
 
     // Helper to create controller lazily after DataSource is ready
@@ -19,11 +20,25 @@ export function createProfileRoutes(dataSource: any): Router {
         return new ProfileController(service)
     }
 
-    // Routes
-    router.get('/check-nickname/:nickname', async (req, res) => {
+    // Public route: check nickname availability (with basic rate limiting)
+    const checkNicknameLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+    router.get('/check-nickname/:nickname', checkNicknameLimiter, async (req, res) => {
+        const nickname = (req.params.nickname || '').trim()
+        // Basic validation: allow letters, numbers, underscore; 3-30 chars
+        const isValid = /^[a-zA-Z0-9_]{3,30}$/.test(nickname)
+        if (!isValid) {
+            return res.status(400).json({ success: false, error: 'Invalid nickname format' })
+        }
         const controller = await getController()
         return controller.checkNickname(req, res)
     })
+
+    // Apply auth middleware for all routes below, if provided
+    if (authMiddleware) {
+        router.use(authMiddleware)
+    }
+
+    // Protected routes
     router.get('/:userId', async (req, res) => {
         const controller = await getController()
         return controller.getProfile(req, res)

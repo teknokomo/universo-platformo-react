@@ -371,3 +371,12 @@ Successfully extracted Uniks (workspace) functionality from monolithic codebase 
 ### 2025-08-06: MMOOMM Entity Hardcode Elimination Fix
 
 Successfully eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. See [archive entry](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md) for complete documentation.
+
+### 2025-08-14: Auth System PoC (Passport.js + Supabase) — Isolated ✅
+
+-   Implemented an isolated authentication PoC:
+    -   Server `apps/auth-srv/base`: Passport LocalStrategy, server-side sessions (HttpOnly cookies), CSRF, rate-limit, session fixation mitigation, per-request Supabase client with RLS, automatic token refresh (single-flight), safe logout (setSession + signOut)
+    -   Frontend `apps/auth-frt/base`: React + Vite minimal client using cookie session and `X-CSRF-Token`; no tokens stored client-side
+-   Build: both packages compile successfully with PNPM workspace
+-   Documentation: RU/EN READMEs with step-by-step rollout plan
+-   Important: Code is fully isolated and NOT integrated into the current system yet. No changes to existing routes or UI.

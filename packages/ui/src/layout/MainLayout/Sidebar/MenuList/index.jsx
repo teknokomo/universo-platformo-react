@@ -11,17 +11,17 @@ const MenuList = () => {
     let menuItems
     if (unikMatch) {
         const unikId = unikMatch[1]
-        // Universo Platformo | Update the links of each dashboard menu item, adding the prefix /uniks/{unikId}
+        // Universo Platformo | Update the links of each unikDashboard menu item, adding the prefix /uniks/{unikId}
         menuItems = {
-            ...dashboard,
-            children: dashboard.children.map((item) => ({
+            ...unikDashboard,
+            children: unikDashboard.children.map((item) => ({
                 ...item,
-                // Universo Platformo | Assume that links in dashboard.js start with '/' (e.g., '/chatflows')
+                // Universo Platformo | Assume that links in unikDashboard.js start with '/' (e.g., '/chatflows')
                 url: `/uniks/${unikId}${item.url}`
             }))
         }
     } else {
-        menuItems = unikDashboard
+        menuItems = dashboard
     }
 
     return <NavGroup item={menuItems} />

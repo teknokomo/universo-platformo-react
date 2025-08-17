@@ -35,6 +35,8 @@ export default defineConfig(async ({ mode }) => {
                 '@apps/profile-frt': resolve(__dirname, '../../apps/profile-frt'),
                 '@apps/uniks-frt/i18n': resolve(__dirname, '../../apps/uniks-frt/base/src/i18n'),
                 '@apps/uniks-frt': resolve(__dirname, '../../apps/uniks-frt'),
+                '@apps/metaverse-frt/i18n': resolve(__dirname, '../../apps/metaverse-frt/base/src/i18n'),
+                '@apps/metaverse-frt': resolve(__dirname, '../../apps/metaverse-frt'),
                 '@codemirror/state': resolve(__dirname, '../../node_modules/@codemirror/state'),
                 '@codemirror/view': resolve(__dirname, '../../node_modules/@codemirror/view'),
                 '@codemirror/language': resolve(__dirname, '../../node_modules/@codemirror/language'),

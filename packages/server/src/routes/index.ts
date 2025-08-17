@@ -1,4 +1,5 @@
 import express from 'express'
+import type { Router as ExpressRouter } from 'express'
 import apikeyRouter from './apikey'
 import assistantsRouter from './assistants'
 import attachmentsRouter from './attachments'
@@ -59,10 +60,9 @@ import { getDataSource } from '../DataSource'
 import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
 import rateLimit from 'express-rate-limit'
 import credentialsService from '../services/credentials'
-import { createMetaverseRouter } from '@universo/metaverse-srv'
-import { createClient } from '@supabase/supabase-js'
+import { createMetaverseRoutes } from '@universo/metaverse-srv'
 
-const router = express.Router()
+const router: ExpressRouter = express.Router()
 
 router.use('/ping', pingRouter)
 // Global route for apikey has been removed
@@ -120,23 +120,23 @@ router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
 // Apply ensureAuth middleware to /uniks route
 router.use(
-    '/uniks',
-    createUniksRouter(
-        upAuth.ensureAuth,
-        supabase,
-        chatflowsRouter,
-        chatflowsStreamingRouter,
-        chatflowsUploadsRouter,
-        flowConfigRouter,
-        toolsRouter,
-        variablesRouter,
-        exportImportRouter,
-        credentialsRouter,
-        assistantsRouter,
-        apikeyRouter,
-        documentStoreRouter,
-        marketplacesRouter
-    )
+	'/uniks',
+	createUniksRouter(
+		upAuth.ensureAuth,
+		supabase,
+		chatflowsRouter,
+		chatflowsStreamingRouter,
+		chatflowsUploadsRouter,
+		flowConfigRouter,
+		toolsRouter,
+		variablesRouter,
+		exportImportRouter,
+		credentialsRouter,
+		assistantsRouter,
+		apikeyRouter,
+		documentStoreRouter,
+		marketplacesRouter
+	)
 )
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
@@ -146,43 +146,43 @@ router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
 // Universo Platformo | Space Builder
 const spaceBuilderLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true })
 router.use(
-    '/space-builder',
-    upAuth.ensureAuth,
-    spaceBuilderLimiter,
-    createSpaceBuilderRouter({
-        resolveCredential: async (credentialId: string) => {
-            const cred = await credentialsService.getCredentialById(credentialId)
-            const data: any = cred?.plainDataObj || {}
-            const name: string = (cred as any)?.credentialName || ''
-            // Strict provider-specific key selection to avoid cross-provider mixups
-            if (name === 'groqApi') {
-                return data.groqApiKey || data.GROQ_API_KEY || ''
-            }
-            if (name === 'openAIApi') {
-                return data.openAIApiKey || data.OPENAI_API_KEY || ''
-            }
-            if (name === 'azureOpenAIApi') {
-                return data.azureOpenAIApiKey || data.AZURE_OPENAI_API_KEY || ''
-            }
-            // Fallback: try common field names, but avoid leaking mismatched keys
-            return data.apiKey || data.API_KEY || ''
-        }
-    })
+	'/space-builder',
+	upAuth.ensureAuth,
+	spaceBuilderLimiter,
+	createSpaceBuilderRouter({
+		resolveCredential: async (credentialId: string) => {
+			const cred = await credentialsService.getCredentialById(credentialId)
+			const data: any = cred?.plainDataObj || {}
+			const name: string = (cred as any)?.credentialName || ''
+			// Strict provider-specific key selection to avoid cross-provider mixups
+			if (name === 'groqApi') {
+				return data.groqApiKey || data.GROQ_API_KEY || ''
+			}
+			if (name === 'openAIApi') {
+				return data.openAIApiKey || data.OPENAI_API_KEY || ''
+			}
+			if (name === 'azureOpenAIApi') {
+				return data.azureOpenAIApiKey || data.AZURE_OPENAI_API_KEY || ''
+			}
+			// Fallback: try common field names, but avoid leaking mismatched keys
+			return data.apiKey || data.API_KEY || ''
+		}
+	})
 )
 
 // Universo Platformo | Metaverse routes
-const createSupabaseForReq = (req: any) =>
-    createClient(process.env.SUPABASE_URL as string, process.env.SUPABASE_ANON_KEY as string, {
-        global: { headers: { Authorization: (req.headers.authorization as string) || '' } },
-        auth: { persistSession: false }
-    })
 const metaverseLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true })
-router.use('/metaverses', upAuth.ensureAuth, metaverseLimiter, createMetaverseRouter(createSupabaseForReq))
+router.use('/metaverses', upAuth.ensureAuth, metaverseLimiter, createMetaverseRoutes(getDataSource()))
 
 // Universo Platformo | Publishing Routes
 router.use('/publish', createPublishRoutes(getDataSource()))
 
 // Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
-router.use('/profile', upAuth.ensureAuth, createProfileRoutes(getDataSource()))
+// Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints
+const createProfileRoutesWithAuth = (createProfileRoutes as unknown as (
+	dataSource: any,
+	authMiddleware?: any
+) => ExpressRouter)
+router.use('/profile', createProfileRoutesWithAuth(getDataSource(), upAuth.ensureAuth))
 
 export default router

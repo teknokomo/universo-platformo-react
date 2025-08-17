@@ -5,6 +5,14 @@
       "searchPlaceholder": "Search metaverses",
       "create": "Create",
       "newName": "New metaverse name"
+    },
+    "dialog": {
+      "title": "Create New Metaverse",
+      "confirmButton": "Create Metaverse",
+      "name": "Name",
+      "namePlaceholder": "Enter metaverse name",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter metaverse description (optional)"
     }
   }
 }

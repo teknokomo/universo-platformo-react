@@ -1,7 +1,8 @@
 import { Router } from 'express'
+import type { Router as ExpressRouter } from 'express'
 import { generateController, prepareController, reviseController } from '../controllers/space-builder'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Helpers to read environment in a safe, explicit way
 function bool(name: string): boolean {

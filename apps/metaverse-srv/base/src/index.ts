@@ -1,2 +1,3 @@
-export { createMetaverseRouter } from './routes/metaverses'
+export { createMetaverseRoutes } from './routes/metaverseRoutes'
 export { metaverseMigrations } from './database/migrations/postgres'
+export * from './database/entities'
