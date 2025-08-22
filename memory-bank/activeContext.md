@@ -8,6 +8,13 @@
 
 ## Current Focus
 
+**VAN Analysis In Progress** - Analyzing critical multiplayer implementation issues in MMOOMM template:
+
+-   **Critical Issue**: Multiplayer implementation bypasses existing UPDL handlers, causing functional regression
+-   **Scale Problem**: PlayCanvasMMOOMMBuilder.ts has grown to 1339 lines (should be ~200-250 lines)
+-   **Architecture Problem**: Duplicated logic between single-player and multiplayer modes instead of code reuse
+-   **Browser Errors**: JavaScript errors when connecting to multiplayer server due to missing function definitions
+
 **Post-Alpha Development** - Expanding advanced UPDL features and Universo MMOOMM capabilities:
 
 -   **AR.js Wallpaper Mode (markerless) shipped** — verify UX and extend options
@@ -19,6 +26,25 @@
 -   **Metaverse Module**: MVP implemented; follow-ups pending (membership & links UI, docs)
 
 ## Recently Completed
+
+-   **Multiplayer Colyseus Server Implementation (2025-08-22)**
+
+    -   **Created `@universo/multiplayer-colyseus-srv`**: Complete Colyseus-based multiplayer server package for Universo MMOOMM space gameplay
+    -   **Full Multiplayer Architecture**: Implemented MMOOMMRoom with 16-player capacity, real-time state synchronization, and server-authoritative gameplay
+    -   **Schema System**: Created comprehensive Colyseus schemas (PlayerSchema, EntitySchema, MMOOMMRoomState) for type-safe multiplayer synchronization
+    -   **Game Mechanics**: Implemented mining, trading, movement validation, and entity management (asteroids, stations, gates)
+    -   **Integration Layer**: Created MultiplayerManager for seamless integration with main Flowise server
+    -   **UPDL Integration**: Enhanced entity processing to handle UPDL Flow objects in multiplayer mode
+    -   **Production Ready**: Complete TypeScript implementation with proper error handling, logging, and graceful shutdown
+
+-   **MMOOMM Template Extraction and Refactoring (2025-08-22)**
+
+    -   **Refactored `publish-frt`:** Extracted the core MMOOMM template generation logic from the `publish-frt` application into a dedicated workspace package.
+    -   **Created `@universo/template-mmoomm`:** A new, reusable workspace package was created at `apps/template-mmoomm/base` to house the extracted logic. This package is designed as a self-contained, shareable library with a dual CJS/ESM build system.
+    -   **Updated `publish-frt` Dependencies:** The `publish-frt` application now includes `@universo/template-mmoomm` as a dependency, acting as a consumer of the new template package.
+    -   **Architectural Improvement:** This change significantly improves modularity and architectural clarity by separating the generic publication UI from the specific 3D template implementation, promoting code reuse and easier maintenance.
+    -   **Package Structure:** The template package includes PlayCanvas builders, handlers, multiplayer support, generators, and utilities with proper TypeScript exports.
+    -   **Integration Complete:** `publish-frt` now imports and uses the template package for MMOOMM functionality while maintaining backward compatibility.
 
 -   **Core Types Package `@universo-platformo/types` + Docs i18n Sync (2025-08-14)**
 

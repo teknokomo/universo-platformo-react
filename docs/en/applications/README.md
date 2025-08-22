@@ -23,6 +23,7 @@ apps/
 ├── profile-srv/         # User profile management backend
 ├── analytics-frt/       # Analytics and reporting frontend
 ├── auth-frt/           # Authentication system frontend
+├── multiplayer-colyseus-srv/ # Multiplayer server for MMOOMM
 ├── space-builder-*     # Prompt-to-flow generator (frontend & backend)
 └── template-mmoomm/     # Modular MMOOMM template package
 ```
@@ -124,6 +125,28 @@ Complete user profile and authentication system with secure data management.
 -   TypeORM integration
 
 [Learn more about Profile Management →](profile/README.md)
+
+### Multiplayer System
+
+A comprehensive real-time multiplayer system for Universo MMOOMM space gameplay, providing server-authoritative gameplay mechanics and seamless UPDL integration.
+
+**Server (multiplayer-colyseus-srv):**
+
+-   Colyseus-based multiplayer server with 16-player room capacity
+-   Real-time state synchronization via type-safe schemas
+-   Server-authoritative gameplay validation (mining, trading, movement)
+-   UPDL Flow object integration and entity processing
+-   Production-ready TypeScript implementation with error handling
+
+**Key Features:**
+
+-   MMOOMMRoom class with comprehensive game logic
+-   PlayerSchema, EntitySchema, and MMOOMMRoomState for state management
+-   MultiplayerManager for seamless integration with main Flowise server
+-   Support for UPDL Flow objects in multiplayer mode
+-   Anti-cheat measures and movement validation
+
+[Learn more about Multiplayer System →](multiplayer/README.md)
 
 ### Space Builder (Prompt-to-Flow)
 
@@ -351,6 +374,7 @@ When creating new applications:
 -   [UPDL System](updl/README.md) - Learn about the Universal Platform Definition Language
 -   [Publication System](publish/README.md) - Explore content publishing and sharing
 -   [Profile Management](profile/README.md) - Understand user management features
+-   [Multiplayer System](multiplayer/README.md) - Real-time collaborative gameplay
 -   [Space Builder](../applications/space-builder/README.md) - Turn prompts into flows
 -   [Analytics System](analytics/README.md) - Discover analytics capabilities
 -   [Authentication System](auth/README.md) - Learn about security features

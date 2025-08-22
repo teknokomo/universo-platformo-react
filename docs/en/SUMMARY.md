@@ -61,6 +61,7 @@
     -   [Publication System](applications/publish/README.md)
     -   [MMOOMM Template Package](applications/template-mmoomm/README.md)
     -   [Profile Management](applications/profile/README.md)
+    -   [Multiplayer System](applications/multiplayer/README.md)
     -   [Space Builder](applications/space-builder/README.md)
     -   [Analytics System](applications/analytics/README.md)
     -   [Authentication System](applications/auth/README.md)

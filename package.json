@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "up-0.24.0-alpha",
+    "version": "up-0.26.0-alpha",
     "private": true,
     "homepage": "https://universo.pro",
     "workspaces": [
@@ -134,5 +134,9 @@
                 }
             ]
         ]
+    },
+    "dependencies": {
+        "@colyseus/ws-transport": "^0.16.0",
+        "redis": "^4.6.7"
     }
 }

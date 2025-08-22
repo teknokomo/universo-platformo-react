@@ -1,4 +1,4 @@
-# Реестр задач реализации Universo MMOOMM — [Статус: Черновик]
+# Реестр задач реализации Universo MMOOMM
 
 Этот документ — пошаговый реестр задач по созданию полнофункционального многопользовательского проекта Universo MMOOMM. Здесь фиксируются этапы, задачи и их краткие пояснения. На момент текущей версии детализированы «Этап 1» и «Этап 2» — совершенствование текущего функционала платформы и подготовка базовых пакетов.
 
@@ -12,7 +12,7 @@
 
     -   В `apps/auth-srv` реализовать слой абстракции поверх Supabase Auth (валидация access/refresh, ротация, webhook-события), предусмотреть адаптер под Passport.js на будущее.
     -   В `apps/auth-frt` — UI компонентов входа/регистрации/обновления токена, интеграция с Supabase SDK, хранение/обновление токенов, перехватчики запросов.
-    -   Обновить интеграцию аутентификации в `apps/publish-frt`, `apps/template-engine-srv` (экспорт в PlayCanvas), `apps/multiplayer-srv` (JWT в join-параметрах).
+    -   Обновить интеграцию аутентификации в `apps/publish-frt`, `apps/template-engine-srv` (экспорт в PlayCanvas), `apps/multiplayer-colyseus-srv` (JWT в join-параметрах).
 
 -   **Метавселенные: фронт и сервер, связи и роли Unik/Space**
 
@@ -121,7 +121,7 @@
 
 -   **Интеграция пакетов в будущие приложения (подготовительные изменения)**
 
-    Добавить зависимости `"@universo-platformo/types": "workspace:*"` и `"@universo-platformo/utils": "workspace:*"` в серверные приложения (`apps/entities-srv`, `apps/resources-srv`, `apps/multiplayer-srv`) — для использования единых DTO и валидации. Для клиента (экспорт в PlayCanvas) предусмотреть подключение `@universo-platformo/client-sdk` через `template-engine-srv` (будет реализовано на последующих этапах).
+    Добавить зависимости `"@universo-platformo/types": "workspace:*"` и `"@universo-platformo/utils": "workspace:*"` в серверные приложения (`apps/entities-srv`, `apps/resources-srv`, `apps/multiplayer-colyseus-srv`) — для использования единых DTO и валидации. Для клиента (экспорт в PlayCanvas) предусмотреть подключение `@universo-platformo/client-sdk` через `template-engine-srv` (будет реализовано на последующих этапах).
 
 -   **(Опционально) Создать агрегатор `@universo-platformo/core`**
 
@@ -194,7 +194,7 @@
 
 ## Этап 4. Авторитетный мультиплеер (Colyseus)
 
--   **Создать `apps/multiplayer-srv` (Node/TS + Colyseus + Redis)**
+-   **Создать `apps/multiplayer-colyseus-srv` (Node/TS + Colyseus + Redis)**
 
     Задача: реализовать авторитетный сервер реального времени: комнаты по миру/инстансу, фиксированный тик, снапшоты/дельты, интерес‑менеджмент, античит и лаг‑компенсацию.
 

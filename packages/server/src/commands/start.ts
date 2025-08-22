@@ -2,12 +2,19 @@ import * as Server from '../index'
 import * as DataSource from '../DataSource'
 import logger from '../utils/logger'
 import { BaseCommand } from './base'
+import { getMultiplayerManager } from '@universo/multiplayer-colyseus-srv'
 
 export default class Start extends BaseCommand {
     async run(): Promise<void> {
         logger.info('Starting Flowise...')
         await DataSource.init()
         await Server.start()
+
+        // Start multiplayer server after main server is running
+        setTimeout(async () => {
+            const multiplayerManager = getMultiplayerManager()
+            await multiplayerManager.start()
+        }, 1000)
     }
 
     async catch(error: Error) {
@@ -21,6 +28,11 @@ export default class Start extends BaseCommand {
     async stopProcess() {
         try {
             logger.info(`Shutting down Flowise...`)
+
+            // Stop multiplayer server first
+            const multiplayerManager = getMultiplayerManager()
+            await multiplayerManager.stop()
+
             const serverApp = Server.getInstance()
             if (serverApp) await serverApp.stopApp()
         } catch (error) {

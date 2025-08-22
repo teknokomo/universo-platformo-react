@@ -404,6 +404,14 @@ export interface RawFlowData {
     flowData: string
     libraryConfig: any
     renderConfig?: RenderConfig
+    playcanvasConfig?: {
+        gameMode?: 'singleplayer' | 'multiplayer'
+        colyseusSettings?: {
+            serverHost?: string
+            serverPort?: number
+            roomName?: string
+        }
+    }
     chatflow: {
         id: string
         name: string

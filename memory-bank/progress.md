@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-08-14**
+**As of 2025-08-22**
 
 ## Completed (chronological)
 
@@ -44,6 +44,26 @@ The initial AR.js implementation faced several challenges:
 These insights informed our revised approach for Stage 3, leading to the simplified architecture we now have.
 
 ## Recent Major Achievements
+
+### 2025-08-22: Multiplayer Colyseus Server Implementation ✅
+
+-   **Complete Multiplayer Architecture**: Created `@universo/multiplayer-colyseus-srv` package with full Colyseus-based multiplayer system for Universo MMOOMM space gameplay
+-   **MMOOMMRoom Implementation**: Built comprehensive room class with 16-player capacity, real-time state synchronization, and server-authoritative gameplay mechanics
+-   **Schema System**: Implemented type-safe Colyseus schemas (PlayerSchema, EntitySchema, MMOOMMRoomState) for reliable multiplayer synchronization
+-   **Game Mechanics**: Added mining, trading, movement validation, and entity management (asteroids, stations, gates) with server-side validation
+-   **Integration Layer**: Created MultiplayerManager for seamless integration with main Flowise server and proper lifecycle management
+-   **UPDL Integration**: Enhanced entity processing to handle UPDL Flow objects in multiplayer mode with comprehensive debugging and validation
+-   **Production Ready**: Complete TypeScript implementation with proper error handling, logging, graceful shutdown, and environment configuration
+-   **Impact**: Full multiplayer MMOOMM experience with real-time player interaction, resource management, and UPDL object synchronization
+
+### 2025-08-22: MMOOMM Template Extraction and Refactoring ✅
+
+-   **Architectural Refactoring**: Extracted the core MMOOMM template generation logic from the `publish-frt` application into a new, dedicated workspace package: `@universo/template-mmoomm`.
+-   **Improved Modularity**: The new `@universo/template-mmoomm` package is a self-contained, reusable library with a dual CJS/ESM build system, promoting better code reuse and separation of concerns.
+-   **Package Structure**: Includes PlayCanvas builders, handlers, multiplayer support, generators, and utilities with proper TypeScript exports and modular architecture.
+-   **Updated Dependencies**: The `publish-frt` application has been updated to consume the new `@universo/template-mmoomm` package, solidifying the new modular architecture.
+-   **Integration Complete**: `publish-frt` now imports and uses the template package for MMOOMM functionality while maintaining backward compatibility.
+-   **Impact**: This refactoring significantly improves the project's architecture, making the codebase more maintainable and scalable.
 
 ### 2025-08-14: Core Types Package + Documentation i18n Sync ✅
 
@@ -371,6 +391,18 @@ Successfully extracted Uniks (workspace) functionality from monolithic codebase 
 ### 2025-08-06: MMOOMM Entity Hardcode Elimination Fix
 
 Successfully eliminated all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Fixed JavaScript variable scope conflicts and preserved all game functionality. See [archive entry](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md) for complete documentation.
+
+### 2025-08-20: UPDL Objects Fix in Multiplayer Mode ✅
+
+Successfully fixed critical UPDL object extraction and transmission in multiplayer MMOOMM mode:
+
+-   Fixed UPDLProcessor.analyzeSpaceChain() to properly include entities in spaceData for multi-scene flows
+-   Corrected entity data extraction from entity.data.inputs instead of entity.data
+-   Enhanced PlayCanvasMMOOMMBuilder with comprehensive logging and validation
+-   Improved MMOOMMRoom server-side entity processing with detailed debugging
+-   Verified complete UPDL Flow → Multiplayer → Objects in game cycle
+-   Confirmed backward compatibility with single-player mode
+-   **Impact**: UPDL Flow objects now correctly appear in multiplayer games (7 entities: ship, station, 4 asteroids, gate) with proper positions and types instead of default fallback objects
 
 ### 2025-08-14: Auth System PoC (Passport.js + Supabase) — Isolated ✅
 

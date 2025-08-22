@@ -1,8 +1,8 @@
-import { createClient } from 'redis'
+import { createClient, type RedisClientType } from 'redis'
 import { SSEStreamer } from '../utils/SSEStreamer'
 
 export class RedisEventSubscriber {
-    private redisSubscriber: ReturnType<typeof createClient>
+    private redisSubscriber: RedisClientType
     private sseStreamer: SSEStreamer
     private subscribedChannels: Set<string> = new Set()
 
@@ -91,9 +91,11 @@ export class RedisEventSubscriber {
             case 'abort':
                 this.sseStreamer.streamAbortEvent(chatId)
                 break
-            case 'error':
-                this.sseStreamer.streamErrorEvent(chatId, data)
+            case 'error': {
+                const errMsg = typeof data === 'string' ? data : (data?.message ?? JSON.stringify(data))
+                this.sseStreamer.streamErrorEvent(chatId, errMsg)
                 break
+            }
             case 'metadata':
                 this.sseStreamer.streamMetadataEvent(chatId, data)
                 break

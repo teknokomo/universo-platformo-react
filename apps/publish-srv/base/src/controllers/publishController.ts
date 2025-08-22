@@ -14,7 +14,7 @@ import { FlowDataService } from '../services/FlowDataService'
  * ARCHITECTURE: Uses dependency injection for FlowDataService to break circular dependencies
  */
 export class PublishController {
-    constructor(private flowDataService: FlowDataService) {}
+    constructor(private flowDataService: FlowDataService) { }
 
     /**
      * Publish AR.js project
@@ -161,6 +161,7 @@ export class PublishController {
                 flowData: flowData.flowData, // Raw JSON string
                 libraryConfig: flowData.libraryConfig, // Extracted configuration
                 renderConfig: flowData.renderConfig, // AR display settings (wallpaper/marker)
+                playcanvasConfig: flowData.playcanvasConfig, // PlayCanvas settings (gameMode, colyseusSettings)
                 chatflowId: id, // Add for compatibility
                 timestamp: new Date().toISOString()
             }
