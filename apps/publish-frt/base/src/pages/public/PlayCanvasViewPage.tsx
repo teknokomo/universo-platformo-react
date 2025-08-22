@@ -80,13 +80,22 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
 
                 // Generate HTML using TemplateRegistry
                 console.log('🏗️ [PlayCanvasViewPage] Generating HTML with TemplateRegistry')
-                const templateId = config.templateId || 'mmoomm'
+                const templateId = (config.templateId === 'mmoomm' ? 'mmoomm-playcanvas' : config.templateId) || 'mmoomm-playcanvas'
                 const builder = TemplateRegistry.createBuilder(templateId)
+
+                // Use default values from server environment when settings not configured
+                const defaultColyseusSettings = {
+                    serverHost: 'localhost', // Default from MULTIPLAYER_SERVER_HOST
+                    serverPort: 2567,       // Default from MULTIPLAYER_SERVER_PORT
+                    roomName: 'mmoomm_room'
+                }
 
                 const buildOptions = {
                     projectName: config.projectTitle || 'PlayCanvas Application',
                     libraryConfig: config.libraryConfig || { playcanvas: { version: '2.9.0' } },
-                    demoMode: config.demoMode || 'off'
+                    demoMode: config.demoMode || 'off',
+                    gameMode: config.gameMode || 'singleplayer',
+                    multiplayer: config.colyseusSettings || defaultColyseusSettings
                 }
 
                 const generatedHTML = await builder.build(

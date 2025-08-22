@@ -7,6 +7,7 @@ export interface QuizTemplateConfig {
     description: string
     version: string
     technology: string
+    i18nNamespace: string
     supportedNodes: string[]
     features: string[]
     defaults: {
@@ -25,10 +26,11 @@ export interface QuizTemplateConfig {
 
 export const QuizTemplateConfig: QuizTemplateConfig = {
     id: 'quiz',
-    name: 'Квиз-приложение',
-    description: 'Интерактивные квизы с системой баллов и сбором контактов',
+    name: 'publish.quiz.name',
+    description: 'publish.quiz.description',
     version: '0.1.0',
     technology: 'arjs',
+    i18nNamespace: 'publish',
 
     // Supported nodes (existing)
     supportedNodes: ['Space', 'Object', 'Camera', 'Light', 'Data'],

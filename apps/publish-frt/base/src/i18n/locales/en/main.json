@@ -216,6 +216,28 @@
                 "hint": "Choose how the scene will be displayed when there's no logic",
                 "offHint": "Empty scene with background",
                 "primitivesHint": "Scene with rotating red cube"
+            },
+            "gameMode": {
+                "label": "Game Mode",
+                "singleplayer": "Single Player",
+                "multiplayer": "Multiplayer (Colyseus)",
+                "singleplayerDescription": "Standard PlayCanvas game for single player",
+                "multiplayerDescription": "Multi-user game with real-time synchronization via Colyseus"
+            },
+            "colyseusSettings": {
+                "title": "Colyseus Server Settings",
+                "serverHost": "Server Host",
+                "serverPort": "Server Port",
+                "roomName": "Room Name",
+                "description": "Configure connection settings for the Colyseus multiplayer server",
+                "hostHelp": "Enter server hostname (localhost, IP address, or domain name)",
+                "portHelp": "Enter server port (1-65535, default: 2567)",
+                "roomNameHelp": "Enter room name (3-32 characters, alphanumeric, underscore, hyphen)",
+                "errors": {
+                    "invalidHost": "Invalid host format. Use localhost, IP address, or domain name",
+                    "invalidPort": "Invalid port. Must be between 1 and 65535",
+                    "invalidRoomName": "Invalid room name. Use 3-32 characters (alphanumeric, underscore, hyphen)"
+                }
             }
         },
         "templates": {
@@ -230,6 +252,10 @@
                 "name": "Universo MMOOMM",
                 "description": "Multi-user virtual worlds with real-time synchronization and networking"
             }
+        },
+        "quiz": {
+            "name": "Quiz Application",
+            "description": "Interactive quizzes with a scoring system and contact collection."
         }
     },
     "arPublication": {
