@@ -1,8 +1,8 @@
 import { IServerSideEventStreamer } from 'flowise-components'
-import { createClient } from 'redis'
+import { createClient, type RedisClientType } from 'redis'
 
 export class RedisEventPublisher implements IServerSideEventStreamer {
-    private redisPublisher: ReturnType<typeof createClient>
+    private redisPublisher: RedisClientType
 
     constructor() {
         if (process.env.REDIS_URL) {

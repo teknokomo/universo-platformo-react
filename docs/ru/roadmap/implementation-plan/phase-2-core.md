@@ -241,10 +241,11 @@ interface LoginRecord {
 }
 ```
 
-### 3. Multiplayer System (multiplayer-frt/srv)
+### 3. Multiplayer System (multiplayer-colyseus-srv)
 
 **Приоритет**: Критический
-**Время разработки**: 8 недель
+**Статус**: ✅ **ЗАВЕРШЕНО** - Полный мультиплеерный сервер на базе Colyseus реализован
+**Время разработки**: 8 недель (завершено)
 **Команда**: 4 разработчика (2 backend, 1 frontend, 1 DevOps)
 
 #### Функциональные требования

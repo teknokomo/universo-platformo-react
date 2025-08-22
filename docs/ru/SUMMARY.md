@@ -60,6 +60,7 @@
     -   [Система UPDL](applications/updl/README.md)
     -   [Система публикации](applications/publish/README.md)
     -   [Управление профилем](applications/profile/README.md)
+    -   [Система мультиплеера](applications/multiplayer/README.md)
     -   [Конструктор Space](applications/space-builder/README.md)
     -   [Система аналитики](applications/analytics/README.md)
     -   [Система аутентификации](applications/auth/README.md)

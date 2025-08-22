@@ -171,7 +171,7 @@ apps/
   - Из версии ресурса (`resourceVersionId`) создаётся дерево сущностей по BOM; атрибуты агрегируются.
 
 ### Этап 3. Авторитетный мультиплеер (Colyseus)
-- Создать `apps/multiplayer-srv` (Node/TS + Colyseus + Redis):
+- Создать `apps/multiplayer-colyseus-srv` (Node/TS + Colyseus + Redis):
   - Комнаты per-мир/инстанс; фиксированный тик (30 Гц), снапшоты 10–20 Гц, дельты.
   - Интерес-менеджмент (grid/октодерево).
   - Протокол: intents (seq, tClient), `ack`, `snapshot`, `delta`, `event`.
@@ -221,7 +221,7 @@ apps/
 - Периодические снапшоты состояния комнат в БД.
 
 ### Что сделать прямо сейчас (минимальный трак)
-- Создать скелеты: `apps/entities-srv`, `apps/resources-srv`, `apps/multiplayer-srv`.
+- Создать скелеты: `apps/entities-srv`, `apps/resources-srv`, `apps/multiplayer-colyseus-srv`.
 - В `template-engine-srv` добавить:
   - PlayCanvas-клиент с colyseus.js, предикцией/реконсилиацией, origin rebasing.
 - Завести минимальные схемы БД и REST (entities/resources), интегрировать `multiplayer-srv` с ECS.

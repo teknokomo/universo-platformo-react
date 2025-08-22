@@ -165,24 +165,24 @@ export class App {
         // ======= NEW AUTHENTICATION MIDDLEWARE (Supabase JWT) =======
         // Universo Platformo | This middleware replaces the old Basic Auth logic and checks all requests to the API.
         this.app.use('/api/v1', async (req: Request, res: Response, next: NextFunction) => {
-            console.log(`[AUTH DEBUG] Request path: ${req.path}`)
-            console.log(`[AUTH DEBUG] Whitelist URLs:`, whitelistURLs)
+            // console.log(`[AUTH DEBUG] Request path: ${req.path}`)
+            // console.log(`[AUTH DEBUG] Whitelist URLs:`, whitelistURLs)
             
             // Universo Platformo | If the path does not contain /api/v1, skip
             if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
-                console.log(`[AUTH DEBUG] Path doesn't contain /api/v1, skipping`)
+                // console.log(`[AUTH DEBUG] Path doesn't contain /api/v1, skipping`)
                 return next()
             }
             // Universo Platformo | If the path case doesn't match, reject
             if (!URL_CASE_SENSITIVE_REGEX.test(req.path)) {
-                console.log(`[AUTH DEBUG] Path case doesn't match, rejecting`)
+                // console.log(`[AUTH DEBUG] Path case doesn't match, rejecting`)
                 return res.status(401).json({ error: 'Unauthorized Access' })
             }
             // Universo Platformo | If URL in whitelist, skip
             const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-            console.log(`[AUTH DEBUG] Is whitelisted: ${isWhitelisted}`)
+            // console.log(`[AUTH DEBUG] Is whitelisted: ${isWhitelisted}`)
             if (isWhitelisted) {
-                console.log(`[AUTH DEBUG] URL is whitelisted, allowing`)
+                // console.log(`[AUTH DEBUG] URL is whitelisted, allowing`)
                 return next()
             }
             // Universo Platformo | Extract Authorization header

@@ -15,7 +15,7 @@ import { serialization } from '@universo-platformo/utils'
  * without requiring direct entity imports that cause path conflicts
  */
 export class FlowDataService {
-    constructor(private dataSource: DataSource) {}
+    constructor(private dataSource: DataSource) { }
 
     /**
      * Get raw flow data from Supabase by chatflow ID
@@ -48,6 +48,7 @@ export class FlowDataService {
             // Extract libraryConfig from chatbotConfig if available
             let libraryConfig = null
             let renderConfig = null
+            let playcanvasConfig = null
             if (chatFlow.chatbotConfig) {
                 try {
                     const parsed = typeof chatFlow.chatbotConfig === 'string' ? serialization.safeParseJson<any>(chatFlow.chatbotConfig) : { ok: true as const, value: chatFlow.chatbotConfig }
@@ -65,6 +66,15 @@ export class FlowDataService {
                             renderConfig = { arDisplayType, wallpaperType, markerType, markerValue }
                             logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
                         }
+                        if (config?.playcanvas) {
+                            const { gameMode, colyseusSettings, libraryConfig: pcLibraryConfig } = config.playcanvas
+                            playcanvasConfig = { gameMode, colyseusSettings }
+                            // Use PlayCanvas library config if available, otherwise fall back to AR.js config
+                            if (pcLibraryConfig) {
+                                libraryConfig = pcLibraryConfig
+                            }
+                            logger.info(`[FlowDataService] Extracted PlayCanvas config: ${JSON.stringify(playcanvasConfig)}`)
+                        }
                     }
                 } catch (parseError) {
                     logger.warn(`[FlowDataService] Unexpected error during chatbotConfig parse: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
@@ -75,6 +85,7 @@ export class FlowDataService {
                 flowData: chatFlow.flowData, // Raw JSON string
                 libraryConfig: libraryConfig, // Extracted library configuration
                 renderConfig: renderConfig || undefined,
+                playcanvasConfig: playcanvasConfig || undefined, // Extracted PlayCanvas configuration
                 chatflow: {
                     // Metadata
                     id: chatFlow.id,
