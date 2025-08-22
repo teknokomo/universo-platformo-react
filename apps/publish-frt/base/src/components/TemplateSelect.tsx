@@ -21,17 +21,47 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
     className = '',
     technology
 }) => {
-    const { t } = useTranslation('publish')
     const allTemplates = TemplateRegistry.getTemplates()
 
     // Filter templates by technology if specified
     const templates = technology ? allTemplates.filter((template) => template.technology === technology) : allTemplates
 
+    // Get all required i18n namespaces from templates
+    const requiredNamespaces = React.useMemo(() => {
+        const namespaces = new Set(['publish'])
+        templates.forEach(t => {
+            if (t.i18nNamespace) {
+                namespaces.add(t.i18nNamespace)
+            }
+        })
+        return Array.from(namespaces)
+    }, [templates])
+
+    const { t } = useTranslation(requiredNamespaces)
+
+    // Resolve translation key with optional namespace prefix stripping
+    const resolveT = (key: string, ns?: string) => {
+        if (ns && key?.startsWith(ns + '.')) {
+            const localKey = key.slice(ns.length + 1)
+            return t(localKey, { ns })
+        }
+        return t(key)
+    }
+
+    // Auto-select first template if none selected and templates are available
+    React.useEffect(() => {
+        if (!selectedTemplate && templates.length > 0) {
+            onTemplateChange(templates[0].id)
+        }
+    }, [selectedTemplate, templates, onTemplateChange])
+
     const handleTemplateChange = (event: any) => {
         onTemplateChange(event.target.value as string)
     }
 
-    const selectedTemplateInfo = templates.find((t) => t.id === selectedTemplate)
+    // Use first template as fallback if selectedTemplate is empty
+    const effectiveSelectedTemplate = selectedTemplate || (templates.length > 0 ? templates[0].id : '')
+    const selectedTemplateInfo = templates.find((t) => t.id === effectiveSelectedTemplate)
 
     return (
         <FormControl fullWidth variant='outlined' margin='normal' disabled={disabled} className={className} sx={{ minWidth: 200 }}>
@@ -39,7 +69,7 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
             <Select
                 labelId='template-select-label'
                 id='template-select'
-                value={selectedTemplate}
+                value={effectiveSelectedTemplate}
                 label={t('templates.label')}
                 onChange={handleTemplateChange}
                 disabled={disabled}
@@ -50,7 +80,7 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
                     templates.map((template: TemplateInfo) => (
                         <MenuItem key={template.id} value={template.id}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {t(template.name)}
+                                {resolveT(template.name as unknown as string, (template as any).i18nNamespace)}
                                 <Chip
                                     label={t('templates.version', { version: template.version })}
                                     size='small'
@@ -64,7 +94,9 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
             </Select>
             {/* Template description */}
             {selectedTemplateInfo && selectedTemplateInfo.description && (
-                <FormHelperText>{t(selectedTemplateInfo.description)}</FormHelperText>
+                <FormHelperText>
+                    {resolveT(selectedTemplateInfo.description as unknown as string, (selectedTemplateInfo as any).i18nNamespace)}
+                </FormHelperText>
             )}
         </FormControl>
     )

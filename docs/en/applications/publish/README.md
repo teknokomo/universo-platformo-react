@@ -32,20 +32,21 @@ The Publication System consists of two main components working together to provi
 
 ## Frontend (publish-frt)
 
-The frontend application handles the entire user-facing publication workflow, including the final conversion of data to viewable formats.
+The frontend application provides the user interface for configuring and initiating the publication process. It acts as a consumer of template packages, such as `@universo/template-mmoomm`, to generate the final user experience.
 
 ### Key Features
 
--   **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences
--   **Template-Based Builders**: Flexible builder system with `ARJSBuilder` and `PlayCanvasBuilder` supporting multiple templates
--   **MMOOMM Space MMO Template**: Comprehensive space MMO environment with industrial laser mining, physics-based flight, and real-time inventory management
--   **Advanced Game Mechanics**: Entity system with ships, asteroids, stations, gates, and networking capabilities
--   **Supabase Integration**: Persists publication configurations
--   **AR Quiz Support**: Educational quizzes with scoring and lead collection
+-   **Publication UI**: Provides the user interface for selecting templates, configuring options, and managing public links.
+-   **Template Consumer**: Dynamically loads and utilizes template packages to generate experiences.
+-   **Modular Architecture**: Consumes dedicated template packages (e.g., `@universo/template-mmoomm`) for specific functionality.
+-   **Supabase Integration**: Persists publication configurations.
+-   **AR Quiz Support**: Educational quizzes with scoring and lead collection.
 
 ### Template Architecture
 
-The builders system uses a **modular, template-based architecture** organized by template first, then by technology:
+The builders system uses a **modular, template-based architecture** organized by template first, then by technology. The system now supports both internal templates and external template packages:
+
+#### Internal Templates (Built-in)
 
 ```
 builders/templates/
@@ -54,11 +55,31 @@ builders/templates/
 │     ├── ARJSBuilder.ts     # High-level controller
 │     ├── ARJSQuizBuilder.ts # Template implementation
 │     └── handlers/          # Quiz-specific processors
-└── mmoomm/                  # MMO gaming template
-   └── playcanvas/           # PlayCanvas implementation
-      ├── PlayCanvasBuilder.ts       # High-level controller
-      ├── PlayCanvasMMOOMMBuilder.ts # Template implementation
-      └── handlers/                  # MMOOMM-specific processors
+```
+
+#### External Template Packages (Modular)
+
+```
+@universo/template-mmoomm/   # Dedicated MMOOMM template package
+├── src/playcanvas/
+│   ├── builders/            # Template builders
+│   ├── handlers/            # Node handlers
+│   ├── multiplayer/         # Colyseus multiplayer support
+│   └── generators/          # Code generators
+```
+
+#### Integration Pattern
+
+```typescript
+// publish-frt consumes external template packages
+import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
+
+export class PlayCanvasBuilder extends AbstractTemplateBuilder {
+    async build(flowData: any, options: BuildOptions): Promise<string> {
+        const mmoommBuilder = new PlayCanvasMMOOMMBuilder()
+        return mmoommBuilder.build(flowData, options)
+    }
+}
 ```
 
 ### Supported Platforms

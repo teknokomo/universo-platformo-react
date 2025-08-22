@@ -8,6 +8,18 @@ import { IPublishRequest, IPublishResponse } from '@universo/publish-srv'
 export type PublishRequest = IPublishRequest
 export type PublishResponse = IPublishResponse
 
+// Export components
+export * from './components'
+
+// Export types (avoid conflicts by importing and re-exporting specific types)
+export type {
+    GameMode,
+    GameModeBuildOptions,
+    DEFAULT_COLYSEUS_SETTINGS,
+    DEFAULT_GAME_MODE
+} from './types/gameMode.types'
+export * from './types/publication.types'
+
 // Default module export for backward compatibility
 const moduleExports = {
     // Empty for now - components are imported directly

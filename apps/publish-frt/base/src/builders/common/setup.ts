@@ -13,9 +13,8 @@ export function setupBuilders(): void {
     // Register AR.js builder
     BuilderRegistry.register('arjs', ARJSBuilder)
 
-    // Register PlayCanvas builder
+    // Register PlayCanvas builder (with Colyseus 0.16.x fixes)
     BuilderRegistry.register('playcanvas', PlayCanvasBuilder)
 
-    // Future builders will be registered here
-    // BuilderRegistry.register('threejs', ThreeJSBuilder)
+    console.log('[Setup] Builders registered: ARJSBuilder, PlayCanvasBuilder')
 }

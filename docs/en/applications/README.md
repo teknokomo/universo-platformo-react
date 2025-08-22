@@ -10,20 +10,21 @@ The Universo Platformo applications directory (`apps/`) contains specialized mod
 
 ## Application Architecture
 
-All applications follow a consistent modular structure designed for scalability and maintainability:
+All applications follow a consistent modular structure designed for scalability and maintainability. The architecture now includes both standalone applications and modular template packages:
 
 ```
 apps/
 ├── updl/                # UPDL node system for universal 3D/AR/VR spaces
 ├── uniks-frt/           # Workspace management frontend
 ├── uniks-srv/           # Workspace management backend
-├── publish-frt/         # Publication system frontend
+├── publish-frt/         # Publication system frontend (consumes template packages)
 ├── publish-srv/         # Publication system backend
 ├── profile-frt/         # User profile management frontend
 ├── profile-srv/         # User profile management backend
 ├── analytics-frt/       # Analytics and reporting frontend
 ├── auth-frt/           # Authentication system frontend
-└── space-builder-*     # Prompt-to-flow generator (frontend & backend)
+├── space-builder-*     # Prompt-to-flow generator (frontend & backend)
+└── template-mmoomm/     # Modular MMOOMM template package
 ```
 
 ## Core Applications
@@ -82,6 +83,27 @@ A comprehensive system for exporting UPDL spaces to various platforms and sharin
 -   Asynchronous route initialization
 
 [Learn more about Publication System →](publish/README.md)
+
+### MMOOMM Template Package
+
+A dedicated modular package that provides reusable MMOOMM (Massively Multiplayer Online Object-Oriented Metaverse) template generation for PlayCanvas and other 3D technologies.
+
+**Key Features:**
+
+-   Modular template system with PlayCanvas builders and handlers
+-   Integrated Colyseus multiplayer support
+-   Full UPDL flow processing and object extraction
+-   Dual CJS/ESM build system with TypeScript support
+-   Internationalization support
+
+**Architecture:**
+
+-   Extracted from `publish-frt` for improved modularity
+-   Consumed by `publish-frt` as a workspace dependency
+-   Supports both single-player and multiplayer modes
+-   Includes embedded game scripts and utilities
+
+[Learn more about MMOOMM Template Package →](template-mmoomm/README.md)
 
 ### Profile Management
 

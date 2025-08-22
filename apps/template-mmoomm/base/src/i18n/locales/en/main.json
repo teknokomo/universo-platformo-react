@@ -1,0 +1,10 @@
+{
+    "templateMmoomm": {
+        "playcanvasTemplates": {
+            "mmoomm": {
+                "name": "Universo MMOOMM",
+                "description": "Multi-user virtual worlds with real-time synchronization and networking"
+            }
+        }
+    }
+}
