@@ -220,10 +220,50 @@ export class UPDLProcessor {
             const hasDataNodes = connectedDataNodes.length > 0
             const isResultsScene = isLast && showPoints && !hasDataNodes
 
+            // Find Entity and Component nodes connected to this Space
+            const connectedEntityNodes = nodes.filter((node) => {
+                if (node.data?.name?.toLowerCase() !== 'entity') return false
+                // Check if entity is connected to this space through any path
+                return edges.some((edge) =>
+                    (edge.target === currentSpace.id && edge.source === node.id) ||
+                    (edge.source === currentSpace.id && edge.target === node.id) ||
+                    // Or connected through data nodes
+                    connectedDataNodes.some(dataNode =>
+                        (edge.target === dataNode.id && edge.source === node.id) ||
+                        (edge.source === dataNode.id && edge.target === node.id)
+                    )
+                )
+            })
+
+            const connectedComponentNodes = nodes.filter((node) => {
+                if (node.data?.name?.toLowerCase() !== 'component') return false
+                // Check if component is connected to any entity in this space
+                return edges.some((edge) =>
+                    connectedEntityNodes.some(entityNode =>
+                        (edge.target === entityNode.id && edge.source === node.id) ||
+                        (edge.source === entityNode.id && edge.target === node.id)
+                    )
+                )
+            })
+
+            console.log(`[UPDLProcessor] Space ${currentSpaceId} entities:`, {
+                entitiesCount: connectedEntityNodes.length,
+                componentsCount: connectedComponentNodes.length,
+                entities: connectedEntityNodes.map(e => ({ id: e.id, entityType: e.data?.inputs?.entityType }))
+            })
+
             const scene: IUPDLScene = {
                 spaceId: currentSpaceId,
                 spaceData: {
                     ...currentSpace.data,
+                    entities: connectedEntityNodes.map((node) => ({
+                        id: node.id,
+                        data: node.data
+                    })),
+                    components: connectedComponentNodes.map((node) => ({
+                        id: node.id,
+                        data: node.data
+                    })),
                     leadCollection: {
                         collectName: currentSpace.data?.inputs?.collectLeadName || false,
                         collectEmail: currentSpace.data?.inputs?.collectLeadEmail || false,

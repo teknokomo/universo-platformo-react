@@ -42,6 +42,12 @@ export interface BuildOptions {
     markerValue?: string
     debug?: boolean
     templateId?: string
+    gameMode?: 'singleplayer' | 'multiplayer'
+    multiplayer?: {
+        serverHost?: string
+        serverPort?: number
+        roomName?: string
+    }
     [key: string]: any
 }
 
@@ -122,6 +128,7 @@ export interface TemplateInfo {
     features: string[]
     defaults?: Record<string, any>
     builder: new () => ITemplateBuilder
+    i18nNamespace?: string
 }
 
 /**

@@ -59,6 +59,7 @@
 -   [Приложения](applications/README.md)
     -   [Система UPDL](applications/updl/README.md)
     -   [Система публикации](applications/publish/README.md)
+    -   [Пакет MMOOMM Template](applications/template-mmoomm/README.md)
     -   [Управление профилем](applications/profile/README.md)
     -   [Система мультиплеера](applications/multiplayer/README.md)
     -   [Конструктор Space](applications/space-builder/README.md)

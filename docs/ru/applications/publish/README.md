@@ -38,6 +38,7 @@
 
 -   **Клиентская обработка UPDL**: Использует класс `UPDLProcessor` для преобразования сырых `flowData` из бэкенда в валидные AR.js и PlayCanvas опыты
 -   **Конструкторы на основе шаблонов**: Гибкая система конструкторов с `ARJSBuilder` и `PlayCanvasBuilder`, поддерживающая множественные шаблоны
+-   **Модульная архитектура**: Использует выделенные пакеты шаблонов (например, `@universo/template-mmoomm`) для специфичной функциональности
 -   **Шаблон MMOOMM Space MMO**: Комплексная среда космического MMO с промышленной лазерной добычей, физическим полетом и управлением инвентарем в реальном времени
 -   **Продвинутые игровые механики**: Система сущностей с кораблями, астероидами, станциями, воротами и сетевыми возможностями
 -   **Интеграция Supabase**: Сохраняет конфигурации публикации
@@ -115,6 +116,46 @@ Response: {
     "success": true,
     "flowData": "{\"nodes\":[...],\"edges\":[...]}",
     "libraryConfig": { ... }
+}
+```
+
+## Архитектура шаблонов
+
+Система использует **модульную архитектуру на основе шаблонов**, организованную сначала по шаблонам, затем по технологиям. Система теперь поддерживает как внутренние шаблоны, так и внешние пакеты шаблонов:
+
+### Внутренние шаблоны (Встроенные)
+
+```
+builders/templates/
+├── quiz/                    # Шаблон образовательной викторины
+│  └── arjs/                 # Реализация AR.js
+│     ├── ARJSBuilder.ts     # Высокоуровневый контроллер
+│     ├── ARJSQuizBuilder.ts # Реализация шаблона
+│     └── handlers/          # Обработчики викторин
+```
+
+### Внешние пакеты шаблонов (Модульные)
+
+```
+@universo/template-mmoomm/   # Выделенный пакет шаблона MMOOMM
+├── src/playcanvas/
+│   ├── builders/            # Генераторы шаблонов
+│   ├── handlers/            # Обработчики узлов
+│   ├── multiplayer/         # Поддержка мультиплеера Colyseus
+│   └── generators/          # Генераторы кода
+```
+
+### Паттерн интеграции
+
+```typescript
+// publish-frt использует внешние пакеты шаблонов
+import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
+
+export class PlayCanvasBuilder extends AbstractTemplateBuilder {
+    async build(flowData: any, options: BuildOptions): Promise<string> {
+        const mmoommBuilder = new PlayCanvasMMOOMMBuilder()
+        return mmoommBuilder.build(flowData, options)
+    }
 }
 ```
 

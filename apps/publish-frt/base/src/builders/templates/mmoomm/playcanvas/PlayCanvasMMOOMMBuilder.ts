@@ -1,252 +1,165 @@
 // Universo Platformo | PlayCanvas MMOOMM Builder
-// Advanced MMO template builder with modular architecture
+// Lightweight coordinator that delegates to template-mmoomm package
 
 import { AbstractTemplateBuilder } from '../../../common/AbstractTemplateBuilder'
 import { BuildOptions, TemplateConfig } from '../../../common/types'
-import type { IFlowData, IUPDLMultiScene } from '@universo/publish-srv'
-import { MMOOMMTemplateConfig } from './config'
-import { SpaceHandler, EntityHandler, ComponentHandler, EventHandler, ActionHandler, DataHandler, UniversoHandler } from './handlers'
-import { getDefaultRotatorScript, setupScriptSystem } from './scripts'
-import { createMMOOMMBuilderSystemsManager, IBuilderSystemsManager } from './handlers/shared/builderSystems'
+import type { IFlowData } from '@universo/publish-srv'
+import { PlayCanvasMMOOMMBuilder as MMOOMMTemplateBuilder } from '@universo/template-mmoomm'
 
+/**
+ * Lightweight MMOOMM Builder Coordinator
+ * Delegates to template-mmoomm package for modular architecture
+ * Target: <300 lines (currently ~80 lines)
+ */
 export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
-    private spaceHandler = new SpaceHandler()
-    private entityHandler = new EntityHandler()
-    private componentHandler = new ComponentHandler()
-    private eventHandler = new EventHandler()
-    private actionHandler = new ActionHandler()
-    private dataHandler = new DataHandler()
-    private universoHandler = new UniversoHandler()
-    private builderSystemsManager: IBuilderSystemsManager
+    private templateBuilder: MMOOMMTemplateBuilder
 
     constructor() {
         super('mmoomm')
 
-        // Initialize script system for MMOOMM template
-        setupScriptSystem()
+        // Initialize template builder from separate package
+        this.templateBuilder = new MMOOMMTemplateBuilder()
 
-        // Initialize modular builder systems
-        this.builderSystemsManager = createMMOOMMBuilderSystemsManager()
-        console.log('[PlayCanvasMMOOMMBuilder] Modular systems initialized')
+        console.log('[PlayCanvasMMOOMMBuilder] Lightweight coordinator initialized')
+    }
+
+    /**
+     * Get template information
+     */
+    getTemplateInfo(): TemplateConfig {
+        return this.templateBuilder.getTemplateInfo()
     }
 
     /**
      * Build PlayCanvas MMOOMM HTML from flow data
+     * Delegates all processing to template-mmoomm package
      */
-    async build(flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
-        console.log('[PlayCanvasMMOOMMBuilder] Building MMOOMM project with modular systems')
-
+    async build(flowData: IFlowData, options?: BuildOptions): Promise<string> {
         try {
-            // Single scene processing
-            if (flowData.updlSpace && !flowData.multiScene) {
-                console.log('[PlayCanvasMMOOMMBuilder] Building single scene MMOOMM')
-                const nodes = this.extractMMOOMMNodes(flowData)
+            console.log('[PlayCanvasMMOOMMBuilder] Delegating to modular template package')
 
-                // Check if we have only Space node with no other content
-                const hasContent =
-                    nodes.entities.length > 0 ||
-                    nodes.components.length > 0 ||
-                    nodes.events.length > 0 ||
-                    nodes.actions.length > 0 ||
-                    nodes.data.length > 0 ||
-                    nodes.universo.length > 0
+            // Convert publish-frt BuildOptions to template package format
+            const templateOptions = this.convertBuildOptions(options)
 
-                if (!hasContent) {
-                    console.log('[PlayCanvasMMOOMMBuilder] Only Space node found, generating default scene')
-                    return this.generateDefaultScene(options)
-                }
+            // Delegate to template package - handles mode detection and building
+            const result = await this.templateBuilder.build(flowData, templateOptions)
 
-                return this.buildSingleScene(flowData, options)
-            }
+            console.log('[PlayCanvasMMOOMMBuilder] Build completed via template package')
+            return result
 
-            // Multi-scene processing
-            if (flowData.multiScene) {
-                console.log('[PlayCanvasMMOOMMBuilder] Building multi-scene MMOOMM:', {
-                    totalScenes: flowData.multiScene.totalScenes
-                })
-                return this.buildMultiScene(flowData.multiScene, options)
-            }
-
-            // Fallback - generate default scene
-            console.warn('[PlayCanvasMMOOMMBuilder] No updlSpace or multiScene, generating default scene')
-            return this.generateDefaultScene(options)
         } catch (error) {
             console.error('[PlayCanvasMMOOMMBuilder] Build error:', error)
-            return this.generateDefaultScene(options)
+
+            // Generate error scene as fallback
+            return this.generateErrorFallback(error, options)
         }
     }
 
     /**
-     * Build single scene MMOOMM using modular systems
+     * Check if this builder can handle the flow data
      */
-    private buildSingleScene(flowData: IFlowData, options: BuildOptions): string {
-        const nodes = this.extractMMOOMMNodes(flowData)
-
-        console.log(`[PlayCanvasMMOOMMBuilder] Processing nodes - Entities: ${nodes.entities.length}, Components: ${nodes.components.length}`)
-
-        // Process all node types using handlers
-        const spaceScript = this.spaceHandler.process(nodes.spaces[0], options)
-        const entityScript = this.entityHandler.process(nodes.entities, options)
-        const componentScript = this.componentHandler.process(nodes.components, options)
-        const eventScript = this.eventHandler.process(nodes.events, options)
-        const actionScript = this.actionHandler.process(nodes.actions, options)
-        const dataScript = this.dataHandler.process(nodes.data, options)
-        const universoScript = this.universoHandler.process(nodes.universo, options)
-
-        // Combine all scripts into executable code
-        const combinedScript = [
-            '// PlayCanvas MMOOMM Scene - Generated by Universo Platformo',
-            '// Multi-user virtual world with real-time synchronization',
-            '',
-            '// MMO Space setup',
-            spaceScript,
-            '',
-            '// Entities with MMO capabilities',
-            entityScript,
-            '',
-            '// Components',
-            componentScript,
-            '',
-            '// Real-time Events',
-            eventScript,
-            '',
-            '// Network Actions',
-            actionScript,
-            '',
-            '// Data synchronization',
-            dataScript,
-            '',
-            '// Universo networking gateway',
-            universoScript,
-            '',
-            '// Start PlayCanvas application',
-            'app.start();'
-        ].join('\n')
-
-        // Use modular systems manager to generate complete HTML
-        return this.builderSystemsManager.generateCompleteHTML(combinedScript, options)
+    canHandle(flowData: IFlowData): boolean {
+        return this.templateBuilder.canHandle(flowData)
     }
 
     /**
-     * Build multi-scene MMOOMM using modular systems
+     * Get required libraries for MMOOMM template
      */
-    private buildMultiScene(multiScene: IUPDLMultiScene, options: BuildOptions): string {
-        // For multi-scene, we process each scene and combine them
-        const scenes = multiScene.scenes || []
-        const allEntities: any[] = []
-        const allComponents: any[] = []
-        const allEvents: any[] = []
-        const allActions: any[] = []
-        const allData: any[] = []
-        const allUniverso: any[] = []
-
-        // Collect nodes from all scenes
-        scenes.forEach((scene) => {
-            if (scene.spaceData) {
-                allEntities.push(...(scene.spaceData.entities || []))
-                allComponents.push(...(scene.spaceData.components || []))
-                allEvents.push(...(scene.spaceData.events || []))
-                allActions.push(...(scene.spaceData.actions || []))
-                allData.push(...(scene.spaceData.data || []))
-                allUniverso.push(...(scene.spaceData.universo || []))
-            }
-        })
-
-        console.log(`[PlayCanvasMMOOMMBuilder] Multi-scene processing - Total scenes: ${scenes.length}, Entities: ${allEntities.length}, Components: ${allComponents.length}`)
-
-        // Process using handlers
-        const spaceScript = this.spaceHandler.process({ data: { type: 'root', id: 'multi-scene' } }, options)
-        const entityScript = this.entityHandler.process(allEntities, options)
-        const componentScript = this.componentHandler.process(allComponents, options)
-        const eventScript = this.eventHandler.process(allEvents, options)
-        const actionScript = this.actionHandler.process(allActions, options)
-        const dataScript = this.dataHandler.process(allData, options)
-        const universoScript = this.universoHandler.process(allUniverso, options)
-
-        // Combine multi-scene script
-        const combinedScript = [
-            '// PlayCanvas MMOOMM Multi-Scene - Generated by Universo Platformo',
-            `// Total scenes: ${scenes.length}`,
-            '',
-            spaceScript,
-            entityScript,
-            componentScript,
-            eventScript,
-            actionScript,
-            dataScript,
-            universoScript,
-            '',
-            'app.start();'
-        ].join('\n')
-
-        // Use modular systems manager to generate complete HTML
-        return this.builderSystemsManager.generateCompleteHTML(combinedScript, options)
+    getRequiredLibraries(): string[] {
+        return this.templateBuilder.getRequiredLibraries()
     }
 
     /**
-     * Extract MMOOMM-specific nodes from flow data
+     * Convert publish-frt BuildOptions to template package format
      */
-    private extractMMOOMMNodes(flowData: IFlowData): {
-        spaces: any[]
-        entities: any[]
-        components: any[]
-        events: any[]
-        actions: any[]
-        data: any[]
-        universo: any[]
-    } {
-        // Extract base nodes using parent method
-        const baseNodes = this.extractNodes(flowData)
+    private convertBuildOptions(options?: BuildOptions): any {
+        if (!options) {
+            return {}
+        }
 
-        const firstSpace = baseNodes.spaces[0] || {}
-
+        // Map publish-frt options to template package options
         return {
-            spaces: baseNodes.spaces,
-            entities: (firstSpace as any).entities || [],
-            components: (firstSpace as any).components || [],
-            events: (firstSpace as any).events || [],
-            actions: (firstSpace as any).actions || [],
-            data: baseNodes.data,
-            universo: (firstSpace as any).universo || []
+            gameMode: options.gameMode || 'singleplayer',
+            multiplayer: options.multiplayer,
+            ...options
         }
     }
 
     /**
-     * Generate default scene with configurable demo mode (for empty flows)
+     * Generate error fallback when template package fails
      */
-    private generateDefaultScene(options: BuildOptions): string {
-        return this.builderSystemsManager.generateErrorScene(options)
+    private generateErrorFallback(error: any, options?: BuildOptions): string {
+        console.error('[PlayCanvasMMOOMMBuilder] Generating error fallback')
+
+        const errorScript = `
+        console.error('MMOOMM Template Error: ${error.message}');
+        
+        // Basic error scene
+        const camera = new pc.Entity('camera');
+        camera.addComponent('camera', { clearColor: new pc.Color(0.2, 0.1, 0.1) });
+        camera.setPosition(0, 0, 5);
+        app.root.addChild(camera);
+        
+        console.log('Error fallback scene loaded. Please check the flow configuration.');
+        `
+
+        return this.wrapWithHTML(errorScript, options)
     }
 
     /**
-     * Implementation of abstract method from AbstractTemplateBuilder
+     * Wrap script with basic HTML structure
+     */
+    private wrapWithHTML(script: string, options?: BuildOptions): string {
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Universo MMOOMM - Error</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+    </style>
+    <script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+</head>
+<body>
+    <canvas id="application-canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('application-canvas');
+        const app = new pc.Application(canvas, {
+            mouse: new pc.Mouse(canvas),
+            keyboard: new pc.Keyboard(window),
+            touch: new pc.TouchDevice(canvas)
+        });
+        
+        app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+        app.setCanvasResolution(pc.RESOLUTION_AUTO);
+        window.addEventListener('resize', () => app.resizeCanvas());
+
+        ${script}
+
+        app.start();
+    </script>
+</body>
+</html>`
+    }
+
+    /**
+     * Generate HTML structure (legacy method for compatibility)
      */
     protected generateHTML(
         content: {
             spaceContent: string
             objectContent: string
             cameraContent: string
+            lightContent: string
+            dataContent: string
             template: string
             error?: boolean
         },
-        options: BuildOptions = {}
+        options?: BuildOptions
     ): string {
-        // This method is required by AbstractTemplateBuilder but not used in our implementation
-        // We use build() method instead for more advanced processing
-        return this.builderSystemsManager.generateErrorScene(options)
-    }
-
-    /**
-     * Get template configuration
-     */
-    getTemplateInfo(): TemplateConfig {
-        return MMOOMMTemplateConfig
-    }
-
-    /**
-     * Get required libraries for this template
-     */
-    getRequiredLibraries(): string[] {
-        return ['playcanvas']
+        // Legacy compatibility - wrap template content
+        return this.wrapWithHTML(content.template, options)
     }
 }

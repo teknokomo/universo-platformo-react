@@ -27,10 +27,12 @@ export class TemplateRegistry {
             supportedNodes: QuizTemplateConfig.supportedNodes,
             features: QuizTemplateConfig.features,
             defaults: QuizTemplateConfig.defaults,
-            builder: ARJSQuizBuilder
+            builder: ARJSQuizBuilder,
+            // propagate i18n namespace if provided by config
+            i18nNamespace: (QuizTemplateConfig as unknown as { i18nNamespace?: string }).i18nNamespace
         })
 
-        // Universo Platformo | Register PlayCanvas MMOOMM template
+        // Universo Platformo | Register PlayCanvas MMOOMM template (with Colyseus fixes)
         const mmoommInfo = new PlayCanvasMMOOMMBuilder().getTemplateInfo()
         this.registerTemplate({
             id: mmoommInfo.id,
@@ -41,7 +43,8 @@ export class TemplateRegistry {
             supportedNodes: mmoommInfo.supportedNodes,
             features: mmoommInfo.features,
             defaults: mmoommInfo.defaults,
-            builder: PlayCanvasMMOOMMBuilder
+            builder: PlayCanvasMMOOMMBuilder,
+            i18nNamespace: (mmoommInfo as unknown as { i18nNamespace?: string }).i18nNamespace
         })
 
         console.log(`[TemplateRegistry] Registered ${this.templates.size} templates`)

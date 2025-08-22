@@ -3,6 +3,7 @@
 
 import { PublicationApi } from './PublicationApi'
 import type { DemoMode } from '../../types/publication.types'
+import type { GameMode, ColyseusSettings } from '../../types/gameMode.types'
 
 // Local interface to avoid server dependencies
 interface ILibraryConfig {
@@ -17,6 +18,8 @@ export interface PlayCanvasPublicationSettings {
     templateId?: string
     libraryConfig?: ILibraryConfig
     demoMode?: DemoMode
+    gameMode?: GameMode
+    colyseusSettings?: ColyseusSettings
 }
 
 /**
