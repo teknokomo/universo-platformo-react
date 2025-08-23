@@ -22,7 +22,11 @@ export function generateStationLogic(id: string): string {
     }
 
     // IMPROVED: Enhanced station material (only if no custom render component applied)
-    if (entity.model && !entity.__hasRenderComponent) {
+    if (
+        entity.model &&
+        !entity.__hasRenderComponent &&
+        (!entity.model.meshInstances || !entity.model.meshInstances.some(function(mi){ return !!mi.material; }))
+    ) {
         const stationMaterial = new pc.StandardMaterial();
         stationMaterial.diffuse.set(0.2, 0.5, 0.8); // Blue for stations
         stationMaterial.emissive.set(0.1, 0.2, 0.4); // Blue glow

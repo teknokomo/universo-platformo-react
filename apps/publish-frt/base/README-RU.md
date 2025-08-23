@@ -57,25 +57,7 @@ apps/publish-frt/base/
    │  │  │     ├─ utils/                 # Утилиты, специфичные для шаблона
    │  │  │     │  └─ SimpleValidator.ts  # Утилиты валидации
    │  │  │     └─ index.ts               # Экспорт Quiz AR.js
-   │  │  └─ mmoomm/        # Шаблон MMOOMM для MMO игр
-   │  │     └─ playcanvas/ # Реализация шаблона MMOOMM на PlayCanvas
-   │  │        ├─ PlayCanvasBuilder.ts       # Высокоуровневый PlayCanvas билдер
-   │  │        ├─ PlayCanvasMMOOMMBuilder.ts # Реализация шаблона MMOOMM
-   │  │        ├─ config.ts                  # Конфигурация шаблона MMOOMM
-   │  │        ├─ handlers/                  # Процессоры узлов UPDL для MMOOMM
-   │  │        │  ├─ ActionHandler/          # Модуль обработки Action
-   │  │        │  ├─ ComponentHandler/       # Обработка Component (components/, attachments/)
-   │  │        │  ├─ DataHandler/            # Модуль обработки Data
-   │  │        │  ├─ EntityHandler/          # Обработка Entity (entityTypes/)
-   │  │        │  ├─ EventHandler/           # Модуль обработки Event
-   │  │        │  ├─ SpaceHandler/           # Модуль обработки Space
-   │  │        │  ├─ UniversoHandler/        # Модуль обработки Universo
-   │  │        │  └─ index.ts                # Экспорт обработчиков
-   │  │        ├─ scripts/                   # Система скриптов PlayCanvas
-   │  │        │  ├─ BaseScript.ts           # Абстрактный базовый класс
-   │  │        │  ├─ RotatorScript.ts        # Скрипт анимации поворота
-   │  │        │  └─ index.ts                # Экспорт модуля скриптов
-   │  │        └─ index.ts                   # Экспорт MMOOMM PlayCanvas
+   │  │  └─ (external)     # MMOOMM перенесён во внешний пакет: @universo/template-mmoomm
    │  └─ index.ts          # Экспорт основных билдеров
    ├─ components/          # Презентационные React-компоненты
    ├─ features/            # Функциональные модули для различных технологий
@@ -153,10 +135,10 @@ this.app.use('/assets', express.static(publishFrtAssetsPath))
 
 -   **`AbstractTemplateBuilder`**: Новый абстрактный базовый класс, который должны наследовать все шаблоны (например, для квизов AR.js, сцен PlayCanvas). Он предоставляет общую функциональность, такую как управление библиотеками и обертка структуры документа.
 -   **`TemplateRegistry`**: Центральный реестр для управления и создания экземпляров различных билдеров шаблонов.
--   **`ARJSBuilder` / `PlayCanvasBuilder`**: Высокоуровневые билдеры, которые теперь выступают в роли контроллеров. Они определяют требуемый шаблон и делегируют весь процесс сборки соответствующему билдеру шаблона из реестра.
--   **`ARJSQuizBuilder` / `PlayCanvasMMOOMMBuilder`**: Конкретные реализации шаблонов. Они содержат собственный набор `обработчиков` для обработки различных узлов UPDL.
--   **`PlayCanvasMMOOMMBuilder`**: Конкретная реализация шаблона для генерации сцен PlayCanvas MMOOMM с MMO-специфичной функциональностью.
--   **`Обработчики (Handlers)`**: Специализированные процессоры для различных типов узлов UPDL теперь инкапсулированы внутри каждого шаблона (например, `builders/templates/quiz/arjs/handlers/`, `builders/templates/mmoomm/playcanvas/handlers/`). Это делает каждый шаблон самодостаточным.
+-   **`ARJSBuilder`**: Высокоуровневый билдер-контроллер. Определяет требуемый шаблон и делегирует процесс сборки соответствующему билдеру из реестра.
+-   **`ARJSQuizBuilder` / `PlayCanvasMMOOMMBuilder` (external)**: Конкретные реализации шаблонов. MMOOMM билдeр поставляется пакетом `@universo/template-mmoomm`.
+-   **`PlayCanvasMMOOMMBuilder` (external)**: Поставляется пакетом `@universo/template-mmoomm` для генерации сцен PlayCanvas MMOOMM с MMO-специфичной функциональностью.
+-   **`Обработчики (Handlers)`**: Специализированные процессоры для различных типов узлов UPDL теперь инкапсулированы внутри каждого шаблона (например, `builders/templates/quiz/arjs/handlers/`). MMOOMM обработчики теперь находятся внутри `@universo/template-mmoomm`.
 
 #### Архитектура с приоритетом шаблонов
 
@@ -169,11 +151,7 @@ builders/templates/
 │     ├─ ARJSBuilder.ts     # Высокоуровневый контроллер
 │     ├─ ARJSQuizBuilder.ts # Реализация шаблона
 │     └─ handlers/          # Процессоры для квиза
-└─ mmoomm/                  # Шаблон MMO игр
-   └─ playcanvas/           # PlayCanvas реализация
-      ├─ PlayCanvasBuilder.ts       # Высокоуровневый контроллер
-      ├─ PlayCanvasMMOOMMBuilder.ts # Реализация шаблона
-      └─ handlers/                  # Процессоры для MMOOMM
+└─ (external)               # Шаблон MMO перенесён в @universo/template-mmoomm
 ```
 
 #### Возможности
@@ -188,7 +166,7 @@ builders/templates/
 
 #### Недавние улучшения
 
--   **Рефакторинг PlayCanvasViewPage**: Мигрировано с прямого импорта `PlayCanvasMMOOMMBuilder` на использование `TemplateRegistry`, что обеспечивает динамический выбор шаблона через параметр `config.templateId`.
+-   **Рефакторинг PlayCanvasViewPage**: Используется `TemplateRegistry` для динамического выбора шаблона через параметр `config.templateId`. MMOOMM билдeр предоставляется пакетом `@universo/template-mmoomm`.
 -   **Флаг ENABLE_BACKEND_FETCH**: Добавлен флаг функции (по умолчанию: false) для опционального получения данных с бэкенда. При отключении компонент ожидает данные через props, что улучшает безопасность и надежность.
 -   **Логика эксклюзивной публикации**: Исправлена логика в `PublicationApi.savePublicationSettings()` для воздействия только на поддерживаемые технологии (`chatbot`, `arjs`, `playcanvas`) и предотвращения случайного изменения других свойств конфигурации.
 -   **Улучшение локализации**: Добавлены недостающие ключи перевода `publish.playcanvas.loading` для улучшенной многоязычной поддержки.

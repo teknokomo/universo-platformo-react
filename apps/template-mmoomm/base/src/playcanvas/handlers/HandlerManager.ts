@@ -31,6 +31,8 @@ export interface IHandlerManager {
  * Manages UPDL processing and ensures consistency between SP/MP modes
  * Wraps existing UPDL handlers for reuse between single-player and multiplayer
  */
+const DEBUG = !!(((globalThis as any)?.DEBUG_MULTIPLAYER) || ((globalThis as any)?.DEBUG_RENDER))
+
 export class HandlerManager implements IHandlerManager {
     private spaceHandler: SpaceHandler
     private entityHandler: EntityHandler
@@ -52,7 +54,7 @@ export class HandlerManager implements IHandlerManager {
         this.dataHandler = new DataHandler()
         this.universoHandler = new UniversoHandler()
 
-        console.log('[HandlerManager] Initialized with all UPDL handlers')
+        if (DEBUG) console.log('[HandlerManager] Initialized with all UPDL handlers')
     }
 
     /**
@@ -60,7 +62,7 @@ export class HandlerManager implements IHandlerManager {
      * Uses existing handlers without network modifications
      */
     processForSinglePlayer(flowData: IFlowData): ProcessedGameData {
-        console.log('[HandlerManager] Processing UPDL for single-player mode')
+        if (DEBUG) console.log('[HandlerManager] Processing UPDL for single-player mode')
 
         try {
             // Extract nodes from flow data
@@ -85,7 +87,7 @@ export class HandlerManager implements IHandlerManager {
                 lights: lightData.lights
             }
 
-            console.log('[HandlerManager] Single-player processing complete:', {
+            if (DEBUG) console.log('[HandlerManager] Single-player processing complete:', {
                 entities: processedData.entities.length,
                 spaces: processedData.spaces.length,
                 components: processedData.components.length
@@ -104,7 +106,7 @@ export class HandlerManager implements IHandlerManager {
      * Uses same base processing with network adaptations
      */
     processForMultiplayer(flowData: IFlowData): MultiplayerGameData {
-        console.log('[HandlerManager] Processing UPDL for multiplayer mode')
+        if (DEBUG) console.log('[HandlerManager] Processing UPDL for multiplayer mode')
 
         try {
             // Start with base single-player processing
@@ -134,7 +136,7 @@ export class HandlerManager implements IHandlerManager {
                 serverConfig
             }
 
-            console.log('[HandlerManager] Multiplayer processing complete:', {
+            if (DEBUG) console.log('[HandlerManager] Multiplayer processing complete:', {
                 networkEntities: networkEntities.length,
                 hasAuthScreen: !!authScreenData,
                 serverConfig: serverConfig.host + ':' + serverConfig.port
@@ -154,8 +156,8 @@ export class HandlerManager implements IHandlerManager {
      * FIXED: Properly handle data that's already processed by UPDLProcessor
      */
     private extractNodes(flowData: IFlowData): ExtractedNodes {
-        console.log('[HandlerManager] Extracting nodes from flow data')
-        console.log('[HandlerManager] Flow data structure:', {
+        if (DEBUG) console.log('[HandlerManager] Extracting nodes from flow data')
+        if (DEBUG) console.log('[HandlerManager] Flow data structure:', {
             hasUpdlSpace: !!flowData.updlSpace,
             hasMultiScene: !!flowData.multiScene,
             hasFlowData: !!flowData.flowData,
@@ -176,7 +178,7 @@ export class HandlerManager implements IHandlerManager {
         try {
             // Handle multi-scene structure
             if (flowData.multiScene?.scenes) {
-                console.log('[HandlerManager] Processing multi-scene structure with', flowData.multiScene.scenes.length, 'scenes')
+                if (DEBUG) console.log('[HandlerManager] Processing multi-scene structure with', flowData.multiScene.scenes.length, 'scenes')
 
                 flowData.multiScene.scenes.forEach((scene, index) => {
                     if (scene.spaceData) {
@@ -207,8 +209,8 @@ export class HandlerManager implements IHandlerManager {
 
             // Handle single space structure (most common case)
             if (flowData.updlSpace) {
-                console.log('[HandlerManager] Processing single space structure')
-                console.log('[HandlerManager] UPDL Space contents:', {
+                if (DEBUG) console.log('[HandlerManager] Processing single space structure')
+                if (DEBUG) console.log('[HandlerManager] UPDL Space contents:', {
                     entities: flowData.updlSpace.entities?.length || 0,
                     components: flowData.updlSpace.components?.length || 0,
                     events: flowData.updlSpace.events?.length || 0,
@@ -254,7 +256,7 @@ export class HandlerManager implements IHandlerManager {
                 }
             }
 
-            console.log('[HandlerManager] Extracted nodes:', {
+            if (DEBUG) console.log('[HandlerManager] Extracted nodes:', {
                 spaces: nodes.spaces.length,
                 entities: nodes.entities.length,
                 components: nodes.components.length,
@@ -265,7 +267,7 @@ export class HandlerManager implements IHandlerManager {
             })
 
             // ADDED: Debug first entity if available
-            if (nodes.entities.length > 0) {
+            if (DEBUG && nodes.entities.length > 0) {
                 const firstEntity = nodes.entities[0]
                 console.log('[HandlerManager] First entity details:', {
                     id: firstEntity.id,
@@ -404,6 +406,20 @@ export class HandlerManager implements IHandlerManager {
     private adaptEntitiesForNetwork(entities: any[]): NetworkEntity[] {
         console.log('[HandlerManager] Adapting', entities.length, 'entities for network')
 
+        // Helper: extract color from attached Render component
+        const getRenderColorFromComponents = (entityData: any): any => {
+            try {
+                const comps = Array.isArray(entityData.components) ? entityData.components : []
+                const renderComp = comps.find((c: any) => String(c?.data?.componentType || '').toLowerCase() === 'render')
+                if (!renderComp) return undefined
+                const d = renderComp.data || {}
+                const p = d.props || {}
+                return d.color ?? p.color ?? (p.material && p.material.color)
+            } catch {
+                return undefined
+            }
+        }
+
         return entities.map(entity => {
             // FIXED: Extract data from entity.data.inputs instead of entity.data
             const entityInputs = entity.data?.inputs || {}
@@ -430,6 +446,9 @@ export class HandlerManager implements IHandlerManager {
             const inputsTransform = entityInputs.transform || {}
             const finalTransform = transform.position ? transform : inputsTransform
 
+            const renderColor = getRenderColorFromComponents(entityData)
+
+            const chosenColor = (entityInputs.color || entityData.color || renderColor || '#ffffff') as any
             const networkEntity: NetworkEntity = {
                 id: entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`,
                 type: this.mapEntityTypeToNetwork(entityType),
@@ -453,7 +472,8 @@ export class HandlerManager implements IHandlerManager {
                 visual: {
                     model: (entityInputs.model || entityData.model || 'box'),
                     texture: entityInputs.texture || entityData.texture,
-                    color: entityInputs.color || entityData.color || '#ffffff'
+                    // Prefer explicit entity color, then Render component color, then fallback
+                    color: chosenColor
                 },
                 networked: shouldNetwork,
                 // Include component data for server processing
@@ -464,13 +484,16 @@ export class HandlerManager implements IHandlerManager {
                 scale: finalTransform.scale
             }
 
-            console.log(`[HandlerManager] Created network entity:`, {
-                id: networkEntity.id,
-                type: networkEntity.type,
-                networked: networkEntity.networked,
-                position: networkEntity.transform.position,
-                componentsCount: networkEntity.components?.length || 0
-            })
+            if ((((globalThis as any)?.DEBUG_MULTIPLAYER) || ((globalThis as any)?.DEBUG_RENDER))) {
+                console.log(`[HandlerManager] Created network entity:`, {
+                    id: networkEntity.id,
+                    type: networkEntity.type,
+                    networked: networkEntity.networked,
+                    position: networkEntity.transform.position,
+                    componentsCount: networkEntity.components?.length || 0,
+                    visualColor: chosenColor
+                })
+            }
 
             return networkEntity
         })

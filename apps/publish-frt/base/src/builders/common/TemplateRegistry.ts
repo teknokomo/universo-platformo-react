@@ -3,7 +3,7 @@
 
 import { ITemplateBuilder, TemplateInfo } from './types'
 import { ARJSQuizBuilder, QuizTemplateConfig } from '../templates/quiz/arjs'
-import { PlayCanvasMMOOMMBuilder } from '../templates/mmoomm/playcanvas/PlayCanvasMMOOMMBuilder'
+import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
 
 /**
  * Central registry for all export templates

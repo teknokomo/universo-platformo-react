@@ -9,19 +9,21 @@ import { generateShipLogic } from '../handlers/EntityHandler/entityTypes/ship'
  * Handles Colyseus integration and multiplayer scene generation
  * Uses HandlerManager for consistent UPDL processing with network adaptations
  */
+const DEBUG = !!(((globalThis as any)?.DEBUG_MULTIPLAYER) || ((globalThis as any)?.DEBUG_RENDER))
+
 export class MultiplayerBuilder {
     private handlerManager: HandlerManager
 
     constructor() {
         this.handlerManager = new HandlerManager()
-        console.log('[MultiplayerBuilder] Initialized with HandlerManager')
+        if (DEBUG) console.log('[MultiplayerBuilder] Initialized with HandlerManager')
     }
 
     /**
      * Build multiplayer MMOOMM scene with Colyseus integration
      */
     async build(flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
-        console.log('[MultiplayerBuilder] Building multiplayer MMOOMM scene')
+        if (DEBUG) console.log('[MultiplayerBuilder] Building multiplayer MMOOMM scene')
 
         try {
             // Process UPDL flow data for multiplayer using HandlerManager
@@ -328,6 +330,9 @@ export class MultiplayerBuilder {
                     ship.scale?.y || 1,
                     ship.scale?.z || 3
                 ];
+            if (DEBUG_MP || (typeof window !== 'undefined' && window.DEBUG_RENDER)) {
+                console.log('[Multiplayer] Player ship visual resolved:', { primitive, color, scale, updlId: ship?.id || null });
+            }
             return { primitive, color, scale, updlId: ship.id || null };
         }
 
@@ -343,6 +348,9 @@ export class MultiplayerBuilder {
                 const mat = new pc.StandardMaterial();
                 mat.diffuse = col;
                 mat.update();
+                if (DEBUG_MP || (typeof window !== 'undefined' && window.DEBUG_RENDER)) {
+                    console.log('[Multiplayer] Applying ship visual color:', visual.color || '#ffffff');
+                }
                 if (entity.model) {
                     entity.model.material = mat;
                     if (entity.model.meshInstances) {

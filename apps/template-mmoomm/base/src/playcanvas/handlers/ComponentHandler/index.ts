@@ -51,13 +51,17 @@ export class ComponentHandler {
     }
 
     attach(component: any, entityVar: string): string {
-        const type = component.data?.componentType || 'custom'
+        // Normalize component type to lower-case for robustness (support raw nodes with data.inputs)
+        const rawType = component?.data?.componentType ?? component?.data?.inputs?.componentType ?? 'custom'
+        const type = String(rawType).toLowerCase()
         const generator = attachmentGenerators[type]
         return generator ? generator(component, entityVar) : `// TODO: attach component ${component.id} of type ${type}`
     }
 
     private processComponent(component: any, options: BuildOptions): string {
-        const componentType = component.data?.componentType || 'custom'
+        // Normalize component type to lower-case for consistency (support raw nodes with data.inputs)
+        const rawType = component?.data?.componentType ?? component?.data?.inputs?.componentType ?? 'custom'
+        const componentType = String(rawType).toLowerCase()
         const componentId = component.id || `component_${Math.random().toString(36).substr(2, 9)}`
         const targetEntity = component.data?.targetEntity || 'default'
         // FIXED: Use component.data directly instead of component.data.properties
