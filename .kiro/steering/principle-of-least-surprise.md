@@ -1,0 +1,3 @@
+# Principle of least surprise
+
+In your code follow this principle. Try to do things the obvious way.
