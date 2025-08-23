@@ -256,10 +256,24 @@ export class UPDLProcessor {
                 spaceId: currentSpaceId,
                 spaceData: {
                     ...currentSpace.data,
-                    entities: connectedEntityNodes.map((node) => ({
-                        id: node.id,
-                        data: node.data
-                    })),
+                    // Attach components to their target entities for handler attachments
+                    entities: connectedEntityNodes.map((entityNode) => {
+                        // Gather components connected to this entity (both edge directions for robustness)
+                        const compsForEntity = connectedComponentNodes.filter((compNode) =>
+                            edges.some((edge) =>
+                                (edge.source === compNode.id && edge.target === entityNode.id) ||
+                                (edge.source === entityNode.id && edge.target === compNode.id)
+                            )
+                        )
+                        return {
+                            id: entityNode.id,
+                            data: {
+                                ...entityNode.data,
+                                // Embed component nodes so EntityHandler can attach them
+                                components: compsForEntity.map((cn) => ({ id: cn.id, data: cn.data }))
+                            }
+                        }
+                    }),
                     components: connectedComponentNodes.map((node) => ({
                         id: node.id,
                         data: node.data
@@ -467,7 +481,8 @@ export class UPDLProcessor {
             return {
                 id: node.id,
                 data: {
-                    componentType: inputs.componentType || 'render',
+                    // Normalize component type to lower-case for cross-compat
+                    componentType: String(inputs.componentType || 'render').toLowerCase(),
                     primitive: inputs.primitive,
                     color: inputs.color,
                     scriptName: inputs.scriptName,

@@ -1,24 +1,25 @@
 # @universo/template-mmoomm
 
-Система шаблонов MMOOMM для генерации PlayCanvas приложений с поддержкой одиночного и многопользовательского режимов.
+MMOOMM template system for generating PlayCanvas applications with single-player and multiplayer support.
 
-## Возможности
+## Features
 
-- **Поддержка двух режимов**: Одиночный и многопользовательский (Colyseus) режимы игры
-- **Интеграция с UPDL**: Обработка данных UPDL потоков в игровые объекты
-- **Модульная архитектура**: Отдельные билдеры для разных режимов игры
-- **Поддержка TypeScript**: Полная типобезопасность с dual build (CommonJS + ESM)
-- **Интеграция с PlayCanvas**: Генерация полных PlayCanvas приложений
+- Dual Mode Support: Single-player and multiplayer (Colyseus) game modes
+- UPDL Integration: Process UPDL flow data into game objects
+- Modular Architecture: Separate builders and handlers per mode
+- TypeScript Support: Dual build (CommonJS + ESM)
+- PlayCanvas Integration: Full PlayCanvas applications
+- Render Component: Colors and primitives taken from UPDL Component(Render)
 
-## Установка
+## Installation
 
 ```bash
 pnpm add @universo/template-mmoomm
 ```
 
-## Использование
+## Usage
 
-### Базовое использование
+### Basic Usage
 
 ```typescript
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
@@ -29,7 +30,7 @@ const html = await builder.build(flowData, {
 })
 ```
 
-### Многопользовательский режим
+### Multiplayer Mode
 
 ```typescript
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
@@ -45,65 +46,37 @@ const html = await builder.build(flowData, {
 })
 ```
 
-## Справочник API
+### Notes on Component(Render)
 
-### PlayCanvasMMOOMMBuilder
+- `componentType` is case-insensitive and normalized to lower case (e.g. `Render` or `render`).
+- Color can be specified as:
+  - hex string: `#00ff00` or `#0f0` or `#aabbccdd` (RGBA),
+  - object: `{ r, g, b }` in 0..1 or 0..255,
+  - via `props.color` or `props.material.color`.
+- When Component(Render) is attached to an Entity, its material has priority and default entity materials are not applied.
+- In multiplayer, ship color is also taken from Component(Render) through `networkEntities.visual.color`.
 
-Основной класс билдера, который делегирует задачи соответствующим билдерам для конкретных режимов.
-
-#### Методы
-
-- `build(flowData: IFlowData, options: BuildOptions): Promise<string>`
-- `canHandle(flowData: IFlowData): boolean`
-- `getTemplateInfo(): TemplateConfig`
-
-### BuildOptions
-
-Опции конфигурации для сборки шаблонов.
-
-```typescript
-interface BuildOptions {
-  gameMode?: 'singleplayer' | 'multiplayer'
-  multiplayer?: {
-    serverHost?: string
-    serverPort?: number
-    roomName?: string
-  }
-}
-```
-
-## Архитектура
-
-Пакет структурирован для поддержки множественных 3D технологий:
+## Architecture
 
 ```
 src/
-├── playcanvas/          # PlayCanvas-специфичная реализация
-│   ├── builders/        # Билдеры для конкретных режимов
-│   ├── handlers/        # Обработчики UPDL
-│   ├── generators/      # Генераторы HTML/Script
-│   └── multiplayer/     # Интеграция с Colyseus
-├── common/              # Общие утилиты и типы
-└── index.ts             # Основные экспорты
+├── playcanvas/
+│   ├── builders/
+│   ├── handlers/
+│   ├── generators/
+│   └── multiplayer/
+├── common/
+└── index.ts
 ```
 
-## Разработка
+## Development
 
-### Сборка
+### Building
 
 ```bash
-pnpm build              # Сборка всех форматов (CJS, ESM, Types)
-pnpm build:cjs          # Сборка только CommonJS
-pnpm build:esm          # Сборка только ES Modules
-pnpm build:types        # Сборка только TypeScript деклараций
+pnpm build
+pnpm build:cjs
+pnpm build:esm
+pnpm build:types
 ```
 
-### Режим разработки
-
-```bash
-pnpm dev                # Режим наблюдения для разработки
-```
-
-## Лицензия
-
-MIT

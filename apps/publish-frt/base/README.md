@@ -57,25 +57,7 @@ apps/publish-frt/base/
    │  │  │     ├─ utils/                 # Template-specific utilities
    │  │  │     │  └─ SimpleValidator.ts  # Validation utilities
    │  │  │     └─ index.ts               # Quiz AR.js exports
-   │  │  └─ mmoomm/        # MMOOMM template for MMO gaming
-   │  │     └─ playcanvas/ # PlayCanvas implementation of MMOOMM template
-   │  │        ├─ PlayCanvasBuilder.ts       # High-level PlayCanvas builder
-   │  │        ├─ PlayCanvasMMOOMMBuilder.ts # MMOOMM template implementation
-   │  │        ├─ config.ts                  # MMOOMM template configuration
-   │  │        ├─ handlers/                  # UPDL node processors for MMOOMM
-   │  │        │  ├─ ActionHandler/          # Action handling module
-   │  │        │  ├─ ComponentHandler/       # Component handling (components/, attachments/)
-   │  │        │  ├─ DataHandler/            # Data handling module
-   │  │        │  ├─ EntityHandler/          # Entity handling (entityTypes/)
-   │  │        │  ├─ EventHandler/           # Event handling module
-   │  │        │  ├─ SpaceHandler/           # Space handling module
-   │  │        │  ├─ UniversoHandler/        # Universo handling module
-   │  │        │  └─ index.ts                # Handlers export
-   │  │        ├─ scripts/                   # PlayCanvas scripts system
-   │  │        │  ├─ BaseScript.ts           # Abstract base class for scripts
-   │  │        │  ├─ RotatorScript.ts        # Rotation animation script
-   │  │        │  └─ index.ts                # Scripts module exports
-   │  │        └─ index.ts                   # MMOOMM PlayCanvas exports
+   │  │  └─ (external)     # MMOOMM moved to external package: @universo/template-mmoomm
    │  └─ index.ts          # Main builders export
    ├─ components/          # Presentation React components
    ├─ features/            # Functional modules for different technologies
@@ -155,8 +137,8 @@ The builders system has been refactored into a **modular, template-based archite
 -   **`TemplateRegistry`**: A central registry for managing and creating instances of different template builders.
 -   **`ARJSBuilder`**: The high-level builder that now acts as a controller. It identifies the required template and delegates the entire build process to the corresponding template builder from the registry.
 -   **`ARJSQuizBuilder`**: A concrete implementation of a template for generating AR.js HTML quizzes. It contains its own set of `Handlers` to process different UPDL nodes.
--   **`PlayCanvasMMOOMMBuilder`**: A concrete implementation of a template for generating PlayCanvas MMOOMM scenes with MMO-specific functionality.
--   **`Handlers`**: Specialized processors for different UPDL node types are now encapsulated within each template (e.g., `builders/templates/quiz/arjs/handlers/`, `builders/templates/mmoomm/playcanvas/handlers/`). This makes each template self-contained.
+-   **`PlayCanvasMMOOMMBuilder` (external)**: Provided by `@universo/template-mmoomm` for generating PlayCanvas MMOOMM scenes with MMO-specific functionality.
+-   **`Handlers`**: Specialized processors for different UPDL node types are now encapsulated within each template (e.g., `builders/templates/quiz/arjs/handlers/`). MMOOMM handlers now live inside `@universo/template-mmoomm`. This makes each template self-contained while keeping `publish-frt` thin.
 
 #### Template-First Architecture
 
@@ -169,11 +151,7 @@ builders/templates/
 │     ├─ ARJSBuilder.ts     # High-level controller
 │     ├─ ARJSQuizBuilder.ts # Template implementation
 │     └─ handlers/          # Quiz-specific processors
-└─ mmoomm/                  # MMO gaming template
-   └─ playcanvas/           # PlayCanvas implementation
-      ├─ PlayCanvasBuilder.ts       # High-level controller
-      ├─ PlayCanvasMMOOMMBuilder.ts # Template implementation
-      └─ handlers/                  # MMOOMM-specific processors
+└─ (external)               # MMO gaming template moved to @universo/template-mmoomm
 ```
 
 #### Features
@@ -188,7 +166,7 @@ builders/templates/
 
 #### Recent Improvements
 
--   **PlayCanvasViewPage Refactoring**: Migrated from direct `PlayCanvasMMOOMMBuilder` import to `TemplateRegistry` usage, enabling dynamic template selection via `config.templateId` parameter.
+-   **PlayCanvasViewPage Refactoring**: Uses `TemplateRegistry` for dynamic template selection via `config.templateId`. MMOOMM builder is provided by `@universo/template-mmoomm`.
 -   **ENABLE_BACKEND_FETCH Flag**: Added feature flag (default: false) for optional backend data fetching. When disabled, component expects data via props, improving security and reliability.
 -   **Exclusive Publication Logic**: Fixed logic in `PublicationApi.savePublicationSettings()` to only affect supported technologies (`chatbot`, `arjs`, `playcanvas`) and prevent accidental modification of unrelated config properties.
 -   **Localization Enhancement**: Added missing `publish.playcanvas.loading` translation keys for improved multilingual support.
@@ -283,7 +261,7 @@ The `mmoomm` template provides a fully functional space MMO environment with adv
 Select **PlayCanvas MMOOMM Template** in the configuration or pass `templateId: 'mmoomm'` when using the builder.
 Publish the project and open the public link to explore the fully functional MMO environment.
 
-**Detailed Documentation:** [MMOOMM PlayCanvas Template](./src/builders/templates/mmoomm/playcanvas/README.md)
+**Detailed Documentation:** MMOOMM PlayCanvas Template is provided by the external package `@universo/template-mmoomm`.
 
 ### Entity Types System
 

@@ -9,7 +9,6 @@ export * from './common/types'
 
 // AR.js Builder with template support
 export { ARJSBuilder } from './templates/quiz/arjs/ARJSBuilder'
-export { PlayCanvasBuilder } from './templates/mmoomm/playcanvas/PlayCanvasBuilder'
 
 // Template system exports - quiz template
 export * from './templates/quiz/arjs'

@@ -8,19 +8,21 @@ import { createMMOOMMBuilderSystemsManager } from '../handlers/shared/builderSys
  * Single Player Builder
  * Builds SP scene using HandlerManager and modular builder systems
  */
+const DEBUG = !!(((globalThis as any)?.DEBUG_MULTIPLAYER) || ((globalThis as any)?.DEBUG_RENDER))
+
 export class SinglePlayerBuilder {
     private handlerManager: HandlerManager
 
     constructor() {
         this.handlerManager = new HandlerManager()
-        console.log('[SinglePlayerBuilder] Initialized with HandlerManager')
+        if (DEBUG) console.log('[SinglePlayerBuilder] Initialized with HandlerManager')
     }
 
     /**
      * Build single-player MMOOMM scene
      */
     async build(flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
-        console.log('[SinglePlayerBuilder] Building single-player MMOOMM scene')
+        if (DEBUG) console.log('[SinglePlayerBuilder] Building single-player MMOOMM scene')
 
         try {
             // Process UPDL flow data using HandlerManager

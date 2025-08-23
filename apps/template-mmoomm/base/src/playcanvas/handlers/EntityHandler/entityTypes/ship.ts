@@ -27,7 +27,11 @@ export function generateShipLogic(id: string): string {
     });
 
     // IMPROVED: Enhanced ship material (only if no custom render component applied)
-    if (entity.model && !entity.__hasRenderComponent) {
+    if (
+        entity.model &&
+        !entity.__hasRenderComponent &&
+        (!entity.model.meshInstances || !entity.model.meshInstances.some(function(mi){ return !!mi.material; }))
+    ) {
         const shipMaterial = new pc.StandardMaterial();
         shipMaterial.diffuse.set(0.2, 0.8, 0.2); // Green for player ship
         shipMaterial.emissive.set(0.1, 0.4, 0.1); // Slight glow

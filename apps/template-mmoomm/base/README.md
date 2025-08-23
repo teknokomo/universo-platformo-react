@@ -4,13 +4,12 @@ MMOOMM template system for generating PlayCanvas applications with single-player
 
 ## Features
 
-- **Dual Mode Support**: Single-player and multiplayer (Colyseus) game modes
-- **UPDL Integration**: Process UPDL flow data into game objects using specialized handlers
-- **Consistent Processing**: HandlerManager ensures identical UPDL processing between SP/MP modes
-- **Modular Architecture**: Separate builders and handlers for different game modes and node types
-- **Network Adaptation**: Automatic entity adaptation for multiplayer synchronization
-- **TypeScript Support**: Full type safety with dual build (CommonJS + ESM)
-- **PlayCanvas Integration**: Generate complete PlayCanvas applications with Colyseus client
+- Dual Mode Support: Single-player and multiplayer (Colyseus) game modes
+- UPDL Integration: Process UPDL flow data into game objects
+- Modular Architecture: Separate builders and handlers per mode
+- TypeScript Support: Dual build (CommonJS + ESM)
+- PlayCanvas Integration: Full PlayCanvas applications
+- Render Component: Colors and primitives taken from UPDL Component(Render)
 
 ## Installation
 
@@ -47,147 +46,37 @@ const html = await builder.build(flowData, {
 })
 ```
 
-## API Reference
+### Notes on Component(Render)
 
-### PlayCanvasMMOOMMBuilder
-
-Main builder class that delegates to appropriate mode-specific builders.
-
-#### Methods
-
-- `build(flowData: IFlowData, options: BuildOptions): Promise<string>`
-- `canHandle(flowData: IFlowData): boolean`
-- `getTemplateInfo(): TemplateConfig`
-
-### HandlerManager
-
-Central coordinator for UPDL processing that ensures consistency between game modes.
-
-#### Methods
-
-- `processForSinglePlayer(flowData: IFlowData): ProcessedGameData`
-- `processForMultiplayer(flowData: IFlowData): MultiplayerGameData`
-
-#### Usage
-
-```typescript
-import { HandlerManager } from '@universo/template-mmoomm/playcanvas'
-
-const handlerManager = new HandlerManager()
-
-// Process for single-player mode
-const spData = handlerManager.processForSinglePlayer(flowData)
-
-// Process for multiplayer mode (includes network adaptations)
-const mpData = handlerManager.processForMultiplayer(flowData)
-```
-
-### BuildOptions
-
-Configuration options for building templates.
-
-```typescript
-interface BuildOptions {
-  gameMode?: 'singleplayer' | 'multiplayer'
-  multiplayer?: {
-    serverHost?: string
-    serverPort?: number
-    roomName?: string
-  }
-}
-```
-
-### ProcessedGameData
-
-Result of single-player UPDL processing.
-
-```typescript
-interface ProcessedGameData {
-  entities: ComponentSnapshotMap[]
-  spaces: SpaceData[]
-  components: ComponentData[]
-  actions: ActionData[]
-  events: EventData[]
-}
-```
-
-### MultiplayerGameData
-
-Result of multiplayer UPDL processing (extends ProcessedGameData).
-
-```typescript
-interface MultiplayerGameData extends ProcessedGameData {
-  networkEntities: NetworkEntity[]
-  playerSpawnPoint: Transform
-  authScreenData: AuthScreenData
-  serverConfig: ColyseusServerConfig
-}
-```
+- `componentType` is case-insensitive and normalized to lower case (e.g. `Render` or `render`).
+- Color can be specified as:
+  - hex string: `#00ff00` or `#0f0` or `#aabbccdd` (RGBA),
+  - object: `{ r, g, b }` in 0..1 or 0..255,
+  - via `props.color` or `props.material.color`.
+- When Component(Render) is attached to an Entity, its material has priority and default entity materials are not applied.
+- In multiplayer, ship color is also taken from Component(Render) through `networkEntities.visual.color`.
 
 ## Architecture
 
-The package is structured to support multiple 3D technologies with consistent UPDL processing:
-
 ```
 src/
-├── playcanvas/          # PlayCanvas-specific implementation
-│   ├── builders/        # Mode-specific builders
-│   │   ├── PlayCanvasMMOOMMBuilder.ts    # Main coordinator
-│   │   ├── SinglePlayerBuilder.ts        # SP mode builder
-│   │   └── MultiplayerBuilder.ts         # MP mode builder
-│   ├── handlers/        # UPDL processing handlers
-│   │   ├── HandlerManager.ts             # Central coordinator
-│   │   ├── SpaceHandler/                 # Environment setup
-│   │   ├── EntityHandler/                # Game objects
-│   │   ├── ComponentHandler/             # Attachable behaviors
-│   │   ├── EventHandler/                 # Real-time events
-│   │   ├── ActionHandler/                # Player actions
-│   │   ├── DataHandler/                  # Persistent data
-│   │   └── UniversoHandler/              # Network gateway
-│   ├── generators/      # HTML/Script generators
-│   └── multiplayer/     # Colyseus integration
-├── common/              # Shared utilities and types
-└── index.ts             # Main exports
+├── playcanvas/
+│   ├── builders/
+│   ├── handlers/
+│   ├── generators/
+│   └── multiplayer/
+├── common/
+└── index.ts
 ```
-
-### Handler System
-
-The handler system provides consistent UPDL processing:
-
-1. **HandlerManager**: Coordinates all handlers and ensures SP/MP consistency
-2. **Individual Handlers**: Process specific UPDL node types (Space, Entity, Component, etc.)
-3. **Network Adaptation**: Automatic entity adaptation for multiplayer synchronization
-4. **Mode Detection**: Intelligent detection of single-player vs multiplayer requirements
-
-### Data Flow
-
-```
-UPDL Flow Data → HandlerManager → Individual Handlers → Processed Data → Builder → HTML
-```
-
-For multiplayer mode, additional network adaptations are applied:
-- Entity network mapping and synchronization flags
-- Auth screen generation from space configuration
-- Server configuration from environment variables
-- Player spawn point calculation
 
 ## Development
 
 ### Building
 
 ```bash
-pnpm build              # Build all formats (CJS, ESM, Types)
-pnpm build:cjs          # Build CommonJS only
-pnpm build:esm          # Build ES Modules only
-pnpm build:types        # Build TypeScript declarations only
+pnpm build
+pnpm build:cjs
+pnpm build:esm
+pnpm build:types
 ```
 
-### Development Mode
-
-```bash
-pnpm dev                # Watch mode for development
-```
-
-## License
-
-MIT

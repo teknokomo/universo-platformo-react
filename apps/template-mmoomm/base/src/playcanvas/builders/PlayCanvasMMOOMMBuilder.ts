@@ -10,6 +10,8 @@ import { MMOOMMTemplateConfig } from '../config'
  * Lightweight coordinator that delegates to appropriate mode-specific builders
  * Target: <300 lines (currently ~100 lines)
  */
+const DEBUG = !!(((globalThis as any)?.DEBUG_MULTIPLAYER) || ((globalThis as any)?.DEBUG_RENDER))
+
 export class PlayCanvasMMOOMMBuilder implements ITemplateBuilder {
     private singlePlayerBuilder: SinglePlayerBuilder
     private multiplayerBuilder: MultiplayerBuilder
@@ -17,7 +19,7 @@ export class PlayCanvasMMOOMMBuilder implements ITemplateBuilder {
     constructor() {
         this.singlePlayerBuilder = new SinglePlayerBuilder()
         this.multiplayerBuilder = new MultiplayerBuilder()
-        console.log('[PlayCanvasMMOOMMBuilder] Lightweight coordinator initialized')
+        if (DEBUG) console.log('[PlayCanvasMMOOMMBuilder] Lightweight coordinator initialized')
     }
 
     /**
@@ -26,8 +28,8 @@ export class PlayCanvasMMOOMMBuilder implements ITemplateBuilder {
      */
     async build(flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
         try {
-            console.log('[PlayCanvasMMOOMMBuilder] Building MMOOMM template with modular architecture')
-            console.log('[PlayCanvasMMOOMMBuilder] Input flowData structure:', {
+            if (DEBUG) console.log('[PlayCanvasMMOOMMBuilder] Building MMOOMM template with modular architecture')
+            if (DEBUG) console.log('[PlayCanvasMMOOMMBuilder] Input flowData structure:', {
                 hasUpdlSpace: !!flowData.updlSpace,
                 hasMultiScene: !!flowData.multiScene,
                 hasFlowData: !!flowData.flowData,
@@ -37,11 +39,11 @@ export class PlayCanvasMMOOMMBuilder implements ITemplateBuilder {
 
             // Determine game mode using mode detector
             const gameMode = ModeDetector.determineGameMode(flowData, options)
-            console.log('[PlayCanvasMMOOMMBuilder] Detected game mode:', gameMode)
+            if (DEBUG) console.log('[PlayCanvasMMOOMMBuilder] Detected game mode:', gameMode)
 
             // Check if flow has meaningful content
             if (!ModeDetector.hasContent(flowData)) {
-                console.log('[PlayCanvasMMOOMMBuilder] No content detected, generating default scene')
+                if (DEBUG) console.log('[PlayCanvasMMOOMMBuilder] No content detected, generating default scene')
                 return this.generateDefaultScene(options)
             }
 
