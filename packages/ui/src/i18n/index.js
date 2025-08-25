@@ -129,6 +129,15 @@ i18n.use(LanguageDetector)
                 }
             },
             fallbackLng: 'en',
+            // Detection configuration ensures manual selection persists
+            // and has priority over browser language
+            detection: {
+                // Prefer persisted user choice over browser
+                order: ['localStorage', 'navigator', 'htmlTag'],
+                // Persist user choice between sessions
+                caches: ['localStorage'],
+                lookupLocalStorage: 'i18nextLng'
+            },
             ns: [
                 'translation',
                 'auth',

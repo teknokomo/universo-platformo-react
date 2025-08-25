@@ -1,3 +1,8 @@
+---
+type: 'agent_requested'
+description: 'When to write an Pull Request (PR) for GitHub'
+---
+
 # GitHub Pull Request Guidelines
 
 When creating Pull Requests, follow these formatting and content guidelines to maintain consistency and provide comprehensive information about the changes.
