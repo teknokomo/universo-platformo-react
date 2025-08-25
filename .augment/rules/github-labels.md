@@ -1,0 +1,82 @@
+# GitHub Labels Guidelines
+
+When creating Issues or Pull Requests, use only existing labels from the repository. Do not create new labels unless explicitly requested by the user.
+
+## Standard Labels Usage
+
+### Priority Labels
+- `priority: high` - Critical bugs, security issues, or blocking features
+- `priority: medium` - Important features or improvements (default for most tasks)
+- `priority: low` - Nice-to-have features, minor improvements, or cleanup tasks
+
+### Type Labels
+- `type: bug` - Bug fixes, error corrections, or issue resolutions
+- `type: feature` - New functionality, components, or capabilities
+- `type: enhancement` - Improvements to existing functionality
+- `type: documentation` - Documentation updates, README changes, or guides
+- `type: refactor` - Code restructuring without changing functionality
+- `type: maintenance` - Dependency updates, build improvements, or housekeeping
+
+### Area Labels
+- `area: frontend` - UI components, React applications, or client-side changes
+- `area: backend` - Server-side logic, APIs, or database changes
+- `area: build` - Build system, CI/CD, or deployment related changes
+- `area: testing` - Test additions, test fixes, or testing infrastructure
+- `area: i18n` - Internationalization, translations, or multilingual support
+
+### Status Labels (for Issues only)
+- `status: ready` - Issue is well-defined and ready for implementation
+- `status: in-progress` - Currently being worked on
+- `status: blocked` - Waiting for external dependency or decision
+- `status: needs-review` - Requires additional review or clarification
+
+## Label Selection Rules
+
+### For Issues
+1. **Always include one Type label** (bug/feature/enhancement/documentation/refactor/maintenance)
+2. **Always include one Priority label** (high/medium/low)
+3. **Include relevant Area labels** (frontend/backend/build/testing/i18n)
+4. **Add Status label if applicable** (ready/in-progress/blocked/needs-review)
+
+### For Pull Requests
+1. **Include Type label** matching the work performed
+2. **Include Area labels** for affected parts of the codebase
+3. **Do not use Status labels** (PR status is managed by GitHub's review system)
+4. **Priority labels are optional** for PRs (inherited from linked Issue)
+
+## Examples
+
+### Bug Fix Issue
+```
+Labels: type: bug, priority: high, area: frontend, status: ready
+```
+
+### New Feature Issue
+```
+Labels: type: feature, priority: medium, area: backend, area: frontend
+```
+
+### Documentation Update Issue
+```
+Labels: type: documentation, priority: low, area: frontend
+```
+
+### Refactoring Pull Request
+```
+Labels: type: refactor, area: backend
+```
+
+## Special Cases
+
+- **Security issues**: Always use `priority: high` + `type: bug`
+- **Breaking changes**: Add comment in Issue/PR description, no special label
+- **Dependencies updates**: Use `type: maintenance` + relevant area
+- **Multi-area changes**: Include all relevant area labels
+- **Urgent hotfixes**: Use `priority: high` regardless of type
+
+## Notes
+
+- Labels help with project organization and filtering
+- Consistent labeling improves issue tracking and project metrics
+- When in doubt, prefer `priority: medium` and `type: enhancement`
+- Always verify labels exist in the repository before applying them
