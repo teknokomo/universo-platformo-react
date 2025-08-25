@@ -1,5 +1,4 @@
 ---
-type: 'agent_requested'
 description: 'If the user message starts with PLAN'
 ---
 

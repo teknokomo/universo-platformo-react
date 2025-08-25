@@ -18,16 +18,110 @@ Continue following your **base prompt**, and augment with the instructions below
 > • **NEVER** push changes to https://github.com/FlowiseAI/Flowise or any other FlowiseAI repository  
 > • **ALWAYS** verify repository URL before any GitHub operations to ensure it's not a FlowiseAI repository  
 > • If the current repository is a FlowiseAI repository, **ABORT** all git operations and inform the user
+>
+> **UPSTREAM REPOSITORY**  
+> • **ALWAYS** work with the upstream repository: https://github.com/teknokomo/universo-platformo-react  
+> • All GitHub issues must be created in the upstream repository  
+> • All pull requests must target the upstream repository's main branch
 
 **Steps to Follow:**
 
-1. Begin with **"OK GIT"** to confirm GIT mode.
-2. **Create a GitHub Issue**: Summarize the work completed and write a new GitHub issue describing the changes, following our issue format guidelines (see `.augment/rules/github-issues.md`). Include a concise title and a detailed description of what was done and why.
-3. **Post the Issue on Upstream**: Using the GitHub API or IDE’s integrated GitHub tools, create this issue in the **Upstream repository** (the main repo). If the current working repo is a fork and the agent lacks permission on the upstream, then create the issue in the fork instead.
-4. **Commit Changes with Issue Reference**: Prepare a git commit containing all the final changes. Begin the commit message with the issue number (for example, `#123 `) followed by a brief summary of the changes. Ensure the commit message clearly references the issue (e.g., “#123 Add feature X and refactor Y”).
-5. **Push to Repository**: Push the commit to the appropriate repository. If working on a fork, push to a branch on the fork (since you may not have direct push access to the upstream). If working directly in a repository where you have push rights, you can push to a new branch on that repository.
-6. **Open a Pull Request**: Using the GitHub API or tools, open a PR from the new branch to the upstream repository’s main branch. In the PR title, include the issue number in the format `GH123 ` (to reference the issue). In the PR description, include `Fix #123 ` at the beginning to link the issue (so it will close automatically upon merging) and then copy or summarize the issue description in the PR body (explaining what was done).
-7. **Automation and Tools**: Leverage the IDE’s capabilities to automate these steps. For example, use any provided functions or commands to create issues, commit, push, and open PRs. (If using VS Code/Cursor with Augment, assume you have tools or commands like cursor.git.commit, cursor.git.push, or GitHub API calls available.) Ensure you have a valid GitHub access token configured and that your Git user name/email and remotes (origin, upstream) are set correctly in the environment.
-8. **Error Handling**: If any step fails (e.g., lack of permissions to create an upstream issue), handle it gracefully: fall back to posting the issue or PR in the fork, or provide a clear error message. By default, if working with a fork, always create a PR to upstream rather than pushing directly to upstream’s main branch (unless explicitly instructed otherwise).
+1. **Begin with "OK GIT"** to confirm GIT mode activation.
+
+2. **Analyze Changes (CRITICAL for New Chat Context)**:
+   - **ALWAYS** start by running `git status` to identify all changed files
+   - **If no previous context exists** in the current chat:
+     - Read and analyze ALL changed files to understand what was implemented
+     - If user specifies to commit only specific files, focus analysis on those files
+     - Examine the nature of changes: new features, bug fixes, improvements, etc.
+     - Identify the main functionality or purpose of the changes
+     - This analysis is ESSENTIAL for writing accurate Issue and PR descriptions
+   - **If user specifies partial commit**: Focus analysis on the specified files only
+   - **Document your findings** briefly before proceeding to create Issue
+
+3. **Create GitHub Issue in Upstream**:
+   - **Base Issue content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
+   - Use **MCP GitHub tools** (`mcp_GitHub_create_issue`) to create the issue
+   - Target repository: `teknokomo/universo-platformo-react` (upstream)
+   - Follow the format from `.augment/rules/github-issues.md` (English main text + Russian in spoiler)
+   - Focus on the **main functionality** implemented (not documentation or memory bank updates)
+   - Use future tense as if describing work to be completed
+   - **Apply appropriate labels** according to `.augment/rules/github-labels.md` (use only existing repository labels)
+   - **Set Issue Type field**: Choose from Task/Feature/Bug based on work performed:
+     - **Task**: General implementation work, improvements, or maintenance (most common)
+     - **Feature**: New functionality or major capabilities being added
+     - **Bug**: Fixing errors, issues, or incorrect behavior
+   - User may specify additional conditions for the issue content
+
+4. **Create New Branch from Current Branch**:
+   - Create a new branch from the current working branch for the functionality to be committed
+   - Use descriptive branch name related to the implemented functionality
+   - **Exception**: Skip this step if user explicitly states they already created a branch
+   - Use local git commands for branch creation
+   - **CRITICAL**: When working with partial changes, be extremely careful not to lose other uncommitted changes in different files
+
+5. **Create Commit with Issue Reference**:
+   - Begin commit message with issue number: `#123 ` followed by brief description
+   - Include all changed files unless user specifies to include only specific files
+   - **CRITICAL for Partial Commits**: When committing only specific files:
+     - Use `git add <specific-files>` instead of `git add .`
+     - Verify with `git status` that only intended files are staged
+     - Use `git stash` to temporarily save other changes if needed
+     - **NEVER** use `git reset --hard` or similar commands that could lose work
+     - Preserve uncommitted changes in other files for future commits
+   - User may specify additional conditions for commit content
+   - Use local git commands for committing
+
+6. **Push New Branch to Fork**:
+   - Push the new branch to your fork repository on GitHub
+   - This will likely be your fork of the upstream repository
+   - Use local git commands for pushing
+
+7. **Create Pull Request to Upstream**:
+   - **Base PR content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
+   - Use **MCP GitHub tools** (`mcp_GitHub_create_pull_request`) to create PR
+   - Source: your new branch in your fork
+   - Target: `main` branch in `teknokomo/universo-platformo-react` (upstream)
+   - **PR Title Format**: Start with `GH{issue_number} ` followed by descriptive title
+   - Follow the format from `.augment/rules/github-pr.md` for PR description (not github-issues.md)
+   - **Apply appropriate labels** according to `.augment/rules/github-labels.md`
+   - Include `Fixes #123` reference at the beginning of PR description to auto-close the issue when merged
+
+8. **Switch Back to Main Branch**:
+   - After all operations are completed, switch the local project back to the `main` branch
+   - Use local git command: `git checkout main`
+   - This ensures the working directory is clean and ready for future development
+
+**Required Tools Usage**:
+- **ALWAYS** use MCP GitHub tools for all GitHub operations (issues, PRs)
+- Use appropriate MCP GitHub functions: `mcp_GitHub_create_issue`, `mcp_GitHub_create_pull_request`
+- Use local git commands for branch creation, commits, and pushing
+- **For analysis step**: Use `readFile` or `readMultipleFiles` tools to examine changed files
+- **For git status**: Use `executeBash` with `git status` command
+- Verify repository ownership before any operations
+
+**Analysis Guidelines for New Chat Context**:
+- **Read changed files thoroughly** to understand the implementation
+- **Identify the main purpose**: What problem does this solve? What feature was added?
+- **Note technical details**: Which components/modules were modified? What patterns were used?
+- **Understand scope**: Is this a bug fix, new feature, or improvement?
+- **Consider user impact**: How does this change affect the end user experience?
+- **Document dependencies**: Are there related files or systems affected?
+- This analysis directly informs the quality of Issue and PR descriptions
+
+**Partial Changes Safety Protocol**:
+When working with only some of the changed files (partial commits):
+1. **Before any git operations**: Run `git status` to see all changed files
+2. **Preserve other changes**: Use `git stash push -m "temp save" <other-files>` to save unrelated changes
+3. **Stage only target files**: Use `git add <specific-files>` for files to be committed
+4. **Verify staging**: Run `git status` again to confirm only intended files are staged
+5. **After commit and push**: Restore other changes with `git stash pop` if stashed
+6. **NEVER use destructive commands**: Avoid `git reset --hard`, `git clean -fd`, or similar commands that could permanently delete work
+
+**Error Handling**:
+- If MCP GitHub tools fail, provide clear error messages
+- If lacking permissions, explain the limitation to the user
+- Always verify you're working with the correct upstream repository
+- If git operations fail, check for uncommitted changes before retrying
 
 _Goal: This mode should fully automate final code delivery to GitHub, creating all necessary tracking artifacts (issue, commit, PR) with minimal human intervention._
