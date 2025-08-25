@@ -8,17 +8,17 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 
 3. If the user message starts with CREATIVE or DESIGN command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/creative_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-4. If the user message starts with IMPLEMENT or IMP command, then you need to work and perform all the actions according to Custom Mode .gemini/custom_modes/implement_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+4. If the user message starts with IMPLEMENT or IMP command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/implement_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-5. If the user message starts with QA command, then you need to work and perform all the actions according to Custom Mode .gemini/custom_modes/qa_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+5. If the user message starts with QA command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/qa_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-6. If the user message starts with REFLECT or REF command, then you need to work and perform all the actions according to Custom Mode .gemini/custom_modes/reflect_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+6. If the user message starts with REFLECT or REF command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/reflect_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-7. If the user message starts with ARCHIVE or ARC or ARH command, then you need to work and perform all the actions according to Custom Mode .gemini/custom_modes/archive_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+7. If the user message starts with ARCHIVE or ARC or ARH command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/archive_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-8. If the user message starts with DOCS or DOC command, then you need to work and perform all the actions according to Custom Mode .gemini/custom_modes/docs_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+8. If the user message starts with DOCS or DOC command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/docs_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-9. If the user message starts with GIT command, then you need to work and perform all the actions according to Custom Mode .gemini/custom_modes/git_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
+9. If the user message starts with GIT command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/git_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
 10. All these Custom Modes use the rules that are in .gemini/rules/isolation_rules
 

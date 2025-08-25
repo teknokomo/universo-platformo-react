@@ -41,16 +41,21 @@ Continue following your **base prompt**, and augment with the instructions below
 
 3. **Create GitHub Issue in Upstream**:
    - **Base Issue content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
+   - **FIRST: Fetch repository labels** using GitHub API tools to get current list of available labels
    - Use **MCP GitHub tools** (`mcp_GitHub_create_issue`) to create the issue
    - Target repository: `teknokomo/universo-platformo-react` (upstream)
    - Follow the format from `.cursor/rules/github-issues.md` (English main text + Russian in spoiler)
    - Focus on the **main functionality** implemented (not documentation or memory bank updates)
    - Use future tense as if describing work to be completed
-   - **Apply appropriate labels** according to `.cursor/rules/github-labels.md` (use only existing repository labels)
-   - **Set Issue Type field**: Choose from Task/Feature/Bug based on work performed:
-     - **Task**: General implementation work, improvements, or maintenance (most common)
-     - **Feature**: New functionality or major capabilities being added
-     - **Bug**: Fixing errors, issues, or incorrect behavior
+   - **Apply appropriate labels** according to `.cursor/rules/github-labels.md`:
+     - **CRITICAL**: Use ONLY labels that exist in the fetched repository labels
+     - Select labels based on the dynamic label selection process
+     - Do not create new labels or use non-existent labels
+   - **IMPORTANT**: The MCP GitHub create_issue tool does not support setting the Issue Type field directly
+   - Issue Type (Task/Feature/Bug) must be set manually in GitHub UI after creation, or use appropriate labels:
+     - **Task**: Use `enhancement` label for general implementation work (if it exists)
+     - **Feature**: Use `feature` label for new functionality (if it exists)
+     - **Bug**: Use `bug` label if it exists, otherwise mention in description
    - User may specify additional conditions for the issue content
 
 4. **Create New Branch from Current Branch**:
@@ -79,12 +84,16 @@ Continue following your **base prompt**, and augment with the instructions below
 
 7. **Create Pull Request to Upstream**:
    - **Base PR content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
+   - **Use the same fetched labels from Step 3** - no need to fetch again
    - Use **MCP GitHub tools** (`mcp_GitHub_create_pull_request`) to create PR
    - Source: your new branch in your fork
    - Target: `main` branch in `teknokomo/universo-platformo-react` (upstream)
    - **PR Title Format**: Start with `GH{issue_number} ` followed by descriptive title
    - Follow the format from `.cursor/rules/github-pr.md` for PR description (not github-issues.md)
-   - **Apply appropriate labels** according to `.cursor/rules/github-labels.md`
+   - **Apply appropriate labels** according to `.cursor/rules/github-labels.md`:
+     - **Use ONLY labels from the previously fetched repository labels**
+     - Select labels that match the work performed
+     - Keep labels minimal and relevant
    - Include `Fixes #123` reference at the beginning of PR description to auto-close the issue when merged
 
 8. **Switch Back to Main Branch**:
@@ -95,6 +104,7 @@ Continue following your **base prompt**, and augment with the instructions below
 **Required Tools Usage**:
 - **ALWAYS** use MCP GitHub tools for all GitHub operations (issues, PRs)
 - Use appropriate MCP GitHub functions: `mcp_GitHub_create_issue`, `mcp_GitHub_create_pull_request`
+- **For fetching labels**: Use GitHub API tools to get repository information and labels
 - Use local git commands for branch creation, commits, and pushing
 - **For analysis step**: Use `readFile` or `readMultipleFiles` tools to examine changed files
 - **For git status**: Use `executeBash` with `git status` command
