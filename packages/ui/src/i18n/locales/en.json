@@ -1,4 +1,12 @@
 {
+    "header": {
+        "language": {
+            "tooltip": "Language",
+            "menuTitle": "Choose language",
+            "en": "English",
+            "ru": "Russian"
+        }
+    },
     "common": {
         "loading": "Loading...",
         "notFound": "Global Workspace Not Found",
