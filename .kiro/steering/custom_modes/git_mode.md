@@ -40,7 +40,9 @@ Continue following your **base prompt**, and augment with the instructions below
 
 3. **Create GitHub Issue in Upstream**:
    - **Base Issue content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
-   - **FIRST: Fetch repository labels** using GitHub API tools to get current list of available labels
+   - **FIRST: Fetch repository labels** using one of these methods:
+     - **Preferred**: Direct GitHub API call via bash: `curl -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/teknokomo/universo-platformo-react/labels`
+     - **Fallback**: Use the hardcoded label list from `.kiro/steering/github-labels.md` if API call fails
    - Use **MCP GitHub tools** (`mcp_GitHub_create_issue`) to create the issue
    - Target repository: `teknokomo/universo-platformo-react` (upstream)
    - Follow the format from `.kiro/steering/github-issues.md` (English main text + Russian in spoiler)
@@ -103,7 +105,7 @@ Continue following your **base prompt**, and augment with the instructions below
 **Required Tools Usage**:
 - **ALWAYS** use MCP GitHub tools for all GitHub operations (issues, PRs)
 - Use appropriate MCP GitHub functions: `mcp_GitHub_create_issue`, `mcp_GitHub_create_pull_request`
-- **For fetching labels**: Use GitHub API tools to get repository information and labels
+- **For fetching labels**: Use `executeBash` with curl command to call GitHub API directly (MCP GitHub tools don't support labels yet)
 - Use local git commands for branch creation, commits, and pushing
 - **For analysis step**: Use `readFile` or `readMultipleFiles` tools to examine changed files
 - **For git status**: Use `executeBash` with `git status` command

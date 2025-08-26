@@ -9,38 +9,58 @@
 3. **Select appropriate labels** from the actual repository labels
 4. **Use the core label guidelines below** as a reference for selection logic
 
-## Core Label Categories (Reference Only)
+## Current Repository Labels (Fallback List)
 
-These are common label patterns found in the repository. Always verify against actual repository labels:
+**Updated**: August 2025 - Use this list if API call fails.
 
-### Project Area Labels (Common Patterns)
+### Default GitHub Labels
+- `bug` - Something isn't working
+- `documentation` - Improvements or additions to documentation  
+- `duplicate` - This issue or pull request already exists
+- `enhancement` - New feature or request
+- `help wanted` - Extra attention is needed
+- `invalid` - This doesn't seem right
+- `question` - Further information is requested
+- `wontfix` - This will not be worked on
+
+### Project-Specific Labels
+- `architecture` - Concerns to project architecture
+- `backend` - Concerns the backend functionality
+- `colyseus` - Colyseus framework related
+- `feature` - New functionality or capabilities
+- `frontend` - Concerns the frontend functionality
+- `i18n` - Concerns the internationalization functionality
+- `mmoomm` - Concerns the Universo MMOOMM
+- `multiplayer` - Multiplayer related functionality
 - `platformo` - Concerns the Universo Platformo
-- `mmoomm` - Concerns the Universo MMOOMM  
-- `web` - Concerns the web version of the project
-- `repository` - Concerns tasks on the repository
+- `publication` - Concerns the functionality of the publication
 - `releases` - Concerns releases
+- `repository` - Concerns tasks on the repository
+- `web` - Concerns the web version of the project
 
-### Technical Area Labels (Common Patterns)
-- `frontend` - Frontend functionality
-- `backend` - Backend functionality
-- `documentation` - Documentation improvements
-- `i18n` - Internationalization functionality
-- `publication` - Publication functionality
-- `multiplayer` - Multiplayer features
-- `architecture` - Architecture concerns
-
-### Type Labels (Common Patterns)
-- `enhancement` - Improvements or new features
-- `feature` - New functionality
-- `bug` - Bug fixes (if exists)
-
-**NOTE**: These are reference patterns only. Always use the actual labels fetched from the repository.
+**NOTE**: This is a fallback list. Always try the API call first to get current labels.
 
 ## Label Selection Process
 
 ### Step 1: Fetch Repository Labels
-- Use GitHub API tools to get the current list of all repository labels
-- Examine the labels to understand available categories and naming patterns
+
+**CURRENT LIMITATION**: GitHub MCP server does not yet support label management tools.
+
+**WORKAROUND**: Use direct GitHub API call via bash:
+```bash
+curl -H "Accept: application/vnd.github.v3+json" \
+     https://api.github.com/repos/teknokomo/universo-platformo-react/labels
+```
+
+This will return JSON with all repository labels including name, color, and description.
+
+**Alternative**: If API call fails, use the hardcoded label list below as fallback.
+
+**API Response Processing**:
+- The API returns JSON array with objects containing: `name`, `color`, `description`
+- Extract the `name` field from each object to get available label names
+- Example parsing: `curl ... | jq -r '.[].name'` (if jq is available)
+- Or manually parse the JSON response to extract label names
 
 ### Step 2: Select Appropriate Labels
 **For Issues:**

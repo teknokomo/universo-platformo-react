@@ -507,12 +507,27 @@ export class MultiplayerBuilder {
                 if (typeof room.onStateChange === 'function') {
                     room.onStateChange((state) => {
                         try {
+                            // Re-create/update entities for players present in server state
+                            const presentIds = new Set();
                             state.players.forEach((p, id) => {
+                                presentIds.add(id);
                                 if (!window.networkPlayers || !window.networkPlayers.has(id)) {
                                     createPlayerEntity(id, p);
                                 }
                                 if (id !== localPlayerId) updatePlayerEntity(id, p);
                             });
+
+                            // Reconciliation step: remove any locally tracked players missing from server state
+                            if (window.networkPlayers && typeof window.networkPlayers.forEach === 'function') {
+                                const toRemove = [];
+                                window.networkPlayers.forEach((_ent, trackedId) => {
+                                    if (!presentIds.has(trackedId)) {
+                                        // Do not accidentally remove our own local player (defensive)
+                                        if (trackedId !== localPlayerId) toRemove.push(trackedId);
+                                    }
+                                });
+                                toRemove.forEach((id) => removePlayerEntity(id));
+                            }
                         } catch (e) {
                             // Silent fallback
                         }
