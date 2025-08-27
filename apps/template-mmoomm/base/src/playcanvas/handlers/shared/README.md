@@ -198,6 +198,11 @@ if (ship.inventory.removeItem('asteroidMass', amount)) {
 }
 ```
 
+Note on interaction distance:
+- The `Interaction Range` field of the Trading component is now interpreted as the distance from the nearest point on the station's external bounds (world-space AABB) to the ship, not from the station's center.
+- This means that for large stations, interaction becomes available at the surface without needing to fly “inside”. The station's `scale` and its child nodes are considered when computing the AABB.
+- If meshes are temporarily unavailable for a station (rare case), a safe fallback to center distance is used until geometry becomes available.
+
 #### HUD Integration
 
 ```javascript

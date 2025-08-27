@@ -264,7 +264,81 @@ export class EmbeddedControlsSystem extends BaseEmbeddedSystem implements IEmbed
                         window.SpaceHUD.showTradingPanel(ship.nearStation);
                     }
                 } else {
-                    console.log('[SpaceControls] No trading station nearby');
+                    // English comments only inside code
+                    // Improve diagnostic: find nearest station and log distance vs interactionRange
+                    let nearest = null;
+                    let nearestId = null;
+                    let nearestDist = Number.POSITIVE_INFINITY;
+                    let nearestRange = null;
+                    const shipPos = ship.getPosition();
+                    // Helper distance to station AABB (reuses cached AABB if present)
+                    const distanceToStation = (station) => {
+                        if (!station.__stationAabb || station.__stationAabb.__empty) {
+                            // Build cached union AABB lazily
+                            const collectMeshAabbs = (root) => {
+                                const out = [];
+                                const stack = [root];
+                                while (stack.length) {
+                                    const node = stack.pop();
+                                    if (node?.model?.meshInstances) node.model.meshInstances.forEach(mi => mi?.aabb && out.push(mi.aabb));
+                                    if (node?.render?.meshInstances) node.render.meshInstances.forEach(mi => mi?.aabb && out.push(mi.aabb));
+                                    if (node?.children?.length) stack.push(...node.children);
+                                }
+                                return out;
+                            };
+                            const buildUnionAabb = (aabbs) => {
+                                if (!aabbs.length) return null;
+                                const first = aabbs[0];
+                                const min = first.center.clone().sub(first.halfExtents);
+                                const max = first.center.clone().add(first.halfExtents);
+                                for (let i = 1; i < aabbs.length; i++) {
+                                    const bb = aabbs[i];
+                                    const bbMin = bb.center.clone().sub(bb.halfExtents);
+                                    const bbMax = bb.center.clone().add(bb.halfExtents);
+                                    min.x = Math.min(min.x, bbMin.x);
+                                    min.y = Math.min(min.y, bbMin.y);
+                                    min.z = Math.min(min.z, bbMin.z);
+                                    max.x = Math.max(max.x, bbMax.x);
+                                    max.y = Math.max(max.y, bbMax.y);
+                                    max.z = Math.max(max.z, bbMax.z);
+                                }
+                                return { min, max };
+                            };
+                            const aabbs = collectMeshAabbs(station);
+                            const union = buildUnionAabb(aabbs);
+                            station.__stationAabb = union || { __empty: true };
+                        }
+                        if (station.__stationAabb && !station.__stationAabb.__empty) {
+                            const aabb = station.__stationAabb;
+                            const cx = Math.max(aabb.min.x, Math.min(shipPos.x, aabb.max.x));
+                            const cy = Math.max(aabb.min.y, Math.min(shipPos.y, aabb.max.y));
+                            const cz = Math.max(aabb.min.z, Math.min(shipPos.z, aabb.max.z));
+                            const dx = shipPos.x - cx, dy = shipPos.y - cy, dz = shipPos.z - cz;
+                            return Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        }
+                        // Fallback to center distance
+                        return station.getPosition().distance(shipPos);
+                    };
+
+                    if (window.MMOEntities && window.MMOEntities.size > 0) {
+                        window.MMOEntities.forEach((e, id) => {
+                            if (e?.tradingPost) {
+                                const d = distanceToStation(e);
+                                if (d < nearestDist) {
+                                    nearestDist = d;
+                                    nearest = e;
+                                    nearestId = id;
+                                    nearestRange = e.tradingPost?.interactionRange ?? null;
+                                }
+                            }
+                        });
+                    }
+
+                    if (nearest) {
+                        console.log('[SpaceControls] No trading station nearby (closest:', nearestId, 'dist:', nearestDist.toFixed(1), 'range:', (nearestRange ?? 'n/a'), ')');
+                    } else {
+                        console.log('[SpaceControls] No trading station nearby');
+                    }
                 }
             }
             };

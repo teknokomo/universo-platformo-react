@@ -143,33 +143,7 @@ export class MultiplayerBuilder {
             </div>
         </div>
 
-        <script>
-        // Authentication logic for multiplayer mode
-        document.getElementById('join-game-btn').addEventListener('click', function() {
-            const nameInput = document.getElementById('player-name-input');
-            const name = nameInput.value.trim();
-
-            if (name.length < 2) {
-                alert('Имя должно содержать минимум 2 символа');
-                return;
-            }
-
-            playerName = name;
-            document.getElementById('connection-status').style.display = 'block';
-            document.getElementById('join-game-btn').disabled = true;
-            document.getElementById('join-game-btn').textContent = 'Подключение...';
-
-            // Connect to multiplayer server
-            connectToMultiplayerServer(playerName);
-        });
-
-        // Enter key support
-        document.getElementById('player-name-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('join-game-btn').click();
-            }
-        });
-        </script>
+        <!-- Auth logic is bound after Colyseus client is defined -->
         `
     }
 
@@ -251,12 +225,15 @@ export class MultiplayerBuilder {
         let localPlayerId = null;
         let networkUpdateHandler = null; // ensure single subscription
         let SPACE_CONTROLS_INITIATED = false; // guard SpaceControls initialization
+        let connectionInProgress = false; // prevent double connect
         const DEBUG_MP = false; // disable verbose multiplayer logs by default
 
         // Server configuration from HandlerManager
         const serverConfig = ${JSON.stringify(serverConfig)};
 
         async function connectToMultiplayerServer(name) {
+            if (connectionInProgress || window.connectedToServer) return;
+            connectionInProgress = true;
             try {
                 console.log('[Multiplayer] Connecting to server:', serverConfig.host + ':' + serverConfig.port);
                 console.log('[Multiplayer] Player name:', name);
@@ -306,11 +283,39 @@ export class MultiplayerBuilder {
                 alert('Ошибка подключения к серверу: ' + error.message);
                 
                 // Reset auth screen
-                document.getElementById('join-game-btn').disabled = false;
-                document.getElementById('join-game-btn').textContent = 'Войти в игру';
-                document.getElementById('connection-status').style.display = 'none';
+                const btn = document.getElementById('join-game-btn');
+                const status = document.getElementById('connection-status');
+                if (btn) { try { btn.disabled = false; btn.textContent = 'Войти в игру'; } catch(_) {} }
+                if (status) status.style.display = 'none';
+            } finally {
+                // Allow retry only if not connected
+                if (!window.connectedToServer) connectionInProgress = false;
             }
         }
+
+        // Bind authentication UI events after client definition
+        (function(){
+            var btn = document.getElementById('join-game-btn');
+            var nameInput = document.getElementById('player-name-input');
+            if (!btn || !nameInput) return;
+            btn.addEventListener('click', function(){
+                var name = nameInput && nameInput.value ? String(nameInput.value).trim() : '';
+                if (name.length < 2) {
+                    alert('Имя должно содержать минимум 2 символа');
+                    return;
+                }
+                playerName = name;
+                var status = document.getElementById('connection-status');
+                if (status) status.style.display = 'block';
+                try { btn.disabled = true; btn.textContent = 'Подключение...'; } catch (_) {}
+                connectToMultiplayerServer(playerName);
+            });
+            nameInput.addEventListener('keypress', function(e){
+                if (e && e.key === 'Enter') {
+                    if (!btn.disabled) { try { btn.click(); } catch (_) { /* ignore */ } }
+                }
+            });
+        })();
 
         // Helper: extract visual config for player ship from UPDL networkEntities
         function getPlayerShipVisual() {
@@ -447,6 +452,7 @@ export class MultiplayerBuilder {
                     createPlayerEntity(sessionId, player);
                     try {
                         player.onChange = () => {
+                            if (sessionId === localPlayerId) return; // never apply server changes to local
                             if (DEBUG_MP && Math.random() < 0.05) console.log('[Multiplayer] player.onChange:', sessionId, { x: player.x, y: player.y, z: player.z });
                             updatePlayerEntity(sessionId, player);
                         };
@@ -457,6 +463,7 @@ export class MultiplayerBuilder {
 
                 // Keep MapSchema-level onChange as a fallback when whole item replaced
                 room.state.players.onChange = (player, sessionId) => {
+                    if (sessionId === localPlayerId) return; // skip local to avoid jitter
                     if (DEBUG_MP && Math.random() < 0.05) console.log('[Multiplayer] players.onChange:', sessionId);
                     updatePlayerEntity(sessionId, player);
                 };
@@ -476,7 +483,7 @@ export class MultiplayerBuilder {
                                 createPlayerEntity(sessionId, player);
                             }
                             // Ensure per-player onChange is attached for rehydrated players
-                            try { player.onChange = () => updatePlayerEntity(sessionId, player); } catch (_) {}
+                            try { player.onChange = () => { if (sessionId !== localPlayerId) updatePlayerEntity(sessionId, player); }; } catch (_) {}
                         });
                         if (DEBUG_MP) console.log('[Multiplayer] Rehydrated players:', presentIds);
                     }

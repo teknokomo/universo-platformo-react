@@ -67,15 +67,14 @@ export class EntityHandler {
 
     // Attached components (executed first to allow UPDL overrides)
     ${components.map((c: any) => this.componentHandler.attach(c, 'entity')).join('\n    ')}
-    // Debug attachment outcome (conditional)
-    if (typeof window !== 'undefined' && (window && (window.DEBUG_MULTIPLAYER || window.DEBUG_RENDER))) {
-      try {
-          var compTypes = [];
-          try { compTypes = (${JSON.stringify(components)}).map(function(c){ return String((c && ((c.data && (c.data.componentType || (c.data.inputs && c.data.inputs.componentType)))) || 'n/a')).toLowerCase(); }); } catch(_) {}
-          var hasMat = !!(entity.model && entity.model.meshInstances && entity.model.meshInstances.some(function(mi){ return !!mi.material; }));
-          console.log('[Entity]', '${entityId}', 'attached components:', compTypes, 'hasRenderFlag:', !!entity.__hasRenderComponent, 'hasMaterial:', hasMat);
-      } catch (e) { console.warn('[Entity] Debug attachment check failed for ${entityId}', e); }
-    }
+    // Diagnostic: log attachments and tradingPost if present (always on for clarity during integration)
+    try {
+        var compTypes = [];
+        try { compTypes = (${JSON.stringify(components)}).map(function(c){ return String((c && ((c.data && (c.data.componentType || (c.data.inputs && c.data.inputs.componentType)))) || 'n/a')).toLowerCase(); }); } catch(_) {}
+        var hasMat = !!(entity.model && entity.model.meshInstances && entity.model.meshInstances.some(function(mi){ return !!mi.material; }));
+        var tpost = entity.tradingPost;
+        console.log('[Entity]', '${entityId}', 'type:${entityType}', 'attached components:', compTypes, 'hasRenderFlag:', !!entity.__hasRenderComponent, 'hasMaterial:', hasMat, 'tradingRange:', tpost ? tpost.interactionRange : 'none');
+    } catch (e) { console.warn('[Entity] Debug attachment check failed for ${entityId}', e); }
 
     // Entity type specific setup (executed after components)
     ${this.generateEntityTypeLogic(entityType, entityId)}
