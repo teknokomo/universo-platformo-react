@@ -46,10 +46,70 @@ export function generateStationLogic(id: string): string {
             pricePerTon: 10, // Inmo per ton of asteroid mass
             interactionRange: 15,
 
-        // Check if ship is in range
+        // Check if ship is in range (distance from station's world-space AABB)
+        // English comments only inside code
         isShipInRange(ship) {
-            const distance = entity.getPosition().distance(ship.getPosition());
-            return distance <= this.interactionRange;
+            // Build or reuse cached union AABB for the station entity
+            if (!entity.__stationAabb || entity.__stationAabb.__empty) {
+                // Collect world-space AABBs from all mesh instances under this entity
+                const collectMeshAabbs = (root) => {
+                    const out = [];
+                    const stack = [root];
+                    while (stack.length) {
+                        const node = stack.pop();
+                        if (node && node.model && node.model.meshInstances) {
+                            node.model.meshInstances.forEach(mi => mi && mi.aabb && out.push(mi.aabb));
+                        }
+                        // Optional support for render component if used in the future
+                        if (node && node.render && node.render.meshInstances) {
+                            node.render.meshInstances.forEach(mi => mi && mi.aabb && out.push(mi.aabb));
+                        }
+                        if (node && node.children && node.children.length) stack.push.apply(stack, node.children);
+                    }
+                    return out;
+                };
+
+                const buildUnionAabb = (aabbs) => {
+                    if (!aabbs.length) return null;
+                    const first = aabbs[0];
+                    const min = first.center.clone().sub(first.halfExtents);
+                    const max = first.center.clone().add(first.halfExtents);
+                    for (let i = 1; i < aabbs.length; i++) {
+                        const bb = aabbs[i];
+                        const bbMin = bb.center.clone().sub(bb.halfExtents);
+                        const bbMax = bb.center.clone().add(bb.halfExtents);
+                        min.x = Math.min(min.x, bbMin.x);
+                        min.y = Math.min(min.y, bbMin.y);
+                        min.z = Math.min(min.z, bbMin.z);
+                        max.x = Math.max(max.x, bbMax.x);
+                        max.y = Math.max(max.y, bbMax.y);
+                        max.z = Math.max(max.z, bbMax.z);
+                    }
+                    return { min, max };
+                };
+
+                const aabbs = collectMeshAabbs(entity);
+                const union = buildUnionAabb(aabbs);
+                entity.__stationAabb = union || { __empty: true };
+            }
+
+            const shipPos = ship.getPosition();
+            if (entity.__stationAabb && !entity.__stationAabb.__empty) {
+                const aabb = entity.__stationAabb;
+                // Distance from point to AABB by clamping
+                const cx = Math.max(aabb.min.x, Math.min(shipPos.x, aabb.max.x));
+                const cy = Math.max(aabb.min.y, Math.min(shipPos.y, aabb.max.y));
+                const cz = Math.max(aabb.min.z, Math.min(shipPos.z, aabb.max.z));
+                const dx = shipPos.x - cx;
+                const dy = shipPos.y - cy;
+                const dz = shipPos.z - cz;
+                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                return distance <= this.interactionRange;
+            }
+
+            // Fallback: center-to-center distance when meshes are not yet available
+            const fallbackDistance = entity.getPosition().distance(shipPos);
+            return fallbackDistance <= this.interactionRange;
         },
 
         // Trade asteroid mass for Inmo currency
@@ -95,6 +155,8 @@ export function generateStationLogic(id: string): string {
             };
         }
     };
+        // Diagnostic log (always on for clarity during integration)
+        console.log('[Station]', 'Default tradingPost created for Station ${id}', 'range:', entity.tradingPost.interactionRange);
     } // End of if (!entity.tradingPost)
 
     // Station interaction zone
