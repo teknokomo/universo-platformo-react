@@ -26,6 +26,8 @@
         "@uiw/codemirror-theme-sublime": "^4.21.21",
         "@uiw/codemirror-theme-vscode": "^4.21.21",
         "@uiw/react-codemirror": "^4.21.21",
+        "@universo-platformo/utils": "workspace:*",
+        "@universo-platformo/types": "workspace:*",
         "axios": "1.7.9",
         "clsx": "^1.1.1",
         "dotenv": "^16.0.0",

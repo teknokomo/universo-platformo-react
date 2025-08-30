@@ -3,20 +3,24 @@
     "version": "0.1.0",
     "description": "Shared validators, serialization, delta and net utilities for Universo Platformo",
     "private": true,
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/types/index.d.ts",
     "exports": {
         ".": {
-            "import": "./dist/index.js",
-            "require": "./dist/index.js",
-            "types": "./dist/index.d.ts"
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js",
+            "types": "./dist/types/index.d.ts"
         }
     },
     "sideEffects": false,
     "scripts": {
         "clean": "rimraf dist",
-        "build": "pnpm run clean && tsc",
-        "dev": "tsc -w",
+        "build": "pnpm run build:cjs && pnpm run build:esm && pnpm run build:types",
+        "build:cjs": "tsc -p tsconfig.json",
+        "build:esm": "tsc -p tsconfig.esm.json",
+        "build:types": "tsc -p tsconfig.types.json",
+        "dev": "tsc -p tsconfig.json --watch",
         "lint": "eslint --ext .ts src/"
     },
     "license": "Omsk Open License",

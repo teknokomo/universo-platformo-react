@@ -22,6 +22,15 @@ export default defineConfig(async ({ mode }) => {
     dotenv.config()
     return {
         plugins: [react()],
+        optimizeDeps: {
+            include: [
+                '@universo-platformo/utils',
+                '@universo-platformo/types',
+                '@universo/template-mmoomm',
+                '@universo/template-quiz'
+            ]
+        },
+
         resolve: {
             alias: {
                 '@': resolve(__dirname, 'src'),
@@ -52,7 +61,15 @@ export default defineConfig(async ({ mode }) => {
         },
         root: resolve(__dirname),
         build: {
-            outDir: './build'
+            outDir: './build',
+            commonjsOptions: {
+                include: [
+                    /@universo-platformo\//,
+                    /@universo\/template-mmoomm/,
+                    /@universo\/template-quiz/,
+                    /node_modules/
+                ]
+            }
         },
         server: {
             open: true,

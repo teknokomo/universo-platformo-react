@@ -7,11 +7,13 @@ export { BuilderRegistry } from './common/BuilderRegistry'
 export { TemplateRegistry } from './common/TemplateRegistry'
 export * from './common/types'
 
-// AR.js Builder with template support
-export { ARJSBuilder } from './templates/quiz/arjs/ARJSBuilder'
+// Template coordinators
+export { ARJSQuizBuilder as ARJSBuilder } from './templates/quiz/arjs/ARJSQuizBuilder'
+export { PlayCanvasMMOOMMBuilder } from './templates/mmoomm/playcanvas/PlayCanvasMMOOMMBuilder'
 
-// Template system exports - quiz template
-export * from './templates/quiz/arjs'
+// Template system exports (specific exports to avoid conflicts)
+export { QuizTemplateConfig } from '@universo/template-quiz'
+export { MMOOMMTemplateConfig } from '@universo/template-mmoomm'
 
 // Export registry setup
 export { setupBuilders } from './common/setup'

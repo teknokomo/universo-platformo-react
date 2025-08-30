@@ -1,6 +1,6 @@
 export default function mineableAttachment(component: any, entityVar: string): string {
-    const resourceType = component.data?.resourceType || 'asteroidMass';
-    const maxYield = component.data?.maxYield || 2;
+    const resourceType = component.resourceType ?? component.data?.resourceType ?? 'asteroidMass';
+    const maxYield = component.maxYield ?? component.data?.maxYield ?? 2;
     return `
     // Attach mineable component ${component.id}
     ${entityVar}.mineable = {

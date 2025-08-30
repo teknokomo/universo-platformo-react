@@ -13,6 +13,9 @@
 **/logs
 **/*.log
 
+## backup
+.backup
+
 ## pnpm
 .pnpm-store/
 

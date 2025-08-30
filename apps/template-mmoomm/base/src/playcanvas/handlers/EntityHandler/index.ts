@@ -37,21 +37,18 @@ export class EntityHandler {
   private processEntity(entity: any, options: BuildOptions): string {
     const entityId = entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`
 
-    // Robust entity data extraction with fallback to data.inputs
-    const data = entity.data || {}
-    const inputs = data.inputs || {}
-
-    const entityType = data.entityType || inputs.entityType || 'static'
+    // Unified UPDL format (from UPDLProcessor)
+    const entityType = (entity.entityType || 'static')
 
     // Proper transform parsing with support for string/object/array formats
-    const rawTransform = data.transform || inputs.transform
+    const rawTransform = entity.transform
     const norm = safeNormalizeTransform(rawTransform)
     const position = norm.position
     const rotation = norm.rotation
     const scale = norm.scale
 
-    const isNetworked = data.networked || false
-    const components = data.components || []
+    const isNetworked = !!entity.networked
+    const components = Array.isArray(entity.components) ? entity.components : []
 
     return `
 // MMO Entity: ${entityId}
@@ -70,7 +67,7 @@ export class EntityHandler {
     // Diagnostic: log attachments and tradingPost if present (always on for clarity during integration)
     try {
         var compTypes = [];
-        try { compTypes = (${JSON.stringify(components)}).map(function(c){ return String((c && ((c.data && (c.data.componentType || (c.data.inputs && c.data.inputs.componentType)))) || 'n/a')).toLowerCase(); }); } catch(_) {}
+        try { compTypes = (${JSON.stringify(components)}).map(function(c){ return String((c && (c.componentType || (c.data && c.data.componentType))) || 'n/a').toLowerCase(); }); } catch(_) {}
         var hasMat = !!(entity.model && entity.model.meshInstances && entity.model.meshInstances.some(function(mi){ return !!mi.material; }));
         var tpost = entity.tradingPost;
         console.log('[Entity]', '${entityId}', 'type:${entityType}', 'attached components:', compTypes, 'hasRenderFlag:', !!entity.__hasRenderComponent, 'hasMaterial:', hasMat, 'tradingRange:', tpost ? tpost.interactionRange : 'none');

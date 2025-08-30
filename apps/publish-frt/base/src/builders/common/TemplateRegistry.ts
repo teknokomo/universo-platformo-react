@@ -2,8 +2,8 @@
 // Central registry for managing export templates
 
 import { ITemplateBuilder, TemplateInfo } from './types'
-import { ARJSQuizBuilder, QuizTemplateConfig } from '../templates/quiz/arjs'
-import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
+import { ARJSQuizBuilder } from '../templates/quiz/arjs/ARJSQuizBuilder'
+import { PlayCanvasMMOOMMBuilder } from '../templates/mmoomm/playcanvas/PlayCanvasMMOOMMBuilder'
 
 /**
  * Central registry for all export templates
@@ -15,22 +15,23 @@ export class TemplateRegistry {
      * Initialize registry with available templates
      */
     static initialize(): void {
-        console.log('[TemplateRegistry] Initializing with available templates')
+        // Initializing templates - detailed logs disabled for production
 
         // Register Quiz template
+        const quizInfo = new ARJSQuizBuilder().getTemplateInfo()
         this.registerTemplate({
-            id: QuizTemplateConfig.id,
-            name: QuizTemplateConfig.name,
-            description: QuizTemplateConfig.description,
-            version: QuizTemplateConfig.version,
-            technology: QuizTemplateConfig.technology,
-            supportedNodes: QuizTemplateConfig.supportedNodes,
-            features: QuizTemplateConfig.features,
-            defaults: QuizTemplateConfig.defaults,
+            id: quizInfo.id,
+            name: quizInfo.name,
+            description: quizInfo.description,
+            version: quizInfo.version,
+            technology: quizInfo.technology,
+            supportedNodes: quizInfo.supportedNodes,
+            features: quizInfo.features,
+            defaults: quizInfo.defaults,
             builder: ARJSQuizBuilder,
-            // propagate i18n namespace if provided by config
-            i18nNamespace: (QuizTemplateConfig as unknown as { i18nNamespace?: string }).i18nNamespace
+            i18nNamespace: (quizInfo as unknown as { i18nNamespace?: string }).i18nNamespace
         })
+        // Quiz template registered - detailed logs disabled for production
 
         // Universo Platformo | Register PlayCanvas MMOOMM template (with Colyseus fixes)
         const mmoommInfo = new PlayCanvasMMOOMMBuilder().getTemplateInfo()
@@ -55,7 +56,7 @@ export class TemplateRegistry {
      */
     static registerTemplate(template: TemplateInfo): void {
         this.templates.set(template.id, template)
-        console.log(`[TemplateRegistry] Registered template: ${template.id} (${template.name})`)
+        // Template registered - detailed logs disabled for production
     }
 
     /**
@@ -76,7 +77,7 @@ export class TemplateRegistry {
      * Get default template
      */
     static getDefaultTemplate(): TemplateInfo {
-        // Quiz is the default (and currently only) template
+        // Quiz is the default template
         const quiz = this.getTemplate('quiz')
         if (!quiz) {
             throw new Error('[TemplateRegistry] Default quiz template not found')
@@ -88,12 +89,17 @@ export class TemplateRegistry {
      * Create builder instance for template
      */
     static createBuilder(templateId: string): ITemplateBuilder {
+        // Creating builder instance - detailed logs disabled for production
+
         const template = this.getTemplate(templateId)
         if (!template) {
+            console.error('[TemplateRegistry] Template not found:', templateId)
             throw new Error(`[TemplateRegistry] Template not found: ${templateId}`)
         }
 
-        return new template.builder()
+        // Builder instance creation - detailed logs disabled for production
+        const builderInstance = new template.builder()
+        return builderInstance
     }
 
     /**

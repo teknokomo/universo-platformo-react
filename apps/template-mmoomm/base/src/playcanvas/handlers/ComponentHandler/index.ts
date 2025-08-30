@@ -51,21 +51,21 @@ export class ComponentHandler {
     }
 
     attach(component: any, entityVar: string): string {
-        // Normalize component type to lower-case for robustness (support raw nodes with data.inputs)
-        const rawType = component?.data?.componentType ?? component?.data?.inputs?.componentType ?? 'custom'
+        // Normalize component type to lower-case; prefer new top-level field
+        const rawType = component?.componentType ?? component?.data?.componentType ?? component?.data?.inputs?.componentType ?? 'custom'
         const type = String(rawType).toLowerCase()
         const generator = attachmentGenerators[type]
         return generator ? generator(component, entityVar) : `// TODO: attach component ${component.id} of type ${type}`
     }
 
     private processComponent(component: any, options: BuildOptions): string {
-        // Normalize component type to lower-case for consistency (support raw nodes with data.inputs)
-        const rawType = component?.data?.componentType ?? component?.data?.inputs?.componentType ?? 'custom'
+        // Normalize component type to lower-case; prefer new top-level field
+        const rawType = component?.componentType ?? component?.data?.componentType ?? component?.data?.inputs?.componentType ?? 'custom'
         const componentType = String(rawType).toLowerCase()
         const componentId = component.id || `component_${Math.random().toString(36).substr(2, 9)}`
-        const targetEntity = component.data?.targetEntity || 'default'
-        // FIXED: Use component.data directly instead of component.data.properties
-        const properties = component.data || {}
+        const targetEntity = component.targetEntity || component.data?.targetEntity || 'default'
+        // FIX: Prefer top-level properties (new format), fallback to legacy data
+        const properties = Object.assign({}, component.data || {}, component)
 
         return `
 // MMO Component: ${componentId} (${componentType})

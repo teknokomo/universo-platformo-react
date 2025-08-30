@@ -8,12 +8,13 @@
 
 ## Current Focus
 
-**VAN Analysis In Progress** - Analyzing critical multiplayer implementation issues in MMOOMM template:
+**Template Package Modularization Complete** - Successfully completed major architectural refactoring:
 
--   **Critical Issue**: Multiplayer implementation bypasses existing UPDL handlers, causing functional regression
--   **Scale Problem**: PlayCanvasMMOOMMBuilder.ts has grown to 1339 lines (should be ~200-250 lines)
--   **Architecture Problem**: Duplicated logic between single-player and multiplayer modes instead of code reuse
--   **Browser Errors**: JavaScript errors when connecting to multiplayer server due to missing function definitions
+-   **✅ Shared Packages Created**: Extracted common functionality into `@universo-platformo/types` and `@universo-platformo/utils`
+-   **✅ Template Packages Extracted**: Moved AR.js Quiz and PlayCanvas MMOOMM functionality to dedicated packages
+-   **✅ Documentation Updated**: Created comprehensive documentation for shared packages and template system
+-   **✅ Build System Standardized**: Implemented dual build system (CJS + ESM + Types) across all packages
+-   **✅ Bug Fixes**: Resolved ship duplication in MMOOMM and reduced excessive logging in AR.js Quiz
 
 **Post-Alpha Development** - Expanding advanced UPDL features and Universo MMOOMM capabilities:
 
@@ -26,6 +27,16 @@
 -   **Metaverse Module**: MVP implemented; follow-ups pending (membership & links UI, docs)
 
 ## Recently Completed
+
+-   **Template Package Modularization (2025-08-30)**
+
+    -   **Created Shared Packages**: Extracted `@universo-platformo/types` and `@universo-platformo/utils` with complete UPDL interfaces and UPDLProcessor
+    -   **Template Package Extraction**: Moved AR.js Quiz to `@universo/template-quiz` and PlayCanvas MMOOMM to `@universo/template-mmoomm`
+    -   **Template Registry System**: Implemented dynamic template loading with TemplateRegistry for modular architecture
+    -   **Documentation Overhaul**: Created comprehensive English and Russian documentation for shared packages and template system
+    -   **Build System Standardization**: Implemented dual build system (CJS + ESM + Types) across all new packages
+    -   **Bug Fixes**: Resolved ship duplication in MMOOMM multi-scene processing and reduced excessive logging in AR.js Quiz
+    -   **Code Cleanup**: Removed build artifacts from source directories and standardized package structure
 
 -   **Multiplayer Colyseus Server Implementation (2025-08-22)**
 

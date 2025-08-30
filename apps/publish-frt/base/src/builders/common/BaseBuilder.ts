@@ -1,7 +1,7 @@
 // Universo Platformo | Base builder for all platforms
 // Abstract base class that all platform builders must extend
 
-import { IUPDLSpace } from '@universo/publish-srv'
+import { IUPDLSpace } from '@universo-platformo/types'
 import { BuildResult, BuildOptions, BuilderConfig, ValidationResult } from './types'
 
 /**

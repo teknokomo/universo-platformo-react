@@ -118,6 +118,7 @@ const ARViewPage: React.FC = () => {
                     iframe.style.height = '100%'
                     iframe.style.border = 'none'
                     iframe.title = 'AR.js Application'
+                    iframe.allow = 'camera; microphone; autoplay; fullscreen; xr-spatial-tracking; accelerometer; gyroscope'
                     iframe.srcdoc = html
                     container.appendChild(iframe)
 

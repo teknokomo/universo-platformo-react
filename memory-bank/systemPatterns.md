@@ -37,6 +37,102 @@
 -   **Space** accepts: Entities, Universo, legacy nodes
 -   **Universo** connects to Space for global context
 
+## Template Package Architecture Patterns
+
+### Shared Package Pattern
+
+**Purpose**: Centralize common functionality across multiple applications
+
+**Structure**:
+
+```
+apps/package-name/
+├── base/
+│   ├── src/
+│   │   ├── interfaces/     # TypeScript interfaces
+│   │   ├── utils/          # Utility functions
+│   │   └── index.ts        # Package entry point
+│   ├── dist/               # Compiled output
+│   │   ├── cjs/           # CommonJS modules
+│   │   ├── esm/           # ES modules
+│   │   └── types/         # TypeScript declarations
+│   ├── package.json
+│   └── README.md
+```
+
+**Key Principles**:
+
+-   **Dual Build System**: Support both CJS and ESM for maximum compatibility
+-   **Type-Only Packages**: Separate types from runtime code when possible
+-   **Workspace Dependencies**: Use `workspace:*` for internal dependencies
+-   **Zero Runtime Dependencies**: Minimize external dependencies in shared packages
+
+### Template Package Pattern
+
+**Purpose**: Encapsulate platform-specific template functionality
+
+**Structure**:
+
+```
+apps/template-name/
+├── base/
+│   ├── src/
+│   │   ├── platform/       # Platform-specific implementations
+│   │   ├── handlers/       # UPDL node handlers
+│   │   ├── builders/       # Main builder classes
+│   │   ├── common/         # Shared utilities
+│   │   └── index.ts        # Package entry point
+│   ├── dist/               # Compiled output (CJS + ESM + Types)
+│   ├── package.json
+│   └── README.md
+```
+
+**Key Principles**:
+
+-   **Handler Separation**: Separate handlers for different UPDL node types
+-   **Builder Interface**: Implement consistent ITemplateBuilder interface
+-   **Platform Isolation**: Keep platform-specific code in dedicated directories
+-   **Modular Architecture**: Enable easy testing and maintenance
+
+### Template Registry Pattern
+
+**Purpose**: Dynamic template loading and management
+
+**Implementation**:
+
+```typescript
+class TemplateRegistry {
+    private static templates = new Map<string, TemplateInfo>()
+
+    static registerTemplate(template: TemplateInfo) {
+        this.templates.set(template.id, template)
+    }
+
+    static createBuilder(templateId: string): ITemplateBuilder {
+        const template = this.templates.get(templateId)
+        return new template.builder()
+    }
+}
+```
+
+**Key Principles**:
+
+-   **Dynamic Loading**: Templates are loaded at runtime
+-   **Type Safety**: All templates implement ITemplateBuilder interface
+-   **Extensibility**: Easy to add new templates without core changes
+-   **Isolation**: Templates are self-contained packages
+
+### UPDLProcessor Pattern
+
+**Purpose**: Convert flow data to structured UPDL representations
+
+**Key Features**:
+
+-   **Multi-Scene Detection**: Automatically detect single vs multi-scene flows
+-   **Node Relationship Mapping**: Maintain edge relationships between nodes
+-   **Type Safety**: Use shared types from @universo-platformo/types
+-   **Error Handling**: Robust error handling with fallbacks
+
 ### Template-Specific Implementation Patterns
 
 #### PlayCanvas MMOOMM Template Patterns
