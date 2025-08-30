@@ -1,5 +1,5 @@
 export { createUniksRouter as createFinanceRouter } from './routes/uniksRoutes'
-import { Unik } from './database/entities/Unik'
-import { UserUnik } from './database/entities/UserUnik'
+import { Transaction } from './database/entities/Transaction'
+export { financeMigrations } from './database/migrations/postgres'
 
-export const financeEntities = [Unik, UserUnik]
+export const financeEntities = [Transaction]

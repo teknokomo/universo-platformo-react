@@ -11,37 +11,38 @@ import { Lead } from './Lead'
 import { UpsertHistory } from './UpsertHistory'
 import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
-
-// New entities
+import { financeEntities } from '@universo/finance-srv'
 import { Unik, UserUnik } from '@universo/uniks-srv'
-
-// Profile entities
 import { Profile } from '@universo/profile-srv'
-
-// Metaverse entities
 import { Metaverse, UserMetaverse, MetaverseLink } from '@universo/metaverse-srv'
 
+const financeEntitiesObject = Object.fromEntries(
+  financeEntities.map((entity) => [entity.name, entity])
+)
+
 export const entities = {
-    ChatFlow,
-    ChatMessage,
-    ChatMessageFeedback,
-    Credential,
-    Tool,
-    Assistant,
-    Variable,
-    DocumentStore,
-    DocumentStoreFileChunk,
-    Lead,
-    UpsertHistory,
-    ApiKey,
-    CustomTemplate,
-    // New entities
-    Unik,
-    UserUnik,
-    // Profile entities
-    Profile,
-    // Metaverse entities
-    Metaverse,
-    UserMetaverse,
-    MetaverseLink
+  ChatFlow,
+  ChatMessage,
+  ChatMessageFeedback,
+  Credential,
+  Tool,
+  Assistant,
+  Variable,
+  DocumentStore,
+  DocumentStoreFileChunk,
+  Lead,
+  UpsertHistory,
+  ApiKey,
+  CustomTemplate,
+  // Finance entities
+  ...financeEntitiesObject,
+  // Uniks entities
+  Unik,
+  UserUnik,
+  // Profile entities
+  Profile,
+  // Metaverse entities
+  Metaverse,
+  UserMetaverse,
+  MetaverseLink
 }
