@@ -1,3 +1,3 @@
-import { AddUniks1741277504476 } from './1741277504476-AddUniks'
+import { AddTransactions1741277504478 } from './1741277504478-AddTransactions'
 
-export const uniksMigrations = [AddUniks1741277504476]
+export const financeMigrations = [AddTransactions1741277504478]
