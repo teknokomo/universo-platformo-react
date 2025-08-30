@@ -24,6 +24,9 @@
     "dependencies": {
         "@universo/publish-srv": "workspace:*",
         "@universo/template-mmoomm": "workspace:*",
+        "@universo/template-quiz": "workspace:*",
+        "@universo-platformo/utils": "workspace:*",
+        "@universo-platformo/types": "workspace:*",
         "axios": "1.7.9",
         "file-saver": "^2.0.5",
         "jszip": "^3.10.1",

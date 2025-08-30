@@ -1,4 +1,5 @@
 // Common exports
 export * from './types'
 export * from './utils'
-export * from './UPDLProcessor'
+// Re-export centralized UPDLProcessor
+export { UPDLProcessor } from '@universo-platformo/utils'

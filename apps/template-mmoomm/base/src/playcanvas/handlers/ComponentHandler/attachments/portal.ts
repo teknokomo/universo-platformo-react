@@ -1,6 +1,6 @@
 export default function portalAttachment(component: any, entityVar: string): string {
-    const targetWorld = component.data?.targetWorld || 'konkordo';
-    const cooldownTime = component.data?.cooldownTime || 2000;
+    const targetWorld = component.targetWorld ?? component.data?.targetWorld ?? 'konkordo';
+    const cooldownTime = component.cooldownTime ?? component.data?.cooldownTime ?? 2000;
     return `
     // Attach portal component ${component.id}
     ${entityVar}.portal = {

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { UPDLProcessor } from '../../builders/common/UPDLProcessor'
+import { UPDLProcessor } from '@universo-platformo/utils'
+import { IUPDLSpace, IUPDLMultiScene } from '@universo-platformo/types'
 import { TemplateRegistry } from '../../builders/common/TemplateRegistry'
 
 // Feature flag for backend fetch - set to false as default per user requirements

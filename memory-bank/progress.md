@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-08-22**
+**As of 2025-08-30**
 
 ## Completed (chronological)
 
@@ -44,6 +44,17 @@ The initial AR.js implementation faced several challenges:
 These insights informed our revised approach for Stage 3, leading to the simplified architecture we now have.
 
 ## Recent Major Achievements
+
+### 2025-08-30: Template Package Modularization ✅
+
+-   **Complete Architectural Refactoring**: Successfully extracted template functionality into dedicated packages, creating a scalable foundation for the platform
+-   **Shared Packages Created**: Established `@universo-platformo/types` and `@universo-platformo/utils` with complete UPDL interfaces and UPDLProcessor
+-   **Template Package Extraction**: Moved AR.js Quiz to `@universo/template-quiz` and PlayCanvas MMOOMM to `@universo/template-mmoomm`
+-   **Template Registry System**: Implemented dynamic template loading with TemplateRegistry for modular architecture
+-   **Documentation Overhaul**: Created comprehensive English and Russian documentation for shared packages and template system
+-   **Build System Standardization**: Implemented dual build system (CJS + ESM + Types) across all new packages
+-   **Bug Fixes**: Resolved ship duplication in MMOOMM multi-scene processing and reduced excessive logging in AR.js Quiz
+-   **Code Quality**: Cleaned up build artifacts and standardized package structure across the platform
 
 ### 2025-08-22: Multiplayer Colyseus Server Implementation ✅
 

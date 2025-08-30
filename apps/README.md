@@ -6,6 +6,42 @@ This directory contains modular applications that extend the main Flowise platfo
 
 ```
 apps/
+├── universo-platformo-types/  # Shared TypeScript types and interfaces
+│   └── base/            # Core type definitions
+│       ├── src/         # Source code
+│       │   ├── interfaces/ # UPDL and platform interfaces
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── universo-platformo-utils/  # Shared utilities and processors
+│   └── base/            # Core utility functions
+│       ├── src/         # Source code
+│       │   ├── updl/    # UPDL processing utilities (UPDLProcessor)
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── template-quiz/       # AR.js Quiz template package
+│   └── base/            # Quiz template functionality
+│       ├── src/         # Source code
+│       │   ├── arjs/    # AR.js specific implementations
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
+├── template-mmoomm/     # PlayCanvas MMOOMM template package
+│   └── base/            # MMOOMM template functionality
+│       ├── src/         # Source code
+│       │   ├── playcanvas/ # PlayCanvas specific implementations
+│       │   └── index.ts # Entry point
+│       ├── dist/        # Compiled output (CJS, ESM, types)
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── README.md
 ├── updl/                # UPDL node system for creating universal 3D/AR/VR spaces
 │   └── base/            # Core UPDL functionality
 │       ├── src/         # Source code
@@ -104,6 +140,64 @@ apps/
 ```
 
 ## Applications
+
+### Shared Packages
+
+#### Universo Platformo Types (universo-platformo-types)
+
+A shared package containing all TypeScript type definitions and interfaces used across the platform.
+
+**Key Features:**
+
+-   **UPDL Interfaces**: Complete type definitions for UPDL nodes, spaces, and flow data
+-   **Platform Types**: Shared types for publication, authentication, and API communication
+-   **Dual Build System**: Compiled to both CommonJS and ES Modules for maximum compatibility
+-   **Type-Only Package**: Pure TypeScript definitions without runtime dependencies
+
+**Documentation:** See [apps/universo-platformo-types/base/README.md](./universo-platformo-types/base/README.md)
+
+#### Universo Platformo Utils (universo-platformo-utils)
+
+A shared package containing utility functions and processors used across multiple applications.
+
+**Key Features:**
+
+-   **UPDLProcessor**: Core processor for converting flow data to UPDL structures
+-   **Multi-Scene Support**: Handles both single space and multi-scene UPDL flows
+-   **Template Agnostic**: Provides foundation for all template builders
+-   **Dual Build System**: Compiled to both CommonJS and ES Modules
+
+**Documentation:** See [apps/universo-platformo-utils/base/README.md](./universo-platformo-utils/base/README.md)
+
+### Template Packages
+
+#### Quiz Template (template-quiz)
+
+A specialized template package for creating AR.js educational quizzes with lead collection.
+
+**Key Features:**
+
+-   **AR.js Integration**: Complete AR.js quiz implementation with marker tracking
+-   **Multi-Scene Quizzes**: Support for sequential question flows
+-   **Lead Collection**: Built-in forms for collecting user information
+-   **Points System**: Automatic scoring and results display
+-   **Modular Architecture**: Separate handlers for different UPDL node types
+
+**Documentation:** See [apps/template-quiz/base/README.md](./template-quiz/base/README.md)
+
+#### MMOOMM Template (template-mmoomm)
+
+A specialized template package for creating PlayCanvas space MMO experiences.
+
+**Key Features:**
+
+-   **Space MMO Environment**: Complete 3D space simulation with physics
+-   **Industrial Mining**: Laser mining system with auto-targeting
+-   **Entity System**: Ships, asteroids, stations, and gates
+-   **Multiplayer Support**: Real-time networking with Colyseus
+-   **Advanced Controls**: WASD+QZ movement with quaternion rotation
+
+**Documentation:** See [apps/template-mmoomm/base/README.md](./template-mmoomm/base/README.md)
 
 ### Uniks (Workspace Management)
 
@@ -220,12 +314,12 @@ The frontend application is responsible for the entire user-facing publication w
 
 **Key Features:**
 
--   **Client-Side UPDL Processing**: Uses the `UPDLProcessor` class to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences. All heavy processing is done on the client.
--   **Template-Based Builders**: Flexible builder system with `ARJSBuilder` and `PlayCanvasBuilder` supporting multiple templates (Quiz, MMOOMM).
--   **MMOOMM Space MMO Template**: Comprehensive space MMO environment with industrial laser mining, physics-based flight, and real-time inventory management.
--   **Advanced Game Mechanics**: Entity system with ships, asteroids, stations, gates, and networking capabilities.
+-   **Client-Side UPDL Processing**: Uses the shared `UPDLProcessor` from `@universo-platformo/utils` to convert raw `flowData` from the backend into valid AR.js and PlayCanvas experiences.
+-   **Template Registry System**: Modular template system that dynamically loads specialized template packages (`@universo/template-quiz`, `@universo/template-mmoomm`).
+-   **Shared Type System**: Uses `@universo-platformo/types` for consistent type definitions across all templates and builders.
+-   **Template Packages**: Delegates specific functionality to specialized template packages for maintainability and modularity.
 -   **Supabase Integration**: Persists publication configurations.
--   **AR Quiz Support**: Educational quizzes with scoring and lead collection.
+-   **Multi-Technology Support**: Supports AR.js quizzes and PlayCanvas MMO experiences through dedicated template packages.
 
 **Documentation:** See [apps/publish-frt/base/README.md](./publish-frt/base/README.md)
 
@@ -347,6 +441,14 @@ pnpm install
 
 # Build all applications (and other packages in workspace)
 pnpm build
+
+# Build shared packages
+pnpm build --filter @universo-platformo/types
+pnpm build --filter @universo-platformo/utils
+
+# Build template packages
+pnpm build --filter @universo/template-quiz
+pnpm build --filter @universo/template-mmoomm
 
 # Build specific frontend application
 pnpm build --filter publish-frt

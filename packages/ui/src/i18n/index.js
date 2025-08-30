@@ -74,6 +74,7 @@ import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
 import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
 import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
+import { templateQuizTranslations } from '@apps/template-quiz/base/src/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
@@ -100,6 +101,7 @@ i18n.use(LanguageDetector)
                     chatmessage: enChatmessageTranslation,
                     publish: publishTranslations.en.publish,
                     templateMmoomm: templateMmoommTranslations.en.templateMmoomm,
+                    templateQuiz: templateQuizTranslations.en.templateQuiz,
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
                     metaverse: metaverseTranslations.en.metaverse
@@ -123,6 +125,7 @@ i18n.use(LanguageDetector)
                     chatmessage: ruChatmessageTranslation,
                     publish: publishTranslations.ru.publish,
                     templateMmoomm: templateMmoommTranslations.ru.templateMmoomm,
+                    templateQuiz: templateQuizTranslations.ru.templateQuiz,
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
                     metaverse: metaverseTranslations.ru.metaverse
@@ -159,7 +162,8 @@ i18n.use(LanguageDetector)
                 'analytics',
                 'profile',
                 'metaverse',
-                'templateMmoomm'
+                'templateMmoomm',
+                'templateQuiz'
             ],
             defaultNS: 'translation',
             fallbackNS: 'translation',

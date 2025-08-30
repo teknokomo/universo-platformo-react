@@ -1,0 +1,8 @@
+{
+    "publish": {
+        "quiz": {
+            "name": "Quiz Template",
+            "description": "Interactive AR quiz with 3D objects and questionnaire"
+        }
+    }
+}

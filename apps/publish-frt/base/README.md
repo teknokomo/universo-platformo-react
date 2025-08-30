@@ -33,9 +33,9 @@ apps/publish-frt/base/
    │  │  ├─ BaseBuilder.ts           # Base builder class for high-level builders
    │  │  ├─ BuilderRegistry.ts       # Registry for managing high-level builders
    │  │  ├─ TemplateRegistry.ts      # Registry for managing template implementations
-   │  │  ├─ UPDLProcessor.ts         # UPDL flow processing
    │  │  ├─ types.ts                 # Common types and interfaces
    │  │  └─ setup.ts                 # Builder and template registration setup
+   │  │  # Note: UPDLProcessor is now imported from @universo-platformo/utils
    │  ├─ templates/        # Template-first organization (NEW ARCHITECTURE)
    │  │  ├─ quiz/          # Quiz template for educational content
    │  │  │  └─ arjs/       # AR.js implementation of quiz template

@@ -1,6 +1,8 @@
-// Universo Platformo | Quiz Template Export
-// Exports quiz template components
+// Universo Platformo | Quiz Template AR.js Export
+// Exports quiz template coordinator
 
 export { ARJSQuizBuilder } from './ARJSQuizBuilder'
-export { QuizTemplateConfig } from './config'
-export * from './handlers'
+// Re-export template config from external package to avoid duplication
+export { QuizTemplateConfig } from '@universo/template-quiz'
+
+// Note: Handlers are now exported from @universo/template-quiz package

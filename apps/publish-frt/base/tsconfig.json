@@ -31,10 +31,22 @@
                 "../../publish-srv/base/src/*"
             ],
             "@universo-platformo/utils": [
-                "../../universo-platformo-utils/base/dist/index.d.ts"
+                "../../universo-platformo-utils/base/src"
+            ],
+            "@universo-platformo/utils/*": [
+                "../../universo-platformo-utils/base/src/*"
+            ],
+            "@universo-platformo/types": [
+                "../../universo-platformo-types/base/src"
+            ],
+            "@universo-platformo/types/*": [
+                "../../universo-platformo-types/base/src/*"
             ],
             "@universo/template-mmoomm": [
                 "../../template-mmoomm/base/dist/index.d.ts"
+            ],
+            "@universo/template-quiz": [
+                "../../template-quiz/base/dist/index.d.ts"
             ]
         },
         "moduleResolution": "node"

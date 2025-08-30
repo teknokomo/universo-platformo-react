@@ -1,6 +1,6 @@
 export default function weaponAttachment(component: any, entityVar: string): string {
-    const fireRate = component.data?.fireRate || 2;
-    const damage = component.data?.damage || 1;
+    const fireRate = component.fireRate ?? component.data?.fireRate ?? 2;
+    const damage = component.damage ?? component.data?.damage ?? 1;
     return `
     // Attach weapon component ${component.id}
     ${entityVar}.weaponSystem = {

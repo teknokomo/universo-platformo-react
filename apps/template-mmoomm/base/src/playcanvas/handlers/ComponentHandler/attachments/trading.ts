@@ -11,20 +11,8 @@ export default function tradingAttachment(component: any, entityVar: string): st
         }
         return undefined;
     };
-    const priceRaw = resolvePath(component, [
-        'data.pricePerTon',
-        'data.inputs.pricePerTon',
-        'data.properties.pricePerTon',
-        'properties.pricePerTon',
-        'inputs.pricePerTon'
-    ]);
-    const rangeRaw = resolvePath(component, [
-        'data.interactionRange',
-        'data.inputs.interactionRange',
-        'data.properties.interactionRange',
-        'properties.interactionRange',
-        'inputs.interactionRange'
-    ]);
+    const priceRaw = resolvePath(component, ['pricePerTon']);
+    const rangeRaw = resolvePath(component, ['interactionRange']);
     const pricePerTon = resolveNumber(priceRaw, 10);
     const interactionRange = resolveNumber(rangeRaw, 15);
     return `

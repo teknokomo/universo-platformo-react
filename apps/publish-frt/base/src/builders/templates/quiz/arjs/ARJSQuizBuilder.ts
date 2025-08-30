@@ -1,132 +1,211 @@
 // Universo Platformo | AR.js Quiz Builder
-// Main builder for quiz template - uses template-specific handlers
+// Lightweight coordinator that delegates to template-quiz package
 
 import { AbstractTemplateBuilder } from '../../../common/AbstractTemplateBuilder'
-import { IUPDLData, IFlowData, IUPDLMultiScene } from '@universo/publish-srv'
 import { BuildOptions, TemplateConfig } from '../../../common/types'
-import { QuizTemplateConfig } from './config'
-import { SpaceHandler, ObjectHandler, CameraHandler, LightHandler, DataHandler } from './handlers'
+import type { IFlowData } from '@universo/publish-srv'
+import { ARJSQuizBuilder as QuizTemplateBuilder, IFlowData as QuizFlowData } from '@universo/template-quiz'
+import { UPDLProcessor } from '@universo-platformo/utils'
+import { IUPDLSpace, IUPDLMultiScene } from '@universo-platformo/types'
 
 /**
- * AR.js Quiz Builder - Template-specific implementation
+ * Lightweight Quiz Builder Coordinator
+ * Delegates to template-quiz package for modular architecture
  */
 export class ARJSQuizBuilder extends AbstractTemplateBuilder {
-    private spaceHandler = new SpaceHandler()
-    private objectHandler = new ObjectHandler()
-    private cameraHandler = new CameraHandler()
-    private lightHandler = new LightHandler()
-    private dataHandler = new DataHandler()
+    private templateBuilder: QuizTemplateBuilder
 
     constructor() {
         super('quiz')
+
+        // Initialize template builder from separate package
+        this.templateBuilder = new QuizTemplateBuilder()
+
+        console.log('[ARJSQuizBuilder] Lightweight coordinator initialized')
     }
 
     /**
-     * Build AR.js HTML from flow data
-     * @param flowData Flow data containing UPDL space information
-     * @param options Build options for customization
-     * @returns Generated AR.js HTML string
+     * Get template information
      */
-    async build(flowData: IFlowData, options: BuildOptions = {}): Promise<string> {
-        console.log('[ARJSQuizBuilder] build() called for quiz template')
+    getTemplateInfo(): TemplateConfig {
+        return this.templateBuilder.getTemplateInfo()
+    }
 
+    /**
+     * Build AR.js Quiz HTML from flow data
+     * Delegates all processing to template-quiz package
+     */
+    async build(flowData: IFlowData, options?: BuildOptions): Promise<string> {
         try {
-            // Single scene: use updlSpace directly
-            if (flowData.updlSpace && !flowData.multiScene) {
-                console.log('[ARJSQuizBuilder] Building single scene quiz from updlSpace')
-                const nodes = this.extractNodes(flowData)
-                return this.buildSingleScene(nodes, options)
-            }
+            console.log('[ARJSQuizBuilder] Delegating to modular template package')
 
-            // Multi-scene: use multiScene data
-            if (flowData.multiScene) {
-                console.log('[ARJSQuizBuilder] Building multi-scene quiz from multiScene data:', {
-                    totalScenes: flowData.multiScene.totalScenes
-                })
-                return this.buildMultiScene(flowData.multiScene, options)
-            }
+            // Convert publish-frt BuildOptions to template package format
+            const templateOptions = this.convertBuildOptions(options)
 
-            // Fallback: try to extract nodes anyway
-            console.warn('[ARJSQuizBuilder] No updlSpace or multiScene, attempting fallback extraction')
-            const nodes = this.extractNodes(flowData)
-            return this.buildSingleScene(nodes, options)
+            // Delegate to template package - handles mode detection and building
+            const rawHtml = await this.templateBuilder.build(flowData as any, templateOptions)
+
+            // If the template returned only a scene fragment (no <html> or library scripts), wrap it
+            const needsWrap = !/(<!DOCTYPE html>|<html[\s>])/i.test(rawHtml || '') || !/(aframe|min\.js|aframe-ar\.js|arjs)/i.test(rawHtml || '')
+            const finalHtml = needsWrap ? this.wrapWithDocumentStructure(rawHtml, templateOptions) : rawHtml
+
+            console.log('[ARJSQuizBuilder] Build completed via template package', { wrapped: needsWrap })
+            return finalHtml
+
         } catch (error) {
             console.error('[ARJSQuizBuilder] Build error:', error)
-            return this.generateErrorSceneContent(options)
+
+            // Generate error scene as fallback
+            return this.generateErrorFallback(error, options)
         }
     }
 
     /**
-     * Build single-scene quiz
+     * Build from raw flow data (compatibility method)
      */
-    private buildSingleScene(
-        nodes: {
-            spaces: any[]
-            objects: any[]
-            cameras: any[]
-            lights: any[]
-            data: IUPDLData[]
-        },
-        options: BuildOptions
-    ): string {
-        const { spaces, objects, cameras, lights, data } = nodes
+    async buildFromFlowData(flowDataString: string, options?: BuildOptions): Promise<any> {
+        try {
+            console.log('[ARJSQuizBuilder] buildFromFlowData called - delegating to template package')
+            console.log('[ARJSQuizBuilder] flowDataString length:', flowDataString?.length || 0)
+            console.log('[ARJSQuizBuilder] options:', options)
 
-        // Process each node type using template handlers
-        const spaceContent = spaces.length > 0 ? this.spaceHandler.process(spaces[0], options) : ''
-        const objectContent = this.objectHandler.process(objects, options)
-        const cameraContent = this.cameraHandler.process(cameras, options)
-        const lightContent = this.lightHandler.process(lights, options)
-        const dataContent = this.dataHandler.process(data, options)
+            // Delegate to template package
+            const result = await this.templateBuilder.buildFromFlowData(flowDataString, options)
 
-        // Generate AR.js scene content with marker wrapper
-        return this.generateSceneContent(
-            {
-                spaceContent,
-                objectContent,
-                cameraContent,
-                lightContent,
-                dataContent,
-                template: 'quiz'
-            },
-            options
-        )
+            // Ensure returned HTML is a full document with required libraries
+            const templateOptions = this.convertBuildOptions(options)
+            let html = result?.html || ''
+            const needsWrap = !/(<!DOCTYPE html>|<html[\s>])/i.test(html) || !/(aframe|min\.js|aframe-ar\.js|arjs)/i.test(html)
+            if (needsWrap) {
+                html = this.wrapWithDocumentStructure(html, templateOptions)
+            }
+
+            console.log('[ARJSQuizBuilder] buildFromFlowData completed via template package', { wrapped: needsWrap })
+            console.log('[ARJSQuizBuilder] result success:', result?.success)
+            console.log('[ARJSQuizBuilder] result html length:', html?.length || 0)
+
+            return { ...result, html }
+
+        } catch (error) {
+            console.error('[ARJSQuizBuilder] buildFromFlowData error:', error)
+            return {
+                success: false,
+                error: (error as Error).message
+            }
+        }
     }
 
     /**
-     * Build multi-scene quiz
+     * Check if this builder can handle the flow data
      */
-    private buildMultiScene(multiScene: IUPDLMultiScene, options: BuildOptions): string {
-        // Process multi-scene objects
-        const objectContent = this.objectHandler.processMultiScene(multiScene, options)
-
-        // Process multi-scene data with showPoints option
-        const dataContent = this.dataHandler.processMultiScene(multiScene, options)
-
-        // Use first scene for camera/light defaults from spaceData
-        const firstScene = multiScene.scenes[0]
-        const cameras = firstScene?.spaceData?.cameras || []
-        const lights = firstScene?.spaceData?.lights || []
-
-        const cameraContent = this.cameraHandler.process(cameras, options)
-        const lightContent = this.lightHandler.process(lights, options)
-
-        // Generate AR.js scene content with marker wrapper
-        return this.generateSceneContent(
-            {
-                spaceContent: '',
-                objectContent,
-                cameraContent,
-                lightContent,
-                dataContent,
-                template: 'quiz'
-            },
-            options
-        )
+    canHandle(flowData: IFlowData): boolean {
+        // Quiz template can handle any flow data with questions/answers
+        return true
     }
 
     /**
-     * Generate HTML structure with template-specific content
-     * Implementation of abstract method from AbstractTemplateBuilder
+     * Get required libraries for Quiz template
+     */
+    getRequiredLibraries(): string[] {
+        return this.templateBuilder.getRequiredLibraries()
+    }
+
+    /**
+     * Convert publish-frt BuildOptions to template package format
+     */
+    private convertBuildOptions(options?: BuildOptions): any {
+        if (!options) {
+            return {}
+        }
+
+        // Map publish-frt options to template package options
+        return {
+            markerType: options.markerType || 'preset',
+            markerValue: options.markerValue || 'hiro',
+            projectName: options.projectName,
+            chatflowId: options.chatflowId,
+            ...options
+        }
+    }
+
+    /**
+     * Generate error fallback when template package fails
+     */
+    private generateErrorFallback(error: any, options?: BuildOptions): string {
+        console.error('[ARJSQuizBuilder] Generating error fallback')
+
+        const errorContent = `
+        <a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>
+        <a-text value="Error: ${error.message}" position="0 2 0" align="center" color="#FFFFFF"></a-text>
+        `
+
+        return this.wrapWithHTML(errorContent, options)
+    }
+
+    /**
+     * Wrap content with basic AR.js HTML structure
+     */
+    private wrapWithHTML(sceneContent: string, options?: BuildOptions): string {
+        const aframeSrc = 'https://aframe.io/releases/1.7.1/aframe.min.js'
+        const arjsSrc = 'https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js'
+        const projectName = options?.projectName || 'Universo Platformo AR Quiz'
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${projectName}</title>
+    <meta name="description" content="AR Quiz - Universo Platformo">
+    <script src="${aframeSrc}"></script>
+    <script src="${arjsSrc}"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <a-scene embedded
+             class="ar-scene"
+             arjs="sourceType: webcam; debugUIEnabled: false;"
+             vr-mode-ui="enabled: false"
+             device-orientation-permission-ui="enabled: false">
+        
+        <!-- AR.js Marker -->
+        <a-marker preset="hiro">
+            ${sceneContent}
+        </a-marker>
+        
+        <!-- Camera entity for AR tracking -->
+        <a-entity camera></a-entity>
+        
+        <!-- Assets -->
+        <a-assets></a-assets>
+    </a-scene>
+
+    <script>
+        window.chatflowId = '${options?.chatflowId || ''}';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const scene = document.querySelector('a-scene');
+            if (scene && scene.hasLoaded) {
+                console.log('[ARJSQuizBuilder] Scene already loaded');
+            } else if (scene) {
+                scene.addEventListener('loaded', function() {
+                    console.log('[ARJSQuizBuilder] Scene loaded successfully');
+                });
+            }
+        });
+    </script>
+</body>
+</html>`
+    }
+
+    /**
+     * Generate HTML structure (legacy method for compatibility)
      */
     protected generateHTML(
         content: {
@@ -138,181 +217,9 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
             template: string
             error?: boolean
         },
-        options: BuildOptions = {}
+        options?: BuildOptions
     ): string {
-        return this.generateSceneContent(content, options)
-    }
-
-    /**
-     * Generate AR.js scene content with proper marker structure
-     * Renamed from generateARJSHTML for clarity and consistency
-     */
-    private generateSceneContent(
-        content: {
-            spaceContent: string
-            objectContent: string
-            cameraContent: string
-            lightContent: string
-            dataContent: string
-            template: string
-            error?: boolean
-        },
-        options: BuildOptions = {}
-    ): string {
-        // Get marker configuration with defaults
-        const markerType = options.markerType || 'preset'
-        const markerValue = options.markerValue || 'hiro'
-
-        // Scene content - all 3D objects go inside the marker
-        const sceneContent = content.spaceContent + content.objectContent + content.cameraContent + content.lightContent
-
-        const errorClass = content.error ? ' error-scene' : ''
-
-        console.log('[ARJSQuizBuilder] Generating scene content with marker:', {
-            markerType,
-            markerValue,
-            hasObjects: content.objectContent.length > 0,
-            hasData: content.dataContent.length > 0,
-            chatflowId: options.chatflowId || 'not-provided'
-        })
-
-        // Wallpaper mode support (default to 'marker' for compatibility)
-        const displayType = (options as any).arDisplayType || 'marker'
-        if (displayType === 'wallpaper') {
-            const wallpaperEntity = `
-    <a-entity geometry="primitive: sphere; radius: 25; segmentsWidth: 48; segmentsHeight: 32"
-              material="wireframe: true; color: #00e6ff; opacity: 0.35; side: back; transparent: true"
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 90000; easing: linear"></a-entity>`
-
-            return `
-<a-scene embedded
-         class="ar-scene${errorClass}"
-         arjs="sourceType: webcam; debugUIEnabled: false;"
-         vr-mode-ui="enabled: false"
-         device-orientation-permission-ui="enabled: false">
-
-    <!-- Camera with wallpaper background (no marker required) -->
-    <a-entity camera>
-        ${wallpaperEntity}
-    </a-entity>
-
-    <!-- Data UI overlay (quiz, etc.) -->
-    ${content.dataContent}
-
-    <a-assets></a-assets>
-</a-scene>
-
-<script>
-    window.chatflowId = '${options.chatflowId || ''}';
-    document.addEventListener('DOMContentLoaded', function() {
-        const scene = document.querySelector('a-scene');
-        if (scene && !scene.hasLoaded) {
-            scene.addEventListener('loaded', function() {
-                console.log('[ARJSQuizBuilder] Scene loaded successfully (wallpaper)');
-            });
-        }
-    });
-</script>`
-        }
-
-        // Build marker attributes based on type
-        let markerAttributes = ''
-        if (markerType === 'preset') {
-            markerAttributes = `preset="${markerValue}"`
-        } else if (markerType === 'pattern') {
-            markerAttributes = `type="pattern" patternUrl="${markerValue}"`
-        } else {
-            // Fallback to preset hiro
-            markerAttributes = 'preset="hiro"'
-        }
-
-        return `
-<a-scene embedded
-         class="ar-scene${errorClass}"
-         arjs="sourceType: webcam; debugUIEnabled: false;"
-         vr-mode-ui="enabled: false"
-         device-orientation-permission-ui="enabled: false">
-    
-    <!-- AR.js Marker - Template: ${content.template} -->
-    <a-marker ${markerAttributes}>
-        <!-- All 3D content goes inside the marker -->
-        ${sceneContent}
-    </a-marker>
-    
-    <!-- Camera entity for AR tracking -->
-    <a-entity camera></a-entity>
-    
-    <!-- Data UI (outside of marker for overlay) -->
-    ${content.dataContent}
-    
-    <!-- Assets -->
-    <a-assets>
-        <!-- Template-specific assets can be added here -->
-    </a-assets>
-</a-scene>
-
-<script>
-    // Universo Platformo | Set global chatflowId for lead data saving
-    window.chatflowId = '${options.chatflowId || ''}';
-    
-    // Hide loading screen when A-Frame scene loads
-    document.addEventListener('DOMContentLoaded', function() {
-        const scene = document.querySelector('a-scene');
-        if (scene && scene.hasLoaded) {
-            console.log('[ARJSQuizBuilder] Scene already loaded');
-        } else if (scene) {
-            scene.addEventListener('loaded', function() {
-                console.log('[ARJSQuizBuilder] Scene loaded successfully');
-            });
-        }
-    });
-</script>`
-    }
-
-    /**
-     * Generate error scene content for quiz template with AR.js structure
-     */
-    private generateErrorSceneContent(options: BuildOptions = {}): string {
-        return this.generateSceneContent(
-            {
-                spaceContent: '',
-                objectContent: '<a-box position="0 0.5 0" material="color: #FF0000;" scale="1 1 1"></a-box>',
-                cameraContent: '',
-                lightContent: '',
-                dataContent: '',
-                template: 'quiz',
-                error: true
-            },
-            options
-        )
-    }
-
-    /**
-     * Get template configuration
-     */
-    getTemplateInfo(): TemplateConfig {
-        return {
-            id: 'quiz',
-            name: 'AR.js Quiz Template',
-            description: 'Interactive AR quiz with 3D objects and questionnaire',
-            version: '1.0.0',
-            technology: 'arjs',
-            supportedNodes: ['Space', 'Object', 'Camera', 'Light', 'Data'],
-            features: ['AR marker tracking', 'Interactive 3D objects', 'Quiz functionality', 'Multi-scene support', 'Lead data collection'],
-            defaults: {
-                markerType: 'preset',
-                markerValue: 'hiro',
-                showPoints: true,
-                maxScenes: 10
-            }
-        }
-    }
-
-    /**
-     * Get required libraries for AR.js quiz template
-     * @returns Array of required library names
-     */
-    getRequiredLibraries(): string[] {
-        return ['aframe', 'arjs']
+        // Legacy compatibility - wrap template content
+        return this.wrapWithHTML(content.template, options)
     }
 }

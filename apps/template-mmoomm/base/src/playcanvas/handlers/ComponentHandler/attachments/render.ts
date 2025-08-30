@@ -1,13 +1,13 @@
 // English comments only inside code
 function readPrimitive(component: any): string {
-    return component?.data?.primitive || component?.data?.inputs?.primitive || 'box'
+    return component?.primitive || 'box'
 }
 
-// Pick color from known sources (data.color, props.color, props.material.color)
+// Pick color from sources prioritizing new top-level fields
 function pickColorSource(component: any): any {
-    const d = component?.data || {}
-    const p = d.props || {}
-    return d.color ?? p.color ?? (p.material && p.material.color) ?? d.inputs?.color ?? '#ffffff'
+    const top = component || {}
+    const p = component?.props || {}
+    return top.color ?? p.color ?? (p.material && p.material.color) ?? '#ffffff'
 }
 
 function isHexColor(value: any): boolean {

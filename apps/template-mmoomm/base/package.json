@@ -44,14 +44,12 @@
     "author": "Universo Platformo",
     "license": "MIT",
     "dependencies": {
-        "@universo/universo-platformo-types": "workspace:*"
+        "@universo-platformo/types": "workspace:*",
+        "@universo-platformo/utils": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
-        "typescript": "^5.8.3",
+        "typescript": "^5.4.5",
         "rimraf": "^5.0.0"
-    },
-    "peerDependencies": {
-        "typescript": ">=5.0.0"
     }
 }

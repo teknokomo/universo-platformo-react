@@ -1,5 +1,15 @@
 import { z } from 'zod'
-import { UpIntentType } from '@universo-platformo/types'
+
+// Local enum to avoid circular dependency issues
+enum UpIntentType {
+    MOVE = 'move',
+    INTERACT = 'interact',
+    ATTACK = 'attack',
+    DEFEND = 'defend',
+    EXPLORE = 'explore',
+    TRADE = 'trade',
+    COMMUNICATE = 'communicate'
+}
 
 const zVec3 = z.tuple([z.number(), z.number(), z.number()])
 const zQuat = z.tuple([z.number(), z.number(), z.number(), z.number()])

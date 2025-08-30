@@ -2,9 +2,10 @@
 // PlayCanvasBuilder generates simple PlayCanvas HTML from UPDL data
 
 import { BaseBuilder } from '../../../common/BaseBuilder'
-import { UPDLProcessor } from '../../../common/UPDLProcessor'
+import { UPDLProcessor } from '@universo-platformo/utils'
+import { IUPDLSpace } from '@universo-platformo/types'
 import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../../../common/types'
-import { IUPDLSpace, IFlowData } from '@universo/publish-srv'
+import { IFlowData } from '@universo/publish-srv'
 
 /**
  * PlayCanvasBuilder generates simple PlayCanvas HTML from UPDL data

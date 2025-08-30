@@ -180,13 +180,21 @@ export class HandlerManager implements IHandlerManager {
             if (flowData.multiScene?.scenes) {
                 if (DEBUG) console.log('[HandlerManager] Processing multi-scene structure with', flowData.multiScene.scenes.length, 'scenes')
 
+                // Track processed entity IDs to avoid duplicates
+                const processedEntityIds = new Set<string>()
+
                 flowData.multiScene.scenes.forEach((scene, index) => {
                     if (scene.spaceData) {
                         nodes.spaces.push(scene.spaceData)
 
-                        // Extract entities from scene space data
+                        // Extract entities from scene space data (avoid duplicates)
                         if (scene.spaceData.entities) {
-                            nodes.entities.push(...scene.spaceData.entities)
+                            scene.spaceData.entities.forEach((entity: any) => {
+                                if (!processedEntityIds.has(entity.id)) {
+                                    nodes.entities.push(entity)
+                                    processedEntityIds.add(entity.id)
+                                }
+                            })
                         }
                         if (scene.spaceData.components) {
                             nodes.components.push(...scene.spaceData.components)
@@ -410,45 +418,53 @@ export class HandlerManager implements IHandlerManager {
         const getRenderColorFromComponents = (entityData: any): any => {
             try {
                 const comps = Array.isArray(entityData.components) ? entityData.components : []
-                const renderComp = comps.find((c: any) => String(c?.data?.componentType || '').toLowerCase() === 'render')
+                const renderComp = comps.find((c: any) => String(c?.componentType || '').toLowerCase() === 'render')
                 if (!renderComp) return undefined
-                const d = renderComp.data || {}
-                const p = d.props || {}
-                return d.color ?? p.color ?? (p.material && p.material.color)
+                const p = renderComp.props || {}
+                return renderComp.color ?? p.color ?? (p.material && p.material.color)
             } catch {
                 return undefined
             }
         }
 
         return entities.map(entity => {
-            // FIXED: Extract data from entity.data.inputs instead of entity.data
-            const entityInputs = entity.data?.inputs || {}
-            const entityData = entity.data || {}
-            const transform = entityData.transform || {}
-            const entityType = entityData.entityType || entityInputs.entityType || 'static'
+            // CRITICAL FIX: Handle both UPDLProcessor format and legacy format
+            // UPDLProcessor creates: { id, entityType, transform, components: [] }
+            // Legacy format: { id, data: { entityType, transform, components: [] } }
 
-            console.log(`[HandlerManager] Processing entity ${entity.id}:`, {
-                entityType,
-                entityDataType: entityData.entityType,
-                inputsEntityType: entityInputs.entityType,
-                hasTransform: !!transform,
-                hasInputs: !!entityInputs,
-                inputsKeys: Object.keys(entityInputs),
-                entityDataKeys: Object.keys(entityData),
-                fullEntityData: entityData,
-                fullInputsData: entityInputs
-            })
+            let entityType: string
+            let transform: any
+            let components: any[] = []
+            let entityInputs: any = {}
+            let entityData: any = {}
+
+            if (entity.entityType && entity.transform !== undefined) {
+                // UPDLProcessor format (NEW)
+                entityType = entity.entityType || 'static'
+                transform = entity.transform || {}
+                components = entity.components || []
+                entityData = entity // Use entity itself as data
+                console.log(`[HandlerManager] Processing UPDLProcessor entity ${entity.id}:`, {
+                    entityType,
+                    hasTransform: !!transform,
+                    componentsCount: components.length,
+                    componentTypes: components.map((c: any) => c.componentType),
+                    fullEntity: entity
+                })
+            } else {
+                // Legacy format removed: we expect only new UPDLProcessor format
+                throw new Error('[HandlerManager] Legacy entity format detected. Please migrate to new UPDLProcessor format.')
+            }
 
             // Determine if entity should be networked
             const shouldNetwork = this.shouldEntityBeNetworked(entityType)
 
-            // Extract transform from inputs if not in entityData (multi-scene case)
-            const inputsTransform = entityInputs.transform || {}
-            const finalTransform = transform.position ? transform : inputsTransform
+            // New unified format uses entity.transform directly
+            const finalTransform = transform
 
             const renderColor = getRenderColorFromComponents(entityData)
 
-            const chosenColor = (entityInputs.color || entityData.color || renderColor || '#ffffff') as any
+            const chosenColor = (entityData.color || renderColor || '#ffffff') as any
             const networkEntity: NetworkEntity = {
                 id: entity.id || `entity_${Math.random().toString(36).substr(2, 9)}`,
                 type: this.mapEntityTypeToNetwork(entityType),
@@ -476,8 +492,8 @@ export class HandlerManager implements IHandlerManager {
                     color: chosenColor
                 },
                 networked: shouldNetwork,
-                // Include component data for server processing
-                components: entityData.components || [],
+                // CRITICAL FIX: Use components from correct source
+                components: components,
                 // Include additional entity properties for server
                 entityType: entityType,
                 position: finalTransform.position,
