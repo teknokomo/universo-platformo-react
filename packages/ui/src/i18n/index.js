@@ -71,6 +71,8 @@ import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
 import { analyticsTranslations } from '@apps/analytics-frt/base/src/i18n'
 // Universo Platformo | Import profile module translations
 import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
+// Universo Platformo | Import finance module translations
+import { financeTranslations } from '@apps/finance-frt/base/src/i18n'
 import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
 import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
@@ -102,6 +104,7 @@ i18n.use(LanguageDetector)
                     publish: publishTranslations.en.publish,
                     templateMmoomm: templateMmoommTranslations.en.templateMmoomm,
                     templateQuiz: templateQuizTranslations.en.templateQuiz,
+                    finance: financeTranslations.en.finance,
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
                     metaverse: metaverseTranslations.en.metaverse
@@ -126,6 +129,7 @@ i18n.use(LanguageDetector)
                     publish: publishTranslations.ru.publish,
                     templateMmoomm: templateMmoommTranslations.ru.templateMmoomm,
                     templateQuiz: templateQuizTranslations.ru.templateQuiz,
+                    finance: financeTranslations.ru.finance,
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
                     metaverse: metaverseTranslations.ru.metaverse
@@ -159,6 +163,7 @@ i18n.use(LanguageDetector)
                 'chatflows',
                 'chatmessage',
                 'publish',
+                'finance',
                 'analytics',
                 'profile',
                 'metaverse',
