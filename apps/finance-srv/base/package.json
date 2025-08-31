@@ -1,7 +1,7 @@
 {
   "name": "@universo/finance-srv",
   "version": "0.1.0",
-  "description": "Backend for Uniks workspace management in Universo Platformo",
+  "description": "Backend for Finance management in Universo Platformo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,7 +13,7 @@
   "keywords": [
     "universo",
     "platformo",
-    "uniks",
+    "finance",
     "backend",
     "typescript"
   ],
