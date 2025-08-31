@@ -1,0 +1,33 @@
+{
+    "name": "@universo/finance-frt",
+    "version": "0.1.0",
+    "description": "Frontend module for Finance workspace",
+    "main": "dist/index.js",
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc && tsc -p tsconfig.esm.json && gulp",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts,.tsx src/"
+    },
+    "keywords": ["universo", "finance", "frontend"],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "react": "^18.2.0",
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/gulp": "4.0.9",
+        "@types/node": "^20.11.17",
+        "@types/react": "^18.2.55",
+        "eslint": "^8.56.0",
+        "gulp": "^4.0.2",
+        "rimraf": "^5.0.5"
+    }
+}
