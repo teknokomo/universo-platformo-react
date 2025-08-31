@@ -24,5 +24,13 @@
       "cardView": "Card View", 
       "listView": "List View"
     }
+  },
+  "finance": {
+    "currencyList": {
+      "title": "Currencies"
+    },
+    "accountList": {
+      "title": "Accounts"
+    }
   }
-} 
+}

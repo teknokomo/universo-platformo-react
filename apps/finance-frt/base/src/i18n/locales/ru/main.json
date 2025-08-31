@@ -24,5 +24,14 @@
       "cardView": "Карточки", 
       "listView": "Список"
     }
+  },
+  "finance": {
+    "currencyList": {
+      "title": "Валюты"
+    },
+    "accountList": {
+      "title": "Счета"
+    }
   }
-} 
+}
+
