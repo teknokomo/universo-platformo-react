@@ -2,6 +2,9 @@
 
 Frontend for the publication system in Universo Platformo, supporting AR.js and PlayCanvas.
 
+See also: Creating New Apps/Packages (best practices)
+
+- ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
 ## Project Structure
 
 The project follows a unified structure for applications in the monorepo:

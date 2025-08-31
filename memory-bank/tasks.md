@@ -3,6 +3,16 @@
 **Project**: Universo Platformo (v0.24.0-alpha, Alpha achieved)
 **Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
 
+## New Tasks (2025-08-31)
+
+- [x] Enforce topological build order via workspace deps in `flowise-ui` (deps on `@universo/template-quiz`, `@universo/template-mmoomm`, `publish-frt`).
+- [x] Remove circular dependency from `apps/finance-frt` to `flowise-ui`.
+- [x] Unify i18n to TypeScript in `template-quiz`, `template-mmoomm`, and `publish-frt`.
+- [x] Validate `exports` and `dist` artifacts (CJS/ESM/types) for template packages.
+- [x] Ensure `publish-frt` tsconfig paths reference template `dist/index.d.ts`.
+- [ ] Docs (EN/RU): add Finance apps docs and link them in SUMMARY.
+- [ ] Docs (EN/RU): add "Creating New Apps/Packages" guide (imports, dual build, TypeORM, i18n TS, Turborepo order, avoiding cycles).
+- [ ] Docs: connect missing `tasks-registry.md` into EN/RU SUMMARY.
 ## Recently Completed Major Tasks
 
 ### Template Package Modularization (2025-08-30)

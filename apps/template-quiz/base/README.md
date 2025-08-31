@@ -2,6 +2,9 @@
 
 Quiz template system for AR.js and other 3D technologies in Universo Platformo.
 
+See also: Creating New Apps/Packages (best practices)
+
+- ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
 ## Overview
 
 This package provides a modular quiz template system that generates interactive AR experiences using AR.js technology. It supports multi-scene quizzes, point systems, lead collection, and analytics.

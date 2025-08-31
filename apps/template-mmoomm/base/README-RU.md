@@ -2,6 +2,9 @@
 
 MMOOMM template system for generating PlayCanvas applications with single-player and multiplayer support.
 
+См. также: Создание новых приложений/пакетов (рекомендации)
+
+- ../../../docs/ru/universo-platformo/shared-guides/creating-apps.md
 ## Features
 
 - Dual Mode Support: Single-player and multiplayer (Colyseus) game modes
@@ -79,4 +82,3 @@ pnpm build:cjs
 pnpm build:esm
 pnpm build:types
 ```
-

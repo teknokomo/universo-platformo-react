@@ -212,6 +212,42 @@ export class EntityHandler {
 }
 ```
 
+## Конвенции: экспорт и TS i18n
+
+### Экспорт и артефакты
+
+- Двойная сборка и типы:
+  - `main`: `dist/cjs/index.js`
+  - `module`: `dist/esm/index.js`
+  - `types`: `dist/types/index.d.ts`
+- Явная карта `exports` для дополнительных точек входа (например, `./arjs`, `./playcanvas`) с путями в `dist/esm`, `dist/cjs`, `dist/types`.
+- Все рантайм‑точки входа должны компилироваться в `dist` (UI не должен импортировать `src`).
+
+### Точка входа i18n на TypeScript
+
+- Реализуйте i18n‑вход как `src/i18n/index.ts`, чтобы гарантировать включение в `dist` и типобезопасность.
+- Импортируйте JSON‑локали с `"resolveJsonModule": true` или экспортируйте небольшой словарь inline.
+- Предоставьте типизированный хелпер, возвращающий один неймспейс, например:
+
+```ts
+// src/i18n/index.ts
+import en from './locales/en/main.json'
+import ru from './locales/ru/main.json'
+
+export type TemplateNamespace = { /* ...структура... */ }
+
+export const translations = {
+  en: { template: en.template },
+  ru: { template: ru.template }
+}
+
+export function getTemplateTranslations(lang: string): TemplateNamespace {
+  return translations[lang]?.template || translations.en.template
+}
+```
+
+См. также: “Создание новых приложений/пакетов” → `docs/ru/universo-platformo/shared-guides/creating-apps.md`.
+
 ### Шаг 4: Конфигурация системы сборки
 
 Добавьте конфигурации TypeScript для двойной сборки:

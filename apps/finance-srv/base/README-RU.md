@@ -75,3 +75,7 @@ pnpm build --filter @universo/finance-srv
 ---
 
 **Universo Platformo | Пакет Finance Server**
+
+См. также: Создание новых приложений/пакетов (рекомендации)
+
+- ../../../docs/ru/universo-platformo/shared-guides/creating-apps.md

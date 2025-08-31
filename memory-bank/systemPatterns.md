@@ -166,6 +166,34 @@ if (!entity.rigidbody.body) {
 -   **Template System**: Reusable export templates across multiple technologies
 -   **Static Library Integration**: CDN and local library sources with fallback support
 
+## Build, Packaging, and Integration Patterns (2025-08-31)
+
+### Build Order & Workspace Graph
+
+-   Combine Turborepo `dependsOn: ["^build"]` with explicit `workspace:*` dependencies in consumers to enforce correct order. Example: `flowise-ui` → `@universo/template-quiz`, `@universo/template-mmoomm`, `publish-frt`.
+-   Avoid cycles: feature/front packages (e.g., `finance-frt`) must never depend on UI (`flowise-ui`). UI is the top-level consumer.
+-   Cold start requires upstream packages (templates/publish) to build before UI/server; declare deps accordingly. Optionally add `publish-frt` as a server dep to ensure `/assets` exist.
+
+### Template Package Exports & Types
+
+-   Ship dual builds with proper `exports` mapping to `dist/esm` and `dist/cjs`, plus `dist/types`. Provide multi-entry exports (`./arjs`, `./playcanvas`) when needed.
+-   Consumers reference template declaration files via tsconfig `paths` to `dist/index.d.ts` instead of source.
+
+### i18n Entry Points (TypeScript)
+
+-   Use `.ts` entry files for package i18n to ensure inclusion in `dist` and strong typing; keep `resolveJsonModule: true` for JSON locales.
+-   Provide typed helpers like `getTemplateXxxTranslations(language: string)` to return a single namespace.
+
+### Vite + Workspace Libraries
+
+-   Prefer building libraries prior to UI. Use `optimizeDeps.include` and `build.commonjsOptions.include` for workspace packages only if necessary; avoid aliasing to `src` in production builds.
+
+### Uniks Child Resource Integration
+
+-   New bounded contexts (e.g., Finance) integrate as Uniks children:
+    -   Server: export `entities` and `migrations` arrays and `createXxxRouter()`; mount under `/api/v1/uniks/:unikId/...`.
+    -   UI: add nested routes inside Unik workspace and include namespaced i18n.
+
 ## APPs Architecture Pattern (v0.21.0-alpha)
 
 **6 Working Applications** with modular architecture:

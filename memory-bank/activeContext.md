@@ -26,6 +26,23 @@
 -   **Space Builder Test Mode Stabilization**: finalize multi‑provider Test mode (OpenAI‑compatible), enforce credentials disable on UI/server, deduplicate model list, and keep docs in sync
 -   **Metaverse Module**: MVP implemented; follow-ups pending (membership & links UI, docs)
 
+## Current Focus — Build Order, i18n Unification, Finance Apps (2025-08-31)
+
+-   Fixed cold-start build issues by enforcing topological order via workspace dependencies: `flowise-ui` now depends on `@universo/template-quiz`, `@universo/template-mmoomm`, and `publish-frt`. This guarantees template packages build before UI.
+-   Removed a hidden circular dependency: deleted `flowise-ui` from `apps/finance-frt/base/package.json` to avoid UI↔finance-frt coupling.
+-   Standardized template i18n to TypeScript:
+    -   Replaced `apps/template-quiz/base/src/i18n/index.js` with `index.ts` (compiled to ESM/CJS).
+    -   Replaced `apps/template-mmoomm/base/src/i18n/index.js` with `index.ts`.
+    -   Migrated `apps/publish-frt/base/src/i18n/index.js(.d.ts)` to `index.ts` for consistency.
+-   Ensured template packages export valid `exports` map to `dist/esm` and `dist/cjs` with `dist/types` and that `publish-frt` tsconfig consumes `index.d.ts` from template `dist`.
+-   Integrated Finance apps into server and UI (as Uniks children):
+    -   Server mounts `createFinanceRouter()` under `/api/v1/uniks/:unikId/finance/*` and registers `financeEntities` and `financeMigrations`.
+    -   UI adds routes `finance/accounts` and `finance/currencies` under Unik workspace and loads `finance` i18n namespace.
+
+Immediate next steps:
+-   Write and connect docs for Finance apps (EN/RU), and guidelines for creating new apps/packages (EN/RU).
+-   Add missing docs to SUMMARY (e.g., tasks-registry in RU/EN roadmaps).
+
 ## Recently Completed
 
 -   **Template Package Modularization (2025-08-30)**

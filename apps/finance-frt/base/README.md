@@ -61,3 +61,7 @@ pnpm build --filter @universo/finance-frt
 ---
 
 **Universo Platformo | Finance Frontend Application**
+
+See also: Creating New Apps/Packages (best practices)
+
+- ../../../docs/en/universo-platformo/shared-guides/creating-apps.md

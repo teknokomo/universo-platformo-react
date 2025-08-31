@@ -128,6 +128,42 @@ Initialize `package.json`:
 }
 ```
 
+## Conventions: Exports and TS i18n
+
+### Exports Map and Artifacts
+
+- Provide dual builds and types:
+  - `main`: `dist/cjs/index.js`
+  - `module`: `dist/esm/index.js`
+  - `types`: `dist/types/index.d.ts`
+- Use an explicit `exports` map for multi‑entry packages (e.g., `./arjs`, `./playcanvas`) pointing to `dist/esm/...`, `dist/cjs/...`, and `dist/types/...`.
+- Ensure all runtime entry points are compiled to `dist` (UI should not import `src`).
+
+### TypeScript i18n Entry Points
+
+- Implement the i18n entry as a TypeScript file (`src/i18n/index.ts`) to guarantee inclusion in `dist` and better type safety.
+- Import JSON locales with `"resolveJsonModule": true` or export a small inline dictionary.
+- Provide a typed helper that returns a single namespace, e.g.:
+
+```ts
+// src/i18n/index.ts
+import en from './locales/en/main.json'
+import ru from './locales/ru/main.json'
+
+export type TemplateNamespace = { /* ...shape... */ }
+
+export const translations = {
+  en: { template: en.template },
+  ru: { template: ru.template }
+}
+
+export function getTemplateTranslations(lang: string): TemplateNamespace {
+  return translations[lang]?.template || translations.en.template
+}
+```
+
+See also: Creating New Apps/Packages → `docs/en/universo-platformo/shared-guides/creating-apps.md`.
+
 ### Step 2: Implement Builder Class
 
 Create the main builder class:

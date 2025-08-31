@@ -133,6 +133,15 @@ apps/
 -   **REST API communication** between applications with type-safe clients
 -   **Documentation updates** reflecting current architecture
 
+### 2025-08-31: Build Order Stabilization, i18n TS Unification, and Finance Integration ✅
+
+-   Enforced correct build sequence by declaring workspace dependencies in `packages/ui` for `@universo/template-quiz`, `@universo/template-mmoomm`, and `publish-frt`, leveraging Turborepo `dependsOn: ["^build"]`.
+-   Removed a circular dependency by deleting `flowise-ui` from `apps/finance-frt/base/package.json`.
+-   Migrated i18n entry points to TypeScript for consistent ESM/CJS output and type-safety (`template-quiz`, `template-mmoomm`, `publish-frt`).
+-   Verified template package `exports` map and ensured `dist/esm`, `dist/cjs`, `dist/types` are produced; `publish-frt` consumes template type declarations from `dist`.
+-   Integrated Finance apps: server routes, entities, and migrations wired; UI routes added; i18n `finance` namespace loaded.
+-   Outcome: `pnpm build:clean` + full `pnpm build` complete successfully; Vite resolves template entries without errors.
+
 ## Current Status ✅ **ALPHA ACHIEVED**
 
 **Platform Status:** **Alpha v0.21.0** - Production-ready stability achieved (July 2025)
