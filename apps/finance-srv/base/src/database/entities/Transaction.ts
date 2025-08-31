@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
+import { Unik } from '@universo/uniks-srv'
 
 @Entity({ name: 'transactions' })
 export class Transaction {
@@ -10,6 +11,10 @@ export class Transaction {
 
     @Column('uuid')
     unik_id!: string
+
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'unik_id' })
+    unik!: Unik
 
     @Column('decimal', { precision: 10, scale: 2 })
     amount!: number

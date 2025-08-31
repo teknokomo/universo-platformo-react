@@ -1,7 +1,11 @@
-import api from '../../../../../packages/ui/src/api'
+import api from 'flowise-ui/src/api'
 
-export const getCurrencies = () => api.get('/finance/currencies')
-export const getCurrency = (id: string) => api.get(`/finance/currencies/${id}`)
-export const createCurrency = (data: any) => api.post('/finance/currencies', data)
-export const updateCurrency = (id: string, data: any) => api.put(`/finance/currencies/${id}`, data)
-export const deleteCurrency = (id: string) => api.delete(`/finance/currencies/${id}`)
+export const getCurrencies = (unikId: string) => api.get(`/uniks/${unikId}/finance/currencies`)
+export const getCurrency = (unikId: string, id: string) =>
+    api.get(`/uniks/${unikId}/finance/currencies/${id}`)
+export const createCurrency = (unikId: string, data: any) =>
+    api.post(`/uniks/${unikId}/finance/currencies`, data)
+export const updateCurrency = (unikId: string, id: string, data: any) =>
+    api.put(`/uniks/${unikId}/finance/currencies/${id}`, data)
+export const deleteCurrency = (unikId: string, id: string) =>
+    api.delete(`/uniks/${unikId}/finance/currencies/${id}`)

@@ -29,6 +29,20 @@ const UnikDetail = () => {
             <Typography variant='body2' sx={{ mb: 2 }}>
                 {t('unikDetail.navigation')}
             </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <Button
+                    variant='outlined'
+                    onClick={() => navigate(`/uniks/${unikId}/finance/accounts`)}
+                >
+                    {t('unikDetail.manageAccounts')}
+                </Button>
+                <Button
+                    variant='outlined'
+                    onClick={() => navigate(`/uniks/${unikId}/finance/currencies`)}
+                >
+                    {t('unikDetail.manageCurrencies')}
+                </Button>
+            </Box>
             <Button variant='outlined' onClick={() => navigate('/uniks')}>
                 {t('unikDetail.back')}
             </Button>

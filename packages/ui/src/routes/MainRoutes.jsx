@@ -60,6 +60,9 @@ const Profile = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Pro
 
 const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
 
+const AccountList = Loadable(lazy(() => import('@apps/finance-frt/base/src/pages/AccountList.jsx')))
+const CurrencyList = Loadable(lazy(() => import('@apps/finance-frt/base/src/pages/CurrencyList.jsx')))
+
 const UniksContainer = () => <Outlet />
 
 const MainRoutes = {
@@ -176,6 +179,14 @@ const MainRoutes = {
                         {
                             path: 'templates',
                             element: <Marketplaces />
+                        },
+                        {
+                            path: 'finance/accounts',
+                            element: <AccountList />
+                        },
+                        {
+                            path: 'finance/currencies',
+                            element: <CurrencyList />
                         }
                     ]
                 }

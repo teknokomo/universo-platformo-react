@@ -3,23 +3,30 @@ import { randomUUID } from 'crypto'
 
 interface Account {
     id: string
+    unikId: string
     name: string
     balance: number
     currency: string
 }
 
 export function createAccountRoutes(): Router {
-    const router = Router()
+    const router = Router({ mergeParams: true })
     const accounts: Account[] = []
 
     router.get('/', (req: Request, res: Response) => {
-        res.json(accounts)
+        const { unikId } = req.params
+        res.json(accounts.filter((a) => a.unikId === unikId))
     })
 
     router.post('/', (req: Request, res: Response) => {
+        const { unikId } = req.params
+        if (!unikId) {
+            return res.status(400).json({ error: 'unikId required' })
+        }
         const { name, balance, currency } = req.body
         const newAccount: Account = {
             id: randomUUID(),
+            unikId,
             name,
             balance,
             currency
@@ -29,7 +36,8 @@ export function createAccountRoutes(): Router {
     })
 
     router.put('/:id', (req: Request, res: Response) => {
-        const account = accounts.find((a) => a.id === req.params.id)
+        const { unikId, id } = req.params as { unikId?: string; id: string }
+        const account = accounts.find((a) => a.id === id && a.unikId === unikId)
         if (!account) {
             return res.status(404).json({ error: 'Account not found' })
         }
@@ -43,7 +51,8 @@ export function createAccountRoutes(): Router {
     })
 
     router.delete('/:id', (req: Request, res: Response) => {
-        const index = accounts.findIndex((a) => a.id === req.params.id)
+        const { unikId, id } = req.params as { unikId?: string; id: string }
+        const index = accounts.findIndex((a) => a.id === id && a.unikId === unikId)
         if (index === -1) {
             return res.status(404).json({ error: 'Account not found' })
         }
