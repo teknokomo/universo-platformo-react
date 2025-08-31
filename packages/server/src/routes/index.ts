@@ -45,6 +45,7 @@ import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import upAuthRouter from './up-auth'
 import { createUniksRouter } from '@universo/uniks-srv'
+import { createFinanceRouter } from '@universo/finance-srv'
 import { supabase } from '../utils/supabase'
 // Universo Platformo | Bots
 import botsRouter from './bots'
@@ -131,12 +132,13 @@ router.use(
 		toolsRouter,
 		variablesRouter,
 		exportImportRouter,
-		credentialsRouter,
-		assistantsRouter,
-		apikeyRouter,
-		documentStoreRouter,
-		marketplacesRouter
-	)
+                credentialsRouter,
+                assistantsRouter,
+                apikeyRouter,
+                documentStoreRouter,
+                marketplacesRouter,
+                createFinanceRouter()
+        )
 )
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)

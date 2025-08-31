@@ -3,23 +3,30 @@ import { randomUUID } from 'crypto'
 
 interface Currency {
     id: string
+    unikId: string
     code: string
     name: string
     rate: number
 }
 
 export function createCurrencyRoutes(): Router {
-    const router = Router()
+    const router = Router({ mergeParams: true })
     const currencies: Currency[] = []
 
     router.get('/', (req: Request, res: Response) => {
-        res.json(currencies)
+        const { unikId } = req.params
+        res.json(currencies.filter((c) => c.unikId === unikId))
     })
 
     router.post('/', (req: Request, res: Response) => {
+        const { unikId } = req.params
+        if (!unikId) {
+            return res.status(400).json({ error: 'unikId required' })
+        }
         const { code, name, rate } = req.body
         const newCurrency: Currency = {
             id: randomUUID(),
+            unikId,
             code,
             name,
             rate
@@ -29,7 +36,8 @@ export function createCurrencyRoutes(): Router {
     })
 
     router.put('/:id', (req: Request, res: Response) => {
-        const currency = currencies.find((c) => c.id === req.params.id)
+        const { unikId, id } = req.params as { unikId?: string; id: string }
+        const currency = currencies.find((c) => c.id === id && c.unikId === unikId)
         if (!currency) {
             return res.status(404).json({ error: 'Currency not found' })
         }
@@ -43,7 +51,8 @@ export function createCurrencyRoutes(): Router {
     })
 
     router.delete('/:id', (req: Request, res: Response) => {
-        const index = currencies.findIndex((c) => c.id === req.params.id)
+        const { unikId, id } = req.params as { unikId?: string; id: string }
+        const index = currencies.findIndex((c) => c.id === id && c.unikId === unikId)
         if (index === -1) {
             return res.status(404).json({ error: 'Currency not found' })
         }

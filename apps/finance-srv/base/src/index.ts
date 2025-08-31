@@ -7,15 +7,12 @@ export { financeMigrations } from './database/migrations/postgres'
 export const financeEntities = [Transaction]
 
 export function createFinanceRouter(): Router {
-    const router = Router()
+    const router = Router({ mergeParams: true })
 
     router.use('/currencies', createCurrencyRoutes())
     router.use('/accounts', createAccountRoutes())
 
-    const mainRouter = Router()
-    mainRouter.use('/finance', router)
-
-    return mainRouter
+    return router
 }
 
 export default createFinanceRouter

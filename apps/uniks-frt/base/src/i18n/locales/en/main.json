@@ -13,6 +13,8 @@
       "dashboard": "Uniks Dashboard",
       "welcome": "Welcome to your unik:",
       "navigation": "Use the left menu to navigate to Chatflows, Agents, etc.",
+      "manageAccounts": "Manage Accounts",
+      "manageCurrencies": "Manage Currencies",
       "back": "Back to Uniks"
     },
     "unikList": {

@@ -15,7 +15,8 @@ export function createUniksRouter(
     assistantsRouter: Router,
     apikeyRouter: Router,
     documentStoreRouter: Router,
-    marketplacesRouter: Router
+    marketplacesRouter: Router,
+    financeRouter: Router
 ) {
     const router = Router()
 
@@ -230,6 +231,9 @@ export function createUniksRouter(
 
     // Mount nested routes for Templates (Marketplaces) with ensureAuth middleware
     router.use('/:unikId/templates', marketplacesRouter)
+
+    // Mount nested routes for Finance with ensureAuth middleware
+    router.use('/:unikId/finance', financeRouter)
 
     return router
 }
