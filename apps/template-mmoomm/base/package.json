@@ -1,0 +1,55 @@
+{
+    "name": "@universo/template-mmoomm",
+    "version": "1.0.0",
+    "description": "MMOOMM template system for PlayCanvas and other 3D technologies",
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js",
+            "types": "./dist/types/index.d.ts"
+        },
+        "./playcanvas": {
+            "import": "./dist/esm/playcanvas/index.js",
+            "require": "./dist/cjs/playcanvas/index.js",
+            "types": "./dist/types/playcanvas/index.d.ts"
+        }
+    },
+    "files": [
+        "dist/**/*",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "pnpm run build:cjs && pnpm run build:esm && pnpm run build:types",
+        "build:cjs": "tsc -p tsconfig.json",
+        "build:esm": "tsc -p tsconfig.esm.json",
+        "build:types": "tsc -p tsconfig.types.json",
+        "clean": "rimraf dist",
+        "dev": "tsc -p tsconfig.json --watch",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    },
+    "keywords": [
+        "mmoomm",
+        "playcanvas",
+        "3d",
+        "template",
+        "multiplayer",
+        "colyseus",
+        "updl"
+    ],
+    "author": "Universo Platformo",
+    "license": "MIT",
+    "dependencies": {
+        "@universo-platformo/types": "workspace:*",
+        "@universo-platformo/utils": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.4.5",
+        "rimraf": "^5.0.0"
+    }
+}

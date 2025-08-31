@@ -1,0 +1,47 @@
+{
+    "name": "publish-frt",
+    "version": "0.1.0",
+    "description": "Frontend for publication system in Universo Platformo",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc && gulp",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts,.tsx src/"
+    },
+    "keywords": [
+        "universo",
+        "platformo",
+        "publish",
+        "frontend",
+        "3d",
+        "ar",
+        "vr"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/publish-srv": "workspace:*",
+        "@universo/template-mmoomm": "workspace:*",
+        "@universo/template-quiz": "workspace:*",
+        "@universo-platformo/utils": "workspace:*",
+        "@universo-platformo/types": "workspace:*",
+        "axios": "1.7.9",
+        "file-saver": "^2.0.5",
+        "jszip": "^3.10.1",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/file-saver": "^2.0.7",
+        "@types/gulp": "4.0.9",
+        "@types/node": "^20.11.17",
+        "@types/react": "^18.2.55",
+        "@types/react-dom": "^18.2.19",
+        "eslint": "^8.56.0",
+        "gulp": "^4.0.2",
+        "rimraf": "^5.0.5"
+    }
+}
