@@ -79,6 +79,7 @@
         "@universo/multiplayer-colyseus-srv": "workspace:*",
         "@universo/profile-srv": "workspace:*",
         "@universo/publish-srv": "workspace:*",
+        "@universo/resources-srv": "workspace:*",
         "@universo/space-builder-srv": "workspace:*",
         "@universo/entities-srv": "workspace:*",
         "@universo/uniks-srv": "workspace:*",
