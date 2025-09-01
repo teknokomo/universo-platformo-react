@@ -1,8 +1,38 @@
 {
   "resources": {
     "title": "Resources",
-    "list": "Resource List",
-    "detail": "Resource Detail",
-    "create": "Create Resource"
+    "create": "Create Resource",
+    "list": {
+      "loading": "Loading...",
+      "error": "Failed to load resources",
+      "id": "ID",
+      "name": "Name"
+    },
+    "detail": {
+      "info": "Info",
+      "revisions": "Revisions",
+      "children": "Children",
+      "loading": "Loading...",
+      "error": "Failed to load resource"
+    },
+    "revisions": {
+      "loading": "Loading revisions...",
+      "error": "Failed to load revisions"
+    },
+    "children": {
+      "loading": "Loading tree...",
+      "error": "Failed to load tree"
+    },
+    "dialog": {
+      "title": "Resource",
+      "name": "Name",
+      "description": "Description",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "config": {
+      "resourceId": "Resource ID",
+      "addRoot": "Add Root"
+    }
   }
 }

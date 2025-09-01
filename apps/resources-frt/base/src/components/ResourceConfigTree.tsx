@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Button, TextField } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 
 export interface ResourceNode {
     id: string
@@ -7,6 +8,7 @@ export interface ResourceNode {
 }
 
 const ResourceConfigTree: React.FC = () => {
+    const { t } = useTranslation('resources')
     const [nodes, setNodes] = useState<ResourceNode[]>([])
 
     const addNode = (parent?: ResourceNode) => {
@@ -30,7 +32,7 @@ const ResourceConfigTree: React.FC = () => {
                 <Box display='flex' gap={1}>
                     <TextField
                         size='small'
-                        placeholder='Resource ID'
+                        placeholder={t('config.resourceId')}
                         value={node.id}
                         onChange={(e) => {
                             node.id = e.target.value
@@ -48,7 +50,7 @@ const ResourceConfigTree: React.FC = () => {
         <Box>
             {renderNodes(nodes)}
             <Button onClick={() => addNode()} sx={{ mt: 1 }}>
-                Add Root
+                {t('config.addRoot')}
             </Button>
         </Box>
     )
