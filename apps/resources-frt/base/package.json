@@ -7,7 +7,7 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "clean": "rimraf dist",
-        "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
+        "build": "pnpm run clean && tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
         "dev": "tsc -w",
         "lint": "eslint --ext .ts,.tsx,.jsx src/"
     },
@@ -19,7 +19,11 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@mui/lab": "5.0.0-alpha.156",
+        "@mui/material": "5.15.0",
+        "@tabler/icons-react": "^3.30.0",
         "react": "^18.2.0",
+        "react-i18next": "^15.4.1",
         "typescript": "^5.4.5",
         "uuid": "^9.0.0"
     },
