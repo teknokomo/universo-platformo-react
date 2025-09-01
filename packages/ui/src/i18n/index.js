@@ -10,7 +10,6 @@ import ruTranslation from './locales/ru.json'
 import enAuthTranslation from './locales/en/views/auth.json'
 import ruAuthTranslation from './locales/ru/views/auth.json'
 
-
 // Universo Platformo | Import admin namespaces
 import enAdminTranslation from './locales/en/views/admin.json'
 import ruAdminTranslation from './locales/ru/views/admin.json'
@@ -78,7 +77,7 @@ import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
 import { resourcesTranslations } from '@universo/resources-frt'
 import { entitiesTranslations } from '@universo/entities-frt'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
-import { templateQuizTranslations } from '@apps/template-quiz/base/src/i18n'
+import { templateQuizTranslations } from '@universo/template-quiz'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
