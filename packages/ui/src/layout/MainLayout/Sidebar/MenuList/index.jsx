@@ -4,11 +4,13 @@ import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
 import unikDashboard from '@apps/uniks-frt/base/src/menu-items/unikDashboard'
 import resourcesDashboard from '@apps/resources-frt/base/src/menu-items/resourcesDashboard'
+import entitiesDashboard from '@apps/entities-frt/base/src/menu-items/entitiesDashboard'
 
 const MenuList = () => {
     const location = useLocation()
     const unikMatch = location.pathname.match(/^\/uniks\/([^/]+)/)
     const resourceMatch = location.pathname.match(/^\/resources\/([^/]+)/)
+    const entityMatch = location.pathname.match(/^\/entities\/([^/]+)/)
 
     let menuItems
     if (unikMatch) {
@@ -29,6 +31,15 @@ const MenuList = () => {
             children: resourcesDashboard.children.map((item) => ({
                 ...item,
                 url: `/resources/${resourceId}${item.url}`
+            }))
+        }
+    } else if (entityMatch) {
+        const entityId = entityMatch[1]
+        menuItems = {
+            ...entitiesDashboard,
+            children: entitiesDashboard.children.map((item) => ({
+                ...item,
+                url: `/entities/${entityId}${item.url}`
             }))
         }
     } else {

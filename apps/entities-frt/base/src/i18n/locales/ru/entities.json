@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "title": "Сущности",
+    "list": {
+      "search": "Поиск сущностей",
+      "template": "Шаблон",
+      "status": "Статус"
+    },
+    "detail": {
+      "info": "Инфо",
+      "owners": "Владельцы",
+      "resources": "Ресурсы"
+    },
+    "dialog": {
+      "title": "Сущность",
+      "template": "Шаблон",
+      "rootResource": "Корневой ресурс",
+      "owners": "Владельцы"
+    },
+    "templates": {
+      "title": "Шаблоны",
+      "dialog": "Шаблон"
+    }
+  }
+}
