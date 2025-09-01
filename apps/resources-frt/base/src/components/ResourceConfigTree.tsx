@@ -10,8 +10,8 @@ export interface ResourceNode {
 }
 
 interface ResourceConfigTreeProps {
-    nodes: ResourceNode[]
-    onChange: (nodes: ResourceNode[]) => void
+    nodes?: ResourceNode[]
+    onChange?: (nodes: ResourceNode[]) => void
 }
 
 const createNode = (): ResourceNode => ({ key: uuidv4(), resourceId: '', children: [] })
@@ -31,7 +31,7 @@ const removeNode = (list: ResourceNode[], key: string): ResourceNode[] =>
 const updateNodeId = (list: ResourceNode[], key: string, value: string): ResourceNode[] =>
     list.map((n) => (n.key === key ? { ...n, resourceId: value } : { ...n, children: updateNodeId(n.children, key, value) }))
 
-const ResourceConfigTree: React.FC<ResourceConfigTreeProps> = ({ nodes, onChange }) => {
+const ResourceConfigTree: React.FC<ResourceConfigTreeProps> = ({ nodes = [], onChange = () => {} }) => {
     const { t } = useTranslation('resources')
 
     const renderNodes = (list: ResourceNode[]) =>
