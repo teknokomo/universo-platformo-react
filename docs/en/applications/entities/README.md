@@ -24,3 +24,19 @@ Core entities:
 ```bash
 pnpm --filter @universo/entities-srv build
 ```
+
+## Frontend
+
+`@universo/entities-frt` provides React components for listing and editing entities and templates.
+
+### Components
+- **EntityList** – list with search and filters by template and status
+- **EntityDetail** – tabbed view for info, owners and resources
+- **EntityDialog** – create/edit form
+- **TemplateList** – template management table
+- **TemplateDialog** – template form with `ResourceConfigTree`
+
+### Build
+```bash
+pnpm --filter @universo/entities-frt build
+```

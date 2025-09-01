@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "title": "Entities",
+    "list": {
+      "search": "Search entities",
+      "template": "Template",
+      "status": "Status"
+    },
+    "detail": {
+      "info": "Info",
+      "owners": "Owners",
+      "resources": "Resources"
+    },
+    "dialog": {
+      "title": "Entity",
+      "template": "Template",
+      "rootResource": "Root Resource",
+      "owners": "Owners"
+    },
+    "templates": {
+      "title": "Templates",
+      "dialog": "Template"
+    }
+  }
+}

@@ -1,8 +1,8 @@
 // Import required icons from @tabler/icons-react
-import { IconFiles, IconWorld, IconUser, IconFileText, IconFolder } from '@tabler/icons-react'
+import { IconFiles, IconWorld, IconUser, IconFileText, IconFolder, IconDatabase } from '@tabler/icons-react'
 
 // Collect them in an icons object
-const icons = { IconFiles, IconWorld, IconUser, IconFileText, IconFolder }
+const icons = { IconFiles, IconWorld, IconUser, IconFileText, IconFolder, IconDatabase }
 
 // ==============================|| MAIN DASHBOARD MENU ITEMS ||============================== //
 
@@ -33,6 +33,14 @@ const dashboard = {
             type: 'item',
             url: '/resources',
             icon: icons.IconFolder,
+            breadcrumbs: false
+        },
+        {
+            id: 'entities',
+            title: 'menu.entities',
+            type: 'item',
+            url: '/entities',
+            icon: icons.IconDatabase,
             breadcrumbs: false
         },
         {

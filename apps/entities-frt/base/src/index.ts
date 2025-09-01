@@ -1,0 +1,7 @@
+export { default as EntityList } from './pages/EntityList'
+export { default as EntityDetail } from './pages/EntityDetail'
+export { default as EntityDialog } from './pages/EntityDialog'
+export { default as TemplateList } from './pages/TemplateList'
+export { default as TemplateDialog } from './pages/TemplateDialog'
+export { default as entitiesDashboard } from './menu-items/entitiesDashboard'
+export { entitiesTranslations } from './i18n'
