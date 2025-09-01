@@ -5,21 +5,7 @@ import TreeItem from '@mui/lab/TreeItem'
 import { useTranslation } from 'react-i18next'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { listCategories, listResources } from '../api/resources'
-
-interface Category {
-    id: string
-    titleEn: string
-    titleRu: string
-    parentCategory?: { id: string }
-    children?: Category[]
-}
-
-interface Resource {
-    id: string
-    titleEn: string
-    titleRu: string
-    category?: { id: string }
-}
+import { Category, Resource, UseApi } from '../types'
 
 const buildTree = (cats: Category[]): Category[] => {
     const map: Record<string, Category> = {}
@@ -40,20 +26,23 @@ const ResourceList: React.FC = () => {
     const [selected, setSelected] = useState<string | null>(null)
     const [categories, setCategories] = useState<Category[]>([])
     const [resources, setResources] = useState<Resource[]>([])
-    const categoriesApi = useApi(listCategories)
-    const resourcesApi = useApi(listResources)
+    const useTypedApi = useApi as UseApi
+    const categoriesApi = useTypedApi<Category[]>(listCategories)
+    const resourcesApi = useTypedApi<Resource[]>(listResources)
 
     useEffect(() => {
         categoriesApi.request()
         resourcesApi.request()
-    }, [categoriesApi, resourcesApi])
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     useEffect(() => {
-        if (categoriesApi.data) setCategories(buildTree(categoriesApi.data as any))
+        if (categoriesApi.data) setCategories(buildTree(categoriesApi.data))
     }, [categoriesApi.data])
 
     useEffect(() => {
-        if (resourcesApi.data) setResources(resourcesApi.data as any)
+        if (resourcesApi.data) setResources(resourcesApi.data)
     }, [resourcesApi.data])
 
     const getName = (obj: { titleEn: string; titleRu: string }) => (i18n.language === 'ru' ? obj.titleRu : obj.titleEn)

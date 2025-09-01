@@ -6,14 +6,16 @@ import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { getResource, listRevisions, getResourceTree } from '../api/resources'
+import { Resource, Revision, TreeNode, UseApi } from '../types'
 
 const ResourceDetail: React.FC = () => {
     const { t, i18n } = useTranslation('resources')
     const { id } = useParams<{ id: string }>()
     const [tab, setTab] = useState(0)
-    const resourceApi = useApi(getResource)
-    const revisionsApi = useApi(listRevisions)
-    const treeApi = useApi(getResourceTree)
+    const useTypedApi = useApi as UseApi
+    const resourceApi = useTypedApi<Resource>(getResource)
+    const revisionsApi = useTypedApi<Revision[]>(listRevisions)
+    const treeApi = useTypedApi<TreeNode>(getResourceTree)
 
     useEffect(() => {
         if (id) {
@@ -21,18 +23,17 @@ const ResourceDetail: React.FC = () => {
             revisionsApi.request(id)
             treeApi.request(id)
         }
-    }, [id, resourceApi, revisionsApi, treeApi])
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     const getName = (obj: { titleEn: string; titleRu: string }) => (i18n.language === 'ru' ? obj.titleRu : obj.titleEn)
 
-    const renderTree = (node: any): React.ReactNode => {
-        if (!node) return null
-        return (
-            <TreeItem key={node.resource.id} nodeId={node.resource.id} label={getName(node.resource)}>
-                {node.children?.map((c: any) => renderTree(c.child))}
-            </TreeItem>
-        )
-    }
+    const renderTree = (node: TreeNode): React.ReactNode => (
+        <TreeItem key={node.resource.id} nodeId={node.resource.id} label={getName(node.resource)}>
+            {node.children?.map((c) => renderTree(c.child))}
+        </TreeItem>
+    )
 
     return (
         <Box>
@@ -45,7 +46,7 @@ const ResourceDetail: React.FC = () => {
                 <>
                     {resourceApi.loading && <Typography>{t('detail.loading')}</Typography>}
                     {resourceApi.error && <Typography color='error'>{t('detail.error')}</Typography>}
-                    {resourceApi.data && <Typography variant='body1'>{getName(resourceApi.data as any)}</Typography>}
+                    {resourceApi.data && <Typography variant='body1'>{getName(resourceApi.data)}</Typography>}
                 </>
             )}
             {tab === 1 && (
@@ -54,7 +55,7 @@ const ResourceDetail: React.FC = () => {
                     {revisionsApi.error && <Typography color='error'>{t('revisions.error')}</Typography>}
                     {revisionsApi.data && (
                         <Box>
-                            {(revisionsApi.data as any[]).map((rev) => (
+                            {revisionsApi.data.map((rev) => (
                                 <Typography key={rev.id}>{rev.version}</Typography>
                             ))}
                         </Box>
