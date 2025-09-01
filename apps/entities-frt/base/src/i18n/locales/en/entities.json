@@ -4,22 +4,46 @@
     "list": {
       "search": "Search entities",
       "template": "Template",
-      "status": "Status"
+      "status": "Status",
+      "id": "ID",
+      "name": "Name",
+      "all": "All",
+      "loading": "Loading...",
+      "error": "Failed to load entities"
     },
     "detail": {
       "info": "Info",
       "owners": "Owners",
-      "resources": "Resources"
+      "resources": "Resources",
+      "loading": "Loading entity...",
+      "error": "Failed to load entity"
     },
     "dialog": {
       "title": "Entity",
+      "name": "Name",
       "template": "Template",
       "rootResource": "Root Resource",
-      "owners": "Owners"
+      "owners": "Owners",
+      "cancel": "Cancel",
+      "save": "Save",
+      "error": "Failed to save entity"
     },
     "templates": {
       "title": "Templates",
-      "dialog": "Template"
+      "list": {
+        "id": "ID",
+        "name": "Name",
+        "loading": "Loading templates...",
+        "error": "Failed to load templates"
+      },
+      "dialog": {
+        "title": "Template",
+        "name": "Name",
+        "description": "Description",
+        "cancel": "Cancel",
+        "save": "Save",
+        "error": "Failed to save template"
+      }
     }
   }
 }
