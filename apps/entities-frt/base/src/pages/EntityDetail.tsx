@@ -3,7 +3,7 @@ import { Box, Tab, Tabs, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import useApi from 'flowise-ui/src/hooks/useApi'
-import ResourceConfigTree from '@apps/resources-frt/base/src/components/ResourceConfigTree'
+import { ResourceConfigTree } from '@universo/resources-frt'
 import { getEntity } from '../api/entities'
 
 const EntityDetail: React.FC = () => {
