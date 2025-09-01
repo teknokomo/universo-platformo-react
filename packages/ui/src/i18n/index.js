@@ -75,7 +75,8 @@ import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
 import { financeTranslations } from '@apps/finance-frt/base/src/i18n'
 import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
 import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
-import { entitiesTranslations } from '@apps/entities-frt/base/src/i18n'
+import { resourcesTranslations } from '@universo/resources-frt'
+import { entitiesTranslations } from '@universo/entities-frt'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
 import { templateQuizTranslations } from '@apps/template-quiz/base/src/i18n'
 
@@ -109,6 +110,7 @@ i18n.use(LanguageDetector)
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
                     metaverse: metaverseTranslations.en.metaverse,
+                    resources: resourcesTranslations.en.resources,
                     entities: entitiesTranslations.en.entities
                 },
                 ru: {
@@ -135,6 +137,7 @@ i18n.use(LanguageDetector)
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
                     metaverse: metaverseTranslations.ru.metaverse,
+                    resources: resourcesTranslations.ru.resources,
                     entities: entitiesTranslations.ru.entities
                 }
             },
@@ -172,6 +175,7 @@ i18n.use(LanguageDetector)
                 'metaverse',
                 'templateMmoomm',
                 'templateQuiz',
+                'resources',
                 'entities'
             ],
             defaultNS: 'translation',

@@ -14,6 +14,10 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
 const MetaverseList = Loadable(lazy(() => import('@apps/metaverse-frt/base/src/pages/MetaverseList.jsx')))
+const ResourceList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ResourceList }))))
+const ResourceDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ResourceDetail }))))
+const EntityList = Loadable(lazy(() => import('@universo/entities-frt').then((m) => ({ default: m.EntityList }))))
+const EntityDetail = Loadable(lazy(() => import('@universo/entities-frt').then((m) => ({ default: m.EntityDetail }))))
 
 // Workspace dashboard component
 const UnikDetail = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikDetail.jsx')))
@@ -197,6 +201,38 @@ const MainRoutes = {
             element: (
                 <AuthGuard>
                     <MetaverseList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: '/resources',
+            element: (
+                <AuthGuard>
+                    <ResourceList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: '/resources/:resourceId',
+            element: (
+                <AuthGuard>
+                    <ResourceDetail />
+                </AuthGuard>
+            )
+        },
+        {
+            path: '/entities',
+            element: (
+                <AuthGuard>
+                    <EntityList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: '/entities/:entityId',
+            element: (
+                <AuthGuard>
+                    <EntityDetail />
                 </AuthGuard>
             )
         },
