@@ -3,7 +3,7 @@
   "compilerOptions": {
     "module": "ESNext",
     "outDir": "./dist/esm",
-    "declaration": false,
+    "declaration": true,
     "moduleResolution": "Bundler",
     "jsx": "react-jsx"
   },
