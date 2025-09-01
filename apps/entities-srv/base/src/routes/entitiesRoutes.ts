@@ -5,7 +5,7 @@ import { EntityTemplate } from '../database/entities/EntityTemplate'
 import { Entity } from '../database/entities/Entity'
 import { EntityOwner } from '../database/entities/EntityOwner'
 import { EntityResource } from '../database/entities/EntityResource'
-import { Resource } from '@universo/resources-srv'
+import { Resource, ResourceCategory } from '@universo/resources-srv'
 
 export function getRepositories(dataSource: DataSource) {
     return {
@@ -14,7 +14,8 @@ export function getRepositories(dataSource: DataSource) {
         entityRepo: dataSource.getRepository(Entity),
         ownerRepo: dataSource.getRepository(EntityOwner),
         resourceRepo: dataSource.getRepository(EntityResource),
-        resourceBaseRepo: dataSource.getRepository(Resource)
+        resourceBaseRepo: dataSource.getRepository(Resource),
+        resourceCategoryRepo: dataSource.getRepository(ResourceCategory)
     }
 }
 
@@ -53,12 +54,14 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(dataSource)
+            const { templateRepo, resourceCategoryRepo } = getRepositories(dataSource)
             const { code, titleEn, titleRu, descriptionEn, descriptionRu, rootResourceCategoryId, parentTemplateId, resourceSchema } =
                 req.body
             const template = templateRepo.create({ code, titleEn, titleRu, descriptionEn, descriptionRu, resourceSchema })
             if (rootResourceCategoryId) {
-                template.rootResourceCategory = { id: rootResourceCategoryId } as any
+                const category = await resourceCategoryRepo.findOne({ where: { id: rootResourceCategoryId } })
+                if (!category) return res.status(400).json({ error: 'Invalid root resource category' })
+                template.rootResourceCategory = category
             }
             if (parentTemplateId) {
                 template.parentTemplate = (await templateRepo.findOne({ where: { id: parentTemplateId } })) || null
@@ -90,14 +93,16 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(dataSource)
+            const { templateRepo, resourceCategoryRepo } = getRepositories(dataSource)
             const { code, titleEn, titleRu, descriptionEn, descriptionRu, rootResourceCategoryId, parentTemplateId, resourceSchema } =
                 req.body
             const template = await templateRepo.findOne({ where: { id: req.params.id } })
             if (!template) return res.status(404).json({ error: 'Not found' })
             Object.assign(template, { code, titleEn, titleRu, descriptionEn, descriptionRu, resourceSchema })
             if (rootResourceCategoryId) {
-                template.rootResourceCategory = { id: rootResourceCategoryId } as any
+                const category = await resourceCategoryRepo.findOne({ where: { id: rootResourceCategoryId } })
+                if (!category) return res.status(400).json({ error: 'Invalid root resource category' })
+                template.rootResourceCategory = category
             } else {
                 template.rootResourceCategory = null
             }
@@ -144,8 +149,10 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
             }
             const { entityRepo, templateRepo, statusRepo, resourceBaseRepo } = getRepositories(dataSource)
             const { templateId, statusId, slug, titleEn, titleRu, descriptionEn, descriptionRu, rootResourceId, parentEntityId } = req.body
-            const template = await templateRepo.findOne({ where: { id: templateId } })
-            const status = await statusRepo.findOne({ where: { id: statusId } })
+            const [template, status] = await Promise.all([
+                templateRepo.findOne({ where: { id: templateId } }),
+                statusRepo.findOne({ where: { id: statusId } })
+            ])
             if (!template || !status) return res.status(400).json({ error: 'Invalid references' })
             const entity = entityRepo.create({ template, status, slug, titleEn, titleRu, descriptionEn, descriptionRu })
             if (rootResourceId) entity.rootResource = (await resourceBaseRepo.findOne({ where: { id: rootResourceId } })) || null
@@ -226,13 +233,25 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
             const { entityRepo } = getRepositories(dataSource)
-            const chain: Entity[] = []
-            let current = await entityRepo.findOne({ where: { id: req.params.id }, relations: ['parentEntity'] })
-            while (current?.parentEntity) {
-                const parent = await entityRepo.findOne({ where: { id: current.parentEntity.id }, relations: ['parentEntity'] })
-                if (parent) chain.push(parent)
-                current = parent || null
+            const rows = await entityRepo.query(
+                `WITH RECURSIVE parent_chain AS (
+                    SELECT *, 0 AS depth FROM entity WHERE id = $1
+                    UNION ALL
+                    SELECT e.*, pc.depth + 1 AS depth
+                    FROM entity e
+                    INNER JOIN parent_chain pc ON e.id = pc.parent_entity_id
+                )
+                SELECT * FROM parent_chain WHERE depth > 0 ORDER BY depth`,
+                [req.params.id]
+            )
+            const chain = rows.map((row: any) => {
+                const { depth: _depth, ...data } = row
+                return entityRepo.create(data)
+            })
+            for (let i = 0; i < chain.length - 1; i++) {
+                chain[i].parentEntity = chain[i + 1]
             }
+            if (chain.length) chain[chain.length - 1].parentEntity = null
             res.json(chain)
         })
     )
