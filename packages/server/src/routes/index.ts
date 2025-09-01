@@ -48,6 +48,7 @@ import { createUniksRouter } from '@universo/uniks-srv'
 import { createFinanceRouter } from '@universo/finance-srv'
 import { supabase } from '../utils/supabase'
 import { createResourcesRouter } from '@universo/resources-srv'
+import { createEntitiesRouter } from '@universo/entities-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -142,6 +143,7 @@ router.use(
         )
 )
 router.use('/resources', createResourcesRouter(upAuth.ensureAuth, getDataSource()))
+router.use('/entities', createEntitiesRouter(upAuth.ensureAuth, getDataSource()))
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots

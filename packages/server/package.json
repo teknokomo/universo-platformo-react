@@ -80,6 +80,7 @@
         "@universo/profile-srv": "workspace:*",
         "@universo/publish-srv": "workspace:*",
         "@universo/space-builder-srv": "workspace:*",
+        "@universo/entities-srv": "workspace:*",
         "@universo/uniks-srv": "workspace:*",
         "async-mutex": "^0.4.0",
         "axios": "1.7.9",
