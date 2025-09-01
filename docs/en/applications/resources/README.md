@@ -24,3 +24,17 @@ Core entities:
 ```bash
 pnpm --filter @universo/resources-srv build
 ```
+
+## Frontend
+
+The Resources Frontend (`resources-frt`) provides user interfaces for browsing and composing resources.
+
+### Workflows
+
+- **ResourceList** – table of resources with category tree filter
+- **ResourceDetail** – tabs for info, revisions and child tree
+- **ResourceDialog** – create/edit form with `ResourceConfigTree`
+
+```bash
+pnpm --filter @universo/resources-frt build
+```

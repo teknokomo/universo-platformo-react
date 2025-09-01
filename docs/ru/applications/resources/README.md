@@ -24,3 +24,17 @@
 ```bash
 pnpm --filter @universo/resources-srv build
 ```
+
+## Фронтенд
+
+Приложение Resources Frontend (`resources-frt`) предоставляет интерфейсы для просмотра и композиции ресурсов.
+
+### Сценарии
+
+- **ResourceList** — таблица ресурсов с фильтром по дереву категорий
+- **ResourceDetail** — вкладки с информацией, ревизиями и дочерними ресурсами
+- **ResourceDialog** — форма создания/редактирования с `ResourceConfigTree`
+
+```bash
+pnpm --filter @universo/resources-frt build
+```

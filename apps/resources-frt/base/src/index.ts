@@ -1,0 +1,6 @@
+export { default as ResourceList } from './pages/ResourceList'
+export { default as ResourceDetail } from './pages/ResourceDetail'
+export { default as ResourceDialog } from './pages/ResourceDialog'
+export { default as ResourceConfigTree } from './components/ResourceConfigTree'
+export { default as resourcesDashboard } from './menu-items/resourcesDashboard'
+export { resourcesTranslations } from './i18n'

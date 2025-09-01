@@ -1,0 +1,27 @@
+{
+    "name": "@universo/resources-frt",
+    "version": "0.1.0",
+    "description": "Frontend module for Resources management",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc && gulp",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts,.tsx,.jsx src/"
+    },
+    "keywords": ["universo", "resources", "frontend"],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "react": "^18.2.0",
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "@types/react": "^18.2.55",
+        "eslint": "^8.56.0",
+        "gulp": "^4.0.2",
+        "rimraf": "^5.0.5"
+    }
+}
