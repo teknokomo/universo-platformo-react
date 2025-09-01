@@ -25,15 +25,17 @@ const ResourceDetail: React.FC = () => {
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [id])
 
     const getName = (obj: { titleEn: string; titleRu: string }) => (i18n.language === 'ru' ? obj.titleRu : obj.titleEn)
 
-    const renderTree = (node: TreeNode): React.ReactNode => (
-        <TreeItem key={node.resource.id} nodeId={node.resource.id} label={getName(node.resource)}>
-            {node.children?.map((c) => renderTree(c.child))}
-        </TreeItem>
-    )
+    const renderTree = (node: TreeNode): React.ReactNode => {
+        return (
+            <TreeItem key={node.resource.id} nodeId={node.resource.id} label={getName(node.resource)}>
+                {node.children ? node.children.map((c) => renderTree(c.child)) : null}
+            </TreeItem>
+        )
+    }
 
     return (
         <Box>
@@ -45,14 +47,14 @@ const ResourceDetail: React.FC = () => {
             {tab === 0 && (
                 <>
                     {resourceApi.loading && <Typography>{t('detail.loading')}</Typography>}
-                    {resourceApi.error && <Typography color='error'>{t('detail.error')}</Typography>}
+                    {Boolean(resourceApi.error) && <Typography color='error'>{t('detail.error')}</Typography>}
                     {resourceApi.data && <Typography variant='body1'>{getName(resourceApi.data)}</Typography>}
                 </>
             )}
             {tab === 1 && (
                 <>
                     {revisionsApi.loading && <Typography>{t('revisions.loading')}</Typography>}
-                    {revisionsApi.error && <Typography color='error'>{t('revisions.error')}</Typography>}
+                    {Boolean(revisionsApi.error) && <Typography color='error'>{t('revisions.error')}</Typography>}
                     {revisionsApi.data && (
                         <Box>
                             {revisionsApi.data.map((rev) => (
@@ -65,7 +67,7 @@ const ResourceDetail: React.FC = () => {
             {tab === 2 && (
                 <>
                     {treeApi.loading && <Typography>{t('children.loading')}</Typography>}
-                    {treeApi.error && <Typography color='error'>{t('children.error')}</Typography>}
+                    {Boolean(treeApi.error) && <Typography color='error'>{t('children.error')}</Typography>}
                     {treeApi.data && <TreeView>{renderTree(treeApi.data)}</TreeView>}
                 </>
             )}
