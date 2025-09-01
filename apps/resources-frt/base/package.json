@@ -3,14 +3,19 @@
     "version": "0.1.0",
     "description": "Frontend module for Resources management",
     "main": "dist/index.js",
+    "module": "dist/esm/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
         "clean": "rimraf dist",
-        "build": "pnpm run clean && tsc && gulp",
+        "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
         "dev": "tsc -w",
         "lint": "eslint --ext .ts,.tsx,.jsx src/"
     },
-    "keywords": ["universo", "resources", "frontend"],
+    "keywords": [
+        "universo",
+        "resources",
+        "frontend"
+    ],
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
