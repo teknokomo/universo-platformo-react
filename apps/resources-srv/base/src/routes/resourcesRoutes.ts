@@ -1,5 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, In } from 'typeorm'
 import { ResourceCategory } from '../database/entities/ResourceCategory'
 import { Resource } from '../database/entities/Resource'
 import { ResourceRevision } from '../database/entities/ResourceRevision'
@@ -101,9 +101,11 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
         }
         const { categoryRepo, stateRepo, storageRepo, resourceRepo } = getRepositories(dataSource)
         const { categoryId, stateId, storageTypeId, slug, titleEn, titleRu, descriptionEn, descriptionRu, metadata } = req.body
-        const category = await categoryRepo.findOne({ where: { id: categoryId } })
-        const state = await stateRepo.findOne({ where: { id: stateId } })
-        const storageType = await storageRepo.findOne({ where: { id: storageTypeId } })
+        const [category, state, storageType] = await Promise.all([
+            categoryRepo.findOne({ where: { id: categoryId } }),
+            stateRepo.findOne({ where: { id: stateId } }),
+            storageRepo.findOne({ where: { id: storageTypeId } })
+        ])
         if (!category || !state || !storageType) return res.status(400).json({ error: 'Invalid references' })
         const resource = resourceRepo.create({
             category,
@@ -232,20 +234,49 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
         if (!dataSource.isInitialized) {
             return res.status(500).json({ error: 'Data source is not initialized' })
         }
-        const { resourceRepo, compositionRepo } = getRepositories(dataSource)
-        const buildTree = async (resourceId: string): Promise<any> => {
-            const resource = await resourceRepo.findOne({ where: { id: resourceId }, relations: ['category', 'state', 'storageType'] })
-            if (!resource) return null
-            const comps = await compositionRepo.find({ where: { parentResource: { id: resourceId } }, relations: ['childResource'] })
-            const children = [] as any[]
-            for (const c of comps) {
-                const childTree = await buildTree(c.childResource.id)
-                children.push({ ...c, child: childTree })
-            }
-            return { resource, children }
+        const { resourceRepo } = getRepositories(dataSource)
+        const rootId = req.params.id
+        const rootResource = await resourceRepo.findOne({ where: { id: rootId }, relations: ['category', 'state', 'storageType'] })
+        if (!rootResource) return res.status(404).json({ error: 'Not found' })
+        const compositions = await dataSource.query(
+            `WITH RECURSIVE comp AS (
+                SELECT id, parent_resource_id, child_resource_id, quantity, sort_order, is_required, config
+                FROM resource_composition
+                WHERE parent_resource_id = $1
+                UNION ALL
+                SELECT rc.id, rc.parent_resource_id, rc.child_resource_id, rc.quantity, rc.sort_order, rc.is_required, rc.config
+                FROM resource_composition rc
+                JOIN comp c ON c.child_resource_id = rc.parent_resource_id
+            )
+            SELECT * FROM comp`,
+            [rootId]
+        )
+        const ids = new Set<string>([rootId])
+        for (const row of compositions) {
+            ids.add(row.parent_resource_id)
+            ids.add(row.child_resource_id)
         }
-        const tree = await buildTree(req.params.id)
-        res.json(tree)
+        const resources = await resourceRepo.find({
+            where: { id: In([...ids]) },
+            relations: ['category', 'state', 'storageType']
+        })
+        const nodeMap = new Map<string, any>()
+        resources.forEach((r) => nodeMap.set(r.id, { resource: r, children: [] }))
+        for (const row of compositions) {
+            const parentNode = nodeMap.get(row.parent_resource_id)
+            const childNode = nodeMap.get(row.child_resource_id)
+            if (parentNode && childNode) {
+                parentNode.children.push({
+                    id: row.id,
+                    quantity: row.quantity,
+                    sortOrder: row.sort_order,
+                    isRequired: row.is_required,
+                    config: row.config,
+                    child: childNode
+                })
+            }
+        }
+        res.json(nodeMap.get(rootId))
     })
 
     return router

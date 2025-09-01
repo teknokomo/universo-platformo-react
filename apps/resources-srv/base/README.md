@@ -60,11 +60,23 @@ interface Resource {
   updatedAt: Date
 }
 
+interface ResourceRevisionData {
+  categoryId: string
+  stateId: string
+  storageTypeId: string
+  slug: string
+  titleEn: string
+  titleRu: string
+  descriptionEn?: string
+  descriptionRu?: string
+  metadata: Record<string, any>
+}
+
 interface ResourceRevision {
   id: string
   resource: Resource
   version: number
-  data: any
+  data: ResourceRevisionData
   authorId?: string
   createdAt: Date
 }
