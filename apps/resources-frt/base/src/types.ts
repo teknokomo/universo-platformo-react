@@ -23,11 +23,9 @@ export interface TreeNode {
     children?: { child: TreeNode }[]
 }
 
-export type UseApi = <T>(
-    apiFunc: (...args: any[]) => Promise<{ data: T }>
-) => {
+export type UseApi = <T>(apiFunc: (...args: any[]) => Promise<{ data: T }>) => {
     data: T | null
-    error: any
+    error: unknown
     loading: boolean
     request: (...args: any[]) => Promise<void>
 }
