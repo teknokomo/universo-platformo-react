@@ -47,6 +47,7 @@ import upAuthRouter from './up-auth'
 import { createUniksRouter } from '@universo/uniks-srv'
 import { createFinanceRouter } from '@universo/finance-srv'
 import { supabase } from '../utils/supabase'
+import { createResourcesRouter } from '@universo/resources-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -121,10 +122,10 @@ router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
 // Apply ensureAuth middleware to /uniks route
 router.use(
-	'/uniks',
-	createUniksRouter(
-		upAuth.ensureAuth,
-		supabase,
+        '/uniks',
+        createUniksRouter(
+                upAuth.ensureAuth,
+                supabase,
 		chatflowsRouter,
 		chatflowsStreamingRouter,
 		chatflowsUploadsRouter,
@@ -140,6 +141,7 @@ router.use(
                 createFinanceRouter()
         )
 )
+router.use('/resources', createResourcesRouter(upAuth.ensureAuth, getDataSource()))
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots
