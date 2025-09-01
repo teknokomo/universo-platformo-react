@@ -15,10 +15,14 @@ import { financeEntities } from '@universo/finance-srv'
 import { Unik, UserUnik } from '@universo/uniks-srv'
 import { Profile } from '@universo/profile-srv'
 import { Metaverse, UserMetaverse, MetaverseLink } from '@universo/metaverse-srv'
+import { entitiesEntities } from '@universo/entities-srv'
 import { resourcesEntities } from '@universo/resources-srv'
 
 const financeEntitiesObject = Object.fromEntries(
   financeEntities.map((entity) => [entity.name, entity])
+)
+const entitiesServiceEntitiesObject = Object.fromEntries(
+  entitiesEntities.map((entity) => [entity.name, entity])
 )
 const resourcesEntitiesObject = Object.fromEntries(
   resourcesEntities.map((entity) => [entity.name, entity])
@@ -38,6 +42,8 @@ export const entities = {
   UpsertHistory,
   ApiKey,
   CustomTemplate,
+  // Entities service entities
+  ...entitiesServiceEntitiesObject,
   // Finance entities
   ...financeEntitiesObject,
   // Resources entities
