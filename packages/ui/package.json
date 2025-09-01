@@ -69,7 +69,8 @@
         "@universo/space-builder-frt": "workspace:*",
         "@universo/metaverse-frt": "workspace:*",
         "@universo/resources-frt": "workspace:*",
-        "@universo/entities-frt": "workspace:*"
+        "@universo/entities-frt": "workspace:*",
+        "@universo/template-quiz": "workspace:*"
     },
     "scripts": {
         "dev": "vite",
