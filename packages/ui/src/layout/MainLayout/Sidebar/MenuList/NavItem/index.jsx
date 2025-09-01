@@ -101,6 +101,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             'templates': 'menu.templates',
             'uniks': 'menu.uniks',
             'metaverses': 'menu.metaverses',
+            'resources': 'menu.resources',
             'docs': 'menu.docs',
             'profile': 'menu.profile'
         }
