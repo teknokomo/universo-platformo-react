@@ -32,6 +32,7 @@ import { uniksMigrations } from '@universo/uniks-srv'
 import { financeMigrations } from '@universo/finance-srv'
 import { profileMigrations } from '@universo/profile-srv'
 import { metaverseMigrations } from '@universo/metaverse-srv'
+import { resourcesMigrations } from '@universo/resources-srv'
 
 export const postgresMigrations = [
   Init1693891895163,
@@ -67,5 +68,6 @@ export const postgresMigrations = [
   ...uniksMigrations,
   ...financeMigrations,
   ...profileMigrations,
-  ...metaverseMigrations
+  ...metaverseMigrations,
+  ...resourcesMigrations
 ]
