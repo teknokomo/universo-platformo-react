@@ -68,6 +68,7 @@
         "@universo/uniks-frt": "workspace:*",
         "@universo/space-builder-frt": "workspace:*",
         "@universo/metaverse-frt": "workspace:*",
+        "@universo/resources-frt": "workspace:*",
         "@universo/entities-frt": "workspace:*"
     },
     "scripts": {
