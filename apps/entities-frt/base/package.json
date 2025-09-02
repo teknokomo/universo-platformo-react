@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "clean": "rimraf dist",
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
+    "build": "pnpm run clean && tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
     "dev": "tsc -w",
     "lint": "eslint --ext .ts,.tsx src/"
   },
@@ -19,10 +19,17 @@
   "author": "Vladimir Levadnij and Teknokomo",
   "license": "Omsk Open License",
   "dependencies": {
-    "react": "^18.2.0",
-    "typescript": "^5.4.5",
+    "@emotion/react": "^11.10.6",
+    "@emotion/styled": "^11.10.6",
+    "@mui/lab": "5.0.0-alpha.156",
+    "@mui/material": "5.15.0",
     "@universo/resources-frt": "workspace:*",
-    "flowise-ui": "workspace:*"
+    "flowise-ui": "workspace:*",
+    "i18next": "^24.2.2",
+    "react": "^18.2.0",
+    "react-i18next": "^15.4.1",
+    "react-router-dom": "~6.3.0",
+    "typescript": "^5.4.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
