@@ -226,13 +226,88 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
             const { entityRepo } = getRepositories(dataSource)
-            const chain: Entity[] = []
-            let current = await entityRepo.findOne({ where: { id: req.params.id }, relations: ['parentEntity'] })
-            while (current?.parentEntity) {
-                const parent = await entityRepo.findOne({ where: { id: current.parentEntity.id }, relations: ['parentEntity'] })
-                if (parent) chain.push(parent)
-                current = parent || null
+
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            if (!uuidRegex.test(req.params.id)) {
+                return res.status(400).json({ error: 'Invalid id format' })
             }
+
+            const DEPTH_LIMIT = 50
+            const tableName = entityRepo.metadata.tableName
+
+            interface ParentChainRow {
+                id: string
+                templateId: string
+                statusId: string
+                slug: string
+                titleEn: string
+                titleRu: string
+                descriptionEn: string | null
+                descriptionRu: string | null
+                rootResourceId: string | null
+                parentEntityId: string | null
+                createdAt: Date
+                updatedAt: Date
+                path: string[]
+                cycle: boolean
+                depth: number
+            }
+
+            const rows: ParentChainRow[] = await entityRepo.query(
+                `WITH RECURSIVE parent_chain AS (
+                    SELECT e.id, e.template_id AS "templateId", e.status_id AS "statusId", e.slug,
+                        e.title_en AS "titleEn", e.title_ru AS "titleRu", e.description_en AS "descriptionEn",
+                        e.description_ru AS "descriptionRu", e.root_resource_id AS "rootResourceId",
+                        e.parent_entity_id AS "parentEntityId", e.created_at AS "createdAt",
+                        e.updated_at AS "updatedAt", ARRAY[e.id] AS path, FALSE AS cycle, 1 AS depth
+                    FROM ${tableName} e
+                    WHERE e.id = $1
+                    UNION ALL
+                    SELECT e.id, e.template_id AS "templateId", e.status_id AS "statusId", e.slug,
+                        e.title_en AS "titleEn", e.title_ru AS "titleRu", e.description_en AS "descriptionEn",
+                        e.description_ru AS "descriptionRu", e.root_resource_id AS "rootResourceId",
+                        e.parent_entity_id AS "parentEntityId", e.created_at AS "createdAt",
+                        e.updated_at AS "updatedAt", pc.path || e.id, e.id = ANY(pc.path), pc.depth + 1
+                    FROM ${tableName} e
+                    JOIN parent_chain pc ON e.id = pc.parent_entity_id
+                    WHERE pc.cycle = FALSE AND pc.depth < $2
+                )
+                SELECT * FROM parent_chain ORDER BY depth`,
+                [req.params.id, DEPTH_LIMIT]
+            )
+
+            if (rows.some((r) => r.cycle)) {
+                return res.status(400).json({ error: 'Cycle detected' })
+            }
+            if (rows.some((r) => r.depth === DEPTH_LIMIT && r.parentEntityId !== null)) {
+                return res.status(400).json({ error: 'Depth limit exceeded' })
+            }
+
+            const chain = rows
+                .filter((r) => r.id !== req.params.id)
+                .map(
+                    ({
+                        path: _path,
+                        cycle: _cycle,
+                        depth: _depth,
+                        templateId,
+                        statusId,
+                        rootResourceId,
+                        parentEntityId,
+                        descriptionEn,
+                        descriptionRu,
+                        ...entity
+                    }) =>
+                        entityRepo.create({
+                            ...entity,
+                            descriptionEn: descriptionEn ?? undefined,
+                            descriptionRu: descriptionRu ?? undefined,
+                            template: { id: templateId } as any,
+                            status: { id: statusId } as any,
+                            rootResource: rootResourceId ? ({ id: rootResourceId } as any) : null,
+                            parentEntity: parentEntityId ? ({ id: parentEntityId } as any) : null
+                        } as any)
+                )
             res.json(chain)
         })
     )
