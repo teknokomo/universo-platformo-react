@@ -2,7 +2,7 @@ import client from 'flowise-ui/src/api/client'
 import { Entity, Template, Status } from '../types'
 
 export const listEntities = (): Promise<{ data: Entity[] }> => client.get('/entities')
-export const getEntity = (id: string): Promise<{ data: Entity }> => client.get(`/entities/${id}`)
+export const getEntity = (entityId: string): Promise<{ data: Entity }> => client.get(`/entities/${entityId}`)
 export const createEntity = (body: Partial<Entity>): Promise<{ data: Entity }> => client.post('/entities', body)
 
 export const listTemplates = (): Promise<{ data: Template[] }> => client.get('/entities/templates')
