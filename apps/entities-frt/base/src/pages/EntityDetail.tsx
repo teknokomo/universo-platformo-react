@@ -8,14 +8,14 @@ import { getEntity } from '../api/entities'
 
 const EntityDetail: React.FC = () => {
     const { t } = useTranslation('entities')
-    const { id } = useParams<{ id: string }>()
+    const { entityId } = useParams<{ entityId: string }>()
     const [tab, setTab] = useState(0)
     const [entity, setEntity] = useState<any>(null)
     const entityApi = useApi(getEntity)
 
     useEffect(() => {
-        if (id) entityApi.request(id)
-    }, [id, entityApi])
+        if (entityId) entityApi.request(entityId)
+    }, [entityId]) // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (entityApi.data) setEntity(entityApi.data)
@@ -31,7 +31,7 @@ const EntityDetail: React.FC = () => {
                 <Tab label={t('detail.owners')} />
                 <Tab label={t('detail.resources')} />
             </Tabs>
-            {tab === 0 && <Typography variant='body1'>{entity?.name}</Typography>}
+            {tab === 0 && <Typography variant='body1'>{entity?.titleEn}</Typography>}
             {tab === 1 && <Typography variant='body1'>{(entity?.owners || []).join(', ')}</Typography>}
             {tab === 2 && <ResourceConfigTree />}
         </Box>
