@@ -24,9 +24,9 @@ export interface Status {
     name: string
 }
 
-export type UseApi = <T>(apiFunc: (...args: any[]) => Promise<{ data: T }>) => {
+export type UseApi = <T, TArgs extends any[]>(apiFunc: (...args: TArgs) => Promise<{ data: T }>) => {
     data: T | null
     error: unknown
     loading: boolean
-    request: (...args: any[]) => Promise<void>
+    request: (...args: TArgs) => Promise<void>
 }
