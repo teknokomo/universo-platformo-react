@@ -226,7 +226,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
             const { entityRepo } = getRepositories(dataSource)
-            const depthLimit = 50
+            const DEPTH_LIMIT = 50
             const rows = await entityRepo.query(
                 `WITH RECURSIVE parent_chain AS (
                     SELECT e.*, ARRAY[e.id] AS path, FALSE AS cycle, 1 AS depth
