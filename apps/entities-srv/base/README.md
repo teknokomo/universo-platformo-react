@@ -17,7 +17,7 @@ The Entities Service (`entities-srv`) manages hierarchical entities derived from
   - `PUT /:id` – update entity
   - `DELETE /:id` – remove entity
   - `GET /:id/children` – list child entities
-  - `GET /:id/parents` – list parent chain
+  - `GET /:id/parents` – list parent chain via recursive query (depth limit 50, returns 400 on cycles)
 - **Owners** `/:entityId/owners`
   - `GET /:entityId/owners` – list owners
   - `POST /:entityId/owners` – add owner

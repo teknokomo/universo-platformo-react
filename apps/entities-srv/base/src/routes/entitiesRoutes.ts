@@ -226,13 +226,30 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, dataSource: Dat
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
             const { entityRepo } = getRepositories(dataSource)
-            const chain: Entity[] = []
-            let current = await entityRepo.findOne({ where: { id: req.params.id }, relations: ['parentEntity'] })
-            while (current?.parentEntity) {
-                const parent = await entityRepo.findOne({ where: { id: current.parentEntity.id }, relations: ['parentEntity'] })
-                if (parent) chain.push(parent)
-                current = parent || null
+            const depthLimit = 50
+            const rows = await entityRepo.query(
+                `WITH RECURSIVE parent_chain AS (
+                    SELECT e.*, ARRAY[e.id] AS path, FALSE AS cycle, 1 AS depth
+                    FROM entity e
+                    WHERE e.id = $1
+                    UNION ALL
+                    SELECT e.*, pc.path || e.id, e.id = ANY(pc.path), pc.depth + 1
+                    FROM entity e
+                    JOIN parent_chain pc ON e.id = pc.parent_entity_id
+                    WHERE pc.cycle = FALSE AND pc.depth < $2
+                )
+                SELECT * FROM parent_chain ORDER BY depth`,
+                [req.params.id, depthLimit]
+            )
+            if (rows.some((r: any) => r.cycle)) {
+                return res.status(400).json({ error: 'Cycle detected' })
             }
+            if (rows.some((r: any) => r.depth === depthLimit && r.parent_entity_id !== null)) {
+                return res.status(400).json({ error: 'Depth limit exceeded' })
+            }
+            const chain = rows
+                .filter((r: any) => r.id !== req.params.id)
+                .map(({ path: _path, cycle: _cycle, depth: _depth, ...entity }: any) => entityRepo.create(entity))
             res.json(chain)
         })
     )
