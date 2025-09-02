@@ -20,8 +20,10 @@
     },
     "dialog": {
       "title": "Entity",
-      "name": "Name",
+      "titleEn": "Title (EN)",
+      "titleRu": "Title (RU)",
       "template": "Template",
+      "status": "Status",
       "rootResource": "Root Resource",
       "owners": "Owners",
       "cancel": "Cancel",

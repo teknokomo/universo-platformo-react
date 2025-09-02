@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { ResourceConfigTree } from '@universo/resources-frt'
 import { createTemplate } from '../api/entities'
+import { Template, UseApi } from '../types'
 
 interface TemplateDialogProps {
     open: boolean
@@ -14,7 +15,8 @@ const TemplateDialog: React.FC<TemplateDialogProps> = ({ open, onClose }) => {
     const { t } = useTranslation('entities')
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
-    const createApi = useApi(createTemplate)
+    const useTypedApi = useApi as UseApi
+    const createApi = useTypedApi<Template>(createTemplate)
 
     const handleSave = async () => {
         await createApi.request({ name, description })
@@ -34,7 +36,7 @@ const TemplateDialog: React.FC<TemplateDialogProps> = ({ open, onClose }) => {
                     multiline
                 />
                 <ResourceConfigTree />
-                {createApi.error && <Typography color='error'>{t('templates.dialog.error')}</Typography>}
+                {Boolean(createApi.error) && <Typography color='error'>{t('templates.dialog.error')}</Typography>}
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>{t('templates.dialog.cancel')}</Button>

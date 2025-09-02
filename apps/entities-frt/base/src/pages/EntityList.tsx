@@ -3,14 +3,7 @@ import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField
 import { useTranslation } from 'react-i18next'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { listEntities, listTemplates, listStatuses } from '../api/entities'
-
-interface Entity {
-    id: string
-    titleEn: string
-    titleRu: string
-    templateId: string
-    statusId: string
-}
+import { Entity, Template, Status, UseApi } from '../types'
 
 const EntityList: React.FC = () => {
     const { t } = useTranslation('entities')
@@ -18,12 +11,13 @@ const EntityList: React.FC = () => {
     const [templateId, setTemplateId] = useState('')
     const [statusId, setStatusId] = useState('')
     const [entities, setEntities] = useState<Entity[]>([])
-    const [templates, setTemplates] = useState<any[]>([])
-    const [statuses, setStatuses] = useState<any[]>([])
+    const [templates, setTemplates] = useState<Template[]>([])
+    const [statuses, setStatuses] = useState<Status[]>([])
 
-    const entitiesApi = useApi(listEntities)
-    const templatesApi = useApi(listTemplates)
-    const statusesApi = useApi(listStatuses)
+    const useTypedApi = useApi as UseApi
+    const entitiesApi = useTypedApi<Entity[]>(listEntities)
+    const templatesApi = useTypedApi<Template[]>(listTemplates)
+    const statusesApi = useTypedApi<Status[]>(listStatuses)
 
     useEffect(() => {
         entitiesApi.request()
@@ -36,11 +30,11 @@ const EntityList: React.FC = () => {
     }, [entitiesApi.data])
 
     useEffect(() => {
-        if (templatesApi.data) setTemplates(templatesApi.data as any)
+        if (templatesApi.data) setTemplates(templatesApi.data)
     }, [templatesApi.data])
 
     useEffect(() => {
-        if (statusesApi.data) setStatuses(statusesApi.data as any)
+        if (statusesApi.data) setStatuses(statusesApi.data)
     }, [statusesApi.data])
 
     const filtered = entities.filter((e) => {
