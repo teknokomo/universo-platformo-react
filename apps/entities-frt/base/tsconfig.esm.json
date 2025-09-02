@@ -3,10 +3,17 @@
   "compilerOptions": {
     "module": "ESNext",
     "outDir": "./dist/esm",
-    "declaration": false,
+    "declaration": true,
     "moduleResolution": "Bundler",
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
 }

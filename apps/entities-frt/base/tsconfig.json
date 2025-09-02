@@ -2,8 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2020", "DOM"],
-    "declaration": false,
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
+    "declaration": true,
     "sourceMap": true,
     "outDir": "./dist",
     "strict": true,
@@ -15,11 +18,19 @@
     "allowJs": true,
     "baseUrl": ".",
     "paths": {
-      "*": ["*"],
-      "@apps/resources-frt/base/src/*": ["../resources-frt/base/src/*"]
+      "*": [
+        "*"
+      ]
     },
     "moduleResolution": "node"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
 }
