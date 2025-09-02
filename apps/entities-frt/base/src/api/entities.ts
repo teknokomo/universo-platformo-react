@@ -6,3 +6,4 @@ export const createEntity = (body: any) => client.post('/entities', body)
 
 export const listTemplates = () => client.get('/entities/templates')
 export const createTemplate = (body: any) => client.post('/entities/templates', body)
+export const listStatuses = () => client.get('/entities/statuses')

@@ -3,7 +3,7 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, M
 import { useTranslation } from 'react-i18next'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { ResourceConfigTree } from '@universo/resources-frt'
-import { createEntity, listTemplates } from '../api/entities'
+import { createEntity, listTemplates, listStatuses } from '../api/entities'
 
 interface EntityDialogProps {
     open: boolean
@@ -12,22 +12,33 @@ interface EntityDialogProps {
 
 const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose }) => {
     const { t } = useTranslation('entities')
-    const [name, setName] = useState('')
-    const [template, setTemplate] = useState('')
-    const [templates, setTemplates] = useState<string[]>([])
+    const [titleEn, setTitleEn] = useState('')
+    const [titleRu, setTitleRu] = useState('')
+    const [templateId, setTemplateId] = useState('')
+    const [statusId, setStatusId] = useState('')
+    const [templates, setTemplates] = useState<any[]>([])
+    const [statuses, setStatuses] = useState<any[]>([])
     const createApi = useApi(createEntity)
     const templatesApi = useApi(listTemplates)
+    const statusesApi = useApi(listStatuses)
 
     useEffect(() => {
-        if (open) templatesApi.request()
-    }, [open, templatesApi])
+        if (open) {
+            templatesApi.request()
+            statusesApi.request()
+        }
+    }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        if (templatesApi.data) setTemplates((templatesApi.data as any).map((t: any) => t.name))
+        if (templatesApi.data) setTemplates(templatesApi.data as any)
     }, [templatesApi.data])
 
+    useEffect(() => {
+        if (statusesApi.data) setStatuses(statusesApi.data as any)
+    }, [statusesApi.data])
+
     const handleSave = async () => {
-        await createApi.request({ name, template })
+        await createApi.request({ titleEn, titleRu, templateId, statusId })
         if (!createApi.error) onClose()
     }
 
@@ -35,11 +46,19 @@ const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose }) => {
         <Dialog open={open} onClose={onClose} fullWidth maxWidth='md'>
             <DialogTitle>{t('dialog.title')}</DialogTitle>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField label={t('dialog.name')} value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-                <TextField select label={t('dialog.template')} value={template} onChange={(e) => setTemplate(e.target.value)}>
-                    {templates.map((tName) => (
-                        <MenuItem key={tName} value={tName}>
-                            {tName}
+                <TextField label={t('dialog.titleEn')} value={titleEn} onChange={(e) => setTitleEn(e.target.value)} fullWidth />
+                <TextField label={t('dialog.titleRu')} value={titleRu} onChange={(e) => setTitleRu(e.target.value)} fullWidth />
+                <TextField select label={t('dialog.template')} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+                    {templates.map((t) => (
+                        <MenuItem key={t.id} value={t.id}>
+                            {t.name}
+                        </MenuItem>
+                    ))}
+                </TextField>
+                <TextField select label={t('dialog.status')} value={statusId} onChange={(e) => setStatusId(e.target.value)}>
+                    {statuses.map((s) => (
+                        <MenuItem key={s.id} value={s.id}>
+                            {s.name}
                         </MenuItem>
                     ))}
                 </TextField>
