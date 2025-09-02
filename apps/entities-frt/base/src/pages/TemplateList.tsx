@@ -3,16 +3,13 @@ import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typograph
 import { useTranslation } from 'react-i18next'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { listTemplates } from '../api/entities'
-
-interface Template {
-    id: string
-    name: string
-}
+import { Template, UseApi } from '../types'
 
 const TemplateList: React.FC = () => {
     const { t } = useTranslation('entities')
     const [templates, setTemplates] = useState<Template[]>([])
-    const templatesApi = useApi(listTemplates)
+    const useTypedApi = useApi as UseApi
+    const templatesApi = useTypedApi<Template[]>(listTemplates)
 
     useEffect(() => {
         templatesApi.request()

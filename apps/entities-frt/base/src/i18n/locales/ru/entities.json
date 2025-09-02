@@ -20,8 +20,10 @@
     },
     "dialog": {
       "title": "Сущность",
-      "name": "Название",
+      "titleEn": "Название (EN)",
+      "titleRu": "Название (RU)",
       "template": "Шаблон",
+      "status": "Статус",
       "rootResource": "Корневой ресурс",
       "owners": "Владельцы",
       "cancel": "Отмена",

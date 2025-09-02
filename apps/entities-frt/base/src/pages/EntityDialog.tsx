@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { ResourceConfigTree } from '@universo/resources-frt'
 import { createEntity, listTemplates, listStatuses } from '../api/entities'
+import { Entity, Template, Status, UseApi } from '../types'
 
 interface EntityDialogProps {
     open: boolean
@@ -16,11 +17,12 @@ const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose }) => {
     const [titleRu, setTitleRu] = useState('')
     const [templateId, setTemplateId] = useState('')
     const [statusId, setStatusId] = useState('')
-    const [templates, setTemplates] = useState<any[]>([])
-    const [statuses, setStatuses] = useState<any[]>([])
-    const createApi = useApi(createEntity)
-    const templatesApi = useApi(listTemplates)
-    const statusesApi = useApi(listStatuses)
+    const [templates, setTemplates] = useState<Template[]>([])
+    const [statuses, setStatuses] = useState<Status[]>([])
+    const useTypedApi = useApi as UseApi
+    const createApi = useTypedApi<Entity>(createEntity)
+    const templatesApi = useTypedApi<Template[]>(listTemplates)
+    const statusesApi = useTypedApi<Status[]>(listStatuses)
 
     useEffect(() => {
         if (open) {
@@ -30,11 +32,11 @@ const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose }) => {
     }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        if (templatesApi.data) setTemplates(templatesApi.data as any)
+        if (templatesApi.data) setTemplates(templatesApi.data)
     }, [templatesApi.data])
 
     useEffect(() => {
-        if (statusesApi.data) setStatuses(statusesApi.data as any)
+        if (statusesApi.data) setStatuses(statusesApi.data)
     }, [statusesApi.data])
 
     const handleSave = async () => {
@@ -64,7 +66,7 @@ const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose }) => {
                 </TextField>
                 <ResourceConfigTree />
                 <TextField label={t('dialog.owners')} fullWidth />
-                {createApi.error && <Typography color='error'>{t('dialog.error')}</Typography>}
+                {Boolean(createApi.error) && <Typography color='error'>{t('dialog.error')}</Typography>}
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>{t('dialog.cancel')}</Button>

@@ -5,13 +5,15 @@ import { useParams } from 'react-router-dom'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { ResourceConfigTree } from '@universo/resources-frt'
 import { getEntity } from '../api/entities'
+import { Entity, UseApi } from '../types'
 
 const EntityDetail: React.FC = () => {
     const { t } = useTranslation('entities')
     const { entityId } = useParams<{ entityId: string }>()
     const [tab, setTab] = useState(0)
-    const [entity, setEntity] = useState<any>(null)
-    const entityApi = useApi(getEntity)
+    const [entity, setEntity] = useState<Entity | null>(null)
+    const useTypedApi = useApi as UseApi
+    const entityApi = useTypedApi<Entity>(getEntity)
 
     useEffect(() => {
         if (entityId) entityApi.request(entityId)
