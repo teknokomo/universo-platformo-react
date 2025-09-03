@@ -7,24 +7,34 @@ import { getEntity, listEntityOwners, listEntityResources } from '../api/entitie
 import { Entity, Owner, Resource, UseApi } from '../types'
 
 interface ApiContentProps<T extends { id: string | number }> {
-    api: { loading: boolean; error: any; data: T[] | null }
-    loadingMessage: string
-    errorMessage: string
-    renderItem: (item: T) => React.ReactNode
+  api: { loading: boolean; error: unknown; data: T[] | null }
+  loadingMessage: string
+  errorMessage: string
+  emptyMessage?: string
+  renderItem: (item: T) => React.ReactNode
 }
 
-function ApiContent<T extends { id: string | number }>({ api, loadingMessage, errorMessage, renderItem }: ApiContentProps<T>) {
-    if (api.loading) {
-        return <Typography>{loadingMessage}</Typography>
-    }
-    if (api.error) {
-        return <Typography color='error'>{errorMessage}</Typography>
-    }
-    return (
-        <Box display='flex' flexDirection='column' gap={1}>
-            {(api.data || []).map(renderItem)}
-        </Box>
-    )
+function ApiContent<T extends { id: string | number }>({
+  api,
+  loadingMessage,
+  errorMessage,
+  emptyMessage,
+  renderItem
+}: ApiContentProps<T>) {
+  if (api.loading) {
+    return <Typography>{loadingMessage}</Typography>
+  }
+  if (api.error) {
+    return <Typography color='error'>{errorMessage}</Typography>
+  }
+  if (!api.data?.length) {
+    return emptyMessage ? <Typography>{emptyMessage}</Typography> : null
+  }
+  return (
+    <Box display='flex' flexDirection='column' gap={1}>
+      {api.data.map(renderItem)}
+    </Box>
+  )
 }
 
 const EntityDetail: React.FC = () => {
@@ -42,8 +52,7 @@ const EntityDetail: React.FC = () => {
             ownersRequest(entityId)
             resourcesRequest(entityId)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityId])
+    }, [entityId, entityApi.request, ownersRequest, resourcesRequest])
 
     if (entityApi.loading) return <Typography>{t('detail.loading')}</Typography>
     if (entityApi.error) return <Typography color='error'>{t('detail.error')}</Typography>
@@ -61,6 +70,7 @@ const EntityDetail: React.FC = () => {
                     api={ownersApi}
                     loadingMessage={t('detail.ownersLoading')}
                     errorMessage={t('detail.ownersError')}
+                    emptyMessage={t('detail.ownersEmpty')}
                     renderItem={(o: Owner) => <Typography key={o.id}>{o.userId}</Typography>}
                 />
             )}
@@ -69,6 +79,7 @@ const EntityDetail: React.FC = () => {
                     api={resourcesApi}
                     loadingMessage={t('detail.resourcesLoading')}
                     errorMessage={t('detail.resourcesError')}
+                    emptyMessage={t('detail.resourcesEmpty')}
                     renderItem={(r: Resource) => <Typography key={r.id}>{r.titleEn}</Typography>}
                 />
             )}
