@@ -23,7 +23,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
 
     router.use(ensureAuth)
 
-    const asyncHandler = (fn: (req: Request, res: Response) => Promise<any>): RequestHandler => {
+    const asyncHandler = (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler => {
         return async (req, res) => {
             try {
                 await fn(req, res)
@@ -265,6 +265,25 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
             const parent = await resourceRepo.findOne({ where: { id: req.params.id } })
             const child = await resourceRepo.findOne({ where: { id: req.body.childId } })
             if (!parent || !child) return res.status(400).json({ error: 'Invalid resources' })
+            if (parent.id === child.id) return res.status(400).json({ error: 'Cycle detected' })
+
+            const cycleCheck = await dataSource.query(
+                `SELECT EXISTS(
+                    WITH RECURSIVE descendants AS (
+                        SELECT child_resource_id
+                        FROM resource_composition
+                        WHERE parent_resource_id = $1
+                        UNION
+                        SELECT rc.child_resource_id
+                        FROM resource_composition rc
+                        JOIN descendants d ON rc.parent_resource_id = d.child_resource_id
+                    )
+                    SELECT 1 FROM descendants WHERE child_resource_id = $2
+                ) AS found`,
+                [req.body.childId, req.params.id]
+            )
+            if (cycleCheck[0]?.found) return res.status(400).json({ error: 'Cycle detected' })
+
             const { quantity, sortOrder, isRequired, config } = req.body
             const comp = compositionRepo.create({ parentResource: parent, childResource: child, quantity, sortOrder, isRequired, config })
             await compositionRepo.save(comp)
@@ -297,20 +316,104 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { resourceRepo, compositionRepo } = getRepositories(dataSource)
-            const buildTree = async (resourceId: string): Promise<any> => {
-                const resource = await resourceRepo.findOne({ where: { id: resourceId }, relations: ['category', 'state', 'storageType'] })
-                if (!resource) return null
-                const comps = await compositionRepo.find({ where: { parentResource: { id: resourceId } }, relations: ['childResource'] })
-                const children = [] as any[]
-                for (const c of comps) {
-                    const childTree = await buildTree(c.childResource.id)
-                    children.push({ ...c, child: childTree })
+            const rows = await dataSource.query(
+                `WITH RECURSIVE tree AS (
+                    SELECT r.id AS resource_id,
+                        to_jsonb(r) || jsonb_build_object(
+                            'category', to_jsonb(cat),
+                            'state', to_jsonb(st),
+                            'storageType', to_jsonb(stype)
+                        ) AS resource,
+                        NULL::uuid AS comp_id,
+                        NULL::uuid AS parent_resource_id,
+                        NULL::int AS quantity,
+                        NULL::int AS sort_order,
+                        NULL::boolean AS is_required,
+                        NULL::jsonb AS config
+                    FROM resource r
+                    JOIN resource_category cat ON r.category_id = cat.id
+                    JOIN resource_state st ON r.state_id = st.id
+                    JOIN storage_type stype ON r.storage_type_id = stype.id
+                    WHERE r.id = $1
+                    UNION ALL
+                    SELECT r2.id,
+                        to_jsonb(r2) || jsonb_build_object(
+                            'category', to_jsonb(cat2),
+                            'state', to_jsonb(st2),
+                            'storageType', to_jsonb(stype2)
+                        ),
+                        rc.id,
+                        rc.parent_resource_id,
+                        rc.quantity,
+                        rc.sort_order,
+                        rc.is_required,
+                        rc.config
+                    FROM resource_composition rc
+                    JOIN resource r2 ON rc.child_resource_id = r2.id
+                    JOIN resource_category cat2 ON r2.category_id = cat2.id
+                    JOIN resource_state st2 ON r2.state_id = st2.id
+                    JOIN storage_type stype2 ON r2.storage_type_id = stype2.id
+                    JOIN tree t ON rc.parent_resource_id = t.resource_id
+                )
+                SELECT * FROM tree`,
+                [req.params.id]
+            )
+
+            if (rows.length === 0) return res.json(null)
+
+            const toCamel = (s: string) => s.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
+            const camelCaseKeys = (obj: unknown): unknown => {
+                if (Array.isArray(obj)) return obj.map(camelCaseKeys)
+                if (obj && typeof obj === 'object') {
+                    return Object.entries(obj as Record<string, unknown>).reduce<Record<string, unknown>>((acc, [k, v]) => {
+                        acc[toCamel(k)] = camelCaseKeys(v)
+                        return acc
+                    }, {})
                 }
-                return { resource, children }
+                return obj
             }
-            const tree = await buildTree(req.params.id)
-            res.json(tree)
+
+            interface ResourceData {
+                [key: string]: unknown
+            }
+
+            interface ResourceNode {
+                resource: ResourceData | null
+                children: CompositionLink[]
+            }
+
+            interface CompositionLink {
+                id: string
+                quantity: number
+                sortOrder: number
+                isRequired: boolean
+                config: Record<string, unknown> | null
+                child: ResourceNode
+            }
+
+            const nodes = new Map<string, ResourceNode>()
+            let root: ResourceNode | null = null
+            for (const row of rows) {
+                const node = nodes.get(row.resource_id) || { resource: null, children: [] }
+                node.resource = camelCaseKeys(row.resource) as ResourceData
+                nodes.set(row.resource_id, node)
+
+                if (!row.comp_id) {
+                    root = node
+                } else {
+                    const parent = nodes.get(row.parent_resource_id) || { resource: null, children: [] }
+                    if (!nodes.has(row.parent_resource_id)) nodes.set(row.parent_resource_id, parent)
+                    parent.children.push({
+                        id: row.comp_id,
+                        quantity: row.quantity,
+                        sortOrder: row.sort_order,
+                        isRequired: row.is_required,
+                        config: row.config as Record<string, unknown> | null,
+                        child: node
+                    })
+                }
+            }
+            res.json(root)
         })
     )
 
