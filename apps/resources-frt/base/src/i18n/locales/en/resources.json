@@ -25,10 +25,16 @@
     },
     "dialog": {
       "title": "Resource",
-      "name": "Name",
+      "titleEn": "Title (EN)",
+      "titleRu": "Title (RU)",
+      "category": "Category",
+      "state": "State",
+      "storageType": "Storage Type",
       "description": "Description",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "required": "Required",
+      "error": "Failed to create resource"
     },
     "config": {
       "resourceId": "Resource ID",

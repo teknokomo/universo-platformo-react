@@ -11,7 +11,7 @@ inspect revision history and build hierarchical compositions.
 
 - **Resource Listing**: Table view with category tree filter
 - **Resource Details**: Tabs for information, revision history and child resources
-- **Creation & Editing**: Dialog form with embedded composition editor
+- **Creation & Editing**: Dialog form with localized titles, metadata selectors and embedded composition editor
 - **Internationalization**: English and Russian translations
 - **Navigation**: Integrates with main platform menu
 
@@ -42,7 +42,7 @@ Displays resources in a table and allows filtering by hierarchical categories.
 Shows resource information with tabs for metadata, revision history and child composition tree.
 
 ### ResourceDialog.tsx
-Modal form for creating or editing resources. Includes fields for basic metadata and embeds the `ResourceConfigTree`.
+Modal form for creating or editing resources. Provides separate English and Russian titles, dropdowns for category, state and storage type, client-side validation, and embeds the `ResourceConfigTree`.
 
 ### ResourceConfigTree.tsx
 Recursive UI component that lets users add or remove `ResourceComposition` nodes to define nested resource structures.

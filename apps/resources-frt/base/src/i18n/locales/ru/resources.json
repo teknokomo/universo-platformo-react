@@ -25,10 +25,16 @@
     },
     "dialog": {
       "title": "Ресурс",
-      "name": "Название",
+      "titleEn": "Название (EN)",
+      "titleRu": "Название (RU)",
+      "category": "Категория",
+      "state": "Статус",
+      "storageType": "Тип хранения",
       "description": "Описание",
       "cancel": "Отмена",
-      "save": "Сохранить"
+      "save": "Сохранить",
+      "required": "Обязательно",
+      "error": "Не удалось создать ресурс"
     },
     "config": {
       "resourceId": "ID ресурса",
