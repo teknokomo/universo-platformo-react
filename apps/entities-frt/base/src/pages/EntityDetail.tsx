@@ -6,13 +6,31 @@ import useApi from 'flowise-ui/src/hooks/useApi'
 import { getEntity, listEntityOwners, listEntityResources } from '../api/entities'
 import { Entity, Owner, Resource, UseApi } from '../types'
 
+interface ApiContentProps<T extends { id: string | number }> {
+    api: { loading: boolean; error: any; data: T[] | null }
+    loadingMessage: string
+    errorMessage: string
+    renderItem: (item: T) => React.ReactNode
+}
+
+function ApiContent<T extends { id: string | number }>({ api, loadingMessage, errorMessage, renderItem }: ApiContentProps<T>) {
+    if (api.loading) {
+        return <Typography>{loadingMessage}</Typography>
+    }
+    if (api.error) {
+        return <Typography color='error'>{errorMessage}</Typography>
+    }
+    return (
+        <Box display='flex' flexDirection='column' gap={1}>
+            {(api.data || []).map(renderItem)}
+        </Box>
+    )
+}
+
 const EntityDetail: React.FC = () => {
     const { t } = useTranslation('entities')
     const { entityId } = useParams<{ entityId: string }>()
     const [tab, setTab] = useState(0)
-    const [entity, setEntity] = useState<Entity | null>(null)
-    const [owners, setOwners] = useState<Owner[]>([])
-    const [resources, setResources] = useState<Resource[]>([])
     const useTypedApi = useApi as UseApi
     const entityApi = useTypedApi<Entity>(getEntity)
     const { request: ownersRequest, ...ownersApi } = useTypedApi<Owner[]>(listEntityOwners)
@@ -27,16 +45,6 @@ const EntityDetail: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityId])
 
-    useEffect(() => {
-        if (entityApi.data) setEntity(entityApi.data)
-    }, [entityApi.data])
-    useEffect(() => {
-        if (ownersApi.data) setOwners(ownersApi.data)
-    }, [ownersApi.data])
-    useEffect(() => {
-        if (resourcesApi.data) setResources(resourcesApi.data)
-    }, [resourcesApi.data])
-
     if (entityApi.loading) return <Typography>{t('detail.loading')}</Typography>
     if (entityApi.error) return <Typography color='error'>{t('detail.error')}</Typography>
 
@@ -47,31 +55,23 @@ const EntityDetail: React.FC = () => {
                 <Tab label={t('detail.owners')} />
                 <Tab label={t('detail.resources')} />
             </Tabs>
-            {tab === 0 && <Typography variant='body1'>{entity?.titleEn}</Typography>}
-            {tab === 1 &&
-                (ownersApi.loading ? (
-                    <Typography>{t('detail.ownersLoading')}</Typography>
-                ) : ownersApi.error ? (
-                    <Typography color='error'>{t('detail.ownersError')}</Typography>
-                ) : (
-                    <Box display='flex' flexDirection='column' gap={1}>
-                        {owners.map((o) => (
-                            <Typography key={o.id}>{o.userId}</Typography>
-                        ))}
-                    </Box>
-                ))}
-            {tab === 2 &&
-                (resourcesApi.loading ? (
-                    <Typography>{t('detail.resourcesLoading')}</Typography>
-                ) : resourcesApi.error ? (
-                    <Typography color='error'>{t('detail.resourcesError')}</Typography>
-                ) : (
-                    <Box display='flex' flexDirection='column' gap={1}>
-                        {resources.map((r) => (
-                            <Typography key={r.id}>{r.titleEn}</Typography>
-                        ))}
-                    </Box>
-                ))}
+            {tab === 0 && <Typography variant='body1'>{entityApi.data?.titleEn}</Typography>}
+            {tab === 1 && (
+                <ApiContent
+                    api={ownersApi}
+                    loadingMessage={t('detail.ownersLoading')}
+                    errorMessage={t('detail.ownersError')}
+                    renderItem={(o: Owner) => <Typography key={o.id}>{o.userId}</Typography>}
+                />
+            )}
+            {tab === 2 && (
+                <ApiContent
+                    api={resourcesApi}
+                    loadingMessage={t('detail.resourcesLoading')}
+                    errorMessage={t('detail.resourcesError')}
+                    renderItem={(r: Resource) => <Typography key={r.id}>{r.titleEn}</Typography>}
+                />
+            )}
         </Box>
     )
 }
