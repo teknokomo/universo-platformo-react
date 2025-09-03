@@ -6,10 +6,20 @@ import { createResourcesRouter } from '../resourcesRoutes'
 import { Resource } from '../../database/entities/Resource'
 import { ResourceComposition } from '../../database/entities/ResourceComposition'
 
-const getHandler = (router: Router, method: string, path: string) => {
-    const layer = (router as any).stack.find((l: any) => l.route?.path === path && l.route?.methods?.[method])
+type RouteHandler = (req: Request, res: Response) => unknown
+
+interface StackLayer {
+    route?: {
+        path?: string
+        methods?: Record<string, boolean>
+        stack: Array<{ handle: RouteHandler }>
+    }
+}
+
+const getHandler = (router: Router, method: string, path: string): RouteHandler => {
+    const layer = (router as unknown as { stack: StackLayer[] }).stack.find((l) => l.route?.path === path && l.route?.methods?.[method])
     assert.ok(layer, `${method.toUpperCase()} ${path} route not found`)
-    return layer.route.stack[0].handle
+    return layer!.route!.stack[0].handle
 }
 
 test('builds nested tree from single query', async () => {
@@ -65,14 +75,18 @@ test('builds nested tree from single query', async () => {
     }
     await handler(req as Request, res as Response)
     assert.equal(calls, 1)
-    const root = body as { resource: { id: string }; children: { child: any }[] };
+    interface TestNode {
+        resource: { id: string }
+        children: { child: TestNode }[]
+    }
+    const root = body as TestNode
     assert.equal(root.resource.id, '1')
     assert.equal(root.children[0].child.resource.id, '2')
     assert.equal(root.children[0].child.children[0].child.resource.id, '3')
 })
 
 test('prevents cycles when adding child', async () => {
-    const resourceRepo = { findOne: async ({ where: { id } }: any) => ({ id }) }
+    const resourceRepo = { findOne: async ({ where: { id } }: { where: { id: string } }) => ({ id }) }
     let saved = false
     const compositionRepo = {
         create: () => ({}),
@@ -82,11 +96,11 @@ test('prevents cycles when adding child', async () => {
     }
     const dataSource: Partial<DataSource> = {
         isInitialized: true,
-        getRepository: ((entity: any) => {
+        getRepository: ((entity: unknown) => {
             if (entity === Resource) return resourceRepo
             if (entity === ResourceComposition) return compositionRepo
             return {}
-        }) as any,
+        }) as DataSource['getRepository'],
         query: async () => [{ found: true }]
     }
     const router = createResourcesRouter((_req, _res, next) => next(), dataSource as DataSource)
