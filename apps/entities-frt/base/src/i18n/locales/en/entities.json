@@ -16,7 +16,11 @@
       "owners": "Owners",
       "resources": "Resources",
       "loading": "Loading entity...",
-      "error": "Failed to load entity"
+      "error": "Failed to load entity",
+      "ownersLoading": "Loading owners...",
+      "ownersError": "Failed to load owners",
+      "resourcesLoading": "Loading resources...",
+      "resourcesError": "Failed to load resources"
     },
     "dialog": {
       "title": "Entity",

@@ -24,7 +24,13 @@ export interface Status {
     name: string
 }
 
-export type UseApi = <T, TArgs extends any[]>(
+export interface Resource {
+    id: string
+    titleEn: string
+    titleRu: string
+}
+
+export type UseApi = <T, TArgs extends any[] = any[]>(
     apiFunc: (...args: TArgs) => Promise<{ data: T }>
 ) => {
     data: T | null
