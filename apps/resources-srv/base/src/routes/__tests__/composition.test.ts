@@ -65,7 +65,7 @@ test('builds nested tree from single query', async () => {
     }
     await handler(req as Request, res as Response)
     assert.equal(calls, 1)
-    const root = body as any
+    const root = body as { resource: { id: string }; children: { child: any }[] };
     assert.equal(root.resource.id, '1')
     assert.equal(root.children[0].child.resource.id, '2')
     assert.equal(root.children[0].child.children[0].child.resource.id, '3')
