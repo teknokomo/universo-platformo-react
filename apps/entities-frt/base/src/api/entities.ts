@@ -11,6 +11,6 @@ export const listStatuses = (): Promise<{ data: Status[] }> => client.get('/enti
 
 export const listEntityOwners = (entityId: string): Promise<{ data: Owner[] }> => client.get(`/entities/${entityId}/owners`)
 export const listEntityResources = (entityId: string): Promise<{ data: Resource[] }> =>
-  client.get(`/entities/${entityId}/resources`).then((response) => ({
-    data: response.data.map((link: { resource: Resource }) => link.resource)
+  client.get(`/entities/${entityId}/resources`).then((response: { data: Array<{ resource: Resource }> }) => ({
+    data: response.data.map((link) => link.resource)
   }))
