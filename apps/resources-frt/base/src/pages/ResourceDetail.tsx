@@ -10,7 +10,7 @@ import { Resource, Revision, TreeNode, UseApi } from '../types'
 
 const ResourceDetail: React.FC = () => {
     const { t, i18n } = useTranslation('resources')
-    const { id } = useParams<{ id: string }>()
+    const { resourceId } = useParams<{ resourceId: string }>()
     const [tab, setTab] = useState(0)
     const useTypedApi = useApi as UseApi
     const resourceApi = useTypedApi<Resource>(getResource)
@@ -18,14 +18,14 @@ const ResourceDetail: React.FC = () => {
     const treeApi = useTypedApi<TreeNode>(getResourceTree)
 
     useEffect(() => {
-        if (id) {
-            resourceApi.request(id)
-            revisionsApi.request(id)
-            treeApi.request(id)
+        if (resourceId) {
+            resourceApi.request(resourceId)
+            revisionsApi.request(resourceId)
+            treeApi.request(resourceId)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id])
+    }, [resourceId])
 
     const getName = (obj: { titleEn: string; titleRu: string }) => (i18n.language === 'ru' ? obj.titleRu : obj.titleEn)
 
