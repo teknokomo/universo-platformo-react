@@ -132,9 +132,11 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
             }
             const { categoryRepo, stateRepo, storageRepo, resourceRepo } = getRepositories(dataSource)
             const { categoryId, stateId, storageTypeId, slug, titleEn, titleRu, descriptionEn, descriptionRu, metadata } = req.body
-            const category = await categoryRepo.findOne({ where: { id: categoryId } })
-            const state = await stateRepo.findOne({ where: { id: stateId } })
-            const storageType = await storageRepo.findOne({ where: { id: storageTypeId } })
+            const [category, state, storageType] = await Promise.all([
+                categoryRepo.findOne({ where: { id: categoryId } }),
+                stateRepo.findOne({ where: { id: stateId } }),
+                storageRepo.findOne({ where: { id: storageTypeId } })
+            ])
             if (!category || !state || !storageType) return res.status(400).json({ error: 'Invalid references' })
             const resource = resourceRepo.create({
                 category,
