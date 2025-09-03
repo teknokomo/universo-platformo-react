@@ -268,19 +268,21 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
             if (parent.id === child.id) return res.status(400).json({ error: 'Cycle detected' })
 
             const cycleCheck = await dataSource.query(
-                `WITH RECURSIVE descendants AS (
-                    SELECT child_resource_id
-                    FROM resource_composition
-                    WHERE parent_resource_id = $1
-                    UNION
-                    SELECT rc.child_resource_id
-                    FROM resource_composition rc
-                    JOIN descendants d ON rc.parent_resource_id = d.child_resource_id
-                )
-                SELECT 1 FROM descendants WHERE child_resource_id = $2`,
+                `SELECT EXISTS(
+                    WITH RECURSIVE descendants AS (
+                        SELECT child_resource_id
+                        FROM resource_composition
+                        WHERE parent_resource_id = $1
+                        UNION
+                        SELECT rc.child_resource_id
+                        FROM resource_composition rc
+                        JOIN descendants d ON rc.parent_resource_id = d.child_resource_id
+                    )
+                    SELECT 1 FROM descendants WHERE child_resource_id = $2
+                ) AS found`,
                 [req.body.childId, req.params.id]
             )
-            if (cycleCheck.length > 0) return res.status(400).json({ error: 'Cycle detected' })
+            if (cycleCheck[0]?.found) return res.status(400).json({ error: 'Cycle detected' })
 
             const { quantity, sortOrder, isRequired, config } = req.body
             const comp = compositionRepo.create({ parentResource: parent, childResource: child, quantity, sortOrder, isRequired, config })
@@ -359,16 +361,44 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
 
             if (rows.length === 0) return res.json(null)
 
-            const nodes = new Map<string, any>()
-            let root: any = null
+            const toCamel = (s: string) => s.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
+            const camelCaseKeys = (obj: any): any => {
+                if (Array.isArray(obj)) return obj.map(camelCaseKeys)
+                if (obj && typeof obj === 'object') {
+                    return Object.entries(obj).reduce((acc: any, [k, v]) => {
+                        acc[toCamel(k)] = camelCaseKeys(v)
+                        return acc
+                    }, {})
+                }
+                return obj
+            }
+
+            interface ResourceNode {
+                resource: any
+                children: CompositionLink[]
+            }
+
+            interface CompositionLink {
+                id: string
+                quantity: number
+                sortOrder: number
+                isRequired: boolean
+                config: any
+                child: ResourceNode
+            }
+
+            const nodes = new Map<string, ResourceNode>()
+            let root: ResourceNode | null = null
             for (const row of rows) {
-                const node = nodes.get(row.resource_id) || { resource: row.resource, children: [] }
-                node.resource = row.resource
+                const node = nodes.get(row.resource_id) || { resource: null, children: [] }
+                node.resource = camelCaseKeys(row.resource)
                 nodes.set(row.resource_id, node)
+
                 if (!row.comp_id) {
                     root = node
                 } else {
-                    const parent = nodes.get(row.parent_resource_id)!
+                    const parent = nodes.get(row.parent_resource_id) || { resource: null, children: [] }
+                    if (!nodes.has(row.parent_resource_id)) nodes.set(row.parent_resource_id, parent)
                     parent.children.push({
                         id: row.comp_id,
                         quantity: row.quantity,
