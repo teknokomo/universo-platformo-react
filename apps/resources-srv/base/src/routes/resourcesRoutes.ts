@@ -23,7 +23,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
 
     router.use(ensureAuth)
 
-    const asyncHandler = (fn: (req: Request, res: Response) => Promise<any>): RequestHandler => {
+    const asyncHandler = (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler => {
         return async (req, res) => {
             try {
                 await fn(req, res)
@@ -362,10 +362,10 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
             if (rows.length === 0) return res.json(null)
 
             const toCamel = (s: string) => s.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
-            const camelCaseKeys = (obj: any): any => {
+            const camelCaseKeys = (obj: unknown): unknown => {
                 if (Array.isArray(obj)) return obj.map(camelCaseKeys)
                 if (obj && typeof obj === 'object') {
-                    return Object.entries(obj).reduce((acc: any, [k, v]) => {
+                    return Object.entries(obj as Record<string, unknown>).reduce<Record<string, unknown>>((acc, [k, v]) => {
                         acc[toCamel(k)] = camelCaseKeys(v)
                         return acc
                     }, {})
@@ -373,8 +373,12 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
                 return obj
             }
 
+            interface ResourceData {
+                [key: string]: unknown
+            }
+
             interface ResourceNode {
-                resource: any
+                resource: ResourceData | null
                 children: CompositionLink[]
             }
 
@@ -383,7 +387,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
                 quantity: number
                 sortOrder: number
                 isRequired: boolean
-                config: any
+                config: Record<string, unknown> | null
                 child: ResourceNode
             }
 
@@ -391,7 +395,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
             let root: ResourceNode | null = null
             for (const row of rows) {
                 const node = nodes.get(row.resource_id) || { resource: null, children: [] }
-                node.resource = camelCaseKeys(row.resource)
+                node.resource = camelCaseKeys(row.resource) as ResourceData
                 nodes.set(row.resource_id, node)
 
                 if (!row.comp_id) {
@@ -404,7 +408,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
                         quantity: row.quantity,
                         sortOrder: row.sort_order,
                         isRequired: row.is_required,
-                        config: row.config,
+                        config: row.config as Record<string, unknown> | null,
                         child: node
                     })
                 }
