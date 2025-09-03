@@ -13,19 +13,17 @@ const ResourceDetail: React.FC = () => {
     const { resourceId } = useParams<{ resourceId: string }>()
     const [tab, setTab] = useState(0)
     const useTypedApi = useApi as UseApi
-    const resourceApi = useTypedApi<Resource>(getResource)
-    const revisionsApi = useTypedApi<Revision[]>(listRevisions)
-    const treeApi = useTypedApi<TreeNode>(getResourceTree)
+    const { request: resourceRequest, ...resourceApi } = useTypedApi<Resource>(getResource)
+    const { request: revisionsRequest, ...revisionsApi } = useTypedApi<Revision[]>(listRevisions)
+    const { request: treeRequest, ...treeApi } = useTypedApi<TreeNode>(getResourceTree)
 
     useEffect(() => {
         if (resourceId) {
-            resourceApi.request(resourceId)
-            revisionsApi.request(resourceId)
-            treeApi.request(resourceId)
+            resourceRequest(resourceId)
+            revisionsRequest(resourceId)
+            treeRequest(resourceId)
         }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [resourceId])
+    }, [resourceId, resourceRequest, revisionsRequest, treeRequest])
 
     const getName = (obj: { titleEn: string; titleRu: string }) => (i18n.language === 'ru' ? obj.titleRu : obj.titleEn)
 
