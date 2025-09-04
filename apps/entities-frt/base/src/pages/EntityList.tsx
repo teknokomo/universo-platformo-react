@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, MenuItem, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { listEntities, listTemplates, listStatuses } from '../api/entities'
 import { Entity, Template, Status, UseApi } from '../types'
 
 const EntityList: React.FC = () => {
     const { t } = useTranslation('entities')
+    const navigate = useNavigate()
     const [search, setSearch] = useState('')
     const [templateId, setTemplateId] = useState('')
     const [statusId, setStatusId] = useState('')
@@ -18,12 +20,15 @@ const EntityList: React.FC = () => {
     const entitiesApi = useTypedApi<Entity[]>(listEntities)
     const templatesApi = useTypedApi<Template[]>(listTemplates)
     const statusesApi = useTypedApi<Status[]>(listStatuses)
+    const { request: requestEntities } = entitiesApi
+    const { request: requestTemplates } = templatesApi
+    const { request: requestStatuses } = statusesApi
 
     useEffect(() => {
-        entitiesApi.request()
-        templatesApi.request()
-        statusesApi.request()
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+        requestEntities()
+        requestTemplates()
+        requestStatuses()
+    }, [requestEntities, requestTemplates, requestStatuses])
 
     useEffect(() => {
         if (entitiesApi.data) setEntities(entitiesApi.data)
@@ -83,7 +88,7 @@ const EntityList: React.FC = () => {
                     </TableHead>
                     <TableBody>
                         {filtered.map((e) => (
-                            <TableRow key={e.id}>
+                            <TableRow key={e.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/entities/${e.id}`)}>
                                 <TableCell>{e.id}</TableCell>
                                 <TableCell>{e.titleEn}</TableCell>
                                 <TableCell>{templates.find((t) => t.id === e.templateId)?.name}</TableCell>
