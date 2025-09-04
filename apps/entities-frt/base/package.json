@@ -9,7 +9,8 @@
     "clean": "rimraf dist",
     "build": "pnpm run clean && tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
     "dev": "tsc -w",
-    "lint": "eslint --ext .ts,.tsx src/"
+    "lint": "eslint --ext .ts,.tsx src/",
+    "test": "vitest run --environment jsdom"
   },
   "keywords": [
     "universo",
@@ -36,6 +37,11 @@
     "@types/react": "^18.2.55",
     "eslint": "^8.56.0",
     "gulp": "^4.0.2",
-    "rimraf": "^5.0.5"
+    "rimraf": "^5.0.5",
+    "vitest": "^2.1.4",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/user-event": "^14.5.2",
+    "jsdom": "^24.0.0"
   }
 }

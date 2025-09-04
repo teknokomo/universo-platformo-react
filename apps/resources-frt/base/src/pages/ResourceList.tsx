@@ -3,6 +3,7 @@ import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typograph
 import TreeView from '@mui/lab/TreeView'
 import TreeItem from '@mui/lab/TreeItem'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import useApi from 'flowise-ui/src/hooks/useApi'
 import { listCategories, listResources } from '../api/resources'
 import { Category, Resource, UseApi } from '../types'
@@ -23,19 +24,20 @@ const buildTree = (cats: Category[]): Category[] => {
 
 const ResourceList: React.FC = () => {
     const { t, i18n } = useTranslation('resources')
+    const navigate = useNavigate()
     const [selected, setSelected] = useState<string | null>(null)
     const [categories, setCategories] = useState<Category[]>([])
     const [resources, setResources] = useState<Resource[]>([])
     const useTypedApi = useApi as UseApi
     const categoriesApi = useTypedApi<Category[]>(listCategories)
     const resourcesApi = useTypedApi<Resource[]>(listResources)
+    const { request: requestCategories } = categoriesApi
+    const { request: requestResources } = resourcesApi
 
     useEffect(() => {
-        categoriesApi.request()
-        resourcesApi.request()
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        requestCategories()
+        requestResources()
+    }, [requestCategories, requestResources])
 
     useEffect(() => {
         if (categoriesApi.data) setCategories(buildTree(categoriesApi.data))
@@ -73,7 +75,7 @@ const ResourceList: React.FC = () => {
                     </TableHead>
                     <TableBody>
                         {filtered.map((r) => (
-                            <TableRow key={r.id}>
+                            <TableRow key={r.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/resources/${r.id}`)}>
                                 <TableCell>{r.id}</TableCell>
                                 <TableCell>{getName(r)}</TableCell>
                             </TableRow>
