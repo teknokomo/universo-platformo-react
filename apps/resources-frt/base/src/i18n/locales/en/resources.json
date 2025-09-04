@@ -25,10 +25,20 @@
     },
     "dialog": {
       "title": "Resource",
-      "name": "Name",
-      "description": "Description",
+      "titleEn": "Title (EN)",
+      "titleRu": "Title (RU)",
+      "category": "Category",
+      "state": "State",
+      "storageType": "Storage Type",
+      "descriptionEn": "Description (EN)",
+      "descriptionRu": "Description (RU)",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "required": "Required",
+      "error": "Failed to create resource",
+      "categoriesError": "Failed to load categories",
+      "statesError": "Failed to load states",
+      "storageTypesError": "Failed to load storage types"
     },
     "config": {
       "resourceId": "Resource ID",

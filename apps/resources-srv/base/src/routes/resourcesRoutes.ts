@@ -111,6 +111,31 @@ export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: Da
         })
     )
 
+    // ------- States and Storage Types -------
+    router.get(
+        '/states',
+        asyncHandler(async (_req: Request, res: Response) => {
+            if (!dataSource.isInitialized) {
+                return res.status(500).json({ error: 'Data source is not initialized' })
+            }
+            const { stateRepo } = getRepositories(dataSource)
+            const states = await stateRepo.find()
+            res.json(states)
+        })
+    )
+
+    router.get(
+        '/storage-types',
+        asyncHandler(async (_req: Request, res: Response) => {
+            if (!dataSource.isInitialized) {
+                return res.status(500).json({ error: 'Data source is not initialized' })
+            }
+            const { storageRepo } = getRepositories(dataSource)
+            const types = await storageRepo.find()
+            res.json(types)
+        })
+    )
+
     // ------- Resources CRUD -------
     router.get(
         '/',

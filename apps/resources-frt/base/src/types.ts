@@ -11,6 +11,20 @@ export interface Resource {
     titleEn: string
     titleRu: string
     category?: { id: string }
+    state?: { id: string }
+    storageType?: { id: string }
+}
+
+export interface State {
+    id: string
+    code: string
+    label: string
+}
+
+export interface StorageType {
+    id: string
+    code: string
+    label: string
 }
 
 export interface Revision {
