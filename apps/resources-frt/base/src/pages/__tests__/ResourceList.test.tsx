@@ -19,22 +19,25 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('../../api/resources', () => ({
-    listCategories: vi.fn(),
-    listResources: vi.fn()
+    listCategories: vi.fn(function listCategories() {}),
+    listResources: vi.fn(function listResources() {})
 }))
 
-let callCount = 0
 const category = { id: 'c1', titleEn: 'Category 1', titleRu: 'Категория 1', children: [] }
 const resource = { id: '1', titleEn: 'Resource 1', titleRu: 'Ресурс 1', category }
 
 vi.mock('flowise-ui/src/hooks/useApi', () => ({
     __esModule: true,
-    default: () => {
-        callCount++
+    default: (apiFunc: (...args: any[]) => any) => {
         const base = { loading: false, error: null, request: vi.fn(), data: null as any }
-        if (callCount === 1) return { ...base, data: [category] }
-        if (callCount === 2) return { ...base, data: [resource] }
-        return base
+        switch (apiFunc.name) {
+            case 'listCategories':
+                return { ...base, data: [category] }
+            case 'listResources':
+                return { ...base, data: [resource] }
+            default:
+                return base
+        }
     }
 }))
 
@@ -46,7 +49,9 @@ test('navigates to resource detail on row click', async () => {
             <ResourceList />
         </MemoryRouter>
     )
-    const row = await screen.findByText('Resource 1')
-    await userEvent.click(row.closest('tr') as HTMLElement)
+    const cell = await screen.findByText('Resource 1')
+    const tableRow = cell.closest('tr')
+    expect(tableRow).toBeInTheDocument()
+    await userEvent.click(tableRow!)
     expect(navigate).toHaveBeenCalledWith('/resources/1')
 })

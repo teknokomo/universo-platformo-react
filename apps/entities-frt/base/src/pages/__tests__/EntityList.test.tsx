@@ -19,25 +19,29 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('../../api/entities', () => ({
-    listEntities: vi.fn(),
-    listTemplates: vi.fn(),
-    listStatuses: vi.fn()
+    listEntities: vi.fn(function listEntities() {}),
+    listTemplates: vi.fn(function listTemplates() {}),
+    listStatuses: vi.fn(function listStatuses() {})
 }))
 
-let callCount = 0
 const entity = { id: '1', titleEn: 'Entity 1', titleRu: 'Сущность 1', templateId: 't1', statusId: 's1' }
 const template = { id: 't1', name: 'Template 1' }
 const status = { id: 's1', name: 'Status 1' }
 
 vi.mock('flowise-ui/src/hooks/useApi', () => ({
     __esModule: true,
-    default: () => {
-        callCount++
+    default: (apiFunc: (...args: any[]) => any) => {
         const base = { loading: false, error: null, request: vi.fn(), data: null as any }
-        if (callCount === 1) return { ...base, data: [entity] }
-        if (callCount === 2) return { ...base, data: [template] }
-        if (callCount === 3) return { ...base, data: [status] }
-        return base
+        switch (apiFunc.name) {
+            case 'listEntities':
+                return { ...base, data: [entity] }
+            case 'listTemplates':
+                return { ...base, data: [template] }
+            case 'listStatuses':
+                return { ...base, data: [status] }
+            default:
+                return base
+        }
     }
 }))
 
@@ -50,6 +54,8 @@ test('navigates to entity detail on row click', async () => {
         </MemoryRouter>
     )
     const cell = await screen.findByText('Entity 1')
-    await userEvent.click(cell.closest('tr') as HTMLElement)
+    const row = cell.closest('tr')
+    expect(row).toBeInTheDocument()
+    await userEvent.click(row!)
     expect(navigate).toHaveBeenCalledWith('/entities/1')
 })
