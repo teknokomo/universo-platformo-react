@@ -5,6 +5,7 @@ import useApi from 'flowise-ui/src/hooks/useApi'
 import ResourceConfigTree, { ResourceNode } from '../components/ResourceConfigTree'
 import { createResource, listCategories, listStates, listStorageTypes } from '../api/resources'
 import { Category, State, StorageType } from '../types'
+import { getApiErrorMessage } from '../api/utils'
 
 interface ResourceDialogProps {
     open: boolean
@@ -12,13 +13,14 @@ interface ResourceDialogProps {
 }
 
 const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
-    const { t } = useTranslation('resources')
+    const { t, i18n } = useTranslation('resources')
     const [titleEn, setTitleEn] = useState('')
     const [titleRu, setTitleRu] = useState('')
     const [categoryId, setCategoryId] = useState('')
     const [stateId, setStateId] = useState('')
     const [storageTypeId, setStorageTypeId] = useState('')
-    const [description, setDescription] = useState('')
+    const [descriptionEn, setDescriptionEn] = useState('')
+    const [descriptionRu, setDescriptionRu] = useState('')
     const [nodes, setNodes] = useState<ResourceNode[]>([])
     const [errors, setErrors] = useState<Record<string, boolean>>({})
 
@@ -37,12 +39,11 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
     }, [open])
 
     const handleSave = async () => {
-        const errs: Record<string, boolean> = {}
-        if (!titleEn) errs.titleEn = true
-        if (!titleRu) errs.titleRu = true
-        if (!categoryId) errs.categoryId = true
-        if (!stateId) errs.stateId = true
-        if (!storageTypeId) errs.storageTypeId = true
+        const fieldsToValidate = { titleEn, titleRu, categoryId, stateId, storageTypeId }
+        const errs = Object.entries(fieldsToValidate).reduce((acc, [key, value]) => {
+            if (!value) acc[key] = true
+            return acc
+        }, {} as Record<string, boolean>)
         setErrors(errs)
         if (Object.keys(errs).length > 0) return
 
@@ -53,8 +54,8 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
             categoryId,
             stateId,
             storageTypeId,
-            descriptionEn: description,
-            descriptionRu: description,
+            descriptionEn,
+            descriptionRu,
             tree: serialize(nodes)
         })
         if (!createApi.error) onClose()
@@ -64,9 +65,10 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
         <Dialog open={open} onClose={onClose} fullWidth maxWidth='md'>
             <DialogTitle>{t('dialog.title')}</DialogTitle>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {createApi.error && (
-                    <Alert severity='error'>{String((createApi.error as any)?.response?.data?.error || createApi.error)}</Alert>
-                )}
+                {createApi.error && <Alert severity='error'>{getApiErrorMessage(createApi.error)}</Alert>}
+                {categoriesApi.error && <Alert severity='error'>{t('dialog.categoriesError')}</Alert>}
+                {statesApi.error && <Alert severity='error'>{t('dialog.statesError')}</Alert>}
+                {storageTypesApi.error && <Alert severity='error'>{t('dialog.storageTypesError')}</Alert>}
                 <TextField
                     label={t('dialog.titleEn')}
                     fullWidth
@@ -94,7 +96,7 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
                 >
                     {(categoriesApi.data as Category[] | null)?.map((c: Category) => (
                         <MenuItem key={c.id} value={c.id}>
-                            {c.titleEn}
+                            {i18n.language === 'ru' ? c.titleRu : c.titleEn}
                         </MenuItem>
                     ))}
                 </TextField>
@@ -129,11 +131,18 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
                     ))}
                 </TextField>
                 <TextField
-                    label={t('dialog.description')}
+                    label={t('dialog.descriptionEn')}
                     fullWidth
                     multiline
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    value={descriptionEn}
+                    onChange={(e) => setDescriptionEn(e.target.value)}
+                />
+                <TextField
+                    label={t('dialog.descriptionRu')}
+                    fullWidth
+                    multiline
+                    value={descriptionRu}
+                    onChange={(e) => setDescriptionRu(e.target.value)}
                 />
                 <ResourceConfigTree nodes={nodes} onChange={setNodes} />
             </DialogContent>

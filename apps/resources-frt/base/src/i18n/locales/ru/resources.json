@@ -30,11 +30,15 @@
       "category": "Категория",
       "state": "Статус",
       "storageType": "Тип хранения",
-      "description": "Описание",
+      "descriptionEn": "Описание (EN)",
+      "descriptionRu": "Описание (RU)",
       "cancel": "Отмена",
       "save": "Сохранить",
       "required": "Обязательно",
-      "error": "Не удалось создать ресурс"
+      "error": "Не удалось создать ресурс",
+      "categoriesError": "Не удалось загрузить категории",
+      "statesError": "Не удалось загрузить статусы",
+      "storageTypesError": "Не удалось загрузить типы хранения"
     },
     "config": {
       "resourceId": "ID ресурса",
