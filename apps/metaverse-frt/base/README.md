@@ -47,3 +47,15 @@ The module registers its translation bundle (EN/RU) in the global i18n during UI
 -   Uses the shared authenticated API client; it forwards the Authorization header and refreshes on 401.
 -   No secrets are stored here; server-side RLS enforces access by membership and visibility.
 -   Future work: membership management (roles), default metaverse toggle, link editor (create/remove/visualize).
+
+## API Usage
+
+Use the shared `useApi` hook for backend requests. Add the returned `request` function to effect dependency arrays so calls execute only once when components mount:
+
+```javascript
+const { request } = useApi(fetchList)
+
+useEffect(() => {
+    request()
+}, [request])
+```

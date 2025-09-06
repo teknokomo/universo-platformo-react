@@ -68,6 +68,18 @@ pnpm --filter @universo/entities-frt build
 pnpm --filter @universo/entities-frt lint
 ```
 
+### API Usage
+
+Server interactions use the shared `useApi` hook. Include the returned `request` function in effect dependency arrays so requests run only once when components mount:
+
+```javascript
+const { request } = useApi(fetchList)
+
+useEffect(() => {
+    request()
+}, [request])
+```
+
 ## Related Documentation
 - [Entities Application Docs](../../../docs/en/applications/entities/README.md)
 - [Backend Service](../entities-srv/base/README.md)

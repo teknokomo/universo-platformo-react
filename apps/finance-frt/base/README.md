@@ -53,6 +53,18 @@ pnpm dev
 pnpm build --filter @universo/finance-frt
 ```
 
+### API Usage
+
+Server requests should use the shared `useApi` hook. Include the returned `request` function in effect dependency arrays to ensure calls run only once when components mount:
+
+```javascript
+const { request } = useApi(fetchList)
+
+useEffect(() => {
+    request()
+}, [request])
+```
+
 ## Related Documentation
 
 - [Finance Backend Documentation](../finance-srv/base/README.md)

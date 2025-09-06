@@ -65,6 +65,18 @@ pnpm --filter @universo/resources-frt build
 pnpm --filter @universo/resources-frt lint
 ```
 
+### API Usage
+
+Use the shared `useApi` hook for server requests. Include the returned `request` function in effect dependency arrays to trigger calls once on mount:
+
+```javascript
+const { request } = useApi(fetchList)
+
+useEffect(() => {
+    request()
+}, [request])
+```
+
 ## Related Documentation
 - [Resources Application Docs](../../../docs/en/applications/resources/README.md)
 - [Backend Service](../resources-srv/base/README.md)

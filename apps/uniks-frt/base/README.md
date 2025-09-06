@@ -95,6 +95,18 @@ pnpm dev
 pnpm build --filter @universo/uniks-frt
 ```
 
+### API Usage
+
+Use the shared `useApi` hook for backend calls. Include the returned `request` function in effect dependency arrays so requests execute only once when components mount:
+
+```javascript
+const { request } = useApi(fetchList)
+
+useEffect(() => {
+    request()
+}, [request])
+```
+
 ## Configuration
 
 The application uses the following configuration:
