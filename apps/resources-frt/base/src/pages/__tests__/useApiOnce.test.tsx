@@ -23,3 +23,32 @@ test('useApi request fires only once on mount', async () => {
         expect(apiFunc).toHaveBeenCalledTimes(1)
     })
 })
+
+test('useApi ignores state updates after unmount', async () => {
+    let resolve
+    const delayedApi = vi.fn(
+        () =>
+            new Promise((res) => {
+                resolve = res
+            })
+    )
+
+    function UnmountComponent() {
+        const { request } = useApi(delayedApi)
+        useEffect(() => {
+            request()
+        }, [request])
+        return null
+    }
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const { unmount } = render(<UnmountComponent />)
+    unmount()
+    resolve({ data: null })
+    await waitFor(() => {
+        expect(consoleErrorSpy).not.toHaveBeenCalled()
+    })
+
+    consoleErrorSpy.mockRestore()
+})
