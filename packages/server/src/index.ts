@@ -92,7 +92,13 @@ export class App {
 
             // Initialize Rate Limit
             this.rateLimiterManager = RateLimiterManager.getInstance()
-            await this.rateLimiterManager.initializeRateLimiters(await getDataSource().getRepository(ChatFlow).find())
+            // Load only required fields to avoid unnecessary column dependencies
+            const rlItems = await getDataSource()
+                .getRepository(ChatFlow)
+                .createQueryBuilder('cf')
+                .select(['cf.id', 'cf.apiConfig'])
+                .getMany()
+            await this.rateLimiterManager.initializeRateLimiters(rlItems)
 
             // Initialize cache pool
             this.cachePool = new CachePool()
@@ -117,7 +123,10 @@ export class App {
                 await this.redisSubscriber.connect()
             }
 
-            logger.info('📦 [server]: Data Source has been initialized!')
+            // Diagnostics: ensure Spaces entities are registered
+            const entityNames = getDataSource().entityMetadatas.map((m) => m.name).sort()
+            logger.info(`📦 [server]: Data Source has been initialized!`)
+            logger.info(`[diag] Entities loaded: ${entityNames.join(', ')}`)
         } catch (error) {
             logger.error('❌ [server]: Error during Data Source initialization:', error)
         }

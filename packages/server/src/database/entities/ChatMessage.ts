@@ -12,7 +12,7 @@ export class ChatMessage implements IChatMessage {
 
     @Index()
     @Column({ type: 'uuid' })
-    chatflowid: string
+    chatflowid: string // Now refers to canvasId (backward compatibility maintained)
 
     @Column({ type: 'text' })
     content: string

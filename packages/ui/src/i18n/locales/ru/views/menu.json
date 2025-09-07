@@ -1,7 +1,7 @@
 {
     "menu": {
         "dashboard": "Униборд",
-        "chatflows": "Пространства",
+        "spaces": "Пространства",
         "agentflows": "Агенты",
         "assistants": "Ассистенты",
         "tools": "Инструменты",

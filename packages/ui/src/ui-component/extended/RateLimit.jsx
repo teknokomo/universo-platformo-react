@@ -23,7 +23,7 @@ import useNotifier from '@/utils/useNotifier'
 const RateLimit = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
-    const chatflowid = chatflow.id
+    const canvasId = chatflow.id
     let apiConfig = {}
     try {
         apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
@@ -88,7 +88,7 @@ const RateLimit = ({ dialogProps }) => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflow.unik_id, chatflowid, {
+            const saveResp = await chatflowsApi.updateChatflow(chatflow.unik_id, canvasId, {
                 rateLimit: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
@@ -108,9 +108,8 @@ const RateLimit = ({ dialogProps }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save Rate Limit Configuration: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `Failed to save Rate Limit Configuration: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',

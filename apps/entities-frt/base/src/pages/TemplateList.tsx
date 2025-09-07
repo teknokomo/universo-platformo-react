@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import useApi from 'flowise-ui/src/hooks/useApi'
+import useApi from '../hooks/useApi'
 import { listTemplates } from '../api/entities'
 import { Template, UseApi } from '../types'
 

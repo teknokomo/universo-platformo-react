@@ -88,7 +88,7 @@ OverrideConfigTable.propTypes = {
 const OverrideConfig = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
-    const chatflowid = chatflow.id
+    const canvasId = chatflow.id
     const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
     const { t } = useTranslation()
 
@@ -271,7 +271,7 @@ const OverrideConfig = ({ dialogProps }) => {
 
     const onOverrideConfigSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, chatflowid, {
+            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, canvasId, {
                 overrideConfig: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
@@ -291,9 +291,8 @@ const OverrideConfig = ({ dialogProps }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save Override Configuration: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `Failed to save Override Configuration: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -314,7 +313,7 @@ const OverrideConfig = ({ dialogProps }) => {
             getAllVariablesApi.request()
         }
 
-        return () => {}
+        return () => { }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dialogProps])
 

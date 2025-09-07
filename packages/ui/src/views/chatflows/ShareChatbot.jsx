@@ -76,22 +76,22 @@ function a11yProps(index) {
     }
 }
 
-const shareChatbotHtmlCode = (chatflowid, mode = 'chat') => {
+const shareChatbotHtmlCode = (canvasId, mode = 'chat') => {
     return `<iframe
-    src="${baseURL}/api/v1/prediction/${chatflowid}?mode=${mode}"
+    src="${baseURL}/api/v1/prediction/${canvasId}?mode=${mode}"
     width="100%"
     height="600"
     style="border: none;"
 ></iframe>`
 }
 
-const shareChatbotReactCode = (chatflowid, mode = 'chat') => {
+const shareChatbotReactCode = (canvasId, mode = 'chat') => {
     return `import { Chatbot } from 'flowise-embed-react'
 
 const App = () => {
     return (
         <Chatbot
-            chatflowid="${chatflowid}"
+            chatflowid="${canvasId}"
             apiHost="${baseURL}"
             mode="${mode}"
         />
@@ -100,6 +100,8 @@ const App = () => {
 }
 
 const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: propUnikId, mode = 'chat' }) => {
+    // For agents, chatflowid now represents canvasId
+    const canvasId = isAgentCanvas ? chatflowid : chatflowid
     const dispatch = useDispatch()
     const theme = useTheme()
     const chatflow = useSelector((state) => state.canvas.chatflow)
@@ -239,7 +241,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, {
+            const saveResp = await chatflowsApi.updateChatflow(unikId, canvasId, {
                 chatbotConfig: JSON.stringify(formatObj())
             })
             if (saveResp.data) {
@@ -278,7 +280,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
 
     const onSwitchChange = async (checked) => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, { isPublic: checked })
+            const saveResp = await chatflowsApi.updateChatflow(unikId, canvasId, { isPublic: checked })
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('chatflows.shareChatbot.configSaved'),
@@ -484,9 +486,9 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
     const getCode = (codeLang) => {
         switch (codeLang) {
             case 'Html':
-                return shareChatbotHtmlCode(chatflowid, mode)
+                return shareChatbotHtmlCode(canvasId, mode)
             case 'React':
-                return shareChatbotReactCode(chatflowid, mode)
+                return shareChatbotReactCode(canvasId, mode)
             default:
                 return ''
         }
@@ -495,7 +497,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
     useEffect(() => {
         const fetchChatflow = async () => {
             try {
-                const resp = await chatflowsApi.getSpecificChatflow(unikId, chatflowid)
+                const resp = await chatflowsApi.getSpecificChatflow(unikId, canvasId)
                 if (resp.data) {
                     dispatch({ type: SET_CHATFLOW, chatflow: resp.data })
                 }
@@ -504,10 +506,10 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
             }
         }
 
-        if (chatflowid !== chatflow.id) {
+        if (canvasId !== chatflow.id) {
             fetchChatflow()
         }
-    }, [chatflowid, chatflow.id, dispatch, unikId])
+    }, [canvasId, chatflow.id, dispatch, unikId])
 
     return (
         <>
@@ -522,13 +524,13 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
                     }}
                     variant='h5'
                 >
-                    {`${baseURL}/chatbot/${chatflowid}`}
+                    {`${baseURL}/chatbot/${canvasId}`}
                 </Typography>
                 <IconButton
                     title={t('chatflows.shareChatbot.copyLink')}
                     color='success'
                     onClick={(event) => {
-                        navigator.clipboard.writeText(`${baseURL}/chatbot/${chatflowid}`)
+                        navigator.clipboard.writeText(`${baseURL}/chatbot/${canvasId}`)
                         setCopyAnchorEl(event.currentTarget)
                         setTimeout(() => {
                             handleCloseCopyPopOver()
@@ -537,7 +539,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
                 >
                     <IconCopy />
                 </IconButton>
-                <IconButton title={t('chatflows.shareChatbot.openNewTab')} color='primary' onClick={() => window.open(`${baseURL}/chatbot/${chatflowid}`, '_blank')}>
+                <IconButton title={t('chatflows.shareChatbot.openNewTab')} color='primary' onClick={() => window.open(`${baseURL}/chatbot/${canvasId}`, '_blank')}>
                     <IconArrowUpRightCircle />
                 </IconButton>
                 <div style={{ flex: 1 }} />

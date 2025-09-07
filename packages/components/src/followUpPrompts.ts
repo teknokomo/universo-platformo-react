@@ -36,7 +36,8 @@ export const generateFollowUpPrompts = async (
                     model: providerConfig.modelName,
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 })
-                const structuredLLM = llm.withStructuredOutput(FollowUpPromptType)
+                // Avoid deep generic instantiation by relaxing types
+                const structuredLLM = (llm as any).withStructuredOutput(FollowUpPromptType as any)
                 const structuredResponse = await structuredLLM.invoke(followUpPromptsPrompt)
                 return structuredResponse
             }
@@ -55,14 +56,15 @@ export const generateFollowUpPrompts = async (
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 })
                 // use structured output parser because withStructuredOutput is not working
-                const parser = StructuredOutputParser.fromZodSchema(FollowUpPromptType)
+                // Cast to any to prevent excessive type expansion
+                const parser: any = StructuredOutputParser.fromZodSchema(FollowUpPromptType as any)
                 const formatInstructions = parser.getFormatInstructions()
                 const prompt = PromptTemplate.fromTemplate(`
                     ${providerConfig.prompt}
                                 
                     {format_instructions}
                 `)
-                const chain = prompt.pipe(llm).pipe(parser)
+                const chain = (prompt as any).pipe(llm as any).pipe(parser as any)
                 const structuredResponse = await chain.invoke({
                     history: apiMessageContent,
                     format_instructions: formatInstructions
@@ -76,14 +78,14 @@ export const generateFollowUpPrompts = async (
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 })
                 // use structured output parser because withStructuredOutput is not working
-                const parser = StructuredOutputParser.fromZodSchema(FollowUpPromptType)
+                const parser: any = StructuredOutputParser.fromZodSchema(FollowUpPromptType as any)
                 const formatInstructions = parser.getFormatInstructions()
                 const prompt = PromptTemplate.fromTemplate(`
                     ${providerConfig.prompt}
                      
                     {format_instructions}
                 `)
-                const chain = prompt.pipe(llm).pipe(parser)
+                const chain = (prompt as any).pipe(llm as any).pipe(parser as any)
                 const structuredResponse = await chain.invoke({
                     history: apiMessageContent,
                     format_instructions: formatInstructions
@@ -96,8 +98,7 @@ export const generateFollowUpPrompts = async (
                     model: providerConfig.modelName,
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 })
-                // @ts-ignore
-                const structuredLLM = model.withStructuredOutput(FollowUpPromptType)
+                const structuredLLM = (model as any).withStructuredOutput(FollowUpPromptType as any)
                 const structuredResponse = await structuredLLM.invoke(followUpPromptsPrompt)
                 return structuredResponse
             }
@@ -107,7 +108,7 @@ export const generateFollowUpPrompts = async (
                     model: providerConfig.modelName,
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 })
-                const structuredLLM = model.withStructuredOutput(FollowUpPromptType)
+                const structuredLLM = (model as any).withStructuredOutput(FollowUpPromptType as any)
                 const structuredResponse = await structuredLLM.invoke(followUpPromptsPrompt)
                 return structuredResponse
             }
@@ -117,7 +118,7 @@ export const generateFollowUpPrompts = async (
                     model: providerConfig.modelName,
                     temperature: parseFloat(`${providerConfig.temperature}`)
                 })
-                const structuredLLM = llm.withStructuredOutput(FollowUpPromptType)
+                const structuredLLM = (llm as any).withStructuredOutput(FollowUpPromptType as any)
                 const structuredResponse = await structuredLLM.invoke(followUpPromptsPrompt)
                 return structuredResponse
             }

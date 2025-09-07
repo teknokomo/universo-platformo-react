@@ -173,6 +173,9 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
+    // For agents, chatflowid now represents canvasId
+    const canvasId = isAgentCanvas ? chatflowid : chatflowid
+
     const [userInput, setUserInput] = useState('')
     const [loading, setLoading] = useState(false)
     const [messages, setMessages] = useState([
@@ -436,7 +439,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const handleAbort = async () => {
         setIsMessageStopping(true)
         try {
-            await chatmessageApi.abortMessage(chatflowid, chatId)
+            await chatmessageApi.abortMessage(canvasId, chatId)
         } catch (error) {
             setIsMessageStopping(false)
             enqueueSnackbar({
@@ -559,7 +562,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const updateLastMessageArtifacts = (artifacts) => {
         artifacts.forEach((artifact) => {
             if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatflowid}&chatId=${chatId}&fileName=${artifact.data.replace(
+                artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${artifact.data.replace(
                     'FILE-STORAGE::',
                     ''
                 )}`
@@ -716,7 +719,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                 }
                 formData.append('chatId', chatId)
 
-                const response = await attachmentsApi.createAttachment(chatflowid, chatId, formData)
+                const response = await attachmentsApi.createAttachment(canvasId, chatId, formData)
                 const data = response.data
 
                 for (const extractedFileData of data) {
@@ -746,7 +749,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                 }
                 formData.append('chatId', chatId)
 
-                await vectorstoreApi.upsertVectorStoreWithFormData(chatflowid, formData)
+                await vectorstoreApi.upsertVectorStoreWithFormData(canvasId, formData)
 
                 // delay for vector store to be updated
                 const delay = (delayInms) => {
@@ -815,9 +818,9 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             if (action) params.action = action
 
             if (isChatFlowAvailableToStream) {
-                fetchResponseFromEventStream(chatflowid, params)
+                fetchResponseFromEventStream(canvasId, params)
             } else {
-                const response = await predictionApi.sendMessageAndGetPrediction(chatflowid, params)
+                const response = await predictionApi.sendMessageAndGetPrediction(canvasId, params)
                 if (response.data) {
                     const data = response.data
 
@@ -844,7 +847,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                         }
                     ])
 
-                    setLocalStorageChatflow(chatflowid, data.chatId)
+                    setLocalStorageChatflow(canvasId, data.chatId)
                     setLoading(false)
                     setUserInput('')
                     setUploadedFiles([])
@@ -860,13 +863,13 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         }
     }
 
-    const fetchResponseFromEventStream = async (chatflowid, params) => {
+    const fetchResponseFromEventStream = async (canvasId, params) => {
         const chatId = params.chatId
         const input = params.question
         const username = localStorage.getItem('username')
         const password = localStorage.getItem('password')
         params.streaming = true
-        await fetchEventSource(`${baseURL}/api/v1/internal-prediction/${chatflowid}`, {
+        await fetchEventSource(`${baseURL}/api/v1/internal-prediction/${canvasId}`, {
             openWhenHidden: true,
             method: 'POST',
             body: JSON.stringify(params),
@@ -921,7 +924,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                         closeResponse()
                         break
                     case 'end':
-                        setLocalStorageChatflow(chatflowid, chatId)
+                        setLocalStorageChatflow(canvasId, chatId)
                         closeResponse()
                         break
                 }
@@ -998,7 +1001,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         try {
             const response = await axios.post(
                 `${baseURL}/api/v1/openai-assistants-file/download`,
-                { fileName: fileAnnotation.fileName, chatflowId: chatflowid, chatId: chatId },
+                { fileName: fileAnnotation.fileName, chatflowId: canvasId, chatId: chatId },
                 { responseType: 'blob' }
             )
             const blob = new Blob([response.data], { type: response.headers['content-type'] })
@@ -1045,7 +1048,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                     obj.artifacts = message.artifacts
                     obj.artifacts.forEach((artifact) => {
                         if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                            artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatflowid}&chatId=${chatId}&fileName=${artifact.data.replace(
+                            artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${artifact.data.replace(
                                 'FILE-STORAGE::',
                                 ''
                             )}`
@@ -1056,7 +1059,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                     obj.fileUploads = message.fileUploads
                     obj.fileUploads.forEach((file) => {
                         if (file.type === 'stored-file') {
-                            file.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatflowid}&chatId=${chatId}&fileName=${file.name}`
+                            file.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${file.name}`
                         }
                     })
                 }
@@ -1064,7 +1067,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                 return obj
             })
             setMessages((prevMessages) => [...prevMessages, ...loadedMessages])
-            setLocalStorageChatflow(chatflowid, chatId)
+            setLocalStorageChatflow(canvasId, chatId)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1123,7 +1126,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             if (chatConfig.leads) {
                 setLeadsConfig(chatConfig.leads)
                 console.log('Set leadsConfig:', chatConfig.leads)
-                if (chatConfig.leads.status && !getLocalStorageChatflow(chatflowid)?.lead) {
+                if (chatConfig.leads.status && !getLocalStorageChatflow(canvasId)?.lead) {
                     console.log('Leads status is enabled and lead is not saved, showing form.')
                     setMessages((prevMessages) => {
                         // Universo Platformo | Check if a message for lead capture has already been added
@@ -1172,8 +1175,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             setFollowUpPromptsStatus(false)
             setFullFileUpload(false)
         }
-        console.log('*** CHATMESSAGE: End useEffect [chatConfig, chatflowid] ***')
-    }, [chatConfig, chatflowid]) // Added chatflowid as a dependency
+        console.log('*** CHATMESSAGE: End useEffect [chatConfig, canvasId] ***')
+    }, [chatConfig, canvasId]) // Added canvasId as a dependency
 
     useEffect(() => {
         if (fullFileUpload) {
@@ -1199,11 +1202,11 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     }, [isDialog, inputRef])
 
     useEffect(() => {
-        if (open && chatflowid) {
+        if (open && canvasId) {
             // API request
-            getChatmessageApi.request(chatflowid)
-            getIsChatflowStreamingApi.request(chatflowid)
-            getAllowChatFlowUploads.request(chatflowid)
+            getChatmessageApi.request(canvasId)
+            getIsChatflowStreamingApi.request(canvasId)
+            getAllowChatFlowUploads.request(canvasId)
 
             // Scroll to bottom
             scrollToBottom()
@@ -1211,7 +1214,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             setIsRecording(false)
 
             // leads
-            const savedLead = getLocalStorageChatflow(chatflowid)?.lead
+            const savedLead = getLocalStorageChatflow(canvasId)?.lead
             if (savedLead) {
                 setIsLeadSaved(!!savedLead)
                 setLeadEmail(savedLead.email)
@@ -1242,7 +1245,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, chatflowid])
+    }, [open, canvasId])
 
     useEffect(() => {
         // wait for audio recording to load and then send
@@ -1282,13 +1285,13 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     const onThumbsUpClick = async (messageId) => {
         const body = {
-            chatflowid,
+            chatflowid: canvasId,
             chatId,
             messageId,
             rating: 'THUMBS_UP',
             content: ''
         }
-        const result = await chatmessagefeedbackApi.addFeedback(chatflowid, body)
+        const result = await chatmessagefeedbackApi.addFeedback(canvasId, body)
         if (result.data) {
             const data = result.data
             let id = ''
@@ -1311,13 +1314,13 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     const onThumbsDownClick = async (messageId) => {
         const body = {
-            chatflowid,
+            chatflowid: canvasId,
             chatId,
             messageId,
             rating: 'THUMBS_DOWN',
             content: ''
         }
-        const result = await chatmessagefeedbackApi.addFeedback(chatflowid, body)
+        const result = await chatmessagefeedbackApi.addFeedback(canvasId, body)
         if (result.data) {
             const data = result.data
             let id = ''
@@ -1354,7 +1357,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         setIsLeadSaving(true)
 
         const body = {
-            chatflowid,
+            chatflowid: canvasId,
             chatId,
             name: leadName,
             email: leadEmail,
@@ -1365,7 +1368,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         if (result.data) {
             const data = result.data
             setChatId(data.chatId)
-            setLocalStorageChatflow(chatflowid, data.chatId, { lead: { name: leadName, email: leadEmail, phone: leadPhone } })
+            setLocalStorageChatflow(canvasId, data.chatId, { lead: { name: leadName, email: leadEmail, phone: leadPhone } })
             setIsLeadSaved(true)
             setLeadEmail(leadEmail)
             setMessages((prevMessages) => {
@@ -1381,7 +1384,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     const getInputDisabled = () => {
         const isLoadingValue = loading // Renamed for logging
-        const isChatflowIdValue = !chatflowid // Renamed for logging
+        const isChatflowIdValue = !canvasId // Renamed for logging
         const leadsEnabled = leadsConfig?.status
         const leadsSaved = isLeadSaved
         const isLeadsValue = leadsEnabled && !leadsSaved // Renamed for logging
@@ -1505,7 +1508,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             const artifact = newArtifacts[i]
             if (artifact && (artifact.type === 'png' || artifact.type === 'jpeg')) {
                 const data = artifact.data
-                newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatflowid}&chatId=${chatId}&fileName=${data.replace(
+                newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${data.replace(
                     'FILE-STORAGE::',
                     ''
                 )}`
@@ -1557,7 +1560,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                             return !inline ? (
                                 <CodeBlock
                                     key={Math.random()}
-                                    chatflowid={chatflowid}
+                                    chatflowid={canvasId}
                                     isDialog={isDialog}
                                     language={(match && match[1]) || ''}
                                     value={String(children).replace(/\n$/, '')}
@@ -1628,8 +1631,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                                 ? 'usermessagewaiting-dark'
                                                 : 'usermessagewaiting-light'
                                             : message.type === 'usermessagewaiting'
-                                            ? 'apimessage'
-                                            : 'usermessage'
+                                                ? 'apimessage'
+                                                : 'usermessage'
                                     }
                                 >
                                     {/* Display the correct icon depending on the message type */}
@@ -1819,7 +1822,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                                                                 return !inline ? (
                                                                                     <CodeBlock
                                                                                         key={Math.random()}
-                                                                                        chatflowid={chatflowid}
+                                                                                        chatflowid={canvasId}
                                                                                         isDialog={isDialog}
                                                                                         language={(match && match[1]) || ''}
                                                                                         value={String(children).replace(/\n$/, '')}
@@ -1929,8 +1932,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                         )}
                                         <div className='markdownanswer'>
                                             {message.type === 'leadCaptureMessage' &&
-                                            !getLocalStorageChatflow(chatflowid)?.lead &&
-                                            leadsConfig.status ? (
+                                                !getLocalStorageChatflow(canvasId)?.lead &&
+                                                leadsConfig.status ? (
                                                 <Box
                                                     sx={{
                                                         display: 'flex',
@@ -2015,7 +2018,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                                                 return !inline ? (
                                                                     <CodeBlock
                                                                         key={Math.random()}
-                                                                        chatflowid={chatflowid}
+                                                                        chatflowid={canvasId}
                                                                         isDialog={isDialog}
                                                                         language={(match && match[1]) || ''}
                                                                         value={String(children).replace(/\n$/, '')}
@@ -2164,8 +2167,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                                 >
                                                     <CopyToClipboardButton onClick={() => copyMessageToClipboard(message.message)} />
                                                     {!message.feedback ||
-                                                    message.feedback.rating === '' ||
-                                                    message.feedback.rating === 'THUMBS_UP' ? (
+                                                        message.feedback.rating === '' ||
+                                                        message.feedback.rating === 'THUMBS_UP' ? (
                                                         <ThumbsUpButton
                                                             isDisabled={message.feedback && message.feedback.rating === 'THUMBS_UP'}
                                                             rating={message.feedback ? message.feedback.rating : ''}
@@ -2173,8 +2176,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                                         />
                                                     ) : null}
                                                     {!message.feedback ||
-                                                    message.feedback.rating === '' ||
-                                                    message.feedback.rating === 'THUMBS_DOWN' ? (
+                                                        message.feedback.rating === '' ||
+                                                        message.feedback.rating === 'THUMBS_DOWN' ? (
                                                         <ThumbsDownButton
                                                             isDisabled={message.feedback && message.feedback.rating === 'THUMBS_DOWN'}
                                                             rating={message.feedback ? message.feedback.rating : ''}
@@ -2276,12 +2279,12 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                 <div className='recording-control-buttons-container'>
                                     <IconButton onClick={onRecordingCancelled} size='small'>
                                         <IconX
-                                            color={loading || !chatflowid ? '#9e9e9e' : customization.isDarkMode ? 'white' : '#1e88e5'}
+                                            color={loading || !canvasId ? '#9e9e9e' : customization.isDarkMode ? 'white' : '#1e88e5'}
                                         />
                                     </IconButton>
                                     <IconButton onClick={onRecordingStopped} size='small'>
                                         <IconSend
-                                            color={loading || !chatflowid ? '#9e9e9e' : customization.isDarkMode ? 'white' : '#1e88e5'}
+                                            color={loading || !canvasId ? '#9e9e9e' : customization.isDarkMode ? 'white' : '#1e88e5'}
                                         />
                                     </IconButton>
                                 </div>
@@ -2407,8 +2410,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                                                 getInputDisabled()
                                                                     ? '#9e9e9e'
                                                                     : customization.isDarkMode
-                                                                    ? 'white'
-                                                                    : '#1e88e5'
+                                                                        ? 'white'
+                                                                        : '#1e88e5'
                                                             }
                                                         />
                                                     </IconButton>

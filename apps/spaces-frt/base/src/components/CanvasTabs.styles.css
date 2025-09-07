@@ -1,0 +1,121 @@
+/* Enhanced drag-and-drop animations for CanvasTabs */
+
+/* Pulse animation for drop zones */
+@keyframes pulse {
+    0% { 
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 1;
+        transform: scale(1.02);
+    }
+    100% { 
+        opacity: 0.6;
+        transform: scale(1);
+    }
+}
+
+/* Smooth slide animation for tab reordering */
+@keyframes slideIn {
+    from {
+        transform: translateX(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Drag placeholder animation */
+@keyframes placeholder {
+    0% { 
+        opacity: 0.4;
+        transform: scale(0.95);
+    }
+    50% { 
+        opacity: 0.2;
+        transform: scale(0.98);
+    }
+    100% { 
+        opacity: 0.4;
+        transform: scale(0.95);
+    }
+}
+
+/* Drop zone highlight */
+.canvas-tab-drop-zone {
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.canvas-tab-drop-zone::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(45deg, #1976d2, #42a5f5);
+    border-radius: 2px;
+    animation: pulse 1.5s infinite;
+    z-index: 1;
+}
+
+/* Dragging state styles */
+.canvas-tab-dragging {
+    cursor: grabbing !important;
+    user-select: none;
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Placeholder state */
+.canvas-tab-placeholder {
+    opacity: 0.4;
+    animation: placeholder 2s infinite;
+    pointer-events: none;
+}
+
+/* Smooth transitions for all tab states */
+.canvas-tab {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.canvas-tab:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced cursor states */
+.canvas-tab-container {
+    cursor: pointer;
+}
+
+.canvas-tab-container.dragging {
+    cursor: grabbing;
+}
+
+.canvas-tab-container.can-drag:hover {
+    cursor: pointer;
+}
+
+/* Accessibility improvements */
+.canvas-tab:focus-visible {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Reduced motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .canvas-tab,
+    .canvas-tab-drop-zone,
+    .canvas-tab-dragging {
+        animation: none;
+        transition: none;
+    }
+}

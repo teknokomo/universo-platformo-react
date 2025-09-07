@@ -36,7 +36,7 @@ import ExportAsTemplateDialog from '@/ui-component/dialog/ExportAsTemplateDialog
 const exampleAPIFunc = `/*
 * You can use any libraries imported in Flowise
 * You can use properties specified in Input Schema as variables. Ex: Property = userid, Variable = $userid
-* You can get default flow config: $flow.sessionId, $flow.chatId, $flow.chatflowId, $flow.input, $flow.state
+* You can get default flow config: $flow.sessionId, $flow.chatId, $flow.canvasId, $flow.input, $flow.state
 * You can get custom variables: $vars.<variable-name>
 * Must return a string value at the end of function
 */
@@ -259,9 +259,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `${t('tools.errors.failedToExport')}: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `${t('tools.errors.failedToExport')}: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -287,7 +286,7 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 func: toolFunc,
                 iconSrc: toolIcon
             }
-            
+
             const createResp = await toolsApi.createNewTool(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
@@ -306,11 +305,10 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `${t('tools.errors.failedToAdd')}: ${
-                    error.response && typeof error.response.data === 'object' 
-                        ? error.response.data.message 
+                message: `${t('tools.errors.failedToAdd')}: ${error.response && typeof error.response.data === 'object'
+                        ? error.response.data.message
                         : error.response ? error.response.data : error.message
-                }`,
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -352,9 +350,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `${t('tools.errors.failedToSave')}: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `${t('tools.errors.failedToSave')}: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -399,9 +396,8 @@ const ToolDialog = ({ show, dialogProps, onUseTemplate, onCancel, onConfirm, set
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: `${t('tools.errors.failedToDelete')}: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: `${t('tools.errors.failedToDelete')}: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                        }`,
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',

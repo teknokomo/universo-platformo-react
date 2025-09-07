@@ -16,7 +16,7 @@
     "deleteSuccess": "Custom Template deleted successfully!",
     "deleteError": "Failed to delete custom template: {error}",
     "canvas": {
-      "useChatflow": "Use Chatflow",
+      "useChatflow": "Use Canvas",
       "useTemplate": "Use Template",
       "inputs": "Inputs",
       "output": "Output",
@@ -42,4 +42,4 @@
       "importError": "Failed to import template: {error}"
     }
   }
-} 
+}

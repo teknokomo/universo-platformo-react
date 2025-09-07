@@ -12,35 +12,42 @@ const API_BASE = '/api/v1'
  */
 export class PublicationApi {
     /**
-     * Get space by ID (formerly chatflow)
+     * Get canvas by ID (new structure) or space by ID (legacy)
      * @param unikId - Unik identifier
-     * @param spaceId - Space identifier (still uses chatflowId in API)
-     * @returns Promise with space data
+     * @param canvasId - Canvas identifier (or spaceId for legacy compatibility)
+     * @returns Promise with canvas/space data
      */
-    static async getSpaceById(unikId: string, spaceId: string) {
+    static async getCanvasById(unikId: string, canvasId: string) {
         try {
             const headers = {
                 ...getAuthHeaders(),
                 'x-request-from': 'internal'
             }
 
-            const response = await axios.get(`${API_BASE}/uniks/${unikId}/chatflows/${spaceId}`, { headers })
-
-            return response
+            // Try new Canvas API first, fallback to legacy Chatflow API
+            try {
+                const response = await axios.get(`${API_BASE}/uniks/${unikId}/canvases/${canvasId}`, { headers })
+                return response
+            } catch (canvasError) {
+                // Fallback to legacy chatflows API for backward compatibility
+                console.warn('[PublicationApi] Canvas API not available, falling back to legacy chatflows API')
+                const response = await axios.get(`${API_BASE}/uniks/${unikId}/chatflows/${canvasId}`, { headers })
+                return response
+            }
         } catch (error) {
-            console.error('[PublicationApi] Error getting space:', error)
+            console.error('[PublicationApi] Error getting canvas:', error)
             throw error
         }
     }
 
     /**
-     * Update space (formerly chatflow)
+     * Update canvas (new structure) or space (legacy)
      * @param unikId - Unik identifier
-     * @param spaceId - Space identifier (still uses chatflowId in API)
+     * @param canvasId - Canvas identifier (or spaceId for legacy compatibility)
      * @param body - Update data
-     * @returns Promise with updated space data
+     * @returns Promise with updated canvas/space data
      */
-    static async updateSpace(unikId: string, spaceId: string, body: any) {
+    static async updateCanvas(unikId: string, canvasId: string, body: any) {
         try {
             const headers = {
                 ...getAuthHeaders(),
@@ -48,22 +55,47 @@ export class PublicationApi {
                 'Content-Type': 'application/json'
             }
 
-            const response = await axios.put(`${API_BASE}/uniks/${unikId}/chatflows/${spaceId}`, body, { headers })
-
-            return response
+            // Try new Canvas API first, fallback to legacy Chatflow API
+            try {
+                const response = await axios.put(`${API_BASE}/uniks/${unikId}/canvases/${canvasId}`, body, { headers })
+                return response
+            } catch (canvasError) {
+                // Fallback to legacy chatflows API for backward compatibility
+                console.warn('[PublicationApi] Canvas API not available, falling back to legacy chatflows API')
+                const response = await axios.put(`${API_BASE}/uniks/${unikId}/chatflows/${canvasId}`, body, { headers })
+                return response
+            }
         } catch (error) {
-            console.error('[PublicationApi] Error updating space:', error)
+            console.error('[PublicationApi] Error updating canvas:', error)
             throw error
         }
     }
 
     /**
-     * Save publication settings for any technology to Supabase
-     * @param spaceId Space ID
+     * @deprecated Use getCanvasById instead
+     * Get space by ID (formerly chatflow) - kept for backward compatibility
+     */
+    static async getSpaceById(unikId: string, spaceId: string) {
+        console.warn('[PublicationApi] getSpaceById is deprecated, use getCanvasById instead')
+        return this.getCanvasById(unikId, spaceId)
+    }
+
+    /**
+     * @deprecated Use updateCanvas instead
+     * Update space (formerly chatflow) - kept for backward compatibility
+     */
+    static async updateSpace(unikId: string, spaceId: string, body: any) {
+        console.warn('[PublicationApi] updateSpace is deprecated, use updateCanvas instead')
+        return this.updateCanvas(unikId, spaceId, body)
+    }
+
+    /**
+     * Save publication settings for any technology to Canvas/Space
+     * @param canvasId Canvas ID (or spaceId for legacy compatibility)
      * @param technology Technology identifier (e.g., 'arjs', 'chatbot')
      * @param settings Technology-specific settings to save
      */
-    static async savePublicationSettings(spaceId: string, technology: string, settings: any): Promise<void> {
+    static async savePublicationSettings(canvasId: string, technology: string, settings: any): Promise<void> {
         try {
             // Get unikId from URL since we need it for the request
             const { unikId } = getCurrentUrlIds()
@@ -71,16 +103,16 @@ export class PublicationApi {
                 throw new Error('unikId not found in URL')
             }
 
-            // First, get current space configuration
-            const currentResponse = await this.getSpaceById(unikId, spaceId)
-            const currentSpace = currentResponse.data
+            // First, get current canvas/space configuration
+            const currentResponse = await this.getCanvasById(unikId, canvasId)
+            const currentCanvas = currentResponse.data
             let existingConfig: Record<string, any> = {}
 
             // Parse existing chatbotConfig to preserve other technology settings
-            if (currentSpace.chatbotConfig) {
+            if (currentCanvas.chatbotConfig) {
                 try {
                     existingConfig =
-                        typeof currentSpace.chatbotConfig === 'string' ? JSON.parse(currentSpace.chatbotConfig) : currentSpace.chatbotConfig
+                        typeof currentCanvas.chatbotConfig === 'string' ? JSON.parse(currentCanvas.chatbotConfig) : currentCanvas.chatbotConfig
                 } catch (parseError) {
                     console.warn('Failed to parse existing chatbotConfig, using empty object:', parseError)
                     existingConfig = {}
@@ -106,19 +138,19 @@ export class PublicationApi {
             // Check if any technology is public for global isPublic flag
             const hasPublicTech = this.hasAnyPublicTechnology(newConfig)
 
-            // Update space with new configuration
+            // Update canvas/space with new configuration
             const updateData: any = {
                 chatbotConfig: JSON.stringify(newConfig)
             }
 
             // Only update global isPublic if it differs from current state
-            if (hasPublicTech !== currentSpace.isPublic) {
+            if (hasPublicTech !== currentCanvas.isPublic) {
                 updateData.isPublic = hasPublicTech
             }
 
-            await this.updateSpace(unikId, spaceId, updateData)
+            await this.updateCanvas(unikId, canvasId, updateData)
 
-            console.log(`✅ [PublicationApi] ${technology} settings saved successfully`)
+            console.log(`✅ [PublicationApi] ${technology} settings saved successfully for canvas ${canvasId}`)
         } catch (error) {
             console.error(`❌ [PublicationApi] Failed to save ${technology} settings:`, error)
             if (axios.isAxiosError(error)) {
@@ -130,12 +162,12 @@ export class PublicationApi {
     }
 
     /**
-     * Load publication settings for any technology from Supabase
-     * @param spaceId Space ID
+     * Load publication settings for any technology from Canvas/Space
+     * @param canvasId Canvas ID (or spaceId for legacy compatibility)
      * @param technology Technology identifier (e.g., 'arjs', 'chatbot')
      * @returns Technology-specific settings or null if not found
      */
-    static async loadPublicationSettings(spaceId: string, technology: string): Promise<any | null> {
+    static async loadPublicationSettings(canvasId: string, technology: string): Promise<any | null> {
         try {
             // Get unikId from URL since we need it for the request
             const { unikId } = getCurrentUrlIds()
@@ -143,16 +175,16 @@ export class PublicationApi {
                 throw new Error('unikId not found in URL')
             }
 
-            const response = await this.getSpaceById(unikId, spaceId)
-            const space = response.data
+            const response = await this.getCanvasById(unikId, canvasId)
+            const canvas = response.data
 
-            if (space.chatbotConfig) {
+            if (canvas.chatbotConfig) {
                 try {
-                    const config = typeof space.chatbotConfig === 'string' ? JSON.parse(space.chatbotConfig) : space.chatbotConfig
+                    const config = typeof canvas.chatbotConfig === 'string' ? JSON.parse(canvas.chatbotConfig) : canvas.chatbotConfig
 
                     // Return technology settings from specific block
                     if (config[technology]) {
-                        console.log(`✅ [PublicationApi] ${technology} settings loaded successfully`)
+                        console.log(`✅ [PublicationApi] ${technology} settings loaded successfully for canvas ${canvasId}`)
                         return config[technology]
                     }
                 } catch (parseError) {
@@ -165,7 +197,7 @@ export class PublicationApi {
             console.error(`❌ [PublicationApi] Failed to load ${technology} settings:`, error)
             if (axios.isAxiosError(error)) {
                 if (error.response?.status === 404) {
-                    throw new Error('Space not found')
+                    throw new Error('Canvas not found')
                 }
                 const errorMessage = error.response?.data?.error || error.response?.statusText || error.message
                 throw new Error(`Failed to load ${technology} settings: ${errorMessage}`)

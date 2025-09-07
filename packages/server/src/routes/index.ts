@@ -64,6 +64,7 @@ import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
 import rateLimit from 'express-rate-limit'
 import credentialsService from '../services/credentials'
 import { createMetaverseRoutes } from '@universo/metaverse-srv'
+import { createSpacesRoutes } from '@universo/spaces-srv'
 
 const router: ExpressRouter = express.Router()
 
@@ -134,13 +135,13 @@ router.use(
 		toolsRouter,
 		variablesRouter,
 		exportImportRouter,
-                credentialsRouter,
-                assistantsRouter,
-                apikeyRouter,
-                documentStoreRouter,
-                marketplacesRouter,
-                createFinanceRouter()
-        )
+		credentialsRouter,
+		assistantsRouter,
+		apikeyRouter,
+		documentStoreRouter,
+		marketplacesRouter,
+		createFinanceRouter()
+	)
 )
 router.use('/resources', createResourcesRouter(upAuth.ensureAuth, getDataSource()))
 router.use('/entities', createEntitiesRouter(upAuth.ensureAuth, getDataSource()))
@@ -157,21 +158,46 @@ router.use(
 	spaceBuilderLimiter,
 	createSpaceBuilderRouter({
 		resolveCredential: async (credentialId: string) => {
-			const cred = await credentialsService.getCredentialById(credentialId)
-			const data: any = cred?.plainDataObj || {}
-			const name: string = (cred as any)?.credentialName || ''
-			// Strict provider-specific key selection to avoid cross-provider mixups
-			if (name === 'groqApi') {
-				return data.groqApiKey || data.GROQ_API_KEY || ''
+			try {
+				if (!credentialId) {
+					throw new Error('Credential ID is required')
+				}
+
+				const cred = await credentialsService.getCredentialById(credentialId)
+				if (!cred) {
+					throw new Error(`Credential with ID ${credentialId} not found`)
+				}
+
+				const credentialData: any = cred.plainDataObj || {}
+				const credentialName: string = cred.credentialName || ''
+
+				// Map credential types to their specific API key field names
+				const credentialFieldMap: Record<string, string> = {
+					'openAIApi': 'openAIApiKey',
+					'groqApi': 'groqApiKey',
+					'azureOpenAIApi': 'azureOpenAIApiKey',
+					'anthropicApi': 'anthropicApiKey',
+					'cohereApi': 'cohereApiKey',
+					'mistralAIApi': 'mistralAIApiKey',
+					'googleGenerativeAIApi': 'googleGenerativeAIApiKey',
+					'huggingFaceApi': 'huggingFaceApiKey'
+				}
+
+				const expectedField = credentialFieldMap[credentialName]
+				if (!expectedField) {
+					throw new Error(`Unsupported credential type: ${credentialName}. Supported types: ${Object.keys(credentialFieldMap).join(', ')}`)
+				}
+
+				const apiKey = credentialData[expectedField]
+				if (!apiKey) {
+					throw new Error(`API key field '${expectedField}' not found in credential data for credential type '${credentialName}'`)
+				}
+
+				return apiKey
+			} catch (error: any) {
+				logger.error(`[SpaceBuilder] Credential resolution error: ${error?.message || 'Unknown error'}`)
+				throw new Error(`Failed to resolve credential: ${error?.message || 'Unknown error'}`)
 			}
-			if (name === 'openAIApi') {
-				return data.openAIApiKey || data.OPENAI_API_KEY || ''
-			}
-			if (name === 'azureOpenAIApi') {
-				return data.azureOpenAIApiKey || data.AZURE_OPENAI_API_KEY || ''
-			}
-			// Fallback: try common field names, but avoid leaking mismatched keys
-			return data.apiKey || data.API_KEY || ''
 		}
 	})
 )
@@ -179,6 +205,11 @@ router.use(
 // Universo Platformo | Metaverse routes
 const metaverseLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true })
 router.use('/metaverses', upAuth.ensureAuth, metaverseLimiter, createMetaverseRoutes(getDataSource()))
+
+// Universo Platformo | Spaces routes
+const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+// Mount under /uniks/:unikId so UI paths match both /spaces/* and /canvases/*
+router.use('/uniks/:unikId', upAuth.ensureAuth, spacesLimiter, createSpacesRoutes(() => getDataSource()))
 
 // Universo Platformo | Publishing Routes
 router.use('/publish', createPublishRoutes(getDataSource()))

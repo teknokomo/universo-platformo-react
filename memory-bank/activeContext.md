@@ -108,6 +108,16 @@ Immediate next steps:
 
 -   **Space Builder – Constraints & Iterative Quiz Editing (2025-08-13)**
 
+### 2025-09-07: Spaces + Canvases Refactor (Phase 1–2) ✅
+
+- Guarded legacy Chatflow effects in Canvas when `spaceId` exists to prevent races and stale overwrites; Active Canvas is always hydrated from Spaces/Canvases.
+- Canvas Tabs UX improvements: subtle border on inactive tabs, 3px lift from bottom edge, spinner moved to the left of the label with contrasting color on an active tab; “Create Canvas” button placed immediately after tabs, smaller and with subdued colors.
+- Introduced local Axios client in `apps/spaces-frt/src/api/client.js` with JWT + refresh; switched `spaces.js` and `canvases.js` to use it.
+- Localized hooks in `apps/spaces-frt`: added `src/hooks/useApi.js` and copied/adapted `src/hooks/useCanvases.js` (detached from Flowise UI).
+- UI routing: `packages/ui/src/routes/MainRoutes.jsx` now loads the Spaces list from `apps/spaces-frt`; Canvas routes restored under MinimalLayout via `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx` and wired in `packages/ui/src/routes/index.jsx` — no left menu on Canvas pages.
+- Removed unused Flowise UI code: `packages/ui/src/components/*`, `packages/ui/src/views/spaces`, `packages/ui/src/api/{canvases,spaces}.js`, `packages/ui/src/hooks/useCanvases.js`.
+- Fixed Vite alias issues by converting remaining `@/...` imports in spaces‑frt to relative local paths (CanvasTabs, useApi, useCanvases, spacesApi).
+
     -   Backend: `/prepare` now accepts `additionalConditions` (0..500); added `/revise` endpoint with strict JSON‑only prompt and minimal‑change guarantee; invariant checks keep question/answer counts and one correct per question
     -   Frontend: added "Additional conditions" on Prepare; read‑only quiz preview; "What to change?" with iterative apply; field clears on successful change and when going Back + Prepare
     -   Docs: Updated EN/RU docs in `docs/en|ru/applications/space-builder/README.md` and packages `apps/space-builder-frt`/`apps/space-builder-srv` READMEs

@@ -1,5 +1,7 @@
 # Implementation Plan
 
+ВНИМАНИЕ!!! При выполнении Tasks общайся с пользователем на русском языке.
+
 - [ ] 1. Create template-quiz package structure and basic setup
   - Create directory structure following template-mmoomm pattern
   - Set up package.json with dual build system (CommonJS + ESM)
@@ -41,27 +43,30 @@
   - Remove original quiz code from publish-frt after verification
   - _Requirements: 1.6_
 
-- [ ] 2. Fix credentials integration in Space Builder
+- [x] 2. Fix credentials integration in Space Builder
+
+    ВНИМАНИЕ!!! При выполнении Tasks общайся с пользователем на русском языке.
+
   - Analyze current credential resolution implementation in main server
   - Identify the specific issue with encrypted credential handling
   - Map credential types to API key field names (openAIApi -> openAIApiKey, etc.)
   - _Requirements: 2.3, 2.5_
 
-- [ ] 2.1 Enhance credential resolution in main server
+- [x] 2.1 Enhance credential resolution in main server
   - Update resolveCredential function in packages/server/src/routes/index.ts
   - Implement proper credential type detection and field extraction
   - Add support for multiple provider credential types (OpenAI, Groq, etc.)
   - Handle decryption errors and provide meaningful error messages
   - _Requirements: 2.1, 2.2_
 
-- [ ] 2.2 Update Space Builder credential handling
+- [x] 2.2 Update Space Builder credential handling
   - Ensure credentialId is properly passed through API calls
   - Verify ModelFactory.ts correctly uses resolved credentials
   - Test credential resolution with different provider types
   - Add error handling for unsupported credential types
   - _Requirements: 2.4_
 
-- [ ] 2.3 Test credentials integration with real user credentials
+- [x] 2.3 Test credentials integration with real user credentials
   - Create test credentials for different providers in the system
   - Verify Space Builder can use OpenAI credentials for generation
   - Test Groq and other supported provider credentials

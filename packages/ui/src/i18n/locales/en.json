@@ -56,6 +56,14 @@
         "noData": "No Data",
         "clearSearch": "Clear Search"
     },
+    "spaces": "Spaces",
+    "space": "Space",
+    "canvas": "Canvas",
+    "canvases": "Canvases",
+    "createSpace": "Create Space",
+    "createCanvas": "Create Canvas",
+    "spaceSettings": "Space Settings",
+    "canvasSettings": "Canvas Settings",
     "promptGenerator": {
         "summarize": "Summarize a document",
         "translate": "Translate the language",
@@ -121,8 +129,8 @@
         "save": "Save",
         "saveFlow": "Save",
         "settings": "Settings",
-        "confirmDelete": "Delete",
-        "confirmDeleteDescription": "Delete",
+        "confirmDelete": "Delete Canvas",
+        "confirmDeleteDescription": "Are you sure you want to delete this canvas? This action cannot be undone.",
         "saveNewFlow": "Save New",
         "syncNodes": "Sync Nodes",
         "deleteSuccess": "{type} deleted",
@@ -132,26 +140,38 @@
         "searchNodes": "Search nodes",
         "seeExample": "See Example",
         "manageLinks": "Manage Links",
+        "name": "Canvas Name",
+        "rename": "Rename Canvas",
+        "duplicate": "Duplicate Canvas",
+        "createSuccess": "Canvas created successfully",
+        "createError": "Failed to create canvas",
+        "renameSuccess": "Canvas renamed successfully",
+        "renameError": "Failed to rename canvas",
+        "deleteSuccess": "Canvas deleted successfully",
+        "deleteError": "Failed to delete canvas",
+        "duplicateSuccess": "Canvas duplicated successfully",
+        "duplicateError": "Failed to duplicate canvas",
+        "reorderError": "Failed to reorder canvas",
         "contextMenu": {
             "viewMessages": "View Messages",
             "viewLeads": "View Leads",
             "upsertHistory": "Upsert History",
             "configuration": "Configuration",
             "saveAsTemplate": "Save As Template",
-            "duplicateChatflow": "Duplicate Chatflow",
-            "loadChatflow": "Load Chatflow",
-            "exportChatflow": "Export Chatflow",
-            "deleteChatflow": "Delete Chatflow"
+            "duplicateChatflow": "Duplicate Canvas",
+            "loadChatflow": "Load Canvas",
+            "exportChatflow": "Export Canvas",
+            "deleteChatflow": "Delete Canvas"
         },
         "configuration": {
-            "title": "Chatflow Configuration",
+            "title": "Canvas Configuration",
             "tabs": {
                 "security": "Security",
                 "starterPrompts": "Conversation Starters",
                 "followUpPrompts": "Follow-up Prompts",
                 "speechToText": "Speech to Text",
                 "chatFeedback": "Chat Feedback",
-                "analyseChatflow": "Chatflow Analysis",
+                "analyseChatflow": "Canvas Analysis",
                 "leads": "Leads",
                 "fileUpload": "File Upload",
                 "postProcessing": "Post Processing"
@@ -354,7 +374,7 @@
             "load": "Load"
         },
         "saveChatflow": {
-            "placeholder": "My New Chatflow"
+            "placeholder": "My New Canvas"
         },
         "sourceDoc": {
             "title": "Source Documents",
@@ -367,7 +387,7 @@
             "title": "Conversation Starter Prompts"
         },
         "tag": {
-            "title": "Set Chatflow Category Tags",
+            "title": "Set Canvas Category Tags",
             "addTag": "Add a tag",
             "tagHelp": "Enter a tag and press enter to add it to the list. You can add as many tags as you want.",
             "cancel": "Cancel",

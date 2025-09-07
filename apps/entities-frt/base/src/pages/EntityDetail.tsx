@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Tab, Tabs, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import useApi from 'flowise-ui/src/hooks/useApi'
+import useApi from '../hooks/useApi'
 import { getEntity, listEntityOwners, listEntityResources } from '../api/entities'
 import { Entity, Owner, Resource, UseApi } from '../types'
 

@@ -33,6 +33,8 @@ const defaultConfig = {
 }
 
 const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, chatflow, onSave }) => {
+    // For agents, chatflowid now represents canvasId
+    const canvasId = isAgentCanvas ? chatflowid : chatflowid
     const [title, setTitle] = useState('')
     const [titleAvatarSrc, setTitleAvatarSrc] = useState('')
     const [titleBackgroundColor, setTitleBackgroundColor] = useState(defaultConfig.titleBackgroundColor)
@@ -356,7 +358,7 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
 
     return (
         <BaseBotSettings
-            chatflowid={chatflowid}
+            chatflowid={canvasId}
             unikId={unikId}
             configKey='chatbotConfig'
             formatConfig={formatConfig}

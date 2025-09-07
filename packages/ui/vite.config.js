@@ -34,7 +34,10 @@ export default defineConfig(async ({ mode }) => {
         resolve: {
             alias: {
                 '@': resolve(__dirname, 'src'),
+                '@ui': resolve(__dirname, 'src'),
                 '@apps': resolve(__dirname, '../../apps'),
+                // spaces-frt app alias for gradual extraction of Spaces/Canvas UI
+                '@apps/spaces-frt': resolve(__dirname, '../../apps/spaces-frt'),
                 '@apps/updl': resolve(__dirname, '../../apps/updl'),
                 '@apps/publish-frt/i18n': resolve(__dirname, '../../apps/publish-frt/base/src/i18n'),
                 '@apps/publish-frt': resolve(__dirname, '../../apps/publish-frt'),

@@ -86,11 +86,11 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
         if (title && title.startsWith('menu.')) {
             return t(title)
         }
-        
+
         // If not, try to find a match for ID in the menu
         const menuKeys = {
             'unik-dashboard': 'menu.dashboard',
-            'chatflows': 'menu.chatflows',
+            'spaces': 'menu.spaces',
             'agentflows': 'menu.agentflows',
             'assistants': 'menu.assistants',
             'tools': 'menu.tools',
@@ -105,7 +105,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             'docs': 'menu.docs',
             'profile': 'menu.profile'
         }
-        
+
         return menuKeys[id] ? t(menuKeys[id]) : title
     }
 

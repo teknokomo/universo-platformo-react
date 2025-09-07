@@ -136,7 +136,7 @@
     "upsertSuccess": "Vector Store successfully upserted. You can start chatting now!",
     "upsertError": "{{error}}",
     "showAPI": "Show API",
-    "securityWarning": "For security reasons, the override of configuration is disabled by default. You can change that by going to Chatflow Configuration -> Security tab, and enable the property that you want to override.",
+    "securityWarning": "For security reasons, the override of configuration is disabled by default. You can change that by going to Canvas Configuration -> Security tab, and enable the property that you want to override.",
     "multiValuesNote": "You can also specify multiple values for config parameter by specifying node id",
     "common": {
       "refer": "Refer",
@@ -148,4 +148,4 @@
     "here": "here",
     "forMoreDetails": "for more details"
   }
-} 
+}

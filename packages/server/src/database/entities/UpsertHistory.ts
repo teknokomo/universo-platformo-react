@@ -9,7 +9,7 @@ export class UpsertHistory implements IUpsertHistory {
 
     @Index()
     @Column()
-    chatflowid: string
+    chatflowid: string // Now refers to canvasId (backward compatibility maintained)
 
     @Column()
     result: string

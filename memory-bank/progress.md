@@ -432,3 +432,12 @@ Successfully fixed critical UPDL object extraction and transmission in multiplay
 -   Build: both packages compile successfully with PNPM workspace
 -   Documentation: RU/EN READMEs with step-by-step rollout plan
 -   Important: Code is fully isolated and NOT integrated into the current system yet. No changes to existing routes or UI.
+
+### 2025-09-07: Spaces + Canvases Refactor (Phase 1–2) ✅
+
+- Fixed Canvas state race by guarding legacy Chatflow effects when `spaceId` is present; Active Canvas now consistently hydrates from Spaces/Canvases.
+- Tabs UX improved: subtle border for inactive tabs, 3px lift, spinner moved to the left with proper contrast on active tab; add button placed adjacent to tabs, smaller and with subdued colors.
+- Local HTTP client for spaces‑frt (`src/api/client.js`) with JWT refresh; migrated Spaces/Canvases API modules.
+- Local hooks in spaces‑frt (`useApi`, `useCanvases`); Flowise equivalents removed.
+- UI updated to load Spaces from spaces‑frt in MainRoutes; Canvas routes restored under MinimalLayout via `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx` and wired into UI router.
+- Removed unused Flowise UI code and resolved Vite alias issues by switching remaining imports in spaces‑frt to relative paths.

@@ -27,21 +27,21 @@ export interface ARJSPublicationSettings {
  */
 export class ARJSPublicationApi extends PublicationApi {
     /**
-     * Save AR.js publication settings to Supabase
-     * @param spaceId Space ID (formerly chatflowId)
+     * Save AR.js publication settings to Canvas
+     * @param canvasId Canvas ID (formerly spaceId/chatflowId)
      * @param settings AR.js publication settings to save
      */
-    static async saveARJSSettings(spaceId: string, settings: ARJSPublicationSettings): Promise<void> {
-        return this.savePublicationSettings(spaceId, 'arjs', settings)
+    static async saveARJSSettings(canvasId: string, settings: ARJSPublicationSettings): Promise<void> {
+        return this.savePublicationSettings(canvasId, 'arjs', settings)
     }
 
     /**
-     * Load AR.js publication settings from Supabase
-     * @param spaceId Space ID (formerly chatflowId)
+     * Load AR.js publication settings from Canvas
+     * @param canvasId Canvas ID (formerly spaceId/chatflowId)
      * @returns AR.js publication settings or null if not found
      */
-    static async loadARJSSettings(spaceId: string): Promise<ARJSPublicationSettings | null> {
-        return this.loadPublicationSettings(spaceId, 'arjs')
+    static async loadARJSSettings(canvasId: string): Promise<ARJSPublicationSettings | null> {
+        return this.loadPublicationSettings(canvasId, 'arjs')
     }
 
     // Compatibility methods with old interface for gradual migration
@@ -50,35 +50,53 @@ export class ARJSPublicationApi extends PublicationApi {
      * @deprecated Use saveARJSSettings instead
      * Compatibility method for existing code
      */
-    static async saveSettings(spaceId: string, settings: ARJSPublicationSettings): Promise<void> {
+    static async saveSettings(canvasId: string, settings: ARJSPublicationSettings): Promise<void> {
         console.warn('[ARJSPublicationApi] saveSettings is deprecated, use saveARJSSettings instead')
-        return this.saveARJSSettings(spaceId, settings)
+        return this.saveARJSSettings(canvasId, settings)
     }
 
     /**
      * @deprecated Use loadARJSSettings instead
      * Compatibility method for existing code
      */
-    static async loadSettings(spaceId: string): Promise<ARJSPublicationSettings | null> {
+    static async loadSettings(canvasId: string): Promise<ARJSPublicationSettings | null> {
         console.warn('[ARJSPublicationApi] loadSettings is deprecated, use loadARJSSettings instead')
-        return this.loadARJSSettings(spaceId)
+        return this.loadARJSSettings(canvasId)
     }
 
     /**
-     * @deprecated Use getSpaceById instead
+     * @deprecated Use getCanvasById instead
      * Compatibility method for existing code
      */
     static async getChatflowById(unikId: string, chatflowId: string) {
-        console.warn('[ARJSPublicationApi] getChatflowById is deprecated, use getSpaceById instead')
-        return this.getSpaceById(unikId, chatflowId)
+        console.warn('[ARJSPublicationApi] getChatflowById is deprecated, use getCanvasById instead')
+        return this.getCanvasById(unikId, chatflowId)
     }
 
     /**
-     * @deprecated Use updateSpace instead
+     * @deprecated Use updateCanvas instead
      * Compatibility method for existing code
      */
     static async updateChatflow(unikId: string, chatflowId: string, body: any) {
-        console.warn('[ARJSPublicationApi] updateChatflow is deprecated, use updateSpace instead')
-        return this.updateSpace(unikId, chatflowId, body)
+        console.warn('[ARJSPublicationApi] updateChatflow is deprecated, use updateCanvas instead')
+        return this.updateCanvas(unikId, chatflowId, body)
+    }
+
+    /**
+     * @deprecated Use getCanvasById instead
+     * Compatibility method for existing code
+     */
+    static async getSpaceById(unikId: string, spaceId: string) {
+        console.warn('[ARJSPublicationApi] getSpaceById is deprecated, use getCanvasById instead')
+        return this.getCanvasById(unikId, spaceId)
+    }
+
+    /**
+     * @deprecated Use updateCanvas instead
+     * Compatibility method for existing code
+     */
+    static async updateSpace(unikId: string, spaceId: string, body: any) {
+        console.warn('[ARJSPublicationApi] updateSpace is deprecated, use updateCanvas instead')
+        return this.updateCanvas(unikId, spaceId, body)
     }
 }

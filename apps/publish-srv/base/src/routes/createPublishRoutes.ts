@@ -54,7 +54,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
     /**
      * @route   GET /arjs/public/:publicationId
      * @desc    Возвращает данные UPDL сцены для публичной AR.js публикации
-     * @param   publicationId - ID публикации (равен chatflowId)
+     * @param   publicationId - ID публикации (равен canvasId или chatflowId для совместимости)
      */
     router.get('/arjs/public/:publicationId', async (req: Request, res: Response) => {
         try {
@@ -70,9 +70,28 @@ export function createPublishRoutes(dataSource: DataSource): Router {
     })
 
     /**
+     * @route   GET /canvas/:canvasId
+     * @desc    Прямой запрос к потоковой генерации UPDL сцены по Canvas ID (новый формат)
+     * @param   canvasId - ID холста для генерации сцены
+     */
+    router.get('/canvas/:canvasId', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.streamUPDL(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in GET /canvas/:canvasId:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Internal server error during UPDL streaming'
+            })
+        }
+    })
+
+    /**
      * @route   GET /arjs/stream/:chatflowId
-     * @desc    Прямой запрос к потоковой генерации UPDL сцены
+     * @desc    Прямой запрос к потоковой генерации UPDL сцены (legacy, для совместимости)
      * @param   chatflowId - ID чатфлоу для генерации сцены
+     * @deprecated Use /canvas/:canvasId instead
      */
     router.get('/arjs/stream/:chatflowId', async (req: Request, res: Response) => {
         try {
@@ -85,6 +104,64 @@ export function createPublishRoutes(dataSource: DataSource): Router {
                 error: 'Internal server error during UPDL streaming'
             })
         }
+    })
+
+    // ========================================
+    // NEW CANVAS-BASED ROUTES
+    // ========================================
+
+    /**
+     * @route   POST /canvas
+     * @desc    Создает новую публикацию Canvas (новый формат)
+     * @body    { canvasId: string, generationMode: string, isPublic: boolean, projectName: string }
+     */
+    router.post('/canvas', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.publishARJS(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in POST /canvas:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Internal server error during canvas publication creation'
+            })
+        }
+    })
+
+    /**
+     * @route   GET /canvas/public/:canvasId
+     * @desc    Возвращает данные UPDL сцены для публичной Canvas публикации (новый формат)
+     * @param   canvasId - ID холста
+     */
+    router.get('/canvas/public/:canvasId', async (req: Request, res: Response) => {
+        try {
+            // Map canvasId to publicationId for controller compatibility
+            req.params.publicationId = req.params.canvasId
+            const controller = await getController()
+            return await controller.getPublicARJSPublication(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in GET /canvas/public/:canvasId:', error)
+            res.status(500).json({
+                success: false,
+                error: 'Internal server error during canvas publication retrieval'
+            })
+        }
+    })
+
+    // ========================================
+    // REDIRECT ROUTES (Legacy to New)
+    // ========================================
+
+    /**
+     * @route   GET /published/chatflow/:chatflowId
+     * @desc    Редирект со старого URL на новый формат Canvas
+     * @param   chatflowId - ID чатфлоу (будет использован как canvasId)
+     */
+    router.get('/published/chatflow/:chatflowId', (req: Request, res: Response) => {
+        const chatflowId = req.params.chatflowId
+        const newUrl = `/publish/canvas/public/${chatflowId}`
+        logger.info(`[createPublishRoutes] Redirecting legacy URL /published/chatflow/${chatflowId} to ${newUrl}`)
+        res.redirect(301, newUrl)
     })
 
     return router

@@ -22,10 +22,13 @@ export default (apiFunc) => {
             if (isMounted.current) {
                 setData(result.data)
             }
+            // Return payload for callers relying on the immediate value
+            return result.data
         } catch (err) {
             if (isMounted.current) {
                 setError(err || 'Unexpected Error!')
             }
+            throw err
         } finally {
             if (isMounted.current) {
                 setLoading(false)

@@ -1,7 +1,7 @@
 {
     "menu": {
         "dashboard": "Uniboard",
-        "chatflows": "Spaces",
+        "spaces": "Spaces",
         "agentflows": "Agents",
         "assistants": "Assistants",
         "tools": "Tools",

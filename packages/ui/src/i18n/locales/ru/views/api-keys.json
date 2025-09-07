@@ -9,7 +9,7 @@
     "deleteSuccess": "API ключ удален",
     "deleteError": "Не удалось удалить API ключ: {error}",
     "thereAre": "Используется в",
-    "chatflowsUsingKey": "чат-флоу",
+    "chatflowsUsingKey": "холстов",
     "copied": "Скопировано!",
     "buttonTitles": {
       "copy": "Копировать API ключ",
@@ -18,8 +18,8 @@
       "delete": "Удалить"
     },
     "chatflowDetails": {
-      "name": "Название чат-флоу",
-      "modifiedOn": "Дата изменения", 
+      "name": "Название холста",
+      "modifiedOn": "Дата изменения",
       "category": "Категория"
     },
     "grid": {
@@ -54,4 +54,4 @@
       "copy": "Копировать"
     }
   }
-} 
+}

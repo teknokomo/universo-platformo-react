@@ -25,7 +25,7 @@
     "@mui/lab": "5.0.0-alpha.156",
     "@mui/material": "5.15.0",
     "@universo/resources-frt": "workspace:*",
-    "flowise-ui": "workspace:*",
+    "axios": "1.7.9",
     "i18next": "^24.2.2",
     "react": "^18.2.0",
     "react-i18next": "^15.4.1",

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, MenuItem, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import useApi from 'flowise-ui/src/hooks/useApi'
+import useApi from '../hooks/useApi'
 import { listEntities, listTemplates, listStatuses } from '../api/entities'
 import { Entity, Template, Status, UseApi } from '../types'
 

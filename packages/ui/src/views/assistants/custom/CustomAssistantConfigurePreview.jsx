@@ -96,7 +96,7 @@ const CustomAssistantConfigurePreview = () => {
     const [selectedChatModel, setSelectedChatModel] = useState({})
     const [selectedCustomAssistant, setSelectedCustomAssistant] = useState({})
     const [customAssistantInstruction, setCustomAssistantInstruction] = useState('You are helpful assistant')
-    const [customAssistantFlowId, setCustomAssistantFlowId] = useState()
+    const [customAssistantCanvasId, setCustomAssistantCanvasId] = useState()
     const [documentStoreOptions, setDocumentStoreOptions] = useState([])
     const [selectedDocumentStores, setSelectedDocumentStores] = useState([])
     const [toolComponents, setToolComponents] = useState([])
@@ -220,21 +220,21 @@ const CustomAssistantConfigurePreview = () => {
             }
             try {
                 let saveResp
-                if (!customAssistantFlowId) {
+                if (!customAssistantCanvasId) {
                     saveResp = await chatflowsApi.createNewChatflow(unikId, saveObj)
                 } else {
-                    saveResp = await chatflowsApi.updateChatflow(unikId, customAssistantFlowId, saveObj)
+                    saveResp = await chatflowsApi.updateChatflow(unikId, customAssistantCanvasId, saveObj)
                 }
 
                 if (saveResp.data) {
-                    setCustomAssistantFlowId(saveResp.data.id)
+                    setCustomAssistantCanvasId(saveResp.data.id)
                     dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
 
                     const assistantDetails = {
                         ...selectedCustomAssistant,
                         chatModel: selectedChatModel,
                         instruction: customAssistantInstruction,
-                        flowId: saveResp.data.id,
+                        canvasId: saveResp.data.id,
                         documentStores: selectedDocumentStores,
                         tools: selectedTools
                     }
@@ -262,9 +262,8 @@ const CustomAssistantConfigurePreview = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: `Failed to save assistant: ${
-                        typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                    message: `Failed to save assistant: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                        }`,
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -464,9 +463,8 @@ const CustomAssistantConfigurePreview = () => {
         } catch (error) {
             console.error('Error preparing config', error)
             enqueueSnackbar({
-                message: `Failed to save assistant: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `Failed to save assistant: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -503,7 +501,7 @@ const CustomAssistantConfigurePreview = () => {
                 title: `Assistant Configuration`,
                 chatflow: canvas.chatflow,
                 unikId: unikId,
-                flowId: customAssistantFlowId
+                canvasId: customAssistantCanvasId
             })
             setChatflowConfigurationDialogOpen(true)
         }
@@ -521,8 +519,8 @@ const CustomAssistantConfigurePreview = () => {
         if (isConfirmed && customAssistantId) {
             try {
                 const resp = await assistantsApi.deleteAssistant(unikId, customAssistantId)
-                if (resp.data && customAssistantFlowId) {
-                    await chatflowsApi.deleteChatflow(unikId, customAssistantFlowId)
+                if (resp.data && customAssistantCanvasId) {
+                    await chatflowsApi.deleteChatflow(unikId, customAssistantCanvasId)
                 }
                 navigate(-1)
             } catch (error) {
@@ -637,7 +635,7 @@ const CustomAssistantConfigurePreview = () => {
     const onAPIDialogClick = () => {
         setAPIDialogProps({
             title: 'Embed in website or use as API',
-            chatflowid: customAssistantFlowId,
+            chatflowid: customAssistantCanvasId,
             chatflowApiKeyId: canvas.chatflow.apikeyid,
             isSessionMemory: true
         })
@@ -741,9 +739,9 @@ const CustomAssistantConfigurePreview = () => {
                     setCustomAssistantInstruction(assistantDetails.instruction)
                 }
 
-                if (assistantDetails.flowId) {
-                    setCustomAssistantFlowId(assistantDetails.flowId)
-                    getSpecificChatflowApi.request(unikId, assistantDetails.flowId)
+                if (assistantDetails.canvasId) {
+                    setCustomAssistantCanvasId(assistantDetails.canvasId)
+                    getSpecificChatflowApi.request(unikId, assistantDetails.canvasId)
                 }
 
                 if (assistantDetails.documentStores) {
@@ -798,7 +796,7 @@ const CustomAssistantConfigurePreview = () => {
     }, [getDocStoresApi.error])
 
     const defaultWidth = () => {
-        if (customAssistantFlowId && !loadingAssistant) {
+        if (customAssistantCanvasId && !loadingAssistant) {
             return 6
         }
         return 12
@@ -850,7 +848,7 @@ const CustomAssistantConfigurePreview = () => {
                                                     </Typography>
                                                 </Box>
                                                 <div style={{ flex: 1 }}></div>
-                                                {customAssistantFlowId && !loadingAssistant && (
+                                                {customAssistantCanvasId && !loadingAssistant && (
                                                     <ButtonBase title='API Endpoint' sx={{ borderRadius: '50%', mr: 2 }}>
                                                         <Avatar
                                                             variant='rounded'
@@ -892,7 +890,7 @@ const CustomAssistantConfigurePreview = () => {
                                                         <IconDeviceFloppy stroke={1.5} size='1.3rem' />
                                                     </Avatar>
                                                 </ButtonBase>
-                                                {customAssistantFlowId && !loadingAssistant && (
+                                                {customAssistantCanvasId && !loadingAssistant && (
                                                     <ButtonBase ref={settingsRef} title='Settings' sx={{ borderRadius: '50%' }}>
                                                         <Avatar
                                                             variant='rounded'
@@ -913,7 +911,7 @@ const CustomAssistantConfigurePreview = () => {
                                                         </Avatar>
                                                     </ButtonBase>
                                                 )}
-                                                {!customAssistantFlowId && !loadingAssistant && (
+                                                {!customAssistantCanvasId && !loadingAssistant && (
                                                     <ButtonBase ref={settingsRef} title='Delete Assistant' sx={{ borderRadius: '50%' }}>
                                                         <Avatar
                                                             variant='rounded'
@@ -1260,12 +1258,12 @@ const CustomAssistantConfigurePreview = () => {
                                         )}
                                     </div>
                                 </Grid>
-                                {customAssistantFlowId && !loadingAssistant && (
+                                {customAssistantCanvasId && !loadingAssistant && (
                                     <Grid item xs={12} md={6} lg={6} sm={6}>
                                         <Box sx={{ mt: 2 }}>
                                             {customization.isDarkMode && (
                                                 <MemoizedFullPageChat
-                                                    chatflowid={customAssistantFlowId}
+                                                    chatflowid={customAssistantCanvasId}
                                                     chatflow={canvas.chatflow}
                                                     apiHost={baseURL}
                                                     chatflowConfig={{}}
@@ -1300,7 +1298,7 @@ const CustomAssistantConfigurePreview = () => {
                                             )}
                                             {!customization.isDarkMode && (
                                                 <MemoizedFullPageChat
-                                                    chatflowid={customAssistantFlowId}
+                                                    chatflowid={customAssistantCanvasId}
                                                     chatflow={canvas.chatflow}
                                                     apiHost={baseURL}
                                                     chatflowConfig={{}}

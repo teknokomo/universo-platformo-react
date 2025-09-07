@@ -79,6 +79,40 @@ Following the TypeScript modernization in components, additional compatibility f
 
 These server-side changes were necessary to maintain compatibility with the stricter TypeScript compilation and updated dependency versions introduced by the component modernization.
 
+## Zod/LangChain typing note (build stability)
+
+Context: During migration and TypeScript upgrades, builds could fail with:
+
+- `TS2344` – Zod type conflict across multiple installed versions (private field `_cached` differs).
+- `TS2589` – "Type instantiation is excessively deep and possibly infinite" when using `withStructuredOutput` and `StructuredOutputParser.fromZodSchema` with complex Zod schemas.
+
+What we changed for stability (current state):
+
+- Unified Zod to a single version across the monorepo: `zod@3.25.76` (pinned via root `pnpm.overrides` and explicit package deps).
+- Relaxed type pressure in two hotspots to avoid cross-version Zod generic unification and deep generic expansion:
+  - `nodes/tools/RetrieverTool/RetrieverTool.ts`:
+    - `DynamicStructuredTool` now extends `StructuredTool<any>` and treats `schema` as a runtime-only contract.
+    - Parsing uses `(schema as any).parseAsync(...)` to avoid leaking Zod generics into public types.
+  - `src/followUpPrompts.ts`:
+    - Calls to `withStructuredOutput(FollowUpPromptType)` and `StructuredOutputParser.fromZodSchema(FollowUpPromptType)` use narrow casts (`as any`) to prevent excessive type instantiation.
+
+How to verify:
+
+- Ensure a single Zod version is installed: `pnpm ls zod` (should show only `3.25.76`).
+- Build this package: `pnpm --filter flowise-components run build`.
+
+Guidance for re‑enabling strict generics later:
+
+- Keep exactly one Zod in the graph (pin versions in root `pnpm.overrides` and avoid `^` in package manifests).
+- Align LangChain packages (`@langchain/core`, `@langchain/openai`, etc.) to mutually compatible versions used in this repo.
+- If builds remain stable, you can revert the relaxations:
+  - In `RetrieverTool`, restore `StructuredTool<T>` and strict Zod bounds for `T`.
+  - In `followUpPrompts`, remove `as any` casts around `withStructuredOutput`/`StructuredOutputParser`.
+
+Trade‑off:
+
+- The current approach preserves runtime validation and behavior, while reducing TypeScript’s generic complexity. It intentionally avoids exporting Zod‑heavy types from public APIs to keep compilation deterministic.
+
 ## License
 
 Source code in this repository is made available under the [Apache License Version 2.0](https://github.com/FlowiseAI/Flowise/blob/master/LICENSE.md).
