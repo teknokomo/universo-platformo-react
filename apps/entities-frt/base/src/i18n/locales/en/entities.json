@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "title": "Entities",
+    "list": {
+      "search": "Search entities",
+      "template": "Template",
+      "status": "Status",
+      "id": "ID",
+      "name": "Name",
+      "all": "All",
+      "loading": "Loading...",
+      "error": "Failed to load entities"
+    },
+    "detail": {
+      "info": "Info",
+      "owners": "Owners",
+      "resources": "Resources",
+      "loading": "Loading entity...",
+      "error": "Failed to load entity",
+      "ownersLoading": "Loading owners...",
+      "ownersError": "Failed to load owners",
+      "ownersEmpty": "No owners found",
+      "resourcesLoading": "Loading resources...",
+      "resourcesError": "Failed to load resources",
+      "resourcesEmpty": "No resources found"
+    },
+    "dialog": {
+      "title": "Entity",
+      "titleEn": "Title (EN)",
+      "titleRu": "Title (RU)",
+      "template": "Template",
+      "status": "Status",
+      "rootResource": "Root Resource",
+      "owners": "Owners",
+      "cancel": "Cancel",
+      "save": "Save",
+      "error": "Failed to save entity"
+    },
+    "templates": {
+      "title": "Templates",
+      "list": {
+        "id": "ID",
+        "name": "Name",
+        "loading": "Loading templates...",
+        "error": "Failed to load templates"
+      },
+      "dialog": {
+        "title": "Template",
+        "name": "Name",
+        "description": "Description",
+        "cancel": "Cancel",
+        "save": "Save",
+        "error": "Failed to save template"
+      }
+    }
+  }
+}

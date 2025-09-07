@@ -10,7 +10,6 @@ import ruTranslation from './locales/ru.json'
 import enAuthTranslation from './locales/en/views/auth.json'
 import ruAuthTranslation from './locales/ru/views/auth.json'
 
-
 // Universo Platformo | Import admin namespaces
 import enAdminTranslation from './locales/en/views/admin.json'
 import ruAdminTranslation from './locales/ru/views/admin.json'
@@ -73,8 +72,10 @@ import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
 import { financeTranslations } from '@apps/finance-frt/base/src/i18n'
 import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
 import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
+import { resourcesTranslations } from '@universo/resources-frt'
+import { entitiesTranslations } from '@universo/entities-frt'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
-import { templateQuizTranslations } from '@apps/template-quiz/base/src/i18n'
+import { templateQuizTranslations } from '@universo/template-quiz'
 // Spaces FRt translations (namespaces spaces/canvas). Initially empty, extended over time.
 import { spacesFrtTranslations } from '@apps/spaces-frt/base/src/i18n'
 
@@ -111,7 +112,9 @@ i18n.use(LanguageDetector)
                     finance: financeTranslations.en.finance,
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
-                    metaverse: metaverseTranslations.en.metaverse
+                    metaverse: metaverseTranslations.en.metaverse,
+                    resources: resourcesTranslations.en.resources,
+                    entities: entitiesTranslations.en.entities
                 },
                 ru: {
                     translation: ruTranslation,
@@ -139,7 +142,9 @@ i18n.use(LanguageDetector)
                     finance: financeTranslations.ru.finance,
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
-                    metaverse: metaverseTranslations.ru.metaverse
+                    metaverse: metaverseTranslations.ru.metaverse,
+                    resources: resourcesTranslations.ru.resources,
+                    entities: entitiesTranslations.ru.entities
                 }
             },
             fallbackLng: 'en',
@@ -176,7 +181,9 @@ i18n.use(LanguageDetector)
                 'profile',
                 'metaverse',
                 'templateMmoomm',
-                'templateQuiz'
+                'templateQuiz',
+                'resources',
+                'entities'
             ],
             defaultNS: 'translation',
             fallbackNS: 'translation',
