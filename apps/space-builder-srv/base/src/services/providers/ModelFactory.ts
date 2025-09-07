@@ -7,10 +7,23 @@ export function setCredentialResolver(fn: (credentialId: string) => Promise<stri
 }
 
 async function resolveCredential(credentialId: string): Promise<string> {
-  if (!resolveCredentialFn) throw new Error('Credential resolver is not configured')
-  const key = await resolveCredentialFn(credentialId)
-  if (!key) throw new Error('Credential key not found')
-  return key
+  if (!resolveCredentialFn) {
+    throw new Error('Credential resolver is not configured')
+  }
+
+  try {
+    const key = await resolveCredentialFn(credentialId)
+    if (!key) {
+      throw new Error(`Credential key not found for credential ID: ${credentialId}`)
+    }
+    return key
+  } catch (error: any) {
+    // Re-throw with more context if it's already a detailed error
+    if (error?.message?.includes('Failed to resolve credential')) {
+      throw error
+    }
+    throw new Error(`Failed to resolve credential ${credentialId}: ${error?.message || 'Unknown error'}`)
+  }
 }
 
 type CallArgs = { provider: string; model: string; credentialId?: string; prompt: string }
@@ -97,6 +110,12 @@ export async function callProvider(args: CallArgs): Promise<string> {
   }
 
   const provider = String(args.provider || '').toLowerCase()
+
+  // Validate that credentialId is provided for non-test modes
+  if (!args.credentialId) {
+    throw new Error(`Credential ID is required for provider: ${provider}`)
+  }
+
   if (provider === 'openai' || provider === 'azureopenai') return callOpenAI(args)
   if (provider === 'groq') return callOpenAICompatible(args)
   if (provider === 'groq_test') {
@@ -107,7 +126,10 @@ export async function callProvider(args: CallArgs): Promise<string> {
     if (!model || !apiKey || !baseURL) throw new Error('groq_test is not configured. Set GROQ_TEST_MODEL, GROQ_TEST_API_KEY and GROQ_TEST_BASE_URL')
     return callOpenAIBase({ model, apiKey, baseURL, prompt: args.prompt })
   }
-  throw new Error(`Unsupported provider: ${args.provider}`)
+
+  // List supported providers for better error messages
+  const supportedProviders = ['openai', 'azureopenai', 'groq']
+  throw new Error(`Unsupported provider: ${args.provider}. Supported providers: ${supportedProviders.join(', ')}`)
 }
 
 async function callOpenAI({ model, credentialId, prompt }: CallArgs): Promise<string> {

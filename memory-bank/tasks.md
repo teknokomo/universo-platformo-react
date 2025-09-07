@@ -3,16 +3,66 @@
 **Project**: Universo Platformo (v0.24.0-alpha, Alpha achieved)
 **Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
 
+## Active Implementation - Chatflow to Spaces UI Fixes (2025-01-04)
+
+### Phase 1: Fix Canvas Tabs Display for Unsaved Spaces
+
+-   [x] Update conditional rendering logic in canvas/index.jsx
+-   [x] Add showTabsForNewSpace state management
+-   [x] Create temporary canvas array for new spaces
+-   [ ] Test tabs appearance after first save
+
+### Phase 2: Replace Remaining "Chatflow" Terminology
+
+-   [x] Update default name from "Untitled Chatflow" to "Untitled Space"
+-   [x] Add new translation keys for dynamic save messages
+-   [x] Update save success notifications to use correct terminology
+-   [ ] Verify all UI text uses Space/Canvas terms
+
+### Phase 3: Fix Header Display Logic
+
+-   [x] Update CanvasHeader to show Space name in main title
+-   [x] Add Space data props to CanvasHeader component
+-   [x] Implement Space name fetching in canvas/index.jsx
+-   [ ] Test header display for both saved and unsaved spaces
+
+### Phase 4: Filter Canvas from Spaces List
+
+-   [x] Create new spaces.js API file
+-   [x] Implement getAllSpaces endpoint call
+-   [x] Update spaces/index.jsx to use Spaces API
+-   [ ] Test that only Spaces appear in list, not individual Canvas
+
+### Phase 5: UX Improvements
+
+-   [ ] Add loading indicators for tab operations
+-   [ ] Improve error messages with specific types
+-   [ ] Test complete user flow
+
 ## New Tasks (2025-08-31)
 
-- [x] Enforce topological build order via workspace deps in `flowise-ui` (deps on `@universo/template-quiz`, `@universo/template-mmoomm`, `publish-frt`).
-- [x] Remove circular dependency from `apps/finance-frt` to `flowise-ui`.
-- [x] Unify i18n to TypeScript in `template-quiz`, `template-mmoomm`, and `publish-frt`.
-- [x] Validate `exports` and `dist` artifacts (CJS/ESM/types) for template packages.
-- [x] Ensure `publish-frt` tsconfig paths reference template `dist/index.d.ts`.
-- [ ] Docs (EN/RU): add Finance apps docs and link them in SUMMARY.
-- [ ] Docs (EN/RU): add "Creating New Apps/Packages" guide (imports, dual build, TypeORM, i18n TS, Turborepo order, avoiding cycles).
-- [ ] Docs: connect missing `tasks-registry.md` into EN/RU SUMMARY.
+-   [x] Enforce topological build order via workspace deps in `flowise-ui` (deps on `@universo/template-quiz`, `@universo/template-mmoomm`, `publish-frt`).
+-   [x] Remove circular dependency from `apps/finance-frt` to `flowise-ui`.
+-   [x] Unify i18n to TypeScript in `template-quiz`, `template-mmoomm`, and `publish-frt`.
+-   [x] Validate `exports` and `dist` artifacts (CJS/ESM/types) for template packages.
+-   [x] Ensure `publish-frt` tsconfig paths reference template `dist/index.d.ts`.
+-   [ ] Docs (EN/RU): add Finance apps docs and link them in SUMMARY.
+-   [ ] Docs (EN/RU): add "Creating New Apps/Packages" guide (imports, dual build, TypeORM, i18n TS, Turborepo order, avoiding cycles).
+-   [ ] Docs: connect missing `tasks-registry.md` into EN/RU SUMMARY.
+
+## Spaces + Canvases Refactor (2025-09-07)
+
+- [x] Prevent legacy Chatflow effects from overwriting Canvas in Spaces mode (guards by spaceId)
+- [x] Improve Canvas Tabs UX (inactive border, 3px lift, spinner left, place create button after tabs, smaller size/colors)
+- [x] Add local Axios client in `apps/spaces-frt` and switch `spaces.js`/`canvases.js`
+- [x] Add local `useApi` and copy/adapt `useCanvases` in `apps/spaces-frt`
+- [x] Load Spaces list from `apps/spaces-frt` in UI MainRoutes; restore Canvas routes under MinimalLayout via `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx`; wire in `packages/ui/src/routes/index.jsx`
+- [x] Remove unused Flowise UI files (`packages/ui/src/components/*`, `views/spaces`, `api/{canvases,spaces}.js`, `hooks/useCanvases.js`)
+- [x] Replace remaining `@/...` imports in spaces‑frt with relative paths (fix Vite alias collisions)
+- [ ] Migrate minimal UI wrappers used by spaces-frt (MainCard, FlowListTable, ViewHeader, StyledButton, ErrorBoundary) into `apps/spaces-frt/src/ui/` and replace imports
+- [ ] Move repeated component styles to theme overrides (Tabs/IconButton)
+- [ ] Remove remaining unused Flowise UI pieces and update docs/SUMMARY
+
 ## Recently Completed Major Tasks
 
 ### Template Package Modularization (2025-08-30)

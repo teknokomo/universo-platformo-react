@@ -45,7 +45,7 @@ export function useSpaceBuilder() {
     if (res.status === 401) {
       try {
         await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
-      } catch (_) {}
+      } catch (_) { }
       const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
       res = await call(newToken)
     }

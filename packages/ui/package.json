@@ -7,7 +7,7 @@
         "name": "Vladimir Levadnij and Teknokomo",
         "email": "info@universo.pro"
     },
-    "dependencies": {
+  "dependencies": {
         "@codemirror/lang-javascript": "^6.2.1",
         "@codemirror/lang-json": "^6.0.1",
         "@codemirror/view": "^6.22.3",
@@ -28,6 +28,9 @@
         "@uiw/react-codemirror": "^4.21.21",
         "@universo-platformo/utils": "workspace:*",
         "@universo-platformo/types": "workspace:*",
+        "@universo/template-quiz": "workspace:*",
+        "@universo/template-mmoomm": "workspace:*",
+        "publish-frt": "workspace:*",
         "axios": "1.7.9",
         "clsx": "^1.1.1",
         "dotenv": "^16.0.0",

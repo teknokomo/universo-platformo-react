@@ -959,7 +959,8 @@ export class DataHandler {
                         }
                         
                         const leadPayload = {
-                            chatflowid: window.chatflowId || null,
+                            canvasid: window.canvasId || window.chatflowId || null,
+                            chatflowid: window.chatflowId || window.canvasId || null, // Backward compatibility
                             name: leadInfo.name || null,
                             email: leadInfo.email || null,
                             phone: leadInfo.phone || null,

@@ -63,12 +63,12 @@ const StarterPrompts = ({ dialogProps }) => {
                 }
             }
             chatbotConfig.starterPrompts = value.starterPrompts
-            
-            // Use unikId and flowId from parameters or from chatflow
+
+            // Use unikId and canvasId from parameters or from chatflow
             const unikId = dialogProps.unikId || dialogProps.chatflow?.unik_id;
-            const flowId = dialogProps.flowId || dialogProps.chatflow?.id;
-            
-            const saveResp = await chatflowsApi.updateChatflow(unikId, flowId, {
+            const canvasId = dialogProps.canvasId || dialogProps.chatflow?.id;
+
+            const saveResp = await chatflowsApi.updateChatflow(unikId, canvasId, {
                 chatbotConfig: JSON.stringify(chatbotConfig)
             });
             if (saveResp.data) {
@@ -88,9 +88,8 @@ const StarterPrompts = ({ dialogProps }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: `Failed to save Conversation Starter Prompts: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `Failed to save Conversation Starter Prompts: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    }`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -135,7 +134,7 @@ const StarterPrompts = ({ dialogProps }) => {
             }
         }
 
-        return () => {}
+        return () => { }
     }, [dialogProps])
 
     return (

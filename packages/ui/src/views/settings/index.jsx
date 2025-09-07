@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
+import i18n from '@/i18n'
 import { ListItemButton, ListItemIcon, ListItemText, Typography, Box, List, Paper, Popper, ClickAwayListener } from '@mui/material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 
@@ -45,15 +46,24 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
     useEffect(() => {
         if (chatflow && !chatflow.id) {
             const menus = isAgentCanvas ? agentsettings : settings
-            const settingsMenu = menus.children.filter((menu) => menu.id === 'loadChatflow')
-            setSettingsMenu(settingsMenu)
+            const base = menus.children.filter((menu) => menu.id === 'loadChatflow')
+            setSettingsMenu(base)
         } else if (chatflow && chatflow.id) {
             if (isCustomAssistant) {
                 const menus = customAssistantSettings
                 setSettingsMenu(menus.children)
             } else {
                 const menus = isAgentCanvas ? agentsettings : settings
-                setSettingsMenu(menus.children)
+                let items = menus.children
+                // В режиме Пространства переименуем пункт удаления на "Удалить пространство"
+                if (!isAgentCanvas) {
+                    items = items.map((m) =>
+                        m.id === 'deleteChatflow'
+                            ? { ...m, id: 'deleteSpace', title: i18n.t('canvas:contextMenu.deleteSpace') }
+                            : m
+                    )
+                }
+                setSettingsMenu(items)
             }
         }
     }, [chatflow, isAgentCanvas, isCustomAssistant])

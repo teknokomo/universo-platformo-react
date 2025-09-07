@@ -1,9 +1,9 @@
 /* eslint-disable */
-import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm'
 import { ChatflowType, IChatFlow } from '../../Interface'
-import { Unik } from '@universo/uniks-srv'
+import type { Unik } from '@universo/uniks-srv'
 
-@Entity('chat_flow')
+@Entity('canvases') // Refactored: ChatFlow now maps to canvases table (represents Canvas)
 export class ChatFlow implements IChatFlow {
     @PrimaryGeneratedColumn('uuid')
     id: string
@@ -44,16 +44,16 @@ export class ChatFlow implements IChatFlow {
     @Column({ nullable: true, type: 'text' })
     type?: ChatflowType
 
-    @Column({ type: 'timestamp' })
-    @CreateDateColumn()
+    // Map to snake_case column created_date in the canvases table
+    // Using only name mapping avoids RDBMS-specific type coupling
+    @CreateDateColumn({ name: 'created_date' })
     createdDate: Date
 
-    @Column({ type: 'timestamp' })
-    @UpdateDateColumn()
+    // Map to snake_case column updated_date in the canvases table
+    @UpdateDateColumn({ name: 'updated_date' })
     updatedDate: Date
 
-    // New foreign key to link with Unik
-    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
-    @JoinColumn({ name: 'unik_id' })
-    unik: Unik
+    // NOTE: transient bridge property; not persisted on the canvases table
+    // It remains for compatibility with upper layers while services migrate to Spaces joins
+    unik?: Unik
 }

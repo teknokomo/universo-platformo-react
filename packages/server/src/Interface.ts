@@ -56,7 +56,7 @@ export interface IChatMessage {
     id: string
     role: MessageType
     content: string
-    chatflowid: string
+    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
     sourceDocuments?: string
     usedTools?: string
     fileAnnotations?: string
@@ -76,7 +76,7 @@ export interface IChatMessage {
 export interface IChatMessageFeedback {
     id: string
     content?: string
-    chatflowid: string
+    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
     chatId: string
     messageId: string
     rating: ChatMessageRatingType
@@ -127,14 +127,14 @@ export interface ILead {
     name?: string
     email?: string
     phone?: string
-    chatflowid: string
+    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
     chatId: string
     createdDate: Date
 }
 
 export interface IUpsertHistory {
     id: string
-    chatflowid: string
+    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
     result: string
     flowData: string
     date: Date
@@ -310,7 +310,7 @@ export interface ICustomTemplate {
 }
 
 export interface IFlowConfig {
-    chatflowid: string
+    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
     chatId: string
     sessionId: string
     chatHistory: IMessage[]

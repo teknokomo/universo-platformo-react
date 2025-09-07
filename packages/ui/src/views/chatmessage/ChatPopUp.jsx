@@ -45,6 +45,9 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
     const anchorRef = useRef(null)
     const prevOpen = useRef(open)
 
+    // For agents, chatflowid now represents canvasId
+    const canvasId = isAgentCanvas ? chatflowid : chatflowid
+
     const handleClose = (event) => {
         if (anchorRef.current && anchorRef.current.contains(event.target)) {
             return
@@ -59,7 +62,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
     const expandChat = () => {
         const props = {
             open: true,
-            chatflowid: chatflowid
+            chatflowid: canvasId
         }
         setExpandDialogProps(props)
         setShowExpandDialog(true)
@@ -91,10 +94,10 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
 
         if (isConfirmed) {
             try {
-                const objChatDetails = getLocalStorageChatflow(chatflowid)
+                const objChatDetails = getLocalStorageChatflow(canvasId)
                 if (!objChatDetails.chatId) return
-                await chatmessageApi.deleteChatmessage(chatflowid, { chatId: objChatDetails.chatId, chatType: 'INTERNAL' })
-                removeLocalStorageChatHistory(chatflowid)
+                await chatmessageApi.deleteChatmessage(canvasId, { chatId: objChatDetails.chatId, chatType: 'INTERNAL' })
+                removeLocalStorageChatHistory(canvasId)
                 resetChatDialog()
                 enqueueSnackbar({
                     message: t('chatMessage.chat.clearedChatHistory'),
@@ -133,7 +136,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
         prevOpen.current = open
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, chatflowid])
+    }, [open, canvasId])
 
     return (
         <>
@@ -205,7 +208,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
                                 >
                                     <ChatMessage
                                         isAgentCanvas={isAgentCanvas}
-                                        chatflowid={chatflowid}
+                                        chatflowid={canvasId}
                                         open={open}
                                         previews={previews}
                                         setPreviews={setPreviews}

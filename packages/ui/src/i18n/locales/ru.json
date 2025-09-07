@@ -56,6 +56,14 @@
         "noData": "Нет данных",
         "clearSearch": "Очистить поиск"
     },
+    "spaces": "Пространства",
+    "space": "Пространство",
+    "canvas": "Холст",
+    "canvases": "Холсты",
+    "createSpace": "Создать пространство",
+    "createCanvas": "Создать холст",
+    "spaceSettings": "Настройки пространства",
+    "canvasSettings": "Настройки холста",
     "promptGenerator": {
         "summarize": "Обобщить документ",
         "translate": "Перевести текст",
@@ -121,8 +129,8 @@
         "save": "Сохранить",
         "saveFlow": "Сохранить",
         "settings": "Настройки",
-        "confirmDelete": "Удалить",
-        "confirmDeleteDescription": "Удалить",
+        "confirmDelete": "Удалить холст",
+        "confirmDeleteDescription": "Вы уверены, что хотите удалить этот холст? Это действие нельзя отменить.",
         "saveNewFlow": "Сохранить новый",
         "syncNodes": "Синхронизировать узлы",
         "deleteSuccess": "{type} удален",
@@ -132,26 +140,38 @@
         "searchNodes": "Поиск узлов",
         "seeExample": "Посмотреть пример",
         "manageLinks": "Управление ссылками",
+        "name": "Название холста",
+        "rename": "Переименовать холст",
+        "duplicate": "Дублировать холст",
+        "createSuccess": "Холст успешно создан",
+        "createError": "Не удалось создать холст",
+        "renameSuccess": "Холст успешно переименован",
+        "renameError": "Не удалось переименовать холст",
+        "deleteSuccess": "Холст успешно удален",
+        "deleteError": "Не удалось удалить холст",
+        "duplicateSuccess": "Холст успешно дублирован",
+        "duplicateError": "Не удалось дублировать холст",
+        "reorderError": "Не удалось изменить порядок холста",
         "contextMenu": {
             "viewMessages": "Просмотр сообщений",
             "viewLeads": "Просмотр лидов",
             "upsertHistory": "История изменений",
             "configuration": "Настройка",
             "saveAsTemplate": "Сохранить как шаблон",
-            "duplicateChatflow": "Дублировать чат-поток",
-            "loadChatflow": "Загрузить чат-поток",
-            "exportChatflow": "Экспортировать чат-поток",
-            "deleteChatflow": "Удалить чат-поток"
+            "duplicateChatflow": "Дублировать холст",
+            "loadChatflow": "Загрузить холст",
+            "exportChatflow": "Экспортировать холст",
+            "deleteChatflow": "Удалить холст"
         },
         "configuration": {
-            "title": "Настройка чат-потока",
+            "title": "Настройка холста",
             "tabs": {
                 "security": "Безопасность",
                 "starterPrompts": "Начальные подсказки",
                 "followUpPrompts": "Дополнительные подсказки",
                 "speechToText": "Речь в Текст",
                 "chatFeedback": "Обратная связь",
-                "analyseChatflow": "Анализ Чат-Потока",
+                "analyseChatflow": "Анализ Холста",
                 "leads": "Лиды",
                 "fileUpload": "Загрузка файлов",
                 "postProcessing": "Пост-обработка"
@@ -354,7 +374,7 @@
             "load": "Загрузить"
         },
         "saveChatflow": {
-            "placeholder": "Мой новый чат-поток"
+            "placeholder": "Мой новый холст"
         },
         "sourceDoc": {
             "title": "Исходные документы",
@@ -367,7 +387,7 @@
             "title": "Стартовые подсказки для разговора"
         },
         "tag": {
-            "title": "Задать теги категорий потока чата",
+            "title": "Задать теги категорий холста",
             "addTag": "Добавить тег",
             "tagHelp": "Введите тег и нажмите Enter, чтобы добавить его в список. Вы можете добавить сколько угодно тегов.",
             "cancel": "Отмена",

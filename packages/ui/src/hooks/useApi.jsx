@@ -9,8 +9,12 @@ export default (apiFunc) => {
         setLoading(true)
         try {
             const result = await apiFunc(...args)
+            console.log('[useApi] Raw axios response:', result)
             setData(result.data)
+            // Return payload for callers that rely on immediate value
+            return result.data
         } catch (err) {
+            console.error('[useApi] Request error:', err)
             setError(err || 'Unexpected Error!')
         } finally {
             setLoading(false)

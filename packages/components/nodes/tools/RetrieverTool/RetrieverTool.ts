@@ -16,17 +16,18 @@ const howToUse = `Add additional filters to vector store. You can also filter wi
 - \`$flow.state\`
 `
 
+// NOTE: Keep Zod usage runtime-only for schema parsing to avoid cross-version type conflicts.
+// Using broad types here prevents TS from trying to unify Zod types coming from different copies.
 type ZodObjectAny = z.ZodObject<any, any, any, any>
 type IFlowConfig = { sessionId?: string; chatId?: string; input?: string; state?: ICommonObject }
-interface DynamicStructuredToolInput<T extends z.ZodObject<any, any, any, any> = z.ZodObject<any, any, any, any>>
-    extends BaseDynamicToolInput {
-    func?: (input: z.infer<T>, runManager?: CallbackManagerForToolRun, flowConfig?: IFlowConfig) => Promise<string>
+interface DynamicStructuredToolInput<T extends z.ZodTypeAny = z.ZodTypeAny> extends BaseDynamicToolInput {
+    // Keep runtime contract; relax type to avoid Zod generics explosion
+    func?: (input: any, runManager?: CallbackManagerForToolRun, flowConfig?: IFlowConfig) => Promise<string>
     schema: T
 }
 
-class DynamicStructuredTool<T extends z.ZodObject<any, any, any, any> = z.ZodObject<any, any, any, any>> extends StructuredTool<
-    T extends ZodObjectAny ? T : ZodObjectAny
-> {
+// Important: do NOT bind StructuredTool generics to Zod types from this module to avoid cross-package type conflicts
+class DynamicStructuredTool<T extends z.ZodTypeAny = z.ZodTypeAny> extends StructuredTool<any> {
     static lc_name() {
         return 'DynamicStructuredTool'
     }
@@ -37,7 +38,7 @@ class DynamicStructuredTool<T extends z.ZodObject<any, any, any, any> = z.ZodObj
 
     func: DynamicStructuredToolInput['func']
 
-    // @ts-ignore
+    // schema is used at runtime only
     schema: T
 
     private flowObj: any
@@ -58,7 +59,8 @@ class DynamicStructuredTool<T extends z.ZodObject<any, any, any, any> = z.ZodObj
         }
         let parsed
         try {
-            parsed = await this.schema.parseAsync(arg)
+            // Cast to any to avoid Zod type mismatches between different installed copies
+            parsed = await (this.schema as any).parseAsync(arg)
         } catch (e) {
             throw new ToolInputParsingException(`Received tool input did not match expected schema`, JSON.stringify(arg))
         }

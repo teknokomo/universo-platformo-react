@@ -38,6 +38,8 @@ This service is implemented as a **pnpm workspace package** that:
 -   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types for use across the platform.
 -   **Modular and Decoupled**: Fully independent from `packages/server` business logic. It no longer contains UPDL generation code.
 -   **PlayCanvas Ready**: The same raw data endpoints are used by the PlayCanvas builder and templates.
+-   **Canvas Integration**: Fully supports the new Canvas structure while maintaining backward compatibility with ChatFlow.
+-   **Chatbot Publication**: Handles chatbot publication using Canvas-based configuration stored in `chatbotConfig` field.
 
 ## Integration with Main Flowise Server
 
@@ -70,20 +72,30 @@ The API is now streamlined to handle publication records and serve raw flow data
 
 ### Endpoints:
 
--   `POST /api/v1/publish/arjs` - Creates or updates a publication record.
+#### Canvas-based Endpoints (New)
+-   `POST /api/v1/publish/canvas` - Creates or updates a Canvas publication record.
+-   `GET /api/v1/publish/canvas/public/:canvasId` - Gets the raw `flowData` for a given Canvas.
+-   `GET /api/v1/publish/canvas/:canvasId` - Direct access to Canvas flow data for streaming.
+
+#### Legacy Endpoints (Backward Compatibility)
+-   `POST /api/v1/publish/arjs` - Creates or updates a publication record (supports both canvasId and chatflowId).
 -   `GET /api/v1/publish/arjs/public/:publicationId` - Gets the raw `flowData` for a given publication.
--   `POST /api/v1/publish/playcanvas` - (planned) create a PlayCanvas publication.
--   `GET /api/v1/publish/playcanvas/public/:publicationId` - (planned) return raw flow data for PlayCanvas builder.
+-   `GET /api/v1/publish/arjs/stream/:chatflowId` - Legacy streaming endpoint (deprecated, use Canvas endpoints).
 
-### `POST /api/v1/publish/arjs`
+#### Chatbot Endpoints
+-   `GET /api/v1/bots/:canvasId/config` - Gets chatbot configuration from Canvas.
+-   `GET /api/v1/bots/:canvasId` - Renders chatbot interface for Canvas.
+-   `GET /api/v1/bots/:canvasId/stream/:sessionId?` - Provides streaming chat functionality.
 
-Creates a publication record associated with a `chatflowId`. The body should contain the chatflow ID and any metadata required by the frontend.
+### `POST /api/v1/publish/canvas` (New)
+
+Creates a publication record associated with a `canvasId`. The body should contain the canvas ID and any metadata required by the frontend.
 
 **Example Request:**
 
 ```json
 {
-    "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
     "isPublic": true,
     "projectName": "My AR Experience",
     "libraryConfig": {
@@ -93,24 +105,64 @@ Creates a publication record associated with a `chatflowId`. The body should con
 }
 ```
 
-### `GET /api/v1/publish/arjs/public/:publicationId`
+### `POST /api/v1/publish/arjs` (Legacy)
 
-Retrieves the raw `flowData` (as a JSON string) and `libraryConfig` for a given `publicationId` (which is the `chatflowId`). The frontend is responsible for parsing and processing this data with `UPDLProcessor`.
+Creates a publication record associated with a `chatflowId` or `canvasId`. Supports both for backward compatibility.
+
+**Example Request:**
+
+```json
+{
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3", // Deprecated, use canvasId
+    "isPublic": true,
+    "projectName": "My AR Experience"
+}
+```
+
+### `GET /api/v1/publish/canvas/public/:canvasId` (New)
+
+Retrieves the raw `flowData` (as a JSON string) and configuration for a given `canvasId`. The frontend is responsible for parsing and processing this data with `UPDLProcessor`.
 
 **Example Response:**
 
 ```json
 {
     "success": true,
+    "publicationId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
     "flowData": "{\"nodes\":[...],\"edges\":[...]}",
     "libraryConfig": {
         "arjs": { "version": "3.4.7", "source": "kiberplano" },
         "aframe": { "version": "1.7.1", "source": "official" }
+    },
+    "renderConfig": {
+        "arDisplayType": "wallpaper",
+        "wallpaperType": "standard"
+    },
+    "playcanvasConfig": {
+        "gameMode": "singleplayer"
     }
 }
 ```
 
-PlayCanvas publications will follow the same pattern once the endpoints are implemented.
+### `GET /api/v1/publish/arjs/public/:publicationId` (Legacy)
+
+Retrieves the raw `flowData` for a given `publicationId` (which can be either `canvasId` or legacy `chatflowId`). Maintains backward compatibility.
+
+### Chatbot Configuration
+
+Chatbot configuration is extracted from the Canvas `chatbotConfig` field:
+
+```json
+{
+    "botType": "chat",
+    "title": "My Chat Bot",
+    "backgroundColor": "#ffffff",
+    "textColor": "#303235",
+    "allowedOrigins": ["https://example.com"]
+}
+```
 
 ## AR.js Render Configuration in Public API
 

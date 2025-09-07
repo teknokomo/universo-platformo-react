@@ -9,7 +9,7 @@
     "deleteSuccess": "API key deleted",
     "deleteError": "Failed to delete API key: {error}",
     "thereAre": "There are",
-    "chatflowsUsingKey": "chatflows using this key",
+    "chatflowsUsingKey": "canvases using this key",
     "copied": "Copied!",
     "buttonTitles": {
       "copy": "Copy API Key",
@@ -18,8 +18,8 @@
       "delete": "Delete"
     },
     "chatflowDetails": {
-      "name": "Chatflow Name",
-      "modifiedOn": "Modified On", 
+      "name": "Canvas Name",
+      "modifiedOn": "Modified On",
       "category": "Category"
     },
     "grid": {
@@ -54,4 +54,4 @@
       "copy": "Copy"
     }
   }
-} 
+}

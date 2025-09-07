@@ -12,7 +12,7 @@ import PlayCanvasViewPage from './PlayCanvasViewPage'
  * based on the chatbotConfig.isPublic flags
  */
 const PublicFlowView: React.FC = () => {
-    const { flowId } = useParams<{ flowId: string }>()
+    const { flowId, canvasId, chatflowId } = useParams<{ flowId?: string; canvasId?: string; chatflowId?: string }>()
     const { t } = useTranslation()
 
     const [activeTechnology, setActiveTechnology] = useState<string>('')
@@ -27,35 +27,87 @@ const PublicFlowView: React.FC = () => {
                 setLoading(true)
                 setError('')
 
-                if (!flowId) {
-                    throw new Error('Flow ID not provided')
+                // Determine the ID to use (priority: canvasId > chatflowId > flowId)
+                const targetId = canvasId || chatflowId || flowId
+                if (!targetId) {
+                    throw new Error('Canvas/Flow ID not provided')
                 }
 
-                console.log('🔍 [PublicFlowView] Loading public flow for ID:', flowId)
-
-                // Get chatflow data from public API using direct fetch
-                const response = await fetch(`/api/v1/public-chatflows/${flowId}`)
-
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch chatflow data: ${response.status}`)
-                }
-
-                const chatflow = await response.json()
-                console.log('📡 [PublicFlowView] Chatflow data received:', {
-                    id: chatflow.id,
-                    name: chatflow.name,
-                    hasFlowData: !!chatflow.flowData,
-                    hasChatbotConfig: !!chatflow.chatbotConfig,
-                    isPublic: chatflow.isPublic
+                console.log('🔍 [PublicFlowView] Loading public flow for ID:', targetId, {
+                    canvasId,
+                    chatflowId,
+                    flowId,
+                    targetId
                 })
 
-                // Parse chatbotConfig to find active technology
+                // Try new Canvas API first, fallback to legacy API
+                let response: Response
+                let canvas: any
+
+                try {
+                    // Try new Canvas publication API
+                    response = await fetch(`/api/v1/publish/canvas/public/${targetId}`)
+                    if (response.ok) {
+                        canvas = await response.json()
+                        console.log('📡 [PublicFlowView] Canvas data received from new API:', {
+                            id: canvas.canvasId || canvas.chatflowId,
+                            projectName: canvas.projectName,
+                            hasFlowData: !!canvas.flowData
+                        })
+                    } else {
+                        throw new Error('Canvas API not available')
+                    }
+                } catch (canvasError) {
+                    console.warn('⚠️ [PublicFlowView] Canvas API failed, trying legacy API:', canvasError)
+
+                    // Fallback to legacy public-chatflows API
+                    response = await fetch(`/api/v1/public-chatflows/${targetId}`)
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch canvas/chatflow data: ${response.status}`)
+                    }
+                    canvas = await response.json()
+                    console.log('📡 [PublicFlowView] Legacy chatflow data received:', {
+                        id: canvas.id,
+                        name: canvas.name,
+                        hasFlowData: !!canvas.flowData,
+                        hasChatbotConfig: !!canvas.chatbotConfig,
+                        isPublic: canvas.isPublic
+                    })
+                }
+
+                // Handle different response formats
                 let chatbotConfig: Record<string, any> = {}
-                if (chatflow.chatbotConfig) {
-                    try {
-                        chatbotConfig = JSON.parse(chatflow.chatbotConfig)
-                    } catch (parseError) {
-                        console.error('❌ [PublicFlowView] Failed to parse chatbotConfig:', parseError)
+                let flowDataContent = ''
+
+                if (canvas.flowData) {
+                    // New Canvas API format
+                    flowDataContent = canvas.flowData
+                    // For new API, we might need to parse config from flowData or use separate config
+                    if (canvas.libraryConfig || canvas.renderConfig || canvas.playcanvasConfig) {
+                        // Reconstruct chatbotConfig from separate configs
+                        if (canvas.renderConfig || canvas.libraryConfig) {
+                            chatbotConfig.arjs = {
+                                ...canvas.renderConfig,
+                                libraryConfig: canvas.libraryConfig,
+                                isPublic: true // Assume public if we got the data
+                            }
+                        }
+                        if (canvas.playcanvasConfig) {
+                            chatbotConfig.playcanvas = {
+                                ...canvas.playcanvasConfig,
+                                isPublic: true // Assume public if we got the data
+                            }
+                        }
+                    }
+                } else {
+                    // Legacy API format
+                    flowDataContent = canvas.flowData || ''
+                    if (canvas.chatbotConfig) {
+                        try {
+                            chatbotConfig = JSON.parse(canvas.chatbotConfig)
+                        } catch (parseError) {
+                            console.error('❌ [PublicFlowView] Failed to parse chatbotConfig:', parseError)
+                        }
                     }
                 }
 
@@ -68,18 +120,18 @@ const PublicFlowView: React.FC = () => {
 
                 if (!activeTech) {
                     // Check for legacy isPublic flag (backward compatibility)
-                    if (chatflow.isPublic) {
-                        console.log('🔄 [PublicFlowView] Using legacy isPublic flag, defaulting to AR.js')
+                    if (canvas.isPublic || canvas.success) {
+                        console.log('🔄 [PublicFlowView] Using legacy isPublic flag or success flag, defaulting to AR.js')
                         setActiveTechnology('arjs')
                         setFlowConfig({}) // Empty config for legacy support
-                        setFlowData(chatflow.flowData || '')
+                        setFlowData(flowDataContent)
                     } else {
                         throw new Error('Application is not published or not found')
                     }
                 } else {
                     setActiveTechnology(activeTech)
                     setFlowConfig(chatbotConfig[activeTech])
-                    setFlowData(chatflow.flowData || '')
+                    setFlowData(flowDataContent)
                 }
             } catch (err: any) {
                 console.error('💥 [PublicFlowView] Error loading public flow:', err)
@@ -90,7 +142,7 @@ const PublicFlowView: React.FC = () => {
         }
 
         loadPublicFlow()
-    }, [flowId])
+    }, [flowId, canvasId, chatflowId])
 
     // Loading state
     if (loading) {

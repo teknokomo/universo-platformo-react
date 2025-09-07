@@ -4,7 +4,7 @@
 
 import { DataSource } from 'typeorm'
 import logger from '../utils/logger'
-import { RawFlowData, ChatFlowMinimal } from '../types/publication.types'
+import { RawFlowData, CanvasMinimal, ChatFlowMinimal } from '../types/publication.types'
 import { serialization } from '@universo-platformo/utils'
 
 /**
@@ -18,40 +18,63 @@ export class FlowDataService {
     constructor(private dataSource: DataSource) { }
 
     /**
-     * Get raw flow data from Supabase by chatflow ID
-     * @param chatflowId The ID of the chatflow to retrieve
-     * @returns Object containing raw flowData, libraryConfig, and chatflow metadata
+     * Get raw flow data from Supabase by canvas ID (or chatflow ID for backward compatibility)
+     * @param canvasId The ID of the canvas to retrieve (or chatflowId for compatibility)
+     * @returns Object containing raw flowData, libraryConfig, and canvas metadata
      */
-    async getFlowData(chatflowId: string): Promise<RawFlowData> {
+    async getFlowData(canvasId: string): Promise<RawFlowData> {
         try {
-            logger.info(`[FlowDataService] Getting flow data for chatflow ID: ${chatflowId}`)
+            logger.info(`[FlowDataService] Getting flow data for canvas ID: ${canvasId}`)
 
-            // Get ChatFlow entity metadata from DataSource
-            const chatFlowMetadata = this.dataSource.getMetadata('ChatFlow')
-            const chatFlowRepository = this.dataSource.getRepository(chatFlowMetadata.target)
+            // Try Canvas entity first (new structure)
+            let canvas: CanvasMinimal | null = null
+            try {
+                const canvasMetadata = this.dataSource.getMetadata('Canvas')
+                const canvasRepository = this.dataSource.getRepository(canvasMetadata.target)
+                canvas = (await canvasRepository.findOne({
+                    where: { id: canvasId }
+                })) as CanvasMinimal | null
 
-            // Find the ChatFlow by ID and cast to our interface
-            const chatFlow = (await chatFlowRepository.findOne({
-                where: { id: chatflowId }
-            })) as ChatFlowMinimal | null
-
-            if (!chatFlow) {
-                throw new Error(`ChatFlow not found: ${chatflowId}`)
+                if (canvas) {
+                    logger.info(`[FlowDataService] Found canvas: ${canvas.name} (ID: ${canvas.id})`)
+                }
+            } catch (canvasError) {
+                logger.info(`[FlowDataService] Canvas entity not found or not available, falling back to ChatFlow`)
             }
 
-            if (!chatFlow.flowData) {
-                throw new Error(`ChatFlow has no flowData: ${chatflowId}`)
+            // Fallback to ChatFlow entity (legacy structure) if Canvas not found
+            if (!canvas) {
+                const chatFlowMetadata = this.dataSource.getMetadata('ChatFlow')
+                const chatFlowRepository = this.dataSource.getRepository(chatFlowMetadata.target)
+                const chatFlow = (await chatFlowRepository.findOne({
+                    where: { id: canvasId }
+                })) as ChatFlowMinimal | null
+
+                if (!chatFlow) {
+                    throw new Error(`Canvas/ChatFlow not found: ${canvasId}`)
+                }
+
+                // Convert ChatFlow to Canvas format for consistency
+                canvas = {
+                    id: chatFlow.id,
+                    name: chatFlow.name,
+                    flowData: chatFlow.flowData,
+                    chatbotConfig: chatFlow.chatbotConfig
+                }
+                logger.info(`[FlowDataService] Found chatflow (legacy): ${canvas.name} (ID: ${canvas.id})`)
             }
 
-            logger.info(`[FlowDataService] Found chatflow: ${chatFlow.name} (ID: ${chatFlow.id})`)
+            if (!canvas.flowData) {
+                throw new Error(`Canvas has no flowData: ${canvasId}`)
+            }
 
             // Extract libraryConfig from chatbotConfig if available
             let libraryConfig = null
             let renderConfig = null
             let playcanvasConfig = null
-            if (chatFlow.chatbotConfig) {
+            if (canvas.chatbotConfig) {
                 try {
-                    const parsed = typeof chatFlow.chatbotConfig === 'string' ? serialization.safeParseJson<any>(chatFlow.chatbotConfig) : { ok: true as const, value: chatFlow.chatbotConfig }
+                    const parsed = typeof canvas.chatbotConfig === 'string' ? serialization.safeParseJson<any>(canvas.chatbotConfig) : { ok: true as const, value: canvas.chatbotConfig }
                     if (!parsed.ok) {
                         const errMsg = parsed.error?.message || 'Unknown JSON parse error'
                         logger.warn(`[FlowDataService] Failed to parse chatbotConfig: ${errMsg}`)
@@ -82,18 +105,23 @@ export class FlowDataService {
             }
 
             return {
-                flowData: chatFlow.flowData, // Raw JSON string
+                flowData: canvas.flowData, // Raw JSON string
                 libraryConfig: libraryConfig, // Extracted library configuration
                 renderConfig: renderConfig || undefined,
                 playcanvasConfig: playcanvasConfig || undefined, // Extracted PlayCanvas configuration
+                canvas: {
+                    // Primary metadata (new structure)
+                    id: canvas.id,
+                    name: canvas.name
+                },
                 chatflow: {
-                    // Metadata
-                    id: chatFlow.id,
-                    name: chatFlow.name
+                    // Backward compatibility metadata
+                    id: canvas.id,
+                    name: canvas.name
                 }
             }
         } catch (error) {
-            logger.error(`[FlowDataService] Error getting flow data for ${chatflowId}:`, error)
+            logger.error(`[FlowDataService] Error getting flow data for ${canvasId}:`, error)
             throw error
         }
     }

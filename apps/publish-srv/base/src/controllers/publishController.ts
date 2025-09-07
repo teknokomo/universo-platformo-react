@@ -24,20 +24,22 @@ export class PublishController {
     public async publishARJS(req: Request, res: Response): Promise<void> {
         logger.info(`[PublishController] publishARJS called with params: ${JSON.stringify(req.body)}`)
         try {
-            const { chatflowId, generationMode = 'streaming', isPublic = true, projectName } = req.body
+            const { canvasId, chatflowId, generationMode = 'streaming', isPublic = true, projectName } = req.body
 
-            if (!chatflowId) {
+            // Support both canvasId (new) and chatflowId (legacy) for backward compatibility
+            const targetId = canvasId || chatflowId
+            if (!targetId) {
                 // Explicitly set content type header
                 res.setHeader('Content-Type', 'application/json')
                 res.status(400).json({
                     success: false,
-                    error: 'Missing required parameter: chatflowId'
+                    error: 'Missing required parameter: canvasId or chatflowId'
                 })
                 return
             }
 
-            // In streaming generation mode, use chatflowId itself for simplification
-            const publicationId = chatflowId
+            // In streaming generation mode, use canvasId itself for simplification
+            const publicationId = targetId
             const createdAt = new Date().toISOString()
 
             logger.info(`[PublishController] Creating publication response with publicationId: ${publicationId}`)
@@ -48,8 +50,9 @@ export class PublishController {
             const responseData = {
                 success: true,
                 publicationId,
-                chatflowId,
-                projectName: projectName || `AR.js for ${chatflowId}`,
+                canvasId: targetId, // Primary ID (new structure)
+                chatflowId: targetId, // Backward compatibility
+                projectName: projectName || `AR.js for ${targetId}`,
                 generationMode,
                 isPublic,
                 createdAt
@@ -96,8 +99,9 @@ export class PublishController {
             }
 
             // For streaming generation mode, redirect request to streamUPDL
-            // Since publicationId in streaming mode = chatflowId
-            req.params.chatflowId = publicationId
+            // Since publicationId in streaming mode = canvasId (or chatflowId for legacy)
+            req.params.canvasId = publicationId
+            req.params.chatflowId = publicationId // Backward compatibility
             logger.info(`[PublishController] Using streamUPDL for AR.js public data retrieval with ID: ${publicationId}`)
             return await this.streamUPDL(req, res)
         } catch (error) {
@@ -121,7 +125,7 @@ export class PublishController {
      * @param res Response
      */
     public async streamUPDL(req: Request, res: Response): Promise<void> {
-        const id = req.params.chatflowId || req.params.publicationId
+        const id = req.params.canvasId || req.params.chatflowId || req.params.publicationId
         logger.info(`[PublishController] streamUPDL called for ID: ${id}`)
         logger.info(`[PublishController] Request params: ${JSON.stringify(req.params)}`)
         logger.info(`[PublishController] Request URL: ${req.originalUrl}`)
@@ -156,13 +160,14 @@ export class PublishController {
             const responseData = {
                 success: true,
                 publicationId: id,
-                projectName: flowData.chatflow?.name || `UPDL Space ${id}`,
+                projectName: flowData.canvas?.name || flowData.chatflow?.name || `UPDL Canvas ${id}`,
                 generationMode: 'streaming',
                 flowData: flowData.flowData, // Raw JSON string
                 libraryConfig: flowData.libraryConfig, // Extracted configuration
                 renderConfig: flowData.renderConfig, // AR display settings (wallpaper/marker)
                 playcanvasConfig: flowData.playcanvasConfig, // PlayCanvas settings (gameMode, colyseusSettings)
-                chatflowId: id, // Add for compatibility
+                canvasId: id, // Primary ID (new structure)
+                chatflowId: id, // Backward compatibility
                 timestamp: new Date().toISOString()
             }
 

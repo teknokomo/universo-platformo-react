@@ -7,6 +7,8 @@ export interface BuildOptions {
         serverPort?: number
         roomName?: string
     }
+    canvasId?: string // Canvas ID for new structure
+    chatflowId?: string // Legacy chatflow ID for backward compatibility
     // Additional build options can be added here
     [key: string]: any
 }

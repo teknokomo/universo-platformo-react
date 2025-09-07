@@ -51,9 +51,7 @@ import ruToolsTranslation from './locales/ru/views/tools.json'
 import enTemplatesTranslation from './locales/en/views/templates.json'
 import ruTemplatesTranslation from './locales/ru/views/templates.json'
 
-// Universo Platformo | Import canvas namespaces
-import enCanvasTranslation from './locales/en/views/canvas.json'
-import ruCanvasTranslation from './locales/ru/views/canvas.json'
+// Canvas translations now come from spaces-frt module
 
 // Universo Platformo | Import chatflows namespaces
 import enChatflowsTranslation from './locales/en/views/chatflows.json'
@@ -77,6 +75,8 @@ import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
 import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
 import { templateQuizTranslations } from '@apps/template-quiz/base/src/i18n'
+// Spaces FRt translations (namespaces spaces/canvas). Initially empty, extended over time.
+import { spacesFrtTranslations } from '@apps/spaces-frt/base/src/i18n'
 
 // Universo Platformo | i18next initialization with namespaces support
 i18n.use(LanguageDetector)
@@ -98,12 +98,16 @@ i18n.use(LanguageDetector)
                     variables: enVariablesTranslation,
                     tools: enToolsTranslation,
                     templates: enTemplatesTranslation,
-                    canvas: enCanvasTranslation,
-                    chatflows: enChatflowsTranslation,
+                    // canvas translations provided by spacesFrtTranslations below
+                    // Use the nested object to avoid double key level (chatflows.chatflows.*)
+                    chatflows: enChatflowsTranslation?.chatflows || enChatflowsTranslation,
                     chatmessage: enChatmessageTranslation,
                     publish: publishTranslations.en.publish,
                     templateMmoomm: templateMmoommTranslations.en.templateMmoomm,
                     templateQuiz: templateQuizTranslations.en.templateQuiz,
+                    // Spaces/Canvas extracted app namespaces
+                    spaces: spacesFrtTranslations.en.spaces,
+                    canvas: spacesFrtTranslations.en.canvas,
                     finance: financeTranslations.en.finance,
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
@@ -123,12 +127,15 @@ i18n.use(LanguageDetector)
                     variables: ruVariablesTranslation,
                     tools: ruToolsTranslation,
                     templates: ruTemplatesTranslation,
-                    canvas: ruCanvasTranslation,
-                    chatflows: ruChatflowsTranslation,
+                    // canvas translations provided by spacesFrtTranslations below
+                    chatflows: ruChatflowsTranslation?.chatflows || ruChatflowsTranslation,
                     chatmessage: ruChatmessageTranslation,
                     publish: publishTranslations.ru.publish,
                     templateMmoomm: templateMmoommTranslations.ru.templateMmoomm,
                     templateQuiz: templateQuizTranslations.ru.templateQuiz,
+                    // Spaces/Canvas extracted app namespaces
+                    spaces: spacesFrtTranslations.ru.spaces,
+                    canvas: spacesFrtTranslations.ru.canvas,
                     finance: financeTranslations.ru.finance,
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
@@ -159,6 +166,7 @@ i18n.use(LanguageDetector)
                 'variables',
                 'tools',
                 'templates',
+                'spaces',
                 'canvas',
                 'chatflows',
                 'chatmessage',

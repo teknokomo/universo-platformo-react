@@ -46,6 +46,10 @@ export interface BuildOptions {
     includeStartCollectName?: boolean
     includeEndScore?: boolean
     generateAnswerGraphics?: boolean
+    canvasId?: string // Canvas ID for new structure
+    chatflowId?: string // Legacy chatflow ID for backward compatibility
+    markerType?: string // AR marker type
+    markerValue?: string // AR marker value
     [key: string]: any
 }
 

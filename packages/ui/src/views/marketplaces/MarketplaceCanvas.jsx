@@ -51,7 +51,7 @@ const MarketplaceCanvas = () => {
             (node) => node.data.category === 'Multi Agents' || node.data.category === 'Sequential Agents'
         )
         const templateFlowData = JSON.stringify(flowData)
-        navigate(`/uniks/${unikId}/${isAgentCanvas ? 'agentcanvas' : 'chatflows'}`, { state: { templateFlowData } })
+        navigate(`/uniks/${unikId}/${isAgentCanvas ? 'agentcanvas' : 'spaces'}`, { state: { templateFlowData } })
     }
 
     return (

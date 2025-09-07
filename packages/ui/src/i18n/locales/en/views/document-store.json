@@ -44,7 +44,7 @@
     },
     "detail": {
       "description": "Description",
-      "chatflowsUsed": "Chatflows Used:",
+      "chatflowsUsed": "Canvases Used:",
       "someFilesPendingProcessing": "Some files are pending processing. Please Refresh to get the latest status."
     },
     "messages": {
@@ -54,7 +54,7 @@
       "loaderProcessed": "Document processed successfully",
       "chunksUpserted": "Document chunks upserted successfully",
       "storeRefreshed": "Document store refreshed successfully!",
-      "refreshError": "Failed to refresh document store: {error}" 
+      "refreshError": "Failed to refresh document store: {error}"
     },
     "loaders": {
       "common": {
@@ -147,4 +147,4 @@
       "description": "This will re-process all loaders and upsert all chunks. This action might take some time."
     }
   }
-} 
+}

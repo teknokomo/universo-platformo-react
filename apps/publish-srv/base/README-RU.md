@@ -37,6 +37,8 @@ apps/publish-srv/base/
 -   **Поставщик данных потока**: Отдает сырые `flowData` из базы данных, делегируя всю обработку UPDL фронтенду.
 -   **Централизованные типы**: Экспортирует общие типы TypeScript, связанные с UPDL и публикациями, для использования на всей платформе.
 -   **Модульность и слабая связанность**: Полностью независим от бизнес-логики `packages/server`. Больше не содержит код для генерации UPDL.
+-   **Интеграция с Canvas**: Полностью поддерживает новую структуру Canvas, сохраняя обратную совместимость с ChatFlow.
+-   **Публикация чатботов**: Обрабатывает публикацию чатботов с использованием конфигурации на основе Canvas, хранящейся в поле `chatbotConfig`.
 
 ## Интеграция с основным сервером Flowise
 
@@ -69,18 +71,30 @@ API теперь оптимизирован для обработки запис
 
 ### Эндпоинты:
 
--   `POST /api/v1/publish/arjs` - Создает или обновляет запись о публикации.
+#### Эндпоинты на основе Canvas (Новые)
+-   `POST /api/v1/publish/canvas` - Создает или обновляет запись о публикации Canvas.
+-   `GET /api/v1/publish/canvas/public/:canvasId` - Получает сырые `flowData` для указанного Canvas.
+-   `GET /api/v1/publish/canvas/:canvasId` - Прямой доступ к данным потока Canvas для стриминга.
+
+#### Устаревшие эндпоинты (Обратная совместимость)
+-   `POST /api/v1/publish/arjs` - Создает или обновляет запись о публикации (поддерживает как canvasId, так и chatflowId).
 -   `GET /api/v1/publish/arjs/public/:publicationId` - Получает сырые `flowData` для указанной публикации.
+-   `GET /api/v1/publish/arjs/stream/:chatflowId` - Устаревший эндпоинт стриминга (устарел, используйте эндпоинты Canvas).
 
-### `POST /api/v1/publish/arjs`
+#### Эндпоинты чатботов
+-   `GET /api/v1/bots/:canvasId/config` - Получает конфигурацию чатбота из Canvas.
+-   `GET /api/v1/bots/:canvasId` - Отображает интерфейс чатбота для Canvas.
+-   `GET /api/v1/bots/:canvasId/stream/:sessionId?` - Обеспечивает функциональность потокового чата.
 
-Создает запись о публикации, связанную с `chatflowId`. Тело запроса должно содержать ID чатфлоу и любые метаданные, необходимые для фронтенда.
+### `POST /api/v1/publish/canvas` (Новый)
+
+Создает запись о публикации, связанную с `canvasId`. Тело запроса должно содержать ID холста и любые метаданные, необходимые для фронтенда.
 
 **Пример запроса:**
 
 ```json
 {
-    "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
     "isPublic": true,
     "projectName": "Мой AR-проект",
     "libraryConfig": {
@@ -90,20 +104,62 @@ API теперь оптимизирован для обработки запис
 }
 ```
 
-### `GET /api/v1/publish/arjs/public/:publicationId`
+### `POST /api/v1/publish/arjs` (Устаревший)
 
-Получает сырые `flowData` (в виде JSON-строки) и `libraryConfig` для указанного `publicationId` (который является `chatflowId`). Фронтенд отвечает за парсинг и обработку этих данных с помощью `UPDLProcessor`.
+Создает запись о публикации, связанную с `chatflowId` или `canvasId`. Поддерживает оба для обратной совместимости.
+
+**Пример запроса:**
+
+```json
+{
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3", // Устарел, используйте canvasId
+    "isPublic": true,
+    "projectName": "Мой AR-проект"
+}
+```
+
+### `GET /api/v1/publish/canvas/public/:canvasId` (Новый)
+
+Получает сырые `flowData` (в виде JSON-строки) и конфигурацию для указанного `canvasId`. Фронтенд отвечает за парсинг и обработку этих данных с помощью `UPDLProcessor`.
 
 **Пример ответа:**
 
 ```json
 {
     "success": true,
+    "publicationId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
     "flowData": "{\"nodes\":[...],\"edges\":[...]}",
     "libraryConfig": {
         "arjs": { "version": "3.4.7", "source": "kiberplano" },
         "aframe": { "version": "1.7.1", "source": "official" }
+    },
+    "renderConfig": {
+        "arDisplayType": "wallpaper",
+        "wallpaperType": "standard"
+    },
+    "playcanvasConfig": {
+        "gameMode": "singleplayer"
     }
+}
+```
+
+### `GET /api/v1/publish/arjs/public/:publicationId` (Устаревший)
+
+Получает сырые `flowData` для указанного `publicationId` (который может быть как `canvasId`, так и устаревшим `chatflowId`). Поддерживает обратную совместимость.
+
+### Конфигурация чатбота
+
+Конфигурация чатбота извлекается из поля `chatbotConfig` Canvas:
+
+```json
+{
+    "botType": "chat",
+    "title": "Мой чат-бот",
+    "backgroundColor": "#ffffff",
+    "textColor": "#303235",
+    "allowedOrigins": ["https://example.com"]
 }
 ```
 

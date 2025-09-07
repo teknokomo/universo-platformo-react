@@ -16,6 +16,9 @@ import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { utilGetUploadsConfig } from '../../utils/getUploadsConfig'
 import logger from '../../utils/logger'
 import { validate } from 'uuid'
+import { Space, SpaceCanvas } from '@universo/spaces-srv'
+import type { Canvas } from '@universo/spaces-srv'
+import type { Unik } from '@universo/uniks-srv'
 
 // Check if chatflow valid for streaming
 const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<any> => {
@@ -89,11 +92,18 @@ const checkIfChatflowIsValidForUploads = async (chatflowId: string): Promise<any
 const deleteChatflow = async (chatflowId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        let whereClause: any = { id: chatflowId }
+        let chatflow: ChatFlow | null
         if (unikId) {
-            whereClause.unik = { id: unikId }
+            chatflow = await appServer.AppDataSource.getRepository(ChatFlow)
+                .createQueryBuilder('chatflow')
+                .innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = chatflow.id')
+                .innerJoin('spaces', 'space', 'space.id = sc.space_id')
+                .where('chatflow.id = :id', { id: chatflowId })
+                .andWhere('space.unik_id = :unikId', { unikId })
+                .getOne()
+        } else {
+            chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: chatflowId })
         }
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy(whereClause)
         if (!chatflow) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
         }
@@ -130,7 +140,10 @@ const getAllChatflows = async (type?: ChatflowType, unikId?: string): Promise<Ch
 
         // Apply filter by unikId if provided
         if (unikId) {
-            queryBuilder = queryBuilder.where('chatflow.unik_id = :unikId', { unikId })
+            queryBuilder = queryBuilder
+                .innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = chatflow.id')
+                .innerJoin('spaces', 'space', 'space.id = sc.space_id')
+                .where('space.unik_id = :unikId', { unikId })
         }
 
         // Filter by type at the database level
@@ -177,11 +190,18 @@ const getChatflowByApiKey = async (apiKeyId: string, keyonly?: unknown): Promise
 const getChatflowById = async (chatflowId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        let whereClause: any = { id: chatflowId }
+        let dbResponse: ChatFlow | null
         if (unikId) {
-            whereClause.unik = { id: unikId }
+            dbResponse = await appServer.AppDataSource.getRepository(ChatFlow)
+                .createQueryBuilder('chatflow')
+                .innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = chatflow.id')
+                .innerJoin('spaces', 'space', 'space.id = sc.space_id')
+                .where('chatflow.id = :id', { id: chatflowId })
+                .andWhere('space.unik_id = :unikId', { unikId })
+                .getOne()
+        } else {
+            dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: chatflowId })
         }
-        const dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy(whereClause)
         if (!dbResponse) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
         }
@@ -216,6 +236,42 @@ const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
             const chatflow = appServer.AppDataSource.getRepository(ChatFlow).create(newChatFlow)
             dbResponse = await appServer.AppDataSource.getRepository(ChatFlow).save(chatflow)
         }
+        // Ensure Space and relationship exist (space.id == canvas.id, 1:1 default mapping)
+        try {
+            const spaceRepo = appServer.AppDataSource.getRepository(Space)
+            const scRepo = appServer.AppDataSource.getRepository(SpaceCanvas)
+
+            // upsert Space with the same id as canvas for backward compatibility
+            const existingSpace = await spaceRepo.findOne({ where: { id: dbResponse.id } })
+            if (!existingSpace) {
+                const space = spaceRepo.create({
+                    id: dbResponse.id,
+                    name: newChatFlow.name || 'Space',
+                    visibility: 'private',
+                    // link unik via relation object
+                    unik: ({ id: newChatFlow?.unik?.id } as Unik)
+                })
+                await spaceRepo.save(space)
+            }
+
+            // link Space ↔ Canvas in junction if not exists
+            const existsJunction = (await scRepo
+                .createQueryBuilder('sc')
+                .where('sc.space_id = :sid AND sc.canvas_id = :cid', { sid: dbResponse.id, cid: dbResponse.id })
+                .getCount()) > 0
+            if (!existsJunction) {
+                const spaceCanvas = scRepo.create({
+                    // default first position
+                    sortOrder: 1,
+                    space: ({ id: dbResponse.id } as Space),
+                    canvas: ({ id: dbResponse.id } as unknown as Canvas)
+                })
+                await scRepo.save(spaceCanvas)
+            }
+        } catch (linkErr) {
+            logger.warn(`[server]: Unable to ensure Space/Canvas relation for ${dbResponse.id}: ${getErrorMessage(linkErr)}`)
+        }
+
         await appServer.telemetry.sendTelemetry('chatflow_created', {
             version: await getAppVersion(),
             chatflowId: dbResponse.id,

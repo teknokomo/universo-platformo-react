@@ -23,6 +23,19 @@ It offers a complete solution that includes:
 * [x] **Multi-Platform Export** - AR.js, PlayCanvas, A-Frame support
 * [x] **Enhanced Resource Systems** - Advanced resource management
 
+## Spaces + Canvases Refactor (2025‑09)
+
+We began decoupling Spaces from legacy Flowise UI into a dedicated pair of applications:
+
+- `apps/spaces-srv` — backend for Spaces/Canvases (TypeORM entities, reorder endpoints)
+- `apps/spaces-frt` — frontend with multi‑canvas tabs, drag & drop, and an isolated HTTP client
+
+Key changes:
+- The UI now loads the Spaces list from `apps/spaces-frt`.
+- Canvas routes are handled under MinimalLayout via `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx`, so the canvas page does not show the main left menu.
+- Local hooks (`useApi`, `useCanvases`) and a local Axios client remove tight coupling to Flowise UI.
+- Unused Flowise UI files were removed to reduce noise and alias conflicts.
+
 There are 3 main visual builders namely:
 
 * Assistant

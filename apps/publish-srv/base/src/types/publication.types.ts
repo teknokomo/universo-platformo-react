@@ -340,7 +340,8 @@ export interface IPublishResponse {
  * AR.js publication request
  */
 export interface IARJSPublishRequest {
-    chatflowId: string
+    canvasId: string // Updated: use canvasId instead of chatflowId
+    chatflowId?: string // Deprecated: for backward compatibility
     generationMode?: string
     isPublic?: boolean
     projectName?: string
@@ -360,7 +361,8 @@ export interface IARJSPublishRequest {
 export interface IARJSPublishResponse {
     success: boolean
     publicationId: string
-    chatflowId: string
+    canvasId: string // Updated: use canvasId instead of chatflowId
+    chatflowId?: string // Deprecated: for backward compatibility
     projectName: string
     generationMode: string
     isPublic: boolean
@@ -412,15 +414,30 @@ export interface RawFlowData {
             roomName?: string
         }
     }
-    chatflow: {
+    canvas: { // Updated: use canvas instead of chatflow
+        id: string
+        name: string
+    }
+    chatflow?: { // Deprecated: for backward compatibility
         id: string
         name: string
     }
 }
 
 /**
- * Minimal ChatFlow interface for database operations
+ * Minimal Canvas interface for database operations
  * Contains only fields needed by publish-srv
+ */
+export interface CanvasMinimal {
+    id: string
+    name: string
+    flowData: string
+    chatbotConfig?: string
+}
+
+/**
+ * @deprecated Use CanvasMinimal instead
+ * Minimal ChatFlow interface for database operations - kept for backward compatibility
  */
 export interface ChatFlowMinimal {
     id: string

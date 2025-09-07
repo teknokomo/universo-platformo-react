@@ -21,12 +21,14 @@ const UnikDetail = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/Un
 // chatflows routing
 const Chatflows = Loadable(lazy(() => import('@/views/chatflows')))
 
+// spaces routing (load from spaces-frt package)
+const Spaces = Loadable(lazy(() => import('@apps/spaces-frt/base/src/views/spaces')))
+
 // agents routing
 const Agentflows = Loadable(lazy(() => import('@/views/agentflows')))
 
 // marketplaces routing
 const Marketplaces = Loadable(lazy(() => import('@/views/marketplaces')))
-const MarketplaceCanvas = Loadable(lazy(() => import('@/views/marketplaces/MarketplaceCanvas')))
 
 // apikey routing
 const APIKey = Loadable(lazy(() => import('@/views/apikey')))
@@ -103,6 +105,10 @@ const MainRoutes = {
                         {
                             path: 'chatflows',
                             element: <Chatflows />
+                        },
+                        {
+                            path: 'spaces',
+                            element: <Spaces />
                         },
                         {
                             path: 'agentflows',
@@ -243,5 +249,22 @@ const PublicFlowRoutes = {
     ]
 }
 
-export { AuthRoutes, PublicFlowRoutes }
+// Universo Platformo | Canvas Public Routes (New Structure)
+const PublicCanvasRoutes = {
+    path: '/published',
+    element: <MinimalLayout />,
+    children: [
+        {
+            path: 'canvas/:canvasId',
+            element: <PublicFlowView />
+        },
+        // Legacy redirect route
+        {
+            path: 'chatflow/:chatflowId',
+            element: <PublicFlowView />
+        }
+    ]
+}
+
+export { AuthRoutes, PublicFlowRoutes, PublicCanvasRoutes }
 export default MainRoutes

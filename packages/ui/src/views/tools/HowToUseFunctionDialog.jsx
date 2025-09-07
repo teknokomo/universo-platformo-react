@@ -43,7 +43,7 @@ const HowToUseFunctionDialog = ({ show, onCancel }) => {
                                 <code>$flow.chatId</code>
                             </li>
                             <li>
-                                <code>$flow.chatflowId</code>
+                                <code>$flow.canvasId</code>
                             </li>
                             <li>
                                 <code>$flow.input</code>
