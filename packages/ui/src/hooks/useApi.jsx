@@ -1,21 +1,37 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 export default (apiFunc) => {
     const [data, setData] = useState(null)
     const [error, setError] = useState(null)
     const [loading, setLoading] = useState(false)
 
+    const apiRef = useRef(apiFunc)
+    apiRef.current = apiFunc
+
+    const isMounted = useRef(true)
+    useEffect(() => {
+        return () => {
+            isMounted.current = false
+        }
+    }, [])
+
     const request = useCallback(async (...args) => {
         setLoading(true)
         try {
-            const result = await apiFunc(...args)
-            setData(result.data)
+            const result = await apiRef.current(...args)
+            if (isMounted.current) {
+                setData(result.data)
+            }
         } catch (err) {
-            setError(err || 'Unexpected Error!')
+            if (isMounted.current) {
+                setError(err || 'Unexpected Error!')
+            }
         } finally {
-            setLoading(false)
+            if (isMounted.current) {
+                setLoading(false)
+            }
         }
-    }, [apiFunc])
+    }, [])
 
     return {
         data,
