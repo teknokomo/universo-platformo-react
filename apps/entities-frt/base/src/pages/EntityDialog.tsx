@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, MenuItem, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import useApi from 'flowise-ui/src/hooks/useApi'
+import useApi from '../hooks/useApi'
 import { ResourceConfigTree } from '@universo/resources-frt'
 import { createEntity, listTemplates, listStatuses } from '../api/entities'
 import { Entity, Template, Status, UseApi } from '../types'

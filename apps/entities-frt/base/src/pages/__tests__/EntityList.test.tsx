@@ -28,7 +28,7 @@ const entity = { id: '1', titleEn: 'Entity 1', titleRu: 'Сущность 1', te
 const template = { id: 't1', name: 'Template 1' }
 const status = { id: 's1', name: 'Status 1' }
 
-vi.mock('flowise-ui/src/hooks/useApi', () => ({
+vi.mock('../../hooks/useApi', () => ({
     __esModule: true,
     default: (apiFunc: (...args: any[]) => any) => {
         const base = { loading: false, error: null, request: vi.fn(), data: null as any }

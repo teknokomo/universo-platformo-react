@@ -1,4 +1,4 @@
-import client from 'flowise-ui/src/api/client'
+import client from './client'
 import { Entity, Template, Status, Owner, Resource } from '../types'
 
 export const listEntities = (): Promise<{ data: Entity[] }> => client.get('/entities')
