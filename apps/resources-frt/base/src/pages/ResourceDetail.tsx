@@ -1,76 +1,84 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Tab, Tabs, Typography } from '@mui/material'
-import TreeView from '@mui/lab/TreeView'
-import TreeItem from '@mui/lab/TreeItem'
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom'
+import { Breadcrumbs, Card, CircularProgress, Link, Stack, Typography, Button } from '@mui/material'
+import { IconArrowLeft } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router-dom'
-import useApi from 'flowise-ui/src/hooks/useApi'
-import { getResource, listRevisions, getResourceTree } from '../api/resources'
-import { Resource, Revision, TreeNode, UseApi } from '../types'
+
+// ui imports
+import ErrorBoundary from '@ui/ErrorBoundary'
+
+import { useApi } from '../hooks/useApi'
+import * as resourcesApi from '../api/resources'
+import { Resource } from '../types'
 
 const ResourceDetail: React.FC = () => {
-    const { t, i18n } = useTranslation('resources')
-    const { resourceId } = useParams<{ resourceId: string }>()
-    const [tab, setTab] = useState(0)
-    const useTypedApi = useApi as UseApi
-    const { request: resourceRequest, ...resourceApi } = useTypedApi<Resource>(getResource)
-    const { request: revisionsRequest, ...revisionsApi } = useTypedApi<Revision[]>(listRevisions)
-    const { request: treeRequest, ...treeApi } = useTypedApi<TreeNode>(getResourceTree)
+  const { resourceId, clusterId } = useParams<{ resourceId: string; clusterId?: string }>()
+  const navigate = useNavigate()
+  const { t } = useTranslation('resources')
 
-    useEffect(() => {
-        if (resourceId) {
-            resourceRequest(resourceId)
-            revisionsRequest(resourceId)
-            treeRequest(resourceId)
-        }
-    }, [resourceId, resourceRequest, revisionsRequest, treeRequest])
+  const { request: getResource } = useApi(resourcesApi.getResource)
 
-    const getName = (obj: { titleEn: string; titleRu: string }) => (i18n.language === 'ru' ? obj.titleRu : obj.titleEn)
+  const [isLoading, setLoading] = useState(true)
+  const [error, setError] = useState<any>(null)
+  const [resource, setResource] = useState<Resource | null>(null)
 
-    const renderTree = (node: TreeNode): React.ReactNode => {
-        return (
-            <TreeItem key={node.resource.id} nodeId={node.resource.id} label={getName(node.resource)}>
-                {node.children ? node.children.map((c) => renderTree(c.child)) : null}
-            </TreeItem>
-        )
+  useEffect(() => {
+    const fetch = async () => {
+      if (!resourceId) return
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await getResource(resourceId)
+        setResource(res)
+      } catch (err: any) {
+        setError(err)
+      } finally {
+        setLoading(false)
+      }
     }
+    fetch()
+  }, [resourceId, getResource])
 
-    return (
-        <Box>
-            <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-                <Tab label={t('detail.info')} />
-                <Tab label={t('detail.revisions')} />
-                <Tab label={t('detail.children')} />
-            </Tabs>
-            {tab === 0 && (
-                <>
-                    {resourceApi.loading && <Typography>{t('detail.loading')}</Typography>}
-                    {Boolean(resourceApi.error) && <Typography color='error'>{t('detail.error')}</Typography>}
-                    {resourceApi.data && <Typography variant='body1'>{getName(resourceApi.data)}</Typography>}
-                </>
-            )}
-            {tab === 1 && (
-                <>
-                    {revisionsApi.loading && <Typography>{t('revisions.loading')}</Typography>}
-                    {Boolean(revisionsApi.error) && <Typography color='error'>{t('revisions.error')}</Typography>}
-                    {revisionsApi.data && (
-                        <Box>
-                            {revisionsApi.data.map((rev) => (
-                                <Typography key={rev.id}>{rev.version}</Typography>
-                            ))}
-                        </Box>
-                    )}
-                </>
-            )}
-            {tab === 2 && (
-                <>
-                    {treeApi.loading && <Typography>{t('children.loading')}</Typography>}
-                    {Boolean(treeApi.error) && <Typography color='error'>{t('children.error')}</Typography>}
-                    {treeApi.data && <TreeView>{renderTree(treeApi.data)}</TreeView>}
-                </>
-            )}
-        </Box>
-    )
+  return (
+    <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', p: 1.25 }}>
+      {error ? (
+        <ErrorBoundary error={error} />
+      ) : (
+        <Stack spacing={2}>
+          <Breadcrumbs aria-label="breadcrumb">
+            <Link
+              component={RouterLink}
+              to={clusterId ? `/clusters/${clusterId}/resources` : '/resources'}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+            >
+              <IconArrowLeft size={16} />
+              {t('resources.title')}
+            </Link>
+            <Typography color="text.primary">{resource?.name || t('detail.info')}</Typography>
+          </Breadcrumbs>
+
+          {isLoading ? (
+            <Stack direction="row" alignItems="center" justifyContent="center" sx={{ py: 6 }}>
+              <CircularProgress size={24} />
+            </Stack>
+          ) : (
+            <>
+              <Typography variant="h4" gutterBottom>
+                {resource?.name}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                {resource?.description || '\u2014'}
+              </Typography>
+            </>
+          )}
+
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => navigate(-1)}>{t('common.back')}</Button>
+          </Stack>
+        </Stack>
+      )}
+    </Card>
+  )
 }
 
 export default ResourceDetail

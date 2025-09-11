@@ -1,5 +1,4 @@
 ---
-type: 'agent_requested'
 description: 'When you want to update any file in memory-bank, including activeContext.md, tasks.md, progress.md, productContext.md, systemPatterns.md, techContext.md and any other in this folder'
 ---
 

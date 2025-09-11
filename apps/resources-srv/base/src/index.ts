@@ -1,21 +1,12 @@
-import { createResourcesRouter } from './routes/resourcesRoutes'
-import { ResourceCategory } from './database/entities/ResourceCategory'
-import { ResourceState } from './database/entities/ResourceState'
-import { StorageType } from './database/entities/StorageType'
-import { Resource } from './database/entities/Resource'
-import { ResourceRevision } from './database/entities/ResourceRevision'
-import { ResourceComposition } from './database/entities/ResourceComposition'
-import { resourcesMigrations } from './database/migrations/postgres'
-
-export {
-    createResourcesRouter,
-    ResourceCategory,
-    ResourceState,
-    StorageType,
-    Resource,
-    ResourceRevision,
-    ResourceComposition,
-    resourcesMigrations
-}
-
-export const resourcesEntities = [ResourceCategory, ResourceState, StorageType, Resource, ResourceRevision, ResourceComposition]
+export { resourcesEntities } from './database/entities/index'
+export { Cluster } from './database/entities/Cluster'
+export { ClusterUser } from './database/entities/ClusterUser'
+export { Domain } from './database/entities/Domain'
+export { DomainCluster } from './database/entities/DomainCluster'
+export { Resource } from './database/entities/Resource'
+export { ResourceCluster } from './database/entities/ResourceCluster'
+export { ResourceDomain } from './database/entities/ResourceDomain'
+export { createClustersRoutes } from './routes/clustersRoutes'
+export { createResourcesRouter } from './routes/resourcesRoutes'
+export { createDomainsRoutes } from './routes/domainsRoutes'
+export { resourcesMigrations } from './database/migrations/postgres'

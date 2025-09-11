@@ -1,6 +1,7 @@
-export { default as ResourceList } from './pages/ResourceList'
+export { default as ClusterList } from './pages/ClusterList'
+export { default as ClusterDetail } from './pages/ClusterDetail'
+export { default as DomainDetail } from './pages/DomainDetail'
 export { default as ResourceDetail } from './pages/ResourceDetail'
-export { default as ResourceDialog } from './pages/ResourceDialog'
-export { default as ResourceConfigTree } from './components/ResourceConfigTree'
-export { default as resourcesDashboard } from './menu-items/resourcesDashboard'
+
+export { default as clustersDashboard } from './menu-items/clusterDashboard'
 export { resourcesTranslations } from './i18n'

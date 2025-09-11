@@ -1,5 +1,4 @@
 ---
-type: 'agent_requested'
 description: 'When you are asked to update Readme files or other documentation files'
 ---
 

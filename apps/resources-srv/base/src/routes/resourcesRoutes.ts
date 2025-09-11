@@ -1,444 +1,258 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
-import { ResourceCategory } from '../database/entities/ResourceCategory'
 import { Resource } from '../database/entities/Resource'
-import { ResourceRevision } from '../database/entities/ResourceRevision'
-import { ResourceComposition } from '../database/entities/ResourceComposition'
-import { ResourceState } from '../database/entities/ResourceState'
-import { StorageType } from '../database/entities/StorageType'
+import { Domain } from '../database/entities/Domain'
+import { ResourceDomain } from '../database/entities/ResourceDomain'
+import { Cluster } from '../database/entities/Cluster'
+import { ClusterUser } from '../database/entities/ClusterUser'
+import { DomainCluster } from '../database/entities/DomainCluster'
+import { ResourceCluster } from '../database/entities/ResourceCluster'
+import { ensureClusterAccess, ensureDomainAccess, ensureResourceAccess } from './guards'
+import { z } from 'zod'
 
-export function getRepositories(dataSource: DataSource) {
+// Helper to get repositories from the data source
+function getRepositories(getDataSource: () => DataSource) {
+    const dataSource = getDataSource()
     return {
-        categoryRepo: dataSource.getRepository(ResourceCategory),
         resourceRepo: dataSource.getRepository(Resource),
-        revisionRepo: dataSource.getRepository(ResourceRevision),
-        compositionRepo: dataSource.getRepository(ResourceComposition),
-        stateRepo: dataSource.getRepository(ResourceState),
-        storageRepo: dataSource.getRepository(StorageType)
+        domainRepo: dataSource.getRepository(Domain),
+        resourceDomainRepo: dataSource.getRepository(ResourceDomain),
+        clusterRepo: dataSource.getRepository(Cluster),
+        clusterUserRepo: dataSource.getRepository(ClusterUser),
+        domainClusterRepo: dataSource.getRepository(DomainCluster),
+        resourceClusterRepo: dataSource.getRepository(ResourceCluster)
     }
 }
 
-export function createResourcesRouter(ensureAuth: RequestHandler, dataSource: DataSource): Router {
+// Main function to create the resources router
+export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
     const router = Router({ mergeParams: true })
 
+    // All routes in this router require authentication
     router.use(ensureAuth)
 
-    const asyncHandler = (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler => {
-        return async (req, res) => {
-            try {
-                await fn(req, res)
-            } catch (error) {
-                console.error(error)
-                res.status(500).json({ error: 'Internal server error' })
-            }
+    // Async handler to wrap async functions and catch errors
+    const asyncHandler = (fn: (req: Request, res: Response) => Promise<any>): RequestHandler => {
+        return (req, res, next) => {
+            fn(req, res).catch(next)
         }
     }
 
-    // ------- Categories CRUD -------
-    router.get(
-        '/categories',
-        asyncHandler(async (_req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { categoryRepo } = getRepositories(dataSource)
-            const categories = await categoryRepo.find({ relations: ['parentCategory'] })
-            res.json(categories)
+    // Helper function to check if user has access to cluster
+    const checkClusterAccess = async (clusterId: string, userId: string) => {
+        const { clusterUserRepo } = getRepositories(getDataSource)
+        const userCluster = await clusterUserRepo.findOne({
+            where: { cluster_id: clusterId, user_id: userId }
         })
-    )
+        return userCluster !== null
+    }
 
-    router.post(
-        '/categories',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { categoryRepo } = getRepositories(dataSource)
-            const { slug, parentCategoryId, titleEn, titleRu, descriptionEn, descriptionRu } = req.body
-            const category = categoryRepo.create({ slug, titleEn, titleRu, descriptionEn, descriptionRu })
-            if (parentCategoryId) {
-                const parent = await categoryRepo.findOne({ where: { id: parentCategoryId } })
-                if (parent) category.parentCategory = parent
-            }
-            await categoryRepo.save(category)
-            res.status(201).json(category)
+    // Helper function to check if user has access to domain (through its cluster)
+    const checkDomainAccess = async (domainId: string, userId: string) => {
+        const { domainClusterRepo } = getRepositories(getDataSource)
+        const domainCluster = await domainClusterRepo.findOne({
+            where: { domain: { id: domainId } },
+            relations: ['cluster']
         })
-    )
+        if (!domainCluster) return false
+        return await checkClusterAccess(domainCluster.cluster.id, userId)
+    }
 
-    router.get(
-        '/categories/:id',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { categoryRepo } = getRepositories(dataSource)
-            const category = await categoryRepo.findOne({ where: { id: req.params.id }, relations: ['parentCategory'] })
-            if (!category) return res.status(404).json({ error: 'Not found' })
-            res.json(category)
-        })
-    )
+    // --- Resource CRUD (flat, no categories) ---
 
-    router.put(
-        '/categories/:id',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { categoryRepo } = getRepositories(dataSource)
-            const { slug, parentCategoryId, titleEn, titleRu, descriptionEn, descriptionRu } = req.body
-            const category = await categoryRepo.findOne({ where: { id: req.params.id } })
-            if (!category) return res.status(404).json({ error: 'Not found' })
-            Object.assign(category, { slug, titleEn, titleRu, descriptionEn, descriptionRu })
-            if (parentCategoryId) {
-                category.parentCategory = (await categoryRepo.findOne({ where: { id: parentCategoryId } })) || null
-            } else {
-                category.parentCategory = null
-            }
-            await categoryRepo.save(category)
-            res.json(category)
-        })
-    )
-
-    router.delete(
-        '/categories/:id',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { categoryRepo } = getRepositories(dataSource)
-            await categoryRepo.delete(req.params.id)
-            res.status(204).send()
-        })
-    )
-
-    // ------- States and Storage Types -------
-    router.get(
-        '/states',
-        asyncHandler(async (_req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { stateRepo } = getRepositories(dataSource)
-            const states = await stateRepo.find()
-            res.json(states)
-        })
-    )
-
-    router.get(
-        '/storage-types',
-        asyncHandler(async (_req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { storageRepo } = getRepositories(dataSource)
-            const types = await storageRepo.find()
-            res.json(types)
-        })
-    )
-
-    // ------- Resources CRUD -------
+    // GET / (List all resources)
     router.get(
         '/',
-        asyncHandler(async (_req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { resourceRepo } = getRepositories(dataSource)
-            const resources = await resourceRepo.find({ relations: ['category', 'state', 'storageType'] })
-            res.json(resources)
-        })
-    )
-
-    router.post(
-        '/',
         asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { categoryRepo, stateRepo, storageRepo, resourceRepo } = getRepositories(dataSource)
-            const { categoryId, stateId, storageTypeId, slug, titleEn, titleRu, descriptionEn, descriptionRu, metadata } = req.body
-            const [category, state, storageType] = await Promise.all([
-                categoryRepo.findOne({ where: { id: categoryId } }),
-                stateRepo.findOne({ where: { id: stateId } }),
-                storageRepo.findOne({ where: { id: storageTypeId } })
-            ])
-            if (!category || !state || !storageType) return res.status(400).json({ error: 'Invalid references' })
-            const resource = resourceRepo.create({
-                category,
-                state,
-                storageType,
-                slug,
-                titleEn,
-                titleRu,
-                descriptionEn,
-                descriptionRu,
-                metadata
+            const userId = (req as any).user?.sub
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+
+            const { clusterUserRepo, domainClusterRepo, resourceDomainRepo } = getRepositories(getDataSource)
+            
+            // Get clusters accessible to user
+            const userClusters = await clusterUserRepo.find({ 
+                where: { user_id: userId } 
             })
+            const clusterIds = userClusters.map(uc => uc.cluster_id)
+            
+            if (clusterIds.length === 0) {
+                return res.json([])
+            }
+            
+            // Get domains from user's clusters
+            const domainClusters = await domainClusterRepo.find({
+                where: clusterIds.map(clusterId => ({ cluster: { id: clusterId } })),
+                relations: ['domain']
+            })
+            const domainIds = domainClusters.map(dc => dc.domain.id)
+            
+            if (domainIds.length === 0) {
+                return res.json([])
+            }
+            
+            // Get resources from user's domains
+            const resourceDomains = await resourceDomainRepo.find({
+                where: domainIds.map(domainId => ({ domain: { id: domainId } })),
+                relations: ['resource']
+            })
+            
+            const resources = resourceDomains.map(rd => rd.resource)
+            
+            // Remove duplicates
+            const uniqueResources = resources.filter((resource, index, self) => 
+                index === self.findIndex(r => r.id === resource.id)
+            )
+            
+            res.json(uniqueResources)
+        })
+    )
+
+    // POST / (Create a new resource)
+    router.post(
+        '/',
+        asyncHandler(async (req: Request, res: Response) => {
+            const { resourceRepo, domainRepo, resourceDomainRepo, clusterRepo, resourceClusterRepo } = getRepositories(getDataSource)
+            const schema = z.object({
+                name: z.string().min(1),
+                description: z.string().optional(),
+                domainId: z.string().uuid(),
+                clusterId: z.string().uuid().optional()
+            })
+            const parsed = schema.safeParse(req.body || {})
+            if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
+            const { name, description, clusterId, domainId } = parsed.data
+            const userId = (req as any).user?.sub
+
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+
+            // Verify access to the domain
+            await ensureDomainAccess(getDataSource(), userId, domainId)
+
+            // Validate domain exists
+            const domain = await domainRepo.findOne({ where: { id: domainId } })
+            if (!domain) return res.status(400).json({ error: 'Invalid domainId' })
+
+            const resource = resourceRepo.create({ name, description })
             await resourceRepo.save(resource)
+
+            // Create mandatory resource-domain link
+            const resourceDomainLink = resourceDomainRepo.create({ resource, domain })
+            await resourceDomainRepo.save(resourceDomainLink)
+
+            // Optional cluster link for atomic create-in-cluster flow
+            if (clusterId) {
+                // Verify access to the cluster
+                await ensureClusterAccess(getDataSource(), userId, clusterId)
+                
+                const cluster = await clusterRepo.findOne({ where: { id: clusterId } })
+                if (!cluster) return res.status(400).json({ error: 'Invalid clusterId' })
+                const exists = await resourceClusterRepo.findOne({ where: { cluster: { id: clusterId }, resource: { id: resource.id } } })
+                if (!exists) {
+                    const link = resourceClusterRepo.create({ cluster, resource })
+                    await resourceClusterRepo.save(link)
+                }
+            }
+
             res.status(201).json(resource)
         })
     )
 
+    // GET /:resourceId (Get a single resource)
     router.get(
-        '/:id',
+        '/:resourceId',
         asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
+            const userId = (req as any).user?.sub
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureResourceAccess(getDataSource(), userId, req.params.resourceId)
+            const { resourceRepo } = getRepositories(getDataSource)
+            const resource = await resourceRepo.findOneBy({ id: req.params.resourceId })
+            if (!resource) {
+                return res.status(404).json({ error: 'Resource not found' })
             }
-            const { resourceRepo } = getRepositories(dataSource)
-            const resource = await resourceRepo.findOne({ where: { id: req.params.id }, relations: ['category', 'state', 'storageType'] })
-            if (!resource) return res.status(404).json({ error: 'Not found' })
             res.json(resource)
         })
     )
 
+    // PUT /:resourceId (Update a resource)
     router.put(
-        '/:id',
+        '/:resourceId',
         asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
+            const userId = (req as any).user?.sub
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureResourceAccess(getDataSource(), userId, req.params.resourceId)
+            const { resourceRepo } = getRepositories(getDataSource)
+            const resource = await resourceRepo.findOneBy({ id: req.params.resourceId })
+            if (!resource) {
+                return res.status(404).json({ error: 'Resource not found' })
             }
-            const { categoryRepo, stateRepo, storageRepo, resourceRepo } = getRepositories(dataSource)
-            const { categoryId, stateId, storageTypeId, slug, titleEn, titleRu, descriptionEn, descriptionRu, metadata } = req.body
-            const resource = await resourceRepo.findOne({ where: { id: req.params.id }, relations: ['category', 'state', 'storageType'] })
-            if (!resource) return res.status(404).json({ error: 'Not found' })
-            if (categoryId) resource.category = (await categoryRepo.findOne({ where: { id: categoryId } })) || resource.category
-            if (stateId) resource.state = (await stateRepo.findOne({ where: { id: stateId } })) || resource.state
-            if (storageTypeId) resource.storageType = (await storageRepo.findOne({ where: { id: storageTypeId } })) || resource.storageType
-            Object.assign(resource, { slug, titleEn, titleRu, descriptionEn, descriptionRu, metadata })
+            const { name, description } = req.body
+            resourceRepo.merge(resource, { name, description })
             await resourceRepo.save(resource)
             res.json(resource)
         })
     )
 
+    // DELETE /:resourceId (Delete a resource)
     router.delete(
-        '/:id',
+        '/:resourceId',
         asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
+            const userId = (req as any).user?.sub
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureResourceAccess(getDataSource(), userId, req.params.resourceId)
+            const { resourceRepo } = getRepositories(getDataSource)
+            const result = await resourceRepo.delete({ id: req.params.resourceId })
+            if (result.affected === 0) {
+                return res.status(404).json({ error: 'Resource not found' })
             }
-            const { resourceRepo } = getRepositories(dataSource)
-            await resourceRepo.delete(req.params.id)
             res.status(204).send()
         })
     )
 
-    // ------- Revisions -------
-    router.get(
-        '/:id/revisions',
+    // PUT /:resourceId/domain { domainId }
+    router.put(
+        '/:resourceId/domain',
         asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { revisionRepo } = getRepositories(dataSource)
-            const revisions = await revisionRepo.find({ where: { resource: { id: req.params.id } }, order: { version: 'DESC' } })
-            res.json(revisions)
-        })
-    )
+            const { resourceRepo, domainRepo, resourceDomainRepo } = getRepositories(getDataSource)
+            const resourceId = req.params.resourceId
+            const { domainId } = req.body || {}
+            if (!domainId) return res.status(400).json({ error: 'domainId is required' })
+            const userId = (req as any).user?.sub
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureResourceAccess(getDataSource(), userId, resourceId)
+            await ensureDomainAccess(getDataSource(), userId, domainId)
 
-    router.post(
-        '/:id/revisions',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { resourceRepo, revisionRepo } = getRepositories(dataSource)
-            const resource = await resourceRepo.findOne({ where: { id: req.params.id } })
+            const resource = await resourceRepo.findOneBy({ id: resourceId })
             if (!resource) return res.status(404).json({ error: 'Resource not found' })
-            const { version, data, authorId } = req.body
-            const revision = revisionRepo.create({ resource, version, data, authorId })
-            await revisionRepo.save(revision)
-            res.status(201).json(revision)
+
+            const domain = await domainRepo.findOneBy({ id: domainId })
+            if (!domain) return res.status(404).json({ error: 'Domain not found' })
+
+            const exists = await resourceDomainRepo.findOne({ where: { resource: { id: resourceId }, domain: { id: domainId } } })
+            if (exists) return res.status(200).json(exists)
+
+            const link = resourceDomainRepo.create({ resource, domain })
+            const saved = await resourceDomainRepo.save(link)
+            res.status(201).json(saved)
         })
     )
 
-    router.get(
-        '/:id/revisions/:revId',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { revisionRepo } = getRepositories(dataSource)
-            const revision = await revisionRepo.findOne({ where: { id: req.params.revId, resource: { id: req.params.id } } })
-            if (!revision) return res.status(404).json({ error: 'Not found' })
-            res.json(revision)
-        })
-    )
-
+    // DELETE /:resourceId/domain – remove all domain links for the resource (simple semantics)
     router.delete(
-        '/:id/revisions/:revId',
+        '/:resourceId/domain',
         asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { revisionRepo } = getRepositories(dataSource)
-            const revision = await revisionRepo.findOne({ where: { id: req.params.revId, resource: { id: req.params.id } } })
-            if (!revision) return res.status(404).json({ error: 'Not found' })
-            await revisionRepo.delete(revision.id)
+            const { resourceRepo, resourceDomainRepo } = getRepositories(getDataSource)
+            const resourceId = req.params.resourceId
+            const userId = (req as any).user?.sub
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureResourceAccess(getDataSource(), userId, resourceId)
+            const resource = await resourceRepo.findOneBy({ id: resourceId })
+            if (!resource) return res.status(404).json({ error: 'Resource not found' })
+
+            const links = await resourceDomainRepo.find({ where: { resource: { id: resourceId } } })
+            if (links.length === 0) return res.status(404).json({ error: 'No domain links found' })
+
+            await resourceDomainRepo.remove(links)
             res.status(204).send()
-        })
-    )
-
-    // ------- Composition -------
-    router.post(
-        '/:id/children',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { resourceRepo, compositionRepo } = getRepositories(dataSource)
-            const parent = await resourceRepo.findOne({ where: { id: req.params.id } })
-            const child = await resourceRepo.findOne({ where: { id: req.body.childId } })
-            if (!parent || !child) return res.status(400).json({ error: 'Invalid resources' })
-            if (parent.id === child.id) return res.status(400).json({ error: 'Cycle detected' })
-
-            const cycleCheck = await dataSource.query(
-                `SELECT EXISTS(
-                    WITH RECURSIVE descendants AS (
-                        SELECT child_resource_id
-                        FROM resource_composition
-                        WHERE parent_resource_id = $1
-                        UNION
-                        SELECT rc.child_resource_id
-                        FROM resource_composition rc
-                        JOIN descendants d ON rc.parent_resource_id = d.child_resource_id
-                    )
-                    SELECT 1 FROM descendants WHERE child_resource_id = $2
-                ) AS found`,
-                [req.body.childId, req.params.id]
-            )
-            if (cycleCheck[0]?.found) return res.status(400).json({ error: 'Cycle detected' })
-
-            const { quantity, sortOrder, isRequired, config } = req.body
-            const comp = compositionRepo.create({ parentResource: parent, childResource: child, quantity, sortOrder, isRequired, config })
-            await compositionRepo.save(comp)
-            res.status(201).json(comp)
-        })
-    )
-
-    router.delete(
-        '/:id/children/:childId',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const { compositionRepo } = getRepositories(dataSource)
-            const comp = await compositionRepo.findOne({
-                where: {
-                    parentResource: { id: req.params.id },
-                    childResource: { id: req.params.childId }
-                }
-            })
-            if (!comp) return res.status(404).json({ error: 'Not found' })
-            await compositionRepo.delete(comp.id)
-            res.status(204).send()
-        })
-    )
-
-    router.get(
-        '/:id/tree',
-        asyncHandler(async (req: Request, res: Response) => {
-            if (!dataSource.isInitialized) {
-                return res.status(500).json({ error: 'Data source is not initialized' })
-            }
-            const rows = await dataSource.query(
-                `WITH RECURSIVE tree AS (
-                    SELECT r.id AS resource_id,
-                        to_jsonb(r) || jsonb_build_object(
-                            'category', to_jsonb(cat),
-                            'state', to_jsonb(st),
-                            'storageType', to_jsonb(stype)
-                        ) AS resource,
-                        NULL::uuid AS comp_id,
-                        NULL::uuid AS parent_resource_id,
-                        NULL::int AS quantity,
-                        NULL::int AS sort_order,
-                        NULL::boolean AS is_required,
-                        NULL::jsonb AS config
-                    FROM resource r
-                    JOIN resource_category cat ON r.category_id = cat.id
-                    JOIN resource_state st ON r.state_id = st.id
-                    JOIN storage_type stype ON r.storage_type_id = stype.id
-                    WHERE r.id = $1
-                    UNION ALL
-                    SELECT r2.id,
-                        to_jsonb(r2) || jsonb_build_object(
-                            'category', to_jsonb(cat2),
-                            'state', to_jsonb(st2),
-                            'storageType', to_jsonb(stype2)
-                        ),
-                        rc.id,
-                        rc.parent_resource_id,
-                        rc.quantity,
-                        rc.sort_order,
-                        rc.is_required,
-                        rc.config
-                    FROM resource_composition rc
-                    JOIN resource r2 ON rc.child_resource_id = r2.id
-                    JOIN resource_category cat2 ON r2.category_id = cat2.id
-                    JOIN resource_state st2 ON r2.state_id = st2.id
-                    JOIN storage_type stype2 ON r2.storage_type_id = stype2.id
-                    JOIN tree t ON rc.parent_resource_id = t.resource_id
-                )
-                SELECT * FROM tree`,
-                [req.params.id]
-            )
-
-            if (rows.length === 0) return res.json(null)
-
-            const toCamel = (s: string) => s.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
-            const camelCaseKeys = (obj: unknown): unknown => {
-                if (Array.isArray(obj)) return obj.map(camelCaseKeys)
-                if (obj && typeof obj === 'object') {
-                    return Object.entries(obj as Record<string, unknown>).reduce<Record<string, unknown>>((acc, [k, v]) => {
-                        acc[toCamel(k)] = camelCaseKeys(v)
-                        return acc
-                    }, {})
-                }
-                return obj
-            }
-
-            interface ResourceData {
-                [key: string]: unknown
-            }
-
-            interface ResourceNode {
-                resource: ResourceData | null
-                children: CompositionLink[]
-            }
-
-            interface CompositionLink {
-                id: string
-                quantity: number
-                sortOrder: number
-                isRequired: boolean
-                config: Record<string, unknown> | null
-                child: ResourceNode
-            }
-
-            const nodes = new Map<string, ResourceNode>()
-            let root: ResourceNode | null = null
-            for (const row of rows) {
-                const node = nodes.get(row.resource_id) || { resource: null, children: [] }
-                node.resource = camelCaseKeys(row.resource) as ResourceData
-                nodes.set(row.resource_id, node)
-
-                if (!row.comp_id) {
-                    root = node
-                } else {
-                    const parent = nodes.get(row.parent_resource_id) || { resource: null, children: [] }
-                    if (!nodes.has(row.parent_resource_id)) nodes.set(row.parent_resource_id, parent)
-                    parent.children.push({
-                        id: row.comp_id,
-                        quantity: row.quantity,
-                        sortOrder: row.sort_order,
-                        isRequired: row.is_required,
-                        config: row.config as Record<string, unknown> | null,
-                        child: node
-                    })
-                }
-            }
-            res.json(root)
         })
     )
 

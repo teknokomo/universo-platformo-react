@@ -13,7 +13,10 @@
         "templates": "Шаблоны",
         "uniks": "Уники",
         "metaverses": "Метавселенные",
+        "clusters": "Кластеры",
+        "clusterboard": "Кластерборд",
         "resources": "Ресурсы",
+        "domains": "Домены",
         "entities": "Сущности",
         "docs": "Справка",
         "profile": "Профиль"

@@ -1,45 +1,32 @@
-export interface Category {
+export interface Cluster {
     id: string
-    titleEn: string
-    titleRu: string
-    parentCategory?: { id: string }
-    children?: Category[]
+    name: string
+    description?: string
+    createdAt: string
+    updatedAt: string
+}
+
+export interface Domain {
+    id: string
+    name: string
+    description?: string
+    createdAt: string
+    updatedAt: string
 }
 
 export interface Resource {
     id: string
-    titleEn: string
-    titleRu: string
-    category?: { id: string }
-    state?: { id: string }
-    storageType?: { id: string }
+    name: string
+    description?: string
+    createdAt: string
+    updatedAt: string
 }
 
-export interface State {
-    id: string
-    code: string
-    label: string
-}
-
-export interface StorageType {
-    id: string
-    code: string
-    label: string
-}
-
-export interface Revision {
-    id: string
-    version: string
-}
-
-export interface TreeNode {
-    resource: Resource
-    children?: { child: TreeNode }[]
-}
-
-export type UseApi = <T>(apiFunc: (...args: any[]) => Promise<{ data: T }>) => {
+export type UseApi = <T, TArgs extends any[] = any[]>(
+    apiFunc: (...args: TArgs) => Promise<{ data: T }>
+) => {
     data: T | null
-    error: unknown
+    error: any
     loading: boolean
-    request: (...args: any[]) => Promise<void>
+    request: (...args: TArgs) => Promise<T | null>
 }

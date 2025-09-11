@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm'
-import { ResourceCategory } from '@universo/resources-srv'
 
 @Entity({ name: 'entity_template' })
 export class EntityTemplate {
@@ -21,9 +20,6 @@ export class EntityTemplate {
     @Column({ name: 'description_ru', type: 'text', nullable: true })
     descriptionRu?: string
 
-    @ManyToOne(() => ResourceCategory, { nullable: true })
-    @JoinColumn({ name: 'root_resource_category_id' })
-    rootResourceCategory?: ResourceCategory | null
 
     @ManyToOne(() => EntityTemplate, { nullable: true })
     @JoinColumn({ name: 'parent_template_id' })

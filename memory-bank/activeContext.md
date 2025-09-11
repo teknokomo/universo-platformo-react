@@ -8,13 +8,14 @@
 
 ## Current Focus
 
-**Template Package Modularization Complete** - Successfully completed major architectural refactoring:
+**Resources Applications Cluster Isolation Complete** - Successfully completed comprehensive data isolation refactoring:
 
--   **✅ Shared Packages Created**: Extracted common functionality into `@universo-platformo/types` and `@universo-platformo/utils`
--   **✅ Template Packages Extracted**: Moved AR.js Quiz and PlayCanvas MMOOMM functionality to dedicated packages
--   **✅ Documentation Updated**: Created comprehensive documentation for shared packages and template system
--   **✅ Build System Standardized**: Implemented dual build system (CJS + ESM + Types) across all packages
--   **✅ Bug Fixes**: Resolved ship duplication in MMOOMM and reduced excessive logging in AR.js Quiz
+-   **✅ Three-Tier Architecture**: Implemented Clusters → Domains → Resources with complete data isolation
+-   **✅ Backend Validation**: Added mandatory associations (resources require domains, domains require clusters) with comprehensive validation
+-   **✅ Frontend Validation**: Implemented proper Material-UI required field validation and cluster-aware domain selection
+-   **✅ Database Schema**: Created junction tables with CASCADE delete and UNIQUE constraints for data integrity
+-   **✅ API Endpoints**: Enhanced cluster-scoped operations with idempotent relationship management
+-   **✅ Documentation Updated**: Comprehensive English and Russian README updates for both frontend and backend applications
 
 **Post-Alpha Development** - Expanding advanced UPDL features and Universo MMOOMM capabilities:
 
@@ -44,6 +45,16 @@ Immediate next steps:
 -   Add missing docs to SUMMARY (e.g., tasks-registry in RU/EN roadmaps).
 
 ## Recently Completed
+
+-   **Resources Applications Cluster Isolation Refactoring (2025-09-10)**
+
+    -   **Three-Tier Entity Model**: Implemented complete Clusters → Domains → Resources architecture with strict data isolation
+    -   **Database Schema Enhancement**: Created junction tables (`resources_clusters`, `resources_domains`, `domains_clusters`) with CASCADE delete and UNIQUE constraints
+    -   **Backend API Enhancement**: Added cluster-scoped endpoints, mandatory association validation, and idempotent relationship management
+    -   **Frontend Validation**: Implemented proper Material-UI required field validation, cluster-aware domain selection, and prevented orphaned entity creation
+    -   **Data Isolation**: Complete separation between clusters - resources and domains from cluster A are never visible in cluster B
+    -   **Documentation Overhaul**: Updated comprehensive English and Russian README files for both `apps/resources-frt` and `apps/resources-srv`
+    -   **Memory Bank Updates**: Documented architectural decisions and patterns used in the refactoring
 
 -   **Template Package Modularization (2025-08-30)**
 

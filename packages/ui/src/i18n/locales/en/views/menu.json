@@ -13,7 +13,10 @@
         "templates": "Templates",
         "uniks": "Uniks",
         "metaverses": "Metaverses",
+        "clusters": "Clusters",
+        "clusterboard": "Clusterboard",
         "resources": "Resources",
+        "domains": "Domains",
         "entities": "Entities",
         "docs": "Help",
         "profile": "Profile"

@@ -7,18 +7,21 @@
         "sourceMap": true,
         "outDir": "./dist",
         "strict": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "skipLibCheck": true,
-        "jsx": "react",
-        "allowJs": true,
-        "baseUrl": ".",
-        "paths": {
-            "*": ["*"]
-        },
-        "moduleResolution": "node"
+        "jsx": "react-jsx",
+        "allowJs": false,
+        "typeRoots": ["./src/types"],
+        "baseUrl": "./src",
+        "moduleResolution": "node",
+        "noResolve": false
     },
-    "include": ["src/**/*"],
-    "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+    "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
+    "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx", "../../../packages/ui/**/*"]
 }

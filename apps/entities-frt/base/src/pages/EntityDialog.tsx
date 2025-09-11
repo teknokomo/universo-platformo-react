@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, MenuItem, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import useApi from '../hooks/useApi'
-import { ResourceConfigTree } from '@universo/resources-frt'
+
 import { createEntity, listTemplates, listStatuses } from '../api/entities'
 import { Entity, Template, Status, UseApi } from '../types'
 
@@ -64,7 +64,7 @@ const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose }) => {
                         </MenuItem>
                     ))}
                 </TextField>
-                <ResourceConfigTree />
+                
                 <TextField label={t('dialog.owners')} fullWidth />
                 {Boolean(createApi.error) && <Typography color='error'>{t('dialog.error')}</Typography>}
             </DialogContent>

@@ -64,12 +64,15 @@
 -   **Publish Frontend/Backend**: Multi-technology export (AR.js, PlayCanvas)
 -   **Analytics**: Quiz performance tracking
 -   **Profile Frontend/Backend**: Enhanced user management with workspace packages
+-   **Resources Frontend/Backend**: Three-tier cluster management with complete data isolation
+-   **Uniks Frontend/Backend**: Workspace functionality with modular architecture
 
 ### Key Architecture Benefits
 
--   **Workspace Packages**: `@universo/profile-srv` with clean imports and professional structure
+-   **Workspace Packages**: `@universo/profile-srv`, `@universo/resources-srv` with clean imports and professional structure
 -   **Template-First**: Reusable export templates across multiple technologies
 -   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
+-   **Data Isolation**: Complete cluster-based data separation with TypeORM Repository pattern
 -   **Future-Ready**: Prepared for plugin extraction and microservices evolution
 
 ## UPDL Core System (v0.21.0-alpha)
@@ -161,6 +164,44 @@
 -   Avoid API objects in useEffect dependencies
 -   Use useRef for API request state tracking
 -   Minimize useEffect dependencies
+
+### TypeORM Repository Pattern
+
+**Database Access Pattern** - All database operations must use TypeORM Repository pattern
+
+**Key Implementation Details:**
+
+-   No direct database calls - all operations through Repository pattern
+-   Shared DataSource via `getDataSource()` from `packages/server/src/DataSource.ts`
+-   Entity registration in central registry `packages/server/src/database/entities/index.ts`
+-   Migration registration in `packages/server/src/database/migrations/postgres/index.ts`
+-   CASCADE delete relationships for data integrity
+-   UNIQUE constraints on junction tables to prevent duplicates
+
+### Data Isolation Architecture
+
+**Cluster-Based Isolation** - Complete data separation between organizational units
+
+**Key Implementation Details:**
+
+-   Three-tier hierarchy: Clusters → Domains → Resources
+-   Junction tables with CASCADE delete and UNIQUE constraints
+-   Mandatory associations prevent orphaned entities
+-   Cluster-scoped API endpoints maintain context
+-   Frontend validation prevents invalid data entry
+-   Idempotent operations for safe relationship management
+
+### Material-UI Validation Pattern
+
+**Frontend Validation** - Consistent form validation with clear user feedback
+
+**Key Implementation Details:**
+
+-   Required fields use Material-UI `required` attribute (automatic asterisk)
+-   No manual asterisks in InputLabel components
+-   Error states with visual feedback
+-   Conditional save buttons disabled until form is valid
+-   No empty options for required select fields
 
 ### AR.js Rendering Architecture
 
