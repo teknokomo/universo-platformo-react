@@ -28,10 +28,10 @@ const dashboard = {
             breadcrumbs: false
         },
         {
-            id: 'resources',
-            title: 'menu.resources',
+            id: 'clusters',
+            title: 'menu.clusters',
             type: 'item',
-            url: '/resources',
+            url: '/clusters',
             icon: icons.IconFolder,
             breadcrumbs: false
         },

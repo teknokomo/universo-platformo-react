@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import useApi from '../hooks/useApi'
-import { ResourceConfigTree } from '@universo/resources-frt'
+
 import { createTemplate } from '../api/entities'
 import { Template, UseApi } from '../types'
 
@@ -35,7 +35,7 @@ const TemplateDialog: React.FC<TemplateDialogProps> = ({ open, onClose }) => {
                     fullWidth
                     multiline
                 />
-                <ResourceConfigTree />
+                
                 {Boolean(createApi.error) && <Typography color='error'>{t('templates.dialog.error')}</Typography>}
             </DialogContent>
             <DialogActions>

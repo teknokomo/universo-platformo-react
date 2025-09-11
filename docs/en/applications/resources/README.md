@@ -1,40 +1,24 @@
-# Resources Service
+# Resources Applications
 
-The Resources Service (`resources-srv`) manages reusable content and their hierarchical compositions.
+Resources subsystem consists of a backend service (`resources-srv`) and a frontend app (`resources-frt`). It implements a three-tier model with strict isolation by clusters.
 
-## Features
-- Category management with parent-child hierarchy
-- Resource CRUD with state, storage type and metadata
-- Revision history for each resource
-- Recursive compositions of resources
+## Architecture
 
-## API Endpoints
-See [apps/resources-srv/base/README.md](../../../../apps/resources-srv/base/README.md) for full endpoint list.
+- **Clusters** – top-level organizational units; complete data isolation between clusters.
+- **Domains** – logical groupings within clusters; mandatory association with a cluster.
+- **Resources** – individual assets; mandatory association with a domain.
+- **Junctions** – many‑to‑many tables for cluster–resource, domain–resource, and cluster–domain with CASCADE and UNIQUE constraints.
 
-## Data Model
-Core entities:
-- **ResourceCategory** – hierarchical categories
-- **ResourceState** – available states
-- **StorageType** – storage backends
-- **Resource** – main entity with metadata
-- **ResourceRevision** – versioned data snapshots
-- **ResourceComposition** – parent-child resource links
+## API
+Full endpoint list is in [apps/resources-srv/base/README.md](../../../../apps/resources-srv/base/README.md).
+
+## Security
+- Application‑level authorization guards protect every CRUD and linking route to prevent IDOR and cross‑cluster access.
+- Database RLS policies exist as defense‑in‑depth; when using TypeORM connections they are not active unless request JWT context is propagated.
+- Rate‑limits enabled on `/resources`, `/clusters`, and `/domains`. Helmet applies secure HTTP headers.
 
 ## Development
 ```bash
 pnpm --filter @universo/resources-srv build
-```
-
-## Frontend
-
-The Resources Frontend (`resources-frt`) provides user interfaces for browsing and composing resources.
-
-### Workflows
-
-- **ResourceList** – table of resources with category tree filter
-- **ResourceDetail** – tabs for info, revisions and child tree
-- **ResourceDialog** – create/edit form with `ResourceConfigTree`
-
-```bash
 pnpm --filter @universo/resources-frt build
 ```

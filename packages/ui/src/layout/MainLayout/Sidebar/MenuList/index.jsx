@@ -3,13 +3,13 @@ import { useLocation } from 'react-router-dom'
 import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
 import unikDashboard from '@apps/uniks-frt/base/src/menu-items/unikDashboard'
-import { resourcesDashboard } from '@universo/resources-frt'
+import { clustersDashboard } from '@universo/resources-frt'
 import { entitiesDashboard } from '@universo/entities-frt'
 
 const MenuList = () => {
     const location = useLocation()
     const unikMatch = location.pathname.match(/^\/uniks\/([^/]+)/)
-    const resourceMatch = location.pathname.match(/^\/resources\/([^/]+)/)
+    const clusterMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
     const entityMatch = location.pathname.match(/^\/entities\/([^/]+)/)
 
     let menuItems
@@ -24,13 +24,13 @@ const MenuList = () => {
                 url: `/uniks/${unikId}${item.url}`
             }))
         }
-    } else if (resourceMatch) {
-        const resourceId = resourceMatch[1]
+    } else if (clusterMatch) {
+        const clusterId = clusterMatch[1]
         menuItems = {
-            ...resourcesDashboard,
-            children: resourcesDashboard.children.map((item) => ({
+            ...clustersDashboard,
+            children: clustersDashboard.children.map((item) => ({
                 ...item,
-                url: `/resources/${resourceId}${item.url}`
+                url: `/clusters/${clusterId}${item.url}`
             }))
         }
     } else if (entityMatch) {

@@ -1,10 +1,14 @@
-import client from 'flowise-ui/src/api/client'
+import apiClient from './apiClient'
+import { Resource } from '../types'
 
-export const listCategories = (): Promise<{ data: import('../types').Category[] }> => client.get('/resources/categories')
-export const listStates = (): Promise<{ data: import('../types').State[] }> => client.get('/resources/states')
-export const listStorageTypes = (): Promise<{ data: import('../types').StorageType[] }> => client.get('/resources/storage-types')
-export const listResources = (): Promise<{ data: import('../types').Resource[] }> => client.get('/resources')
-export const getResource = (id: string): Promise<{ data: import('../types').Resource }> => client.get(`/resources/${id}`)
-export const listRevisions = (id: string): Promise<{ data: import('../types').Revision[] }> => client.get(`/resources/${id}/revisions`)
-export const getResourceTree = (id: string): Promise<{ data: import('../types').TreeNode }> => client.get(`/resources/${id}/tree`)
-export const createResource = (data: any): Promise<{ data: import('../types').Resource }> => client.post('/resources', data)
+export const listResources = () => apiClient.get<Resource[]>('/resources')
+
+export const getResource = (resourceId: string) => apiClient.get<Resource>(`/resources/${resourceId}`)
+
+export const createResource = (data: { name: string; description?: string; clusterId?: string; domainId: string }) =>
+    apiClient.post<Resource>('/resources', data)
+
+export const updateResource = (resourceId: string, data: { name: string; description?: string }) =>
+    apiClient.put<Resource>(`/resources/${resourceId}`, data)
+
+export const deleteResource = (resourceId: string) => apiClient.delete<void>(`/resources/${resourceId}`)

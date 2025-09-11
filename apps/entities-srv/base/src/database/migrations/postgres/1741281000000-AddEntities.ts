@@ -21,7 +21,6 @@ export class AddEntities1741281000000 implements MigrationInterface {
         "title_ru" character varying NOT NULL,
         "description_en" text,
         "description_ru" text,
-        "root_resource_category_id" uuid,
         "parent_template_id" uuid,
         "resource_schema" jsonb NOT NULL DEFAULT '{}'::jsonb,
         CONSTRAINT "PK_entity_template" PRIMARY KEY ("id"),
@@ -78,10 +77,6 @@ export class AddEntities1741281000000 implements MigrationInterface {
     `)
         await queryRunner.query(`
       ALTER TABLE "entity_template"
-        ADD CONSTRAINT "FK_template_root_category" FOREIGN KEY ("root_resource_category_id") REFERENCES "resource_category"("id") ON DELETE SET NULL
-    `)
-        await queryRunner.query(`
-      ALTER TABLE "entity_template"
         ADD CONSTRAINT "FK_template_parent" FOREIGN KEY ("parent_template_id") REFERENCES "entity_template"("id") ON DELETE SET NULL
     `)
         await queryRunner.query(`
@@ -94,7 +89,7 @@ export class AddEntities1741281000000 implements MigrationInterface {
     `)
         await queryRunner.query(`
       ALTER TABLE "entity"
-        ADD CONSTRAINT "FK_entity_root_resource" FOREIGN KEY ("root_resource_id") REFERENCES "resource"("id") ON DELETE SET NULL
+        ADD CONSTRAINT "FK_entity_root_resource" FOREIGN KEY ("root_resource_id") REFERENCES resources.resources("id") ON DELETE SET NULL
     `)
         await queryRunner.query(`
       ALTER TABLE "entity"
@@ -110,7 +105,7 @@ export class AddEntities1741281000000 implements MigrationInterface {
     `)
         await queryRunner.query(`
       ALTER TABLE "entity_resource"
-        ADD CONSTRAINT "FK_entity_resource_resource" FOREIGN KEY ("resource_id") REFERENCES "resource"("id") ON DELETE CASCADE
+        ADD CONSTRAINT "FK_entity_resource_resource" FOREIGN KEY ("resource_id") REFERENCES resources.resources("id") ON DELETE CASCADE
     `)
         await queryRunner.query(`
       ALTER TABLE "entity_relation"
@@ -133,7 +128,7 @@ export class AddEntities1741281000000 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "entity" DROP CONSTRAINT "FK_entity_status"`)
         await queryRunner.query(`ALTER TABLE "entity" DROP CONSTRAINT "FK_entity_template"`)
         await queryRunner.query(`ALTER TABLE "entity_template" DROP CONSTRAINT "FK_template_parent"`)
-        await queryRunner.query(`ALTER TABLE "entity_template" DROP CONSTRAINT "FK_template_root_category"`)
+
         await queryRunner.query(`DROP TABLE "entity_relation"`)
         await queryRunner.query(`DROP TABLE "entity_resource"`)
         await queryRunner.query(`DROP TABLE "entity_owner"`)

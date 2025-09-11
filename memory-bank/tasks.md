@@ -1,6 +1,6 @@
 # Task Tracking
 
-**Project**: Universo Platformo (v0.24.0-alpha, Alpha achieved)
+**Project**: Universo Platformo (v0.29.0-alpha, Alpha achieved)
 **Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
 
 ## Active Implementation - Chatflow to Spaces UI Fixes (2025-01-04)
@@ -38,6 +38,21 @@
 -   [ ] Add loading indicators for tab operations
 -   [ ] Improve error messages with specific types
 -   [ ] Test complete user flow
+
+## Completed Tasks (2025-09-10)
+
+### Resources Applications Cluster Isolation Refactoring
+
+-   [x] Implement three-tier architecture (Clusters → Domains → Resources) with complete data isolation
+-   [x] Create junction tables with CASCADE delete and UNIQUE constraints for data integrity
+-   [x] Add cluster-scoped API endpoints with mandatory association validation
+-   [x] Implement idempotent relationship management for safe operations
+-   [x] Add frontend validation with Material-UI required field patterns
+-   [x] Fix domain selection in ResourceDialog to show only cluster domains
+-   [x] Remove empty options from required select fields
+-   [x] Fix double asterisk display issue in required field labels
+-   [x] Update comprehensive English and Russian README files for both applications
+-   [x] Document architectural decisions and patterns in memory bank
 
 ## New Tasks (2025-08-31)
 

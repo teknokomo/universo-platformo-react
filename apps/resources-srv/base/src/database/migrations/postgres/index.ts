@@ -1,3 +1,3 @@
-import { AddResources1741277700000 } from './1741277700000-AddResources'
+import { AddClustersDomainsResources1741277700000 } from './1741277700000-AddClustersDomainsResources'
 
-export const resourcesMigrations = [AddResources1741277700000]
+export const resourcesMigrations = [AddClustersDomainsResources1741277700000]

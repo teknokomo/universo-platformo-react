@@ -1,6 +1,6 @@
 # Progress
 
-**As of 2025-08-30**
+**As of 2025-09-10**
 
 ## Completed (chronological)
 
@@ -44,6 +44,16 @@ The initial AR.js implementation faced several challenges:
 These insights informed our revised approach for Stage 3, leading to the simplified architecture we now have.
 
 ## Recent Major Achievements
+
+### 2025-09-10: Resources Applications Cluster Isolation ✅
+
+-   **Three-Tier Architecture Implementation**: Successfully implemented Clusters → Domains → Resources hierarchy with complete data isolation between clusters
+-   **Database Schema Enhancement**: Created junction tables (`resources_clusters`, `resources_domains`, `domains_clusters`) with CASCADE delete and UNIQUE constraints for data integrity
+-   **Backend API Enhancement**: Added cluster-scoped endpoints, mandatory association validation, and idempotent relationship management
+-   **Frontend Validation Implementation**: Proper Material-UI required field validation, cluster-aware domain selection, and prevention of orphaned entity creation
+-   **Complete Data Isolation**: Resources and domains from different clusters are completely separated - no cross-cluster visibility or operations
+-   **Documentation Overhaul**: Updated comprehensive English and Russian README files for both `apps/resources-frt` and `apps/resources-srv`
+-   **Memory Bank Updates**: Documented architectural decisions, patterns, and technical solutions used in the refactoring
 
 ### 2025-08-30: Template Package Modularization ✅
 

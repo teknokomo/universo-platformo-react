@@ -194,6 +194,117 @@ if (!entity.rigidbody.body) {
     -   Server: export `entities` and `migrations` arrays and `createXxxRouter()`; mount under `/api/v1/uniks/:unikId/...`.
     -   UI: add nested routes inside Unik workspace and include namespaced i18n.
 
+## Data Isolation and Entity Relationship Patterns
+
+### Three-Tier Architecture Pattern
+
+**Purpose**: Implement hierarchical data organization with complete isolation between top-level containers
+
+**Structure**:
+```
+Clusters (Top-level isolation)
+├── Domains (Logical groupings within clusters)
+│   └── Resources (Individual assets within domains)
+```
+
+**Key Principles**:
+- **Complete Isolation**: Data from different clusters is never visible across boundaries
+- **Mandatory Associations**: Child entities must be associated with parent entities
+- **Cascade Operations**: Deleting parent entities removes all child relationships
+- **Idempotent Operations**: Relationship creation is safe to retry
+
+### Junction Table Pattern
+
+**Purpose**: Manage many-to-many relationships with data integrity
+
+**Implementation**:
+```typescript
+@Entity({ name: 'entities_parents' })
+export class EntityParent {
+  @PrimaryGeneratedColumn('uuid')
+  id: string
+
+  @ManyToOne(() => Entity, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'entity_id' })
+  entity: Entity
+
+  @ManyToOne(() => Parent, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'parent_id' })
+  parent: Parent
+
+  @CreateDateColumn()
+  createdAt: Date
+
+  // UNIQUE constraint on (entity_id, parent_id)
+}
+```
+
+**Key Features**:
+- **CASCADE Delete**: Automatically clean up relationships when entities are deleted
+- **UNIQUE Constraints**: Prevent duplicate relationships
+- **Indexed Foreign Keys**: Optimize query performance
+- **Audit Trail**: Track relationship creation timestamps
+
+### Cluster-Scoped API Pattern
+
+**Purpose**: Maintain data isolation through URL routing and context preservation
+
+**Implementation**:
+```typescript
+// Cluster-scoped endpoints
+GET    /clusters/:clusterId/domains
+POST   /clusters/:clusterId/domains/:domainId  // Link domain to cluster
+GET    /clusters/:clusterId/resources
+POST   /clusters/:clusterId/resources/:resourceId  // Link resource to cluster
+
+// Context-aware creation
+POST   /resources { domainId: required, clusterId: optional }
+POST   /domains { clusterId: required }
+```
+
+**Key Principles**:
+- **URL Context**: Cluster ID in URL maintains context throughout operations
+- **Scoped Queries**: All list operations filtered by cluster context
+- **Idempotent Linking**: Safe to retry relationship creation
+- **Validation**: Server validates entity existence before creating relationships
+
+### Frontend Validation Pattern
+
+**Purpose**: Prevent invalid data entry with clear user feedback
+
+**Implementation**:
+```typescript
+// Material-UI required field pattern
+<InputLabel id='field-label'>{t('namespace.field')}</InputLabel>
+<Select
+  required
+  error={!selectedValue}
+  value={selectedValue || ''}
+  onChange={handleChange}
+>
+  {/* No empty option for required fields */}
+  {options.map(option => (
+    <MenuItem key={option.id} value={option.id}>
+      {option.name}
+    </MenuItem>
+  ))}
+</Select>
+
+// Conditional save button
+<Button
+  disabled={!isFormValid}
+  onClick={handleSave}
+>
+  {t('common.save')}
+</Button>
+```
+
+**Key Features**:
+- **Required Indicators**: Automatic asterisk display for required fields
+- **Error States**: Visual feedback for validation errors
+- **Conditional Actions**: Disable actions until form is valid
+- **No Empty Options**: Remove empty/dash options for required selections
+
 ## APPs Architecture Pattern (v0.21.0-alpha)
 
 **6 Working Applications** with modular architecture:

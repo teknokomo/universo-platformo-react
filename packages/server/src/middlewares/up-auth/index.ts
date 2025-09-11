@@ -16,7 +16,6 @@ export const ensureAuth = (req: Request, res: Response, next: NextFunction) => {
     }
 
     const token = authHeader.split(' ')[1]
-    console.log('[up-auth] Received token:', token ? token.substring(0, 10) + '...' : 'none')
 
     try {
         const secret = process.env.SUPABASE_JWT_SECRET
@@ -27,7 +26,12 @@ export const ensureAuth = (req: Request, res: Response, next: NextFunction) => {
 
         // Verify token
         const decoded = jwt.verify(token, secret)
-        console.log('[up-auth] JWT token successfully verified. Decoded payload:', decoded)
+        const sub = (decoded as any)?.sub
+        if (sub) {
+            console.log('[up-auth] JWT verified for sub:', sub)
+        } else {
+            console.log('[up-auth] JWT verified')
+        }
 
         // Save token payload to req.user
         ;(req as any).user = decoded

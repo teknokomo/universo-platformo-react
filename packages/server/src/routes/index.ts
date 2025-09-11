@@ -47,7 +47,7 @@ import upAuthRouter from './up-auth'
 import { createUniksRouter } from '@universo/uniks-srv'
 import { createFinanceRouter } from '@universo/finance-srv'
 import { supabase } from '../utils/supabase'
-import { createResourcesRouter } from '@universo/resources-srv'
+import { createResourcesRouter, createClustersRoutes, createDomainsRoutes } from '@universo/resources-srv'
 import { createEntitiesRouter } from '@universo/entities-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
@@ -62,11 +62,15 @@ import { createProfileRoutes } from '@universo/profile-srv'
 import { getDataSource } from '../DataSource'
 import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
 import rateLimit from 'express-rate-limit'
+import helmet from 'helmet'
 import credentialsService from '../services/credentials'
 import { createMetaverseRoutes } from '@universo/metaverse-srv'
 import { createSpacesRoutes } from '@universo/spaces-srv'
 
 const router: ExpressRouter = express.Router()
+
+// Security headers (safe defaults for APIs; CSP disabled for now)
+router.use(helmet({ contentSecurityPolicy: false }))
 
 router.use('/ping', pingRouter)
 // Global route for apikey has been removed
@@ -124,27 +128,52 @@ router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
 // Apply ensureAuth middleware to /uniks route
 router.use(
-        '/uniks',
-        createUniksRouter(
-                upAuth.ensureAuth,
-                supabase,
-		chatflowsRouter,
-		chatflowsStreamingRouter,
-		chatflowsUploadsRouter,
-		flowConfigRouter,
-		toolsRouter,
-		variablesRouter,
-		exportImportRouter,
-		credentialsRouter,
-		assistantsRouter,
-		apikeyRouter,
-		documentStoreRouter,
-		marketplacesRouter,
-		createFinanceRouter()
-	)
+    '/uniks',
+    createUniksRouter(
+        upAuth.ensureAuth,
+        supabase,
+        chatflowsRouter,
+        chatflowsStreamingRouter,
+        chatflowsUploadsRouter,
+        flowConfigRouter,
+        toolsRouter,
+        variablesRouter,
+        exportImportRouter,
+        credentialsRouter,
+        assistantsRouter,
+        apikeyRouter,
+        documentStoreRouter,
+        marketplacesRouter,
+        createFinanceRouter()
+    )
 )
-router.use('/resources', createResourcesRouter(upAuth.ensureAuth, getDataSource()))
-router.use('/entities', createEntitiesRouter(upAuth.ensureAuth, getDataSource()))
+console.log('[DEBUG] Registering resources router at /api/v1/resources')
+const resourcesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+router.use(
+    '/resources',
+    resourcesLimiter,
+    createResourcesRouter(upAuth.ensureAuth, () => getDataSource())
+)
+console.log('[DEBUG] Resources router registered')
+
+// Universo Platformo | Clusters & Domains (Resources Service)
+const clustersLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+router.use(
+    '/clusters',
+    clustersLimiter,
+    createClustersRoutes(upAuth.ensureAuth, () => getDataSource())
+)
+const domainsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+router.use(
+    '/domains',
+    domainsLimiter,
+    createDomainsRoutes(upAuth.ensureAuth, () => getDataSource())
+)
+
+router.use(
+    '/entities',
+    createEntitiesRouter(upAuth.ensureAuth, () => getDataSource())
+)
 // Universo Platformo | Chatflows Streaming
 router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots
@@ -153,53 +182,55 @@ router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
 // Universo Platformo | Space Builder
 const spaceBuilderLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true })
 router.use(
-	'/space-builder',
-	upAuth.ensureAuth,
-	spaceBuilderLimiter,
-	createSpaceBuilderRouter({
-		resolveCredential: async (credentialId: string) => {
-			try {
-				if (!credentialId) {
-					throw new Error('Credential ID is required')
-				}
+    '/space-builder',
+    upAuth.ensureAuth,
+    spaceBuilderLimiter,
+    createSpaceBuilderRouter({
+        resolveCredential: async (credentialId: string) => {
+            try {
+                if (!credentialId) {
+                    throw new Error('Credential ID is required')
+                }
 
-				const cred = await credentialsService.getCredentialById(credentialId)
-				if (!cred) {
-					throw new Error(`Credential with ID ${credentialId} not found`)
-				}
+                const cred = await credentialsService.getCredentialById(credentialId)
+                if (!cred) {
+                    throw new Error(`Credential with ID ${credentialId} not found`)
+                }
 
-				const credentialData: any = cred.plainDataObj || {}
-				const credentialName: string = cred.credentialName || ''
+                const credentialData: any = cred.plainDataObj || {}
+                const credentialName: string = cred.credentialName || ''
 
-				// Map credential types to their specific API key field names
-				const credentialFieldMap: Record<string, string> = {
-					'openAIApi': 'openAIApiKey',
-					'groqApi': 'groqApiKey',
-					'azureOpenAIApi': 'azureOpenAIApiKey',
-					'anthropicApi': 'anthropicApiKey',
-					'cohereApi': 'cohereApiKey',
-					'mistralAIApi': 'mistralAIApiKey',
-					'googleGenerativeAIApi': 'googleGenerativeAIApiKey',
-					'huggingFaceApi': 'huggingFaceApiKey'
-				}
+                // Map credential types to their specific API key field names
+                const credentialFieldMap: Record<string, string> = {
+                    openAIApi: 'openAIApiKey',
+                    groqApi: 'groqApiKey',
+                    azureOpenAIApi: 'azureOpenAIApiKey',
+                    anthropicApi: 'anthropicApiKey',
+                    cohereApi: 'cohereApiKey',
+                    mistralAIApi: 'mistralAIApiKey',
+                    googleGenerativeAIApi: 'googleGenerativeAIApiKey',
+                    huggingFaceApi: 'huggingFaceApiKey'
+                }
 
-				const expectedField = credentialFieldMap[credentialName]
-				if (!expectedField) {
-					throw new Error(`Unsupported credential type: ${credentialName}. Supported types: ${Object.keys(credentialFieldMap).join(', ')}`)
-				}
+                const expectedField = credentialFieldMap[credentialName]
+                if (!expectedField) {
+                    throw new Error(
+                        `Unsupported credential type: ${credentialName}. Supported types: ${Object.keys(credentialFieldMap).join(', ')}`
+                    )
+                }
 
-				const apiKey = credentialData[expectedField]
-				if (!apiKey) {
-					throw new Error(`API key field '${expectedField}' not found in credential data for credential type '${credentialName}'`)
-				}
+                const apiKey = credentialData[expectedField]
+                if (!apiKey) {
+                    throw new Error(`API key field '${expectedField}' not found in credential data for credential type '${credentialName}'`)
+                }
 
-				return apiKey
-			} catch (error: any) {
-				logger.error(`[SpaceBuilder] Credential resolution error: ${error?.message || 'Unknown error'}`)
-				throw new Error(`Failed to resolve credential: ${error?.message || 'Unknown error'}`)
-			}
-		}
-	})
+                return apiKey
+            } catch (error: any) {
+                logger.error(`[SpaceBuilder] Credential resolution error: ${error?.message || 'Unknown error'}`)
+                throw new Error(`Failed to resolve credential: ${error?.message || 'Unknown error'}`)
+            }
+        }
+    })
 )
 
 // Universo Platformo | Metaverse routes
@@ -209,17 +240,19 @@ router.use('/metaverses', upAuth.ensureAuth, metaverseLimiter, createMetaverseRo
 // Universo Platformo | Spaces routes
 const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
 // Mount under /uniks/:unikId so UI paths match both /spaces/* and /canvases/*
-router.use('/uniks/:unikId', upAuth.ensureAuth, spacesLimiter, createSpacesRoutes(() => getDataSource()))
+router.use(
+    '/uniks/:unikId',
+    upAuth.ensureAuth,
+    spacesLimiter,
+    createSpacesRoutes(() => getDataSource())
+)
 
 // Universo Platformo | Publishing Routes
 router.use('/publish', createPublishRoutes(getDataSource()))
 
 // Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
 // Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints
-const createProfileRoutesWithAuth = (createProfileRoutes as unknown as (
-	dataSource: any,
-	authMiddleware?: any
-) => ExpressRouter)
+const createProfileRoutesWithAuth = createProfileRoutes as unknown as (dataSource: any, authMiddleware?: any) => ExpressRouter
 router.use('/profile', createProfileRoutesWithAuth(getDataSource(), upAuth.ensureAuth))
 
 export default router

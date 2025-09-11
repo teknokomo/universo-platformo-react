@@ -1,155 +1,151 @@
-import React, { useEffect, useState } from 'react'
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material'
+import React, { useState, useEffect } from 'react'
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import useApi from 'flowise-ui/src/hooks/useApi'
-import ResourceConfigTree, { ResourceNode } from '../components/ResourceConfigTree'
-import { createResource, listCategories, listStates, listStorageTypes } from '../api/resources'
-import { Category, State, StorageType } from '../types'
-import { getApiErrorMessage } from '../api/utils'
+
+import { useApi } from '../hooks/useApi'
+import * as resourcesApi from '../api/resources'
+import * as clustersApi from '../api/clusters'
+import * as domainsApi from '../api/domains'
+import { Domain, Resource } from '../types'
 
 interface ResourceDialogProps {
     open: boolean
     onClose: () => void
+    onSave: () => void
+    clusterId?: string
+    resource?: Resource | null
+    defaultDomainId?: string
 }
 
-const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose }) => {
-    const { t, i18n } = useTranslation('resources')
-    const [titleEn, setTitleEn] = useState('')
-    const [titleRu, setTitleRu] = useState('')
-    const [categoryId, setCategoryId] = useState('')
-    const [stateId, setStateId] = useState('')
-    const [storageTypeId, setStorageTypeId] = useState('')
-    const [descriptionEn, setDescriptionEn] = useState('')
-    const [descriptionRu, setDescriptionRu] = useState('')
-    const [nodes, setNodes] = useState<ResourceNode[]>([])
-    const [errors, setErrors] = useState<Record<string, boolean>>({})
+const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, clusterId, resource, defaultDomainId }) => {
+    const { t } = useTranslation('resources')
+    const [name, setName] = useState('')
+    const [description, setDescription] = useState('')
+    const [selectedDomainId, setSelectedDomainId] = useState<string>('')
 
-    const createApi = useApi(createResource)
-    const categoriesApi = useApi(listCategories)
-    const statesApi = useApi(listStates)
-    const storageTypesApi = useApi(listStorageTypes)
+    const { request: createResource, loading: creating } = useApi(resourcesApi.createResource)
+    const { request: updateResource, loading: updating } = useApi(resourcesApi.updateResource)
+    const { data: globalDomainsData, request: listDomains, loading: loadingGlobalDomains } = useApi(domainsApi.listDomains)
+    const { data: clusterDomainsData, request: getClusterDomains, loading: loadingClusterDomains } = useApi(clustersApi.getClusterDomains)
+    const { request: assignResourceToDomain } = useApi(domainsApi.assignResourceToDomain as unknown as (resourceId: string, domainId: string) => Promise<any>)
+
+    // Use cluster domains if in cluster context, otherwise global domains
+    const domainsData = clusterId ? clusterDomainsData : globalDomainsData
+    const loadingDomains = clusterId ? loadingClusterDomains : loadingGlobalDomains
 
     useEffect(() => {
-        if (open) {
-            categoriesApi.request()
-            statesApi.request()
-            storageTypesApi.request()
+        if (resource) {
+            setName(resource.name)
+            setDescription(resource.description || '')
+        } else {
+            setName('')
+            setDescription('')
+            setSelectedDomainId(defaultDomainId || '')
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open])
+        // Load domains when dialog opens
+        if (open) {
+            if (clusterId) {
+                getClusterDomains(clusterId).catch((e) => console.error('Failed to load cluster domains', e))
+            } else {
+                listDomains().catch((e) => console.error('Failed to load domains', e))
+            }
+        }
+    }, [resource, open, listDomains, getClusterDomains, clusterId, defaultDomainId])
 
     const handleSave = async () => {
-        const fieldsToValidate = { titleEn, titleRu, categoryId, stateId, storageTypeId }
-        const errs = Object.entries(fieldsToValidate).reduce((acc, [key, value]) => {
-            if (!value) acc[key] = true
-            return acc
-        }, {} as Record<string, boolean>)
-        setErrors(errs)
-        if (Object.keys(errs).length > 0) return
+        // Validate required fields
+        if (!(name || '').trim()) {
+            console.error('Name is required')
+            return
+        }
+        if (!selectedDomainId) {
+            console.error('Domain selection is required')
+            return
+        }
 
-        const serialize = (list: ResourceNode[]): any[] => list.map((n) => ({ id: n.resourceId, children: serialize(n.children) }))
-        await createApi.request({
-            titleEn,
-            titleRu,
-            categoryId,
-            stateId,
-            storageTypeId,
-            descriptionEn,
-            descriptionRu,
-            tree: serialize(nodes)
-        })
-        if (!createApi.error) onClose()
+        try {
+            const savedResource = resource
+                ? await updateResource(resource.id, { name: (name || '').trim(), description: (description || '').trim() || undefined })
+                : await createResource({ name: (name || '').trim(), description: (description || '').trim() || undefined, clusterId: clusterId, domainId: selectedDomainId })
+
+            if (savedResource) {
+                const resId = (savedResource as Resource).id
+                // If created new resource within a cluster context, link it to the cluster
+                if (!resource && clusterId) {
+                    try {
+                        await clustersApi.addResourceToCluster(clusterId, resId)
+                    } catch (linkErr) {
+                        // non-blocking: linking failure shouldn't prevent closing, but log for diagnostics
+                        console.error('Failed to link resource to cluster', linkErr)
+                    }
+                }
+                // Domain assignment is now handled atomically on backend during resource creation
+                // For existing resources being edited, we still need to handle domain assignment
+                if (resource && selectedDomainId) {
+                    try {
+                        await assignResourceToDomain(resId, selectedDomainId)
+                    } catch (e) {
+                        console.error('Failed to assign resource to domain', e)
+                        return // Don't close dialog if domain assignment fails
+                    }
+                }
+                onSave()
+                onClose()
+            }
+        } catch (error) {
+            console.error('Failed to save resource', error)
+        }
     }
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth='md'>
-            <DialogTitle>{t('dialog.title')}</DialogTitle>
-            <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {createApi.error && <Alert severity='error'>{getApiErrorMessage(createApi.error)}</Alert>}
-                {categoriesApi.error && <Alert severity='error'>{t('dialog.categoriesError')}</Alert>}
-                {statesApi.error && <Alert severity='error'>{t('dialog.statesError')}</Alert>}
-                {storageTypesApi.error && <Alert severity='error'>{t('dialog.storageTypesError')}</Alert>}
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth='sm'>
+            <DialogTitle>{resource ? t('resources.dialog.editTitle') : t('resources.dialog.createTitle')}</DialogTitle>
+            <DialogContent>
                 <TextField
-                    label={t('dialog.titleEn')}
+                    autoFocus
+                    margin='dense'
+                    label={t('resources.name')}
+                    type='text'
                     fullWidth
-                    value={titleEn}
-                    onChange={(e) => setTitleEn(e.target.value)}
-                    error={!!errors.titleEn}
-                    helperText={errors.titleEn && t('dialog.required')}
+                    variant='outlined'
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    sx={{ mb: 2 }}
                 />
+
+                <FormControl fullWidth margin='dense' sx={{ mb: 2 }} required>
+                    <InputLabel id='resource-domain-label'>{t('resources.dialog.domain')}</InputLabel>
+                    <Select
+                        labelId='resource-domain-label'
+                        label={t('resources.dialog.domain')}
+                        value={selectedDomainId}
+                        onChange={(e) => setSelectedDomainId(e.target.value as string)}
+                        disabled={loadingDomains}
+                        required
+                        error={!selectedDomainId}
+                    >
+                        {(domainsData as Domain[] | null)?.map((d) => (
+                            <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+
                 <TextField
-                    label={t('dialog.titleRu')}
-                    fullWidth
-                    value={titleRu}
-                    onChange={(e) => setTitleRu(e.target.value)}
-                    error={!!errors.titleRu}
-                    helperText={errors.titleRu && t('dialog.required')}
-                />
-                <TextField
-                    select
-                    label={t('dialog.category')}
-                    fullWidth
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    error={!!errors.categoryId}
-                    helperText={errors.categoryId && t('dialog.required')}
-                >
-                    {(categoriesApi.data as Category[] | null)?.map((c: Category) => (
-                        <MenuItem key={c.id} value={c.id}>
-                            {i18n.language === 'ru' ? c.titleRu : c.titleEn}
-                        </MenuItem>
-                    ))}
-                </TextField>
-                <TextField
-                    select
-                    label={t('dialog.state')}
-                    fullWidth
-                    value={stateId}
-                    onChange={(e) => setStateId(e.target.value)}
-                    error={!!errors.stateId}
-                    helperText={errors.stateId && t('dialog.required')}
-                >
-                    {(statesApi.data as State[] | null)?.map((s: State) => (
-                        <MenuItem key={s.id} value={s.id}>
-                            {s.label}
-                        </MenuItem>
-                    ))}
-                </TextField>
-                <TextField
-                    select
-                    label={t('dialog.storageType')}
-                    fullWidth
-                    value={storageTypeId}
-                    onChange={(e) => setStorageTypeId(e.target.value)}
-                    error={!!errors.storageTypeId}
-                    helperText={errors.storageTypeId && t('dialog.required')}
-                >
-                    {(storageTypesApi.data as StorageType[] | null)?.map((s: StorageType) => (
-                        <MenuItem key={s.id} value={s.id}>
-                            {s.label}
-                        </MenuItem>
-                    ))}
-                </TextField>
-                <TextField
-                    label={t('dialog.descriptionEn')}
+                    margin='dense'
+                    label={t('resources.description')}
+                    type='text'
                     fullWidth
                     multiline
-                    value={descriptionEn}
-                    onChange={(e) => setDescriptionEn(e.target.value)}
+                    rows={4}
+                    variant='outlined'
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                 />
-                <TextField
-                    label={t('dialog.descriptionRu')}
-                    fullWidth
-                    multiline
-                    value={descriptionRu}
-                    onChange={(e) => setDescriptionRu(e.target.value)}
-                />
-                <ResourceConfigTree nodes={nodes} onChange={setNodes} />
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>{t('dialog.cancel')}</Button>
-                <Button variant='contained' onClick={handleSave} disabled={createApi.loading}>
-                    {t('dialog.save')}
+                <Button onClick={onClose}>{t('common.cancel')}</Button>
+                <Button onClick={handleSave} variant='contained' disabled={creating || updating || !(name || '').trim() || !selectedDomainId}>
+                    {t('common.save')}
                 </Button>
             </DialogActions>
         </Dialog>
