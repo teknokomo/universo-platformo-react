@@ -39,7 +39,7 @@ Continue following your **base prompt**, and augment with the instructions below
     - Write the archive as Markdown to  
       `docs/<LANG>/archive/<project-name>-archive.md`  
       (e.g., `docs/en/archive/auth-service-archive.md`).
-    - If other language folders listed in `LANGS.md` exist (e.g., `ru`, `esp`), create empty stub files in the corresponding paths (`docs/ru/archive/...`) to keep folder parity for GitBook.
+    - If other language folders listed in `LANGS.md` exist (e.g., `ru`, `es`), create empty stub files in the corresponding paths (`docs/ru/archive/...`) to keep folder parity for GitBook.
     - Ensure all sections are properly formatted with headings, lists, etc.
 8. **Recommend Next Steps:** Typically, after archiving, the immediate next step might be:
     - If this is the end of a project or a major feature, you might suggest using **DOCS mode** to generate or update any formal user-facing documentation (if separate from this archive).
