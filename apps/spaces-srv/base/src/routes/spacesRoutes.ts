@@ -26,6 +26,7 @@ export function createSpacesRoutes(getDataSourceFn: () => DataSource): ExpressRo
     router.put('/spaces/:spaceId/canvases/reorder', (req, res) => spacesController.reorderCanvases(req, res))
 
     // Single Canvas operations (path expected by UI)
+    router.get('/canvases/:canvasId', (req, res) => spacesController.getCanvasById(req, res))
     router.put('/canvases/:canvasId', (req, res) => spacesController.updateCanvas(req, res))
     router.delete('/canvases/:canvasId', (req, res) => spacesController.deleteCanvas(req, res))
 
