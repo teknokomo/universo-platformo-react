@@ -36,4 +36,4 @@ applyTo: '**'
         a. Create TypeORM migration files for any schema changes inside your package's `src/database/migrations/postgres/` directory.
         b. Create an `index.ts` file in that same directory that exports an array containing all of your package's migrations (e.g., `export const myAppMigrations = [Migration1, Migration2]`).
         c. Import your package's migration array into the central registry (`packages/server/src/database/migrations/postgres/index.ts`) and spread it into the main `postgresMigrations` array.
-    4.  **Use Repositories**: In your service logic, get the shared `DataSource` via `getDataSource()` from `packages/server/src/DataSource.ts`. Use it to get a repository for your entity (e.g., `getDataSource().getRepository(YourEntity)`) to perform all database operations.
+    4.  Use Repositories: In your service logic, get the shared `DataSource` via `getDataSource()` from `packages/server/src/DataSource.ts`. Use it to get a repository for your entity (e.g., `getDataSource().getRepository(YourEntity)`) to perform all database operations.
