@@ -172,9 +172,11 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
             })
             setUpsertHistoryDialogOpen(true)
         } else if (setting === 'chatflowConfiguration') {
+            // Pass explicit identifiers for downstream API calls
             setChatflowConfigurationDialogProps({
-                title: `${title} Configuration`,
-                chatflow: chatflow
+                chatflow: chatflow,
+                unikId: chatflow?.unik_id,
+                canvasId: chatflow?.id
             })
             setChatflowConfigurationDialogOpen(true)
         } else if (setting === 'duplicateChatflow') {
@@ -198,7 +200,9 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 const blob = new Blob([dataStr], { type: 'application/json' })
                 const dataUri = URL.createObjectURL(blob)
 
-                let exportFileDefaultName = `${chatflow.name} ${title}.json`
+                // Define a clear and localized suffix for file name
+                const titleSuffix = isAgentCanvas ? t('agent', 'Agent') : t('space', 'Space')
+                let exportFileDefaultName = `${chatflow.name} ${titleSuffix}.json`
 
                 let linkElement = document.createElement('a')
                 linkElement.setAttribute('href', dataUri)
@@ -307,9 +311,11 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
 
         // if configuration dialog is open, update its data
         if (chatflowConfigurationDialogOpen) {
+            // Keep dialog props in sync with current chatflow
             setChatflowConfigurationDialogProps({
-                title: `${isAgentCanvas ? 'Agent' : 'Space'} Configuration`,
-                chatflow
+                chatflow,
+                unikId: chatflow?.unik_id,
+                canvasId: chatflow?.id
             })
         }
     }, [chatflow, spaceName, spaceId, isAgentCanvas, chatflowConfigurationDialogOpen, t])

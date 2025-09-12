@@ -308,12 +308,21 @@ const OverrideConfig = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow) {
-            getConfigApi.request(dialogProps.chatflow.id)
-            getAllVariablesApi.request()
+        if (dialogProps?.chatflow) {
+            // Derive IDs from dialogProps or fallback to chatflow fields
+            const unikId = dialogProps.unikId || dialogProps.chatflow?.unik_id
+            const canvasId = dialogProps.canvasId || dialogProps.chatflow?.id
+
+            if (unikId && canvasId) {
+                getConfigApi.request(unikId, canvasId)
+            }
+
+            if (unikId) {
+                getAllVariablesApi.request(unikId)
+            }
         }
 
-        return () => { }
+        return () => {}
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dialogProps])
 

@@ -350,6 +350,42 @@ export class SpacesService {
     }
 
     /**
+     * Get single canvas by id (ensuring it belongs to unik)
+     */
+    async getCanvasById(unikId: string, canvasId: string): Promise<CanvasResponse | null> {
+        // Verify canvas belongs to unik via SpaceCanvas
+        const spaceCanvas = await this.spaceCanvasRepository
+            .createQueryBuilder('sc')
+            .leftJoinAndSelect('sc.canvas', 'canvas')
+            .leftJoin('sc.space', 'sp')
+            .where('sc.canvas_id = :canvasId', { canvasId })
+            .andWhere('sp.unik_id = :unikId', { unikId })
+            .getOne()
+
+        if (!spaceCanvas) return null
+
+        const c = spaceCanvas.canvas
+        return {
+            id: c.id,
+            name: c.name,
+            sortOrder: spaceCanvas.sortOrder,
+            flowData: c.flowData,
+            deployed: c.deployed,
+            isPublic: c.isPublic,
+            apikeyid: c.apikeyid,
+            chatbotConfig: c.chatbotConfig,
+            apiConfig: c.apiConfig,
+            analytic: c.analytic,
+            speechToText: c.speechToText,
+            followUpPrompts: c.followUpPrompts,
+            category: c.category,
+            type: c.type,
+            createdDate: c.createdDate,
+            updatedDate: c.updatedDate
+        }
+    }
+
+    /**
      * Create new canvas in space
      */
     async createCanvas(unikId: string, spaceId: string, data: CreateCanvasDto): Promise<CanvasResponse | null> {

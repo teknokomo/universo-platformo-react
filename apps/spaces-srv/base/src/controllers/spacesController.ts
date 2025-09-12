@@ -46,6 +46,42 @@ export class SpacesController {
     }
 
     /**
+     * GET /uniks/:unikId/canvases/:canvasId - Get single canvas by id
+     */
+    async getCanvasById(req: Request, res: Response): Promise<void> {
+        try {
+            const { unikId, canvasId } = req.params
+
+            if (!unikId || !canvasId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Unik ID and Canvas ID are required'
+                } as ApiResponse)
+                return
+            }
+
+            const canvas = await this.spacesService.getCanvasById(unikId, canvasId)
+
+            if (!canvas) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Canvas not found'
+                } as ApiResponse)
+                return
+            }
+
+            // Return canvas directly for compatibility with frontend expectations
+            res.json(canvas)
+        } catch (error) {
+            console.error('[SpacesController] Error fetching canvas by id:', error)
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
      * POST /uniks/:unikId/spaces - Create new space
      */
     async createSpace(req: Request, res: Response): Promise<void> {
