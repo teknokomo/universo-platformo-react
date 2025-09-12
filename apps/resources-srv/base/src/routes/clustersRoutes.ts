@@ -57,15 +57,13 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
 
   // POST /clusters
   router.post('/', asyncHandler(async (req, res) => {
-    console.log('POST /clusters - Request body:', req.body)
-    console.log('POST /clusters - User from middleware:', (req as any).user)
+    // Debug logs removed to keep production logs clean
 
     const { name, description } = req.body || {}
     if (!name) return res.status(400).json({ error: 'name is required' })
 
     // Get user ID from middleware (req.user should be set by ensureAuth)
     const userId = (req as any).user?.sub
-    console.log('POST /clusters - Extracted userId:', userId)
 
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -73,24 +71,18 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
 
     try {
       // Create cluster
-      console.log('POST /clusters - Creating cluster with:', { name, description })
+      // Creating cluster
       const entity = clusterRepo.create({ name, description })
       const saved = await clusterRepo.save(entity)
-      console.log('POST /clusters - Cluster created:', saved)
 
       // Create cluster-user relationship (user becomes owner)
-      console.log('POST /clusters - Creating cluster-user relationship:', {
-        cluster_id: saved.id,
-        user_id: userId,
-        role: 'owner'
-      })
+      // Creating cluster-user relationship
       const clusterUser = clusterUserRepo.create({
         cluster_id: saved.id,
         user_id: userId,
         role: 'owner'
       })
       const savedClusterUser = await clusterUserRepo.save(clusterUser)
-      console.log('POST /clusters - Cluster-user relationship created:', savedClusterUser)
 
       res.status(201).json(saved)
     } catch (error) {
@@ -103,7 +95,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   router.get('/:clusterId/resources', asyncHandler(async (req, res) => {
     const { clusterId } = req.params
     const userId = (req as any).user?.sub
-    console.log(`GET /clusters/${clusterId}/resources - User ID: ${userId}`)
+    // Debug log removed
     
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     
@@ -117,7 +109,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
     try {
       const links = await linkRepo.find({ where: { cluster: { id: clusterId } }, relations: ['resource', 'cluster'] })
       const resources = links.map(l => ({ ...l.resource, sortOrder: l.sortOrder }))
-      console.log(`GET /clusters/${clusterId}/resources - Found ${resources.length} resources`)
+      // Debug log removed
       res.json(resources)
     } catch (error) {
       console.error(`GET /clusters/${clusterId}/resources - Error:`, error)
@@ -182,7 +174,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   router.get('/:clusterId/domains', asyncHandler(async (req, res) => {
     const { clusterId } = req.params
     const userId = (req as any).user?.sub
-    console.log(`GET /clusters/${clusterId}/domains - User ID: ${userId}`)
+    // Debug log removed
     
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     
@@ -196,7 +188,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
     try {
       const links = await domainLinkRepo.find({ where: { cluster: { id: clusterId } }, relations: ['domain', 'cluster'] })
       const domains = links.map(l => l.domain)
-      console.log(`GET /clusters/${clusterId}/domains - Found ${domains.length} domains`)
+      // Debug log removed
       res.json(domains)
     } catch (error) {
       console.error(`GET /clusters/${clusterId}/domains - Error:`, error)
