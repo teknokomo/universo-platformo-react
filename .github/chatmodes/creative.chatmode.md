@@ -19,7 +19,7 @@ Continue following your **base prompt**, and augment with the instructions below
 4. Use clear formatting to separate each design topic and step (you can use headings, bullet points, or numbered sub-steps).
 5. If helpful, use simple diagrams or schematics in text (e.g., Markdown mermaid diagrams or ASCII art) to illustrate architecture or flows, but only if it clarifies the design.
 6. **Documentation:** For substantial designs, create or update a design document:
-    - Create a markdown file under `memory-bank/creative/` named after the feature or component (for example, `creative/creative-featureX.md`).
+    - Create a markdown file under `memory-bank/creative/` named after the feature or component (for example, `memory-bank/creative/creative-featureX.md`).
     - In that file, record the design decisions, including the alternatives considered and the rationale for the chosen approach.
     - (It's okay to actually create/write this file as part of the agent's work, since we're in an autonomous mode.)
 7. Do not implement code here. Focus strictly on design decisions and documentation.
