@@ -1,0 +1,39 @@
+name: Docs i18n Check
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**/README.md'
+      - 'apps/**/README-RU.md'
+      - 'docs/en/**'
+      - 'docs/ru/**'
+      - '.gemini/rules/i18n-docs.md'
+  push:
+    paths:
+      - 'apps/**/README.md'
+      - 'apps/**/README-RU.md'
+      - 'docs/en/**'
+      - 'docs/ru/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run i18n docs check (resources scope)
+        run: I18N_SCOPE=resources pnpm docs:i18n:check
