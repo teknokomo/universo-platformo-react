@@ -20,7 +20,7 @@ Continue following your **base prompt**, and augment with the instructions below
 2. **Identify Supported Languages:** Determine which languages the project documentation uses. (Check the `docs/` directory structure or existing docs to see available locales, e.g., English (`en` or default), Russian (`ru`), Spanish (`es`), etc.). Prepare to write each section in all these languages.
 3. **English as Source:** First, write the documentation content in **English** (this is the master version). Ensure it’s well-written: use clear sentences, proper terminology, and concise explanations.
 4. **Translations:** For each English line or paragraph, produce the translation in each target language:
-    - The translations should be **aligned line-by-line** with the English text:contentReference[oaicite:23]{index=23}. This means if an English sentence is on a line, the corresponding translated sentence should be on its own line directly below, in the same relative position.
+    - The translations should be **aligned line-by-line** with the English text. This means if an English sentence is on a line, the corresponding translated sentence should be on its own line directly below, in the same relative position.
     - Maintain parallel structure: for example, if the English doc has a section `## Usage`, the Russian version should have the equivalent `## Использование` on the corresponding line, and the Spanish `## Uso` on its line, etc.
     - Ensure the meaning is accurately conveyed in each language. Use the correct technical terms in the target language.
 5. **Format for Multi-language:** Depending on the project’s convention, this could be:
