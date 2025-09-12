@@ -8,8 +8,8 @@ The repository includes a small Node script that validates that paired English a
 
 - Matching line count
 - Matching number of headings (`#`)
-- Matching number of fenced code blocks (```)
-- Matching number of bullet lines (-)
+- Matching number of fenced code blocks (```) 
+- Matching number of bullet lines (`- `, `* `, `+ `)
 
 Script location:
 
@@ -45,7 +45,7 @@ GitHub Actions runs the check on pull requests and pushes that touch Resources d
 .github/workflows/docs-i18n-check.yml
 ```
 
-The job uses Node 20, PNPM 9, installs dependencies and executes:
+The job uses Node 20, PNPM 9, installs dependencies and executes (Resources scope by default):
 
 ```
 I18N_SCOPE=resources pnpm docs:i18n:check
@@ -66,4 +66,3 @@ I18N_SCOPE=all pnpm docs:i18n:check
 ## Optional Pre‑commit Hook
 
 You may add a Husky pre‑commit step to run the check only when README pairs are modified. Keep in mind it can be strict and block commits until pairs are aligned.
-

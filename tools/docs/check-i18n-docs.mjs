@@ -14,25 +14,32 @@ function countByRegex(lines, re) {
   return lines.reduce((acc, l) => acc + (re.test(l) ? 1 : 0), 0)
 }
 
-function walk(dir, files = []) {
+function walk(dir) {
+  const files = []
   if (!fs.existsSync(dir)) return files
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) walk(full, files)
-    else files.push(full)
+  const stack = [dir]
+  while (stack.length > 0) {
+    const currentDir = stack.pop()
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const full = path.join(currentDir, entry.name)
+      if (entry.isDirectory()) stack.push(full)
+      else files.push(full)
+    }
   }
   return files
 }
 
 function findPairs(repoRoot, scope = 'resources') {
   const pairs = []
+  const missing = []
 
   // 1) Local README.md ↔ README-RU.md
   const allFiles = walk(repoRoot)
-  const readmes = allFiles.filter((f) => /README\.md$/i.test(f))
+  const readmes = allFiles.filter((f) => /README\.md$/i.test(f) && !/[\\\/]docs[\\\/]/i.test(f))
   for (const enFile of readmes) {
     const ruFile = path.join(path.dirname(enFile), 'README-RU.md')
     if (fs.existsSync(ruFile)) pairs.push({ en: enFile, ru: ruFile })
+    else missing.push({ en: enFile, ru: ruFile })
   }
 
   // 2) docs/en/**/README.md ↔ docs/ru/**/README.md
@@ -44,6 +51,14 @@ function findPairs(repoRoot, scope = 'resources') {
       const rel = path.relative(enDocsRoot, enFile)
       const ruFile = path.join(ruDocsRoot, rel)
       if (fs.existsSync(ruFile)) pairs.push({ en: enFile, ru: ruFile })
+      else missing.push({ en: enFile, ru: ruFile })
+    }
+    // RU without EN counterpart
+    const ruDocs = walk(ruDocsRoot).filter((f) => /README\.md$/i.test(f))
+    for (const ruFile of ruDocs) {
+      const rel = path.relative(ruDocsRoot, ruFile)
+      const enFile = path.join(enDocsRoot, rel)
+      if (!fs.existsSync(enFile)) missing.push({ en: enFile, ru: ruFile })
     }
   }
 
@@ -53,10 +68,12 @@ function findPairs(repoRoot, scope = 'resources') {
       /apps\/resources-(frt|srv)\/base\/README\.md$/i.test(p) ||
       /docs\/(en|ru)\/applications\/resources\/README\.md$/i.test(p)
 
-    return pairs.filter(({ en, ru }) => keep(en) || keep(ru))
+    const fpairs = pairs.filter(({ en, ru }) => keep(en) || keep(ru))
+    const fmissing = missing.filter(({ en, ru }) => (en && keep(en)) || (ru && keep(ru)))
+    return { pairs: fpairs, missing: fmissing }
   }
 
-  return pairs
+  return { pairs, missing }
 }
 
 function checkPair(pair) {
@@ -77,8 +94,8 @@ function checkPair(pair) {
   const ruCode = countByRegex(ruL, /^```/)
   if (enCode !== ruCode) errors.push(`Code fences differ: EN=${enCode} RU=${ruCode}`)
 
-  const enBul = countByRegex(enL, /^-\s/)
-  const ruBul = countByRegex(ruL, /^-\s/)
+  const enBul = countByRegex(enL, /^[-*+]\s/)
+  const ruBul = countByRegex(ruL, /^[-*+]\s/)
   if (enBul !== ruBul) errors.push(`Bullets count differs: EN=${enBul} RU=${ruBul}`)
 
   return errors
@@ -87,7 +104,7 @@ function checkPair(pair) {
 function main() {
   const repoRoot = path.resolve(__dirname, '..', '..')
   const scope = process.env.I18N_SCOPE || 'resources' // 'resources' | 'all'
-  const pairs = findPairs(repoRoot, scope)
+  const { pairs, missing } = findPairs(repoRoot, scope)
   const failures = []
 
   for (const pair of pairs) {
@@ -95,10 +112,20 @@ function main() {
     if (errs.length) failures.push({ pair, errs })
   }
 
+  // Report missing counterparts
+  for (const m of missing) {
+    const errs = []
+    if (!fs.existsSync(m.en)) errs.push('Missing EN counterpart')
+    if (!fs.existsSync(m.ru)) errs.push('Missing RU counterpart')
+    failures.push({ pair: m, errs })
+  }
+
   if (failures.length) {
     console.error('i18n-docs checks failed:')
     for (const f of failures) {
-      console.error(`\nEN: ${path.relative(repoRoot, f.pair.en)}\nRU: ${path.relative(repoRoot, f.pair.ru)}`)
+      const enP = f.pair.en ? path.relative(repoRoot, f.pair.en) : '(none)'
+      const ruP = f.pair.ru ? path.relative(repoRoot, f.pair.ru) : '(none)'
+      console.error(`\nEN: ${enP}\nRU: ${ruP}`)
       for (const e of f.errs) console.error(`  - ${e}`)
     }
     process.exit(1)
