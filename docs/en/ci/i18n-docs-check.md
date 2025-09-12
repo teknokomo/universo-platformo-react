@@ -8,8 +8,8 @@ The repository includes a small Node script that validates that paired English a
 
 - Matching line count
 - Matching number of headings (`#`)
-- Matching number of fenced code blocks (```) 
-- Matching number of bullet lines (`- `)
+- Matching number of fenced code blocks (```)
+- Matching number of bullet lines (-)
 
 Script location:
 
