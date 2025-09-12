@@ -7,8 +7,7 @@ import { EntityOwner } from '../database/entities/EntityOwner'
 import { EntityResource } from '../database/entities/EntityResource'
 import { Resource } from '@universo/resources-srv'
 
-export function getRepositories(getDataSource: () => DataSource) {
-    const dataSource = getDataSource()
+export function getRepositories(dataSource: DataSource) {
     return {
         statusRepo: dataSource.getRepository(EntityStatus),
         templateRepo: dataSource.getRepository(EntityTemplate),
@@ -43,7 +42,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(() => dataSource)
+            const { templateRepo } = getRepositories(dataSource)
             const templates = await templateRepo.find({ relations: ['parentTemplate'] })
             res.json(templates)
         })
@@ -56,7 +55,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(() => dataSource)
+            const { templateRepo } = getRepositories(dataSource)
             const { code, titleEn, titleRu, descriptionEn, descriptionRu, parentTemplateId, resourceSchema } = req.body
             const template = templateRepo.create({ code, titleEn, titleRu, descriptionEn, descriptionRu, resourceSchema })
             
@@ -75,7 +74,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(() => dataSource)
+            const { templateRepo } = getRepositories(dataSource)
             const template = await templateRepo.findOne({
                 where: { id: req.params.id },
                 relations: ['parentTemplate']
@@ -92,7 +91,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(() => dataSource)
+            const { templateRepo } = getRepositories(dataSource)
             const { code, titleEn, titleRu, descriptionEn, descriptionRu, parentTemplateId, resourceSchema } = req.body
             const template = await templateRepo.findOne({ where: { id: req.params.id } })
             if (!template) return res.status(404).json({ error: 'Not found' })
@@ -115,7 +114,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { templateRepo } = getRepositories(() => dataSource)
+            const { templateRepo } = getRepositories(dataSource)
             await templateRepo.delete(req.params.id)
             res.status(204).send()
         })
@@ -129,7 +128,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo } = getRepositories(() => dataSource)
+            const { entityRepo } = getRepositories(dataSource)
             const entities = await entityRepo.find({ relations: ['template', 'status', 'rootResource', 'parentEntity'] })
             res.json(entities)
         })
@@ -142,7 +141,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo, templateRepo, statusRepo, resourceBaseRepo } = getRepositories(() => dataSource)
+            const { entityRepo, templateRepo, statusRepo, resourceBaseRepo } = getRepositories(dataSource)
             const { templateId, statusId, slug, titleEn, titleRu, descriptionEn, descriptionRu, rootResourceId, parentEntityId } = req.body
             const template = await templateRepo.findOne({ where: { id: templateId } })
             const status = await statusRepo.findOne({ where: { id: statusId } })
@@ -162,7 +161,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo } = getRepositories(() => dataSource)
+            const { entityRepo } = getRepositories(dataSource)
             const entity = await entityRepo.findOne({
                 where: { id: req.params.id },
                 relations: ['template', 'status', 'rootResource', 'parentEntity']
@@ -179,7 +178,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo, templateRepo, statusRepo, resourceBaseRepo } = getRepositories(() => dataSource)
+            const { entityRepo, templateRepo, statusRepo, resourceBaseRepo } = getRepositories(dataSource)
             const { templateId, statusId, slug, titleEn, titleRu, descriptionEn, descriptionRu, rootResourceId, parentEntityId } = req.body
             const entity = await entityRepo.findOne({
                 where: { id: req.params.id },
@@ -204,7 +203,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo } = getRepositories(() => dataSource)
+            const { entityRepo } = getRepositories(dataSource)
             await entityRepo.delete(req.params.id)
             res.status(204).send()
         })
@@ -217,7 +216,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo } = getRepositories(() => dataSource)
+            const { entityRepo } = getRepositories(dataSource)
             const children = await entityRepo.find({ where: { parentEntity: { id: req.params.id } } })
             res.json(children)
         })
@@ -230,7 +229,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo } = getRepositories(() => dataSource)
+            const { entityRepo } = getRepositories(dataSource)
 
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             if (!uuidRegex.test(req.params.id)) {
@@ -325,7 +324,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { ownerRepo } = getRepositories(() => dataSource)
+            const { ownerRepo } = getRepositories(dataSource)
             const owners = await ownerRepo.find({ where: { entity: { id: req.params.entityId } } })
             res.json(owners)
         })
@@ -338,7 +337,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo, ownerRepo } = getRepositories(() => dataSource)
+            const { entityRepo, ownerRepo } = getRepositories(dataSource)
             const entity = await entityRepo.findOne({ where: { id: req.params.entityId } })
             if (!entity) return res.status(404).json({ error: 'Entity not found' })
             const { userId, role, isPrimary } = req.body
@@ -355,7 +354,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { ownerRepo } = getRepositories(() => dataSource)
+            const { ownerRepo } = getRepositories(dataSource)
             const owner = await ownerRepo.findOne({
                 where: { id: req.params.id, entity: { id: req.params.entityId } },
                 relations: ['entity']
@@ -375,7 +374,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { ownerRepo } = getRepositories(() => dataSource)
+            const { ownerRepo } = getRepositories(dataSource)
             const owner = await ownerRepo.findOne({
                 where: { id: req.params.id, entity: { id: req.params.entityId } }
             })
@@ -393,7 +392,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { resourceRepo } = getRepositories(() => dataSource)
+            const { resourceRepo } = getRepositories(dataSource)
             const links = await resourceRepo.find({ where: { entity: { id: req.params.entityId } }, relations: ['resource'] })
             res.json(links)
         })
@@ -406,7 +405,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { entityRepo, resourceRepo, resourceBaseRepo } = getRepositories(() => dataSource)
+            const { entityRepo, resourceRepo, resourceBaseRepo } = getRepositories(dataSource)
             const entity = await entityRepo.findOne({ where: { id: req.params.entityId } })
             const resource = await resourceBaseRepo.findOne({ where: { id: req.body.resourceId } })
             if (!entity || !resource) return res.status(400).json({ error: 'Invalid references' })
@@ -424,7 +423,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { resourceRepo, resourceBaseRepo } = getRepositories(() => dataSource)
+            const { resourceRepo, resourceBaseRepo } = getRepositories(dataSource)
             const link = await resourceRepo.findOne({
                 where: { id: req.params.id, entity: { id: req.params.entityId } },
                 relations: ['resource', 'entity']
@@ -445,7 +444,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!dataSource.isInitialized) {
                 return res.status(500).json({ error: 'Data source is not initialized' })
             }
-            const { resourceRepo } = getRepositories(() => dataSource)
+            const { resourceRepo } = getRepositories(dataSource)
             const link = await resourceRepo.findOne({
                 where: { id: req.params.id, entity: { id: req.params.entityId } }
             })

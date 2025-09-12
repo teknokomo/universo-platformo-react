@@ -70,15 +70,7 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, 
 
             if (savedResource) {
                 const resId = (savedResource as Resource).id
-                // If created new resource within a cluster context, link it to the cluster
-                if (!resource && clusterId) {
-                    try {
-                        await clustersApi.addResourceToCluster(clusterId, resId)
-                    } catch (linkErr) {
-                        // non-blocking: linking failure shouldn't prevent closing, but log for diagnostics
-                        console.error('Failed to link resource to cluster', linkErr)
-                    }
-                }
+                // Linking to cluster is handled atomically by backend when clusterId is provided on creation.
                 // Domain assignment is now handled atomically on backend during resource creation
                 // For existing resources being edited, we still need to handle domain assignment
                 if (resource && selectedDomainId) {
