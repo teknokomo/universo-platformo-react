@@ -61,24 +61,9 @@ import { usePrompt } from '@/utils/usePrompt'
 import { FLOWISE_CREDENTIAL_ID, uiBaseURL } from '@/store/constant'
 // Space Builder i18n and FAB
 import { SpaceBuilderFab, registerSpaceBuilderI18n } from '@universo/space-builder-frt'
-import credentialsApi from '@/api/credentials'
 import i18n from '@/i18n'
 import client from '@/api/client'
 
-const SUPPORTED_CREDENTIALS = [
-    'openAIApi',
-    'azureOpenAIApi',
-    'groqApi',
-    'groqWhisper'
-]
-
-const TEST_MODE_MODEL = {
-    key: 'groq_test:llama-3.3-70b-versatile:test',
-    label: 'groq • llama-3.3-70b-versatile (Test mode)',
-    provider: 'groq_test',
-    modelName: 'llama-3.3-70b-versatile',
-    credentialId: 'test'
-}
 
 const nodeTypes = { customNode: CanvasNode, stickyNote: StickyNote }
 const edgeTypes = { buttonedge: ButtonEdge }
@@ -130,7 +115,7 @@ const Canvas = () => {
     const [selectedNode, setSelectedNode] = useState(null)
     const [isUpsertButtonEnabled, setIsUpsertButtonEnabled] = useState(false)
     const [isSyncNodesButtonEnabled, setIsSyncNodesButtonEnabled] = useState(false)
-    const [availableChatModels, setAvailableChatModels] = useState([])
+    // Space Builder now fetches providers/models itself; local state no longer needed
 
     const reactFlowWrapper = useRef(null)
     const [tabsHeight, setTabsHeight] = useState(56)
@@ -829,52 +814,7 @@ const Canvas = () => {
 
         getNodesApi.request()
 
-            // load available chat models from credentials
-            ; (async () => {
-                try {
-                    if (!parentUnikId) return
-                    const res = await credentialsApi.getAllCredentials(parentUnikId)
-                    const creds = res?.data || []
-                    const mapProvider = (credName = '') => {
-                        const n = String(credName).toLowerCase()
-                        if (n.includes('groq')) return 'groq'
-                        if (n.includes('azureopenai')) return 'openai'
-                        if (n.includes('openai')) return 'openai'
-                        return 'unsupported'
-                    }
-                    const defaultsByProvider = {
-                        openai: ['gpt-4o-mini'],
-                        groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
-                    }
-                    const models = creds
-                        .filter((c) => SUPPORTED_CREDENTIALS.includes(c.credentialName))
-                        .map((c) => {
-                            const provider = mapProvider(c.credentialName)
-                            if (provider === 'unsupported') return null
-                            const modelName = defaultsByProvider[provider][0]
-                            return {
-                                key: `${provider}:${modelName}:${c.id}`,
-                                label: `${provider} • ${modelName}`,
-                                provider,
-                                modelName,
-                                credentialId: c.id
-                            }
-                        })
-                        .filter(Boolean)
-                    //  Request Space Builder configuration from the server
-                    let testModeEnabled = false
-                    try {
-                        const resp = await client.get('/space-builder/config')
-                        testModeEnabled = !!resp?.data?.testMode
-                    } catch (e) {
-                        // ignore config fetch errors
-                    }
-                    if (testModeEnabled) models.push(TEST_MODE_MODEL)
-                    setAvailableChatModels(models)
-                } catch (e) {
-                    console.error('[SpaceBuilder] load models failed', e)
-                }
-            })()
+            // Space Builder providers/models are now loaded inside SpaceBuilderDialog
 
         // Clear dirty state before leaving and remove any ongoing test triggers and webhooks
         return () => {
@@ -1126,7 +1066,7 @@ const Canvas = () => {
                                 />
                                 <SpaceBuilderFab
                                     sx={{ position: 'absolute', left: 76, top: 20, zIndex: 1100 }}
-                                    models={availableChatModels}
+                                    
                                     onApply={(graph, mode) => {
                                         if (mode === 'append') return handleAppendGeneratedGraphBelow(graph)
                                         if (mode === 'newSpace') return handleNewSpaceFromGeneratedGraph(graph)

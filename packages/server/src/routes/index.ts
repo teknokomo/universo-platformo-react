@@ -64,6 +64,11 @@ import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
 import rateLimit from 'express-rate-limit'
 import helmet from 'helmet'
 import credentialsService from '../services/credentials'
+import { getRunningExpressApp } from '../utils/getRunningExpressApp'
+import { Credential } from '../database/entities/Credential'
+import { decryptCredentialData } from '../utils'
+import nodesService from '../services/nodes'
+import componentsCredentialsService from '../services/components-credentials'
 import { createMetaverseRoutes } from '@universo/metaverse-srv'
 import { createSpacesRoutes } from '@universo/spaces-srv'
 
@@ -192,19 +197,20 @@ router.use(
                     throw new Error('Credential ID is required')
                 }
 
-                const cred = await credentialsService.getCredentialById(credentialId)
-                if (!cred) {
-                    throw new Error(`Credential with ID ${credentialId} not found`)
-                }
-
-                const credentialData: any = cred.plainDataObj || {}
-                const credentialName: string = cred.credentialName || ''
+                // Fetch raw credential from DB to avoid redaction and decrypt locally
+                const appServer = getRunningExpressApp()
+                const credEntity = await appServer.AppDataSource.getRepository(Credential).findOneBy({ id: credentialId })
+                if (!credEntity) throw new Error(`Credential with ID ${credentialId} not found`)
+                const decrypted = await decryptCredentialData(credEntity.encryptedData)
+                const credentialData: any = decrypted || {}
+                const credentialName: string = credEntity.credentialName || ''
 
                 // Map credential types to their specific API key field names
                 const credentialFieldMap: Record<string, string> = {
                     openAIApi: 'openAIApiKey',
                     groqApi: 'groqApiKey',
                     azureOpenAIApi: 'azureOpenAIApiKey',
+                    openRouterApi: 'openRouterApiKey',
                     anthropicApi: 'anthropicApiKey',
                     cohereApi: 'cohereApiKey',
                     mistralAIApi: 'mistralAIApiKey',
@@ -229,6 +235,16 @@ router.use(
                 logger.error(`[SpaceBuilder] Credential resolution error: ${error?.message || 'Unknown error'}`)
                 throw new Error(`Failed to resolve credential: ${error?.message || 'Unknown error'}`)
             }
+        },
+        listChatModelNodes: async () => {
+            // Return only Chat Models category
+            try { return await nodesService.getAllNodesForCategory('Chat Models') } catch { return [] }
+        },
+        listComponentCredentials: async () => {
+            try { return await componentsCredentialsService.getAllComponentsCredentials() } catch { return [] }
+        },
+        listUserCredentials: async (unikId?: string, names?: string | string[]) => {
+            try { return await credentialsService.getAllCredentials(names, unikId) } catch { return [] }
         }
     })
 )
