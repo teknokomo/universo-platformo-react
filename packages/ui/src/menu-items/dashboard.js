@@ -36,14 +36,6 @@ const dashboard = {
             breadcrumbs: false
         },
         {
-            id: 'entities',
-            title: 'menu.entities',
-            type: 'item',
-            url: '/entities',
-            icon: icons.IconDatabase,
-            breadcrumbs: false
-        },
-        {
             id: 'profile',
             title: 'menu.profile',
             type: 'item',

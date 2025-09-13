@@ -14,8 +14,7 @@ import { CustomTemplate } from './CustomTemplate'
 import { financeEntities } from '@universo/finance-srv'
 import { Unik, UserUnik } from '@universo/uniks-srv'
 import { Profile } from '@universo/profile-srv'
-import { Metaverse, UserMetaverse, MetaverseLink } from '@universo/metaverse-srv'
-import { entitiesEntities } from '@universo/entities-srv'
+import { metaversesEntities } from '@universo/metaverses-srv'
 import { resourcesEntities } from '@universo/resources-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
 
@@ -23,8 +22,8 @@ import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
 const financeEntitiesObject = Object.fromEntries(
   financeEntities.map((entity: any) => [entity.name, entity])
 )
-const entitiesServiceEntitiesObject = Object.fromEntries(
-  entitiesEntities.map((entity) => [entity.name, entity])
+const metaversesEntitiesObject = Object.fromEntries(
+  metaversesEntities.map((entity) => [entity.name, entity])
 )
 const resourcesEntitiesObject = Object.fromEntries(
   resourcesEntities.map((entity) => [entity.name, entity])
@@ -44,8 +43,8 @@ export const entities = {
   UpsertHistory,
   ApiKey,
   CustomTemplate,
-  // Entities service entities
-  ...entitiesServiceEntitiesObject,
+  // Metaverses service entities
+  ...metaversesEntitiesObject,
   // Finance entities
   ...financeEntitiesObject,
   // Resources entities
@@ -55,10 +54,6 @@ export const entities = {
   UserUnik,
   // Profile entities
   Profile,
-  // Metaverse entities
-  Metaverse,
-  UserMetaverse,
-  MetaverseLink,
   // Spaces entities
   Space,
   Canvas,
