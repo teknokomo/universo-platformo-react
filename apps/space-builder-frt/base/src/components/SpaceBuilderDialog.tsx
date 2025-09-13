@@ -157,7 +157,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         const list = (Array.isArray(data) ? data : []).map((m: any) => m.name)
         setModelOptionsMap((s) => ({ ...s, [pid]: list }))
         if (!modelName && list.length) setModelName(list[0])
-      } catch { /* ignore */ }
+      } catch (e) { console.error(`[SpaceBuilder] Failed to load models for provider ${pid}:`, e) }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, selectedProvider?.id])
