@@ -238,13 +238,13 @@ router.use(
         },
         listChatModelNodes: async () => {
             // Return only Chat Models category
-            try { return await nodesService.getAllNodesForCategory('Chat Models') } catch { return [] }
+            try { return await nodesService.getAllNodesForCategory('Chat Models') } catch (e) { logger.error('[SpaceBuilder] Failed to list chat model nodes:', e); return [] }
         },
         listComponentCredentials: async () => {
-            try { return await componentsCredentialsService.getAllComponentsCredentials() } catch { return [] }
+            try { return await componentsCredentialsService.getAllComponentsCredentials() } catch (e) { logger.error('[SpaceBuilder] Failed to list component credentials:', e); return [] }
         },
         listUserCredentials: async (unikId?: string, names?: string | string[]) => {
-            try { return await credentialsService.getAllCredentials(names, unikId) } catch { return [] }
+            try { return await credentialsService.getAllCredentials(names, unikId) } catch (e) { logger.error('[SpaceBuilder] Failed to list user credentials:', e); return [] }
         }
     })
 )
