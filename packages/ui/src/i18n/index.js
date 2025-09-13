@@ -71,9 +71,8 @@ import { profileTranslations } from '@apps/profile-frt/base/src/i18n'
 // Universo Platformo | Import finance module translations
 import { financeTranslations } from '@apps/finance-frt/base/src/i18n'
 import { uniksTranslations } from '@apps/uniks-frt/base/src/i18n'
-import { metaverseTranslations } from '@apps/metaverse-frt/base/src/i18n'
 import { resourcesTranslations } from '@universo/resources-frt'
-import { entitiesTranslations } from '@universo/entities-frt'
+import { metaversesTranslations } from '@universo/metaverses-frt'
 import { templateMmoommTranslations } from '@apps/template-mmoomm/base/src/i18n'
 import { templateQuizTranslations } from '@universo/template-quiz'
 // Spaces FRt translations (namespaces spaces/canvas). Initially empty, extended over time.
@@ -112,9 +111,8 @@ i18n.use(LanguageDetector)
                     finance: financeTranslations.en.finance,
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
-                    metaverse: metaverseTranslations.en.metaverse,
                     resources: resourcesTranslations.en.resources,
-                    entities: entitiesTranslations.en.entities
+                    entities: metaversesTranslations.en.entities
                 },
                 ru: {
                     translation: ruTranslation,
@@ -142,9 +140,8 @@ i18n.use(LanguageDetector)
                     finance: financeTranslations.ru.finance,
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
-                    metaverse: metaverseTranslations.ru.metaverse,
                     resources: resourcesTranslations.ru.resources,
-                    entities: entitiesTranslations.ru.entities
+                    entities: metaversesTranslations.ru.entities
                 }
             },
             fallbackLng: 'en',

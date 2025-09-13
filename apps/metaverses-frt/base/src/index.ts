@@ -1,0 +1,7 @@
+export { default as MetaverseList } from './pages/MetaverseList'
+export { default as MetaverseDetail } from './pages/MetaverseDetail'
+export { default as SectionDetail } from './pages/SectionDetail'
+export { default as EntityDetail } from './pages/EntityDetail'
+
+export { default as metaversesDashboard } from './menu-items/metaverseDashboard'
+export { metaversesTranslations } from './i18n'

@@ -48,7 +48,7 @@ import { createUniksRouter } from '@universo/uniks-srv'
 import { createFinanceRouter } from '@universo/finance-srv'
 import { supabase } from '../utils/supabase'
 import { createResourcesRouter, createClustersRoutes, createDomainsRoutes } from '@universo/resources-srv'
-import { createEntitiesRouter } from '@universo/entities-srv'
+import { createMetaversesRoutes, createSectionsRoutes, createEntitiesRouter } from '@universo/metaverses-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -175,6 +175,18 @@ router.use(
     createDomainsRoutes(upAuth.ensureAuth, () => getDataSource())
 )
 
+const metaversesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+router.use(
+    '/metaverses',
+    metaversesLimiter,
+    createMetaversesRoutes(upAuth.ensureAuth, () => getDataSource())
+)
+const sectionsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+router.use(
+    '/sections',
+    sectionsLimiter,
+    createSectionsRoutes(upAuth.ensureAuth, () => getDataSource())
+)
 router.use(
     '/entities',
     createEntitiesRouter(upAuth.ensureAuth, () => getDataSource())
@@ -248,10 +260,6 @@ router.use(
         }
     })
 )
-
-// Universo Platformo | Metaverse routes
-const metaverseLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true })
-router.use('/metaverses', upAuth.ensureAuth, metaverseLimiter, createMetaverseRoutes(getDataSource()))
 
 // Universo Platformo | Spaces routes
 const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })

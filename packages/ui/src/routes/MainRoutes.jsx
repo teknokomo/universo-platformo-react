@@ -13,14 +13,13 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
-const MetaverseList = Loadable(lazy(() => import('@apps/metaverse-frt/base/src/pages/MetaverseList.jsx')))
+const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseList }))))
 const ClusterList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterList }))))
 const ClusterDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterDetail }))))
 const DomainDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.DomainDetail }))))
 const ResourceDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ResourceDetail }))))
 
-const EntityList = Loadable(lazy(() => import('@universo/entities-frt').then((m) => ({ default: m.EntityList }))))
-const EntityDetail = Loadable(lazy(() => import('@universo/entities-frt').then((m) => ({ default: m.EntityDetail }))))
+const EntityDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.EntityDetail }))))
 
 // Workspace dashboard component
 const UnikDetail = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikDetail.jsx')))
@@ -253,14 +252,6 @@ const MainRoutes = {
             ]
         },
 
-        {
-            path: '/entities',
-            element: (
-                <AuthGuard>
-                    <EntityList />
-                </AuthGuard>
-            )
-        },
         {
             path: '/entities/:entityId',
             element: (

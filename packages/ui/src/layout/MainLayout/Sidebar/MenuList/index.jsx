@@ -4,13 +4,13 @@ import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
 import unikDashboard from '@apps/uniks-frt/base/src/menu-items/unikDashboard'
 import { clustersDashboard } from '@universo/resources-frt'
-import { entitiesDashboard } from '@universo/entities-frt'
+import { metaversesDashboard } from '@universo/metaverses-frt'
 
 const MenuList = () => {
     const location = useLocation()
     const unikMatch = location.pathname.match(/^\/uniks\/([^/]+)/)
     const clusterMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
-    const entityMatch = location.pathname.match(/^\/entities\/([^/]+)/)
+    const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
 
     let menuItems
     if (unikMatch) {
@@ -33,13 +33,13 @@ const MenuList = () => {
                 url: `/clusters/${clusterId}${item.url}`
             }))
         }
-    } else if (entityMatch) {
-        const entityId = entityMatch[1]
+    } else if (metaverseMatch) {
+        const metaverseId = metaverseMatch[1]
         menuItems = {
-            ...entitiesDashboard,
-            children: entitiesDashboard.children.map((item) => ({
+            ...metaversesDashboard,
+            children: metaversesDashboard.children.map((item) => ({
                 ...item,
-                url: `/entities/${entityId}${item.url}`
+                url: `/metaverses/${metaverseId}${item.url}`
             }))
         }
     } else {
