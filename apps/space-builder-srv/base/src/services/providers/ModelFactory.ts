@@ -26,6 +26,7 @@ async function resolveCredential(credentialId: string): Promise<string> {
   }
 }
 
+// Accept provider as canonical name or node name (e.g., 'chatOpenAI')
 type CallArgs = { provider: string; model: string; credentialId?: string; prompt: string }
 
 type TestEntry = {
@@ -97,6 +98,26 @@ async function callOpenAIBase({ model, apiKey, baseURL, prompt, extraHeaders }: 
   return resp.choices?.[0]?.message?.content || ''
 }
 
+// Map node names to canonical providers
+function mapProviderName(raw: string): string {
+  const p = String(raw || '').toLowerCase()
+  const map: Record<string, string> = {
+    // Chat model node names
+    'chatopenai': 'openai',
+    'azurechatopenai': 'azureopenai',
+    'groqchat': 'groq',
+    'chatopenrouter': 'openrouter',
+    'chatcerebras': 'cerebras',
+    // Canonical names passthrough
+    'openai': 'openai',
+    'azureopenai': 'azureopenai',
+    'groq': 'groq',
+    'openrouter': 'openrouter',
+    'cerebras': 'cerebras'
+  }
+  return map[p] || p
+}
+
 export async function callProvider(args: CallArgs): Promise<string> {
   const testMode = bool('SPACE_BUILDER_TEST_MODE')
   const disableUserCreds = bool('SPACE_BUILDER_DISABLE_USER_CREDENTIALS')
@@ -109,7 +130,7 @@ export async function callProvider(args: CallArgs): Promise<string> {
     return callOpenAIBase({ model: picked.model, apiKey: picked.apiKey, baseURL: picked.baseURL, prompt: args.prompt, extraHeaders: picked.extraHeaders })
   }
 
-  const provider = String(args.provider || '').toLowerCase()
+  const provider = mapProviderName(String(args.provider || ''))
 
   // Validate that credentialId is provided for non-test modes
   if (!args.credentialId) {
@@ -117,7 +138,22 @@ export async function callProvider(args: CallArgs): Promise<string> {
   }
 
   if (provider === 'openai' || provider === 'azureopenai') return callOpenAI(args)
-  if (provider === 'groq') return callOpenAICompatible(args)
+  if (provider === 'groq') return callOpenAICompatible({ ...args })
+  if (provider === 'openrouter') {
+    const apiKey = await resolveCredential(String(args.credentialId))
+    const headers: Record<string, string> = {}
+    // Prefer non-test vars; fallback to test vars for compatibility
+    const ref = str('OPENROUTER_REFERER') || str('OPENROUTER_TEST_REFERER')
+    const ttl = str('OPENROUTER_TITLE') || str('OPENROUTER_TEST_TITLE')
+    if (ref) headers['HTTP-Referer'] = ref
+    if (ttl) headers['X-Title'] = ttl
+    return callOpenAIBase({ model: args.model, apiKey, baseURL: 'https://openrouter.ai/api/v1', prompt: args.prompt, extraHeaders: headers })
+  }
+  if (provider === 'cerebras') {
+    const apiKey = await resolveCredential(String(args.credentialId))
+    const baseURL = str('CEREBRAS_BASE_URL') || 'https://api.cerebras.ai/v1'
+    return callOpenAIBase({ model: args.model, apiKey, baseURL, prompt: args.prompt })
+  }
   if (provider === 'groq_test') {
     // Backward-compatible only if env is fully configured; no defaults
     const model = str('GROQ_TEST_MODEL')
@@ -128,7 +164,7 @@ export async function callProvider(args: CallArgs): Promise<string> {
   }
 
   // List supported providers for better error messages
-  const supportedProviders = ['openai', 'azureopenai', 'groq']
+  const supportedProviders = ['openai', 'azureopenai', 'groq', 'openrouter', 'cerebras']
   throw new Error(`Unsupported provider: ${args.provider}. Supported providers: ${supportedProviders.join(', ')}`)
 }
 
@@ -160,4 +196,3 @@ async function callOpenAICompatible({ model, credentialId, prompt }: CallArgs): 
   })
   return resp.choices?.[0]?.message?.content || ''
 }
-

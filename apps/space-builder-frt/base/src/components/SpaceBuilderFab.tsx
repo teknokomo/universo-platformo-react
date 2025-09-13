@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 export type ModelOpt = { key: string; label: string; provider: string; modelName: string; credentialId: string }
 
 export type SpaceBuilderFabProps = {
-  models: ModelOpt[]
+  models?: ModelOpt[]
   onApply: (graph: { nodes: any[]; edges: any[] }, mode: 'append' | 'replace' | 'newSpace') => void
   onError?: (message: string) => void
   sx?: any
@@ -25,7 +25,7 @@ export const SpaceBuilderFab: React.FC<SpaceBuilderFabProps> = ({ models, onAppl
         </Fab>
       </Tooltip>
 
-      <SpaceBuilderDialog open={open} onClose={() => setOpen(false)} onApply={onApply} onError={onError} models={models} />
+      <SpaceBuilderDialog open={open} onClose={() => setOpen(false)} onApply={onApply} onError={onError} models={models || []} />
     </>
   )
 }
