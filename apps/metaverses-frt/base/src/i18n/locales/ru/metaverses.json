@@ -148,15 +148,6 @@
             "id": "ID",
             "title": "Название",
             "description": "Описание"
-        },
-        "common": {
-            "cardView": "Карточки",
-            "listView": "Список",
-            "back": "Назад",
-            "backToMetaverses": "Назад к метавселенным",
-            "backToSections": "Назад к секциям",
-            "cancel": "Отмена",
-            "save": "Сохранить"
         }
     }
 }

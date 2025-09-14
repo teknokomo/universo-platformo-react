@@ -141,15 +141,6 @@
             "id": "ID",
             "title": "Title",
             "description": "Description"
-        },
-        "common": {
-            "cardView": "Card View",
-            "listView": "List View",
-            "back": "Back",
-            "backToMetaverses": "Back to Metaverses",
-            "backToSections": "Back to Sections",
-            "cancel": "Cancel",
-            "save": "Save"
         }
     }
 }
