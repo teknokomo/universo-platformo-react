@@ -1,9 +1,28 @@
 # Task Tracking
 
 **Project**: Universo Platformo (v0.29.0-alpha, Alpha achieved)
-**Current Focus**: Post-alpha feature development (UPDL expansions, MMOOMM)
+**Current Focus**: Fix metaverses localization button keys display issue
 
-## Active Implementation - Chatflow to Spaces UI Fixes (2025-01-04)
+## Active Task - Fix Metaverses Localization Button Keys (2025-01-13)
+
+### Implementation Plan:
+- [x] Compare button localization patterns between metaverses-frt and resources-frt
+- [x] Identify missing or incorrect translation keys for buttons in metaverses components
+- [x] Fix button translation keys to match working resources-frt implementation
+- [x] Test button text display to verify language keys are replaced with proper translations
+- [ ] Validate complete metaverses UI functionality after fixes
+
+### Summary of Fixes Applied:
+1. Fixed "Back" button in MetaverseDetail.tsx: `metaverses.entities.common.back` → `common.back`
+2. Fixed "Back" button in SectionDetail.tsx: `metaverses.entities.common.back` → `common.back`
+3. Fixed EntityDetail.tsx namespace: `metaverses.entities.title` → `entities.title`, `detail.info` → `entities.detail.info`
+4. Fixed EntityDialog.tsx namespace: `metaverses.entities.*` → `entities.*`
+5. Fixed button text keys in MetaverseDetail.tsx: `metaverses.entities.list.*` → `entities.list.*`
+6. Fixed button text keys in SectionDetail.tsx: `metaverses.entities.list.*` → `entities.list.*`
+
+All translation keys now correctly reference the existing localization structure in `metaverses.json` files.
+
+## Completed - Chatflow to Spaces UI Fixes (2025-01-04)
 
 ### Phase 1: Fix Canvas Tabs Display for Unsaved Spaces
 

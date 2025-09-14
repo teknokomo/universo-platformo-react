@@ -142,9 +142,8 @@ export async function callProvider(args: CallArgs): Promise<string> {
   if (provider === 'openrouter') {
     const apiKey = await resolveCredential(String(args.credentialId))
     const headers: Record<string, string> = {}
-    // Prefer non-test vars; fallback to test vars for compatibility
-    const ref = str('OPENROUTER_REFERER') || str('OPENROUTER_TEST_REFERER')
-    const ttl = str('OPENROUTER_TITLE') || str('OPENROUTER_TEST_TITLE')
+    const ref = str('OPENROUTER_REFERER')
+    const ttl = str('OPENROUTER_TITLE')
     if (ref) headers['HTTP-Referer'] = ref
     if (ttl) headers['X-Title'] = ttl
     return callOpenAIBase({ model: args.model, apiKey, baseURL: 'https://openrouter.ai/api/v1', prompt: args.prompt, extraHeaders: headers })

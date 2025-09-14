@@ -10,6 +10,12 @@
         "saving": "Saving..."
     },
 
+    "menu": {
+        "metaverseboard": "Metaverseboard",
+        "entities": "Entities",
+        "sections": "Sections"
+    },
+
     "metaverses": {
         "title": "Metaverses",
         "create": "Create Metaverse",
@@ -135,15 +141,6 @@
             "id": "ID",
             "title": "Title",
             "description": "Description"
-        },
-        "common": {
-            "cardView": "Card View",
-            "listView": "List View",
-            "back": "Back",
-            "backToMetaverses": "Back to Metaverses",
-            "backToSections": "Back to Sections",
-            "cancel": "Cancel",
-            "save": "Save"
         }
     }
 }

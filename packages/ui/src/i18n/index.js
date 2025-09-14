@@ -112,7 +112,7 @@ i18n.use(LanguageDetector)
                     analytics: analyticsTranslations.en.analytics,
                     profile: profileTranslations.en.profile,
                     resources: resourcesTranslations.en.resources,
-                    entities: metaversesTranslations.en.entities
+                    metaverses: metaversesTranslations.en.metaverses
                 },
                 ru: {
                     translation: ruTranslation,
@@ -141,7 +141,7 @@ i18n.use(LanguageDetector)
                     analytics: analyticsTranslations.ru.analytics,
                     profile: profileTranslations.ru.profile,
                     resources: resourcesTranslations.ru.resources,
-                    entities: metaversesTranslations.ru.entities
+                    metaverses: metaversesTranslations.ru.metaverses
                 }
             },
             fallbackLng: 'en',
@@ -180,7 +180,7 @@ i18n.use(LanguageDetector)
                 'templateMmoomm',
                 'templateQuiz',
                 'resources',
-                'entities'
+                'metaverses'
             ],
             defaultNS: 'translation',
             fallbackNS: 'translation',

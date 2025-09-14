@@ -69,7 +69,6 @@ import { Credential } from '../database/entities/Credential'
 import { decryptCredentialData } from '../utils'
 import nodesService from '../services/nodes'
 import componentsCredentialsService from '../services/components-credentials'
-import { createMetaverseRoutes } from '@universo/metaverse-srv'
 import { createSpacesRoutes } from '@universo/spaces-srv'
 
 const router: ExpressRouter = express.Router()

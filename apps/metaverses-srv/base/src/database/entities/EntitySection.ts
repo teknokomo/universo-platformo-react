@@ -3,7 +3,7 @@ import { Entity } from './Entity'
 import { Section } from './Section'
 
 // Comments in English only
-@ORMEntity({ name: 'entities_sections', schema: 'entities' })
+@ORMEntity({ name: 'entities_sections', schema: 'metaverses' })
 export class EntitySection {
     @PrimaryGeneratedColumn('uuid')
     id!: string

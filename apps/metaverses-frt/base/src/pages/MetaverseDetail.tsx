@@ -37,7 +37,7 @@ import SectionDialog from './SectionDialog'
 const MetaverseDetail = () => {
     const { metaverseId } = useParams<{ metaverseId: string }>()
     const navigate = useNavigate()
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
     const theme = useTheme()
 
     // Section UI state (consistent with MetaverseList)
@@ -385,7 +385,7 @@ const MetaverseDetail = () => {
 
                 <Stack direction='row' spacing={1}>
                     <Button variant='outlined' onClick={() => navigate('/metaverses')}>
-                        {t('entities.common.back')}
+                        {t('common.back')}
                     </Button>
                 </Stack>
             </Stack>

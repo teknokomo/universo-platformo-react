@@ -388,13 +388,18 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         body: JSON.stringify(body)
       })
       if (!res.ok) throw new Error('Failed to create credential')
+      const createdResp = await res.json().catch(() => ({} as any))
+      const createdId = createdResp?.id || createdResp?.data?.id
       // Refresh providers to include new credential
       setCreateOpen(false)
       const list = await refreshProviders()
-      const p = (list || []).find((x) => x.id === providerId)
-      let created = (p?.credentials || []).find((c) => c.label === createName)
-      if (!created) created = (p?.credentials || []).slice(-1)[0]
-      if (created?.id) setCredentialId(created.id)
+      if (createdId) {
+        setCredentialId(String(createdId))
+      } else {
+        const p = (list || []).find((x) => x.id === providerId)
+        const fallback = (p?.credentials || []).find((c) => c.label === createName) || (p?.credentials || []).slice(-1)[0]
+        if (fallback?.id) setCredentialId(fallback.id)
+      }
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('[SpaceBuilder] create credential failed', e)
@@ -420,7 +425,10 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
       const list: ProviderMeta[] = Array.isArray(d?.providers) ? d.providers : []
       setProviders(list)
       return list
-    } catch {}
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[SpaceBuilder] Failed to refresh providers:', e)
+    }
     return providers
   }
 

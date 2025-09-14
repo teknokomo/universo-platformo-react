@@ -39,7 +39,7 @@ function a11yProps(index: number) {
 const SectionDetail: React.FC = () => {
     const { sectionId, metaverseId } = useParams<{ sectionId: string; metaverseId?: string }>()
     const navigate = useNavigate()
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
 
     const { request: getSection } = useApi(sectionsApi.getSection)
     const { request: getSectionEntities } = useApi(sectionsApi.getSectionEntities)
@@ -187,7 +187,7 @@ const SectionDetail: React.FC = () => {
                             variant='outlined'
                             onClick={() => navigate(metaverseId ? `/metaverses/${metaverseId}/sections` : '/sections')}
                         >
-                            {t('entities.common.back')}
+                            {t('common.back')}
                         </Button>
                     </Stack>
                 </Stack>

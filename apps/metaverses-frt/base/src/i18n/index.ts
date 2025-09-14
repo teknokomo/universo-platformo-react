@@ -1,14 +1,14 @@
-import enEntities from './locales/en/entities.json'
-import ruEntities from './locales/ru/entities.json'
+import enMetaverses from './locales/en/metaverses.json'
+import ruMetaverses from './locales/ru/metaverses.json'
 
-// Expose the whole JSON as the "entities" namespace
+// Expose the whole JSON as the "metaverses" namespace
 export const metaversesTranslations = {
-    en: { entities: enEntities },
-    ru: { entities: ruEntities }
+    en: { metaverses: enMetaverses },
+    ru: { metaverses: ruMetaverses }
 }
 
 export function getMetaversesTranslations(language: string) {
-    return (metaversesTranslations as any)[language]?.entities || metaversesTranslations.en.entities
+    return (metaversesTranslations as any)[language]?.metaverses || metaversesTranslations.en.metaverses
 }
 
 export default metaversesTranslations

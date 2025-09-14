@@ -14,7 +14,7 @@ import { Entity } from '../types'
 const EntityDetail: React.FC = () => {
     const { entityId, metaverseId } = useParams<{ entityId: string; metaverseId?: string }>()
     const navigate = useNavigate()
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
 
     const { request: getEntity } = useApi(entitiesApi.getEntity)
 
@@ -54,7 +54,7 @@ const EntityDetail: React.FC = () => {
                             <IconArrowLeft size={16} />
                             {t('entities.title')}
                         </Link>
-                        <Typography color='text.primary'>{entity?.name || t('detail.info')}</Typography>
+                        <Typography color='text.primary'>{entity?.name || t('entities.detail.info')}</Typography>
                     </Breadcrumbs>
 
                     {isLoading ? (
