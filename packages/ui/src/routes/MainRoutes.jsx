@@ -14,11 +14,12 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
 const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseList }))))
+const MetaverseDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseDetail }))))
+const SectionDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.SectionDetail }))))
 const ClusterList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterList }))))
 const ClusterDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterDetail }))))
 const DomainDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.DomainDetail }))))
 const ResourceDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ResourceDetail }))))
-
 const EntityDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.EntityDetail }))))
 
 // Workspace dashboard component
@@ -73,6 +74,7 @@ const CurrencyList = Loadable(lazy(() => import('@apps/finance-frt/base/src/page
 
 const UniksContainer = () => <Outlet />
 const ClustersContainer = () => <Outlet />
+const MetaversesContainer = () => <Outlet />
 
 const MainRoutes = {
     path: '/',
@@ -207,11 +209,46 @@ const MainRoutes = {
         },
         {
             path: '/metaverses',
-            element: (
-                <AuthGuard>
-                    <MetaverseList />
-                </AuthGuard>
-            )
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <MetaverseList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':metaverseId',
+                    element: (
+                        <AuthGuard>
+                            <MetaversesContainer />
+                        </AuthGuard>
+                    ),
+                    children: [
+                        {
+                            index: true,
+                            element: <MetaverseDetail />
+                        },
+                        {
+                            path: 'entities',
+                            element: <MetaverseDetail />
+                        },
+                        {
+                            path: 'sections',
+                            element: <MetaverseDetail />
+                        },
+                        {
+                            path: 'sections/:sectionId',
+                            element: <SectionDetail />
+                        },
+                        {
+                            path: 'entities/:entityId',
+                            element: <EntityDetail />
+                        }
+                    ]
+                }
+            ]
         },
         {
             path: '/clusters',
@@ -252,14 +289,6 @@ const MainRoutes = {
             ]
         },
 
-        {
-            path: '/entities/:entityId',
-            element: (
-                <AuthGuard>
-                    <EntityDetail />
-                </AuthGuard>
-            )
-        },
         {
             path: '/admin',
             element: <AdminPanel />

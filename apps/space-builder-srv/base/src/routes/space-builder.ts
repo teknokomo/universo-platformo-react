@@ -135,7 +135,11 @@ router.get('/providers', async (req, res) => {
           const namesParam = credentialNames.length > 1 ? credentialNames : credentialNames[0]
           const creds = await providersDeps.listUserCredentials(unikId, namesParam)
           userCredentials = Array.isArray(creds) ? creds : []
-        } catch (_) { userCredentials = [] }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error(`[space-builder] Failed to list user credentials for unikId ${unikId}:`, e)
+          userCredentials = []
+        }
       }
 
       const mappedCreds = userCredentials.map((c: any) => ({ id: c.id, label: c.name, credentialName: c.credentialName }))

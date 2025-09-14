@@ -29,7 +29,7 @@ interface EntityDialogProps {
 }
 
 const EntityDialog: React.FC<EntityDialogProps> = ({ open, onClose, onSave, metaverseId, entity, defaultSectionId }) => {
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [selectedSectionId, setSelectedSectionId] = useState<string>('')

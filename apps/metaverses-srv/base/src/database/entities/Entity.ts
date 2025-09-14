@@ -1,7 +1,7 @@
 import { Entity as ORMEntity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
 
 // Comments in English only
-@ORMEntity({ name: 'entities', schema: 'entities' })
+@ORMEntity({ name: 'entities', schema: 'metaverses' })
 export class Entity {
     @PrimaryGeneratedColumn('uuid')
     id!: string

@@ -13,7 +13,7 @@ interface MetaverseDialogProps {
 }
 
 const MetaverseDialog: React.FC<MetaverseDialogProps> = ({ open, onClose, onSave, metaverse }) => {
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [isLoading, setLoading] = useState(false)

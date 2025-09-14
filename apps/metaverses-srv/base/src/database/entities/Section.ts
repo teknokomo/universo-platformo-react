@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
 
 // Comments in English only
-@Entity({ name: 'sections', schema: 'entities' })
+@Entity({ name: 'sections', schema: 'metaverses' })
 export class Section {
     @PrimaryGeneratedColumn('uuid')
     id!: string

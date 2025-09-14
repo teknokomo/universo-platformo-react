@@ -3,7 +3,7 @@ import { Entity } from './Entity'
 import { Metaverse } from './Metaverse'
 
 // Comments in English only
-@ORMEntity({ name: 'entities_metaverses', schema: 'entities' })
+@ORMEntity({ name: 'entities_metaverses', schema: 'metaverses' })
 export class EntityMetaverse {
     @PrimaryGeneratedColumn('uuid')
     id!: string

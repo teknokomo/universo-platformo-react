@@ -14,7 +14,7 @@ interface SectionDialogProps {
 }
 
 const SectionDialog: React.FC<SectionDialogProps> = ({ open, onClose, onSave, section, metaverseId }) => {
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [isLoading, setLoading] = useState(false)

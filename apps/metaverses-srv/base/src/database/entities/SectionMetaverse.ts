@@ -3,7 +3,7 @@ import { Section } from './Section'
 import { Metaverse } from './Metaverse'
 
 // Comments in English only
-@Entity({ name: 'sections_metaverses', schema: 'entities' })
+@Entity({ name: 'sections_metaverses', schema: 'metaverses' })
 export class SectionMetaverse {
     @PrimaryGeneratedColumn('uuid')
     id!: string

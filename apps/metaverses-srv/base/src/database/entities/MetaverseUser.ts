@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm'
 import { Metaverse } from './Metaverse'
 
-@Entity({ name: 'metaverses_users', schema: 'entities' })
+@Entity({ name: 'metaverses_users', schema: 'metaverses' })
 export class MetaverseUser {
     @PrimaryGeneratedColumn('uuid')
     id!: string

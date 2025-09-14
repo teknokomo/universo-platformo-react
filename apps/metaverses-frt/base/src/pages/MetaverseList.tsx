@@ -23,7 +23,7 @@ import MetaverseDialog from './MetaverseDialog'
 const MetaverseList = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation('entities')
+    const { t } = useTranslation('metaverses')
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [search, setSearch] = useState('')
     const [view, setView] = useState(localStorage.getItem('entitiesMetaverseDisplayStyle') || 'card')
