@@ -72,7 +72,7 @@ const createApiKey = async (req: Request, res: Response, next: NextFunction) => 
 // Update api key
 const updateApiKey = async (req: Request, res: Response, next: NextFunction) => {
     try {
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.updateApiKey - unikId not provided!`)
         }
