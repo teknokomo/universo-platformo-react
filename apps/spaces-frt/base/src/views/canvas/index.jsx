@@ -375,7 +375,7 @@ const Canvas = () => {
 
             const parentId = localStorage.getItem('parentUnikId') || unikId
             if (parentId) {
-                window.open(`${uiBaseURL}/uniks/${parentId}/spaces/new`, '_blank', 'noopener')
+                window.open(`${uiBaseURL}/unik/${parentId}/spaces/new`, '_blank', 'noopener')
             } else {
                 // Fallback: open generic new; consumer will still try to read duplicatedFlowData
                 window.open(`${uiBaseURL}/spaces/new`, '_blank', 'noopener')
@@ -436,8 +436,8 @@ const Canvas = () => {
 
                 // Consider the type of canvas when redirecting after deletion
                 const redirectPath = isAgentCanvas
-                    ? `/uniks/${parentUnikId}/agentflows`
-                    : `/uniks/${parentUnikId}/spaces`;
+                    ? `/unik/${parentUnikId}/agentflows`
+                    : `/unik/${parentUnikId}/spaces`;
                 navigate(redirectPath)
             } catch (error) {
                 enqueueSnackbar({
@@ -707,8 +707,8 @@ const Canvas = () => {
             saveChatflowSuccess()
             // Consider the type of canvas when redirecting
             const redirectPath = isAgentCanvas
-                ? `/uniks/${parentUnikId}/agentcanvas/${chatflow.id}`
-                : `/uniks/${parentUnikId}/space/${chatflow.id}`;
+                ? `/unik/${parentUnikId}/agentcanvas/${chatflow.id}`
+                : `/unik/${parentUnikId}/space/${chatflow.id}`;
             navigate(redirectPath, { replace: true })
         } else if (createNewChatflowApi.error) {
             errorFailed(

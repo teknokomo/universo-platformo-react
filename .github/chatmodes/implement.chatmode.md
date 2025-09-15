@@ -1,6 +1,6 @@
 ---
 description: 'This mode turns the approved plan into working code and updates the task checklist accordingly'
-tools: ['codebase', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'terminalSelection', 'terminalLastCommand', 'openSimpleBrowser', 'fetch', 'findTestFiles', 'searchResults', 'githubRepo', 'editFiles', 'runNotebooks', 'search', 'runCommands', 'runTasks']
+tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery']
 ---
 This mode turns the approved plan into working code and updates the task checklist accordingly.  
 Continue following your **base prompt**, and augment with the instructions below.

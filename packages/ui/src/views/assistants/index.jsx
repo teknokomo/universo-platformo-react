@@ -67,8 +67,8 @@ const FeatureCards = () => {
     const customization = useSelector((state) => state.customization)
 
     const onCardClick = (index) => {
-        if (index === 0) navigate(`/uniks/${unikId}/assistants/custom`)
-        if (index === 1) navigate(`/uniks/${unikId}/assistants/openai`)
+        if (index === 0) navigate(`/unik/${unikId}/assistants/custom`)
+        if (index === 1) navigate(`/unik/${unikId}/assistants/openai`)
         if (index === 2) alert(t('assistants.underDevelopment'))
     }
 

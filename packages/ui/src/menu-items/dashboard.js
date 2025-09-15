@@ -47,7 +47,7 @@ const dashboard = {
             id: 'docs',
             title: 'menu.docs',
             type: 'item',
-            url: 'https://docs.universo.pro',
+            url: 'https://teknokomo.gitbook.io/up',
             icon: icons.IconFileText,
             breadcrumbs: false,
             external: true,

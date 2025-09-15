@@ -76,7 +76,7 @@ const Documents = () => {
     }
 
     const goToDocumentStore = (id) => {
-        navigate(`/uniks/${unikId}/document-stores/${id}`)
+        navigate(`/unik/${unikId}/document-stores/${id}`)
     }
 
     const addNew = () => {

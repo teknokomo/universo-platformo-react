@@ -11,7 +11,7 @@ const UnikDetail = () => {
     const [unik, setUnik] = useState(null)
 
     useEffect(() => {
-        api.get(`/uniks/${unikId}`)
+        api.get(`/unik/${unikId}`)
             .then((res) => setUnik(res.data))
             .catch((err) => console.error('Error loading Unik:', err))
     }, [unikId])
@@ -32,13 +32,13 @@ const UnikDetail = () => {
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                 <Button
                     variant='outlined'
-                    onClick={() => navigate(`/uniks/${unikId}/finance/accounts`)}
+                    onClick={() => navigate(`/unik/${unikId}/finance/accounts`)}
                 >
                     {t('unikDetail.manageAccounts')}
                 </Button>
                 <Button
                     variant='outlined'
-                    onClick={() => navigate(`/uniks/${unikId}/finance/currencies`)}
+                    onClick={() => navigate(`/unik/${unikId}/finance/currencies`)}
                 >
                     {t('unikDetail.manageCurrencies')}
                 </Button>

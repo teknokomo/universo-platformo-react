@@ -57,7 +57,7 @@ const CustomAssistantLayout = () => {
 
     const onConfirm = (assistantId) => {
         setShowDialog(false)
-        navigate(`/uniks/${unikId}/assistants/custom/${assistantId}`)
+        navigate(`/unik/${unikId}/assistants/custom/${assistantId}`)
     }
 
     function filterAssistants(data) {
@@ -146,7 +146,7 @@ const CustomAssistantLayout = () => {
                                                     }}
                                                     images={getImages(parsedDetails)}
                                                     key={index}
-                                                    onClick={() => navigate(`/uniks/${unikId}/assistants/custom/${data.id}`)}
+                                                    onClick={() => navigate(`/unik/${unikId}/assistants/custom/${data.id}`)}
                                                 />
                                             );
                                         } catch (error) {

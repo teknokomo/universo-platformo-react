@@ -113,7 +113,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     useEffect(() => {
         if (navType === 'MENU') {
             // Check if the current path is the Unik dashboard
-            const isUnikDashboard = /^\/uniks\/[^\/]+$/.test(location.pathname)
+            const isUnikDashboard = /^\/unik\/[^\/]+$/.test(location.pathname)
 
             // If this is a Unique dashboard and the current menu item is dashboard, activate it
             if (isUnikDashboard && item.id === 'dashboard') {

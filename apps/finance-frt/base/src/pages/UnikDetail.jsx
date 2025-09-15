@@ -11,7 +11,7 @@ const UnikDetail = () => {
     const [unik, setUnik] = useState(null)
 
     useEffect(() => {
-        api.get(`/uniks/${unikId}`)
+        api.get(`/unik/${unikId}`)
             .then((res) => setUnik(res.data))
             .catch((err) => console.error('Error loading Unik:', err))
     }, [unikId])

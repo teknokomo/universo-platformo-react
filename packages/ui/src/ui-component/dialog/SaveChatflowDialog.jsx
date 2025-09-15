@@ -10,7 +10,7 @@ const SaveChatflowDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
     const { t } = useTranslation()
 
-    const [chatflowName, setChatflowName] = useState('')
+    const [chatflowName, setChatflowName] = useState(dialogProps.initialValue || '')
     const [isReadyToSave, setIsReadyToSave] = useState(false)
 
     useEffect(() => {
@@ -39,7 +39,7 @@ const SaveChatflowDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                     id='chatflow-name'
                     type='text'
                     fullWidth
-                    placeholder={dialogProps.placeholder || t('dialog.saveChatflow.placeholder')}
+                    placeholder={dialogProps.initialValue ? '' : dialogProps.placeholder || t('dialog.saveChatflow.placeholder')}
                     value={chatflowName}
                     onChange={(e) => setChatflowName(e.target.value)}
                     onKeyDown={(e) => {

@@ -24,7 +24,7 @@ import api from '../../../../../packages/ui/src/api'
 const uniksApi = {
     getAllUniks: () => api.get('/uniks'),
     createUnik: (data) => api.post('/uniks', data),
-    updateUnik: (id, data) => api.put(`/uniks/${id}`, data)
+    updateUnik: (id, data) => api.put(`/unik/${id}`, data)
 }
 
 // Hooks
@@ -91,7 +91,7 @@ const UnikList = () => {
     }
 
     const goToUnik = (unik) => {
-        navigate(`/uniks/${unik.id}`)
+        navigate(`/unik/${unik.id}`)
     }
 
     useEffect(() => {

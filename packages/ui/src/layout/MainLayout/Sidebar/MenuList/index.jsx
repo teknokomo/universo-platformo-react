@@ -8,20 +8,20 @@ import { metaversesDashboard } from '@universo/metaverses-frt'
 
 const MenuList = () => {
     const location = useLocation()
-    const unikMatch = location.pathname.match(/^\/uniks\/([^/]+)/)
+    const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const clusterMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
 
     let menuItems
     if (unikMatch) {
         const unikId = unikMatch[1]
-        // Universo Platformo | Update the links of each unikDashboard menu item, adding the prefix /uniks/{unikId}
+        // Universo Platformo | Update the links of each unikDashboard menu item, adding the prefix /unik/{unikId}
         menuItems = {
             ...unikDashboard,
             children: unikDashboard.children.map((item) => ({
                 ...item,
                 // Universo Platformo | Assume that links in unikDashboard.js start with '/' (e.g., '/chatflows')
-                url: `/uniks/${unikId}${item.url}`
+                url: `/unik/${unikId}${item.url}`
             }))
         }
     } else if (clusterMatch) {

@@ -5,7 +5,7 @@ const Spaces = lazy(() => import('../views/spaces'))
 const Canvas = lazy(() => import('../views/canvas'))
 
 export const spacesRoutes = {
-  path: '/uniks/:unikId',
+  path: '/unik/:unikId',
   children: [
     { path: 'spaces', element: <Spaces /> },
     { path: 'spaces/new', element: <Canvas /> },

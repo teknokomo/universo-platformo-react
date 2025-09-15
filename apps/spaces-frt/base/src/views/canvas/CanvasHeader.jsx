@@ -72,14 +72,28 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
     const deleteSpaceApi = useApi(spacesApi.deleteSpace)
     const canvas = useSelector((state) => state.canvas)
 
+    // Helper: extract unikId from current location path (supports new singular '/unik/:unikId/...')
+    const extractUnikId = () => {
+        const segments = location.pathname.split('/').filter(Boolean)
+        const singularIndex = segments.indexOf('unik')
+        if (singularIndex !== -1 && singularIndex + 1 < segments.length) return segments[singularIndex + 1]
+        // Legacy fallback (older plural pattern) just in case something still links that way
+        const legacyIndex = segments.indexOf('uniks')
+        if (legacyIndex !== -1 && legacyIndex + 1 < segments.length) return segments[legacyIndex + 1]
+        // Fallback to chatflow unik id if available
+        if (chatflow?.unik_id) return chatflow.unik_id
+        // Or last stored parentUnikId
+        const stored = localStorage.getItem('parentUnikId')
+        return stored || ''
+    }
+    // TODO: Persist and restore last visited sub-view (e.g. filters/tabs) of Spaces or Agentflows list when navigating back.
+
     const onSettingsItemClick = (setting) => {
         setSettingsOpen(false)
 
         if (setting === 'deleteSpace' && !isAgentCanvas) {
             // Подтверждение удаления пространства целиком
-            const pathParts = location.pathname.split('/')
-            const unikIdIndex = pathParts.indexOf('uniks') + 1
-            const currentUnikId = unikIdIndex > 0 && unikIdIndex < pathParts.length ? pathParts[unikIdIndex] : ''
+            const currentUnikId = extractUnikId()
 
             const title = t('confirmDeleteSpaceTitle', 'Delete Space')
             const description = t('confirmDeleteSpaceDescription', 'This will delete the space and all its canvases. This action cannot be undone.')
@@ -89,7 +103,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 deleteSpaceApi
                     .request(currentUnikId, String(spaceId))
                     .then(() => {
-                        navigate(`/uniks/${currentUnikId}/spaces`)
+                        navigate(`/unik/${currentUnikId}/spaces`)
                     })
                     .catch((error) => {
                         enqueueSnackbar({
@@ -155,9 +169,7 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
             }
 
             // Get unikId from URL using useLocation hook
-            const pathParts = location.pathname.split('/')
-            const unikIdIndex = pathParts.indexOf('uniks') + 1
-            const currentUnikId = unikIdIndex > 0 && unikIdIndex < pathParts.length ? pathParts[unikIdIndex] : ''
+            const currentUnikId = extractUnikId()
 
             setExportAsTemplateDialogProps({
                 title: 'Export As Template',
@@ -186,9 +198,8 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 flowData = JSON.stringify(parsedFlowData)
                 localStorage.setItem('duplicatedFlowData', flowData)
 
-                const parentUnikId = localStorage.getItem('parentUnikId')
-
-                window.open(`${uiBaseURL}/uniks/${parentUnikId}/${isAgentCanvas ? 'agentcanvas' : 'chatflows'}/new`, '_blank')
+                const parentUnikId = extractUnikId()
+                window.open(`${uiBaseURL}/unik/${parentUnikId}/${isAgentCanvas ? 'agentcanvas' : 'chatflows'}/new`, '_blank')
             } catch (e) {
                 console.error(e)
             }
@@ -347,20 +358,11 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                                     // Determine the type of canvas based on the path
                                     const isAgentCanvasUrl = currentPath.includes('/agentcanvas')
 
-                                    // Extract unikId from URL
-                                    const pathParts = currentPath.split('/')
-                                    const unikIdIndex = pathParts.indexOf('uniks') + 1
-
-                                    if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
-                                        const unikId = pathParts[unikIdIndex]
-                                        // Redirect to the corresponding list based on URL
-                                        const targetPath = isAgentCanvasUrl ? `/uniks/${unikId}/agentflows` : `/uniks/${unikId}/spaces`
-
+                                    const unikId = extractUnikId()
+                                    if (unikId) {
+                                        const targetPath = isAgentCanvasUrl ? `/unik/${unikId}/agentflows` : `/unik/${unikId}/spaces`
                                         navigate(targetPath)
-                                    } else {
-                                        // If we couldn't extract unikId, redirect to the main page
-                                        navigate('/', { replace: true })
-                                    }
+                                    } else navigate('/', { replace: true })
                                 }}
                             >
                                 <IconChevronLeft stroke={1.5} size='1.3rem' />

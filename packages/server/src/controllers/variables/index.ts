@@ -48,8 +48,8 @@ const createVariable = async (req: Request, res: Response, next: NextFunction) =
 
 const deleteVariable = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: variablesController.deleteVariable - id not provided!')
+        if (typeof req.params === 'undefined' || !req.params.unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: variablesController.deleteVariable - unikId not provided!')
         }
         const unikId = req.params.unikId as string
         if (!unikId) {
@@ -115,8 +115,8 @@ const getAllVariables = async (req: Request, res: Response, next: NextFunction) 
 
 const getVariableById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: variablesController.getVariableById - id not provided!')
+        if (typeof req.params === 'undefined' || !req.params.unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: variablesController.getVariableById - unikId not provided!')
         }
         const unikId = req.params.unikId as string
         if (!unikId) {
@@ -150,8 +150,8 @@ const getVariableById = async (req: Request, res: Response, next: NextFunction) 
 
 const updateVariable = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: variablesController.updateVariable - id not provided!')
+        if (typeof req.params === 'undefined' || !req.params.unikId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Error: variablesController.updateVariable - unikId not provided!')
         }
         if (typeof req.body === 'undefined') {
             throw new InternalFlowiseError(

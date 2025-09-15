@@ -1,571 +1,365 @@
+
+# API Endpoint Consistency Implementation Tasks
+
+## Objective
+Implement singular routing pattern for individual Unik operations in API endpoints to match frontend navigation consistency.
+
+## Tasks
+
+### Backend API Restructuring
+- [x] Split uniksRoutes.ts into two routers: collection and individual operations
+- [x] Create separate router for individual Unik operations (GET, PUT, DELETE /:id)
+- [x] Mount individual operations router at /unik in main routes/index.ts
+- [x] Keep list operations (GET /, POST /) at /uniks for collection semantics
+- [x] Update API path mappings to maintain backwards compatibility where needed
+
+### Frontend API Call Updates  
+- [x] Update SpaceBuilderDialog.tsx to use singular /api/v1/unik/ pattern for individual operations
+- [x] Scan for other frontend API calls to individual Unik endpoints
+- [x] Update any remaining /api/v1/uniks/:id pattern usage to /api/v1/unik/:id
+
+### Testing and Validation
+- [x] Build and test backend changes to ensure API routes work correctly
+- [x] Verify frontend can successfully call updated individual Unik endpoints
+- [x] Ensure list operations still function at /api/v1/uniks/
+- [x] Test full flow: list Uniks, navigate to individual Unik, perform operations
+
+### Bug Fix - unikId Parameter Issue (2025-10-15)
+- [x] Identify root cause: parameter name mismatch between new routing (:id) and existing controllers (unikId)
+- [x] Add parameter transformation middleware to convert id to unikId in nested routes
+- [x] Fix router mounting order to prevent route conflicts between nested and individual operations
+
+### Parameter Unification Implementation (2025-10-15)
+- [x] Replace all /:id with /:unikId in backend nested routes (11 routes updated)
+- [x] Remove middleware transformation layer that mapped id to unikId
+- [x] Update all controllers to use direct req.params.unikId access (removed fallback patterns)
+- [x] Validate compilation and build process passes without errors
+- [x] Update API documentation to reflect unified parameter naming approach
+- [x] Update progress tracking with completion milestone
+- [x] Add route skipping middleware in individual router to avoid nested path conflicts
+- [x] Build and verify fixes resolve "unikId not provided" errors in nested resources
+
+### Documentation Updates
+- [x] Update API documentation to reflect new routing patterns (EN/RU api-reference README updated with /unik vs /uniks section, fallback explanation)
+- [x] Update any code comments / system patterns referring to old API paths (systemPatterns.md adjusted, legacy path marked)
+
 # Task Tracking
 
 **Project**: Universo Platformo (v0.29.0-alpha, Alpha achieved)
 **Current Focus**: Fix metaverses localization button keys display issue
 
+## New Task - Flow List i18n (2025-09-15)
+
+Internationalize shared Flow List (table + menu) without polluting root translation files.
+
+### Subtasks
+- [x] Create namespace files `flowList.json` (EN/RU)
+- [x] Register `flowList` namespace in `i18n/index.js`
+- [x] Refactor `FlowListMenu.jsx` to use translations
+- [x] Refactor `FlowListTable.jsx` to use translations
+- [x] Add plural keys (en/ru) & fix usage in `FlowListTable.jsx`
+- [x] Add date formatting utility skeleton `formatDate.js`
+- [x] Introduce action types `entityActions.ts`
+- [x] Add `BaseEntityMenu.tsx` skeleton (not yet integrated)
+
+## Fix - Spaces Canvas Back Navigation (2025-09-15)
+
+Issue: Clicking the back (exit) icon in a Space canvas redirected to root `/` (Uniks list) instead of the current Unik's Spaces list after migration to singular route pattern.
+
+Root Cause: `CanvasHeader.jsx` still parsed legacy segment `'uniks'` to extract `unikId`. With new routes using `/unik/:unikId/...`, extraction failed and fallback navigated to `/`.
+
+Resolution:
+- Added helper `extractUnikId()` in `CanvasHeader.jsx` to support both new `unik` and legacy `uniks` path segments, plus fallbacks (chatflow.unik_id, localStorage `parentUnikId`).
+- Updated back button handler and settings actions (delete space, export as template, duplicate) to use the helper.
+- Ensures proper navigation to `/unik/{unikId}/spaces` (or `/unik/{unikId}/agentflows` for agent canvases).
+
+Status: ✅ Implemented & built (spaces-frt + ui).
+
+Follow-ups (optional):
+- Add integration test around navigation helper.
+- Persist last visited tab or filter state when returning to list (TODO candidate).
+
+### Notes
+- Reused cancel button key from confirm.delete.cancel to avoid duplicate generic button keys.
+- Entity dynamic label resolved via `entities.chatflow` / `entities.agent`.
+- Export filename uses localized entity suffix.
+
+
 ## Active Task - Fix Metaverses Localization Button Keys (2025-01-13)
 
-### Implementation Plan:
-- [x] Compare button localization patterns between metaverses-frt and resources-frt
-- [x] Identify missing or incorrect translation keys for buttons in metaverses components
-- [x] Fix button translation keys to match working resources-frt implementation
-- [x] Test button text display to verify language keys are replaced with proper translations
-- [ ] Validate complete metaverses UI functionality after fixes
+Fix translation keys across metaverses components to match resources-frt patterns.
 
-### Summary of Fixes Applied:
-1. Fixed "Back" button in MetaverseDetail.tsx: `metaverses.entities.common.back` → `common.back`
-2. Fixed "Back" button in SectionDetail.tsx: `metaverses.entities.common.back` → `common.back`
-3. Fixed EntityDetail.tsx namespace: `metaverses.entities.title` → `entities.title`, `detail.info` → `entities.detail.info`
-4. Fixed EntityDialog.tsx namespace: `metaverses.entities.*` → `entities.*`
-5. Fixed button text keys in MetaverseDetail.tsx: `metaverses.entities.list.*` → `entities.list.*`
-6. Fixed button text keys in SectionDetail.tsx: `metaverses.entities.list.*` → `entities.list.*`
+- [x] Compare localization patterns between metaverses-frt and resources-frt
+- [x] Fix translation keys in 6 components (MetaverseDetail, SectionDetail, EntityDetail, EntityDialog)
+- [x] Test button text display for proper translations
+- [ ] Validate complete metaverses UI functionality
 
-All translation keys now correctly reference the existing localization structure in `metaverses.json` files.
+**Fixes Applied:** Changed `metaverses.entities.*` → `entities.*` and `metaverses.entities.common.back` → `common.back` across components.
 
-## Completed - Chatflow to Spaces UI Fixes (2025-01-04)
-
-### Phase 1: Fix Canvas Tabs Display for Unsaved Spaces
-
--   [x] Update conditional rendering logic in canvas/index.jsx
--   [x] Add showTabsForNewSpace state management
--   [x] Create temporary canvas array for new spaces
--   [ ] Test tabs appearance after first save
-
-### Phase 2: Replace Remaining "Chatflow" Terminology
-
--   [x] Update default name from "Untitled Chatflow" to "Untitled Space"
--   [x] Add new translation keys for dynamic save messages
--   [x] Update save success notifications to use correct terminology
--   [ ] Verify all UI text uses Space/Canvas terms
-
-### Phase 3: Fix Header Display Logic
-
--   [x] Update CanvasHeader to show Space name in main title
--   [x] Add Space data props to CanvasHeader component
--   [x] Implement Space name fetching in canvas/index.jsx
--   [ ] Test header display for both saved and unsaved spaces
-
-### Phase 4: Filter Canvas from Spaces List
-
--   [x] Create new spaces.js API file
--   [x] Implement getAllSpaces endpoint call
--   [x] Update spaces/index.jsx to use Spaces API
--   [ ] Test that only Spaces appear in list, not individual Canvas
-
-### Phase 5: UX Improvements
-
--   [ ] Add loading indicators for tab operations
--   [ ] Improve error messages with specific types
--   [ ] Test complete user flow
-
-## Completed Tasks (2025-09-10)
-
-### Resources Applications Cluster Isolation Refactoring
-
--   [x] Implement three-tier architecture (Clusters → Domains → Resources) with complete data isolation
--   [x] Create junction tables with CASCADE delete and UNIQUE constraints for data integrity
--   [x] Add cluster-scoped API endpoints with mandatory association validation
--   [x] Implement idempotent relationship management for safe operations
--   [x] Add frontend validation with Material-UI required field patterns
--   [x] Fix domain selection in ResourceDialog to show only cluster domains
--   [x] Remove empty options from required select fields
--   [x] Fix double asterisk display issue in required field labels
--   [x] Update comprehensive English and Russian README files for both applications
--   [x] Document architectural decisions and patterns in memory bank
-
-## New Tasks (2025-08-31)
-
--   [x] Enforce topological build order via workspace deps in `flowise-ui` (deps on `@universo/template-quiz`, `@universo/template-mmoomm`, `publish-frt`).
--   [x] Remove circular dependency from `apps/finance-frt` to `flowise-ui`.
--   [x] Unify i18n to TypeScript in `template-quiz`, `template-mmoomm`, and `publish-frt`.
--   [x] Validate `exports` and `dist` artifacts (CJS/ESM/types) for template packages.
--   [x] Ensure `publish-frt` tsconfig paths reference template `dist/index.d.ts`.
--   [ ] Docs (EN/RU): add Finance apps docs and link them in SUMMARY.
--   [ ] Docs (EN/RU): add "Creating New Apps/Packages" guide (imports, dual build, TypeORM, i18n TS, Turborepo order, avoiding cycles).
--   [ ] Docs: connect missing `tasks-registry.md` into EN/RU SUMMARY.
-
-## Spaces + Canvases Refactor (2025-09-07)
-
-- [x] Prevent legacy Chatflow effects from overwriting Canvas in Spaces mode (guards by spaceId)
-- [x] Improve Canvas Tabs UX (inactive border, 3px lift, spinner left, place create button after tabs, smaller size/colors)
-- [x] Add local Axios client in `apps/spaces-frt` and switch `spaces.js`/`canvases.js`
-- [x] Add local `useApi` and copy/adapt `useCanvases` in `apps/spaces-frt`
-- [x] Load Spaces list from `apps/spaces-frt` in UI MainRoutes; restore Canvas routes under MinimalLayout via `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx`; wire in `packages/ui/src/routes/index.jsx`
-- [x] Remove unused Flowise UI files (`packages/ui/src/components/*`, `views/spaces`, `api/{canvases,spaces}.js`, `hooks/useCanvases.js`)
-- [x] Replace remaining `@/...` imports in spaces‑frt with relative paths (fix Vite alias collisions)
-- [ ] Migrate minimal UI wrappers used by spaces-frt (MainCard, FlowListTable, ViewHeader, StyledButton, ErrorBoundary) into `apps/spaces-frt/src/ui/` and replace imports
-- [ ] Move repeated component styles to theme overrides (Tabs/IconButton)
-- [ ] Remove remaining unused Flowise UI pieces and update docs/SUMMARY
-
-## Recently Completed Major Tasks
-
-### Template Package Modularization (2025-08-30)
-
-**Status**: ✅ **COMPLETED** - Complete architectural refactoring achieved
-**Type**: Level 4 (Major/Complex) - Platform Architecture Overhaul
-**Priority**: High - Foundation for scalable template system
-
-#### Completed Tasks:
-
-1. **✅ Shared Packages Creation**
-
-    - [x] Created `@universo-platformo/types` with complete UPDL interfaces and platform types
-    - [x] Created `@universo-platformo/utils` with UPDLProcessor and common utilities
-    - [x] Implemented dual build system (CJS + ESM + Types) for maximum compatibility
-
-2. **✅ Template Package Extraction**
-
-    - [x] Extracted AR.js Quiz functionality to `@universo/template-quiz`
-    - [x] Extracted PlayCanvas MMOOMM functionality to `@universo/template-mmoomm`
-    - [x] Implemented modular handler system (DataHandler, ObjectHandler, etc.)
-
-3. **✅ Template Registry System**
-
-    - [x] Created dynamic template loading with TemplateRegistry
-    - [x] Implemented template registration and builder creation
-    - [x] Updated publish-frt to use template packages
-
-4. **✅ Documentation and Build System**
-
-    - [x] Created comprehensive English and Russian documentation
-    - [x] Updated all README files with new package information
-    - [x] Standardized build system across all packages
-
-5. **✅ Bug Fixes and Optimization**
-    - [x] Fixed ship duplication in MMOOMM multi-scene processing
-    - [x] Reduced excessive logging in AR.js Quiz (75-90% reduction)
-    - [x] Cleaned up build artifacts from source directories
-
-### MMOOMM Template Refactoring - Critical Architecture Issues (2025-08-14)
-
-**Status**: ✅ **COMPLETED** - Critical fixes implemented + modular package created
-**Type**: Level 3 (Intermediate Feature) - Architectural Refactoring
-**Priority**: Critical - Current multiplayer code has JS errors + 1340-line monolith
-
-#### Critical Issues Fixed:
-
-1. **Colyseus Client API Errors** ✅ **FIXED**
-
-    - ✅ Fixed: `Colyseus.getStateCallbacks(room)` replaced with correct `room.state.players.onAdd/onChange/onRemove`
-    - ✅ Fixed: Hardcoded `ws://localhost:2567` replaced with environment-aware connection
-    - ✅ Fixed: Added proper logging and error handling for multiplayer connections
-
-2. **Monolithic Builder Architecture** 📦 **PARTIALLY ADDRESSED**
-
-    - ✅ Created: `@universo/template-mmoomm` standalone package (successfully builds)
-    - ✅ Extracted: All MMOOMM handlers, scripts, and build systems into modular package
-    - ⚠️ Deferred: Full integration back into publish-frt (architecture complexity)
-
-3. **Template Extraction** ✅ **COMPLETED**
-    - ✅ Created: `apps/template-mmoomm/base` workspace package with complete functionality
-    - ✅ Fixed: All import paths and TypeScript compilation issues
-    - ✅ Verified: Successful build and modular architecture
-
-#### Implementation Results:
-
-**Phase 0: Critical Bug Fixes** ✅ **COMPLETED**
-
--   [x] Fix Colyseus 0.16.x client API usage (room.state events)
--   [x] Fix hardcoded connection URLs to use environment variables
--   [x] Test and verify multiplayer connection stability
--   [x] Add proper error handling and connection logging
-
-**Phase 1: Template Package Extraction** ✅ **COMPLETED**
-
--   [x] Create `apps/template-mmoomm/base` workspace package
--   [x] Copy existing MMOOMM handlers and files with minimal changes
--   [x] Update imports and exports for standalone package
--   [x] Fix all import paths and dependencies
--   [x] Verify successful build of template-mmoomm package
--   [x] Verify `publish-frt` integration with `@universo/template-mmoomm`
-    -   ✅ Integration confirmed: `publish-frt` imports `@universo/template-mmoomm` and uses it for MMOOMM functionality
-    -   ✅ Package structure includes PlayCanvas builders, handlers, multiplayer support, generators, and utilities
-    -   ✅ Dual CJS/ESM build system implemented with proper TypeScript exports
-    -   ✅ Backward compatibility maintained with existing publish-frt functionality
-
-**Phase 2: Builder Refactoring** 📋 **PLANNED FOR FUTURE**
-
--   [x] Keep existing publish-frt architecture working
--   [ ] **Future**: Integrate template-mmoomm package back with proper interface adapters
--   [ ] **Future**: Implement clean separation between SP/MP generation logic
--   [ ] **Future**: Reduce main builder complexity using template delegation pattern
-
-#### **RESOLUTION**:
-
-✅ **Critical multiplayer bugs fixed** - Colyseus 0.16.x API compatibility restored  
-✅ **Modular architecture created** - Template functionality extracted to standalone package  
-✅ **Build stability maintained** - All packages compile successfully  
-📋 **Future refactoring prepared** - Foundation laid for full modular integration
-
-**Next Steps for Future Iterations:**
-
--   Design proper interface adapters between `BaseBuilder` and `AbstractTemplateBuilder` architectures
--   Implement incremental migration strategy for template package integration
--   Create builder delegation pattern to reduce monolithic builder complexity
+## Active Issues
 
 ### Metaverse Integration Issues (2025-08-14)
 
-**Status**: 🔍 VAN Analysis In Progress
-**Type**: Level 2 (Simple Enhancement) - Integration Fix
-**Urgency**: High - Core functionality missing
+**Status**: 🔍 Analysis In Progress | **Type**: Level 2 Integration Fix | **Urgency**: High
 
 #### Issues Identified:
 
 1. **Missing Metaverse Menu Item**
-
-    - ✅ Analysis: Metaverse functionality works at `/metaverses` but missing from main menu
-    - ✅ Root Cause: `unikDashboard.js` does not include metaverse menu item between "Уники" and "Профиль"
-    - 📍 Location: `apps/uniks-frt/base/src/menu-items/unikDashboard.js` (lines 13-47)
-    - 📍 Integration Point: `packages/ui/src/layout/MainLayout/Sidebar/MenuList/index.jsx` (line 5)
+   - [x] Analysis: Metaverse functionality works at `/metaverses` but missing from main menu
+   - [x] Root Cause: `unikDashboard.js` does not include metaverse menu item between "Уники" and "Профиль"
+   - [ ] Add metaverse menu item to `apps/uniks-frt/base/src/menu-items/unikDashboard.js`
+   - [ ] Add appropriate icon import for metaverse
 
 2. **Profile Migration Trigger Conflict**
-    - ✅ Analysis: Migration `AddProfile1741277504477` fails with trigger already exists error
-    - ✅ Root Cause: `create_profile_trigger` already exists in Supabase database
-    - 📍 Location: `apps/profile-srv/base/src/database/migrations/postgres/1741277504477-AddProfile.ts` (line 110)
-    - 📍 Error: `trigger "create_profile_trigger" for relation "users" already exists`
-
-#### Architecture Analysis:
-
-**Menu System Pattern:**
-
--   ✅ `unikDashboard.js` defines menu structure for workspace context
--   ✅ `MenuList/index.jsx` handles context switching between workspace and main menus
--   ✅ Route integration already exists: `MetaverseList` imported in `MainRoutes.jsx` (line 16)
--   ⚠️ Missing: Menu item in `unikDashboard.js` array
-
-**Migration System Pattern:**
-
--   ✅ Profile migrations aggregated in `packages/server/src/database/migrations/postgres/index.ts` (line 67)
--   ✅ Migration uses `IF NOT EXISTS` for tables but not for triggers/functions
--   ⚠️ Database state inconsistent: tables dropped but triggers remain
-
-#### Next Steps:
-
--   [ ] Add metaverse menu item to `unikDashboard.js`
--   [ ] Add appropriate icon import for metaverse
--   [ ] Fix migration to handle existing triggers gracefully
--   [ ] Test full integration after fixes
-
-## Current Implementation Tasks
-
-### Core Platform Packages (Phase 2)
-
--   [x] Create `@universo-platformo/types` — core ECS/networking types package created; docs synced (EN/RU); build green
-    -   Note: Path `apps/universo-platformo-types/base`; exports from `src/index.ts` to `dist/`
--   [x] Create `@universo-platformo/utils` — validators (Zod), ECS deltas, serialization, time sync; docs EN/RU; integrated into `@universo/publish-srv` (safe JSON parsing)
-
-### Metaverse — Backend + Frontend MVP
-
--   [x] Backend: create `@universo/metaverse-srv` with Express router `/api/v1/metaverses` (list by membership, create), `ensureAuth`, per-request Supabase client (Authorization header), Zod validation, and rate-limit
--   [x] Database: TypeORM migrations creating schema `"metaverse"`, tables (`metaverses`, `user_metaverses`, `metaverse_links`), indexes (`uq_user_default_metaverse`, `uq_links`, etc.), and strict RLS policies (owner-only modify; public visibility read)
--   [x] Server Integration: mount router in `packages/server/src/routes/index.ts`; aggregate migrations in `packages/server/src/database/migrations/postgres/index.ts`
--   [x] Frontend: create `@universo/metaverse-frt` with `MetaverseList.jsx` (list/search/create), register i18n bundle, add left menu item and route `/metaverses`, dual build (CJS/ESM) with gulp assets copy
--   [x] Build: full monorepo build green
--   [ ] Migrations: run Postgres migrations on Supabase (UP-test), verify RLS behavior with JWT
--   [ ] Backend endpoints: update/delete/get-by-id; toggle default (unique per user); membership CRUD (invite/remove/update role); links CRUD (create/delete) with RLS checks
--   [ ] Frontend UI: membership management (roles), default toggle, link editor (create/remove/visualize)
--   [ ] Documentation: complete `docs/en|ru/applications/metaverse/metaverse-(frt|srv).md` with architecture and usage
--   [ ] QA: rate-limit tuning, error handling, i18n keys review, pagination and server-side search, basic tests
--   [ ] Security: ensure no PII logs, per-request Supabase header, `auth.uid()` in policies, enforced `schema('metaverse')`
-
-### Space Builder — Test Mode Stabilization (Multi‑provider)
-
--   [x] Server: Implement `/config` → `{ testMode, disableUserCredentials, items[] }` (auth, no defaults)
--   [x] Server: Collect test providers from env (ENABLE\__, _\_TEST_MODEL/API_KEY/BASE_URL, headers), OpenAI‑compatible client
--   [x] Server: Enforce `SPACE_BUILDER_DISABLE_USER_CREDENTIALS` and legacy `groq_test` only when fully configured
--   [x] Frontend: Read `/config` with Authorization; retry on 401; build test options list
--   [x] Frontend: Enforce test‑only selection when credentials disabled; hide credentials from dropdown in this mode
--   [x] Frontend: Deduplicate model list by label when mixing test and credential models
--   [x] Docs: Update EN/RU docs in `docs/en|ru/applications/space-builder/README.md`; sync app READMEs (frt/srv)
--   [ ] Follow‑up: Credentials selection stabilization for non‑test mode (reliability and UX)
-
-### AR.js Wallpaper Mode (Markerless)
-
--   [x] UI: Add `AR Display Type` selector (default wallpaper) and `Wallpaper type` selector; hide marker controls when wallpaper
--   [x] Persistence: Save `arDisplayType`/`wallpaperType` to `chatbotConfig.arjs`; include in publish request as `renderConfig`
--   [x] Backend: Extract `renderConfig` in `FlowDataService` and return from public endpoint
--   [x] Builder: Implement markerless scene with wireframe sphere; slow rotation (dur 90000)
--   [x] Public View: Read `renderConfig` and pass to builder with legacy fallbacks
--   [x] UX: Dim disabled technologies (Babylon.js, A‑Frame) in configuration screen
--   [x] Docs: Update app READMEs and `docs/en|ru/applications/publish/README.md`
--   [ ] Wallpaper types: Add more presets (e.g., gradient grid, starfield) and selector previews
--   [ ] QA: Mobile camera performance check and battery impact for wallpaper mode
--   [ ] Analytics: Add basic usage metric for display type selection
-
-### Space Builder Two-step Quiz Flow (Prepare → Preview → Generate)
-
--   [x] Backend: Add `/prepare` endpoint with strict Zod `QuizPlan` schema and JSON-only prompt
--   [x] Backend: Implement `proposeQuiz`, `generateFromPlan`, deterministic fallback graph with Space node
--   [x] Backend: Test-mode provider fallback (`groq_test`) in ModelFactory when `SPACE_BUILDER_TEST_MODE=true`
--   [x] Frontend: Two-step dialog (input with N×M controls → preview → generate)
--   [x] Frontend: Synthetic model in test mode when models list is empty
--   [x] Validation: Increase `sourceText` limit to 5000 (server + UI + i18n + docs)
--   [x] Documentation: Update apps READMEs and docs/en|ru with deterministic builder, layout rules, and options
--   [x] UI: Add options "Collect Names" (Start) and "Show Final Result" (End), enabled by default
--   [x] UI: Wider responsive dialog (`maxWidth='md'`), spinner on Generate, state reset after success
--   [x] Layout: Deterministic coordinates (vertical Space lane; left offsets for Q/A without overlap)
--   [ ] Next: Editable quiz preview (allow editing questions/answers before generate)
--   [ ] Next: Credentials selection stabilization (non-test mode reliability improvements)
-
-### Space Builder UI Refinement – 3-step flow + Model Settings modal
-
--   [x] UX: Move model selection into a gear-button modal ("Model settings") anchored bottom-left in dialog actions on the Input step (implemented)
--   [x] Frontend: Add a third step `settings` and move checkboxes there ("Append", "Collect names", "Show final score", disabled "Generate graphics")
--   [x] Frontend: Replace "Generate" on Preview with "Configure" that navigates to the Settings step
--   [x] Frontend: Implement "Model settings" modal with dropdown "Model", "Cancel" and "Save"; persist chosen model to dialog state
--   [x] i18n: Add keys (en/ru): `spaceBuilder.configure`, `spaceBuilder.settingsTitle`, `spaceBuilder.modelSettingsTitle`, `spaceBuilder.save`, `spaceBuilder.testModeInfo`
--   [x] Docs: Update `apps/space-builder-frt/base/README(.md|‑RU.md)` and `apps/space-builder-srv/base/README(.md|‑RU.md)`; sync `docs/en|ru/applications/space-builder/README.md`
--   [x] QA: Validate state reset, disabled states, test-mode fallback; fix label behavior and paddings; reduce nested-dialog focus warnings
-
-### Space Builder – Creation Mode & Safer Append (2025-08-13)
-
--   [x] Frontend (UI): Replace single Append checkbox with `Creation mode` Select (`newSpace` | `replace` | `append`); default `newSpace`; reorder options (New Space → Clear → Append)
--   [x] Host Canvas: Add `handleAppendGeneratedGraphBelow` with measured height fallback and increased margin; keep ID remap; add `handleNewSpaceFromGeneratedGraph` using `duplicatedFlowData`
--   [x] i18n: Add EN/RU keys for creation mode labels
--   [x] Docs: Update `apps/space-builder-frt` READMEs and `docs/en|ru/applications/space-builder/README.md`
--   [x] Build/QA: Monorepo build green; manual tests for three modes
-
-### MMOOMM Entity Hardcode Elimination ✅ COMPLETED
-
-**Status**: ✅ Implementation ✅ Reflection ✅ Archive ✅ **COMPLETED**
-**Type**: Level 2 (Simple Enhancement) - Bug Fix
-**Date Completed**: 2025-08-06
-**Archive Document**: [docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md](../docs/archive/enhancements/2025-08/mmoomm-entity-hardcode-elimination-fix.md)
-**Reflection Document**: `memory-bank/reflections/reflection-mmoomm-entity-hardcode-fix.md`
-
-**Archive Summary**: Successfully eliminated all hardcoded transform values in MMOOMM Entity types (Ship, Station, Gate, Asteroid) that were overriding UPDL settings from Chatflow. Implemented conditional logic to apply defaults only when UPDL values are unset. Fixed JavaScript variable scope conflicts and preserved all game functionality.
-
-### MMOOMM Template Refactoring - Safe Cleanup Phase ✅ COMPLETE
-
--   [x] Verify current laser system functionality: Test that current laser mining system in ship.ts works correctly before removing backup files
--   [x] Remove laserSystem_design.js: Delete obsolete design file from entityTypes directory
--   [x] Remove ship_weaponSystem_backup.js: Delete obsolete backup file from entityTypes directory
--   [x] Test MMOOMM template build: Verify that MMOOMM template builds successfully after file removal
-
-### MMOOMM Template Refactoring - Inventory Consolidation Phase (MVP) ✅ COMPLETE
-
--   [x] Create shared inventory template: Create shared/inventoryTemplate.ts with minimal working implementation
--   [x] Update attachments/inventory.ts: Replace duplicated code with shared template reference (preserves UPDL Component integration)
--   [x] Update components/inventory.ts: Update components/inventory.ts to use shared template while preserving logging and events functionality
--   [x] Test inventory functionality: Verify that laser mining and UPDL Component attachment still work correctly
-
-## Current Implementation Tasks
-
-### MMOOMM Template Refactoring - Ship.ts Modularization Phase
-
--   [x] Phase 1.1: Create shared/shipSystems/ directory infrastructure
--   [x] Phase 1.2: Create shipSystemsIndex.ts with exports
--   [x] Phase 1.3: Test current MMOOMM template functionality (baseline)
--   [x] Phase 2.1: Create shipControllerTemplate.ts with ShipControllerSystem interface
--   [x] Phase 2.2: Extract ship controller logic (lines 48-221) to shared template
--   [x] Phase 2.3: Create generateShipControllerCode() function
--   [x] Phase 2.4: Update ship.ts to use ship controller template
--   [x] Phase 2.5: Test ship movement controls (WASD+QZ)
--   [x] Phase 3.1: Create cameraControllerTemplate.ts with CameraControllerSystem interface
--   [x] Phase 3.2: Extract camera logic (lines 266-370) to shared template
--   [x] Phase 3.3: Create generateCameraControllerCode() function
--   [x] Phase 3.4: Update ship.ts to use camera controller template
--   [x] Phase 3.5: Test camera following behavior
--   [x] Phase 4.1: Create laserMiningTemplate.ts with LaserMiningSystem interface
--   [x] Phase 4.2: Extract laser system logic (lines 373-872) to shared template
--   [x] Phase 4.3: Create generateLaserMiningCode() function with state machine
--   [x] Phase 4.4: Update ship.ts to use laser mining template
--   [x] Phase 4.5: Test laser mining functionality (critical test)
--   [x] Phase 5.1: Integrate all shared systems in ship.ts
--   [x] Phase 5.2: Ensure global references preservation (window.playerShip, etc.)
--   [x] Phase 5.3: Test complete MVP functionality (mining → inventory → HUD)
--   [x] Phase 5.4: Clean up duplicated code from ship.ts
--   [x] Phase 6.1: Update shared/README.md with ship systems documentation
--   [x] Phase 6.2: Update shared/README-RU.md with Russian documentation
--   [x] Phase 6.3: Final validation of all ship systems
-
-### Enhanced Resource System with Material Density ✅ COMPLETE
-
--   [x] Phase 1.1: Create material density database with realistic densities for 16 materials
--   [x] Phase 1.2: Implement materialDensity.ts with conversion functions (weight ↔ volume)
--   [x] Phase 1.3: Add material categories (common, rare, precious, exotic) with proper values
--   [x] Phase 2.1: Create enhanced inventory system supporting both weight and volume tracking
--   [x] Phase 2.2: Implement enhancedInventory.ts with automatic density-based conversion
--   [x] Phase 2.3: Add backward compatibility with existing simple inventory system
--   [x] Phase 3.1: Update mineable component with material-specific properties
--   [x] Phase 3.2: Add new UPDL component fields: asteroidVolume, hardness
--   [x] Phase 3.3: Implement density-based pickup generation and collection
--   [x] Phase 4.1: Update ComponentNode.ts with new mineable component fields
--   [x] Phase 4.2: Create comprehensive documentation (README.md and README-RU.md)
-
-### PlayCanvasMMOOMMBuilder.ts Modularization ✅ COMPLETE
-
-**Goal**: Refactor monolithic PlayCanvasMMOOMMBuilder.ts (1,211 lines) into modular architecture
-**Target**: 70-80% code reduction (1,211 → 200-250 lines) following Ship.ts refactoring patterns
-**Critical**: Preserve HTML-JavaScript hybrid functionality and global objects compatibility
-**Result**: Successfully reduced from 1,211 lines to 254 lines (79% reduction) with full functionality preserved
-
-#### Phase 1: Deep Analysis & Infrastructure
-
--   [x] 1.1: Create modular directory structure (systems/, core/, initialization/, htmlSystems/, globalObjects/)
--   [x] 1.2: Analyze current code structure and create dependency map
--   [x] 1.3: Create baseline test for current MMOOMM template functionality
--   [x] 1.4: Embedded JavaScript Analysis - map SpaceHUD (~150 lines), SpaceControls (~250 lines), initializePhysics (~50 lines)
-
-#### Phase 2: HTML-JavaScript Hybrid Extraction
-
--   [x] 2.1: Extract HTML Document Generator (~150 lines pure HTML)
--   [x] 2.2: Extract Embedded JavaScript Systems Registry
--   [x] 2.3: Extract Global Objects Manager for window.\* lifecycle
--   [x] 2.4: Test HTML generation with placeholders
-
-#### Phase 3: Embedded Game Systems Extraction
-
--   [x] 3.1: Extract Embedded HUD System (~150 lines) - preserve window.SpaceHUD compatibility
--   [x] 3.2: Extract Embedded Controls System (~250 lines) - preserve window.SpaceControls compatibility
--   [x] 3.3: Extract Embedded Physics System (~50 lines) - initializePhysics function
--   [x] 3.4: Extract Helper Functions (~100 lines) - tradeAll, tradeHalf, initializeSpaceControls, etc.
--   [x] 3.5: Test embedded systems extraction and global objects accessibility
-
-#### Phase 4: PlayCanvas Core Systems Extraction
-
--   [x] 4.1: Extract PlayCanvas Initializer (~100 lines) - generatePlayCanvasInit method
--   [x] 4.2: Extract Scene Initializer (~100 lines) - scene initialization logic
--   [x] 4.3: Extract Default Scene Generator - generateDefaultScene, generateErrorScene methods
--   [x] 4.4: Test PlayCanvas core systems functionality
-
-#### Phase 5: Core Builder Refactoring
-
--   [x] 5.1: Create BuilderSystemsManager for coordinating all systems
--   [x] 5.2: Refactor main PlayCanvasMMOOMMBuilder class (preserve custom build() method)
--   [x] 5.3: Create HTML-JavaScript Integration Layer
--   [x] 5.4: Update exports and imports
-
-#### Phase 6: Integration & Testing
-
--   [x] 6.1: Comprehensive functionality test (ship controls, laser mining, HUD, physics, trading)
--   [x] 6.2: HTML-JavaScript Integration test (embedded systems, window.\* objects, event listeners)
--   [x] 6.3: Performance validation (loading time, HTML size)
--   [x] 6.4: Backward compatibility verification (AbstractTemplateBuilder, handlers, scripts)
-
-#### Phase 7: Documentation & Cleanup
-
--   [x] 7.1: Update documentation with new architecture and HTML-JavaScript patterns
--   [x] 7.2: Create migration guide for developers
--   [x] 7.3: Final cleanup and linting
-
-## Open Tasks
-
-### Universo MMOOMM Multiplayer Implementation (MVP)
-
-**Status**: ✅ **COMPLETED** - All 16 tasks successfully implemented and tested!
-**Type**: Level 4 (Major/Complex) - Multiplayer Architecture
-**Date Started**: 2025-08-19
-**Date Completed**: 2025-08-22
-
-#### Phase 1: Analysis and Adaptation of "Collect Name" Logic
-
--   [x] 1.1: Study existing quiz template "Collect Name" pattern in `apps/publish-frt/base/src/builders/templates/quiz/arjs/handlers/DataHandler/index.ts`
--   [x] 1.2: Create multiplayer mode detector in PlayCanvasMMOOMMBuilder.ts for Space with collectLeadName=true + only Space connections
--   [x] 1.3: Test current MMOOMM template functionality (baseline before changes)
-
-#### Phase 2: Create Minimal Colyseus Server
-
--   [x] 2.1: Create `apps/multiplayer-colyseus-srv/base` workspace package with TypeScript and Colyseus dependencies
--   [x] 2.2: Implement Colyseus schemas (PlayerSchema, EntitySchema, MMOOMMRoomState) with @colyseus/schema
--   [x] 2.3: Create MMOOMMRoom class with basic join/leave, transform updates, mining, and selling logic
--   [x] 2.4: Test Colyseus server locally (basic connection and state sync)
-
-#### Phase 3: Adapt MMOOMM Template for Multiplayer
-
--   [x] 3.1: Create auth screen generator using quiz template pattern (name input form)
--   [x] 3.2: Create Colyseus client integration script with connection, state sync, and player management
--   [x] 3.3: Modify PlayCanvasMMOOMMBuilder to detect multiplayer mode and generate appropriate code
--   [x] 3.4: Test multiplayer auth flow (name input → game connection)
-
-#### Phase 4: Integration and Testing
-
--   [x] 4.1: Integrate multiplayer client with existing ship controls and mining systems
--   [x] 4.2: Implement other players visualization (ship entities with name badges)
--   [x] 4.3: Test complete multiplayer flow (auth → join → movement → mining → selling)
--   [x] 4.4: Verify backward compatibility (single-player mode still works)
-
-#### Phase 5: UPDL Objects Fix in Multiplayer Mode
-
--   [x] 5.1: Fix generateGameScene() method to properly extract entities from second Space
--   [x] 5.2: Improve prepareEntitiesForColyseus() method with validation and logging
--   [x] 5.3: Enhance MMOOMMRoom server-side entity processing
--   [x] 5.4: Add comprehensive debugging logs for data flow tracking
--   [x] 5.5: Fix UPDLProcessor to include entities in spaceData for multi-scene flows
--   [x] 5.6: Fix entity data extraction from entity.data.inputs instead of entity.data
--   [x] 5.7: Test complete UPDL Flow → Multiplayer → Objects in game cycle
--   [x] 5.8: Verify backward compatibility with single-player mode
-
-#### Phase 6: Documentation and Cleanup
-
--   [ ] 6.1: Update MMOOMM template documentation with multiplayer mode instructions
--   [ ] 6.2: Create README for multiplayer-srv package with setup instructions
--   [ ] 6.3: Add linting fixes and code cleanup
--   [ ] 6.4: Final integration test and QA validation
+   - [x] Analysis: Migration `AddProfile1741277504477` fails with trigger already exists error
+   - [x] Root Cause: `create_profile_trigger` already exists in Supabase database
+   - [ ] Fix migration to handle existing triggers gracefully
+   - [ ] Test full integration after fixes
+
+## Completed - Chatflow to Spaces UI Fixes (2025-01-04)
+
+Replace remaining "Chatflow" terminology with "Spaces" and fix canvas display logic.
+
+### Canvas Tabs & Display
+- [x] Update conditional rendering logic in canvas/index.jsx
+- [x] Add showTabsForNewSpace state management
+- [x] Create temporary canvas array for new spaces
+- [ ] Test tabs appearance after first save
+
+### Terminology Updates
+- [x] Update default name from "Untitled Chatflow" to "Untitled Space"
+- [x] Add new translation keys for dynamic save messages
+- [x] Update save success notifications
+- [ ] Verify all UI text uses Space/Canvas terms
+
+### Header & API Integration
+- [x] Update CanvasHeader to show Space name in main title
+- [x] Create new spaces.js API file and implement getAllSpaces
+- [x] Update spaces/index.jsx to use Spaces API
+- [ ] Test header display for both saved and unsaved spaces
+- [ ] Test that only Spaces appear in list, not individual Canvas
+
+### UX Improvements
+- [ ] Add loading indicators for tab operations
+- [ ] Improve error messages with specific types
+- [ ] Test complete user flow
+
+## Completed Major Tasks
+
+### Completed - Unik List Spaces Column & Rename Dialog (2025-09-15) ✅
+
+Implemented domain-specific UI adjustments for Unik entities and improved rename dialog UX.
+
+Subtasks:
+- [x] Analyze Unik list table existing columns (Category, Nodes) irrelevance
+- [x] Add `isUnikTable` prop to `FlowListTable.jsx` for conditional column rendering
+- [x] Replace Category/Nodes headers with single `Spaces` header when `isUnikTable`
+- [x] Render `spacesCount` value per Unik row (fallback 0)
+- [x] Add i18n key `table.columns.spaces` (EN/RU) in `flowList.json`
+- [x] Enhance `SaveChatflowDialog.jsx` to accept `initialValue` for rename operations
+- [x] Suppress placeholder when editing existing name (remove hardcoded "Мой новый холст")
+- [x] Pass current name as `initialValue` from `unikActions.jsx` rename dialog
+- [x] Validate build of UI package (vite) without errors
+- [x] Confirm backward compatibility for non-Unik tables (unchanged columns)
+
+Notes:
+- Architecture kept generic: dialog `initialValue` can be adopted by other entity rename actions later.
+- Minimal invasive changes; existing sorting & selection logic untouched.
+- Placeholder now only appears for create operations with empty initial value.
+
+### Completed - Unik Singular Route & Table Link Fix (2025-09-15) ✅
+
+Implemented correct link formation for Unik list (table view) and introduced singular route `/unik/:unikId`.
+
+Subtasks:
+- [x] Locate incorrect table link using `/canvas/:id` for Unik rows  
+- [x] Add conditional link logic in `FlowListTable.jsx` for `isUnikTable` → `/unik/{id}`
+- [x] Update main route in `MainRoutes.jsx` from `/uniks` to `/unik` 
+- [x] Update menu detection regex in `MenuList/index.jsx` and `NavItem/index.jsx`
+- [x] Update navigation in `apps/uniks-frt/.../UnikList.jsx` to singular path
+- [x] Update navigation in `apps/finance-frt/.../UnikList.jsx` to singular path
+- [x] Mass update all frontend navigation paths from `/uniks/${unikId}` to `/unik/${unikId}`
+- [x] Update Canvas routes and spaces-frt routes to use singular pattern
+- [x] Verify UI build passes without errors
+
+Notes:
+- Backend API paths remain unchanged (still use plural `/uniks/` for server endpoints).
+- All frontend navigation now uses consistent singular `/unik/:unikId` pattern.
+- Menu system properly detects and shows Unik dashboard when on `/unik/:unikId` routes.
+- Backward compatibility maintained via existing plural API routes.
+
+
+### Resources Applications Cluster Isolation (2025-09-10) ✅
+
+Implemented three-tier architecture (Clusters → Domains → Resources) with complete data isolation.
+
+- [x] Implement three-tier architecture with data isolation
+- [x] Create junction tables with CASCADE delete and UNIQUE constraints
+- [x] Add cluster-scoped API endpoints with mandatory validation
+- [x] Implement idempotent relationship management
+- [x] Add frontend validation with Material-UI patterns
+- [x] Fix domain selection to show only cluster domains
+- [x] Update comprehensive EN/RU documentation
+
+### Template Package Modularization (2025-08-30) ✅
+
+Complete architectural refactoring - extracted templates into dedicated packages.
+
+**Shared Packages:**
+- [x] Created `@universo-platformo/types` with UPDL interfaces
+- [x] Created `@universo-platformo/utils` with UPDLProcessor
+- [x] Implemented dual build system (CJS + ESM + Types)
+
+**Template Extraction:**
+- [x] Extracted AR.js Quiz to `@universo/template-quiz`
+- [x] Extracted PlayCanvas MMOOMM to `@universo/template-mmoomm`
+- [x] Implemented TemplateRegistry for dynamic loading
+- [x] Fixed ship duplication and reduced logging in templates
+
+### MMOOMM Template Refactoring (2025-08-14) ✅
+
+Critical architecture fixes - modular package created with multiplayer support.
+
+**Critical Fixes:**
+- [x] Fix Colyseus 0.16.x client API usage (room.state events)
+- [x] Replace hardcoded connection URLs with environment variables
+- [x] Add proper error handling and multiplayer connection logging
+
+**Template Extraction:**
+- [x] Create `apps/template-mmoomm/base` workspace package
+- [x] Extract all MMOOMM handlers and build systems
+- [x] Fix import paths and TypeScript compilation
+- [x] Verify `publish-frt` integration with template package
+
+### Build Order & Finance Integration (2025-08-31) ✅
+
+Stabilized build system and integrated Finance applications.
+
+- [x] Enforce topological build order via workspace dependencies
+- [x] Remove circular dependency from `apps/finance-frt` to `flowise-ui`
+- [x] Unify i18n to TypeScript in template packages
+- [x] Validate `exports` and `dist` artifacts for templates
+- [x] Integrate Finance apps into server and UI routes
+- [ ] Add Finance apps documentation (EN/RU)
+- [ ] Create "Creating New Apps/Packages" guide
+- [ ] Connect missing `tasks-registry.md` to SUMMARY
+
+## Spaces + Canvases Refactor (2025-09-07)
+
+Separate Canvas routes and improve UX with local API clients.
+
+- [x] Prevent legacy Chatflow effects in Spaces mode
+- [x] Improve Canvas Tabs UX (borders, spacing, spinner)
+- [x] Add local Axios client in `apps/spaces-frt`
+- [x] Add local `useApi` and `useCanvases` hooks
+- [x] Load Spaces list from `apps/spaces-frt` in UI
+- [x] Remove unused Flowise UI files and fix Vite alias collisions
+- [ ] Migrate minimal UI wrappers to `apps/spaces-frt/src/ui/`
+- [ ] Move repeated component styles to theme overrides
+- [ ] Remove remaining unused Flowise UI pieces
+
+## Active Implementation Tasks
+
+### Metaverse - Backend + Frontend MVP
+
+Complete metaverse functionality with membership and links management.
+
+**Backend:**
+- [x] Create `@universo/metaverse-srv` with Express router `/api/v1/metaverses`
+- [x] Implement TypeORM migrations with `metaverse` schema
+- [x] Add per-request Supabase client with Authorization header
+- [x] Mount router and aggregate migrations in server
+- [ ] Run Postgres migrations on Supabase (UP-test)
+- [ ] Add update/delete/get-by-id endpoints
+- [ ] Implement membership CRUD and links management
+
+**Frontend:**
+- [x] Create `@universo/metaverse-frt` with MetaverseList component
+- [x] Register i18n bundle and add menu item
+- [x] Implement dual build (CJS/ESM) with gulp assets
+- [ ] Add membership management UI (roles, default toggle)
+- [ ] Implement link editor (create/remove/visualize)
+- [ ] Complete documentation (EN/RU)
+
+### Space Builder - Multi-provider & Quiz Features
+
+Enhance Space Builder with better provider support and editing capabilities.
+
+**Multi-provider Support:**
+- [x] Implement `/config` endpoint with test mode detection
+- [x] Add multi-provider support (OpenAI, Groq, Cerebras, etc.)
+- [x] Enforce test-only selection when credentials disabled
+- [x] Update documentation (EN/RU)
+- [ ] Stabilize credentials selection for non-test mode
+
+**Quiz Enhancement:**
+- [x] Add `/prepare` endpoint with strict Zod QuizPlan schema
+- [x] Implement deterministic fallback graph generation
+- [x] Add three-step flow (Prepare → Preview → Settings)
+- [x] Add constraints input and iterative quiz editing
+- [x] Implement Creation mode (New Space/Clear/Append)
+- [ ] Add editable quiz preview
+- [ ] Improve credentials selection reliability
+
+### AR.js Wallpaper Mode
+
+Enhance markerless AR experience with additional options.
+
+- [x] Add AR Display Type selector (default wallpaper)
+- [x] Implement markerless scene with wireframe sphere
+- [x] Add persistence for arDisplayType/wallpaperType
+- [x] Update backend to extract renderConfig
+- [x] Update documentation (EN/RU)
+- [ ] Add more wallpaper presets (gradient grid, starfield)
+- [ ] Add mobile camera performance check
+- [ ] Add usage metrics for display type selection
+
+## Completed Refactoring Tasks
+
+### MMOOMM Entity Hardcode Elimination (2025-08-06) ✅
+- [x] Fix hardcoded transform values overriding UPDL settings
+- [x] Implement conditional logic for default values only when UPDL unset
+- [x] Fix variable scope conflicts and preserve game functionality
+
+### MMOOMM Template Modularization ✅
+- [x] Extract ship.ts logic to shared templates (90.6% code reduction)
+- [x] Create modular inventory system with material density support
+- [x] Refactor PlayCanvasMMOOMMBuilder (79% reduction: 1,211→254 lines)
+- [x] Implement enhanced resource system with 16 material types
+
+### Multiplayer Colyseus Implementation (2025-08-22) ✅
+- [x] Create `@universo/multiplayer-colyseus-srv` package
+- [x] Implement MMOOMMRoom with 16-player capacity
+- [x] Add Colyseus schemas (PlayerSchema, EntitySchema, MMOOMMRoomState)
+- [x] Integrate multiplayer client with ship controls and mining
+- [x] Fix UPDL objects in multiplayer mode
+- [x] Verify backward compatibility with single-player
+
+## Strategic Goals
 
 ### Post-Alpha Features
-
--   [ ] Physics Node: Implement physics simulation node for complex interactions
--   [ ] Animation System: Add keyframe animation node for dynamic content
--   [ ] Networking Node: Implement multiplayer networking capabilities
--   [ ] Advanced Scene Management: Multi-scene UPDL projects with complex interactions
-
-### Universo MMOOMM Expansion
-
--   [ ] PlayCanvas Builder Structure: Create `apps/publish-frt/base/src/builders/playcanvas/` directory structure
--   [ ] PlayCanvas Builder Implementation: Implement `PlayCanvasBuilder` class and register in `setupBuilders`
--   [ ] MMOOMM Template Development: Create `templates/mmoomm/` directory and implement `MMOOMMTemplate.ts`
--   [ ] Node Handlers: Create node handlers (SpaceHandler, EntityHandler, etc.) for PlayCanvas integration
--   [ ] PlayCanvas Engine Integration: Integrate PlayCanvas Engine v2.9.0 with template system
--   [ ] UI Implementation: Create PlayCanvas publication settings page and add PlayCanvas tab to publication interface
--   [ ] Settings Persistence: Implement settings persistence for PlayCanvas configurations
--   [ ] Game Flow Creation: Design Universo MMOOMM JSON flow and test import/export functionality
--   [ ] Game Mechanics Validation: Test and validate game mechanics in PlayCanvas environment
+- [ ] Implement physics simulation node for complex interactions
+- [ ] Add keyframe animation node for dynamic content
+- [ ] Implement multiplayer networking capabilities
+- [ ] Add multi-scene UPDL projects support
 
 ### Production Deployment
-
--   [ ] Enterprise-grade hosting: Implement scalable hosting solutions
--   [ ] Performance optimization: Optimize platform performance for production use
--   [ ] Security enhancements: Implement additional security measures for production
--   [ ] Monitoring and analytics: Add comprehensive monitoring and analytics systems
+- [ ] Implement scalable hosting solutions
+- [ ] Optimize platform performance for production
+- [ ] Add security enhancements for production
+- [ ] Implement monitoring and analytics systems
 
 ### Community Features
+- [ ] Implement template sharing and collaboration
+- [ ] Develop multi-user editing capabilities
+- [ ] Create marketplace for templates and components
+- [ ] Enhance documentation and tutorial systems
 
--   [ ] Template sharing: Implement template sharing and collaboration features
--   [ ] Real-time collaboration: Develop multi-user editing capabilities
--   [ ] Community marketplace: Create marketplace for templates and components
--   [ ] Documentation system: Enhance documentation and tutorial systems
-
-### Space Builder – Constraints & Iterative Quiz Editing
-
--   [x] Backend: Extend `/prepare` to accept `additionalConditions?: string (0..500)`; validate length and include in prompt
--   [x] Backend: Add `POST /api/v1/space-builder/revise` → Body: `{ quizPlan: QuizPlan, instructions: string (1..500), selectedChatModel }` → Response: `{ quizPlan }`
--   [x] Backend: Service `reviseQuizPlan()` with strict JSON-only output and minimal-change guarantee; preserve sizes and one correct answer per question
--   [x] Backend: Update prompts
-    -   [x] Prepare prompt: add "Constraints" section; MUST follow; never echo constraints; preserve JSON schema
-    -   [x] Revise prompt: input current plan JSON + instructions; change only requested parts; keep other text identical; preserve counts; output RAW JSON
--   [x] Backend: Controllers validation with `QuizPlanSchema`; verify items count and answers per item; return 422 on mismatch
--   [x] Frontend: Input step – add `Additional conditions` textarea below `Main material` (rows≈3, max 500 chars, helper counter)
--   [x] Frontend: Hook `useSpaceBuilder` – extend `PreparePayload` with `additionalConditions?: string`; add `reviseQuiz(payload)` calling `/revise`
--   [x] Frontend: Preview step – add `What to change?` textarea (max 500, counter) and `Change` button; on click call `revise`, update in-place `quizPlan`, show spinner; allow multiple iterations; clear field after success
--   [x] Frontend: Error handling – surface backend errors via `onError`; disable controls while busy
--   [x] Frontend: i18n (en/ru) – keys added: `additionalConstraints`, `reviseTitle`, `reviseInstructions`, `revise`, `revising`, `tooManyRequests`
--   [x] Docs: Update `apps/space-builder-frt/base/README(.md|‑RU.md)` and `apps/space-builder-srv/base/README(.md|‑RU.md)`; sync `docs/en|ru/applications/space-builder/README.md`
--   [x] QA: Test in `SPACE_BUILDER_TEST_MODE=true`; validate limits (5000/500), sizes, single-correct; repeated revisions; clear-on-back behavior
-
-## Recently Completed Tasks
-
--   [x] **Multiplayer Colyseus Server Implementation**: Successfully created complete `@universo/multiplayer-colyseus-srv` package with full multiplayer architecture for Universo MMOOMM. Implemented MMOOMMRoom with 16-player capacity, comprehensive Colyseus schemas (PlayerSchema, EntitySchema, MMOOMMRoomState), server-authoritative gameplay mechanics (mining, trading, movement validation), MultiplayerManager integration layer, and enhanced UPDL entity processing. Complete TypeScript implementation with proper error handling, logging, and graceful shutdown. Production-ready multiplayer system for MMOOMM space gameplay. ✅ **COMPLETED** (2025-08-22)
-
--   [x] **Uniks Functionality Extraction and Build System Fixes**: Successfully extracted Uniks (workspace) functionality into dedicated packages and resolved critical build issues. Extracted backend logic into `@universo/uniks-srv` package with Express routes, TypeORM entities, and PostgreSQL migrations. Created `@universo/uniks-frt` frontend package with React components, menu configurations, and i18n support. Resolved circular dependency issues by implementing proper workspace dependencies and TypeScript path aliases. Fixed Vite alias configuration for i18n imports. Corrected translation key usage by removing redundant namespace prefixes. All Uniks functionality now modularized and build system fully operational. ✅ **COMPLETED** ✅ **REFLECTION COMPLETE** ✅ **ARCHIVED** - [Archive](docs/archive/enhancements/2025-08/uniks-functionality-extraction.md) (2025-08-07)
--   [x] **MMOOMM Entity Hardcode Elimination Fix**: Fixed all hardcoded transform values in MMOOMM Entity types that were overriding UPDL settings from Chatflow. Eliminated hardcoded scale values in Ship (2,1,3), Station (4,2,4), Gate (3,3,1), and Asteroid entities. Fixed hardcoded rotation values in Ship entity. Implemented conditional logic to apply default values only when UPDL values are unset (default 1,1,1). Fixed variable name conflicts (entityScale, scaleMultiplier) causing syntax errors. All Entity transform values (scale, position, rotation) now properly respect UPDL Component settings while maintaining fallback defaults for standalone entities. (2025-01-31)
-
-### Auth System — Passport.js + Supabase (PoC, Isolated)
-
--   [x] Create isolated packages `apps/auth-srv/base` and `apps/auth-frt/base` with server-side sessions, CSRF, rate-limit, and cookie-based client (no tokens on client)
--   [x] Ensure PNPM workspace build for both packages is green
--   [x] Add RU/EN READMEs with rollout plan
--   [x] Confirm code is fully isolated and NOT integrated with current system
--   [ ] Integration (server): adopt session-based Supabase client per request; replace header-based RLS
--   [ ] Integration (ui): remove localStorage tokens, Authorization interceptor; switch to `withCredentials` + `/auth/me`
--   [ ] Production hardening: Redis session store, distributed refresh lock, HTTPS & SameSite policy
+### Auth System - Passport.js + Supabase (PoC)
+- [x] Create isolated packages `apps/auth-srv/base` and `apps/auth-frt/base`
+- [x] Implement server-side sessions with CSRF and rate-limit
+- [x] Ensure PNPM workspace build success
+- [x] Add RU/EN READMEs with rollout plan
+- [ ] Integrate session-based Supabase client
+- [ ] Remove localStorage tokens, switch to `withCredentials`
+- [ ] Add production hardening (Redis, HTTPS, SameSite)

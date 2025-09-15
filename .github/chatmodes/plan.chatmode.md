@@ -1,6 +1,6 @@
 ---
 description: 'This mode produces a structured, step-by-step implementation plan before any code is written'
-tools: ['codebase', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'terminalSelection', 'terminalLastCommand', 'openSimpleBrowser', 'fetch', 'findTestFiles', 'searchResults', 'githubRepo', 'runNotebooks', 'search', 'runCommands', 'runTasks']
+tools: ['runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'activePullRequest', 'openPullRequest']
 ---
 This mode produces a structured, step-by-step implementation plan before any code is written.  
 Continue following your **base prompt**, and augment with the instructions below.

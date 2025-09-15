@@ -310,7 +310,7 @@ const Marketplace = () => {
     }
 
     const goToCanvas = (selectedChatflow) => {
-        navigate(`/uniks/${unikId}/templates/${selectedChatflow.id}`, { state: selectedChatflow })
+        navigate(`/unik/${unikId}/templates/${selectedChatflow.id}`, { state: selectedChatflow })
     }
 
     useEffect(() => {
@@ -819,7 +819,7 @@ const Marketplace = () => {
                     
                     // After successful creation of the tool, redirect to the Tools page
                     if (toolId) {
-                        navigate(`/uniks/${unikId}/tools`)
+                        navigate(`/unik/${unikId}/tools`)
                     }
                 }}
                 onUseTemplate={(tool) => onUseTemplate(tool)}

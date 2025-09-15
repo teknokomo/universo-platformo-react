@@ -89,7 +89,7 @@ const MainRoutes = {
             )
         },
         {
-            path: '/uniks',
+            path: '/unik',
             children: [
                 {
                     index: true,

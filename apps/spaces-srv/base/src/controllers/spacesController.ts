@@ -18,7 +18,8 @@ export class SpacesController {
      */
     async getSpaces(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId } = req.params
+            // Fallback: support either :unikId (preferred) or legacy :id param from mount
+            const unikId = (req.params.unikId || req.params.id) as string
 
             if (!unikId) {
                 res.status(400).json({
@@ -50,7 +51,8 @@ export class SpacesController {
      */
     async getCanvasById(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, canvasId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { canvasId } = req.params
 
             if (!unikId || !canvasId) {
                 res.status(400).json({
@@ -86,7 +88,7 @@ export class SpacesController {
      */
     async createSpace(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
             const spaceData: CreateSpaceDto = req.body
 
             if (!unikId) {
@@ -142,7 +144,8 @@ export class SpacesController {
      */
     async getSpaceDetails(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, spaceId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId } = req.params
 
             if (!unikId || !spaceId) {
                 res.status(400).json({
@@ -180,7 +183,8 @@ export class SpacesController {
      */
     async updateSpace(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, spaceId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId } = req.params
             const updateData: UpdateSpaceDto = req.body
 
             if (!unikId || !spaceId) {
@@ -246,7 +250,8 @@ export class SpacesController {
      */
     async deleteSpace(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, spaceId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId } = req.params
 
             if (!unikId || !spaceId) {
                 res.status(400).json({
@@ -284,7 +289,8 @@ export class SpacesController {
      */
     async getCanvases(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, spaceId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId } = req.params
 
             if (!unikId || !spaceId) {
                 res.status(400).json({
@@ -311,7 +317,8 @@ export class SpacesController {
      */
     async createCanvas(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, spaceId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId } = req.params
             const canvasData: CreateCanvasDto = req.body
 
             if (!unikId || !spaceId) {
@@ -356,7 +363,8 @@ export class SpacesController {
      */
     async updateCanvas(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, canvasId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { canvasId } = req.params
             const updateData: UpdateCanvasDto = req.body
 
             if (!unikId || !canvasId) {
@@ -411,7 +419,8 @@ export class SpacesController {
      */
     async deleteCanvas(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, canvasId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { canvasId } = req.params
 
             if (!unikId || !canvasId) {
                 res.status(400).json({
@@ -454,7 +463,8 @@ export class SpacesController {
      */
     async reorderCanvases(req: Request, res: Response): Promise<void> {
         try {
-            const { unikId, spaceId } = req.params
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId } = req.params
             const reorderData: ReorderCanvasesDto = req.body
 
             if (!unikId || !spaceId) {

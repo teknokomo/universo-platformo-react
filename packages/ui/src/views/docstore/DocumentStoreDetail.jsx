@@ -155,24 +155,24 @@ const DocumentStoreDetails = () => {
     const { storeId, unikId } = useParams()
 
     const openPreviewSettings = (id) => {
-        navigate(`/uniks/${unikId}/document-stores/${storeId}/${id}`)
+        navigate(`/unik/${unikId}/document-stores/${storeId}/${id}`)
     }
 
     const showStoredChunks = (id) => {
-        navigate(`/uniks/${unikId}/document-stores/chunks/${storeId}/${id}`)
+        navigate(`/unik/${unikId}/document-stores/chunks/${storeId}/${id}`)
     }
 
     const showVectorStoreQuery = (id) => {
-        navigate(`/uniks/${unikId}/document-stores/query/${id}`)
+        navigate(`/unik/${unikId}/document-stores/query/${id}`)
     }
 
     const onDocLoaderSelected = (docLoaderComponentName) => {
         setShowDocumentLoaderListDialog(false)
-        navigate(`/uniks/${unikId}/document-stores/${storeId}/${docLoaderComponentName}`)
+        navigate(`/unik/${unikId}/document-stores/${storeId}/${docLoaderComponentName}`)
     }
 
     const showVectorStore = (id) => {
-        navigate(`/uniks/${unikId}/document-stores/vector/${id}`)
+        navigate(`/unik/${unikId}/document-stores/vector/${id}`)
     }
 
     const listLoaders = () => {
@@ -215,7 +215,7 @@ const DocumentStoreDetails = () => {
                             )
                         }
                     })
-                    navigate(`/uniks/${unikId}/document-stores`)
+                    navigate(`/unik/${unikId}/document-stores`)
                 }
             } catch (error) {
                 setBackdropLoading(false)
@@ -434,7 +434,7 @@ const DocumentStoreDetails = () => {
                             search={false}
                             title={documentStore?.name}
                             description={documentStore?.description}
-                            onBack={() => navigate(`/uniks/${unikId}/document-stores`)}
+                            onBack={() => navigate(`/unik/${unikId}/document-stores`)}
                             onEdit={() => onEditClicked()}
                         >
                             {(documentStore?.status === 'STALE' || documentStore?.status === 'UPSERTING') && (
@@ -665,7 +665,7 @@ const DocumentStoreDetails = () => {
                                                                 )
                                                             }
                                                             onChunkUpsert={() =>
-                                                                navigate(`/uniks/${unikId}/document-stores/vector/${documentStore.id}/${loader.id}`)
+                                                                navigate(`/unik/${unikId}/document-stores/vector/${documentStore.id}/${loader.id}`)
                                                             }
                                                             onViewUpsertAPI={() => onViewUpsertAPI(documentStore.id, loader.id)}
                                                         />

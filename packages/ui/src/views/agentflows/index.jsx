@@ -67,16 +67,16 @@ const Agentflows = () => {
     }
 
     const addNew = () => {
-        navigate(`/uniks/${unikId}/agentcanvas`)
+        navigate(`/unik/${unikId}/agentcanvas`)
     }
 
     const goToCanvas = (selectedAgentflow) => {
-        navigate(`/uniks/${unikId}/agentcanvas/${selectedAgentflow.id}`)
+        navigate(`/unik/${unikId}/agentcanvas/${selectedAgentflow.id}`)
     }
 
     useEffect(() => {
         if (location.state && location.state.templateFlowData) {
-            navigate(`/uniks/${unikId}/agentcanvas`, { state: { templateFlowData: location.state.templateFlowData } })
+            navigate(`/unik/${unikId}/agentcanvas`, { state: { templateFlowData: location.state.templateFlowData } })
             return
         }
 

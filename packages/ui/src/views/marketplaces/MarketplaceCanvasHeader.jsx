@@ -47,7 +47,7 @@ const MarketplaceCanvasHeader = ({ flowName, flowData, onChatflowCopy }) => {
                             if (unikIdIndex > 0 && unikIdIndex < pathParts.length) {
                                 const unikId = pathParts[unikIdIndex];
                                 // Redirect to the list of templates
-                                navigate(`/uniks/${unikId}/templates`);
+                                navigate(`/unik/${unikId}/templates`);
                             } else {
                                 // If we couldn't extract unikId, use standard behavior
                                 navigate(-1);

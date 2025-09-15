@@ -13,6 +13,11 @@ import { gridSpacing } from '../../../../../packages/ui/src/store/constant'
 import APIEmptySVG from '../../../../../packages/ui/src/assets/images/api_empty.svg'
 import ConfirmDialog from '../../../../../packages/ui/src/ui-component/dialog/ConfirmDialog'
 import { FlowListTable } from '../../../../../packages/ui/src/ui-component/table/FlowListTable'
+import BaseEntityMenu from '../../../../../packages/ui/src/ui-component/menu/BaseEntityMenu'
+import { unikActions } from './unik/unikActions'
+import useConfirm from '../../../../../packages/ui/src/hooks/useConfirm'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '../../../../../packages/ui/src/store/actions'
+import { useDispatch } from 'react-redux'
 import { StyledButton } from '../../../../../packages/ui/src/ui-component/button/StyledButton'
 import ViewHeader from '../../../../../packages/ui/src/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '../../../../../packages/ui/src/ErrorBoundary'
@@ -24,7 +29,7 @@ import api from '../../../../../packages/ui/src/api'
 const uniksApi = {
     getAllUniks: () => api.get('/uniks'),
     createUnik: (data) => api.post('/uniks', data),
-    updateUnik: (id, data) => api.put(`/uniks/${id}`, data)
+    updateUnik: (id, data) => api.put(`/unik/${id}`, data)
 }
 
 // Hooks
@@ -91,7 +96,7 @@ const UnikList = () => {
     }
 
     const goToUnik = (unik) => {
-        navigate(`/uniks/${unik.id}`)
+        navigate(`/unik/${unik.id}`)
     }
 
     useEffect(() => {
@@ -120,6 +125,41 @@ const UnikList = () => {
     const images = {}
     uniks.forEach((unik) => {
         images[unik.id] = []
+    })
+
+    const dispatch = useDispatch()
+    const { confirm } = useConfirm()
+
+    // Provide minimal API adapters for unik actions (same shape as chatflow context expects).
+    const createUnikContext = (base) => ({
+        ...base,
+        api: {
+            updateEntity: async (id, patch) => {
+                try {
+                    await uniksApi.updateUnik(id, patch)
+                } catch (e) {
+                    throw e
+                }
+            },
+            deleteEntity: async (id) => {
+                // Suppose backend supports DELETE /unik/:id
+                try {
+                    await api.delete(`/unik/${id}`)
+                } catch (e) {
+                    throw e
+                }
+            }
+        },
+        helpers: {
+            enqueueSnackbar: (payload) => dispatch(enqueueSnackbarAction(payload)),
+            closeSnackbar: (key) => dispatch(closeSnackbarAction(key)),
+            confirm,
+            openWindow: (url) => window.open(url, '_blank'),
+            refreshList: async () => {
+                await getAllUniks.request()
+            }
+        },
+        runtime: { isDarkMode: theme?.customization?.isDarkMode }
     })
 
     return (
@@ -200,6 +240,16 @@ const UnikList = () => {
                             filterFunction={filterUniks}
                             updateFlowsApi={getAllUniks}
                             setError={setError}
+                            // Custom render override for actions cell for unik rows.
+                            renderActions={(row) => (
+                                <BaseEntityMenu
+                                    entity={row}
+                                    entityKind='unik'
+                                    descriptors={unikActions}
+                                    createContext={createUnikContext}
+                                    namespace='flowList'
+                                />
+                            )}
                         />
                     )}
                     {!isLoading && uniks.length === 0 && (
