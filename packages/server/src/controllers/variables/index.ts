@@ -83,7 +83,7 @@ const deleteVariable = async (req: Request, res: Response, next: NextFunction) =
 
 const getAllVariables = async (req: Request, res: Response, next: NextFunction) => {
     try {
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
