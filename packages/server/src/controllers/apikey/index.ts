@@ -8,7 +8,7 @@ import { accessControlService } from '../../services/access-control'
 const getAllApiKeys = async (req: Request, res: Response, next: NextFunction) => {
     try {
         console.log('Params from request:', req.params)
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         console.log('unikId:', unikId)
 
         if (!unikId) {
