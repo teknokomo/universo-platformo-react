@@ -50,7 +50,7 @@ const deleteCredentials = async (req: Request, res: Response, next: NextFunction
                 `Error: credentialsController.deleteCredentials - unikId not provided!`
             )
         }
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
