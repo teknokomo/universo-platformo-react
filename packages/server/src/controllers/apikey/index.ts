@@ -141,7 +141,7 @@ const importKeys = async (req: Request, res: Response, next: NextFunction) => {
 // Delete api key
 const deleteApiKey = async (req: Request, res: Response, next: NextFunction) => {
     try {
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.deleteApiKey - unikId not provided!`)
         }
