@@ -1,6 +1,6 @@
 ---
 description: 'This mode verifies code or documentation quality and reports issues, without fixing them'
-tools: ['codebase', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'terminalSelection', 'terminalLastCommand', 'openSimpleBrowser', 'fetch', 'findTestFiles', 'searchResults', 'githubRepo', 'runNotebooks', 'search', 'runCommands', 'runTasks']
+tools: ['runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'activePullRequest', 'openPullRequest']
 ---
 This mode verifies code or documentation quality and reports issues, without fixing them.  
 Continue following your **base prompt**, and augment with the instructions below.

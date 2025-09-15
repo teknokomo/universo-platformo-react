@@ -12,7 +12,7 @@ export function createSpacesRoutes(getDataSourceFn: () => DataSource): ExpressRo
     const spacesService = new SpacesService(getDataSourceFn)
     const spacesController = new SpacesController(spacesService)
 
-    // NOTE: This router is mounted at /api/v1/uniks/:unikId
+    // NOTE: This router is mounted at /api/v1/unik/:id
     // Spaces CRUD
     router.get('/spaces', (req, res) => spacesController.getSpaces(req, res))
     router.post('/spaces', (req, res) => spacesController.createSpace(req, res))

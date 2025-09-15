@@ -8,7 +8,7 @@ import { accessControlService } from '../../services/access-control'
 const getAllApiKeys = async (req: Request, res: Response, next: NextFunction) => {
     try {
         console.log('Params from request:', req.params)
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         console.log('unikId:', unikId)
 
         if (!unikId) {
@@ -39,7 +39,7 @@ const getAllApiKeys = async (req: Request, res: Response, next: NextFunction) =>
 
 const createApiKey = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.createApiKey - unikId not provided!`)
         }
@@ -72,7 +72,7 @@ const createApiKey = async (req: Request, res: Response, next: NextFunction) => 
 // Update api key
 const updateApiKey = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.updateApiKey - unikId not provided!`)
         }
@@ -108,7 +108,7 @@ const updateApiKey = async (req: Request, res: Response, next: NextFunction) => 
 // Import Keys from JSON file
 const importKeys = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.importKeys - unikId not provided!`)
         }
@@ -141,7 +141,7 @@ const importKeys = async (req: Request, res: Response, next: NextFunction) => {
 // Delete api key
 const deleteApiKey = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.deleteApiKey - unikId not provided!`)
         }

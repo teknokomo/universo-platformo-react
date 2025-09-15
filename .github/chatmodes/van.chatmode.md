@@ -1,6 +1,6 @@
 ---
 description: 'This mode analyses context, estimates task complexity, and recommends the next workflow step'
-tools: ['codebase', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'terminalSelection', 'terminalLastCommand', 'openSimpleBrowser', 'fetch', 'findTestFiles', 'searchResults', 'githubRepo', 'runNotebooks', 'search', 'runCommands', 'runTasks']
+tools: ['runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'activePullRequest', 'openPullRequest']
 ---
 This mode analyses context, estimates task complexity, and recommends the next workflow step.  
 Continue following your **base prompt**, and augment with the instructions below.

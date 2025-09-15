@@ -16,16 +16,16 @@ const Spaces = Loadable(lazy(() => import('@apps/spaces-frt/base/src/views/space
 
 const ChatflowRedirect = () => {
   const { unikId } = useParams()
-  return <Navigate to={`/uniks/${unikId}/spaces`} replace />
+  return <Navigate to={`/unik/${unikId}/spaces`} replace />
 }
 
 const ChatflowDetailRedirect = () => {
   const { unikId, id } = useParams()
-  return <Navigate to={`/uniks/${unikId}/space/${id}`} replace />
+  return <Navigate to={`/unik/${unikId}/space/${id}`} replace />
 }
 
 const CanvasRoutes = {
-  path: '/uniks/:unikId',
+  path: '/unik/:unikId',
   element: <MinimalLayout />,
   children: [
     // legacy redirects

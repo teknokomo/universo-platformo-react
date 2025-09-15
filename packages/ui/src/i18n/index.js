@@ -60,6 +60,10 @@ import ruChatflowsTranslation from './locales/ru/views/chatflows.json'
 import enChatmessageTranslation from './locales/en/views/chatmessage.json'
 import ruChatmessageTranslation from './locales/ru/views/chatmessage.json'
 
+// Universo Platformo | Import flowList namespaces
+import enFlowListTranslation from './locales/en/views/flowList.json'
+import ruFlowListTranslation from './locales/ru/views/flowList.json'
+
 // Universo Platformo | Import publish module translations
 // Using alias @apps/publish/base/i18n for correct path resolution
 import { publishTranslations } from '@apps/publish-frt/base/src/i18n'
@@ -102,6 +106,7 @@ i18n.use(LanguageDetector)
                     // Use the nested object to avoid double key level (chatflows.chatflows.*)
                     chatflows: enChatflowsTranslation?.chatflows || enChatflowsTranslation,
                     chatmessage: enChatmessageTranslation,
+                    flowList: enFlowListTranslation.flowList || enFlowListTranslation,
                     publish: publishTranslations.en.publish,
                     templateMmoomm: templateMmoommTranslations.en.templateMmoomm,
                     templateQuiz: templateQuizTranslations.en.templateQuiz,
@@ -131,6 +136,7 @@ i18n.use(LanguageDetector)
                     // canvas translations provided by spacesFrtTranslations below
                     chatflows: ruChatflowsTranslation?.chatflows || ruChatflowsTranslation,
                     chatmessage: ruChatmessageTranslation,
+                    flowList: ruFlowListTranslation.flowList || ruFlowListTranslation,
                     publish: publishTranslations.ru.publish,
                     templateMmoomm: templateMmoommTranslations.ru.templateMmoomm,
                     templateQuiz: templateQuizTranslations.ru.templateQuiz,
@@ -172,6 +178,7 @@ i18n.use(LanguageDetector)
                 'canvas',
                 'chatflows',
                 'chatmessage',
+                'flowList',
                 'publish',
                 'finance',
                 'analytics',

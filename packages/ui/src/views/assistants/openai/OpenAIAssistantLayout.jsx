@@ -163,7 +163,7 @@ const OpenAIAssistantLayout = () => {
                                                 iconSrc: data.iconSrc
                                             }}
                                             key={index}
-                                            onClick={() => navigate(`/uniks/${unikId}/assistants/openai/${data.id}`)}
+                                            onClick={() => navigate(`/unik/${unikId}/assistants/openai/${data.id}`)}
                                         />
                                     ))}
                             </Box>

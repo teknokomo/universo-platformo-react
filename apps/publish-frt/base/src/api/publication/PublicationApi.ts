@@ -26,12 +26,12 @@ export class PublicationApi {
 
             // Try new Canvas API first, fallback to legacy Chatflow API
             try {
-                const response = await axios.get(`${API_BASE}/uniks/${unikId}/canvases/${canvasId}`, { headers })
+                const response = await axios.get(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, { headers })
                 return response
             } catch (canvasError) {
                 // Fallback to legacy chatflows API for backward compatibility
                 console.warn('[PublicationApi] Canvas API not available, falling back to legacy chatflows API')
-                const response = await axios.get(`${API_BASE}/uniks/${unikId}/chatflows/${canvasId}`, { headers })
+                const response = await axios.get(`${API_BASE}/unik/${unikId}/chatflows/${canvasId}`, { headers })
                 return response
             }
         } catch (error) {
@@ -57,12 +57,12 @@ export class PublicationApi {
 
             // Try new Canvas API first, fallback to legacy Chatflow API
             try {
-                const response = await axios.put(`${API_BASE}/uniks/${unikId}/canvases/${canvasId}`, body, { headers })
+                const response = await axios.put(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, body, { headers })
                 return response
             } catch (canvasError) {
                 // Fallback to legacy chatflows API for backward compatibility
                 console.warn('[PublicationApi] Canvas API not available, falling back to legacy chatflows API')
-                const response = await axios.put(`${API_BASE}/uniks/${unikId}/chatflows/${canvasId}`, body, { headers })
+                const response = await axios.put(`${API_BASE}/unik/${unikId}/chatflows/${canvasId}`, body, { headers })
                 return response
             }
         } catch (error) {

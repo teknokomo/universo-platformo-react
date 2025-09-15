@@ -191,8 +191,10 @@ if (!entity.rigidbody.body) {
 ### Uniks Child Resource Integration
 
 -   New bounded contexts (e.g., Finance) integrate as Uniks children:
-    -   Server: export `entities` and `migrations` arrays and `createXxxRouter()`; mount under `/api/v1/uniks/:unikId/...`.
+  -   Server: export `entities` and `migrations` arrays and `createXxxRouter()`; mount under `/api/v1/unik/:unikId/...` (preferred) — legacy `/api/v1/uniks/:unikId/...` remains supported for backward compatibility.
     -   UI: add nested routes inside Unik workspace and include namespaced i18n.
+
+  Fallback behavior: a normalization middleware maps `:id` → `unikId`, and controllers use `req.params.unikId || req.params.id` to eliminate intermittent missing parameter errors.
 
 ## Data Isolation and Entity Relationship Patterns
 

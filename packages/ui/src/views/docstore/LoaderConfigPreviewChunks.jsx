@@ -204,7 +204,7 @@ const LoaderConfigPreviewChunks = () => {
                     })
                     // don't wait for the process to complete, redirect to document store
                     documentStoreApi.processLoader(unikId, config, saveResp.data?.id)
-                    navigate(`/uniks/${unikId}/document-stores/${storeId}`)
+                    navigate(`/unik/${unikId}/document-stores/${storeId}`)
                 }
             } catch (error) {
                 setLoading(false)

@@ -1,0 +1,63 @@
+{
+  "flowList": {
+    "entities": {
+  "chatflow": "Chatflow",
+  "agent": "Agent",
+  "unik": "Unik"
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "category": "Category",
+        "nodes": "Nodes",
+        "spaces": "Spaces",
+        "lastModified": "Last Modified Date",
+        "actions": "Actions"
+      },
+      "more_one": "+ {{count}} More",
+      "more_other": "+ {{count}} More"
+    },
+    "menu": {
+      "button": "Options",
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "export": "Export",
+      "exportTemplate": "Save As Template",
+      "starterPrompts": "Starter Prompts",
+      "chatFeedback": "Chat Feedback",
+      "allowedDomains": "Allowed Domains",
+      "speechToText": "Speech To Text",
+      "updateCategory": "Update Category",
+      "delete": "Delete"
+    },
+    "dialogs": {
+      "rename": {
+        "title": "Rename {{entity}}",
+        "confirm": "Rename"
+      },
+      "starterPrompts": {
+        "title": "Starter Prompts - {{name}}"
+      },
+      "chatFeedback": {
+        "title": "Chat Feedback - {{name}}"
+      },
+      "allowedDomains": {
+        "title": "Allowed Domains - {{name}}"
+      },
+      "speechToText": {
+        "title": "Speech To Text - {{name}}"
+      }
+    },
+    "confirm": {
+      "delete": {
+        "title": "Delete",
+        "description": "Delete {{entity}} {{name}}?",
+        "confirm": "Delete",
+        "cancel": "Cancel"
+      }
+    },
+    "export": {
+      "fileSuffix": "{{entity}}"
+    }
+  }
+}

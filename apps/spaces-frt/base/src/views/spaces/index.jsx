@@ -77,16 +77,16 @@ const Spaces = () => {
 
   const addNew = () => {
     localStorage.setItem('parentUnikId', unikId)
-    navigate(`/uniks/${unikId}/spaces/new`)
+    navigate(`/unik/${unikId}/spaces/new`)
   }
 
   const goToCanvas = (selectedSpace) => {
-    navigate(`/uniks/${unikId}/space/${selectedSpace.id}`)
+    navigate(`/unik/${unikId}/space/${selectedSpace.id}`)
   }
 
   useEffect(() => {
     if (location.state && location.state.templateFlowData) {
-      navigate(`/uniks/${unikId}/spaces/new`, { state: { templateFlowData: location.state.templateFlowData } })
+      navigate(`/unik/${unikId}/spaces/new`, { state: { templateFlowData: location.state.templateFlowData } })
       return
     }
     if (unikId) getAllSpacesApi.request()

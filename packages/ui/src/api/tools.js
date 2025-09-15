@@ -1,14 +1,14 @@
 import client from './client'
 
-const getAllTools = (unikId) => client.get(`/uniks/${unikId}/tools`)
+const getAllTools = (unikId) => client.get(`/unik/${unikId}/tools`)
 
-const getSpecificTool = (unikId, id) => client.get(`/uniks/${unikId}/tools/${id}`)
+const getSpecificTool = (unikId, id) => client.get(`/unik/${unikId}/tools/${id}`)
 
-const createNewTool = (unikId, body) => client.post(`/uniks/${unikId}/tools`, body)
+const createNewTool = (unikId, body) => client.post(`/unik/${unikId}/tools`, body)
 
-const updateTool = (unikId, id, body) => client.put(`/uniks/${unikId}/tools/${id}`, body)
+const updateTool = (unikId, id, body) => client.put(`/unik/${unikId}/tools/${id}`, body)
 
-const deleteTool = (unikId, id) => client.delete(`/uniks/${unikId}/tools/${id}`)
+const deleteTool = (unikId, id) => client.delete(`/unik/${unikId}/tools/${id}`)
 
 export default {
     getAllTools,

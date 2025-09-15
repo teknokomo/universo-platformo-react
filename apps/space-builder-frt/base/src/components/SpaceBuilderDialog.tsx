@@ -383,7 +383,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         unikId
       }
       const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
-      const res = await fetch(`/api/v1/uniks/${encodeURIComponent(unikId)}/credentials`, {
+      const res = await fetch(`/api/v1/unik/${encodeURIComponent(unikId)}/credentials`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(body)
       })

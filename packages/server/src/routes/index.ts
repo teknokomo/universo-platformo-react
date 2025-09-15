@@ -44,7 +44,7 @@ import verifyRouter from './verify'
 import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import upAuthRouter from './up-auth'
-import { createUniksRouter } from '@universo/uniks-srv'
+import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-srv'
 import { createFinanceRouter } from '@universo/finance-srv'
 import { supabase } from '../utils/supabase'
 import { createResourcesRouter, createClustersRoutes, createDomainsRoutes } from '@universo/resources-srv'
@@ -130,9 +130,18 @@ router.use('/version', versionRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
 router.use('/auth', upAuthRouter)
-// Apply ensureAuth middleware to /uniks route
+// Apply ensureAuth middleware to /uniks route (collection operations: list, create)
 router.use(
     '/uniks',
+    createUniksCollectionRouter(
+        upAuth.ensureAuth,
+        supabase
+    )
+)
+
+// Mount nested routes for Unik-specific resources at /unik/:id
+router.use(
+    '/unik',
     createUniksRouter(
         upAuth.ensureAuth,
         supabase,
@@ -149,6 +158,15 @@ router.use(
         documentStoreRouter,
         marketplacesRouter,
         createFinanceRouter()
+    )
+)
+
+// Apply ensureAuth middleware to /unik route (individual operations: get, update, delete)
+router.use(
+    '/unik',
+    createUnikIndividualRouter(
+        upAuth.ensureAuth,
+        supabase
     )
 )
 console.log('[DEBUG] Registering resources router at /api/v1/resources')
@@ -262,11 +280,13 @@ router.use(
 
 // Universo Platformo | Spaces routes
 const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
-// Mount under /uniks/:unikId so UI paths match both /spaces/* and /canvases/*
+// Mount under /unik/:id so UI paths match both /spaces/* and /canvases/*
 router.use(
-    '/uniks/:unikId',
+    '/unik/:id',
     upAuth.ensureAuth,
     spacesLimiter,
+    // Parameter compatibility for Spaces routes (expects :unikId)
+    (req, _res, next) => { if (req.params.id && !req.params.unikId) req.params.unikId = req.params.id; next(); },
     createSpacesRoutes(() => getDataSource())
 )
 

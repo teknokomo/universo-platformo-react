@@ -1,26 +1,26 @@
 import client from './client'
 
-const getAllChatflows = (unikId) => client.get(`/uniks/${unikId}/chatflows?type=CHATFLOW`)
+const getAllChatflows = (unikId) => client.get(`/unik/${unikId}/chatflows?type=CHATFLOW`)
 
-const getAllAgentflows = (unikId) => client.get(`/uniks/${unikId}/chatflows?type=MULTIAGENT`)
+const getAllAgentflows = (unikId) => client.get(`/unik/${unikId}/chatflows?type=MULTIAGENT`)
 
-const getSpecificChatflow = (unikId, id) => client.get(`/uniks/${unikId}/chatflows/${id}`)
+const getSpecificChatflow = (unikId, id) => client.get(`/unik/${unikId}/chatflows/${id}`)
 
 const getSpecificChatflowFromPublicEndpoint = (id) => client.get(`/public-chatflows/${id}`)
 
-const createNewChatflow = (unikId, body) => client.post(`/uniks/${unikId}/chatflows`, body)
+const createNewChatflow = (unikId, body) => client.post(`/unik/${unikId}/chatflows`, body)
 
-const importChatflows = (unikId, body) => client.post(`/uniks/${unikId}/chatflows/importchatflows`, body)
+const importChatflows = (unikId, body) => client.post(`/unik/${unikId}/chatflows/importchatflows`, body)
 
-const updateChatflow = (unikId, id, body) => client.put(`/uniks/${unikId}/chatflows/${id}`, body)
+const updateChatflow = (unikId, id, body) => client.put(`/unik/${unikId}/chatflows/${id}`, body)
 
-const deleteChatflow = (unikId, id) => client.delete(`/uniks/${unikId}/chatflows/${id}`)
+const deleteChatflow = (unikId, id) => client.delete(`/unik/${unikId}/chatflows/${id}`)
 
-const getIsChatflowStreaming = (unikId, id) => client.get(`/uniks/${unikId}/chatflows-streaming/${id}`)
+const getIsChatflowStreaming = (unikId, id) => client.get(`/unik/${unikId}/chatflows-streaming/${id}`)
 
-const getAllowChatflowUploads = (unikId, id) => client.get(`/uniks/${unikId}/chatflows-uploads/${id}`)
+const getAllowChatflowUploads = (unikId, id) => client.get(`/unik/${unikId}/chatflows-uploads/${id}`)
 
-const getChatflowById = (unikId, id) => client.get(`/uniks/${unikId}/chatflows/${id}`)
+const getChatflowById = (unikId, id) => client.get(`/unik/${unikId}/chatflows/${id}`)
 
 const getBotConfig = (id, type = '') => client.get(`/api/v1/bots/${id}/config${type ? `?type=${type}` : ''}`)
 

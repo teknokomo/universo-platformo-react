@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 // Universo Platformo | Local API module for Unik, using the base axios instance
 const uniksApi = {
     createUnik: (data) => api.post('/uniks', data),
-    updateUnik: (id, data) => api.put(`/uniks/${id}`, data)
+    updateUnik: (id, data) => api.put(`/unik/${id}`, data)
 }
 
 const UnikDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {

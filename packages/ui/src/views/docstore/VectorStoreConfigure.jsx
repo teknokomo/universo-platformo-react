@@ -897,7 +897,7 @@ const VectorStoreConfigure = () => {
                     onCancel={() => {
                         setShowUpsertHistoryDialog(false)
                     }}
-                    onGoToRetrievalQuery={() => navigate(`/uniks/${unikId}/document-stores/query/${storeId}`)}
+                    onGoToRetrievalQuery={() => navigate(`/unik/${unikId}/document-stores/query/${storeId}`)}
                 ></UpsertResultDialog>
             )}
             {showUpsertHistorySideDrawer && (

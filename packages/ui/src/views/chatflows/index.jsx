@@ -67,17 +67,17 @@ const Chatflows = () => {
 
     const addNew = () => {
         localStorage.setItem('parentUnikId', unikId)
-        navigate(`/uniks/${unikId}/chatflows/new`)
+        navigate(`/unik/${unikId}/chatflows/new`)
     }
 
     const goToCanvas = (selectedChatflow) => {
-        navigate(`/uniks/${unikId}/chatflows/${selectedChatflow.id}`)
+        navigate(`/unik/${unikId}/chatflows/${selectedChatflow.id}`)
     }
 
     useEffect(() => {
         // Check if location.state has templateFlowData - redirect to the new chatflow page
         if (location.state && location.state.templateFlowData) {
-            navigate(`/uniks/${unikId}/chatflows/new`, { state: { templateFlowData: location.state.templateFlowData } })
+            navigate(`/unik/${unikId}/chatflows/new`, { state: { templateFlowData: location.state.templateFlowData } })
             return
         }
 

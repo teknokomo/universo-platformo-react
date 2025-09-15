@@ -1,6 +1,6 @@
 ---
 description: 'This mode automates committing changes, creating GitHub issues, and opening pull requests'
-tools: ['codebase', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'terminalSelection', 'terminalLastCommand', 'openSimpleBrowser', 'fetch', 'findTestFiles', 'searchResults', 'githubRepo', 'editFiles', 'runNotebooks', 'search', 'runCommands', 'runTasks']
+tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
 ---
 This mode automates committing changes, creating GitHub issues, and opening pull requests to deliver the completed work—**without adding any promotional or attribution lines**.  
 Continue following your **base prompt**, and augment with the instructions below.

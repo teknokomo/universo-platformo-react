@@ -12,7 +12,7 @@ const createCredential = async (req: Request, res: Response, next: NextFunction)
                 `Error: credentialsController.createCredential - body not provided!`
             )
         }
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
@@ -44,13 +44,13 @@ const createCredential = async (req: Request, res: Response, next: NextFunction)
 
 const deleteCredentials = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
+        if (typeof req.params === 'undefined' || !req.params.unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.deleteCredentials - id not provided!`
+                `Error: credentialsController.deleteCredentials - unikId not provided!`
             )
         }
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
@@ -82,7 +82,7 @@ const deleteCredentials = async (req: Request, res: Response, next: NextFunction
 
 const getAllCredentials = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const unikId = req.params.unikId as string
+    const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
@@ -114,10 +114,10 @@ const getAllCredentials = async (req: Request, res: Response, next: NextFunction
 
 const getCredentialById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
+        if (typeof req.params === 'undefined' || !req.params.unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.getCredentialById - id not provided!`
+                `Error: credentialsController.getCredentialById - unikId not provided!`
             )
         }
         const unikId = req.params.unikId as string
@@ -152,10 +152,10 @@ const getCredentialById = async (req: Request, res: Response, next: NextFunction
 
 const updateCredential = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
+        if (typeof req.params === 'undefined' || !req.params.unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: credentialsController.updateCredential - id not provided!`
+                `Error: credentialsController.updateCredential - unikId not provided!`
             )
         }
         if (!req.body) {
