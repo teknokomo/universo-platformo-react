@@ -3,8 +3,8 @@ import PropTypes from 'prop-types'
 import { useState, useEffect } from 'react'
 import { Box, Typography, Dialog, DialogActions, DialogContent, DialogTitle, OutlinedInput } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import { StyledButton } from '../../../../../packages/ui/src/ui-component/button/StyledButton'
-import api from '../../../../../packages/ui/src/api'
+import { StyledButton } from '@ui/ui-component/button/StyledButton'
+import api from '@ui/api'
 import { useTranslation } from 'react-i18next'
 
 // Universo Platformo | Local API module for Unik, using the base axios instance

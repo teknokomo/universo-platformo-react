@@ -6,8 +6,8 @@ import { useParams } from 'react-router-dom'
 import { List, ListItem, ListItemText, Skeleton } from '@mui/material'
 
 // project imports
-import MainCard from '../../../../../packages/ui/src/ui-component/cards/MainCard'
-import ErrorBoundary from '../../../../../packages/ui/src/ErrorBoundary'
+import MainCard from '@ui/ui-component/cards/MainCard'
+import ErrorBoundary from '@ui/ErrorBoundary'
 import { getAccounts } from '../api/finance/accounts'
 
 const AccountList = () => {

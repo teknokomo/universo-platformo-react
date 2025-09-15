@@ -1,8 +1,8 @@
 // Universo Platformo | User profile page
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../../../../../packages/ui/src/utils/authProvider'
-import MainCard from '../../../../../packages/ui/src/ui-component/cards/MainCard'
+import { useAuth } from '@ui/utils/authProvider'
+import MainCard from '@ui/ui-component/cards/MainCard'
 import { Box, TextField, Button, Stack, Alert, Typography, Grid, Paper, Divider } from '@mui/material'
 
 const Profile = () => {

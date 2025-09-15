@@ -7,18 +7,18 @@ import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from '@mui/mate
 import { useTheme } from '@mui/material/styles'
 
 // project imports
-import MainCard from '../../../../../packages/ui/src/ui-component/cards/MainCard'
-import ItemCard from '../../../../../packages/ui/src/ui-component/cards/ItemCard'
-import { gridSpacing } from '../../../../../packages/ui/src/store/constant'
-import APIEmptySVG from '../../../../../packages/ui/src/assets/images/api_empty.svg'
-import ConfirmDialog from '../../../../../packages/ui/src/ui-component/dialog/ConfirmDialog'
-import { FlowListTable } from '../../../../../packages/ui/src/ui-component/table/FlowListTable'
-import { StyledButton } from '../../../../../packages/ui/src/ui-component/button/StyledButton'
-import ViewHeader from '../../../../../packages/ui/src/layout/MainLayout/ViewHeader'
-import ErrorBoundary from '../../../../../packages/ui/src/ErrorBoundary'
+import MainCard from '@ui/ui-component/cards/MainCard'
+import ItemCard from '@ui/ui-component/cards/ItemCard'
+import { gridSpacing } from '@ui/store/constant'
+import APIEmptySVG from '@ui/assets/images/api_empty.svg'
+import ConfirmDialog from '@ui/ui-component/dialog/ConfirmDialog'
+import { FlowListTable } from '@ui/ui-component/table/FlowListTable'
+import { StyledButton } from '@ui/ui-component/button/StyledButton'
+import ViewHeader from '@ui/layout/MainLayout/ViewHeader'
+import ErrorBoundary from '@ui/ErrorBoundary'
 
 // Use existing API helper
-import api from '../../../../../packages/ui/src/api'
+import api from '@ui/api'
 
 // Create local API module for uniks using base axios instance
 const uniksApi = {
@@ -28,8 +28,8 @@ const uniksApi = {
 }
 
 // Hooks
-import useApi from '../../../../../packages/ui/src/hooks/useApi'
-import { useAuthError } from '../../../../../packages/ui/src/hooks/useAuthError'
+import useApi from '@ui/hooks/useApi'
+import { useAuthError } from '@ui/hooks/useAuthError'
 
 // Additional: import UnikDialog modal for creating/editing Unik
 import UnikDialog from './UnikDialog'

@@ -18,7 +18,18 @@
         "jsx": "react-jsx",
         "allowJs": false,
         "typeRoots": ["./src/types"],
-        "baseUrl": "./src",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"],
+            "@ui/*": ["../../../packages/ui/src/*"],
+            "@types/*": ["../../../apps/universo-platformo-types/base/src/*"],
+            "@utils/*": ["../../../apps/universo-platformo-utils/base/src/*"],
+            "@api/*": ["src/api/*"],
+            "@components/*": ["src/components/*"],
+            "@hooks/*": ["src/hooks/*"],
+            "@pages/*": ["src/pages/*"],
+            "@i18n/*": ["src/i18n/*"]
+        },
         "moduleResolution": "node",
         "noResolve": false
     },

@@ -46,7 +46,31 @@ Implement singular routing pattern for individual Unik operations in API endpoin
 # Task Tracking
 
 **Project**: Universo Platformo (v0.29.0-alpha, Alpha achieved)
-**Current Focus**: Fix metaverses localization button keys display issue
+**Current Focus**: TypeScript Path Aliases Refactoring
+
+## TypeScript Path Aliases Refactoring Plan (2025-09-16) ✅
+
+**Goal**: Standardize imports across the monorepo by replacing long relative paths (`../../../../../`) with clean aliases (`@ui/*`, `@types/*`, `@utils/*`).
+
+### Implementation Tasks:
+- [x] Document plan in memory-bank/tasks.md
+- [x] Analyze current tsconfig.json files
+- [x] Create import analysis tool
+- [x] Refactor finance-frt (current file)
+- [x] Refactor profile-frt
+- [x] Refactor resources-frt
+- [x] Refactor analytics-frt
+- [x] Refactor auth-frt
+- [x] Validation and testing
+- [x] Final consistency check
+
+**Priority Patterns:**
+- `@ui/*` - UI components from packages/ui
+- `@types/*` - Types from universo-platformo-types
+- `@utils/*` - Utilities from universo-platformo-utils
+- `@api/*`, `@components/*`, `@hooks/*`, `@pages/*` - Local modules
+
+**Reference Configurations:** spaces-frt, metaverses-frt (already working)
 
 ## New Task - Flow List i18n (2025-09-15)
 
