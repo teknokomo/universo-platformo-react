@@ -12,7 +12,7 @@ const createCredential = async (req: Request, res: Response, next: NextFunction)
                 `Error: credentialsController.createCredential - body not provided!`
             )
         }
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
