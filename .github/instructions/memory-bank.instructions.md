@@ -49,7 +49,7 @@ description: 'When you want to update any file in memory-bank, including activeC
     -   Completed tasks: `- [x] Task description (optional brief outcome)`
     -   Do not write long prose in tasks.md; if more detail is needed for context, put it in `progress.md` or as a note indented below the task. For instance:
         `- [ ] Implement new camera rotation logic`
-            `- Note: camera jitter happens when combining Q+E keys, need to address quaternions conversion.`
+            - Note: camera jitter happens when combining Q+E keys, need to address quaternions conversion.
     -   Keep tasks.md focused on actionable items rather than general status or discussion.
 
 -   **Update Frequency:** Treat the memory bank as the AI’s persistent memory. Always review and update `activeContext.md` and `tasks.md` at the start and end of each significant development session. Update `progress.md` whenever a milestone is reached or a set of tasks is completed (ensuring alignment with what was in `tasks.md`). Update other files (`systemPatterns.md`, `techContext.md`, etc.) when relevant changes occur (new patterns, new technologies, etc.). Consistently maintaining these ensures the next AI session starts with accurate context.
