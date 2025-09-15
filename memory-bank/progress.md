@@ -1,5 +1,48 @@
 # Progress
 
+**As of 2025-09-16 | TypeScript Path Aliases Refactoring Complete**
+
+## TypeScript Path Aliases Refactoring (2025-09-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Successfully refactored TypeScript path aliases across frontend applications, replacing long relative paths (`../../../../../packages/ui/src/*`) with clean aliases (`@ui/*`).
+
+### Results Achieved:
+- ✅ **finance-frt**: Migrated from 23+ long imports to @ui/* aliases
+- ✅ **profile-frt**: Migrated 2 UI imports to @ui/* aliases  
+- ✅ **resources-frt**: Already using @ui/* - standardized tsconfig
+- ✅ **analytics-frt**: Already clean - standardized tsconfig
+- ✅ **spaces-frt & metaverses-frt**: Already using @ui/* (reference implementations)
+- ✅ **All builds passing**: 9 frontend apps compile and build successfully
+
+### Technical Implementation:
+- **Standardized tsconfig.json** pattern across all apps:
+  ```json
+  {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@ui/*": ["../../../packages/ui/src/*"],
+      "@types/*": ["../../../apps/universo-platformo-types/base/src/*"],
+      "@utils/*": ["../../../apps/universo-platformo-utils/base/src/*"]
+    }
+  }
+  ```
+- **Build System**: Confirmed compatibility with tsc+gulp (not Vite)
+- **PNPM Workspaces**: Works with existing link-workspace-packages=deep
+- **Tool Created**: `tools/check-imports.js` for future monitoring
+
+### Remaining Notes:
+- **Internal imports** in publish-frt, template-mmoomm, template-quiz still use relative paths (within same apps)
+- These are internal architectural decisions, not cross-package dependencies
+- All packages/ui imports successfully migrated to @ui/* aliases
+
+**MVP Objective Achieved**: Clean, maintainable imports from UI package to frontend apps.
+
+---
+
 **As of 2025-01-21 | v0.29.0-alpha | [Backup](progress.md.backup-2)**
 
 ## Completed (chronological)

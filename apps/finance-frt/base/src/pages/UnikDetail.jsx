@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Button, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import api from '../../../../../packages/ui/src/api'
+import api from '@ui/api'
 
 const UnikDetail = () => {
     const { unikId } = useParams()
