@@ -214,7 +214,7 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         if (typeof req.params === 'undefined' || !req.params.unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - unikId not provided!`)
         }
-    const unikId = req.params.unikId as string
+        const unikId = req.params.unikId as string
         if (!unikId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - unikId not provided!`)
         }
