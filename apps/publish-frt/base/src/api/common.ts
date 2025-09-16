@@ -45,10 +45,13 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; chatfl
         const pathname = window.location.pathname
         const result: { unikId?: string; canvasId?: string; chatflowId?: string; spaceId?: string } = {}
 
-        // Extract the unikId
-        const unikMatch = pathname.match(/\/uniks\/([^\/]+)/)
-        if (unikMatch && unikMatch[1]) {
-            result.unikId = unikMatch[1]
+        // Extract the unikId - support both new singular '/unik/' and legacy '/uniks/' patterns
+        const unikSingularMatch = pathname.match(/\/unik\/([^\/]+)/)
+        const unikLegacyMatch = pathname.match(/\/uniks\/([^\/]+)/)
+        if (unikSingularMatch && unikSingularMatch[1]) {
+            result.unikId = unikSingularMatch[1]
+        } else if (unikLegacyMatch && unikLegacyMatch[1]) {
+            result.unikId = unikLegacyMatch[1]
         }
 
         // Extract the canvasId (new structure)

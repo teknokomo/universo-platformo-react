@@ -39,6 +39,25 @@ Implement singular routing pattern for individual Unik operations in API endpoin
 - [x] Add route skipping middleware in individual router to avoid nested path conflicts
 - [x] Build and verify fixes resolve "unikId not provided" errors in nested resources
 
+### Bug Fix - URL Parsing in getCurrentUrlIds (2025-09-16)
+- [x] Identify root cause: getCurrentUrlIds function using legacy '/uniks/' regex pattern
+- [x] Update regex to support both new singular '/unik/' and legacy '/uniks/' patterns
+- [x] Test AR.js Publisher load/save functionality after URL parsing fix
+- [x] Audit codebase for other similar URL parsing issues (none found)
+- [x] Validate publish-frt package builds successfully without TypeScript errors
+
+### Global Library Management Implementation (2025-01-16)
+- [x] Add PUBLISH section to .env and .env.example files with global library management settings
+- [x] Create PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT and PUBLISH_DEFAULT_LIBRARY_SOURCE environment variables
+- [x] Add getGlobalSettings method to PublishController for retrieving server environment settings
+- [x] Create /api/v1/publish/settings/global endpoint to expose global settings to frontend
+- [x] Add getGlobalSettings method to PublicationApi frontend client
+- [x] Update ARJSPublisher component to load and use global settings
+- [x] Implement frontend logic to prioritize global settings when enabled
+- [x] Add UI indicators showing when global library management is active
+- [x] Disable library source selection controls when global management is enabled
+- [x] Build and validate full implementation works correctly
+
 ### Documentation Updates
 - [x] Update API documentation to reflect new routing patterns (EN/RU api-reference README updated with /unik vs /uniks section, fallback explanation)
 - [x] Update any code comments / system patterns referring to old API paths (systemPatterns.md adjusted, legacy path marked)

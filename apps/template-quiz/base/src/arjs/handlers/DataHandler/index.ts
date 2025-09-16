@@ -949,9 +949,6 @@ export class DataHandler {
                         console.log('[LeadCollection] Saving lead data to Supabase:', leadInfo);
                         console.log('[LeadCollection] Total points earned:', totalPoints);
                         
-                        // Universo Platformo | Always sync totalPoints into phone field before saving
-                        leadInfo.phone = totalPoints.toString();
-
                         // Prevent duplicate save
                         if (leadInfo.saved) {
                             console.log('[LeadCollection] Lead already saved, skipping duplicate save');
@@ -964,6 +961,7 @@ export class DataHandler {
                             name: leadInfo.name || null,
                             email: leadInfo.email || null,
                             phone: leadInfo.phone || null,
+                            points: totalPoints, // Dedicated field for points
                             createdDate: new Date().toISOString()
                         };
                         

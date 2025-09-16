@@ -16,6 +16,9 @@ export class Lead implements ILead {
     @Column()
     phone?: string
 
+    @Column({ type: 'integer', default: 0, nullable: false })
+    points: number
+
     @Column()
     chatflowid: string // Now refers to canvasId (backward compatibility maintained)
 

@@ -231,4 +231,23 @@ export class PublicationApi {
             return false
         }
     }
+
+    /**
+     * Get global publish settings from server
+     * @returns Promise with global settings data
+     */
+    static async getGlobalSettings() {
+        try {
+            const headers = {
+                ...getAuthHeaders(),
+                'x-request-from': 'internal'
+            }
+
+            const response = await axios.get(`${API_BASE}/publish/settings/global`, { headers })
+            return response
+        } catch (error) {
+            console.error('[PublicationApi] Error getting global settings:', error)
+            throw error
+        }
+    }
 }

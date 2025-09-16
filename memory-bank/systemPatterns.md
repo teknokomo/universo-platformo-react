@@ -196,6 +196,22 @@ if (!entity.rigidbody.body) {
 
   Fallback behavior: a normalization middleware maps `:id` → `unikId`, and controllers use `req.params.unikId || req.params.id` to eliminate intermittent missing parameter errors.
 
+### URL Parsing Patterns (2025-09-16)
+
+-   **Frontend URL Parsing**: When extracting `unikId` from `window.location.pathname`, always support both new singular `/unik/:unikId` and legacy `/uniks/:unikId` patterns for backward compatibility:
+    ```typescript
+    // Correct pattern - support both singular and legacy
+    const unikSingularMatch = pathname.match(/\/unik\/([^\/]+)/)
+    const unikLegacyMatch = pathname.match(/\/uniks\/([^\/]+)/)
+    if (unikSingularMatch && unikSingularMatch[1]) {
+        result.unikId = unikSingularMatch[1]
+    } else if (unikLegacyMatch && unikLegacyMatch[1]) {
+        result.unikId = unikLegacyMatch[1]
+    }
+    ```
+-   **Priority**: Always prioritize new singular pattern first, fallback to legacy pattern for compatibility.
+-   **Reference Implementation**: See `CanvasHeader.jsx extractUnikId()` and `getCurrentUrlIds()` in `common.ts`.
+
 ## Data Isolation and Entity Relationship Patterns
 
 ### Three-Tier Architecture Pattern

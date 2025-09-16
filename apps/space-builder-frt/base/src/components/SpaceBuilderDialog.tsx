@@ -760,19 +760,9 @@ const FriendlyReviseHint: React.FC = () => {
   if (!open) return null
   return (
     <Alert
-      severity='warning'
-      variant='standard'
+      severity='info'
       onClose={() => setOpen(false)}
-      sx={(theme) => ({
-        mt: 2,
-        borderRadius: 1,
-        backgroundColor: theme.palette.warning.light,
-        color: '#000000',
-        border: `1px solid ${theme.palette.warning.main}`,
-        '& .MuiAlert-icon': { color: theme.palette.warning.main },
-        '& .MuiAlert-message': { color: '#000000', fontWeight: 400 },
-        '& .MuiAlert-action': { color: '#000000' }
-      })}
+      sx={{ mt: 2 }}
     >
       {t('spaceBuilder.reviseHint')}
     </Alert>

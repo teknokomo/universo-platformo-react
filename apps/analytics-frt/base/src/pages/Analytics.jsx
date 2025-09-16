@@ -123,8 +123,13 @@ const Analytics = () => {
             }
         }
 
-        const validLeads = leadsData.filter((lead) => lead.phone && !isNaN(parseInt(lead.phone)))
-        const points = validLeads.map((lead) => parseInt(lead.phone) || 0)
+        // Use points field with fallback to phone for backward compatibility
+        const validLeads = leadsData.filter((lead) => 
+            lead.points !== undefined || (lead.phone && !isNaN(parseInt(lead.phone)))
+        )
+        const points = validLeads.map((lead) => 
+            lead.points !== undefined ? lead.points : (parseInt(lead.phone) || 0)
+        )
 
         return {
             totalLeads: leadsData.length,
