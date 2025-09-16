@@ -79,7 +79,8 @@
         "general": {
             "cancel": "Cancel",
             "close": "Close",
-            "loading": "Loading..."
+            "loading": "Loading...",
+            "comingSoon": "coming soon"
         },
         "project": {
             "title": "Project Name"
@@ -190,7 +191,14 @@
             "copyLink": "Copy link",
             "viewAR": "Open AR view",
             "generatingScene": "Generating AR scene...",
-            "showMarker": "Show this marker to the camera to activate AR"
+            "showMarker": "Show this marker to the camera to activate AR",
+            "globalLibraryManagement": {
+                "enforcedMessage": "Library source settings are managed globally by administrator (current source: {{source}})",
+                "legacyCorrectedMessage": "Library source settings have been automatically updated to comply with global administrator requirements (set to: {{source}})",
+                "legacyRecommendationMessage": "Administrator recommends changing library source to {{source}} to comply with global settings",
+                "officialSource": "Official server",
+                "kiberplanoSource": "Kiberplano server"
+            }
         },
         "playcanvas": {
             "projectTitle": "Project Title",

@@ -2,6 +2,7 @@
 description: 'This mode automates committing changes, creating GitHub issues, and opening pull requests'
 tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
 ---
+
 This mode automates committing changes, creating GitHub issues, and opening pull requests to deliver the completed work—**without adding any promotional or attribution lines**.  
 Continue following your **base prompt**, and augment with the instructions below.
 
@@ -27,98 +28,107 @@ Continue following your **base prompt**, and augment with the instructions below
 1. **Begin with "OK GIT"** to confirm GIT mode activation.
 
 2. **Analyze Changes (CRITICAL for New Chat Context)**:
-   - **ALWAYS** start by running `git status` to identify all changed files
-   - **If no previous context exists** in the current chat:
-     - Read and analyze ALL changed files to understand what was implemented
-     - If user specifies to commit only specific files, focus analysis on those files
-     - Examine the nature of changes: new features, bug fixes, improvements, etc.
-     - Identify the main functionality or purpose of the changes
-     - This analysis is ESSENTIAL for writing accurate Issue and PR descriptions
-   - **If user specifies partial commit**: Focus analysis on the specified files only
-   - **Document your findings** briefly before proceeding to create Issue
+
+    - **ALWAYS** start by running `git status` to identify all changed files
+    - **If no previous context exists** in the current chat:
+        - Read and analyze ALL changed files to understand what was implemented
+        - If user specifies to commit only specific files, focus analysis on those files
+        - Examine the nature of changes: new features, bug fixes, improvements, etc.
+        - Identify the main functionality or purpose of the changes
+        - This analysis is ESSENTIAL for writing accurate Issue and PR descriptions
+    - **If user specifies partial commit**: Focus analysis on the specified files only
+    - **Document your findings** briefly before proceeding to create Issue
 
 3. **Create GitHub Issue in Upstream**:
-   - **Base Issue content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
-   - **FIRST: Fetch repository labels** using GitHub API tools to get current list of available labels
-   - Use **MCP GitHub tools** (`mcp_GitHub_create_issue`) to create the issue
-   - Target repository: `teknokomo/universo-platformo-react` (upstream)
-   - Follow the format from `.augment/rules/github-issues.md` (English main text + Russian in spoiler)
-   - Focus on the **main functionality** implemented (not documentation or memory bank updates)
-   - Use future tense as if describing work to be completed
-   - **Apply appropriate labels** according to `.augment/rules/github-labels.md`:
-     - **CRITICAL**: Use ONLY labels that exist in the fetched repository labels
-     - Select labels based on the dynamic label selection process
-     - Do not create new labels or use non-existent labels
-   - **IMPORTANT**: The MCP GitHub create_issue tool does not support setting the Issue Type field directly
-   - Issue Type (Task/Feature/Bug) must be set manually in GitHub UI after creation, or use appropriate labels:
-     - **Task**: Use `enhancement` label for general implementation work (if it exists)
-     - **Feature**: Use `feature` label for new functionality (if it exists)
-     - **Bug**: Use `bug` label if it exists, otherwise mention in description
-   - User may specify additional conditions for the issue content
+
+    - **Base Issue content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
+    - **FIRST: Fetch repository labels** using GitHub API tools to get current list of available labels
+    - Use **MCP GitHub tools** (such as `mcp_RUBE_MULTI_EXECUTE_TOOL` with GitHub tool slugs via MCP Rube hub, or direct MCP GitHub tools like `mcp_GitHub_create_issue`) to create the issue
+    - Target repository: `teknokomo/universo-platformo-react` (upstream)
+    - Follow the format from `.gemini/rules/github-issues.md` (English main text + Russian in spoiler)
+    - Focus on the **main functionality** implemented (not documentation or memory bank updates)
+    - Use future tense as if describing work to be completed
+    - **Apply appropriate labels** according to `.gemini/rules/github-labels.md`:
+        - **CRITICAL**: Use ONLY labels that exist in the fetched repository labels
+        - Select labels based on the dynamic label selection process
+        - Do not create new labels or use non-existent labels
+    - **IMPORTANT**: The MCP GitHub create_issue tool does not support setting the Issue Type field directly
+    - Issue Type (Task/Feature/Bug) must be set manually in GitHub UI after creation, or use appropriate labels:
+        - **Task**: Use `enhancement` label for general implementation work (if it exists)
+        - **Feature**: Use `feature` label for new functionality (if it exists)
+        - **Bug**: Use `bug` label if it exists, otherwise mention in description
+    - User may specify additional conditions for the issue content
 
 4. **Create New Branch from Current Branch**:
-   - Create a new branch from the current working branch for the functionality to be committed
-   - Use descriptive branch name related to the implemented functionality
-   - **Exception**: Skip this step if user explicitly states they already created a branch
-   - Use local git commands for branch creation
-   - **CRITICAL**: When working with partial changes, be extremely careful not to lose other uncommitted changes in different files
+
+    - Create a new branch from the current working branch for the functionality to be committed
+    - Use descriptive branch name related to the implemented functionality
+    - **Exception**: Skip this step if user explicitly states they already created a branch
+    - Use local git commands for branch creation
+    - **CRITICAL**: When working with partial changes, be extremely careful not to lose other uncommitted changes in different files
 
 5. **Create Commit with Issue Reference**:
-   - Begin commit message with issue number: `#123 ` followed by brief description
-   - Include all changed files unless user specifies to include only specific files
-   - **CRITICAL for Partial Commits**: When committing only specific files:
-     - Use `git add <specific-files>` instead of `git add .`
-     - Verify with `git status` that only intended files are staged
-     - Use `git stash` to temporarily save other changes if needed
-     - **NEVER** use `git reset --hard` or similar commands that could lose work
-     - Preserve uncommitted changes in other files for future commits
-   - User may specify additional conditions for commit content
-   - Use local git commands for committing
+
+    - Begin commit message with issue number: `#123 ` followed by brief description
+    - Include all changed files unless user specifies to include only specific files
+    - **CRITICAL for Partial Commits**: When committing only specific files:
+        - Use `git add <specific-files>` instead of `git add .`
+        - Verify with `git status` that only intended files are staged
+        - Use `git stash` to temporarily save other changes if needed
+        - **NEVER** use `git reset --hard` or similar commands that could lose work
+        - Preserve uncommitted changes in other files for future commits
+    - User may specify additional conditions for commit content
+    - Use local git commands for committing
 
 6. **Push New Branch to Fork**:
-   - Push the new branch to your fork repository on GitHub
-   - This will likely be your fork of the upstream repository
-   - Use local git commands for pushing
+
+    - Push the new branch to your fork repository on GitHub
+    - This will likely be your fork of the upstream repository
+    - Use local git commands for pushing
 
 7. **Create Pull Request to Upstream**:
-   - **Base PR content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
-   - **Use the same fetched labels from Step 3** - no need to fetch again
-   - Use **MCP GitHub tools** (`mcp_GitHub_create_pull_request`) to create PR
-   - Source: your new branch in your fork
-   - Target: `main` branch in `teknokomo/universo-platformo-react` (upstream)
-   - **PR Title Format**: Start with `GH{issue_number} ` followed by descriptive title
-   - Follow the format from `.augment/rules/github-pr.md` for PR description (not github-issues.md)
-   - **Apply appropriate labels** according to `.augment/rules/github-labels.md`:
-     - **Use ONLY labels from the previously fetched repository labels**
-     - Select labels that match the work performed
-     - Keep labels minimal and relevant
-   - Include `Fixes #123` reference at the beginning of PR description to auto-close the issue when merged
+
+    - **Base PR content on analysis from Step 2** - use the understanding of changes to write accurate descriptions
+    - **Use the same fetched labels from Step 3** - no need to fetch again
+    - Use **MCP GitHub tools** (such as `mcp_RUBE_MULTI_EXECUTE_TOOL` with GitHub tool slugs via MCP Rube hub, or direct MCP GitHub tools like `mcp_GitHub_create_pull_request`) to create PR
+    - Source: your new branch in your fork
+    - Target: `main` branch in `teknokomo/universo-platformo-react` (upstream)
+    - **PR Title Format**: Start with `GH{issue_number} ` followed by descriptive title
+    - Follow the format from `.gemini/rules/github-pr.md` for PR description (not github-issues.md)
+    - **Apply appropriate labels** according to `.gemini/rules/github-labels.md`:
+        - **Use ONLY labels from the previously fetched repository labels**
+        - Select labels that match the work performed
+        - Keep labels minimal and relevant
+    - Include `Fixes #123` reference at the beginning of PR description to auto-close the issue when merged
 
 8. **Switch Back to Main Branch**:
-   - After all operations are completed, switch the local project back to the `main` branch
-   - Use local git command: `git checkout main`
-   - This ensures the working directory is clean and ready for future development
+    - After all operations are completed, switch the local project back to the `main` branch
+    - Use local git command: `git checkout main`
+    - This ensures the working directory is clean and ready for future development
 
 **Required Tools Usage**:
-- **ALWAYS** use MCP GitHub tools for all GitHub operations (issues, PRs)
-- Use appropriate MCP GitHub functions: `mcp_GitHub_create_issue`, `mcp_GitHub_create_pull_request`
-- **For fetching labels**: Use GitHub API tools to get repository information and labels
-- Use local git commands for branch creation, commits, and pushing
-- **For analysis step**: Use `readFile` or `readMultipleFiles` tools to examine changed files
-- **For git status**: Use `executeBash` with `git status` command
-- Verify repository ownership before any operations
+
+-   **ALWAYS** use MCP GitHub tools for all GitHub operations (issues, PRs)
+-   Use appropriate MCP GitHub functions via MCP Rube hub (such as `mcp_RUBE_MULTI_EXECUTE_TOOL` with GitHub tool slugs) or direct MCP GitHub tools (like `mcp_GitHub_create_issue`, `mcp_GitHub_create_pull_request`)
+-   **For fetching labels**: Use GitHub API tools to get repository information and labels
+-   Use local git commands for branch creation, commits, and pushing
+-   **For analysis step**: Use `readFile` or `readMultipleFiles` tools to examine changed files
+-   **For git status**: Use `executeBash` with `git status` command
+-   Verify repository ownership before any operations
 
 **Analysis Guidelines for New Chat Context**:
-- **Read changed files thoroughly** to understand the implementation
-- **Identify the main purpose**: What problem does this solve? What feature was added?
-- **Note technical details**: Which components/modules were modified? What patterns were used?
-- **Understand scope**: Is this a bug fix, new feature, or improvement?
-- **Consider user impact**: How does this change affect the end user experience?
-- **Document dependencies**: Are there related files or systems affected?
-- This analysis directly informs the quality of Issue and PR descriptions
+
+-   **Read changed files thoroughly** to understand the implementation
+-   **Identify the main purpose**: What problem does this solve? What feature was added?
+-   **Note technical details**: Which components/modules were modified? What patterns were used?
+-   **Understand scope**: Is this a bug fix, new feature, or improvement?
+-   **Consider user impact**: How does this change affect the end user experience?
+-   **Document dependencies**: Are there related files or systems affected?
+-   This analysis directly informs the quality of Issue and PR descriptions
 
 **Partial Changes Safety Protocol**:
 When working with only some of the changed files (partial commits):
+
 1. **Before any git operations**: Run `git status` to see all changed files
 2. **Preserve other changes**: Use `git stash push -m "temp save" <other-files>` to save unrelated changes
 3. **Stage only target files**: Use `git add <specific-files>` for files to be committed
@@ -127,9 +137,10 @@ When working with only some of the changed files (partial commits):
 6. **NEVER use destructive commands**: Avoid `git reset --hard`, `git clean -fd`, or similar commands that could permanently delete work
 
 **Error Handling**:
-- If MCP GitHub tools fail, provide clear error messages
-- If lacking permissions, explain the limitation to the user
-- Always verify you're working with the correct upstream repository
-- If git operations fail, check for uncommitted changes before retrying
+
+-   If MCP GitHub tools (via MCP Rube hub or direct access) fail, provide clear error messages
+-   If lacking permissions, explain the limitation to the user
+-   Always verify you're working with the correct upstream repository
+-   If git operations fail, check for uncommitted changes before retrying
 
 _Goal: This mode should fully automate final code delivery to GitHub, creating all necessary tracking artifacts (issue, commit, PR) with minimal human intervention._

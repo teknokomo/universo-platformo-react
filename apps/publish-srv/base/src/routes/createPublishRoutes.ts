@@ -164,6 +164,25 @@ export function createPublishRoutes(dataSource: DataSource): Router {
         res.redirect(301, newUrl)
     })
 
+    /**
+     * @route   GET /settings/global
+     * @desc    Получить глобальные настройки публикации
+     */
+    router.get('/settings/global', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            await controller.getGlobalSettings(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in /settings/global:', error)
+            res.setHeader('Content-Type', 'application/json')
+            res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    })
+
     return router
 }
 

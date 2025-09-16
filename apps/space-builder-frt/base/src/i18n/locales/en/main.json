@@ -38,7 +38,7 @@
     "additionalConstraints": "Additional conditions",
     "reviseTitle": "Revise quiz",
     "reviseInstructions": "What to change?",
-    "reviseHint": "Tip: This change step must keep the same number of questions and answers. To add or remove items, go back to Preparation and adjust \"Number of questions\" or \"Answers per question\".",
+    "reviseHint": "Preview allows editing only question and answer content. To change the number of items, return to the preparation step.",
     "revise": "Change",
     "revising": "Applying…",
     "tooManyRequests": "Too many requests, please try again later.",

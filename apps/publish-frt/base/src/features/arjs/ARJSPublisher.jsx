@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi } from '../../api'
+import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi, PublicationApi } from '../../api'
 
 // Universo Platformo | Simple demo mode toggle - set to true to enable demo features
 const DEMO_MODE = false
@@ -84,6 +84,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [isPublic, setIsPublic] = useState(false)
     // State for error message
     const [error, setError] = useState(null)
+    // State for alert message
+    const [alert, setAlert] = useState(null)
     // State for snackbar
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
     // State for generation mode
@@ -101,6 +103,40 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [arjsSource, setArjsSource] = useState('official')
     const [aframeVersion, setAframeVersion] = useState('1.7.1')
     const [aframeSource, setAframeSource] = useState('official')
+
+    // NEW: State for global settings
+    const [globalSettings, setGlobalSettings] = useState(null)
+    const [globalSettingsLoaded, setGlobalSettingsLoaded] = useState(false)
+    const [settingsInitialized, setSettingsInitialized] = useState(false)
+    // State for tracking legacy scenarios to avoid showing standard message
+    const [isLegacyScenario, setIsLegacyScenario] = useState(false)
+
+    // Load global settings on component mount
+    useEffect(() => {
+        const loadGlobalSettings = async () => {
+            try {
+                console.log('ARJSPublisher: Loading global settings...')
+                const response = await PublicationApi.getGlobalSettings()
+                if (response.data?.success) {
+                    setGlobalSettings(response.data.data)
+                    console.log('ARJSPublisher: Global settings loaded:', response.data.data)
+                } else {
+                    console.warn('ARJSPublisher: Failed to load global settings')
+                }
+            } catch (error) {
+                console.warn('ARJSPublisher: Error loading global settings, using defaults:', error)
+            } finally {
+                setGlobalSettingsLoaded(true)
+            }
+        }
+
+        loadGlobalSettings()
+    }, [])
+
+    // Reset settings initialization flag when flow.id changes
+    useEffect(() => {
+        setSettingsInitialized(false)
+    }, [flow?.id])
 
     // Universo Platformo | Function to save current settings
     const saveCurrentSettings = async () => {
@@ -161,8 +197,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
         const loadSavedSettings = async () => {
-            if (!flow?.id || DEMO_MODE) {
-                setSettingsLoading(false)
+            if (!flow?.id || DEMO_MODE || !globalSettingsLoaded || settingsInitialized) {
+                if (globalSettingsLoaded && !settingsInitialized) {
+                    setSettingsLoading(false)
+                }
                 return
             }
 
@@ -184,12 +222,79 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     setArDisplayType(savedSettings.arDisplayType || (savedSettings.markerType ? 'marker' : 'wallpaper'))
                     setWallpaperType(savedSettings.wallpaperType || 'standard')
 
-                    // NEW: Load library configuration
-                    if (savedSettings.libraryConfig) {
+                    // NEW: Load library configuration with legacy detection and auto-correction
+                    if (globalSettings?.enforceGlobalLibraryManagement) {
+                        // LEVEL 2: Enforcement mode - detect legacy and handle accordingly
+                        const hasLegacyConfig = savedSettings.libraryConfig && 
+                            (savedSettings.libraryConfig.arjs?.source !== globalSettings.defaultLibrarySource ||
+                             savedSettings.libraryConfig.aframe?.source !== globalSettings.defaultLibrarySource)
+                        
+                        if (hasLegacyConfig) {
+                            // This is a legacy space with conflicting settings
+                            setIsLegacyScenario(true) // Mark as legacy scenario
+                            
+                            if (globalSettings.autoCorrectLegacySettings) {
+                                // Auto-correct legacy settings
+                                console.log('ARJSPublisher: Auto-correcting legacy library configuration')
+                                setArjsSource(globalSettings.defaultLibrarySource)
+                                setAframeSource(globalSettings.defaultLibrarySource)
+                                setArjsVersion('3.4.7')
+                                setAframeVersion('1.7.1')
+                                
+                                // Show correction message to user
+                                setAlert({
+                                    type: 'info',
+                                    message: t('arjs.globalLibraryManagement.legacyCorrectedMessage', {
+                                        source: globalSettings.defaultLibrarySource === 'official' 
+                                            ? t('arjs.globalLibraryManagement.officialSource')
+                                            : t('arjs.globalLibraryManagement.kiberplanoSource')
+                                    })
+                                })
+                            } else {
+                                // Show recommendation but keep existing settings
+                                console.log('ARJSPublisher: Legacy configuration detected, showing recommendation')
+                                setArjsVersion(savedSettings.libraryConfig.arjs?.version || '3.4.7')
+                                setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
+                                setAframeVersion(savedSettings.libraryConfig.aframe?.version || '1.7.1')
+                                setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
+                                
+                                // Show recommendation message to user
+                                setAlert({
+                                    type: 'warning',
+                                    message: t('arjs.globalLibraryManagement.legacyRecommendationMessage', {
+                                        source: globalSettings.defaultLibrarySource === 'official' 
+                                            ? t('arjs.globalLibraryManagement.officialSource')
+                                            : t('arjs.globalLibraryManagement.kiberplanoSource')
+                                    })
+                                })
+                            }
+                        } else {
+                            // No legacy conflict, apply enforcement
+                            console.log('ARJSPublisher: Enforcing global library management settings')
+                            setArjsSource(globalSettings.defaultLibrarySource)
+                            setAframeSource(globalSettings.defaultLibrarySource)
+                            setArjsVersion('3.4.7')
+                            setAframeVersion('1.7.1')
+                        }
+                    } else if (savedSettings.libraryConfig) {
+                        // Use saved settings (user choice or previous defaults)
                         setArjsVersion(savedSettings.libraryConfig.arjs?.version || '3.4.7')
                         setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
                         setAframeVersion(savedSettings.libraryConfig.aframe?.version || '1.7.1')
                         setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
+                    } else if (globalSettings?.enableGlobalLibraryManagement) {
+                        // LEVEL 1: Priority mode - set defaults but allow user choice
+                        console.log('ARJSPublisher: Using global library management as default priority')
+                        setArjsSource(globalSettings.defaultLibrarySource)
+                        setAframeSource(globalSettings.defaultLibrarySource)
+                        setArjsVersion('3.4.7')
+                        setAframeVersion('1.7.1')
+                    } else {
+                        // Use standard defaults
+                        setArjsVersion('3.4.7')
+                        setArjsSource('official')
+                        setAframeVersion('1.7.1')
+                        setAframeSource('official')
                     }
 
                     // If settings indicate it's public, generate URL
@@ -200,7 +305,26 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     }
                 } else {
                     console.log('ARJSPublisher: No saved settings found, using defaults') // Simple console.log
+                    
+                    // Apply global settings with two-level logic
+                    if (globalSettings?.enforceGlobalLibraryManagement) {
+                        // LEVEL 2: Enforcement mode - force global settings
+                        console.log('ARJSPublisher: Enforcing global library management (no saved settings)')
+                        setArjsSource(globalSettings.defaultLibrarySource)
+                        setAframeSource(globalSettings.defaultLibrarySource)
+                    } else if (globalSettings?.enableGlobalLibraryManagement) {
+                        // LEVEL 1: Priority mode - use global as default but allow user choice
+                        console.log('ARJSPublisher: Using global library management as default (no saved settings)')
+                        setArjsSource(globalSettings.defaultLibrarySource)
+                        setAframeSource(globalSettings.defaultLibrarySource)
+                    } else {
+                        // Use 'official' as default when no global management
+                        setArjsSource('official')
+                        setAframeSource('official')
+                    }
                 }
+
+                setSettingsInitialized(true)
             } catch (error) {
                 console.error('📱 [ARJSPublisher] Error loading settings:', error)
                 setError('Failed to load saved settings')
@@ -210,7 +334,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         }
 
         loadSavedSettings()
-    }, [flow?.id])
+    }, [flow?.id, globalSettingsLoaded])
 
     // Initialize with flow data when component mounts
     useEffect(() => {
@@ -251,7 +375,24 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
      * NEW: Handle AR.js source change
      */
     const handleArjsSourceChange = (event) => {
+        // Allow changes in legacy recommendation mode
+        if (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings)) {
+            console.log('ARJSPublisher: Source change blocked by global library management')
+            return
+        }
+        
         setArjsSource(event.target.value)
+        
+        // Clear legacy alert and scenario when user changes source in recommendation mode
+        if (isLegacyScenario && !globalSettings?.autoCorrectLegacySettings) {
+            const newSourceMatchesGlobal = event.target.value === globalSettings.defaultLibrarySource
+            const aframeSourceMatchesGlobal = aframeSource === globalSettings.defaultLibrarySource
+            
+            if (newSourceMatchesGlobal && aframeSourceMatchesGlobal) {
+                setAlert(null)
+                setIsLegacyScenario(false)
+            }
+        }
     }
 
     /**
@@ -265,7 +406,24 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
      * NEW: Handle A-Frame source change
      */
     const handleAframeSourceChange = (event) => {
+        // Allow changes in legacy recommendation mode
+        if (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings)) {
+            console.log('ARJSPublisher: Source change blocked by global library management')
+            return
+        }
+        
         setAframeSource(event.target.value)
+        
+        // Clear legacy alert and scenario when user changes source in recommendation mode
+        if (isLegacyScenario && !globalSettings?.autoCorrectLegacySettings) {
+            const arjsSourceMatchesGlobal = arjsSource === globalSettings.defaultLibrarySource
+            const newSourceMatchesGlobal = event.target.value === globalSettings.defaultLibrarySource
+            
+            if (arjsSourceMatchesGlobal && newSourceMatchesGlobal) {
+                setAlert(null)
+                setIsLegacyScenario(false)
+            }
+        }
     }
 
     /**
@@ -582,6 +740,28 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         Настройки библиотек
                                     </Typography>
 
+                                    {/* Global settings warning - only for enforcement mode and non-legacy scenarios */}
+                                    {globalSettings?.enforceGlobalLibraryManagement && !isLegacyScenario && (
+                                        <Alert severity="info" sx={{ mb: 2 }}>
+                                            {t('arjs.globalLibraryManagement.enforcedMessage', {
+                                                source: globalSettings.defaultLibrarySource === 'official' 
+                                                    ? t('arjs.globalLibraryManagement.officialSource')
+                                                    : t('arjs.globalLibraryManagement.kiberplanoSource')
+                                            })}
+                                        </Alert>
+                                    )}
+
+                                    {/* Legacy Configuration Alert - shown in place of standard message */}
+                                    {alert && isLegacyScenario && (
+                                        <Alert 
+                                            severity={alert.type} 
+                                            sx={{ mb: 2 }}
+                                            onClose={() => setAlert(null)}
+                                        >
+                                            {alert.message}
+                                        </Alert>
+                                    )}
+
                                     {/* AR.js Configuration */}
                                     <Box sx={{ mb: 2 }}>
                                         <Typography variant='body2' color='text.secondary' gutterBottom>
@@ -608,11 +788,16 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                                         value={arjsSource}
                                                         onChange={handleArjsSourceChange}
                                                         label='Сервер'
-                                                        disabled={!!publishedUrl}
+                                                        disabled={!!publishedUrl || (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))}
                                                     >
                                                         <MenuItem value='official'>Официальный сервер</MenuItem>
                                                         <MenuItem value='kiberplano'>Сервер Kiberplano</MenuItem>
                                                     </Select>
+                                                    {globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings) && (
+                                                        <FormHelperText>
+                                                            Источник управляется глобально
+                                                        </FormHelperText>
+                                                    )}
                                                 </FormControl>
                                             </Grid>
                                         </Grid>
@@ -644,11 +829,16 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                                         value={aframeSource}
                                                         onChange={handleAframeSourceChange}
                                                         label='Сервер'
-                                                        disabled={!!publishedUrl}
+                                                        disabled={!!publishedUrl || (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))}
                                                     >
                                                         <MenuItem value='official'>Официальный сервер</MenuItem>
                                                         <MenuItem value='kiberplano'>Сервер Kiberplano</MenuItem>
                                                     </Select>
+                                                    {globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings) && (
+                                                        <FormHelperText>
+                                                            Источник управляется глобально
+                                                        </FormHelperText>
+                                                    )}
                                                 </FormControl>
                                             </Grid>
                                         </Grid>

@@ -193,4 +193,40 @@ export class PublishController {
             })
         }
     }
+
+    /**
+     * Get publish global settings
+     * @param req Request
+     * @param res Response
+     */
+    public async getGlobalSettings(req: Request, res: Response): Promise<void> {
+        logger.info(`[PublishController] getGlobalSettings called`)
+        try {
+            // Read environment variables
+            const globalLibraryManagement = process.env.PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT === 'true'
+            const enforceGlobalLibraryManagement = process.env.PUBLISH_ENFORCE_GLOBAL_LIBRARY_MANAGEMENT === 'true'
+            const autoCorrectLegacySettings = process.env.PUBLISH_AUTO_CORRECT_LEGACY_SETTINGS === 'true'
+            const defaultLibrarySource = process.env.PUBLISH_DEFAULT_LIBRARY_SOURCE || 'kiberplano'
+
+            res.setHeader('Content-Type', 'application/json')
+            res.status(200).json({
+                success: true,
+                data: {
+                    enableGlobalLibraryManagement: globalLibraryManagement,
+                    enforceGlobalLibraryManagement: enforceGlobalLibraryManagement,
+                    autoCorrectLegacySettings: autoCorrectLegacySettings,
+                    defaultLibrarySource: defaultLibrarySource
+                }
+            })
+        } catch (error) {
+            logger.error(`[PublishController] Error in getGlobalSettings:`, error)
+
+            res.setHeader('Content-Type', 'application/json')
+            res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve global settings',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
 }

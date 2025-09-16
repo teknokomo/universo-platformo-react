@@ -8,8 +8,8 @@ export type LibraryConfig = _ILibraryConfig
 
 // Default library configuration (kept in sync with server constants)
 export const DEFAULT_LIBRARY_CONFIG: LibraryConfig = {
-    arjs: { version: '3.4.7', source: 'official' },
-    aframe: { version: '1.7.1', source: 'official' }
+    arjs: { version: '3.4.7', source: 'kiberplano' },
+    aframe: { version: '1.7.1', source: 'kiberplano' }
 }
 
 // Available versions for libraries

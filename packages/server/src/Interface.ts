@@ -127,6 +127,7 @@ export interface ILead {
     name?: string
     email?: string
     phone?: string
+    points?: number
     chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
     chatId: string
     createdDate: Date

@@ -10,6 +10,7 @@ export class AddLead1710832137905 implements MigrationInterface {
                 "name" text,
                 "email" text,
                 "phone" text,
+                "points" integer DEFAULT 0 NOT NULL,
                 "createdDate" timestamp NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_98419043dd704f54-9830ab78f0" PRIMARY KEY (id)
             );`
