@@ -45,7 +45,7 @@ import { createMockDataSource } from '@testing/backend/setupAfterEnv'
 `createMockQueryBuilder`, `createMockRepository`, and `createMockDataSource` create deeply mocked TypeORM primitives used by service unit tests. They are chainable by default and expose the most common terminal methods (`getOne`, `getMany`, `execute`, etc.).
 
 ```ts
-import { createMockDataSource } from '@testing/backend/typeormMocks'
+import { createMockDataSource } from '@testing/backend/setupAfterEnv'
 
 const dataSource = createMockDataSource()
 const repository = dataSource.getRepository(MyEntity)
