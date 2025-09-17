@@ -909,6 +909,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         <QRCodeSection 
                                             publishedUrl={publishedUrl}
                                             disabled={isPublishing}
+                                            onDownloadSuccess={(message) => setSnackbar({ open: true, message })}
                                         />
 
                                         <Box sx={{ mt: 3 }}>
