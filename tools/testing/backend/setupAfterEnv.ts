@@ -173,12 +173,9 @@ jest.mock('@supabase/supabase-js', () => {
 })
 
 global.createMockSupabaseClient = createMockSupabaseClient
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-global.createMockRepository = createMockRepository as any
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-global.createMockQueryBuilder = createMockQueryBuilder as any
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-global.createMockDataSource = createMockDataSource as any
+global.createMockRepository = createMockRepository
+global.createMockQueryBuilder = createMockQueryBuilder
+global.createMockDataSource = createMockDataSource
 
 export {
   createMockSupabaseClient,
