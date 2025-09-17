@@ -1,10 +1,73 @@
 
-# Quiz Lead Saving Fix Implementation
+# Tasks Tracker
 
-## Objective
+## Current Implementation - QR Code Download Feature (2025-01-17)
+
+### Objective
+Implement QR code download functionality for published applications.
+
+## QR Code Download Feature Implementation
+
+### [x] Task 1: Create SVG to PNG Conversion Utility
+- Create a utility function to convert QR code SVG to high-quality PNG image (512x512)
+- Handle error cases and resource cleanup
+- Support configurable quality settings
+
+### [x] Task 2: Add Download Button to QR Code Section  
+- Integrate download button with Material-UI design system
+- Add proper loading states during download process
+- Position button appropriately in the component layout
+
+### [x] Task 3: Implement Download Logic
+- Connect QR code SVG element with download functionality
+- Generate appropriate filename for downloaded file
+- Handle download errors with user feedback
+
+### [x] Task 4: Add Internationalization Support
+- Add download-related translation keys to Russian language file
+- Add corresponding English translations
+- Include loading, success, and error message keys
+
+### [x] Task 5: Package Build and Validation
+- Run individual package build to verify TypeScript compilation
+- Perform full workspace build to apply changes across dependencies
+- Validate that all changes integrate properly
+
+### Status: ✅ COMPLETED
+All tasks have been successfully implemented. QR code download feature is ready for testing.
+
+---
+
+## Previous Fix - AR.js Internationalization (2025-01-17)
+
+### Objective
+Fix translation issues in AR.js published applications where language keys were showing instead of translated text during loading.
+
+## Previous Fix - Quiz Lead Saving Fix Implementation  
+
+### Objective
 Fix quiz lead saving functionality to ensure quiz completion always creates exactly one lead record.
 
-## URGENT Fix - Missing Lead Records (2025-01-17)
+### AR.js Internationalization Fix - COMPLETED ✅
+
+**Problem**: When opening published AR.js applications (localhost:3000/p/[id]), users saw language keys like 'general.loading' instead of translated text during loading screens.
+
+**Root Cause**: 
+- useTranslation() hooks called without namespace specification
+- Translation key mismatches between code and language files
+
+**Solution**:
+- ✅ **Fixed PublicFlowView.tsx**: Updated useTranslation('publish'), corrected 'common.loading' → 'general.loading'
+- ✅ **Fixed ARViewPage.tsx**: Updated useTranslation('publish'), corrected 'publish.arjs.loading' → 'arjs.loading'  
+- ✅ **Added Missing Keys**: Added 'applicationNotAvailable' to both Russian and English translation files
+- ✅ **Package Rebuild**: Successfully compiled publish-frt package
+- ✅ **Full Workspace Build**: Applied changes across all dependent packages
+
+**Result**: Loading screens now display proper translated text instead of raw language keys.
+
+---
+
+## Previous Fix - Quiz Lead Saving Fix Implementation
 
 **Status**: ✅ **COMPLETED**
 

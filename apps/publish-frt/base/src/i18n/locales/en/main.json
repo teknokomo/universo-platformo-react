@@ -10,7 +10,8 @@
         "loading": "Loading...",
         "success": "Success",
         "error": "Error",
-        "comingSoon": "coming soon"
+        "comingSoon": "coming soon",
+        "applicationNotAvailable": "Application Not Available"
     },
     "navigation": {
         "dashboard": "Dashboard",
@@ -264,6 +265,18 @@
         "quiz": {
             "name": "Quiz Application",
             "description": "Interactive quizzes with a scoring system and contact collection."
+        },
+        "qrCode": {
+            "toggle": "Generate QR code for link",
+            "description": "Create a QR code for quick access from mobile devices",
+            "generating": "Generating QR code...",
+            "scanInstruction": "Scan QR code to access from mobile device",
+            "error": "QR code generation error",
+            "invalidUrl": "Invalid URL for QR code generation",
+            "download": "Save QR Code",
+            "downloading": "Saving...",
+            "downloadError": "Error saving QR code",
+            "downloadSuccess": "QR code saved successfully"
         }
     },
     "arPublication": {
