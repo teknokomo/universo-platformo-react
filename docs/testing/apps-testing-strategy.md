@@ -48,7 +48,7 @@ Cross-app user journeys will be validated via **Cypress**. The Cypress workspace
 | metaverses-srv | Node/Express service | Unit (Jest), integration (Jest + Supertest) | TypeORM repositories | Unit ≥75%, Integration ≥60% |
 | multiplayer-colyseus-srv | Realtime Node service | Unit (Jest), integration (Jest) around room lifecycle | Colyseus room/context stubs, TypeORM if added later | Unit ≥70%, Integration ≥55% |
 | profile-frt | React module | Unit, component (Vitest), Cypress profile journeys | Supabase/profile API client mocks | Unit ≥70%, Component ≥60%, E2E smoke |
-| profile-srv | Node/Express service | Unit (Jest), integration (Jest + Supertest) | TypeORM, Supabase client | Unit ≥80%, Integration ≥65% |
+| profile-srv | Node/Express service | Unit (Jest), integration (Jest + Supertest) | TypeORM DataSource, Supabase client | Unit ≥80%, Integration ≥65% |
 | publish-frt | React module | Unit, component (Vitest), Cypress publishing wizards | API adapters, file download stubs | Unit ≥70%, Component ≥60%, E2E smoke |
 | publish-srv | Node/Express service | Unit (Jest), integration (Jest + Supertest) | TypeORM repositories | Unit ≥75%, Integration ≥60% |
 | resources-frt | React module | Unit, component (Vitest), Cypress resource browsing | react-i18next mock, axios stubs | Unit ≥75%, Component ≥65%, E2E smoke |
