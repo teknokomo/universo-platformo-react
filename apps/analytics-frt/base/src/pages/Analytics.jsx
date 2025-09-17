@@ -46,10 +46,11 @@ import { spacesApi } from '@universo/spaces-frt'
 // ==============================|| Internal Helpers (extracted for clarity & testability) ||============================== //
 // Normalize various potential server response shapes to a spaces array
 function normalizeSpacesResponse(raw) {
-    if (Array.isArray(raw)) return raw
-    if (raw?.data?.spaces && Array.isArray(raw.data.spaces)) return raw.data.spaces
-    if (raw?.spaces && Array.isArray(raw.spaces)) return raw.spaces
-    return []
+    if (Array.isArray(raw)) {
+        return raw;
+    }
+    const spaces = raw?.data?.spaces || raw?.spaces;
+    return Array.isArray(spaces) ? spaces : [];
 }
 
 // Resolve lead points with backward compatibility (points field preferred, fallback to numeric phone)
