@@ -151,7 +151,7 @@ export const createMockDataSource = (
 
   const manager = {
     transaction: jest.fn(async (callback: (manager: EntityManager) => Promise<unknown> | unknown) => {
-      return callback?.(manager as unknown as EntityManager)
+      return callback(manager as unknown as EntityManager)
     })
   } as unknown as TransactionalEntityManager
 
