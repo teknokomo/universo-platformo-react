@@ -92,7 +92,7 @@ export const createMockRepository = <Entity>(
   const queryBuilder = createMockQueryBuilder<Entity>(queryBuilderOverrides)
   const manager = {
     transaction: jest.fn(async <T>(run: (transactionManager: EntityManager) => Promise<T> | T) => {
-      return run?.(manager as unknown as EntityManager) ?? (undefined as unknown as T)
+      return run(manager as unknown as EntityManager)
     })
   } as unknown as EntityManager
 
