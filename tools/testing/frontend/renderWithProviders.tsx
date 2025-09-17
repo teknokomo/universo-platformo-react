@@ -4,8 +4,12 @@ import { ThemeProvider, Theme, ThemeOptions, createTheme } from '@mui/material/s
 import { CssBaseline, StyledEngineProvider } from '@mui/material'
 import { MemoryRouter, MemoryRouterProps } from 'react-router-dom'
 import { Provider } from 'react-redux'
-import type { Store, Reducer, AnyAction } from 'redux'
-import { createStore } from 'redux'
+import {
+  configureStore,
+  type EnhancedStore,
+  type Reducer,
+  type AnyAction,
+} from '@reduxjs/toolkit'
 import { SnackbarProvider, SnackbarProviderProps } from 'notistack'
 import { I18nextProvider } from 'react-i18next'
 import type { i18n as I18nInstance } from 'i18next'
@@ -28,7 +32,7 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
   withI18n?: boolean
   routerProps?: Omit<MemoryRouterProps, 'children'>
   withRouter?: boolean
-  store?: Store
+  store?: EnhancedStore<any, AnyAction>
   reducer?: Reducer<any, AnyAction>
   preloadedState?: unknown
   withRedux?: boolean
@@ -38,16 +42,18 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
-  store?: Store
+  store?: EnhancedStore<any, AnyAction>
   i18n?: I18nInstance
   theme?: Theme
 }
 
 const defaultReducer: Reducer<any, AnyAction> = (state = {}) => state
 
-export function createTestStore(options: CreateTestStoreOptions = {}): Store {
+export function createTestStore(
+  options: CreateTestStoreOptions = {},
+): EnhancedStore<any, AnyAction> {
   const { reducer = defaultReducer, preloadedState } = options
-  return createStore(reducer, preloadedState as any)
+  return configureStore({ reducer, preloadedState })
 }
 
 export function createTestTheme(themeOptions?: ThemeOptions): Theme {
@@ -58,7 +64,7 @@ function applyAdditionalWrappers(children: ReactNode, wrappers: AdditionalWrappe
   return wrappers.reduceRight((acc, Wrapper) => React.createElement(Wrapper, null, acc), children)
 }
 
-export function renderWithProviders(
+export async function renderWithProviders(
   ui: ReactElement,
   {
     theme,
@@ -78,9 +84,9 @@ export function renderWithProviders(
     additionalWrappers,
     ...renderOptions
   }: RenderWithProvidersOptions = {}
-): RenderWithProvidersResult {
+): Promise<RenderWithProvidersResult> {
   const resolvedTheme = withTheme ? theme ?? createTestTheme(themeOptions) : undefined
-  const resolvedI18n = withI18n ? i18n ?? createTestI18n() : undefined
+  const resolvedI18n = withI18n ? i18n ?? (await createTestI18n()) : undefined
   const resolvedStore = withRedux ? store ?? createTestStore({ reducer, preloadedState }) : undefined
   const memoryRouterProps: MemoryRouterProps | undefined = withRouter
     ? {

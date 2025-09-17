@@ -6,16 +6,9 @@ const frontendTestingDir = path.resolve(fileURLToPath(new URL('.', import.meta.u
 
 export default defineConfig({
   resolve: {
-    alias: [
-      {
-        find: '@testing/frontend',
-        replacement: frontendTestingDir,
-      },
-      {
-        find: '@testing/frontend/',
-        replacement: `${frontendTestingDir}/`,
-      },
-    ],
+    alias: {
+      '@testing/frontend': frontendTestingDir,
+    },
   },
   test: {
     environment: 'jsdom',

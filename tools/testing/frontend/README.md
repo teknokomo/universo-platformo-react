@@ -106,7 +106,7 @@ Usage example:
 import { renderWithProviders } from '@testing/frontend'
 import MyComponent from '@/components/MyComponent'
 
-const { store, i18n } = renderWithProviders(<MyComponent />, {
+const { store, i18n } = await renderWithProviders(<MyComponent />, {
   routerProps: { initialEntries: ['/demo'] },
   preloadedState: { feature: { flag: true } },
 })
@@ -114,4 +114,4 @@ const { store, i18n } = renderWithProviders(<MyComponent />, {
 expect(screen.getByText(/demo/i)).toBeInTheDocument()
 ```
 
-You can extend or replace providers by passing `additionalWrappers`, injecting custom Redux stores, overriding the generated theme, or supplying your own i18n instance created via `createTestI18n`.
+Because `renderWithProviders` initialises i18n asynchronously, remember to `await` it in your tests. You can extend or replace providers by passing `additionalWrappers`, injecting custom Redux stores, overriding the generated theme, or supplying your own i18n instance created via `createTestI18n`.
