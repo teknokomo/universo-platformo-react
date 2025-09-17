@@ -131,6 +131,7 @@ export interface MockDataSource {
   initialize: jest.Mock<Promise<DataSource>, []>
   destroy: jest.Mock<Promise<void>, []>
   getRepository: jest.Mock<MockRepository<any>, [EntityTarget<any>]>
+  transaction: jest.Mock<Promise<unknown>, [(run: (manager: EntityManager) => Promise<unknown> | unknown)]>
   manager: TransactionalEntityManager
 }
 
@@ -160,6 +161,9 @@ export const createMockDataSource = (
     initialize: jest.fn(async () => dataSource as unknown as DataSource),
     destroy: jest.fn(async () => undefined),
     getRepository: jest.fn(resolvedFactory as RepositoryFactory),
+    transaction: jest.fn(async (run: (manager: EntityManager) => Promise<unknown> | unknown) => {
+      return manager.transaction(run)
+    }),
     manager
   }
 
