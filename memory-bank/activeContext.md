@@ -18,6 +18,7 @@
 - Updated documentation (publish-frt README EN/RU) removing obsolete note about temporary storage of points in `lead.phone` and referencing new `lead.points`
 - **API Architecture Consolidation**: Removed duplicate `packages/ui/src/api/spaces.js` file and ensured all spaces functionality uses centralized `apps/spaces-frt/base/src/api/spaces.js` with proper exports
 - Fixed runtime error "F.map is not a function" by adding defensive parsing for API response format `{success, data: {spaces}}` vs expected array
+ - **Post-merge Improvements (2025-09-17)**: Addressed GitHub bot recommendations: added explicit dependency `@universo/spaces-frt` to `analytics-frt` package.json and refactored `Analytics.jsx` extracting `normalizeSpacesResponse` & `resolveLeadPoints` helpers (replacing inline ternaries & IIFE) for readability & testability.
 
 **Completed Tasks:**
 - ✅ Error diagnosis and fix for white page crash

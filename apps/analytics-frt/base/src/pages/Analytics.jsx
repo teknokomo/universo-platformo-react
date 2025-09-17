@@ -43,6 +43,25 @@ import leadsApi from '@/api/lead'
 import chatflowsApi from '@/api/chatflows' // legacy (may be removed later)
 import { spacesApi } from '@universo/spaces-frt'
 
+// ==============================|| Internal Helpers (extracted for clarity & testability) ||============================== //
+// Normalize various potential server response shapes to a spaces array
+function normalizeSpacesResponse(raw) {
+    if (Array.isArray(raw)) return raw
+    if (raw?.data?.spaces && Array.isArray(raw.data.spaces)) return raw.data.spaces
+    if (raw?.spaces && Array.isArray(raw.spaces)) return raw.spaces
+    return []
+}
+
+// Resolve lead points with backward compatibility (points field preferred, fallback to numeric phone)
+function resolveLeadPoints(lead) {
+    if (typeof lead?.points === 'number') return lead.points
+    if (lead?.phone) {
+        const pts = parseInt(lead.phone, 10)
+        if (!isNaN(pts)) return pts
+    }
+    return 0
+}
+
 // Hooks
 import useApi from '@/hooks/useApi'
 
@@ -226,13 +245,7 @@ const Analytics = () => {
         if (getSpacesApi.data) {
             try {
                 const raw = getSpacesApi.data
-                const extracted = Array.isArray(raw)
-                    ? raw
-                    : raw?.data?.spaces && Array.isArray(raw.data.spaces)
-                        ? raw.data.spaces
-                        : raw?.spaces && Array.isArray(raw.spaces)
-                            ? raw.spaces
-                            : []
+                const extracted = normalizeSpacesResponse(raw)
                 setSpaces(extracted)
                 setSpacesLoading(false)
                 if (extracted.length > 0 && !selectedSpaceId) {
@@ -468,12 +481,7 @@ const Analytics = () => {
                                                                 color: theme.palette.primary.main
                                                             }}
                                                         >
-                                                            {(() => {
-                                                                // Prefer points field; fallback to numeric phone for legacy rows
-                                                                if (typeof row.points === 'number') return row.points
-                                                                if (row.phone && !isNaN(parseInt(row.phone))) return parseInt(row.phone)
-                                                                return 0
-                                                            })()}
+                                                            {resolveLeadPoints(row)}
                                                         </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
