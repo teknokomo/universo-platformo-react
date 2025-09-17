@@ -13,7 +13,7 @@ export const defaultTestTranslations: Resource = {
   ru: { translation: {} },
 }
 
-export function createTestI18n(options: CreateTestI18nOptions = {}): I18nInstance {
+export async function createTestI18n(options: CreateTestI18nOptions = {}): Promise<I18nInstance> {
   const {
     locale = 'en',
     fallbackLocale = 'en',
@@ -22,7 +22,7 @@ export function createTestI18n(options: CreateTestI18nOptions = {}): I18nInstanc
 
   const instance = createInstance()
 
-  instance.use(initReactI18next).init({
+  await instance.use(initReactI18next).init({
     lng: locale,
     fallbackLng: fallbackLocale,
     resources,
