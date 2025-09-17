@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@testing/backend/*": ["tools/testing/backend/*"]
+    }
+  }
+}
