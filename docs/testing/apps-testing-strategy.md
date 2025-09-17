@@ -62,7 +62,7 @@ Cross-app user journeys will be validated via **Cypress**. The Cypress workspace
 | uniks-frt | React module | Unit, component (Vitest), Cypress unik management | Supabase client mock, router providers | Unit ≥70%, Component ≥60%, E2E smoke |
 | uniks-srv | Node/Express service | Unit (Jest), integration (Jest + Supertest) | TypeORM DataSource, Supabase client | Unit ≥80%, Integration ≥65% |
 | universo-platformo-types | Shared TS library | Unit (Jest) for schema utilities | None | Unit ≥80% |
-| universo-platformo-utils | Shared TS library | Unit (Jest) for validators/serialisers | Optional zod schema mocks | Unit ≥80% |
+| universo-platformo-utils | Shared TS library | Unit (Jest) for validators/serialisers | Optional mocks for dependencies using Zod schemas | Unit ≥80% |
 | updl | Node tooling package | Unit (Jest) for AST transforms | Gulp/task runner stubs | Unit ≥70% |
 
 > **Note:** All packages join the central Cypress E2E plan through shared flows so long as their UI or API surfaces are available within the orchestrated environment. Coverage percentages express minimum line coverage targets per level.
