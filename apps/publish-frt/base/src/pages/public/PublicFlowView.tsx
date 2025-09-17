@@ -13,7 +13,7 @@ import PlayCanvasViewPage from './PlayCanvasViewPage'
  */
 const PublicFlowView: React.FC = () => {
     const { flowId, canvasId, chatflowId } = useParams<{ flowId?: string; canvasId?: string; chatflowId?: string }>()
-    const { t } = useTranslation()
+    const { t } = useTranslation('publish')
 
     const [activeTechnology, setActiveTechnology] = useState<string>('')
     const [flowConfig, setFlowConfig] = useState<any>(null)
@@ -160,7 +160,7 @@ const PublicFlowView: React.FC = () => {
             >
                 <CircularProgress size={60} />
                 <Typography variant='h6' sx={{ mt: 2, color: '#666' }}>
-                    {t('common.loading', 'Loading application...')}
+                    {t('general.loading', 'Загрузка приложения...')}
                 </Typography>
             </Box>
         )
@@ -182,7 +182,7 @@ const PublicFlowView: React.FC = () => {
             >
                 <Alert severity='error' sx={{ maxWidth: 600 }}>
                     <Typography variant='h6' gutterBottom>
-                        Application Not Available
+                        {t('general.applicationNotAvailable', 'Приложение недоступно')}
                     </Typography>
                     <Typography variant='body1'>{error}</Typography>
                 </Alert>

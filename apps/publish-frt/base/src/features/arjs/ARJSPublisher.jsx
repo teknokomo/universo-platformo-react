@@ -36,14 +36,7 @@ import GenerationModeSelect from '../../components/GenerationModeSelect'
 // CRITICAL: This component is responsible for displaying the publication link
 import PublicationLink from '../../components/PublicationLink'
 import TemplateSelect from '../../components/TemplateSelect'
-
-// QR Code component (optional dependency)
-let QRCode
-try {
-    QRCode = require('qrcode.react')
-} catch (e) {
-    // QRCode component will be undefined if package not available
-}
+import QRCodeSection from '../../components/QRCodeSection'
 
 /**
  * AR.js Publisher Component
@@ -912,17 +905,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         </Typography>
                                         <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
 
-                                        {/* Universo Platformo | QR Code if available */}
-                                        {QRCode && (
-                                            <Box sx={{ textAlign: 'center', my: 2 }}>
-                                                <Typography variant='body2' gutterBottom>
-                                                    Сканируйте QR-код для доступа с мобильного устройства:
-                                                </Typography>
-                                                <Box sx={{ display: 'inline-block', p: 1, bgcolor: 'white', borderRadius: 1 }}>
-                                                    <QRCode value={publishedUrl} size={180} />
-                                                </Box>
-                                            </Box>
-                                        )}
+                                        {/* QR Code Section */}
+                                        <QRCodeSection 
+                                            publishedUrl={publishedUrl}
+                                            disabled={isPublishing}
+                                            onDownloadSuccess={(message) => setSnackbar({ open: true, message })}
+                                        />
 
                                         <Box sx={{ mt: 3 }}>
                                             <Typography variant='body2' gutterBottom>

@@ -13,7 +13,7 @@ const ARViewPage: React.FC = () => {
     const { flowId, id } = useParams<{ flowId?: string; id?: string }>()
     const publicationId = flowId || id
 
-    const { t } = useTranslation()
+    const { t } = useTranslation('publish')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -183,7 +183,7 @@ const ARViewPage: React.FC = () => {
                 >
                     <CircularProgress color='primary' size={60} />
                     <Typography variant='h6' sx={{ mt: 2 }}>
-                        {t('publish.arjs.loading')}
+                        {t('arjs.loading', 'Загрузка AR сцены...')}
                     </Typography>
                 </Box>
             )}

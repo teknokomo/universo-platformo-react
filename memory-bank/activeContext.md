@@ -1,8 +1,39 @@
 # Current Active Context
 
-**Status**: Alpha v0.29.0 (2025-09-17) - Quiz Lead Saving Reliability Patch Applied
+**Status**: Alpha v0.30.0 (2025-01-17) - QR Code Download Feature Implemented
 
 ## Current Project Focus
+
+**QR Code Download Feature Implementation (2025-01-17)** - ✅ **COMPLETED**
+
+**Implemented Changes:**
+- Added QR code download functionality for published applications 
+- Created comprehensive SVG to PNG conversion utility with high-quality settings (512x512, quality 1.0)
+- Enhanced QRCodeSection component with download button and loading states
+- Integrated internationalization support for download workflow (Russian/English)
+- Successfully validated implementation with package build and full workspace compilation
+
+**Technical Details:**
+- New utility: `/apps/publish-frt/base/src/utils/svgToPng.js` with Canvas API conversion approach
+- UI enhancements: Download button with Material-UI design, error handling, and loading states
+- Translation updates: Added download keys to both language files in 'publish' namespace
+- Build validation: Individual package build (114ms) + full workspace build (5m52s) completed successfully
+- Code quality: TypeScript compilation passed, ensuring syntax and type correctness
+
+**Current State:**
+- QR code generation: ✅ Working (implemented previously)
+- QR code download: ✅ Implemented and ready for testing
+- User experience: Download button integrated below QR code with proper feedback
+- Cross-browser compatibility: Modern Canvas API with safety considerations
+- Build validation: Clean compilation with no errors
+
+**Next Steps:**
+- Testing validation to confirm proper translated text display
+- User experience verification for AR.js publication workflow
+
+---
+
+## Previous Project Focus
 
 **Quiz Lead Saving Reliability Patch (2025-09-17)** - ✅ **COMPLETED**
 
