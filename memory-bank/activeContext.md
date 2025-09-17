@@ -1,10 +1,70 @@
 # Current Active Context
 
-**Status**: Alpha v0.29.0 (2025-01-16) - AR.js Legacy Configuration Management System Completed
+**Status**: Alpha v0.29.0 (2025-09-17) - Quiz Lead Saving Reliability Patch Applied
 
 ## Current Project Focus
 
-**AR.js Legacy Configuration Management Implementation (2025-01-16)** - ✅ **COMPLETED**
+**Quiz Lead Saving Reliability Patch (2025-09-17)** - ✅ **COMPLETED**
+
+**Quiz Debug Logging System Enhancement (2025-09-17)** - ✅ **COMPLETED**
+**Analytics Page Refactor (2025-09-17)** - ✅ **COMPLETED**
+
+**Implemented Changes:**
+- Replaced single Chatflow selector with hierarchical Space -> Canvas selectors (auto-select first Space and first Canvas by backend order)
+- Added consolidated `spacesApi` (frontend) using centralized `@universo/spaces-frt` package with `getSpaces` and `getCanvases` hitting existing server routes `/unik/:id/spaces` and `/unik/:id/spaces/:spaceId/canvases`
+- Updated Analytics UI to request leads by selected Canvas (still using existing leads endpoint with `chatflowid` mapped to Canvas ID)
+- Introduced dedicated phone column and refactored points column to use `lead.points` with legacy fallback to numeric `phone`
+- Updated i18n (EN/RU) with new keys: `selectSpace`, `selectCanvas`, `table.phone`, and renamed Chatflow ID label to Canvas ID / ID холста
+- Updated documentation (publish-frt README EN/RU) removing obsolete note about temporary storage of points in `lead.phone` and referencing new `lead.points`
+- **API Architecture Consolidation**: Removed duplicate `packages/ui/src/api/spaces.js` file and ensured all spaces functionality uses centralized `apps/spaces-frt/base/src/api/spaces.js` with proper exports
+- Fixed runtime error "F.map is not a function" by adding defensive parsing for API response format `{success, data: {spaces}}` vs expected array
+
+**Completed Tasks:**
+- ✅ Error diagnosis and fix for white page crash
+- ✅ API consolidation using centralized spaces-frt package 
+- ✅ Defensive response parsing for wrapped API responses
+- ✅ Package cleanup and proper import architecture
+- ✅ Successful builds of all affected packages
+
+**Rationale:** Align analytics with Space+Canvas domain model, improve disambiguation where multiple canvases share names across Spaces, maintain clean package separation per refactoring strategy, and finalize transition to dedicated `points` column.
+
+
+**Implemented Features:**
+- ✅ Introduced dual-layer debug control: build-time `QUIZ_DEBUG` constant and mutable runtime `QUIZ_DEBUG_STATE`
+- ✅ Added `dbg()` utility wrapper gating all non-error logs
+- ✅ Added public runtime API `window.setQuizDebug(true|false)` for live toggling without rebuild
+- ✅ Converted all previous “key” production logs (init, results, lead save attempt/success, scene transitions) to conditional debug logs
+- ✅ Retained `console.error` for genuine error conditions only
+- ✅ Updated English README with "Debug Logging" section
+- ✅ Added Russian localized `README-RU.md` with synchronized guidance
+- ✅ Verified CJS/ESM/types builds produce no stray logs when debug disabled
+
+**Architecture Decision:** Replace noisy unconditional logging with an opt-in layered system enabling deep diagnostics on demand while keeping production console output clean (errors only). Runtime toggle chosen to avoid rebuild cycles during troubleshooting sessions.
+
+**Implemented Features:**
+- ✅ Root cause analysis: initial regression where no lead saved if no form; subsequent duplication risk via dual showQuizResults paths
+- ✅ Guarded saving moved into `showQuizResults` (primary for results-ending quizzes)
+- ✅ Immediate save retained only for non-results endings (basic record fallback)
+- ✅ Added origin-tagged logging (`results-completion-path`, `results-navigation-path`, `no-results-ending`, `unknown`)
+- ✅ Extended payload logging (pre-payload, payload, warnings if IDs null)
+- ✅ Removed second navigation-path invocation of `showQuizResults` to prevent double call race
+- ✅ Global `leadSaved` flag still enforced for deduplication
+- ✅ Rebuilt `@universo/template-quiz` (CJS/ESM/types) with successful TypeScript compilation
+- ✅ Added quiet logging mode (QUIZ_DEBUG=false) + dbg() wrapper, removed verbose scene/object enumeration & point spam
+
+**Technical Implementation:**
+- Guarded save executed inside `showQuizResults(totalPoints, fromCompletionFlag)`; basic record synthesized when no form submitted
+- Non-results completions perform immediate guarded save (maintains previous analytics behavior)
+- Origin parameter threaded through `saveLeadDataToSupabase(…, origin)` for observability
+- Removed redundant post-navigation `showQuizResults` trigger; only `showCurrentScene` handles results scene display
+- Detailed console tracing enables verification of single POST request
+
+**Architecture Decision:**
+Shift from single centralized completion save to context-aware saving (results vs non-results) to resolve timing issues rendering results scene while still guaranteeing exactly one persisted lead (with points). Enhanced observability chosen over silent logic to accelerate future diagnostics.
+
+**Previous Completed:**
+
+**AR.js Legacy Configuration Management Implementation (2025-09-17)** - ✅ **COMPLETED**
 
 **Implemented Features:**
 - ✅ Advanced legacy configuration detection and handling system

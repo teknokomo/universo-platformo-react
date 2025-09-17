@@ -39,12 +39,9 @@ export class DataHandler {
      */
     process(datas: IUPDLData[], options: BuildOptions = {}): string {
         try {
-            console.log(`[DataHandler] Processing ${datas?.length || 0} data nodes`)
-            console.log(`[DataHandler] Input data details:`, datas)
 
             // If no data nodes, return empty content
             if (!datas || datas.length === 0) {
-                console.log(`[DataHandler] No data nodes provided, returning empty string`)
                 return ''
             }
 
@@ -52,7 +49,6 @@ export class DataHandler {
             const questions = datas.filter((data) => data.dataType?.toLowerCase() === 'question')
             const answers = datas.filter((data) => data.dataType?.toLowerCase() === 'answer')
 
-            console.log(`[DataHandler] Found ${questions.length} questions, ${answers.length} answers`)
 
             // Generate quiz UI and logic
             let content = ''
@@ -63,9 +59,6 @@ export class DataHandler {
             // Add quiz JavaScript logic
             content += this.generateQuizScript(questions, answers)
 
-            console.log(`[DataHandler] Generated quiz UI and logic`)
-            console.log(`[DataHandler] Generated content length: ${content.length}`)
-            console.log(`[DataHandler] Generated content preview:`, content.substring(0, 300) + '...')
             return content
         } catch (error) {
             console.error('[DataHandler] Error processing data:', error)
@@ -128,8 +121,7 @@ export class DataHandler {
             // Add multi-scene JavaScript logic with state management
             content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection)
 
-            console.log(`[DataHandler] Generated multi-scene UI and logic`)
-            console.log(`[DataHandler] Generated content length: ${content.length}`)
+            // (quiet) multi-scene generation summary suppressed
 
             return content
         } catch (error) {
@@ -356,10 +348,13 @@ export class DataHandler {
 
         // Scene mapping logged only in debug mode
 
-        return `
+    return `
             <script>
                 // Universo Platformo | Multi-Scene Quiz Logic
-                console.log('[MultiSceneQuiz] Initializing multi-scene quiz functionality');
+        // Lightweight debug facility
+        const QUIZ_DEBUG = false; // flip to true for verbose diagnostics
+        const dbg = (...args) => { if (QUIZ_DEBUG) console.log(...args); };
+        console.log('[MultiSceneQuiz] Init');
                 
                 // Universo Platformo | Scene to question number mapping
                 const sceneToQuestionMap = ${JSON.stringify(sceneToQuestionMap)};
@@ -372,6 +367,9 @@ export class DataHandler {
                     phone: '',
                     hasData: false
                 };
+                
+                // Universo Platformo | Global flag to prevent duplicate lead saves
+                let leadSaved = false;
                 
                 // Universo Platformo | Points management system
                 class PointsManager {
@@ -388,7 +386,7 @@ export class DataHandler {
                     addPoints(points) {
                         this.currentPoints = Math.max(0, this.currentPoints + points);
                         this.updateDisplay();
-                        console.log(\`[PointsManager] Points updated: +\${points}, total: \${this.currentPoints}\`);
+                        dbg(\`[PointsManager] +\${points} => \${this.currentPoints}\`);
                     }
 
                     updateDisplay() {
@@ -405,7 +403,7 @@ export class DataHandler {
                     reset() {
                         this.currentPoints = 0;
                         this.updateDisplay();
-                        console.log('[PointsManager] Points reset to 0');
+                        dbg('[PointsManager] reset');
                     }
                 }
 
@@ -427,7 +425,7 @@ export class DataHandler {
                         if (sceneIndex >= 0 && sceneIndex < this.totalScenes) {
                             this.currentSceneIndex = sceneIndex;
                             this.sceneAnswered = false;
-                            console.log(\`[MultiSceneQuiz] Scene manually set to \${sceneIndex}\`);
+                            dbg(\`[MultiSceneQuiz] forceScene=\${sceneIndex}\`);
                         }
                     }
 
@@ -452,7 +450,7 @@ export class DataHandler {
                             return true;
                         }
                         this.isCompleted = true;
-                        console.log('[MultiSceneQuiz] Quiz completed!');
+                            dbg('[MultiSceneQuiz] completed flag');
                         return false;
                     }
 
@@ -478,21 +476,18 @@ export class DataHandler {
                             if (questionNumber) {
                                 progressElement.textContent = questionNumber;
                                 progressContainer.style.display = 'block';
-                                console.log(\`[MultiSceneQuiz] Updated question number to: \${questionNumber} for scene \${this.currentSceneIndex}\`);
+                                dbg(\`[MultiSceneQuiz] Q#=\${questionNumber} scene=\${this.currentSceneIndex}\`);
                             } else {
                                 // This scene has no questions (e.g., lead collection), hide progress
                                 progressContainer.style.display = 'none';
-                                console.log(\`[MultiSceneQuiz] Scene \${this.currentSceneIndex} has no questions, hiding progress\`);
+                                dbg(\`[MultiSceneQuiz] scene=\${this.currentSceneIndex} noQuestions progress hidden\`);
                             }
                         }
-                        
-                        console.log(\`[MultiSceneQuiz] Showing scene \${this.currentSceneIndex}\`);
+                        dbg(\`[MultiSceneQuiz] show scene=\${this.currentSceneIndex}\`);
 
                         // Universo Platformo | If the scene we just showed is a results screen, immediately display the results summary
                         if (currentScene && currentScene.classList.contains('quiz-results-scene')) {
-                            console.log('[MultiSceneQuiz] Entered results scene – calling showQuizResults');
-                            console.log('[MultiSceneQuiz] Results scene element:', currentScene);
-                            console.log('[MultiSceneQuiz] Results scene display style:', currentScene.style.display);
+                            dbg('[MultiSceneQuiz] enter results scene');
                             showQuizResults(pointsManager.getCurrentPoints());
                         }
                     }
@@ -553,7 +548,7 @@ export class DataHandler {
                 });
                 
                 function initializeMultiSceneQuiz() {
-                    console.log('[MultiSceneQuiz] Setting up multi-scene quiz interactions');
+                        dbg('[MultiSceneQuiz] setup interactions');
                     
                     // Universo Platformo | Lead form initialization
                     ${leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
@@ -562,8 +557,7 @@ export class DataHandler {
             }
                     
                     // Universo Platformo | Debug initial state
-                    console.log(\`[MultiSceneQuiz] Current scene index: \${sceneManager.getCurrentScene()}\`);
-                    console.log('[MultiSceneQuiz] Calling showCurrentScene() to initialize visibility');
+                    dbg(\`[MultiSceneQuiz] start sceneIndex=\${sceneManager.getCurrentScene()}\`);
                     
                     // Initialize first scene display
                     sceneManager.showCurrentScene();
@@ -572,21 +566,7 @@ export class DataHandler {
                     pointsManager.initialize();
                     
                     // Universo Platformo | Debug scene elements after initialization
-                    setTimeout(() => {
-                        const allScenes = document.querySelectorAll('.quiz-scene');
-                        console.log(\`[MultiSceneQuiz] Found \${allScenes.length} scene elements in DOM:\`);
-                        allScenes.forEach((scene, index) => {
-                            const isVisible = scene.style.display !== 'none';
-                            const sceneId = scene.id;
-                            console.log(\`[MultiSceneQuiz] Scene element \${index}: id=\${sceneId}, display=\${scene.style.display}, visible=\${isVisible}\`);
-                            
-                            // Check question content
-                            const questionElement = scene.querySelector('[id^="quiz-question-"]');
-                            if (questionElement) {
-                                console.log(\`[MultiSceneQuiz] Scene \${index} question content: "\${questionElement.textContent?.substring(0, 100)}..."\`);
-                            }
-                        });
-                    }, 100);
+                    // (verbose scene enumeration removed; re-enable via QUIZ_DEBUG if needed)
                     
                     // Add click handlers to answer buttons
                     const answerButtons = document.querySelectorAll('.quiz-answer-btn');
@@ -667,8 +647,10 @@ export class DataHandler {
                         const hasNextScene = sceneManager.nextScene();
                         if (!hasNextScene) {
                             console.log('[MultiSceneQuiz] All scenes completed!');
+                            // NOTE: Lead saving now handled in showQuizResults (results) or here for non-results ending
+                            // Just mark completion; do not save here to avoid timing issues with results scene rendering
 
-                            // Universo Platformo | Check if current scene is results scene
+                            // Universo Platformo | Check if current scene is results scene to decide where to save
                             const currentSceneIndex = sceneManager.getCurrentSceneIndex();
                             const allScenes = ${JSON.stringify(multiScene.scenes)};
                             const currentScene = allScenes[currentSceneIndex];
@@ -678,34 +660,34 @@ export class DataHandler {
                             console.log('[MultiSceneQuiz] Current points before results:', pointsManager.getCurrentPoints());
 
                             if (currentScene && currentScene.isResultsScene) {
-                                console.log('[MultiSceneQuiz] Showing results screen');
-                                showQuizResults(pointsManager.getCurrentPoints());
+                                console.log('[MultiSceneQuiz] Showing results screen (lead save deferred to showQuizResults)');
+                                showQuizResults(pointsManager.getCurrentPoints(), /*fromCompletion*/ true);
                             } else {
-                                // Universo Platformo | Save lead data to Supabase when quiz completes (non-results ending)
-                                if (leadData.hasData) {
-                                    saveLeadDataToSupabase(leadData, pointsManager.getCurrentPoints());
+                                console.log('[MultiSceneQuiz] Quiz completed without results screen – performing immediate lead save');
+                                if (!leadSaved) {
+                                    if (!leadData.hasData) {
+                                        leadData.name = null;
+                                        leadData.email = null;
+                                        leadData.phone = null;
+                                        leadData.hasData = true;
+                                        console.log('[MultiSceneQuiz] (NoForm) Creating basic completion lead payload before save');
+                                    }
+                                    saveLeadDataToSupabase(leadData, pointsManager.getCurrentPoints(), 'no-results-ending');
+                                } else {
+                                    console.log('[MultiSceneQuiz] Lead already saved earlier, skipping immediate save');
                                 }
-                                console.log('[MultiSceneQuiz] Quiz completed without results screen');
                             }
                         } else {
-                            // Universo Platformo | Check if we just moved to a results scene
-                            const currentSceneIndex = sceneManager.getCurrentSceneIndex();
-                            const allScenes = ${JSON.stringify(multiScene.scenes)};
-                            const currentScene = allScenes[currentSceneIndex];
-
-                            console.log('[MultiSceneQuiz] Moved to scene:', currentSceneIndex, 'isResultsScene:', currentScene?.isResultsScene);
-
-                            if (currentScene && currentScene.isResultsScene) {
-                                console.log('[MultiSceneQuiz] Entered results scene – calling showQuizResults');
-                                showQuizResults(pointsManager.getCurrentPoints());
-                            }
+                            // Navigating to the next scene no longer calls showQuizResults here,
+                            // since showCurrentScene already handles displaying the scene results and calling showQuizResults.
+                            // This prevents a double call and a potential lead save race.
                         }
                     }, 1000);
                 }
 
                 // Universo Platformo | Highlight correct object with scale effect (multi-scene version)
                 function highlightCorrectObjectMultiScene(answerId, sceneIndex) {
-                    console.log(\`[MultiSceneQuiz] Highlighting object for answer \${answerId} in scene \${sceneIndex}\`);
+                        dbg(\`[MultiSceneQuiz] highlight answer=\${answerId} scene=\${sceneIndex}\`);
                     
                     // Find all answer buttons for current scene
                     const buttons = document.querySelectorAll(\`[data-scene-index="\${sceneIndex}"][data-answer-id]\`);
@@ -724,7 +706,7 @@ export class DataHandler {
                         
                         if (sceneObjects[correctIndex]) {
                             const targetObject = sceneObjects[correctIndex];
-                            console.log(\`[MultiSceneQuiz] Applying scale effect to object \${correctIndex} (\${targetObject.tagName}) in scene \${sceneIndex}\`);
+                            dbg(\`[MultiSceneQuiz] scaleFX objectIndex=\${correctIndex}\`);
                             
                             // Universo Platformo | Apply scale effect instead of color change
                             // Scale up to 115% and back 3 times with smooth animation
@@ -737,10 +719,10 @@ export class DataHandler {
                                 
                             console.log(\`[MultiSceneQuiz] Scale effect applied successfully to \${targetObject.tagName} at index \${correctIndex}\`);
                         } else {
-                            console.log(\`[MultiSceneQuiz] Could not find object \${correctIndex} for scene \${sceneIndex} (found \${sceneObjects.length} objects)\`);
+                            dbg(\`[MultiSceneQuiz] !object index=\${correctIndex} scene=\${sceneIndex}\`);
                         }
                     } else {
-                        console.log(\`[MultiSceneQuiz] Could not find button with answer ID \${answerId} in scene \${sceneIndex} (found \${buttons.length} buttons)\`);
+                        dbg(\`[MultiSceneQuiz] !button answer=\${answerId} scene=\${sceneIndex}\`);
                     }
                 }
 
@@ -837,7 +819,7 @@ export class DataHandler {
                 ${leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
                 ? `
                 function initializeLeadForm() {
-                    console.log('[LeadCollection] Initializing lead data collection form');
+                    dbg('[LeadCollection] init form');
                     
                     const startQuizBtn = document.getElementById('start-quiz-btn');
                     if (startQuizBtn) {
@@ -851,7 +833,7 @@ export class DataHandler {
                 }
                 
                 function validateAndCollectLeadData() {
-                    console.log('[LeadCollection] Validating lead form data');
+                    dbg('[LeadCollection] validate form');
                     
                     const nameField = document.getElementById('lead-name');
                     const emailField = document.getElementById('lead-email');
@@ -917,11 +899,7 @@ export class DataHandler {
                     }
                     
                     leadData.hasData = true;
-                    console.log('[LeadCollection] Lead data collected:', {
-                        name: leadData.name || 'not collected',
-                        email: leadData.email || 'not collected',
-                        phone: leadData.phone || 'not collected'
-                    });
+                    dbg('[LeadCollection] collected');
                     
                     return true;
                 }
@@ -939,21 +917,20 @@ export class DataHandler {
                 }
                 
                 // Universo Platformo | Save lead data to Supabase when quiz completes
-                async function saveLeadDataToSupabase(leadInfo, totalPoints = 0) {
+                async function saveLeadDataToSupabase(leadInfo, totalPoints = 0, origin = 'unknown') {
                     if (!leadInfo.hasData) {
-                        console.log('[LeadCollection] No lead data to save');
+                        dbg('[LeadCollection] skip save (no data) origin=' + origin);
+                        return;
+                    }
+                    
+                    // Prevent duplicate save using global flag
+                    if (leadSaved) {
+                        dbg('[LeadCollection] duplicate save blocked origin=' + origin);
                         return;
                     }
                     
                     try {
-                        console.log('[LeadCollection] Saving lead data to Supabase:', leadInfo);
-                        console.log('[LeadCollection] Total points earned:', totalPoints);
-                        
-                        // Prevent duplicate save
-                        if (leadInfo.saved) {
-                            console.log('[LeadCollection] Lead already saved, skipping duplicate save');
-                            return;
-                        }
+                        console.log('[LeadCollection] Attempting save (origin=' + origin + ')');
                         
                         const leadPayload = {
                             canvasid: window.canvasId || window.chatflowId || null,
@@ -965,7 +942,10 @@ export class DataHandler {
                             createdDate: new Date().toISOString()
                         };
                         
-                        console.log('[LeadCollection] Lead payload with points:', leadPayload);
+                        dbg('[LeadCollection] payload', leadPayload);
+                        if (!leadPayload.chatflowid && !leadPayload.canvasid) {
+                            console.warn('[LeadCollection] WARNING: Both canvasid and chatflowid are null');
+                        }
                         
                         const response = await fetch('/api/v1/leads', {
                             method: 'POST',
@@ -977,19 +957,33 @@ export class DataHandler {
                         
                         if (response.ok) {
                             const result = await response.json();
-                            console.log('[LeadCollection] Lead data saved successfully:', result);
-                            leadInfo.saved = true;
+                            console.log('[LeadCollection] Saved (origin=' + origin + ')');
+                            leadSaved = true; // Set global flag to prevent duplicate saves
                         } else {
-                            console.error('[LeadCollection] Failed to save lead data:', response.status, response.statusText);
+                            console.error('[LeadCollection] Failed to save lead data (origin=' + origin + '):', response.status, response.statusText);
                         }
                     } catch (error) {
-                        console.error('[LeadCollection] Error saving lead data:', error);
+                        console.error('[LeadCollection] Error saving lead data (origin=' + origin + '):', error);
                     }
                 }
                 
                 // Universo Platformo | Quiz results and restart functions
-                function showQuizResults(totalPoints) {
-                    console.log('[QuizResults] Showing results screen with points:', totalPoints);
+                function showQuizResults(totalPoints, fromCompletionFlag) {
+                    console.log('[QuizResults] Results screen points=' + totalPoints);
+                    dbg('[QuizResults] ctx fromCompletion=' + fromCompletionFlag + ' leadSaved=' + leadSaved + ' hasData=' + leadData.hasData);
+                    // Attempt guarded save here (primary point for results-ending quizzes)
+                    if (!leadSaved) {
+                        if (!leadData.hasData) {
+                            leadData.name = null;
+                            leadData.email = null;
+                            leadData.phone = null;
+                            leadData.hasData = true;
+                            dbg('[QuizResults] synth basic payload');
+                        }
+                        saveLeadDataToSupabase(leadData, totalPoints, fromCompletionFlag ? 'results-completion-path' : 'results-navigation-path');
+                    } else {
+                        dbg('[QuizResults] save already done');
+                    }
                     
                     // Hide the main points counter to avoid duplication
                     const pointsCounter = document.getElementById('points-counter');
@@ -1006,19 +1000,19 @@ export class DataHandler {
                     // Update final score display
                     const finalScoreElement = document.getElementById('final-score');
                     if (finalScoreElement) {
-                        console.log('[QuizResults] Setting final score to:', totalPoints);
+                        dbg('[QuizResults] set final score');
                         // Set the score immediately without animation for now
                         finalScoreElement.textContent = totalPoints;
-                        console.log('[QuizResults] Final score element updated with:', totalPoints);
+                        dbg('[QuizResults] final score element updated');
                     }
                     
                     // Generate performance message
                     const performanceMessage = generatePerformanceMessage(totalPoints, ${totalQuestionScenes});
-                    console.log('[QuizResults] Generated performance message:', performanceMessage);
+                    dbg('[QuizResults] perf msg');
                     const messageElement = document.getElementById('performance-message');
                     if (messageElement) {
                         messageElement.innerHTML = performanceMessage;
-                        console.log('[QuizResults] Performance message element updated');
+                        dbg('[QuizResults] perf msg applied');
                     } else {
                         console.error('[QuizResults] Performance message element not found');
                     }
@@ -1035,10 +1029,7 @@ export class DataHandler {
                     //     newRestartBtn.addEventListener('click', restartQuiz);
                     // }
                     
-                    // Save lead data if available
-                    if (leadData.hasData) {
-                        saveLeadDataToSupabase(leadData, totalPoints);
-                    }
+                    // Note: Lead data save executed above (guarded)
                 }
                 
                 function animateScoreCount(element, targetScore) {

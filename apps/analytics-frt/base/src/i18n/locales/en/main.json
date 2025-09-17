@@ -2,7 +2,9 @@
     "analytics": {
         "title": "Quiz Analytics",
         "searchPlaceholder": "Search by name or email...",
-        "selectQuiz": "Select quiz for analysis",
+    "selectQuiz": "Select quiz for analysis",
+    "selectSpace": "Select space",
+    "selectCanvas": "Select canvas",
         "noQuizzesFound": "No quizzes found. Create a quiz with lead collection feature to view analytics.",
         "selectQuizToView": "Select a quiz to view analytics",
         "noDataAvailable": "No analytics data available for the selected quiz",
@@ -17,7 +19,8 @@
             "email": "Email",
             "points": "Points",
             "completionDate": "Completion Date",
-            "chatflowId": "Chatflow ID",
+            "chatflowId": "Canvas ID",
+            "phone": "Phone",
             "notSpecified": "Not specified"
         },
         "loading": "Loading...",

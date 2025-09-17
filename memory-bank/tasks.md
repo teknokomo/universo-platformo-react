@@ -1,43 +1,93 @@
 
-# API Endpoint Consistency Implementation Tasks
+# Quiz Lead Saving Fix Implementation
 
 ## Objective
-Implement singular routing pattern for individual Unik operations in API endpoints to match frontend navigation consistency.
+Fix quiz lead saving functionality to ensure quiz completion always creates exactly one lead record.
 
-## Tasks
+## URGENT Fix - Missing Lead Records (2025-01-17)
 
-### Backend API Restructuring
-- [x] Split uniksRoutes.ts into two routers: collection and individual operations
-- [x] Create separate router for individual Unik operations (GET, PUT, DELETE /:id)
-- [x] Mount individual operations router at /unik in main routes/index.ts
-- [x] Keep list operations (GET /, POST /) at /uniks for collection semantics
-- [x] Update API path mappings to maintain backwards compatibility where needed
+**Status**: ✅ **COMPLETED**
 
-### Frontend API Call Updates  
-- [x] Update SpaceBuilderDialog.tsx to use singular /api/v1/unik/ pattern for individual operations
-- [x] Scan for other frontend API calls to individual Unik endpoints
-- [x] Update any remaining /api/v1/uniks/:id pattern usage to /api/v1/unik/:id
+### Problem Identified
+After initial fix for duplicate records, quiz completion stopped creating ANY lead records due to overly restrictive `leadData.hasData` condition.
 
-### Testing and Validation
-- [x] Build and test backend changes to ensure API routes work correctly
-- [x] Verify frontend can successfully call updated individual Unik endpoints
-- [x] Ensure list operations still function at /api/v1/uniks/
-- [x] Test full flow: list Uniks, navigate to individual Unik, perform operations
+### Root Cause
+- Lead saving was conditional on `leadData.hasData = true`
+- This flag was only set when lead collection form was used
+- Quizzes without lead forms never set `hasData = true`, so no records were saved
 
-### Bug Fix - unikId Parameter Issue (2025-10-15)
-- [x] Identify root cause: parameter name mismatch between new routing (:id) and existing controllers (unikId)
-- [x] Add parameter transformation middleware to convert id to unikId in nested routes
-- [x] Fix router mounting order to prevent route conflicts between nested and individual operations
+### Solution Implemented
 
-### Parameter Unification Implementation (2025-10-15)
-- [x] Replace all /:id with /:unikId in backend nested routes (11 routes updated)
-- [x] Remove middleware transformation layer that mapped id to unikId
-- [x] Update all controllers to use direct req.params.unikId access (removed fallback patterns)
-- [x] Validate compilation and build process passes without errors
-- [x] Update API documentation to reflect unified parameter naming approach
-- [x] Update progress tracking with completion milestone
-- [x] Add route skipping middleware in individual router to avoid nested path conflicts
-- [x] Build and verify fixes resolve "unikId not provided" errors in nested resources
+#### 1. Universal Lead Saving
+- ✅ **Always Save Lead**: Modified logic to save lead record on every quiz completion
+- ✅ **Basic Record Creation**: Create lead record with null values when no form data collected
+- ✅ **Points Preservation**: Always save quiz points regardless of lead form presence
+
+#### 2. Updated Logic Flow
+- ✅ **Form Data Check**: Check if `leadData.hasData` is false (no form used)
+- ✅ **Basic Record Setup**: Set name/email/phone to null for basic completion tracking
+- ✅ **Enable Saving**: Set `hasData = true` to enable saveLeadDataToSupabase call
+- ✅ **Duplicate Prevention**: Maintain existing `leadSaved` global flag protection
+
+#### 3. Implementation Details
+```typescript
+// Always save lead data when quiz completes, regardless of ending type
+// If no lead form data was collected, save basic completion record
+if (!leadData.hasData) {
+    // Create basic lead record for quiz completion tracking
+    leadData.name = null;
+    leadData.email = null;
+    leadData.phone = null;
+    leadData.hasData = true; // Enable saving
+    console.log('[MultiSceneQuiz] No lead form used, creating basic completion record');
+}
+saveLeadDataToSupabase(leadData, pointsManager.getCurrentPoints());
+```
+
+#### 4. Build and Validation
+- ✅ **Package Rebuild**: Successfully compiled template-quiz with ESM and CJS outputs
+- ✅ **Code Verification**: Confirmed changes applied in compiled JavaScript files
+- ✅ **Expected Result**: Every quiz completion now creates exactly one lead record
+
+### Files Modified
+- `apps/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` - Universal lead saving logic
+- Generated outputs: `dist/esm/` and `dist/cjs/` - Updated via build process
+
+## Previous Implementation - Duplicate Prevention (2025-01-17)
+
+**Status**: ✅ **COMPLETED** (with follow-up fix above)
+
+### Duplicate Record Fix
+- ✅ **Global Flag**: Added `leadSaved` variable to prevent duplicate saves
+- ✅ **Centralized Logic**: Moved lead saving to main quiz completion handler
+- ✅ **Removed Duplicates**: Eliminated duplicate call from showQuizResults function
+- ✅ **Race Condition Protection**: Global flag prevents timing issues
+
+## Final Status: RESOLVED ✅
+
+Quiz lead saving now works correctly:
+- **Every quiz completion** creates exactly **one lead record**
+- **Form-based leads** save collected name/email/phone data
+- **Basic leads** save null values for tracking completion with points
+- **No duplicates** due to global deduplication system
+- **No missing records** due to universal saving logic
+
+### Post-Fix Enhancement (2025-09-17)
+Logging noise reduction implemented:
+- Added `QUIZ_DEBUG` flag (default false) and `dbg()` wrapper.
+- Converted verbose scene enumeration, object highlighting, incremental point logs to conditional debug output.
+- Retained only essential production logs: init, results screen, lead save attempt, lead save success/failure, ID warning.
+- Simplifies console during normal operation while preserving ability to re-enable diagnostics quickly.
+- [x] Add PUBLISH section to .env and .env.example files with global library management settings
+- [x] Create PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT and PUBLISH_DEFAULT_LIBRARY_SOURCE environment variables
+- [x] Add getGlobalSettings method to PublishController for retrieving server environment settings
+- [x] Create /api/v1/publish/settings/global endpoint to expose global settings to frontend
+- [x] Add getGlobalSettings method to PublicationApi frontend client
+- [x] Update ARJSPublisher component to load and use global settings
+- [x] Implement frontend logic to prioritize global settings when enabled
+- [x] Add UI indicators showing when global library management is active
+- [x] Disable library source selection controls when global management is enabled
+- [x] Build and validate full implementation works correctly
 
 ### Bug Fix - URL Parsing in getCurrentUrlIds (2025-09-16)
 - [x] Identify root cause: getCurrentUrlIds function using legacy '/uniks/' regex pattern

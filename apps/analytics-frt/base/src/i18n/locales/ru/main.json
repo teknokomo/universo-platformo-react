@@ -2,7 +2,9 @@
     "analytics": {
         "title": "Аналитика квизов",
         "searchPlaceholder": "Поиск по имени или email...",
-        "selectQuiz": "Выберите квиз для анализа",
+    "selectQuiz": "Выберите квиз для анализа",
+    "selectSpace": "Выберите пространство",
+    "selectCanvas": "Выберите холст",
         "noQuizzesFound": "Квизы не найдены. Создайте квиз с функцией сбора лидов для просмотра аналитики.",
         "selectQuizToView": "Выберите квиз для просмотра аналитики",
         "noDataAvailable": "Данные аналитики отсутствуют для выбранного квиза",
@@ -17,7 +19,8 @@
             "email": "Email",
             "points": "Баллы",
             "completionDate": "Дата прохождения",
-            "chatflowId": "Chatflow ID",
+            "chatflowId": "ID холста",
+            "phone": "Телефон",
             "notSpecified": "Не указано"
         },
         "loading": "Загрузка...",
