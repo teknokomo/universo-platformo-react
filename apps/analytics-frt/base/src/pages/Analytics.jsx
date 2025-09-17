@@ -40,7 +40,8 @@ import ErrorBoundary from '@/ErrorBoundary'
 
 // API
 import leadsApi from '@/api/lead'
-import chatflowsApi from '@/api/chatflows'
+import chatflowsApi from '@/api/chatflows' // legacy (may be removed later)
+import { spacesApi } from '@universo/spaces-frt'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -95,13 +96,17 @@ const Analytics = () => {
         totalPoints: 0
     })
 
-    // Universo Platformo | Chatflow selection state
-    const [chatflows, setChatflows] = useState([])
-    const [selectedChatflowId, setSelectedChatflowId] = useState('')
-    const [chatflowsLoading, setChatflowsLoading] = useState(true)
+    // Universo Platformo | Space & Canvas selection state (replaces single chatflow selector)
+    const [spaces, setSpaces] = useState([])
+    const [selectedSpaceId, setSelectedSpaceId] = useState('')
+    const [canvases, setCanvases] = useState([])
+    const [selectedCanvasId, setSelectedCanvasId] = useState('')
+    const [spacesLoading, setSpacesLoading] = useState(true)
+    const [canvasesLoading, setCanvasesLoading] = useState(false)
 
-    const getAllLeadsApi = useApi(() => leadsApi.getAllLeads(selectedChatflowId))
-    const getAllChatflowsApi = useApi(() => chatflowsApi.getAllChatflows(unikId))
+    const getAllLeadsApi = useApi(() => leadsApi.getAllLeads(selectedCanvasId))
+    const getSpacesApi = useApi(() => spacesApi.getSpaces(unikId))
+    const getCanvasesApi = useApi(() => (selectedSpaceId ? spacesApi.getCanvases(unikId, selectedSpaceId) : null))
 
     const [search, setSearch] = useState('')
     const onSearchChange = (event) => {
@@ -140,21 +145,28 @@ const Analytics = () => {
     }
 
     // Universo Platformo | Handle chatflow selection
-    const handleChatflowChange = (event) => {
-        const chatflowId = event.target.value
-        setSelectedChatflowId(chatflowId)
+    const resetAnalyticsState = () => {
         setLoading(true)
         setLeads([])
-        setAnalytics({
-            totalLeads: 0,
-            averagePoints: 0,
-            maxPoints: 0,
-            totalPoints: 0
-        })
+        setAnalytics({ totalLeads: 0, averagePoints: 0, maxPoints: 0, totalPoints: 0 })
+    }
+
+    const handleSpaceChange = (event) => {
+        const spaceId = event.target.value
+        setSelectedSpaceId(spaceId)
+        setSelectedCanvasId('')
+        setCanvases([])
+        resetAnalyticsState()
+    }
+
+    const handleCanvasChange = (event) => {
+        const canvasId = event.target.value
+        setSelectedCanvasId(canvasId)
+        resetAnalyticsState()
     }
 
     const onConfirm = () => {
-        if (selectedChatflowId) {
+        if (selectedCanvasId) {
             getAllLeadsApi.request()
         }
     }
@@ -164,16 +176,26 @@ const Analytics = () => {
     }
 
     // Load chatflows on component mount
+    // Load spaces on mount
     useEffect(() => {
-        getAllChatflowsApi.request()
+        getSpacesApi.request()
     }, [])
 
     // Load leads when chatflow is selected
+    // Load canvases whenever space changes
     useEffect(() => {
-        if (selectedChatflowId) {
+        if (selectedSpaceId) {
+            setCanvasesLoading(true)
+            getCanvasesApi.request()
+        }
+    }, [selectedSpaceId])
+
+    // Load leads whenever canvas changes
+    useEffect(() => {
+        if (selectedCanvasId) {
             getAllLeadsApi.request()
         }
-    }, [selectedChatflowId])
+    }, [selectedCanvasId])
 
     useEffect(() => {
         if (getAllLeadsApi.data) {
@@ -199,30 +221,60 @@ const Analytics = () => {
     }, [getAllLeadsApi.error])
 
     // Handle chatflows loading
+    // Spaces loaded
     useEffect(() => {
-        if (getAllChatflowsApi.data) {
+        if (getSpacesApi.data) {
             try {
-                const chatflowsData = getAllChatflowsApi.data
-                setChatflows(chatflowsData)
-                setChatflowsLoading(false)
-
-                // Auto-select first chatflow if available
-                if (chatflowsData.length > 0 && !selectedChatflowId) {
-                    setSelectedChatflowId(chatflowsData[0].id)
+                const raw = getSpacesApi.data
+                const extracted = Array.isArray(raw)
+                    ? raw
+                    : raw?.data?.spaces && Array.isArray(raw.data.spaces)
+                        ? raw.data.spaces
+                        : raw?.spaces && Array.isArray(raw.spaces)
+                            ? raw.spaces
+                            : []
+                setSpaces(extracted)
+                setSpacesLoading(false)
+                if (extracted.length > 0 && !selectedSpaceId) {
+                    setSelectedSpaceId(extracted[0].id)
                 }
             } catch (error) {
-                console.error('[Analytics] Error processing chatflows data:', error)
-                setChatflowsLoading(false)
+                console.error('[Analytics] Error processing spaces data:', error)
+                setSpacesLoading(false)
             }
         }
-    }, [getAllChatflowsApi.data])
+    }, [getSpacesApi.data])
 
     useEffect(() => {
-        if (getAllChatflowsApi.error) {
-            console.error('[Analytics] Error loading chatflows:', getAllChatflowsApi.error)
-            setChatflowsLoading(false)
+        if (getSpacesApi.error) {
+            console.error('[Analytics] Error loading spaces:', getSpacesApi.error)
+            setSpacesLoading(false)
         }
-    }, [getAllChatflowsApi.error])
+    }, [getSpacesApi.error])
+
+    // Canvases loaded
+    useEffect(() => {
+        if (getCanvasesApi.data) {
+            try {
+                const canvasesData = getCanvasesApi.data
+                setCanvases(canvasesData)
+                setCanvasesLoading(false)
+                if (canvasesData.length > 0 && !selectedCanvasId) {
+                    setSelectedCanvasId(canvasesData[0].id)
+                }
+            } catch (error) {
+                console.error('[Analytics] Error processing canvases data:', error)
+                setCanvasesLoading(false)
+            }
+        }
+    }, [getCanvasesApi.data])
+
+    useEffect(() => {
+        if (getCanvasesApi.error) {
+            console.error('[Analytics] Error loading canvases:', getCanvasesApi.error)
+            setCanvasesLoading(false)
+        }
+    }, [getCanvasesApi.error])
 
     return (
         <>
@@ -235,28 +287,45 @@ const Analytics = () => {
                         title={t('title')}
                     />
 
-                    {/* Universo Platformo | Chatflow Selector */}
-                    <Box sx={{ mb: 3 }}>
+                    {/* Universo Platformo | Space & Canvas Selectors */}
+                    <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <FormControl fullWidth>
-                            <InputLabel id='chatflow-select-label'>{t('selectQuiz')}</InputLabel>
+                            <InputLabel id='space-select-label'>{t('selectSpace')}</InputLabel>
                             <Select
-                                labelId='chatflow-select-label'
-                                id='chatflow-select'
-                                value={selectedChatflowId}
-                                label={t('selectQuiz')}
-                                onChange={handleChatflowChange}
-                                disabled={chatflowsLoading}
+                                labelId='space-select-label'
+                                id='space-select'
+                                value={selectedSpaceId}
+                                label={t('selectSpace')}
+                                onChange={handleSpaceChange}
+                                disabled={spacesLoading}
                             >
-                                {chatflows.map((chatflow) => (
-                                    <MenuItem key={chatflow.id} value={chatflow.id}>
-                                        {chatflow.name}
+                                {spaces.map((space) => (
+                                    <MenuItem key={space.id} value={space.id}>
+                                        {space.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl fullWidth disabled={!selectedSpaceId || canvasesLoading}>
+                            <InputLabel id='canvas-select-label'>{t('selectCanvas')}</InputLabel>
+                            <Select
+                                labelId='canvas-select-label'
+                                id='canvas-select'
+                                value={selectedCanvasId}
+                                label={t('selectCanvas')}
+                                onChange={handleCanvasChange}
+                                disabled={!selectedSpaceId || canvasesLoading}
+                            >
+                                {canvases.map((canvas) => (
+                                    <MenuItem key={canvas.id} value={canvas.id}>
+                                        {canvas.name}
                                     </MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
 
-                        {chatflows.length === 0 && !chatflowsLoading && (
-                            <Alert severity='info' sx={{ mt: 2 }}>
+                        {spaces.length === 0 && !spacesLoading && (
+                            <Alert severity='info'>
                                 {t('noQuizzesFound')}
                             </Alert>
                         )}
@@ -330,7 +399,7 @@ const Analytics = () => {
                     </Grid>
 
                     {/* Universo Platformo | Leads Table */}
-                    {!selectedChatflowId ? (
+                    {!selectedCanvasId ? (
                         <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                             <Box sx={{ p: 2, height: 'auto' }}>
                                 <img
@@ -371,6 +440,7 @@ const Analytics = () => {
                                             <TableRow>
                                                 <StyledTableCell>{t('table.name')}</StyledTableCell>
                                                 <StyledTableCell>{t('table.email')}</StyledTableCell>
+                                                <StyledTableCell>{t('table.phone')}</StyledTableCell>
                                                 <StyledTableCell>{t('table.points')}</StyledTableCell>
                                                 <StyledTableCell>{t('table.completionDate')}</StyledTableCell>
                                                 <StyledTableCell>{t('table.chatflowId')}</StyledTableCell>
@@ -386,6 +456,11 @@ const Analytics = () => {
                                                         <Typography variant='body1'>{row.email || t('table.notSpecified')}</Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
+                                                        <Typography variant='body1'>
+                                                            {row.phone || t('table.notSpecified')}
+                                                        </Typography>
+                                                    </StyledTableCell>
+                                                    <StyledTableCell>
                                                         <Typography
                                                             variant='body1'
                                                             sx={{
@@ -393,7 +468,12 @@ const Analytics = () => {
                                                                 color: theme.palette.primary.main
                                                             }}
                                                         >
-                                                            {row.phone && !isNaN(parseInt(row.phone)) ? row.phone : '0'}
+                                                            {(() => {
+                                                                // Prefer points field; fallback to numeric phone for legacy rows
+                                                                if (typeof row.points === 'number') return row.points
+                                                                if (row.phone && !isNaN(parseInt(row.phone))) return parseInt(row.phone)
+                                                                return 0
+                                                            })()}
                                                         </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>

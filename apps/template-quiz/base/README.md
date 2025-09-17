@@ -141,6 +141,44 @@ interface QuizAnswer {
 
 ## Development
 
+### Debug Logging
+
+The generated quiz runtime uses a silent-by-default logging system.
+
+Key points:
+
+- All verbose scene / object / points / flow logs are wrapped with a lightweight `dbg()` helper.
+- Two-layer flag system:
+    - Build-time constant: `const QUIZ_DEBUG = false;` (change in source if you need a permanently verbose build).
+    - Runtime mutable state: internal `QUIZ_DEBUG_STATE` controlled through a public API.
+- Public API:
+    - `window.setQuizDebug(true)` – enables verbose logging after the quiz iframe/script has loaded.
+    - `window.setQuizDebug(false)` – disables it again.
+- When disabled, only absolutely critical errors (unexpected exceptions) surface via `console.error`.
+
+Runtime categories (enabled only when debug ON):
+
+- `[MultiSceneQuiz]` – scene transitions, question numbering
+- `[PointsManager]` – point increments / resets
+- `[LeadCollection]` – (non-sensitive) data collection flow & save attempts
+- `[QuizResults]` – result screen context, final score diagnostics
+
+Production-visible (still suppressed when debug OFF unless an error):
+
+- Lead save attempt/success are now also suppressed unless debug ON; to audit saving turn debug ON prior to completion if needed.
+
+Example (in browser DevTools console):
+
+```js
+// Enable verbose quiz diagnostics
+window.setQuizDebug(true)
+
+// Later disable
+window.setQuizDebug(false)
+```
+
+If you need to pre-enable debug for all users of a particular build, modify the constant in `DataHandler.generateMultiSceneScript` before building.
+
 ### Building
 
 ```bash

@@ -477,7 +477,7 @@ The application uses a modular API architecture organized into layers:
 
 AR quizzes are built using a chain of UPDL **Space** nodes. Each space may include **Data** nodes with questions. A question can have multiple **Data** answer nodes connected to it. Correct answers are marked with `isCorrect`, and answer nodes can also define `enablePoints` and `pointsValue` for the scoring system. Each answer node may be linked to an **Object** node that appears when the answer is selected.
 
-Spaces can form a sequence via their `nextSpace` connection to create multi‑question quizzes. A space with no Data nodes can collect user info (`collectName`, `collectEmail`, `collectPhone`) and save it to Supabase leads. The final space in a chain can enable `showPoints` to display the participant score. Currently this score is stored in the `lead.phone` field as a temporary solution.
+Spaces can form a sequence via their `nextSpace` connection to create multi‑question quizzes. A space with no Data nodes can collect user info (`collectName`, `collectEmail`, `collectPhone`) and save it to Supabase leads. The final space in a chain can enable `showPoints` to display the participant score. Participant scores are now persisted in the dedicated `lead.points` integer column (the previous temporary storage in `lead.phone` is no longer used).
 
 High‑level nodes are connected in a chain: **Entity** holds **Components**, components can raise **Events**, and events run **Actions**. This relationship `Entity → Component → Event → Action` describes interactive behaviour used by builders such as PlayCanvas MMOOMM.
 

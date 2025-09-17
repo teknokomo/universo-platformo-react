@@ -1,6 +1,383 @@
 # Progress
 
-**As of 2025-01-16 | AR.js Legacy Configuration Management System Fixed**
+**As of 2025-09-16 | AR.js Legacy Configuration Management System Fixed**
+
+## AR.js Legacy Configuration Management System Bug Fixes (2025-09-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Fixed critical issues in the legacy configuration management system including translation interpolation, dual alert display, and field accessibility in recommendation mode.
+
+### Bug Fixes Implemented:
+
+#### 1. Translation Interpolation Fixed:
+- ✅ **Source Name Translation**: Fixed dynamic source name translation in alert messages
+- ✅ **Parameter Mapping**: Corrected parameter name from `recommendedSource` to `source` to match translation keys
+- ✅ **Conditional Translation**: Added proper conditional translation for 'official' vs 'kiberplano' source names
+
+#### 2. Alert Display Logic Fixed:
+- ✅ **Single Alert Display**: Added `isLegacyScenario` state to prevent dual alert display
+- ✅ **Smart Alert Replacement**: Legacy alerts now replace standard enforcement messages instead of showing both
+- ✅ **Alert Lifecycle Management**: Legacy alerts are cleared when user corrects configuration in recommendation mode
+
+#### 3. Field Accessibility in Recommendation Mode:
+- ✅ **Conditional Field Locking**: Fields are now editable in legacy recommendation mode (`autoCorrectLegacySettings: false`)
+- ✅ **Enhanced Disabled Logic**: `disabled={!!publishedUrl || (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))}`
+- ✅ **Helper Text Conditional**: Helper text only shows when fields are actually disabled
+
+#### 4. User Interaction Improvements:
+- ✅ **Source Change Handlers**: Updated to allow changes in recommendation mode and clear legacy state when user complies
+- ✅ **State Transition Logic**: Proper transition from legacy recommendation to standard enforcement when user changes sources
+- ✅ **Real-time Feedback**: Alert automatically disappears when user sets both sources to match global requirements
+
+### Technical Implementation:
+
+#### Fixed Translation Interpolation:
+```jsx
+// Before: showing language keys
+message: t('publish.globalLibraryManagement.legacyRecommendationMessage', {
+    recommendedSource: globalSettings.defaultLibrarySource
+})
+
+// After: proper source name translation
+message: t('publish.globalLibraryManagement.legacyRecommendationMessage', {
+    source: globalSettings.defaultLibrarySource === 'official' 
+        ? t('publish.globalLibraryManagement.officialSource')
+        : t('publish.globalLibraryManagement.kiberplanoSource')
+})
+```
+
+#### Fixed Field Accessibility Logic:
+```jsx
+// Before: always disabled in enforcement mode
+disabled={!!publishedUrl || globalSettings?.enforceGlobalLibraryManagement}
+
+// After: editable in legacy recommendation mode
+disabled={!!publishedUrl || (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))}
+```
+
+#### Fixed Alert Display Logic:
+```jsx
+// Standard alert only shows when NOT in legacy scenario
+{globalSettings?.enforceGlobalLibraryManagement && !isLegacyScenario && (
+    <Alert severity="info">Standard enforcement message</Alert>
+)}
+```
+
+### Behavioral Scenarios Now Working:
+
+#### Scenario 1: Legacy Recommendation Mode
+- **Config**: `PUBLISH_AUTO_CORRECT_LEGACY_SETTINGS=false`
+- **Behavior**: 
+  - Single warning alert with proper source name translation
+  - Fields editable for user to make changes
+  - Alert disappears when user complies with global settings
+  - Standard message appears after compliance
+
+#### Scenario 2: Legacy Auto-Correction Mode
+- **Config**: `PUBLISH_AUTO_CORRECT_LEGACY_SETTINGS=true`
+- **Behavior**:
+  - Single info alert with correction confirmation
+  - Settings automatically updated to global requirements
+  - Fields remain locked as expected
+  - Standard message on subsequent visits
+
+---
+
+## AR.js Legacy Configuration Management System (2025-01-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Implemented sophisticated legacy configuration handling for AR.js global library management system, allowing administrators to control how legacy spaces with conflicting library settings are handled - either through automatic correction or user recommendations.
+
+### Changes Implemented:
+
+#### 1. Environment Configuration:
+- ✅ **Environment Variable**: Added `PUBLISH_AUTO_CORRECT_LEGACY_SETTINGS=true` to control legacy behavior
+- ✅ **Documentation**: Comprehensive documentation in `.env.example` explaining auto-correction vs recommendation scenarios
+- ✅ **Backend API**: Updated `publishController.ts` to expose `autoCorrectLegacySettings` flag
+
+#### 2. Translation System:
+- ✅ **Legacy Alert Messages**: Added `legacyCorrectedMessage` and `legacyRecommendationMessage` keys to both Russian and English locales
+- ✅ **Interpolation Support**: Dynamic content using i18next interpolation for source names and recommendations
+- ✅ **Fixed English Locale**: Resolved missing "coming soon" translation key
+
+#### 3. Frontend Logic Implementation:
+- ✅ **Legacy Detection**: Automatic detection of spaces with library configurations that don't match global requirements
+- ✅ **Three-tier Handling**: 
+  - New spaces: Apply global settings directly
+  - Legacy with auto-correction: Automatically update settings and show info alert
+  - Legacy with recommendations: Keep existing settings and show warning alert
+- ✅ **Alert UI Component**: Added dismissible alert component to show legacy status messages
+- ✅ **State Management**: Added `alert` state to track and display legacy configuration messages
+
+#### 4. Testing & Validation:
+- ✅ **Build Validation**: Confirmed both `publish-frt` and `publish-srv` build successfully
+- ✅ **Translation Verification**: Verified correct translation key paths and interpolation
+- ✅ **API Integration**: Confirmed backend exposes `autoCorrectLegacySettings` flag correctly
+
+### Technical Architecture:
+
+#### Legacy Detection Logic:
+```jsx
+const hasLegacyConfig = savedSettings.libraryConfig && 
+    (savedSettings.libraryConfig.arjs?.source !== globalSettings.defaultLibrarySource ||
+     savedSettings.libraryConfig.aframe?.source !== globalSettings.defaultLibrarySource)
+```
+
+#### Three-Scenario Handling:
+1. **Auto-Correction Mode** (`autoCorrectLegacySettings: true`):
+   - Updates settings to match global requirements
+   - Shows blue info alert with correction message
+
+2. **Recommendation Mode** (`autoCorrectLegacySettings: false`):
+   - Preserves existing legacy settings
+   - Shows orange warning alert with administrator recommendation
+
+3. **New Spaces**:
+   - Applies global settings directly without alerts
+
+### Environment Variables:
+```env
+# Legacy Configuration Handling
+PUBLISH_AUTO_CORRECT_LEGACY_SETTINGS=true
+# When true: Auto-correct legacy space library settings to match global requirements
+# When false: Show recommendation alerts but preserve existing settings
+```
+
+### Translation Keys Added:
+```json
+"globalLibraryManagement": {
+    "legacyCorrectedMessage": "Library source settings have been automatically updated to comply with global administrator requirements (set to: {{source}})",
+    "legacyRecommendationMessage": "Administrator recommends changing library source to {{source}} to comply with global settings"
+}
+```
+
+---
+
+## AR.js Global Library Management Alert Internationalization (2025-01-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Internationalized the global library management alert message in AR.js Publisher component, replacing hardcoded Russian text with proper i18n keys supporting both Russian and English languages.
+
+### Changes Implemented:
+
+#### Translation Keys Added:
+- ✅ **Russian** (`apps/publish-frt/base/src/i18n/locales/ru/main.json`):
+  ```json
+  "arjs": {
+    "globalLibraryManagement": {
+      "enforcedMessage": "Настройки источника библиотек управляются глобально администратором (текущий источник: {{source}})",
+      "officialSource": "Официальный сервер",
+      "kiberplanoSource": "Сервер Kiberplano"
+    }
+  }
+  ```
+
+- ✅ **English** (`apps/publish-frt/base/src/i18n/locales/en/main.json`):
+  ```json
+  "arjs": {
+    "globalLibraryManagement": {
+      "enforcedMessage": "Library source settings are managed globally by administrator (current source: {{source}})",
+      "officialSource": "Official server",
+      "kiberplanoSource": "Kiberplano server"
+    }
+  }
+  ```
+
+#### Component Updates:
+- ✅ **ARJSPublisher.jsx**: Replaced hardcoded Russian text with parameterized t() function calls
+- ✅ **Dynamic Source Translation**: Conditional translation of source names based on `globalSettings.defaultLibrarySource`
+- ✅ **Template Literal Replacement**: Used i18next interpolation syntax `{{source}}` for dynamic content
+
+#### Technical Implementation:
+```jsx
+{t('arjs.globalLibraryManagement.enforcedMessage', {
+    source: globalSettings.defaultLibrarySource === 'official' 
+        ? t('arjs.globalLibraryManagement.officialSource')
+        : t('arjs.globalLibraryManagement.kiberplanoSource')
+})}
+```
+
+### Build Validation:
+- ✅ **TypeScript Compilation**: publish-frt package builds successfully without errors
+- ✅ **i18n Namespace**: Properly integrated with existing `publish` namespace structure
+- ✅ **Conditional Display**: Alert only shows when `globalSettings?.enforceGlobalLibraryManagement` is true
+
+### Language Support:
+- ✅ **Russian**: Complete support for enforcement mode alert and source names
+- ✅ **English**: Complete support for enforcement mode alert and source names
+- ✅ **Extensible**: Framework supports adding additional languages in the future
+
+## Двухуровневое управление библиотеками AR.js (2025-01-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Разработана гибкая система двухуровневого управления библиотеками AR.js и A-Frame, позволяющая администраторам устанавливать как приоритетные настройки по умолчанию, так и принудительное управление с полной блокировкой выбора пользователя.
+
+### Features Implemented:
+
+#### Уровень 1: Приоритетное управление
+- ✅ **PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT=true**: Устанавливает глобальные настройки как приоритет по умолчанию
+- ✅ **Пользовательский выбор**: Пользователи могут изменять источники библиотек при желании
+- ✅ **Без ограничений UI**: Никаких предупреждений или блокировок интерфейса
+
+#### Уровень 2: Принудительное управление  
+- ✅ **PUBLISH_ENFORCE_GLOBAL_LIBRARY_MANAGEMENT=true**: Полное принудительное управление
+- ✅ **Блокировка UI**: Отключение возможности выбора источников библиотек
+- ✅ **Предупреждающие сообщения**: Отображение warning-сообщения о принудительном управлении
+
+### Technical Implementation:
+
+**Environment Variables:**
+```bash
+# Уровень 1: Приоритетное управление - устанавливает дефолты, но позволяет пользователю выбирать
+PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT=true
+
+# Уровень 2: Принудительное управление - полностью блокирует выбор пользователя  
+PUBLISH_ENFORCE_GLOBAL_LIBRARY_MANAGEMENT=false
+
+# Источник по умолчанию
+PUBLISH_DEFAULT_LIBRARY_SOURCE=kiberplano
+```
+
+**Frontend Logic Priority:**
+```javascript
+if (globalSettings?.enforceGlobalLibraryManagement) {
+    // УРОВЕНЬ 2: Принудительное управление - принудительно применить глобальные настройки
+    setArjsSource(globalSettings.defaultLibrarySource)
+    setAframeSource(globalSettings.defaultLibrarySource)
+    // UI: disabled=true, warning message shown
+} else if (savedSettings.libraryConfig) {
+    // Использовать сохраненные настройки пользователя
+    setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
+    setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
+} else if (globalSettings?.enableGlobalLibraryManagement) {
+    // УРОВЕНЬ 1: Приоритетное управление - использовать как дефолт
+    setArjsSource(globalSettings.defaultLibrarySource)
+    setAframeSource(globalSettings.defaultLibrarySource)
+    // UI: enabled=true, no warnings
+} else {
+    // Стандартные дефолты
+    setArjsSource('official')
+    setAframeSource('official')
+}
+```
+
+### Use Cases:
+- **Приоритетное управление**: Рекомендации для новых пользователей, но сохранение гибкости
+- **Принудительное управление**: Корпоративные среды с строгими требованиями к инфраструктуре
+- **Комбинированное использование**: Различные уровни контроля для разных окружений
+
+### Build Validation:
+- ✅ **TypeScript Compilation**: 27 пакетов успешно скомпилированы за 3м16с
+- ✅ **No Errors**: Все изменения прошли проверку без ошибок компиляции
+
+## UI Fixes for AR.js Publication Component (2025-01-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Fixed two critical UI issues in ARJSPublisher component after global library management implementation:
+
+1. **Default Values Issue**: Fixed library sources showing 'kiberplano' instead of 'official' when global management disabled
+2. **Dialog Flickering**: Resolved dialog collapsing/flickering when switching to AR.js publication tab
+
+### Technical Fixes:
+- ✅ **useState Initial Values**: Changed from 'kiberplano' to 'official' for both arjsSource and aframeSource
+- ✅ **Settings Initialization Flag**: Added settingsInitialized state to prevent multiple useEffect executions
+- ✅ **useEffect Dependencies**: Removed globalSettings from loadSavedSettings dependencies to prevent unnecessary re-runs
+- ✅ **Flow ID Reset Logic**: Added useEffect to reset settingsInitialized when flow.id changes
+
+### Build Validation:
+- ✅ **TypeScript Compilation**: All packages compiled successfully without errors
+- ✅ **Project Structure**: 27 packages built successfully in 4m28s
+
+## Global Library Management Enhancement (2025-01-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Implemented comprehensive global library management system for AR.js and A-Frame libraries in publication settings, allowing administrators to centrally control library sources across all publications.
+
+### Features Implemented:
+- ✅ **Environment Configuration**: Added PUBLISH section to .env/.env.example with `PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT` and `PUBLISH_DEFAULT_LIBRARY_SOURCE` settings
+- ✅ **Backend API**: Created `/api/v1/publish/settings/global` endpoint to expose server configuration to frontend
+- ✅ **Frontend Integration**: Updated ARJSPublisher component to load and respect global settings
+- ✅ **UI Enhancement**: Added visual indicators when global management is active
+- ✅ **Permission Control**: Disabled library source selection when global management is enabled
+- ✅ **Fallback Logic**: Maintains individual project settings when global management is disabled
+
+### Technical Implementation:
+```typescript
+// Environment variables
+PUBLISH_ENABLE_GLOBAL_LIBRARY_MANAGEMENT=false  // Enable global control
+PUBLISH_DEFAULT_LIBRARY_SOURCE=kiberplano       // Default source (official|kiberplano)
+
+// Frontend priority logic
+if (globalSettings?.enableGlobalLibraryManagement) {
+    // Use global settings - disable user controls
+    setArjsSource(globalSettings.defaultLibrarySource)
+    setAframeSource(globalSettings.defaultLibrarySource)
+} else {
+    // Use saved project settings or defaults
+    setArjsSource(savedSettings.libraryConfig.arjs?.source || 'kiberplano')
+}
+```
+
+### User Experience:
+- Administrators can enable global management to enforce consistent library sources
+- Users see clear indicators when settings are controlled globally
+- Library source dropdowns are disabled with explanatory text when global management is active
+- Individual projects retain their settings when global management is disabled
+
+### Build Validation:
+- ✅ Full project build successful (5m 9s)
+- ✅ All TypeScript compilation clean
+- ✅ No linting errors
+- ✅ All package dependencies resolved correctly
+
+## URL Parsing Bug Fix (2025-09-16)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Fixed critical bug in AR.js Publisher where "unikId not found in URL" error prevented loading and saving publication settings.
+
+### Root Cause:
+- `getCurrentUrlIds()` function in `apps/publish-frt/base/src/api/common.ts` was using legacy `/uniks/` regex pattern
+- After routing refactoring, frontend URLs changed from `/uniks/:unikId` to `/unik/:unikId` for individual operations
+- Function couldn't extract `unikId` from new URL structure, causing AR.js publication to fail
+
+### Solution Implemented:
+- ✅ **Updated regex patterns**: Added support for both new singular `/unik/` and legacy `/uniks/` patterns
+- ✅ **Backward compatibility**: Maintains support for legacy URLs while prioritizing new pattern
+- ✅ **Code audit**: Verified no other URL parsing issues exist in codebase
+- ✅ **Build validation**: publish-frt package compiles successfully without TypeScript errors
+- ✅ **Documentation**: Updated systemPatterns.md with URL parsing best practices
+
+### Technical Pattern:
+```typescript
+// Correct URL parsing approach
+const unikSingularMatch = pathname.match(/\/unik\/([^\/]+)/)
+const unikLegacyMatch = pathname.match(/\/uniks\/([^\/]+)/)
+if (unikSingularMatch && unikSingularMatch[1]) {
+    result.unikId = unikSingularMatch[1]
+} else if (unikLegacyMatch && unikLegacyMatch[1]) {
+    result.unikId = unikLegacyMatch[1]
+}
+```
+
+### Outcome:
+- AR.js Publisher now successfully loads and saves settings
+- No "Failed to load saved settings" error in publication dialog
+- Consistent URL parsing across platform
+xed**
 
 ## AR.js Legacy Configuration Management System Bug Fixes (2025-01-16)
 
