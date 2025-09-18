@@ -93,13 +93,10 @@ describe('CanvasTabs', () => {
       withI18n: false,
     })
 
-    const cleanTab = screen.getByRole('button', { name: 'Canvas 1' })
-    const dirtyTab = screen.getByRole('button', { name: 'Canvas 2' })
-
-    const cleanDivs = cleanTab.querySelectorAll('div').length
-    const dirtyDivs = dirtyTab.querySelectorAll('div').length
-
-    expect(dirtyDivs).toBeGreaterThan(cleanDivs)
+    // У "чистой" вкладки не должно быть соседнего элемента-индикатора
+    expect(screen.getByText('Canvas 1').nextElementSibling).toBeNull()
+    // У "грязной" вкладки должен быть соседний элемент-индикатор
+    expect(screen.getByText('Canvas 2').nextElementSibling).toBeInTheDocument()
   })
 
   test('calls onCanvasSelect when a tab is clicked', async () => {
