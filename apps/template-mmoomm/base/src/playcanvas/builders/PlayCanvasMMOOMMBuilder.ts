@@ -89,8 +89,9 @@ export class PlayCanvasMMOOMMBuilder implements ITemplateBuilder {
 
     /**
      * Get required libraries for MMOOMM template
+     * @param options Build options (unused for PlayCanvas, always returns same libraries)
      */
-    getRequiredLibraries(): string[] {
+    getRequiredLibraries(options?: any): string[] {
         return [
             'https://code.playcanvas.com/playcanvas-stable.min.js'
         ]

@@ -20,6 +20,8 @@ export interface ARJSPublicationSettings {
     libraryConfig?: ILibraryConfig
     arDisplayType?: 'wallpaper' | 'marker'
     wallpaperType?: 'standard'
+    cameraUsage?: 'none' | 'standard'
+    backgroundColor?: string // Add background color to interface
 }
 
 /**

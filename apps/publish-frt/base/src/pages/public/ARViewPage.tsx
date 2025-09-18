@@ -75,6 +75,8 @@ const ARViewPage: React.FC = () => {
                     projectName: publicationData.projectName || 'AR.js Experience',
                     libraryConfig: publicationData.libraryConfig,
                     chatflowId: publicationId,
+                    cameraUsage: renderConfig.cameraUsage || 'standard', // Default to standard for backward compatibility
+                    backgroundColor: renderConfig.backgroundColor, // Add backgroundColor from renderConfig
                     ...(displayType === 'wallpaper'
                         ? { arDisplayType: 'wallpaper', wallpaperType: renderConfig.wallpaperType || 'standard' }
                         : { markerType: renderConfig.markerType || 'preset', markerValue: renderConfig.markerValue || 'hiro' })
@@ -83,6 +85,8 @@ const ARViewPage: React.FC = () => {
                 console.log('🔧 [ARViewPage] Calling ARJSBuilder.buildFromFlowData with raw data:', {
                     projectName: buildOptions.projectName,
                     displayType,
+                    cameraUsage: renderConfig.cameraUsage || 'standard',
+                    backgroundColor: renderConfig.backgroundColor, // Log backgroundColor
                     markerType: displayType === 'marker' ? (renderConfig.markerType || 'preset') : undefined,
                     markerValue: displayType === 'marker' ? (renderConfig.markerValue || 'hiro') : undefined,
                     hasLibraryConfig: !!buildOptions.libraryConfig,

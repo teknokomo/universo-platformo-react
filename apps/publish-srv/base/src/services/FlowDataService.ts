@@ -85,9 +85,10 @@ export class FlowDataService {
                             logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
                         }
                         if (config?.arjs) {
-                            const { arDisplayType, wallpaperType, markerType, markerValue } = config.arjs
-                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue }
+                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor } = config.arjs
+                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor }
                             logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
+                            logger.info(`[FlowDataService] DEBUG backgroundColor from config.arjs:`, backgroundColor)
                         }
                         if (config?.playcanvas) {
                             const { gameMode, colyseusSettings, libraryConfig: pcLibraryConfig } = config.playcanvas

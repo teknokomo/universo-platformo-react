@@ -105,9 +105,19 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
 
     /**
      * Get required libraries for Quiz template
+     * @param options Build options that may affect library requirements  
      */
-    getRequiredLibraries(): string[] {
-        return this.templateBuilder.getRequiredLibraries()
+    getRequiredLibraries(options?: BuildOptions): string[] {
+        console.log(`[ARJSQuizBuilder Wrapper] getRequiredLibraries called with options:`, options)
+        
+        // Convert publish-frt options to template package format
+        const templateOptions = this.convertBuildOptions(options || {})
+        console.log(`[ARJSQuizBuilder Wrapper] Converted to template options:`, templateOptions)
+        
+        const libraries = this.templateBuilder.getRequiredLibraries(templateOptions)
+        console.log(`[ARJSQuizBuilder Wrapper] Template returned libraries:`, libraries)
+        
+        return libraries
     }
 
     /**

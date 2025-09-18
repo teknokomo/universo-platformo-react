@@ -396,6 +396,8 @@ export interface RenderConfig {
     wallpaperType?: 'standard'
     markerType?: string
     markerValue?: string
+    cameraUsage?: 'none' | 'standard'
+    backgroundColor?: string // Add background color field
 }
 
 /**

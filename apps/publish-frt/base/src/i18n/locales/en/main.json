@@ -183,6 +183,11 @@
                 "wallpaper": "AR wallpaper",
                 "marker": "Standard marker"
             },
+            "cameraUsage": {
+                "label": "Camera usage",
+                "none": "No camera",
+                "standard": "Standard resolution"
+            },
             "wallpaper": {
                 "label": "Wallpaper type",
                 "standard": "Standard AR wallpaper"
