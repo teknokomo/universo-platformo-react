@@ -126,10 +126,20 @@ describe('spacesRoutes', () => {
 
   it('создаёт пространство и возвращает 201', async () => {
     const { app, manager } = createTestServer()
-    manager.save
-      .mockImplementationOnce(async () => createSpaceFixture({ name: 'New Space' }))
-      .mockImplementationOnce(async () => createCanvasFixture())
-      .mockImplementationOnce(async (entity: any) => ({ ...entity, id: 'space-canvas-1' }))
+    manager.save.mockImplementation(async (entity: unknown) => {
+      if (entity && typeof entity === 'object' && 'sortOrder' in entity && 'canvas' in entity) {
+        return { ...(entity as Record<string, unknown>), id: 'space-canvas-1' }
+      }
+
+      if (entity && typeof entity === 'object' && 'flowData' in entity) {
+        return createCanvasFixture()
+      }
+
+      return createSpaceFixture({
+        ...((entity as Record<string, unknown>) || {}),
+        name: 'New Space'
+      })
+    })
 
     const response = await request(app)
       .post('/api/v1/uniks/unik-1/spaces')

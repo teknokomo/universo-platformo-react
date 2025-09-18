@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import { SpacesController } from '@/controllers/spacesController'
+import type { SpacesService } from '@/services/spacesService'
 import { createSpaceFixture } from '@/tests/fixtures/spaces'
 
 describe('SpacesController', () => {
@@ -22,14 +23,14 @@ describe('SpacesController', () => {
   }) as Request
 
   let controller: SpacesController
-  let service: Record<string, jest.Mock>
+  let service: Partial<jest.Mocked<SpacesService>>
 
   beforeEach(() => {
     service = {
       getSpacesForUnik: jest.fn(),
       createSpace: jest.fn(),
       reorderCanvases: jest.fn()
-    }
+    } satisfies Partial<jest.Mocked<SpacesService>>
     controller = new SpacesController(service as SpacesService)
   })
 

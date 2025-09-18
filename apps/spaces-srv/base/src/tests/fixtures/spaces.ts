@@ -1,8 +1,16 @@
 import { Canvas } from '@/database/entities/Canvas'
 import { Space } from '@/database/entities/Space'
 import { SpaceCanvas } from '@/database/entities/SpaceCanvas'
+import { Unik } from '@universo/uniks-srv'
 
 const baseDate = new Date('2024-01-01T00:00:00.000Z')
+
+export const createUnikFixture = (overrides: Partial<Unik> = {}): Unik => ({
+  id: 'unik-1',
+  name: 'Primary Unik',
+  created_at: baseDate,
+  ...overrides
+})
 
 export const createSpaceFixture = (overrides: Partial<Space> = {}): Space => ({
   id: 'space-1',
@@ -11,7 +19,7 @@ export const createSpaceFixture = (overrides: Partial<Space> = {}): Space => ({
   visibility: 'private',
   createdDate: baseDate,
   updatedDate: baseDate,
-  unik: { id: 'unik-1' } as any,
+  unik: createUnikFixture(),
   spaceCanvases: [],
   ...overrides
 })
@@ -22,13 +30,13 @@ export const createCanvasFixture = (overrides: Partial<Canvas> = {}): Canvas => 
   flowData: '{}',
   deployed: false,
   isPublic: false,
-  apikeyid: null as any,
-  chatbotConfig: null as any,
-  apiConfig: null as any,
-  analytic: null as any,
-  speechToText: null as any,
-  followUpPrompts: null as any,
-  category: null as any,
+  apikeyid: undefined,
+  chatbotConfig: undefined,
+  apiConfig: undefined,
+  analytic: undefined,
+  speechToText: undefined,
+  followUpPrompts: undefined,
+  category: undefined,
   type: 'CHATFLOW',
   createdDate: baseDate,
   updatedDate: baseDate,
