@@ -1,3 +1,23 @@
+### 2025-09-18 — Fix TS path alias build error in @universo/spaces-srv
+
+Issue:
+- Full build failed due to TS2307 errors in `apps/spaces-srv/base/src/tests/fixtures/spaces.ts` for imports like `@/database/entities/*`.
+
+Root cause:
+- `tsconfig.json` in `@universo/spaces-srv` lacked a path alias mapping for `@/*` with `baseUrl` pointing to `src`.
+- Tests directory was included in the production `tsc` build, pulling fixtures into the production compile.
+
+Resolution:
+- Added `paths: { "@/*": ["*"] }` and kept `baseUrl: "./src"`.
+- Excluded `src/tests/**` in `exclude` to keep unit tests out of production build.
+
+Validation:
+- `pnpm --filter @universo/spaces-srv build` compiles and outputs `dist/` successfully.
+- Full `pnpm build` completes across 27 packages without failures.
+
+Follow-ups:
+- Consider adding a shared TS config preset for servers to ensure consistent alias and test exclusions.
+
 ### 2025-09-18
 
 - **QR Code Download Notification Fixed**:

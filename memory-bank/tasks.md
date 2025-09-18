@@ -1,3 +1,20 @@
+## Build Failure Fix - spaces-srv (2025-09-18)
+
+Objective: Fix TypeScript build errors in `@universo/spaces-srv` (TS2307 for `@/database/entities/*`) and restore full workspace build.
+
+- [x] Analyze tsconfig and add alias
+   - Add `"@/*": ["*"]` under `compilerOptions.paths` with `baseUrl: "./src"` in `apps/spaces-srv/base/tsconfig.json`.
+- [x] Exclude tests from compilation
+   - Add `"src/tests/**"` to `exclude` to avoid compiling test fixtures during `build`.
+- [x] Verify entity files exist under local package
+   - Confirm `src/database/entities/{Canvas,Space,SpaceCanvas}.ts` exist and exports are correct.
+- [x] Run filtered package build
+   - `pnpm --filter @universo/spaces-srv build` and ensure no TS errors remain.
+- [x] Run full root build
+   - `pnpm build` to validate workspace integrity.
+- [x] Update progress and active context
+   - Document the fix and decisions in `progress.md` and `activeContext.md`.
+
 - [x] AR.js wallpaper: add flat shader to `a-sphere` background
 
 ## Camera Usage Mode Simplification
