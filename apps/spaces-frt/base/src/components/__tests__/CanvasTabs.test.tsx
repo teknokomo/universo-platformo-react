@@ -125,7 +125,7 @@ describe('CanvasTabs', () => {
     const secondTab = screen.getByRole('button', { name: 'Canvas 2' })
     fireEvent.contextMenu(secondTab)
 
-    await user.click(await screen.findByText('Переместить вправо'))
+    await user.click((await screen.findAllByRole('menuitem'))[1])
 
     await waitFor(() => expect(props.onCanvasReorder).toHaveBeenCalledWith('canvas2', 2))
 
