@@ -9,6 +9,7 @@ import {
   type EnhancedStore,
   type Reducer,
   type AnyAction,
+  type PreloadedState,
 } from '@reduxjs/toolkit'
 import { SnackbarProvider, SnackbarProviderProps } from 'notistack'
 import { I18nextProvider } from 'react-i18next'
@@ -18,12 +19,15 @@ import { createTestI18n } from './i18n'
 
 export type AdditionalWrapper = React.ComponentType<{ children: ReactNode }>
 
-export interface CreateTestStoreOptions {
-  reducer?: Reducer<any, AnyAction>
-  preloadedState?: unknown
+type DefaultState = Record<string, unknown>
+
+export interface CreateTestStoreOptions<S extends DefaultState = DefaultState> {
+  reducer?: Reducer<S, AnyAction>
+  preloadedState?: PreloadedState<S>
 }
 
-export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
+export interface RenderWithProvidersOptions<S extends DefaultState = DefaultState>
+  extends Omit<RenderOptions, 'wrapper'> {
   theme?: Theme
   themeOptions?: ThemeOptions
   withTheme?: boolean
@@ -32,27 +36,27 @@ export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper
   withI18n?: boolean
   routerProps?: Omit<MemoryRouterProps, 'children'>
   withRouter?: boolean
-  store?: EnhancedStore<any, AnyAction>
-  reducer?: Reducer<any, AnyAction>
-  preloadedState?: unknown
+  store?: EnhancedStore<S>
+  reducer?: Reducer<S, AnyAction>
+  preloadedState?: PreloadedState<S>
   withRedux?: boolean
   withSnackbar?: boolean
   snackbarProps?: SnackbarProviderProps
   additionalWrappers?: AdditionalWrapper[]
 }
 
-export interface RenderWithProvidersResult extends RenderResult {
-  store?: EnhancedStore<any, AnyAction>
+export interface RenderWithProvidersResult<S extends DefaultState = DefaultState> extends RenderResult {
+  store?: EnhancedStore<S>
   i18n?: I18nInstance
   theme?: Theme
 }
 
-const defaultReducer: Reducer<any, AnyAction> = (state = {}) => state
+const defaultReducer: Reducer<DefaultState, AnyAction> = (state = {}) => state
 
-export function createTestStore(
-  options: CreateTestStoreOptions = {},
-): EnhancedStore<any, AnyAction> {
-  const { reducer = defaultReducer, preloadedState } = options
+export function createTestStore<S extends DefaultState = DefaultState>(
+  options: CreateTestStoreOptions<S> = {},
+): EnhancedStore<S> {
+  const { reducer = defaultReducer as Reducer<S, AnyAction>, preloadedState } = options
   return configureStore({ reducer, preloadedState })
 }
 
@@ -64,7 +68,7 @@ function applyAdditionalWrappers(children: ReactNode, wrappers: AdditionalWrappe
   return wrappers.reduceRight((acc, Wrapper) => React.createElement(Wrapper, null, acc), children)
 }
 
-export async function renderWithProviders(
+export async function renderWithProviders<S extends DefaultState = DefaultState>(
   ui: ReactElement,
   {
     theme,
@@ -83,11 +87,11 @@ export async function renderWithProviders(
     snackbarProps,
     additionalWrappers,
     ...renderOptions
-  }: RenderWithProvidersOptions = {}
-): Promise<RenderWithProvidersResult> {
+  }: RenderWithProvidersOptions<S> = {}
+): Promise<RenderWithProvidersResult<S>> {
   const resolvedTheme = withTheme ? theme ?? createTestTheme(themeOptions) : undefined
   const resolvedI18n = withI18n ? i18n ?? (await createTestI18n()) : undefined
-  const resolvedStore = withRedux ? store ?? createTestStore({ reducer, preloadedState }) : undefined
+  const resolvedStore = withRedux ? store ?? createTestStore<S>({ reducer, preloadedState }) : undefined
   const memoryRouterProps: MemoryRouterProps | undefined = withRouter
     ? {
         initialEntries: ['/'],

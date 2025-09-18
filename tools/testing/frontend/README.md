@@ -86,7 +86,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       setupFiles: [
-        ...baseConfig.test!.setupFiles!,
+        ...(baseConfig.test?.setupFiles ?? []),
         path.resolve(__dirname, 'tests/setupFiles.ts'),
       ],
     },
@@ -106,12 +106,18 @@ Usage example:
 import { renderWithProviders } from '@testing/frontend'
 import MyComponent from '@/components/MyComponent'
 
-const { store, i18n } = await renderWithProviders(<MyComponent />, {
+interface FeatureState {
+  feature: { flag: boolean }
+}
+
+const { store, i18n } = await renderWithProviders<FeatureState>(<MyComponent />, {
   routerProps: { initialEntries: ['/demo'] },
   preloadedState: { feature: { flag: true } },
 })
 
 expect(screen.getByText(/demo/i)).toBeInTheDocument()
 ```
+
+Passing a generic argument ensures `preloadedState` and the returned `store` are fully typed, so `store.getState()` resolves to `FeatureState` in this example.
 
 Because `renderWithProviders` initialises i18n asynchronously, remember to `await` it in your tests. You can extend or replace providers by passing `additionalWrappers`, injecting custom Redux stores, overriding the generated theme, or supplying your own i18n instance created via `createTestI18n`.

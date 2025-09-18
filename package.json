@@ -58,7 +58,9 @@
         "rimraf": "^3.0.2",
         "run-script-os": "^1.1.6",
         "turbo": "1.10.16",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "@reduxjs/toolkit": "^2.5.1",
+        "notistack": "^3.0.2"
     },
     "pnpm": {
         "onlyBuiltDependencies": [
