@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { describe, test, expect, vi } from 'vitest'
 import { renderWithProviders, waitFor, screen } from '@testing/frontend'
-import useApi from 'flowise-ui/src/hooks/useApi'
+import useApi from '@ui/hooks/useApi'
 
 const apiFunc = vi.fn(async () => ({ data: null }))
 
