@@ -10,7 +10,7 @@
         "build": "pnpm run clean && tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",
         "dev": "tsc -w",
         "lint": "eslint --ext .ts,.tsx,.jsx src/",
-        "test": "vitest run --environment jsdom"
+        "test": "vitest run --config vitest.config.ts"
     },
     "keywords": [
         "universo",
