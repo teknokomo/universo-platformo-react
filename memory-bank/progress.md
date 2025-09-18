@@ -14,6 +14,10 @@
   - Complete data flow: UI → Supabase → Backend → Frontend → Template works correctly
 
 - AR.js wallpaper mode (cameraUsage: none) fixed:
+\- **i18n Normalization across chatflows/publish UIs**:
+  - Fixed namespace/key mismatches causing raw keys to render in UI.
+  - Updated `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, `publish/api/PythonCode.jsx`, `publish/api/LinksCode.jsx`, and `chatflows/Configuration.jsx` to use relative keys within the correct namespaces.
+  - Verified no compile errors; keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, and `common.version` now resolve properly.
   - Scene no longer includes `arjs` attribute; AR.js libs are skipped.
   - Wallpaper background implemented as rotating wireframe `a-sphere` with `shader: flat` and as optional `<a-sky>`.
   - DataHandler recognizes wallpaper sphere and `a-sky` and keeps them visible independent of `data-scene-id`.

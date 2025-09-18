@@ -6,6 +6,11 @@
 - Library loading respects `cameraUsage === 'none'` (no AR.js), scene has no `arjs` attribute.
 
 Next steps: Observe in-browser result; if transparency ordering issues appear, consider `alphaTest` tuning or `render-order`.
+
+### i18n Normalization (2025-09-18)
+- Objective: Fix UI showing raw i18n keys by aligning `useTranslation` namespaces and using relative keys.
+- Completed today: normalized keys in `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, and `Configuration.jsx`.
+- Convention: For `chatflows` namespace, use relative keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, `common.*`. For `publish`, use relative keys like `arjs.*`.
 # Current Active Context
 
 **Status**: Alpha v0.30.0 (2025-01-17) - AR.js Camera Disable MVP Implemented

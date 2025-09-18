@@ -535,13 +535,11 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
         
         if (cameraUsage === 'none') {
             // No camera = no AR.js needed (works for both wallpaper and marker modes)
-            console.log(`[ARJSQuizBuilder] Camera disabled (${displayType} mode) - only loading A-Frame, skipping AR.js`)
             return libraries
         }
         
         // Camera enabled = need AR.js for AR functionality
         libraries.push('arjs')
-        console.log(`[ARJSQuizBuilder] Camera enabled (${displayType} mode) - loading A-Frame + AR.js`)
         return libraries
     }
 }

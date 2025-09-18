@@ -43,6 +43,7 @@ import QRCodeSection from '../../components/QRCodeSection'
  * Supports streaming generation of AR.js content
  */
 const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
+    // Use 'publish' namespace as registered in packages/ui i18n
     const { t } = useTranslation('publish')
     // Universo Platformo | reference to latest flow.id
     const flowIdRef = useRef(flow?.id)
@@ -771,7 +772,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 {cameraUsage === 'none' && (
                                     <FormControl fullWidth variant='outlined' margin='normal'>
                                         <TextField
-                                            label="Фоновый цвет"
+                                            label={t('arjs.backgroundColor.label')}
                                             type="color"
                                             value={backgroundColor}
                                             onChange={(e) => setBackgroundColor(e.target.value)}
@@ -784,7 +785,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                                     }
                                                 }
                                             }}
-                                            helperText="Выберите цвет фона для режима без камеры"
+                                            helperText={t('arjs.backgroundColor.helperText')}
                                         />
                                     </FormControl>
                                 )}

@@ -26,6 +26,22 @@
    - Built `@universo/template-quiz` and `publish-frt` successfully.
 
 # Tasks Tracker
+## Current Implementation - i18n keys show in UI (2025-09-18)
+
+### Objective
+Fix incorrect i18n namespaces/usages causing raw keys to appear in UI for Publish AR.js and API dialogs.
+
+### Plan
+- [x] ARJSPublisher: switch to `useTranslation('publish')` and use relative keys (`arjs.*`)
+- [x] APICodeDialog: remove redundant `chatflows.` prefix in `t()` calls; use relative keys (`apiCodeDialog.*`)
+- [x] PythonCode/LinksCode: use `useTranslation('chatflows')` and relative keys (`apiPython.*`, `apiLinks.*`)
+ - [x] Chatflows views (EmbedChat, ShareChatbot, index, Configuration, Agentflows): normalize to relative keys to avoid double prefix
+ - [x] Validate build/lint for changed files and smoke test translations
+
+### Notes
+- `packages/ui/src/i18n/index.js` registers namespaces: `publish`, `chatflows`, etc. Components must use the correct namespace without duplicating it in keys.
+ - Completed normalization fixes eliminate visible raw keys in top-right API dialog and embed/share panels.
+
 
 ## Current Implementation - QR Code Download Notification Fix (2025-09-18)
 
