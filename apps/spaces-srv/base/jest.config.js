@@ -1,17 +1,11 @@
+const base = require('../../../tools/testing/backend/jest.base.config.cjs')
+
 module.exports = {
-    preset: 'ts-jest',
-    testEnvironment: 'node',
-    roots: ['<rootDir>/src'],
-    testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
-    transform: {
-        '^.+\\.ts$': 'ts-jest',
-    },
-    collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/**/*.d.ts',
-        '!src/tests/**',
-    ],
-    moduleNameMapping: {
-        '^@/(.*)$': '<rootDir>/src/$1',
-    },
-};
+  ...base,
+  displayName: 'spaces-srv',
+  rootDir: __dirname,
+  moduleNameMapper: {
+    ...base.moduleNameMapper,
+    '^@spaces/(.*)$': '<rootDir>/src/$1'
+  }
+}

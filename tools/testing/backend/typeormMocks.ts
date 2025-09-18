@@ -131,7 +131,7 @@ export interface MockDataSource {
   initialize: jest.Mock<Promise<DataSource>, []>
   destroy: jest.Mock<Promise<void>, []>
   getRepository: jest.Mock<MockRepository<any>, [EntityTarget<any>]>
-  transaction: jest.Mock<Promise<unknown>, [(run: (manager: EntityManager) => Promise<unknown> | unknown)]>
+  transaction: jest.Mock<Promise<unknown>, [((manager: EntityManager) => Promise<unknown> | unknown)]>
   manager: TransactionalEntityManager
 }
 

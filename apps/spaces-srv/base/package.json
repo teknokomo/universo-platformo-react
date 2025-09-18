@@ -9,8 +9,8 @@
         "build": "pnpm run clean && tsc",
         "dev": "tsc -w",
         "lint": "eslint --ext .ts src/",
-        "test": "jest",
-        "test:watch": "jest --watch"
+        "test": "jest --config ../../../tools/testing/backend/jest.base.config.cjs --rootDir .",
+        "test:watch": "jest --config ../../../tools/testing/backend/jest.base.config.cjs --rootDir . --watch"
     },
     "keywords": [
         "universo",
