@@ -19,9 +19,8 @@
         "emitDecoratorMetadata": true,
         "baseUrl": "./src",
         "paths": {
-            "*": [
-                "*"
-            ]
+            "@/*": ["*"],
+            "*": ["*"]
         }
     },
     "include": [
@@ -30,6 +29,7 @@
     "exclude": [
         "node_modules",
         "dist",
+        "src/tests/**",
         "**/*.test.ts"
     ]
 }

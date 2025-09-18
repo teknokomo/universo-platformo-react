@@ -56,6 +56,9 @@ importers:
       '@babel/preset-typescript':
         specifier: 7.18.6
         version: 7.18.6(@babel/core@7.27.7)
+      '@reduxjs/toolkit':
+        specifier: ^2.5.1
+        version: 2.9.0(react-redux@8.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1))(react@18.3.1)
       '@types/express':
         specifier: ^4.17.13
         version: 4.17.23
@@ -98,6 +101,9 @@ importers:
       lint-staged:
         specifier: ^13.0.3
         version: 13.3.0(enquirer@2.4.1)
+      notistack:
+        specifier: ^3.0.2
+        version: 3.0.2(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       prettier:
         specifier: ^2.7.1
         version: 2.8.8
@@ -651,13 +657,13 @@ importers:
         version: 1.5.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-redux:
         specifier: ^8.0.5
-        version: 8.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@4.2.1)
+        version: 8.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1)
       react-router-dom:
         specifier: ~6.3.0
         version: 6.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       reactflow:
         specifier: ^11.5.6
-        version: 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
       '@types/node':
         specifier: 20.12.12
@@ -1742,7 +1748,7 @@ importers:
         version: 15.6.1(react@18.3.1)
       reactflow:
         specifier: ^11.5.6
-        version: 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       redux:
         specifier: ^4.0.5
         version: 4.2.1
@@ -5808,6 +5814,17 @@ packages:
     peerDependencies:
       '@redis/client': ^1.0.0
 
+  '@reduxjs/toolkit@2.9.0':
+    resolution: {integrity: sha512-fSfQlSRu9Z5yBkvsNhYF2rPS8cGXn/TZVrlwN1948QyZ8xMZ0JvP50S2acZNaf+o63u6aEeMjipFyksjIcWrog==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18 || ^19
+      react-redux: ^7.2.1 || ^8.1.3 || ^9.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-redux:
+        optional: true
+
   '@rolldown/pluginutils@1.0.0-beta.19':
     resolution: {integrity: sha512-3FL3mnMbPu0muGOCaKAhhFEYmqv9eTfPSJRJmANrCwtgK8VuxpsZDGK+m0LYAGoyO8+0j5uRe4PeyPDK1yA/hA==}
 
@@ -6399,6 +6416,12 @@ packages:
 
   '@sqltools/formatter@1.2.5':
     resolution: {integrity: sha512-Uy0+khmZqUrUGm5dmMqVlnvufZRSK0FbYzVgp0UMstm+F5+W2/jnEEQyc9vo1ZR/E5ZI/B1WjjoTqBqwJL6Krw==}
+
+  '@standard-schema/spec@1.0.0':
+    resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
+
+  '@standard-schema/utils@0.3.0':
+    resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
   '@stripe/agent-toolkit@0.1.21':
     resolution: {integrity: sha512-fuKNgCgqLih+L1um0rKuwLSypn9dgvFnG6VKtJnFVwEVrqKZTcD1KXMNuwru+6FWhpkjbmshGWZRwx0VtEsR1Q==}
@@ -10877,6 +10900,11 @@ packages:
     resolution: {integrity: sha512-5mwUoSuBk44Y4EshyiqcH95ZntbDdTQqA3QYSrxmzj28Ai0vXBGMH1ApSANH14j2sIRtqCEyg6PfsuP7ElOEDA==}
     engines: {node: '>= 0.10'}
 
+  goober@2.1.16:
+    resolution: {integrity: sha512-erjk19y1U33+XAMe1VTvIONHYoSqE4iS7BYUZfHaqeohLmnC0FdxEh7rQU+6MZ4OajItzjZFSRtVANrQwNq6/g==}
+    peerDependencies:
+      csstype: ^3.0.10
+
   google-auth-library@10.1.0:
     resolution: {integrity: sha512-GspVjZj1RbyRWpQ9FbAXMKjFGzZwDKnUHi66JJ+tcjcu5/xYAP1pdlWotCuIkMwjfVsxxDvsGZXGLzRt72D0sQ==}
     engines: {node: '>=18'}
@@ -11354,6 +11382,9 @@ packages:
 
   immediate@3.0.6:
     resolution: {integrity: sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==}
+
+  immer@10.1.3:
+    resolution: {integrity: sha512-tmjF/k8QDKydUlm3mZU+tjM6zeq9/fFpPqH9SzWmBnVVKsPBg/V66qsMwb3/Bo90cgUN+ghdVBess+hPsxUyRw==}
 
   immer@9.0.21:
     resolution: {integrity: sha512-bc4NBHqOqSfRW7POMkHd51LvClaeMXpm8dx0e8oE2GORbq5aRK7Bxl4FyzVLdGtLmvLKL7BTDBG5ACQm4HWjTA==}
@@ -13696,6 +13727,13 @@ packages:
       '@emotion/styled':
         optional: true
 
+  notistack@3.0.2:
+    resolution: {integrity: sha512-0R+/arLYbK5Hh7mEfR2adt0tyXJcCC9KkA2hc56FeWik2QN6Bm/S4uW+BjzDARsJth5u06nTjelSw/VSnB1YEA==}
+    engines: {node: '>=12.0.0', npm: '>=6.0.0'}
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+
   now-and-later@2.0.1:
     resolution: {integrity: sha512-KGvQ0cB70AQfg107Xvs/Fbu+dGmZoTRJp2TaPwcwQm3/7PteUyN2BCgk8KBMPGBUXZdVwyWS8fDCGFygBm19UQ==}
     engines: {node: '>= 0.10'}
@@ -15452,8 +15490,16 @@ packages:
   redis@4.7.1:
     resolution: {integrity: sha512-S1bJDnqLftzHXHP8JsT5II/CtHWQrASX5K96REjWjlmWKrviSOLWmM7QnRLstAWsu1VBBV1ffV6DzCvxNP0UJQ==}
 
+  redux-thunk@3.1.0:
+    resolution: {integrity: sha512-NW2r5T6ksUKXCabzhL9z+h206HQw/NJkcLm1GPImRQ8IzfXwRGqjVhKJGauHirT0DAuyy6hjdnMZaRoAcy0Klw==}
+    peerDependencies:
+      redux: ^5.0.0
+
   redux@4.2.1:
     resolution: {integrity: sha512-LAUYz4lc+Do8/g7aeRa8JkyDErK6ekstQaqWQrNRW//MY1TvCEpMtpTWvlQ+FPbWCx+Xixu/6SHt5N0HR+SB4w==}
+
+  redux@5.0.1:
+    resolution: {integrity: sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==}
 
   reflect-metadata@0.1.14:
     resolution: {integrity: sha512-ZhYeb6nRaXCfhnndflDK8qI6ZQ/YcWZCISRAWICW9XYqMUwjZM9Z0DveWX/ABN01oxSHwVxKQmxeYZSsm0jh5A==}
@@ -15591,6 +15637,9 @@ packages:
 
   reselect@4.1.8:
     resolution: {integrity: sha512-ab9EmR80F/zQTMNeneUr4cv+jSwPJgIlvEmVwLerwrWVbpLlBuls9XHzIeTFy4cegU2NHBp3va0LKOzU5qFEYQ==}
+
+  reselect@5.1.1:
+    resolution: {integrity: sha512-K/BG6eIky/SBpzfHZv/dd+9JBFiS4SWV7FIujVyJRux6e45+73RaUHXLmIR1f7WOMaQ0U1km6qwklRQxpJJY0w==}
 
   resolve-alpn@1.2.1:
     resolution: {integrity: sha512-0a1F4l73/ZFZOakJnQ3FvkJ2+gSTQWz/r2KE5OdDY0TxPm5h4GkqkWWfM47T7HsbnOtcJVEF4epCVy6u7Q3K+g==}
@@ -23951,29 +24000,29 @@ snapshots:
 
   '@qdrant/openapi-typescript-fetch@1.2.6': {}
 
-  '@reactflow/background@11.3.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@reactflow/background@11.3.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       classcat: 5.0.5
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      zustand: 4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1)
+      zustand: 4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/controls@11.2.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@reactflow/controls@11.2.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       classcat: 5.0.5
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      zustand: 4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1)
+      zustand: 4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/core@11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@reactflow/core@11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@types/d3': 7.4.3
       '@types/d3-drag': 3.0.7
@@ -23985,14 +24034,14 @@ snapshots:
       d3-zoom: 3.0.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      zustand: 4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1)
+      zustand: 4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/minimap@11.7.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@reactflow/minimap@11.7.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@types/d3-selection': 3.0.11
       '@types/d3-zoom': 3.0.8
       classcat: 5.0.5
@@ -24000,31 +24049,31 @@ snapshots:
       d3-zoom: 3.0.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      zustand: 4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1)
+      zustand: 4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/node-resizer@2.2.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@reactflow/node-resizer@2.2.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       classcat: 5.0.5
       d3-drag: 3.0.0
       d3-selection: 3.0.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      zustand: 4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1)
+      zustand: 4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/node-toolbar@1.3.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@reactflow/node-toolbar@1.3.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       classcat: 5.0.5
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      zustand: 4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1)
+      zustand: 4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -24054,6 +24103,18 @@ snapshots:
   '@redis/time-series@1.1.0(@redis/client@1.6.1)':
     dependencies:
       '@redis/client': 1.6.1
+
+  '@reduxjs/toolkit@2.9.0(react-redux@8.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1))(react@18.3.1)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      '@standard-schema/utils': 0.3.0
+      immer: 10.1.3
+      redux: 5.0.1
+      redux-thunk: 3.1.0(redux@5.0.1)
+      reselect: 5.1.1
+    optionalDependencies:
+      react: 18.3.1
+      react-redux: 8.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1)
 
   '@rolldown/pluginutils@1.0.0-beta.19': {}
 
@@ -24824,6 +24885,10 @@ snapshots:
       tslib: 2.8.1
 
   '@sqltools/formatter@1.2.5': {}
+
+  '@standard-schema/spec@1.0.0': {}
+
+  '@standard-schema/utils@0.3.0': {}
 
   '@stripe/agent-toolkit@0.1.21(@langchain/core@0.3.37(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.54.2(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(openai@4.82.0(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@6.0.5))(zod@3.25.76)))(ai@4.3.16(react@18.3.1)(zod@3.25.76))':
     dependencies:
@@ -30442,6 +30507,10 @@ snapshots:
     dependencies:
       sparkles: 1.0.1
 
+  goober@2.1.16(csstype@3.1.3):
+    dependencies:
+      csstype: 3.1.3
+
   google-auth-library@10.1.0:
     dependencies:
       base64-js: 1.5.1
@@ -31109,6 +31178,8 @@ snapshots:
   ignore@5.3.2: {}
 
   immediate@3.0.6: {}
+
+  immer@10.1.3: {}
 
   immer@9.0.21: {}
 
@@ -34328,6 +34399,15 @@ snapshots:
       '@emotion/react': 11.14.0(@types/react@18.3.23)(react@18.3.1)
       '@emotion/styled': 11.14.1(@emotion/react@11.14.0(@types/react@18.3.23)(react@18.3.1))(@types/react@18.3.23)(react@18.3.1)
 
+  notistack@3.0.2(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      clsx: 1.2.1
+      goober: 2.1.16(csstype@3.1.3)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - csstype
+
   now-and-later@2.0.1:
     dependencies:
       once: 1.4.0
@@ -36125,6 +36205,21 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       redux: 4.2.1
 
+  react-redux@8.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1):
+    dependencies:
+      '@babel/runtime': 7.27.6
+      '@types/hoist-non-react-statics': 3.3.6
+      '@types/use-sync-external-store': 0.0.3
+      hoist-non-react-statics: 3.3.2
+      react: 18.3.1
+      react-is: 18.3.1
+      use-sync-external-store: 1.5.0(react@18.3.1)
+    optionalDependencies:
+      '@types/react': 18.3.23
+      '@types/react-dom': 18.3.7(@types/react@18.3.23)
+      react-dom: 18.3.1(react@18.3.1)
+      redux: 5.0.1
+
   react-refresh@0.11.0: {}
 
   react-refresh@0.14.2: {}
@@ -36266,14 +36361,14 @@ snapshots:
       lodash: 4.17.21
       react: 18.3.1
 
-  reactflow@11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  reactflow@11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      '@reactflow/background': 11.3.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@reactflow/controls': 11.2.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@reactflow/minimap': 11.7.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@reactflow/node-resizer': 2.2.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@reactflow/node-toolbar': 1.3.14(@types/react@18.3.23)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/background': 11.3.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/controls': 11.2.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/core': 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/minimap': 11.7.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/node-resizer': 2.2.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@reactflow/node-toolbar': 1.3.14(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
@@ -36412,9 +36507,15 @@ snapshots:
       '@redis/search': 1.2.0(@redis/client@1.6.1)
       '@redis/time-series': 1.1.0(@redis/client@1.6.1)
 
+  redux-thunk@3.1.0(redux@5.0.1):
+    dependencies:
+      redux: 5.0.1
+
   redux@4.2.1:
     dependencies:
       '@babel/runtime': 7.27.6
+
+  redux@5.0.1: {}
 
   reflect-metadata@0.1.14: {}
 
@@ -36602,6 +36703,8 @@ snapshots:
   requires-port@1.0.0: {}
 
   reselect@4.1.8: {}
+
+  reselect@5.1.1: {}
 
   resolve-alpn@1.2.1: {}
 
@@ -39778,12 +39881,12 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zustand@4.5.7(@types/react@18.3.23)(immer@9.0.21)(react@18.3.1):
+  zustand@4.5.7(@types/react@18.3.23)(immer@10.1.3)(react@18.3.1):
     dependencies:
       use-sync-external-store: 1.5.0(react@18.3.1)
     optionalDependencies:
       '@types/react': 18.3.23
-      immer: 9.0.21
+      immer: 10.1.3
       react: 18.3.1
 
   zwitch@2.0.4: {}

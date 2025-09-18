@@ -1,3 +1,18 @@
+## 2025-09-18 — Build Fix for spaces-srv
+
+Current focus: Restore monorepo build by fixing TS path alias errors in `@universo/spaces-srv`.
+
+Changes applied:
+- Updated `apps/spaces-srv/base/tsconfig.json` to add `paths: { "@/*": ["*"] }` with `baseUrl: "./src"`.
+- Excluded `src/tests/**` from compilation to avoid fixtures affecting production build.
+
+Outcome:
+- `pnpm --filter @universo/spaces-srv build` succeeds.
+- Full `pnpm build` across the workspace completes successfully (27/27).
+
+Notes:
+- Entities `Canvas`, `Space`, and `SpaceCanvas` are local to the package under `src/database/entities/` and re-exported from `src/index.ts`.
+
 ## Current Focus (2025-09-18)
 
 - AR.js wallpaper mode without camera: ensure background renders in A-Frame-only mode.
