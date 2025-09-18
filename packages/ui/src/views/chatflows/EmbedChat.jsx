@@ -333,7 +333,7 @@ const EmbedChat = ({ chatflowid }) => {
     return (
         <>
             <Typography variant="h5" gutterBottom>
-                {t('chatflows.embeddingChatbot')}
+                {t('embeddingChatbot')}
             </Typography>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                 <div style={{ flex: 80 }}>
@@ -350,15 +350,15 @@ const EmbedChat = ({ chatflowid }) => {
                     {(value === 0 || value === 1) && (
                         <>
                             <span>
-                                {t('chatflows.embedChat.pasteHtmlBody')}
+                                {t('embedChat.pasteHtmlBody')}
                                 <p>
-                                    {t('chatflows.embedChat.specifyVersion')}&nbsp;
+                                    {t('embedChat.specifyVersion')}&nbsp;
                                     <a
                                         rel='noreferrer'
                                         target='_blank'
                                         href='https://www.npmjs.com/package/flowise-embed?activeTab=versions'
                                     >
-                                        {t('chatflows.common.version')}
+                                        {t('common.version')}
                                     </a>
                                     :&nbsp;<code>{`https://cdn.jsdelivr.net/npm/flowise-embed@<version>/dist/web.js`}</code>
                                 </p>
@@ -368,7 +368,7 @@ const EmbedChat = ({ chatflowid }) => {
                     )}
                     <CopyBlock theme={atomOneDark} text={getCode(codeLang)} language='javascript' showLineNumbers={false} wrapLines />
 
-                    <CheckboxInput label={t('chatflows.embedChat.showConfig')} value={embedChatCheckboxVal} onChange={onCheckBoxEmbedChatChanged} />
+                    <CheckboxInput label={t('embedChat.showConfig')} value={embedChatCheckboxVal} onChange={onCheckBoxEmbedChatChanged} />
 
                     {embedChatCheckboxVal && (
                         <CopyBlock

@@ -131,8 +131,8 @@ const Agentflows = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={true}
-                        searchPlaceholder={t('chatflows.agents.searchPlaceholder')}
-                        title={t('chatflows.agents.title')}
+                        searchPlaceholder={t('agents.searchPlaceholder')}
+                        title={t('agents.title')}
                     >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -149,7 +149,7 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('chatflows.common.cardView')}
+                                title={t('common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -161,13 +161,13 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('chatflows.common.listView')}
+                                title={t('common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
                         <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-                            {t('chatflows.common.addNew')}
+                            {t('common.addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -206,7 +206,7 @@ const Agentflows = () => {
                                     alt='AgentsEmptySVG'
                                 />
                             </Box>
-                            <div>{t('chatflows.agents.noAgentsYet')}</div>
+                            <div>{t('agents.noAgentsYet')}</div>
                         </Stack>
                     )}
                 </Stack>

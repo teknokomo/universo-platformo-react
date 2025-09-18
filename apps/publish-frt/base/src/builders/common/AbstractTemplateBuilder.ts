@@ -31,9 +31,10 @@ export abstract class AbstractTemplateBuilder implements ITemplateBuilder {
     /**
      * Get required libraries for this template
      * Abstract method - each template must specify its library dependencies
+     * @param options Build options that may affect library requirements
      * @returns Array of required library names (e.g., ['aframe', 'arjs'] or ['playcanvas'])
      */
-    abstract getRequiredLibraries(): string[]
+    abstract getRequiredLibraries(options?: BuildOptions): string[]
 
     /**
      * Generate HTML structure with template-specific content
@@ -98,7 +99,7 @@ ${libraryScripts}
      * @returns Array of library source URLs
      */
     protected getLibrarySourcesForTemplate(options: BuildOptions): string[] {
-        const requiredLibraries = this.getRequiredLibraries()
+        const requiredLibraries = this.getRequiredLibraries(options)
         const sources: string[] = []
 
         for (const library of requiredLibraries) {

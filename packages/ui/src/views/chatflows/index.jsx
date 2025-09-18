@@ -133,8 +133,8 @@ const Chatflows = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={true}
-                        searchPlaceholder={t('chatflows.searchPlaceholder')}
-                        title={t('chatflows.title')}
+                        searchPlaceholder={t('searchPlaceholder')}
+                        title={t('title')}
                     >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -151,7 +151,7 @@ const Chatflows = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('chatflows.common.cardView')}
+                                title={t('common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -163,13 +163,13 @@ const Chatflows = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('chatflows.common.listView')}
+                                title={t('common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
                         <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-                            {t('chatflows.common.addNew')}
+                            {t('common.addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -207,7 +207,7 @@ const Chatflows = () => {
                                     alt='WorkflowEmptySVG'
                                 />
                             </Box>
-                            <div>{t('chatflows.noChatflowsYet')}</div>
+                            <div>{t('noChatflowsYet')}</div>
                         </Stack>
                     )}
                 </Stack>

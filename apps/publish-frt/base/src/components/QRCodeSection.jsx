@@ -12,7 +12,8 @@ import {
     CircularProgress,
     Alert,
     Paper,
-    Button
+    Button,
+    Snackbar
 } from '@mui/material'
 import { Download as DownloadIcon } from '@mui/icons-material'
 import { downloadQRCode } from '../utils/svgToPng'
@@ -50,6 +51,7 @@ const QRCodeSection = ({
     const [isGenerating, setIsGenerating] = useState(false)
     const [isDownloading, setIsDownloading] = useState(false)
     const [error, setError] = useState(null)
+    const [snackbar, setSnackbar] = useState({ open: false, message: '' })
     const qrCodeRef = useRef(null)
 
     // Reset state when URL changes
@@ -105,12 +107,22 @@ const QRCodeSection = ({
 
             // Download QR code using utility function
             await downloadQRCode(svgElement, publishedUrl)
+            
+            // Show success notification
+            setSnackbar({ open: true, message: t('qrCode.downloadSuccess') })
         } catch (err) {
             setError(t('qrCode.downloadError'))
             console.error('QR Code download error:', err)
         } finally {
             setIsDownloading(false)
         }
+    }
+
+    /**
+     * Handle snackbar close
+     */
+    const handleSnackbarClose = () => {
+        setSnackbar({ ...snackbar, open: false })
     }
 
     // Don't render if no URL is available
@@ -196,6 +208,14 @@ const QRCodeSection = ({
                     </Box>
                 </Box>
             )}
+            
+            {/* Success Notification */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={3000}
+                onClose={handleSnackbarClose}
+                message={snackbar.message}
+            />
         </Box>
     )
 }

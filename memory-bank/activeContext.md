@@ -1,39 +1,94 @@
+## Current Focus (2025-09-18)
+
+- AR.js wallpaper mode without camera: ensure background renders in A-Frame-only mode.
+- Implemented wallpaper as rotating wireframe `a-sphere` with `shader: flat` and as optional `a-sky`.
+- DataHandler updated to always keep wallpaper (`a-sphere` wireframe back-side) and `a-sky` visible regardless of scene ID.
+- Library loading respects `cameraUsage === 'none'` (no AR.js), scene has no `arjs` attribute.
+
+Next steps: Observe in-browser result; if transparency ordering issues appear, consider `alphaTest` tuning or `render-order`.
+
+### i18n Normalization (2025-09-18)
+- Objective: Fix UI showing raw i18n keys by aligning `useTranslation` namespaces and using relative keys.
+- Completed today: normalized keys in `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, and `Configuration.jsx`.
+- Convention: For `chatflows` namespace, use relative keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, `common.*`. For `publish`, use relative keys like `arjs.*`.
 # Current Active Context
 
-**Status**: Alpha v0.30.0 (2025-01-17) - QR Code Download Feature Implemented
+**Status**: Alpha v0.30.0 (2025-01-17) - AR.js Camera Disable MVP Implemented
 
 ## Current Project Focus
 
-**QR Code Download Feature Implementation (2025-01-17)** - ✅ **COMPLETED**
+**AR.js Camera Usage Settings MVP (2025-01-17)** - ✅ **COMPLETED**
 
 **Implemented Changes:**
-- Added QR code download functionality for published applications 
-- Created comprehensive SVG to PNG conversion utility with high-quality settings (512x512, quality 1.0)
-- Enhanced QRCodeSection component with download button and loading states
-- Integrated internationalization support for download workflow (Russian/English)
-- Successfully validated implementation with package build and full workspace compilation
+- Added "Использование камеры" setting with "Без камеры" (default) and "Стандартное разрешение" options
+- Fixed camera initialization by conditionally removing `arjs` attribute from `<a-scene>` when `cameraUsage='none'`
+- Fixed HTML generation issues that caused "кусок кода" display artifacts
+- **FIXED AR-обои (wallpaper) to work without camera** - major breakthrough!
+- Improved UI field ordering: moved camera usage field after template selection field
+- Enhanced ARJSQuizBuilder with debug logging for camera usage detection
+- Successfully integrated camera disable functionality across the entire pipeline
 
 **Technical Details:**
-- New utility: `/apps/publish-frt/base/src/utils/svgToPng.js` with Canvas API conversion approach
-- UI enhancements: Download button with Material-UI design, error handling, and loading states
-- Translation updates: Added download keys to both language files in 'publish' namespace
-- Build validation: Individual package build (114ms) + full workspace build (5m52s) completed successfully
-- Code quality: TypeScript compilation passed, ensuring syntax and type correctness
+- Backend: FlowDataService.ts properly extracts `cameraUsage` from `chatbotConfig.arjs` 
+- Frontend: ARViewPage.tsx preserves `cameraUsage` settings without fallback override
+- Template: ARJSQuizBuilder.ts conditionally removes `arjs` attribute and camera entity based on `cameraUsage`
+- UI: ARJSPublisher.jsx field reordering and proper conditional logic for marker/wallpaper modes
+- **Library Loading**: Fixed getRequiredLibraries() to conditionally load AR.js only when needed
+- **Wallpaper Mode**: Fixed to work with just A-Frame when camera disabled
+- Build validation: Clean compilation of template-quiz and publish-frt packages
+
+**Root Cause Fixed:**
+- Previously AR.js was initializing regardless of UI setting due to:
+  1. Hardcoded `arjs="sourceType: webcam"` attribute in scene generation
+  2. Always loading AR.js library through getRequiredLibraries()
+- **Major Discovery**: AR-обои (wallpaper) were completely broken because AR.js library was disabled for cameraUsage='none'
+- **Solution**: 
+  1. Array-based attribute construction with conditional `arjs` attribute addition
+  2. Conditional library loading - AR.js only when cameraUsage='standard'
+  3. **Wallpaper mode now works with just A-Frame when camera disabled**
+  4. Fixed both wallpaper and marker mode HTML generation
 
 **Current State:**
-- QR code generation: ✅ Working (implemented previously)
-- QR code download: ✅ Implemented and ready for testing
-- User experience: Download button integrated below QR code with proper feedback
-- Cross-browser compatibility: Modern Canvas API with safety considerations
-- Build validation: Clean compilation with no errors
+- Camera usage setting: ✅ Properly saved and loaded
+- AR.js initialization: ✅ Conditionally disabled when camera=none
+- **AR-обои (wallpaper)**: ✅ Now work without camera using only A-Frame
+- HTML generation: ✅ Clean markup without comment injection into attributes
+- Library loading: ✅ Conditional - only A-Frame when camera disabled, A-Frame+AR.js when camera enabled
+- UI field ordering: ✅ Camera usage appears after template selection  
+- Debug logging: ✅ Console logs track arjs attribute and library loading
+- Build validation: ✅ Both template-quiz and publish-frt packages compiled successfully
+
+**User Experience Now:**
+When user selects "Без камеры":
+- ❌ No camera permission requests
+- ❌ No AR.js initialization logs in console
+- ❌ No AR.js library loaded (saves bandwidth and loading time)
+- ✅ **AR-обои still work** - 3D wallpaper sphere with A-Frame only
+- ✅ Quiz functionality works normally
+- ✅ Clean HTML output without artifacts
+- ✅ Proper field ordering in UI
 
 **Next Steps:**
-- Testing validation to confirm proper translated text display
-- User experience verification for AR.js publication workflow
+- Browser testing to verify no camera permission prompt when "Без камеры" is selected
+- QA validation that AR.js logs are absent when camera is disabled
+- **Test AR-обои functionality** - verify 3D wallpaper sphere appears and rotates
+- Verify no "кусок кода" artifacts appear in browser display
+
+---
 
 ---
 
 ## Previous Project Focus
+
+**AR.js Scene Attribute Implementation (2025-01-17)** - ✅ **COMPLETED - SUPERSEDED**
+
+**QR Code Download Feature Implementation (2025-01-17)** - ✅ **COMPLETED**
+
+---
+
+## Previous Project Focus
+
+**QR Code Download Feature Implementation (2025-01-17)** - ✅ **COMPLETED**
 
 **Quiz Lead Saving Reliability Patch (2025-09-17)** - ✅ **COMPLETED**
 

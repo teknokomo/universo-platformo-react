@@ -1,6 +1,76 @@
+### 2025-09-18
+
+- **QR Code Download Notification Fixed**:
+  - Added Snackbar notification system to QRCodeSection.jsx component
+  - Users now receive "QR-код успешно сохранён" / "QR code saved successfully" message after download
+  - Implemented 3-second auto-hide duration with proper state management
+  - Fixed GitHub bot issue about missing download feedback
+
+- **Background Color Functionality Fixed**:
+  - Resolved hardcoded #1976d2 color issue in ARJSQuizBuilder.ts
+  - Fixed missing backgroundColor parameter passing from ARViewPage.tsx to template
+  - Backend correctly extracts backgroundColor from chatbotConfig.arjs.backgroundColor
+  - Frontend now properly passes renderConfig.backgroundColor to buildOptions
+  - Complete data flow: UI → Supabase → Backend → Frontend → Template works correctly
+
+- AR.js wallpaper mode (cameraUsage: none) fixed:
+\- **i18n Normalization across chatflows/publish UIs**:
+  - Fixed namespace/key mismatches causing raw keys to render in UI.
+  - Updated `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, `publish/api/PythonCode.jsx`, `publish/api/LinksCode.jsx`, and `chatflows/Configuration.jsx` to use relative keys within the correct namespaces.
+  - Verified no compile errors; keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, and `common.version` now resolve properly.
+  - Scene no longer includes `arjs` attribute; AR.js libs are skipped.
+  - Wallpaper background implemented as rotating wireframe `a-sphere` with `shader: flat` and as optional `<a-sky>`.
+  - DataHandler recognizes wallpaper sphere and `a-sky` and keeps them visible independent of `data-scene-id`.
+  - Built `@universo/template-quiz` and `publish-frt` with no errors.
 # Progress
 
-**As of 2025-01-17 | QR Code Download Feature Implemented**
+**As of 2025-01-17 | AR.js Camera Disable Fix Implemented**
+
+## AR.js Camera Usage Settings Implementation (2025-01-17)
+
+**Status**: ✅ **COMPLETED**
+
+### Summary
+Successfully fixed AR.js camera initialization issue where the library was still loading and initializing even when "Без камеры" (No Camera) option was selected by users.
+
+### Root Cause Analysis:
+- **Problem Identified**: AR.js library (v3.4.7) was always being loaded via `getRequiredLibraries()` method, causing camera initialization regardless of scene attribute settings
+- **Console Evidence**: Browser logs showed "AR.js 3.4.7 - trackingBackend: artoolkit" initialization messages even when camera was disabled
+- **Architecture Issue**: Library loading occurred before scene attribute evaluation, making attribute-based disabling ineffective
+
+### Implementation Details:
+
+#### 1. Library Loading Control:
+- ✅ **Modified ARJSQuizBuilder.ts (template-quiz)**: Updated `getRequiredLibraries()` to accept `options` parameter and conditionally exclude AR.js library
+- ✅ **Conditional Logic**: Returns `['aframe']` only when `cameraUsage='none'`, preventing AR.js script inclusion entirely
+- ✅ **Enhanced Debugging**: Added console logging to track library loading decisions
+
+#### 2. Architecture Updates:
+- ✅ **AbstractTemplateBuilder.ts**: Updated abstract method signature to pass BuildOptions through library loading chain
+- ✅ **Library Integration**: Modified `getLibrarySourcesForTemplate()` to pass options to `getRequiredLibraries()`
+- ✅ **Wrapper Coordination**: Fixed ARJSQuizBuilder wrapper in publish-frt to properly translate BuildOptions
+
+#### 3. Build System Fixes:
+- ✅ **Method Name Correction**: Fixed `convertToTemplateOptions` → `convertBuildOptions` naming mismatch
+- ✅ **TypeScript Compilation**: Resolved all type signature mismatches across template-quiz and publish-frt packages
+- ✅ **Package Builds**: Successfully compiled both template-quiz and publish-frt with no errors
+
+### Technical Resolution:
+- **Before**: AR.js library always loaded → camera always initialized regardless of settings
+- **After**: AR.js library conditionally loaded → no camera initialization when `cameraUsage='none'`
+- **Result**: Complete prevention of camera permission requests and AR.js functionality when disabled
+
+### Features Delivered:
+- **True Camera Disable**: No AR.js library loading when "Без камеры" selected
+- **Clean Browser Experience**: No camera permission prompts or AR.js console messages
+- **Maintained Functionality**: Full AR.js features preserved when camera usage enabled
+- **Architectural Improvement**: Proper BuildOptions flow through library loading system
+
+---
+
+## QR Code Download Feature Implementation (2025-01-17)
+
+**Status**: ✅ **COMPLETED**
 
 ## QR Code Download Feature Implementation (2025-01-17)
 

@@ -43,6 +43,7 @@ import QRCodeSection from '../../components/QRCodeSection'
  * Supports streaming generation of AR.js content
  */
 const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
+    // Use 'publish' namespace as registered in packages/ui i18n
     const { t } = useTranslation('publish')
     // Universo Platformo | reference to latest flow.id
     const flowIdRef = useRef(flow?.id)
@@ -88,6 +89,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // AR display mode and wallpaper type
     const [arDisplayType, setArDisplayType] = useState('wallpaper') // 'wallpaper' | 'marker'
     const [wallpaperType, setWallpaperType] = useState('standard') // 'standard'
+    // Camera usage setting
+    const [cameraUsage, setCameraUsage] = useState('none') // 'none' | 'standard'
+    // Background color for when camera is disabled
+    const [backgroundColor, setBackgroundColor] = useState('#1976d2') // Default blue color
     // Universo Platformo | State for settings loading
     const [settingsLoading, setSettingsLoading] = useState(true)
 
@@ -150,6 +155,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 templateType: templateType,
                 arDisplayType: arDisplayType,
                 wallpaperType: wallpaperType,
+                cameraUsage: cameraUsage,
+                backgroundColor: backgroundColor, // Add background color to settings
                 // Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
@@ -183,6 +190,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         aframeSource,
         arDisplayType,
         wallpaperType,
+        cameraUsage,
+        backgroundColor, // Add backgroundColor to dependencies
         settingsLoading,
         flow?.id
     ]) // Universo Platformo | re-run when flow changes
@@ -214,6 +223,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     // AR display mode
                     setArDisplayType(savedSettings.arDisplayType || (savedSettings.markerType ? 'marker' : 'wallpaper'))
                     setWallpaperType(savedSettings.wallpaperType || 'standard')
+                    setCameraUsage(savedSettings.cameraUsage || 'none')
+                    setBackgroundColor(savedSettings.backgroundColor || '#1976d2') // Load background color
 
                     // NEW: Load library configuration with legacy detection and auto-correction
                     if (globalSettings?.enforceGlobalLibraryManagement) {
@@ -451,6 +462,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                             // New: AR display config
                             arDisplayType: arDisplayType,
                             wallpaperType: wallpaperType,
+                            cameraUsage: cameraUsage,
+                            backgroundColor: backgroundColor, // Add background color here too
                             // NEW: Include library configuration
                             libraryConfig: {
                                 arjs: { version: arjsVersion, source: arjsSource },
@@ -502,6 +515,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 // Ensure AR display config is persisted when publishing
                 arDisplayType: arDisplayType,
                 wallpaperType: wallpaperType,
+                cameraUsage: cameraUsage,
+                backgroundColor: backgroundColor, // Add background color here as well
                 // NEW: Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
@@ -530,7 +545,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         arDisplayType,
                         wallpaperType,
                         markerType,
-                        markerValue
+                        markerValue,
+                        cameraUsage,
+                        backgroundColor // Add background color to render config
                     },
                     // NEW: Include library configuration
                     libraryConfig: {
@@ -683,22 +700,46 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     technology='arjs'
                                 />
 
-                                {/* AR Display Type */}
+                                {/* Camera Usage Settings */}
                                 <FormControl fullWidth variant='outlined' margin='normal'>
-                                    <InputLabel>{t('arjs.displayType.label')}</InputLabel>
+                                    <InputLabel>{t('arjs.cameraUsage.label')}</InputLabel>
                                     <Select
-                                        value={arDisplayType}
-                                        onChange={(e) => setArDisplayType(e.target.value)}
-                                        label={t('arjs.displayType.label')}
+                                        value={cameraUsage}
+                                        onChange={(e) => {
+                                            setCameraUsage(e.target.value)
+                                            // Auto-switch to wallpaper if camera disabled
+                                            if (e.target.value === 'none' && arDisplayType === 'marker') {
+                                                setArDisplayType('wallpaper')
+                                            }
+                                        }}
+                                        label={t('arjs.cameraUsage.label')}
                                         disabled={!!publishedUrl}
                                     >
-                                        <MenuItem value='wallpaper'>{t('arjs.displayType.wallpaper')}</MenuItem>
-                                        <MenuItem value='marker'>{t('arjs.displayType.marker')}</MenuItem>
+                                        <MenuItem value='none'>{t('arjs.cameraUsage.none')}</MenuItem>
+                                        <MenuItem value='standard'>{t('arjs.cameraUsage.standard')}</MenuItem>
                                     </Select>
                                 </FormControl>
 
-                                {/* Marker Selection (only when marker selected) */}
-                                {arDisplayType === 'marker' && (
+                                {/* AR Display Type - only show when camera is enabled */}
+                                {cameraUsage !== 'none' && (
+                                    <FormControl fullWidth variant='outlined' margin='normal'>
+                                        <InputLabel>{t('arjs.displayType.label')}</InputLabel>
+                                        <Select
+                                            value={arDisplayType}
+                                            onChange={(e) => setArDisplayType(e.target.value)}
+                                            label={t('arjs.displayType.label')}
+                                            disabled={!!publishedUrl}
+                                        >
+                                            <MenuItem value='wallpaper'>{t('arjs.displayType.wallpaper')}</MenuItem>
+                                            <MenuItem value='marker' disabled={cameraUsage === 'none'}>
+                                                {t('arjs.displayType.marker')}
+                                            </MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                )}
+
+                                {/* Marker Selection (only when marker selected and camera enabled) */}
+                                {arDisplayType === 'marker' && cameraUsage !== 'none' && (
                                     <FormControl fullWidth variant='outlined' margin='normal'>
                                         <InputLabel>{t('marker.presetLabel')}</InputLabel>
                                         <Select
@@ -712,8 +753,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     </FormControl>
                                 )}
 
-                                {/* Wallpaper type (only when wallpaper selected) */}
-                                {arDisplayType === 'wallpaper' && (
+                                {/* Wallpaper type (only when wallpaper selected and camera enabled) */}
+                                {arDisplayType === 'wallpaper' && cameraUsage !== 'none' && (
                                     <FormControl fullWidth variant='outlined' margin='normal'>
                                         <InputLabel>{t('arjs.wallpaper.label')}</InputLabel>
                                         <Select
@@ -724,6 +765,28 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         >
                                             <MenuItem value='standard'>{t('arjs.wallpaper.standard')}</MenuItem>
                                         </Select>
+                                    </FormControl>
+                                )}
+
+                                {/* Background Color (only when camera is disabled) */}
+                                {cameraUsage === 'none' && (
+                                    <FormControl fullWidth variant='outlined' margin='normal'>
+                                        <TextField
+                                            label={t('arjs.backgroundColor.label')}
+                                            type="color"
+                                            value={backgroundColor}
+                                            onChange={(e) => setBackgroundColor(e.target.value)}
+                                            disabled={!!publishedUrl}
+                                            InputProps={{
+                                                sx: {
+                                                    height: '56px', // Match other form fields
+                                                    '& input': {
+                                                        cursor: 'pointer'
+                                                    }
+                                                }
+                                            }}
+                                            helperText={t('arjs.backgroundColor.helperText')}
+                                        />
                                     </FormControl>
                                 )}
 

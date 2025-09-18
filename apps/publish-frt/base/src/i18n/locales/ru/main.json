@@ -178,10 +178,19 @@
                 "streamingDescription": "Генерация AR.js в реальном времени на стороне клиента",
                 "pregenerationDescription": "Предварительная генерация AR.js на сервере (в разработке)"
             },
+            "backgroundColor": {
+                "label": "Фоновый цвет",
+                "helperText": "Выберите цвет фона для режима без камеры"
+            },
             "displayType": {
                 "label": "Тип AR-отображения",
                 "wallpaper": "AR-обои",
                 "marker": "Стандартный маркер"
+            },
+            "cameraUsage": {
+                "label": "Использование камеры",
+                "none": "Без камеры",
+                "standard": "Стандартное разрешение"
             },
             "wallpaper": {
                 "label": "Тип обоев",

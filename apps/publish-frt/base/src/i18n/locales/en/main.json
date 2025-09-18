@@ -178,10 +178,19 @@
                 "streamingDescription": "Real-time AR.js generation on the client side",
                 "pregenerationDescription": "Pre-generated AR.js on the server (coming soon)"
             },
+            "backgroundColor": {
+                "label": "Background Color",
+                "helperText": "Choose background color for camera-disabled mode"
+            },
             "displayType": {
                 "label": "AR display type",
                 "wallpaper": "AR wallpaper",
                 "marker": "Standard marker"
+            },
+            "cameraUsage": {
+                "label": "Camera usage",
+                "none": "No camera",
+                "standard": "Standard resolution"
             },
             "wallpaper": {
                 "label": "Wallpaper type",

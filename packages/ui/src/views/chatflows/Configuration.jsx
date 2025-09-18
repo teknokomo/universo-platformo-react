@@ -59,7 +59,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         const fetchChatflow = async () => {
             if (!chatflowid || !unikId) {
                 console.error('Missing required parameters:', { chatflowid, unikId })
-                setError('Отсутствуют необходимые параметры для загрузки настроек')
+                setError(tFlow('displaySettings.errorLoading', { error: 'missing params' }))
                 setIsLoading(false)
                 return
             }
@@ -68,10 +68,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                 setIsLoading(true)
                 setError(null)
 
-                console.log(`Выполняем запрос chatflowsApi.getChatflowById(${unikId}, ${chatflowid})`)
                 const res = await chatflowsApi.getChatflowById(unikId, chatflowid)
-
-                console.log('Получен ответ от API:', res)
 
                 if (res.data) {
                     // Universo Platformo | Do not update store if data is identical to current
@@ -82,16 +79,14 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                     // Universo Platformo | displayMode is now purely local UI state, default to 'chat'
                     updateDisplayMode('chat')
                 } else {
-                    console.error('Ответ API не содержит данных')
-                    setError('Ошибка загрузки данных: ответ API не содержит данных')
+                    console.error('API response does not contain data')
+                    setError(tFlow('displaySettings.errorLoading', { error: 'empty response' }))
                 }
             } catch (error) {
-                console.error('Ошибка при загрузке chatflow:', error)
-
-                setError(error.message || 'Ошибка при загрузке настроек отображения')
-
+                console.error('Error loading chatflow:', error)
+                setError(error.message || tFlow('displaySettings.errorLoading', { error: 'unknown' }))
                 enqueueSnackbar({
-                    message: 'Ошибка загрузки настроек: ' + (error.message || 'Неизвестная ошибка'),
+                    message: tFlow('displaySettings.errorLoading', { error: error.message || 'unknown' }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -119,7 +114,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         return (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <CircularProgress />
-                <Typography>{tFlow('chatflows.displaySettings.loading')}</Typography>
+                <Typography>{tFlow('displaySettings.loading')}</Typography>
             </Box>
         )
     }
@@ -128,11 +123,11 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         return (
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <Typography color='error' variant='h5'>
-                    {tFlow('chatflows.displaySettings.loadError')}
+                    {tFlow('displaySettings.loadError')}
                 </Typography>
                 <Typography color='textSecondary'>{error}</Typography>
                 <Button variant='contained' onClick={() => window.location.reload()}>
-                    {tFlow('chatflows.displaySettings.tryAgain')}
+                    {tFlow('displaySettings.tryAgain')}
                 </Button>
             </Box>
         )

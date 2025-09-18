@@ -25,6 +25,14 @@ export class CameraHandler {
      */
     process(cameras: IUPDLCamera[], options: BuildOptions = {}): string {
         try {
+            // Check camera usage setting
+            const cameraUsage = (options as any).cameraUsage || 'standard'
+            
+            if (cameraUsage === 'none') {
+                // Return empty string to disable camera
+                return ''
+            }
+
             // AR.js handles camera automatically, so we don't need to explicitly create cameras
             // This handler exists for future camera customization needs
 

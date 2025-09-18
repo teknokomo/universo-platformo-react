@@ -737,7 +737,7 @@ export class DataHandler {
                 
                 function setupMultiSceneObjectInteractions() {
                     // Add click interactions to 3D objects with scene association
-                    const objects = document.querySelectorAll('a-box, a-sphere, a-cylinder, a-plane');
+                    const objects = document.querySelectorAll('a-box, a-sphere, a-cylinder, a-plane, a-sky');
                     console.log(\`[MultiSceneQuiz] Found \${objects.length} A-Frame objects in DOM\`);
                     
                     objects.forEach((obj, index) => {
@@ -764,9 +764,22 @@ export class DataHandler {
                             console.log(\`[MultiSceneQuiz] Object \${index} 3D visible: \${object3D.visible}\`);
                         }
                         
+                        // Check if this is a wallpaper sphere (special case)
+                        const isWallpaperSphere = objType === 'a-sphere' && 
+                            materialComponent && 
+                            materialComponent.data.wireframe === true &&
+                            materialComponent.data.side === 'back';
+                        const isSky = objType === 'a-sky';
+
                         // Ensure proper visibility based on current scene
-                        if (sceneId === '0') {
-                            console.log(\`[MultiSceneQuiz] Keeping object \${index} visible (scene 0)\`);
+                        if (sceneId === '0' || isWallpaperSphere || isSky) {
+                            if (isWallpaperSphere) {
+                                console.log(\`[MultiSceneQuiz] Keeping wallpaper sphere visible (always visible)\`);
+                            } else if (isSky) {
+                                console.log('[MultiSceneQuiz] Keeping sky background visible (always visible)');
+                            } else {
+                                console.log(\`[MultiSceneQuiz] Keeping object \${index} visible (scene 0)\`);
+                            }
                             obj.setAttribute('visible', 'true');
                             if (object3D) {
                                 object3D.visible = true;

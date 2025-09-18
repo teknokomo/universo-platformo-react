@@ -10,7 +10,7 @@ import { baseURL } from '@/store/constant'
 
 // Universo Platformo | Component to display API links
 const LinksCode = ({ chatflowid }) => {
-    const { t } = useTranslation(['chatflows'])
+    const { t } = useTranslation('chatflows')
 
     // Universo Platformo | Common styles for links
     const linkStyle = {
@@ -35,15 +35,15 @@ const LinksCode = ({ chatflowid }) => {
     return (
         <Box sx={{ mt: 2 }}>
             <Typography variant='h5' gutterBottom>
-                {t('chatflows.apiLinks.title')}
+                {t('apiLinks.title')}
             </Typography>
             <Typography variant='body2' sx={{ mb: 2 }}>
-                {t('chatflows.apiLinks.description')}
+                {t('apiLinks.description')}
             </Typography>
 
             <Paper sx={paperStyle} variant='outlined'>
                 <Typography variant='subtitle1' gutterBottom>
-                    {t('chatflows.apiLinks.endpoints')}
+                    {t('apiLinks.endpoints')}
                 </Typography>
 
                 <>
@@ -52,20 +52,20 @@ const LinksCode = ({ chatflowid }) => {
                         <LaunchIcon fontSize='small' />
                     </Link>
                     <Typography variant='body2' sx={{ mb: 2 }}>
-                        {t('chatflows.apiLinks.chatEndpointDescription')}
+                        {t('apiLinks.chatEndpointDescription')}
                     </Typography>
                 </>
             </Paper>
 
             <Paper sx={paperStyle} variant='outlined'>
                 <Typography variant='subtitle1' gutterBottom>
-                    {t('chatflows.apiLinks.documentation')}
+                    {t('apiLinks.documentation')}
                 </Typography>
                 <Link href={`${baseURL}/api-docs`} target='_blank' sx={linkStyle}>
                     {baseURL}/api-docs
                     <LaunchIcon fontSize='small' />
                 </Link>
-                <Typography variant='body2'>{t('chatflows.apiLinks.documentationDescription')}</Typography>
+                <Typography variant='body2'>{t('apiLinks.documentationDescription')}</Typography>
             </Paper>
         </Box>
     )

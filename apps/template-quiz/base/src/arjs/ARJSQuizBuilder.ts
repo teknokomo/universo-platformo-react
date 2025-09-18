@@ -269,23 +269,103 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
 
         // Wallpaper mode support (default to 'marker' for compatibility)
         const displayType = (options as any).arDisplayType || 'marker'
+        const cameraUsage = (options as any).cameraUsage || 'standard'
+        const backgroundColor = (options as any).backgroundColor || '#ffffff'
+        console.log(`[ARJSQuizBuilder] displayType=${displayType}, cameraUsage=${cameraUsage}, backgroundColor=${backgroundColor}`)
+        console.log(`[ARJSQuizBuilder] DEBUG options.backgroundColor:`, (options as any).backgroundColor)
+        console.log(`[ARJSQuizBuilder] DEBUG options keys:`, Object.keys(options))
+        
+        // Simple background color mode for disabled camera
+        if (cameraUsage === 'none') {
+            console.log(`[ARJSQuizBuilder] Camera disabled - using simple background color: ${backgroundColor}`)
+            
+            const finalHTML = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <style>
+        body, html {
+            background-color: ${backgroundColor} !important;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        .content-container {
+            width: 100%;
+            height: 100%;
+            background-color: ${backgroundColor};
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="content-container">
+        ${content.dataContent}
+    </div>
+    
+    <script>
+        window.canvasId = '${options.canvasId || options.chatflowId || ''}';
+        window.chatflowId = '${options.chatflowId || options.canvasId || ''}';
+        console.log('[ARJSQuizBuilder] Simple background mode - no AR, backgroundColor: ${backgroundColor}');
+    </script>
+</body>
+</html>`
+
+            console.log(`[ARJSQuizBuilder] Simple background HTML generated (${finalHTML.length} chars), backgroundColor: ${backgroundColor}`)
+            return finalHTML
+        }
+        
         if (displayType === 'wallpaper') {
-            const wallpaperEntity = `
-    <a-entity geometry="primitive: sphere; radius: 25; segmentsWidth: 48; segmentsHeight: 32"
-              material="wireframe: true; color: #00e6ff; opacity: 0.35; side: back; transparent: true"
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 90000; easing: linear"></a-entity>`
+            // Allow switching between a rotating wireframe sphere and a simple sky background
+            const useSky = (options as any).wallpaperType === 'sky';
+            const wallpaperEntity = useSky
+                ? `\n    <a-sky color="#0a0a1a"></a-sky>`
+                : `\n    <a-sphere radius="25" \n              segments-width="48" \n              segments-height="32"\n              material="shader: flat; wireframe: true; wireframe-linewidth: 2; color: #00e6ff; opacity: 0.6; side: back; transparent: true"\n              animation="property: rotation; to: 0 360 0; loop: true; dur: 90000; easing: linear"></a-sphere>`
 
-            return `
-<a-scene embedded
-         class="ar-scene${errorClass}"
-         arjs="sourceType: webcam; debugUIEnabled: false;"
-         vr-mode-ui="enabled: false"
-         device-orientation-permission-ui="enabled: false">
+            console.log(`[ARJSQuizBuilder] Wallpaper sphere entity created:`, wallpaperEntity.trim())
 
-    <!-- Camera with wallpaper background (no marker required) -->
+            // Build scene attributes array - conditional arjs attribute
+            const sceneAttributes = [
+                'embedded',
+                `class="ar-scene${errorClass}"`,
+                'vr-mode-ui="enabled: false"',
+                'device-orientation-permission-ui="enabled: false"'
+            ]
+
+            // Only add arjs attribute if camera is enabled
+            if (cameraUsage !== 'none') {
+                sceneAttributes.push('arjs="sourceType: webcam; debugUIEnabled: false;"')
+                console.log(`[ARJSQuizBuilder] Wallpaper mode: Camera enabled - adding arjs attribute`)
+            } else {
+                console.log(`[ARJSQuizBuilder] Wallpaper mode: Camera disabled - NO arjs attribute`)
+            }
+
+            // Camera entity is conditional - but we ALWAYS need a camera for 3D rendering
+            const cameraWithWallpaper = cameraUsage !== 'none' 
+                ? `<!-- Camera with wallpaper background (AR mode with webcam) -->
     <a-entity camera>
         ${wallpaperEntity}
-    </a-entity>
+    </a-entity>` 
+                : `<!-- Camera with wallpaper background (3D mode without webcam) -->
+    <a-entity camera>
+        ${wallpaperEntity}
+    </a-entity>`
+
+            console.log(`[ARJSQuizBuilder] Wallpaper mode: Creating camera entity with wallpaper sphere (cameraUsage=${cameraUsage})`)
+
+            const finalHTML = `
+<a-scene ${sceneAttributes.join('\n         ')}>
+
+    ${cameraWithWallpaper}
 
     <!-- Data UI overlay (quiz, etc.) -->
     ${content.dataContent}
@@ -305,6 +385,11 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
         }
     });
 </script>`
+
+            console.log(`[ARJSQuizBuilder] Wallpaper HTML generated (${finalHTML.length} chars), camera entity included:`, 
+                finalHTML.includes('<a-entity camera>'))
+            
+            return finalHTML
         }
 
         // Build marker attributes based on type
@@ -438,9 +523,23 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
 
     /**
      * Get required libraries for AR.js quiz template
+     * @param options Build options containing cameraUsage and displayType
      * @returns Array of required library names
      */
-    getRequiredLibraries(): string[] {
-        return ['aframe', 'arjs']
+    getRequiredLibraries(options?: any): string[] {
+        const cameraUsage = options?.cameraUsage || 'standard'
+        const displayType = options?.arDisplayType || 'wallpaper'
+        
+        // Always need A-Frame for 3D content
+        const libraries = ['aframe']
+        
+        if (cameraUsage === 'none') {
+            // No camera = no AR.js needed (works for both wallpaper and marker modes)
+            return libraries
+        }
+        
+        // Camera enabled = need AR.js for AR functionality
+        libraries.push('arjs')
+        return libraries
     }
 }

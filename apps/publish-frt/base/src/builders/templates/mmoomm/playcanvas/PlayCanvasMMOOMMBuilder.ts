@@ -64,8 +64,9 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
 
     /**
      * Get required libraries for MMOOMM template
+     * @param options Build options (unused for PlayCanvas, always returns same libraries)
      */
-    getRequiredLibraries(): string[] {
+    getRequiredLibraries(options?: BuildOptions): string[] {
         return this.templateBuilder.getRequiredLibraries()
     }
 

@@ -1,7 +1,128 @@
+- [x] AR.js wallpaper: add flat shader to `a-sphere` background
+
+## Camera Usage Mode Simplification
+
+- [x] Update frontend UI logic
+  - Hide AR display type and wallpaper type fields when camera usage is "none"
+  - Show background color picker when camera usage is "none"
+  - Add background color field to form state management
+- [x] Update backend chatbotConfig schema
+  - Add backgroundColor field to arjs section
+  - Ensure proper saving/loading from Supabase canvases table
+- [x] Update ARJSQuizBuilder 
+  - Handle backgroundColor option when cameraUsage is "none"
+  - Generate simple color background instead of AR wallpaper
+  - Simplify scene generation for no-camera mode
+- [x] Test the complete flow
+  - Frontend form shows/hides fields correctly
+  - Backend saves backgroundColor to chatbotConfig
+  - Published app uses backgroundColor when cameraUsage is "none"
+   - Updated `apps/template-quiz/base/src/arjs/ARJSQuizBuilder.ts` to use `shader: flat; wireframe: true` and increased opacity for visibility without lights.
+- [x] AR.js wallpaper: support `a-sky` as alternative
+   - Added optional `wallpaperType === 'sky'` to generate `<a-sky>`; extended `DataHandler` to treat `a-sky` as always visible.
+- [x] Adjust DataHandler visibility logic
+   - Recognize wallpaper sphere via material flags and keep it visible; include `a-sky` in query selector and visibility exceptions.
+- [x] Build affected packages
+   - Built `@universo/template-quiz` and `publish-frt` successfully.
 
 # Tasks Tracker
+## Current Implementation - i18n keys show in UI (2025-09-18)
 
-## Current Implementation - QR Code Download Feature (2025-01-17)
+### Objective
+Fix incorrect i18n namespaces/usages causing raw keys to appear in UI for Publish AR.js and API dialogs.
+
+### Plan
+- [x] ARJSPublisher: switch to `useTranslation('publish')` and use relative keys (`arjs.*`)
+- [x] APICodeDialog: remove redundant `chatflows.` prefix in `t()` calls; use relative keys (`apiCodeDialog.*`)
+- [x] PythonCode/LinksCode: use `useTranslation('chatflows')` and relative keys (`apiPython.*`, `apiLinks.*`)
+ - [x] Chatflows views (EmbedChat, ShareChatbot, index, Configuration, Agentflows): normalize to relative keys to avoid double prefix
+ - [x] Validate build/lint for changed files and smoke test translations
+
+### Notes
+- `packages/ui/src/i18n/index.js` registers namespaces: `publish`, `chatflows`, etc. Components must use the correct namespace without duplicating it in keys.
+ - Completed normalization fixes eliminate visible raw keys in top-right API dialog and embed/share panels.
+
+
+## Current Implementation - QR Code Download Notification Fix (2025-09-18)
+
+### Objective
+Fix missing notification when QR code download completes successfully.
+
+### [x] Task 1: Add Download Success Notification
+- Added Snackbar component to QRCodeSection.jsx
+- Implemented success notification after QR code download completes
+- Added state management for snackbar open/close
+
+### [x] Task 2: Update UI Components
+- Added Material-UI Snackbar import
+- Added snackbar state: `{ open: false, message: '' }`
+- Added handleSnackbarClose function for proper state management
+- Added success message display with 3-second auto-hide
+
+### [x] Task 3: Verify Translations
+- Confirmed `downloadSuccess` key exists in both en/main.json and ru/main.json
+- English: "QR code saved successfully"
+- Russian: "QR-код успешно сохранён"
+
+### [x] Task 4: Build and Deploy
+- Successfully built publish-frt with updated QR code notification
+- QR code download now shows proper user feedback
+
+## Camera Usage Mode Simplification (Previous)
+
+### [x] Task 1: Fix AR.js Scene Initialization
+- Remove `arjs` attribute from `<a-scene>` when `cameraUsage='none'`
+- Update both wallpaper and marker modes in ARJSQuizBuilder.ts
+- Add debug console logging to track attribute removal
+
+### [x] Task 2: Fix UI Field Ordering
+- Move "Использование камеры" field to appear after "Шаблон экспорта" 
+- Reorder FormControl components in ARJSPublisher.jsx
+- Maintain all existing conditional logic and functionality
+
+### [x] Task 3: Enhance Debug Logging  
+- Add console logs in ARJSQuizBuilder to track `cameraUsage` value
+- Log whether `arjs` attribute is added or removed
+- Help troubleshoot camera initialization issues
+
+### [x] Task 4: Fix HTML Generation Issues
+- Fixed invalid HTML generation causing "кусок кода" artifacts
+- Removed comment injection into tag attributes
+- Implemented clean array-based attribute construction
+- Fixed both wallpaper and marker mode HTML generation
+
+### [x] Task 5: Complete Camera Entity Removal
+- Fixed all camera entity creation points in ARJSQuizBuilder.ts
+- Verified CameraHandler properly returns empty string when cameraUsage='none'
+- Ensured no AR.js initialization when camera is disabled
+
+### [x] Task 6: Fix Library Loading Logic
+- Updated getRequiredLibraries() to conditionally exclude AR.js when cameraUsage='none'
+- Fixed AbstractTemplateBuilder to pass options to getRequiredLibraries()
+- Ensured AR.js script is not loaded when camera is disabled
+
+### [x] Task 7: Fix AR-обои (Wallpaper) for No-Camera Mode
+- **Problem**: AR-обои didn't work with cameraUsage='none' because AR.js was completely disabled
+- **Solution**: Wallpaper mode now works with just A-Frame (no AR.js) when camera disabled
+- Updated wallpaper HTML generation to conditionally include arjs attribute
+- Fixed camera entity to be optional in wallpaper mode
+- Now: wallpaper + cameraUsage='none' = A-Frame 3D scene without AR.js or camera
+
+### [x] Task 8: Package Build and Validation
+- Build template-quiz package with all camera disable logic
+- Build publish-frt package with UI improvements  
+- Validate TypeScript compilation across affected packages
+
+### Status: ✅ COMPLETED
+All tasks implemented and built successfully. Camera usage settings now properly:
+- Disable AR.js initialization when "Без камеры" is selected
+- Allow AR-обои to work without camera using only A-Frame
+- Fix HTML generation to prevent display artifacts
+- Conditionally load only required libraries (A-Frame vs A-Frame+AR.js)
+
+---
+
+## Previous Implementation - QR Code Download Feature (2025-01-17)
 
 ### Objective
 Implement QR code download functionality for published applications.
