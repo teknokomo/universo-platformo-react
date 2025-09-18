@@ -30,7 +30,7 @@ describe('SpacesController', () => {
       createSpace: jest.fn(),
       reorderCanvases: jest.fn()
     }
-    controller = new SpacesController(service as any)
+    controller = new SpacesController(service as SpacesService)
   })
 
   afterEach(() => {
