@@ -2,7 +2,9 @@
   "compilerOptions": {
     "baseUrl": "./",
     "paths": {
-      "@testing/backend/*": ["tools/testing/backend/*"]
+      "@testing/backend/*": ["tools/testing/backend/*"],
+      "@testing/frontend": ["tools/testing/frontend/index.ts"],
+      "@testing/frontend/*": ["tools/testing/frontend/*"]
     }
   }
 }
