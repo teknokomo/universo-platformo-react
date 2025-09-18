@@ -8,11 +8,11 @@ Objective: Fix TypeScript build errors in `@universo/spaces-srv` (TS2307 for `@/
    - Add `"src/tests/**"` to `exclude` to avoid compiling test fixtures during `build`.
 - [x] Verify entity files exist under local package
    - Confirm `src/database/entities/{Canvas,Space,SpaceCanvas}.ts` exist and exports are correct.
-- [ ] Run filtered package build
+- [x] Run filtered package build
    - `pnpm --filter @universo/spaces-srv build` and ensure no TS errors remain.
-- [ ] Run full root build
+- [x] Run full root build
    - `pnpm build` to validate workspace integrity.
-- [ ] Update progress and active context
+- [x] Update progress and active context
    - Document the fix and decisions in `progress.md` and `activeContext.md`.
 
 - [x] AR.js wallpaper: add flat shader to `a-sphere` background
