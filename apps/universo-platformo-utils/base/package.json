@@ -21,7 +21,8 @@
         "build:esm": "tsc -p tsconfig.esm.json",
         "build:types": "tsc -p tsconfig.types.json",
         "dev": "tsc -p tsconfig.json --watch",
-        "lint": "eslint --ext .ts src/"
+        "lint": "eslint --ext .ts src/",
+        "test": "vitest run --config vitest.config.ts"
     },
     "license": "Omsk Open License",
     "dependencies": {
@@ -32,6 +33,7 @@
         "@types/node": "^20.11.17",
         "eslint": "^8.56.0",
         "rimraf": "^5.0.5",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "vitest": "^2.1.4"
     }
 }

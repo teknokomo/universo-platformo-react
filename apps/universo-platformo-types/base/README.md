@@ -16,3 +16,11 @@ Install (workspace):
 -   This package lives at `apps/universo-platformo-types/base` and is consumed via `workspace:*` by other packages in the monorepo.
 
 License: Omsk Open License
+
+## Testing
+
+Run the type-level regression tests with Vitest:
+
+```bash
+pnpm --filter @universo-platformo/types test
+```

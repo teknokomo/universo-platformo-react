@@ -100,6 +100,14 @@ The build process consists of two stages:
 -   `pnpm dev` - Runs the build in development mode with file watching.
 -   `pnpm lint` - Checks the code with the linter.
 
+### Testing
+
+```bash
+pnpm --filter updl test
+```
+
+The Vitest suite validates Flowise node ports and lead-collection flags to keep the editor experience aligned with the README guidance.
+
 ## Focus of the Module
 
 This module is intentionally focused **only on node definitions**:
