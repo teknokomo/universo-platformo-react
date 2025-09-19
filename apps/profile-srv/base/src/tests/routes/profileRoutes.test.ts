@@ -26,7 +26,7 @@ const controllerMethods = {
   checkNickname: jest.fn()
 }
 
-var ProfileControllerMock: jest.Mock
+let ProfileControllerMock: jest.Mock
 
 jest.mock('../../controllers/profileController', () => {
   ProfileControllerMock = jest.fn(() => controllerMethods)
