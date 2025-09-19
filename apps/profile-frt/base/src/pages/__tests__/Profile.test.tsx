@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { fireEvent } from '@testing/frontend'
+import userEvent from '@testing-library/user-event'
 
 import { renderWithProviders, screen, waitFor } from '@testing/frontend'
 
@@ -62,18 +62,17 @@ describe('Profile security flows', () => {
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
 
-    await waitFor(() =>
-      expect(document.querySelectorAll('input[type="password"]').length).toBeGreaterThanOrEqual(3),
-    )
-    const passwordInputs = Array.from(document.querySelectorAll('input[type="password"]')) as HTMLInputElement[]
-    const [currentPassword, newPassword, confirmPassword] = passwordInputs
+    const user = userEvent.setup()
+    const currentPassword = await screen.findByLabelText(/current password/i)
+    const newPassword = await screen.findByLabelText(/new password/i)
+    const confirmPassword = await screen.findByLabelText(/confirm new password/i)
 
-    fireEvent.change(currentPassword, { target: { value: 'old-pass' } })
-    fireEvent.change(newPassword, { target: { value: 'new-pass' } })
-    fireEvent.change(confirmPassword, { target: { value: 'mismatch' } })
+    await user.type(currentPassword, 'old-pass')
+    await user.type(newPassword, 'new-pass')
+    await user.type(confirmPassword, 'mismatch')
 
-    const submit = screen.getByRole('button', { name: /updatePassword/i })
-    fireEvent.click(submit)
+    const submit = screen.getByRole('button', { name: /update password/i })
+    await user.click(submit)
 
     expect(await screen.findByText('passwordsDoNotMatch')).toBeInTheDocument()
     expect(fetchSpy).toHaveBeenCalledTimes(1)
@@ -89,18 +88,17 @@ describe('Profile security flows', () => {
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
 
-    await waitFor(() =>
-      expect(document.querySelectorAll('input[type="password"]').length).toBeGreaterThanOrEqual(3),
-    )
-    const passwordInputs = Array.from(document.querySelectorAll('input[type="password"]')) as HTMLInputElement[]
-    const [currentPassword, newPassword, confirmPassword] = passwordInputs
+    const user = userEvent.setup()
+    const currentPassword = await screen.findByLabelText(/current password/i)
+    const newPassword = await screen.findByLabelText(/new password/i)
+    const confirmPassword = await screen.findByLabelText(/confirm new password/i)
 
-    fireEvent.change(currentPassword, { target: { value: 'old-pass' } })
-    fireEvent.change(newPassword, { target: { value: 'new-pass' } })
-    fireEvent.change(confirmPassword, { target: { value: 'new-pass' } })
+    await user.type(currentPassword, 'old-pass')
+    await user.type(newPassword, 'new-pass')
+    await user.type(confirmPassword, 'new-pass')
 
-    const submit = screen.getByRole('button', { name: /updatePassword/i })
-    fireEvent.click(submit)
+    const submit = screen.getByRole('button', { name: /update password/i })
+    await user.click(submit)
 
     await waitFor(() =>
       expect(fetchSpy).toHaveBeenCalledWith(

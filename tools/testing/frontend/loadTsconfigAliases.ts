@@ -16,8 +16,16 @@ function normalizeTarget(target: string): string {
 }
 
 export function loadTsconfigAliases(tsconfigPath: string, baseDir: string): Record<string, string> {
-  const content = fs.readFileSync(tsconfigPath, 'utf-8')
-  const config = JSON.parse(content) as Tsconfig
+  let config: Tsconfig
+  try {
+    const content = fs.readFileSync(tsconfigPath, 'utf-8')
+    config = JSON.parse(content) as Tsconfig
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to load tsconfig aliases from ${tsconfigPath}: ${message}`, {
+      cause: error instanceof Error ? error : undefined,
+    })
+  }
   const { paths = {} } = config.compilerOptions ?? {}
 
   return Object.entries(paths).reduce<Record<string, string>>((aliases, [aliasKey, targets]) => {
@@ -29,11 +37,19 @@ export function loadTsconfigAliases(tsconfigPath: string, baseDir: string): Reco
     }
 
     const normalizedKey = normalizeAliasKey(aliasKey)
-    if (normalizedKey.startsWith('.')) {
+    if (normalizedKey.startsWith('.') || normalizedKey === '' || normalizedKey === '*') {
       return aliases
     }
-    const normalizedTarget = normalizeTarget(targets[0])
-    aliases[normalizedKey] = path.resolve(baseDir, normalizedTarget)
+    const normalizedTargets = targets
+      .map((target) => normalizeTarget(target))
+      .map((target) => path.resolve(baseDir, target))
+
+    const resolvedTarget = normalizedTargets.find((candidate) => fs.existsSync(candidate)) ?? normalizedTargets[0]
+    if (!resolvedTarget) {
+      return aliases
+    }
+
+    aliases[normalizedKey] = resolvedTarget
     return aliases
   }, {})
 }

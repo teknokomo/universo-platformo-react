@@ -6,26 +6,44 @@ import { renderWithProviders, screen, waitFor, within } from '@testing/frontend'
 
 import Analytics from '../Analytics.jsx'
 
+const leadsFixture = [
+  {
+    name: 'Alice',
+    email: 'alice@example.com',
+    points: 10,
+    createdDate: '2024-01-01T00:00:00.000Z',
+    chatflowid: 'abcdefgh',
+  },
+  {
+    name: 'Bob',
+    email: 'bob@example.com',
+    phone: '200',
+    createdDate: '2024-01-02T00:00:00.000Z',
+    chatflowid: 'ijklmnop',
+  },
+]
+
+const expectedMetrics = (() => {
+  const points = leadsFixture
+    .map((lead) => (typeof lead.points === 'number' ? lead.points : Number.parseInt(lead.phone ?? '', 10)))
+    .filter((value) => Number.isFinite(value))
+
+  const totalPoints = points.reduce((total, value) => total + value, 0)
+  const averagePoints =
+    points.length > 0 ? Math.round((totalPoints / points.length) * 100) / 100 : 0
+  return {
+    totalLeads: leadsFixture.length,
+    averagePoints,
+    maxPoints: points.length > 0 ? Math.max(...points) : 0,
+    totalPoints,
+  }
+})()
+
 const { getSpacesMock, getCanvasesMock, getLeadsMock } = vi.hoisted(() => ({
   getSpacesMock: vi.fn(async () => ({ data: [{ id: 'space-1', name: 'Demo Space' }] })),
   getCanvasesMock: vi.fn(async () => ({ data: [{ id: 'canvas-1', name: 'Demo Canvas' }] })),
   getLeadsMock: vi.fn(async () => ({
-    data: [
-      {
-        name: 'Alice',
-        email: 'alice@example.com',
-        points: 10,
-        createdDate: '2024-01-01T00:00:00.000Z',
-        chatflowid: 'abcdefgh',
-      },
-      {
-        name: 'Bob',
-        email: 'bob@example.com',
-        phone: '200',
-        createdDate: '2024-01-02T00:00:00.000Z',
-        chatflowid: 'ijklmnop',
-      },
-    ],
+    data: leadsFixture,
   })),
 }))
 
@@ -87,7 +105,14 @@ describe('Analytics dashboard', () => {
       const metrics = screen
         .getAllByRole('heading', { level: 4 })
         .map((heading) => heading.textContent)
-      expect(metrics).toEqual(expect.arrayContaining(['2', '105', '200', '210']))
+      expect(metrics).toEqual(
+        expect.arrayContaining([
+          String(expectedMetrics.totalLeads),
+          String(expectedMetrics.averagePoints),
+          String(expectedMetrics.maxPoints),
+          String(expectedMetrics.totalPoints),
+        ]),
+      )
     })
 
     const table = await screen.findByRole('table', { name: /analytics table/i })
