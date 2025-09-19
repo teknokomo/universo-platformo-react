@@ -8,6 +8,13 @@
 - `@universo/spaces-frt` ships a Jest-style component test in `src/components/__tests__/`, yet the package lacks a configured `test` script or Jest dependencies, so it will be migrated to Vitest for parity with other React modules.【F:apps/spaces-frt/base/src/components/__tests__/CanvasTabs.test.jsx†L1-L120】【F:apps/spaces-frt/base/package.json†L1-L37】
 - Remaining front-end and back-end bases currently have no automated testing scripts, providing a clean slate for adopting the agreed toolchain (e.g., `analytics-frt`, `finance-srv`, `publish-frt`).【F:apps/analytics-frt/base/package.json†L1-L27】【F:apps/finance-srv/base/package.json†L1-L35】【F:apps/publish-frt/base/package.json†L1-L36】
 
+### React Vitest adoption snapshot (Q1 2025)
+
+- `@universo/publish-frt` runs Vitest via the shared base config, resolves workspace aliases through `loadTsconfigAliases`, and emits coverage into `apps/publish-frt/base/coverage` (current run: ~25% statements while the ARJS wizard happy-path is covered). Follow-up: add negative-path assertions for PlayCanvas export and network failures to raise branches.【F:apps/publish-frt/base/vitest.config.ts†L1-L38】【96bcf7†L7-L52】
+- `@universo/analytics-frt` mounts dashboards with mocked services and now delivers ~78% statements / ~65% branches coverage written under `apps/analytics-frt/base/coverage`. Follow-up gaps include empty dataset states and API error banners.【F:apps/analytics-frt/base/vitest.config.ts†L1-L38】【3d36e2†L33-L47】
+- `@universo/uniks-frt` exercises the workspace dashboard navigation with hoisted mocks, persisting reports to `apps/uniks-frt/base/coverage` at ~8% statements (only shortcut happy-path covered). Next steps: cover list/grid toggles and mutation flows.【F:apps/uniks-frt/base/vitest.config.ts†L1-L38】【73d4b6†L33-L55】
+- `@universo/profile-frt` restores its password flow tests (no longer skipped) and records ~62% statements coverage while writing to `apps/profile-frt/base/coverage`. Outstanding: add email/profile update success/error scenarios and resilience checks around Supabase responses.【F:apps/profile-frt/base/src/pages/__tests__/Profile.test.tsx†L1-L118】【993bd7†L11-L21】
+
 ## Toolchain commitments
 
 ### Node/Express services

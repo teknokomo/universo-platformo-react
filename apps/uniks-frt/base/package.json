@@ -8,7 +8,8 @@
         "clean": "rimraf dist",
         "build": "pnpm run clean && tsc && gulp",
         "dev": "tsc -w",
-        "lint": "eslint --ext .ts,.tsx,.jsx src/"
+        "lint": "eslint --ext .ts,.tsx,.jsx src/",
+        "test": "vitest run --config vitest.config.ts"
     },
     "keywords": ["universo", "uniks", "frontend"],
     "author": "Vladimir Levadnij and Teknokomo",
@@ -20,8 +21,12 @@
     "devDependencies": {
         "@types/node": "^20.11.17",
         "@types/react": "^18.2.55",
+        "@testing-library/jest-dom": "^6.4.5",
+        "@testing-library/react": "^14.1.2",
+        "@testing-library/user-event": "^14.5.2",
         "eslint": "^8.56.0",
         "gulp": "^4.0.2",
-        "rimraf": "^5.0.5"
+        "rimraf": "^5.0.5",
+        "vitest": "^2.1.4"
     }
 }
