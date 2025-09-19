@@ -30,6 +30,20 @@ export interface SupabaseClientMockConfig {
   [table: string]: SupabaseTableMockConfig
 }
 
+type SupabaseQueryResult = { data?: any; error?: any }
+
+interface SupabaseQueryBuilder {
+  select: jest.Mock<SupabaseQueryBuilder, []>
+  insert: jest.Mock<SupabaseQueryBuilder, [unknown]>
+  update: jest.Mock<SupabaseQueryBuilder, [unknown]>
+  delete: jest.Mock<SupabaseQueryBuilder, []>
+  eq: jest.Mock<SupabaseQueryBuilder, [string, unknown]>
+  single: jest.Mock<Promise<SupabaseQueryResult>, []>
+  maybeSingle: jest.Mock<Promise<SupabaseQueryResult>, []>
+  throwOnError: jest.Mock<SupabaseQueryBuilder, []>
+  then: jest.Mock<Promise<SupabaseQueryResult>, [any, any?]>
+}
+
 const resolveResult = async (
   handler: SupabaseHandler | undefined,
   context: SupabaseQueryContext
@@ -67,51 +81,58 @@ export const createSupabaseClientMock = (
           })
         )
 
-      const query: any = {
-        select: jest.fn(() => {
-          if (method === 'insert' || method === 'update' || method === 'delete') {
-            returning = true
-          } else {
-            method = 'select'
-            returning = true
-          }
-          return query
-        }),
-        insert: jest.fn((value: unknown) => {
-          method = 'insert'
-          payload = value
-          returning = false
-          return query
-        }),
-        update: jest.fn((value: unknown) => {
-          method = 'update'
-          payload = value
-          returning = false
-          return query
-        }),
-        delete: jest.fn(() => {
-          method = 'delete'
-          payload = undefined
-          returning = false
-          return query
-        }),
-        eq: jest.fn((column: string, value: unknown) => {
-          filters.push({ column, value })
-          return query
-        }),
-        single: jest.fn(() => {
-          returning = true
-          return run()
-        }),
-        maybeSingle: jest.fn(() => {
-          returning = true
-          return run()
-        }),
-        throwOnError: jest.fn(() => query),
-        then: jest.fn((resolve: any, reject: any) => run().then(resolve, reject))
-      }
+      const query: Partial<SupabaseQueryBuilder> = {}
 
-      return query
+      query.select = jest.fn(() => {
+        if (method === 'insert' || method === 'update' || method === 'delete') {
+          returning = true
+        } else {
+          method = 'select'
+          returning = true
+        }
+        return query as SupabaseQueryBuilder
+      })
+
+      query.insert = jest.fn((value: unknown) => {
+        method = 'insert'
+        payload = value
+        returning = false
+        return query as SupabaseQueryBuilder
+      })
+
+      query.update = jest.fn((value: unknown) => {
+        method = 'update'
+        payload = value
+        returning = false
+        return query as SupabaseQueryBuilder
+      })
+
+      query.delete = jest.fn(() => {
+        method = 'delete'
+        payload = undefined
+        returning = false
+        return query as SupabaseQueryBuilder
+      })
+
+      query.eq = jest.fn((column: string, value: unknown) => {
+        filters.push({ column, value })
+        return query as SupabaseQueryBuilder
+      })
+
+      query.single = jest.fn(() => {
+        returning = true
+        return run()
+      })
+
+      query.maybeSingle = jest.fn(() => {
+        returning = true
+        return run()
+      })
+
+      query.throwOnError = jest.fn(() => query as SupabaseQueryBuilder)
+      query.then = jest.fn((resolve: any, reject: any) => run().then(resolve, reject))
+
+      return query as SupabaseQueryBuilder
     })
   } as jest.Mocked<Pick<SupabaseClient<any, any, any>, 'from'>>
 

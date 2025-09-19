@@ -1,7 +1,15 @@
+import type { Router } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createAccountRoutes } from '../../routes/accountRoutes'
 import { createCurrencyRoutes } from '../../routes/currencyRoutes'
+
+const setupAppWithRoutes = (path: string, routeFactory: () => Router) => {
+  const app = express()
+  app.use(express.json())
+  app.use(path, routeFactory())
+  return app
+}
 
 describe('finance routes', () => {
   afterEach(() => {
@@ -11,9 +19,7 @@ describe('finance routes', () => {
   it('создаёт и обновляет аккаунт', async () => {
     jest.spyOn(require('crypto'), 'randomUUID').mockReturnValueOnce('acc-1')
 
-    const app = express()
-    app.use(express.json())
-    app.use('/:unikId/accounts', createAccountRoutes())
+    const app = setupAppWithRoutes('/:unikId/accounts', createAccountRoutes)
 
     const createResponse = await request(app)
       .post('/unik-1/accounts')
@@ -42,9 +48,7 @@ describe('finance routes', () => {
   it('создаёт и удаляет валюту', async () => {
     jest.spyOn(require('crypto'), 'randomUUID').mockReturnValueOnce('cur-1')
 
-    const app = express()
-    app.use(express.json())
-    app.use('/:unikId/currencies', createCurrencyRoutes())
+    const app = setupAppWithRoutes('/:unikId/currencies', createCurrencyRoutes)
 
     const createResponse = await request(app)
       .post('/unik-2/currencies')

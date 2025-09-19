@@ -6,7 +6,11 @@ import {
   createUniksCollectionRouter,
   createUnikIndividualRouter
 } from '../../routes/uniksRoutes'
-import { createSupabaseClientMock, type SupabaseHandler } from '@testing/backend/mocks'
+import {
+  createSupabaseClientMock,
+  type SupabaseClientMockConfig,
+  type SupabaseHandler
+} from '@testing/backend/mocks'
 
 describe('uniks routes', () => {
   const ensureAuth = (user?: { sub: string }) =>
@@ -24,6 +28,12 @@ describe('uniks routes', () => {
     return app
   }
 
+  const buildCollectionApp = (userId: string, config: SupabaseClientMockConfig) =>
+    createApp(createUniksCollectionRouter(ensureAuth({ sub: userId }), createSupabaseClientMock(config) as any))
+
+  const buildIndividualApp = (userId: string, config: SupabaseClientMockConfig) =>
+    createApp(createUnikIndividualRouter(ensureAuth({ sub: userId }), createSupabaseClientMock(config) as any))
+
   it('возвращает список юников текущего пользователя', async () => {
     const selectHandler: SupabaseHandler = jest.fn().mockResolvedValue({
       data: [
@@ -33,11 +43,9 @@ describe('uniks routes', () => {
       error: null
     })
 
-    const supabase = createSupabaseClientMock({
+    const app = buildCollectionApp('user-1', {
       user_uniks: { select: selectHandler }
     })
-
-    const app = createApp(createUniksCollectionRouter(ensureAuth({ sub: 'user-1' }), supabase as any))
 
     const response = await request(app).get('/')
 
@@ -65,15 +73,13 @@ describe('uniks routes', () => {
       error: null
     })
 
-    const supabase = createSupabaseClientMock({
+    const app = buildCollectionApp('user-42', {
       uniks: { insert: insertUnik },
       user_uniks: {
         select: jest.fn().mockResolvedValue({ data: [], error: null }),
         insert: insertRelation
       }
     })
-
-    const app = createApp(createUniksCollectionRouter(ensureAuth({ sub: 'user-42' }), supabase as any))
 
     const response = await request(app).post('/').send({ name: 'Workspace' })
 
@@ -105,14 +111,12 @@ describe('uniks routes', () => {
       error: null
     })
 
-    const supabase = createSupabaseClientMock({
+    const app = buildCollectionApp('user-7', {
       user_uniks: {
         select: membershipCheck,
         insert: jest.fn()
       }
     })
-
-    const app = createApp(createUniksCollectionRouter(ensureAuth({ sub: 'user-7' }), supabase as any))
 
     const response = await request(app)
       .post('/members')
@@ -138,7 +142,7 @@ describe('uniks routes', () => {
     })
     const deleteHandler: SupabaseHandler = jest.fn().mockResolvedValue({ error: null })
 
-    const supabase = createSupabaseClientMock({
+    const app = buildIndividualApp('user-99', {
       user_uniks: {
         select: membership,
         insert: jest.fn()
@@ -147,9 +151,6 @@ describe('uniks routes', () => {
         delete: deleteHandler
       }
     })
-
-    const individualRouter = createUnikIndividualRouter(ensureAuth({ sub: 'user-99' }), supabase as any)
-    const app = createApp(individualRouter)
 
     const response = await request(app).delete('/123')
 

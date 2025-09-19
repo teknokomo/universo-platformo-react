@@ -25,6 +25,23 @@ const { MultiplayerManager } = require('../../integration/MultiplayerManager') a
 describe('MultiplayerManager', () => {
   const originalEnv = { ...process.env }
 
+  const createChildProcessMock = () => {
+    const eventHandlers: Record<string, Function[]> = {}
+    const child = {
+      stdout: new EventEmitter(),
+      stderr: new EventEmitter(),
+      on: jest.fn((event: string, handler: Function) => {
+        eventHandlers[event] = eventHandlers[event] || []
+        eventHandlers[event].push(handler)
+        return child
+      }),
+      kill: jest.fn(),
+      killed: false
+    }
+
+    return { child, eventHandlers }
+  }
+
   beforeEach(() => {
     jest.useFakeTimers()
     resolveMock.mockImplementation(() => MULTIPLAYER_PATH)
@@ -53,20 +70,7 @@ describe('MultiplayerManager', () => {
     process.env.MULTIPLAYER_SERVER_HOST = '0.0.0.0'
     existsSyncMock.mockReturnValue(true)
 
-    const eventHandlers: Record<string, Function[]> = {}
-
-    const child = {
-      stdout: new EventEmitter(),
-      stderr: new EventEmitter(),
-      on: jest.fn((event: string, handler: Function) => {
-        eventHandlers[event] = eventHandlers[event] || []
-        eventHandlers[event].push(handler)
-        return child
-      }),
-      kill: jest.fn(),
-      killed: false
-    }
-
+    const { child, eventHandlers } = createChildProcessMock()
     spawnMock.mockReturnValue(child)
 
     const manager = new MultiplayerManager()
@@ -92,23 +96,12 @@ describe('MultiplayerManager', () => {
     process.env.ENABLE_MULTIPLAYER_SERVER = 'true'
     existsSyncMock.mockReturnValue(true)
 
-    const eventHandlers: Record<string, Function[]> = {}
-
-    const child = {
-      stdout: new EventEmitter(),
-      stderr: new EventEmitter(),
-      on: jest.fn((event: string, handler: Function) => {
-        eventHandlers[event] = eventHandlers[event] || []
-        eventHandlers[event].push(handler)
-        return child
-      }),
-      kill: jest.fn((signal: string) => {
-        if (signal === 'SIGTERM') {
-          eventHandlers['exit']?.forEach(fn => fn(0, null))
-        }
-      }),
-      killed: false
-    }
+    const { child, eventHandlers } = createChildProcessMock()
+    child.kill.mockImplementation((signal: string) => {
+      if (signal === 'SIGTERM') {
+        eventHandlers['exit']?.forEach(fn => fn(0, null))
+      }
+    })
 
     spawnMock.mockReturnValue(child)
 
