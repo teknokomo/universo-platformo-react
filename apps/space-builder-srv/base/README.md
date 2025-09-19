@@ -70,6 +70,16 @@ Notes:
 -   `pnpm build` – compile TypeScript
 -   `pnpm lint` – run ESLint checks
 
+## Testing
+
+Run Jest to exercise the LLM service logic and REST aggregation:
+
+```bash
+pnpm --filter @universo/space-builder-srv test
+```
+
+Tests stub provider calls through the mocked `callProvider` implementation and reuse `@testing/backend/mocks` helpers for predictable behaviour.
+
 ## Notes
 
 -   Do not import frontend dependencies here

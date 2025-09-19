@@ -79,3 +79,13 @@ pnpm build --filter @universo/finance-srv
 See also: Creating New Apps/Packages (best practices)
 
 - ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
+
+## Testing
+
+Run the in-memory route tests with Jest:
+
+```bash
+pnpm --filter @universo/finance-srv test
+```
+
+The suites exercise the express routers without external services thanks to deterministic UUID mocks.

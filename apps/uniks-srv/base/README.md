@@ -192,3 +192,13 @@ When contributing to this package:
 ---
 
 **Universo Platformo | Uniks Server Package**
+
+## Testing
+
+Execute backend unit tests with Jest:
+
+```bash
+pnpm --filter @universo/uniks-srv test
+```
+
+The suite uses the shared Supabase client mock from `@testing/backend/mocks`, so no external services are required.
