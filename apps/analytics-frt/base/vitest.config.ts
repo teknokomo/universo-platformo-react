@@ -16,7 +16,11 @@ export default mergeConfig(
     resolve: {
       alias: {
         ...tsconfigAliases,
-        '@': srcDir,
+        '@/store/actions': path.resolve(__dirname, '../../../packages/ui/src/store/actions.js'),
+        '@/store': path.resolve(__dirname, '../../../packages/ui/src/store'),
+        '@universo/spaces-frt': path.resolve(__dirname, '../../spaces-frt/base/src'),
+        '@': path.resolve(__dirname, '../../../packages/ui/src'),
+        '@app': srcDir,
       },
     },
     test: {
