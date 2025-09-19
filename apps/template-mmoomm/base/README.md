@@ -91,3 +91,11 @@ pnpm build:cjs
 pnpm build:esm
 pnpm build:types
 ```
+
+### Testing
+
+```bash
+pnpm --filter @universo/template-mmoomm test
+```
+
+Automated Vitest checks guard PlayCanvas mode detection, ensuring multiplayer lead collection flows keep working as described above.

@@ -16,3 +16,11 @@ Install (workspace):
 -   This package lives at `apps/universo-platformo-utils/base` and is consumed via `workspace:*` by other packages in the monorepo.
 
 License: Omsk Open License
+
+## Testing
+
+Run Vitest against the workspace package to exercise UPDL serialization helpers:
+
+```bash
+pnpm --filter @universo-platformo/utils test
+```

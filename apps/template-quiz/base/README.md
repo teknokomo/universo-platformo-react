@@ -201,6 +201,14 @@ pnpm lint
 pnpm lint:fix
 ```
 
+### Testing
+
+```bash
+pnpm --filter @universo/template-quiz test
+```
+
+The Vitest suite keeps AR.js quiz serialization, lead capture, and scoring flows in sync with the documented behaviour.
+
 ## Integration
 
 This package is designed to integrate with:
