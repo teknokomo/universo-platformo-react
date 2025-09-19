@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
 const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
+const mocksDir = path.resolve(__dirname, 'src/__mocks__')
 
 export default mergeConfig(
   baseConfig,
@@ -17,6 +18,9 @@ export default mergeConfig(
       alias: {
         ...tsconfigAliases,
         '@': srcDir,
+        '@dnd-kit/core': path.resolve(mocksDir, 'dnd-kit-core.tsx'),
+        '@dnd-kit/sortable': path.resolve(mocksDir, 'dnd-kit-sortable.tsx'),
+        '@dnd-kit/utilities': path.resolve(mocksDir, 'dnd-kit-utilities.ts'),
       },
     },
     test: {

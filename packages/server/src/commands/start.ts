@@ -3,10 +3,18 @@ import * as DataSource from '../DataSource'
 import logger from '../utils/logger'
 import { BaseCommand } from './base'
 import { getMultiplayerManager } from '@universo/multiplayer-colyseus-srv'
+import { ensurePortAvailable } from '@universo-tools/network'
 
 export default class Start extends BaseCommand {
     async run(): Promise<void> {
         logger.info('Starting Flowise...')
+        const host = process.env.HOST
+        const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
+
+        await ensurePortAvailable(port, host).catch((error: Error) => {
+            logger.error(`❌ [server]: Unable to start Flowise — ${error.message}`)
+            throw error
+        })
         await DataSource.init()
         await Server.start()
 
@@ -18,7 +26,11 @@ export default class Start extends BaseCommand {
     }
 
     async catch(error: Error) {
-        if (error.stack) logger.error(error.stack)
+        if (error.message.includes('already in use')) {
+            logger.error(`❌ [server]: ${error.message}`)
+        } else if (error.stack) {
+            logger.error(error.stack)
+        }
         await new Promise((resolve) => {
             setTimeout(resolve, 1000)
         })

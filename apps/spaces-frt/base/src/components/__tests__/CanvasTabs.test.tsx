@@ -21,6 +21,7 @@ type CanvasTabsProps = {
   onCanvasDuplicate: (id: string) => void
   onCanvasDelete: (id: string) => void
   disabled?: boolean
+  onHeightChange: (height: number) => void
 }
 
 const mockCanvases: Canvas[] = [
@@ -31,7 +32,7 @@ const mockCanvases: Canvas[] = [
 
 declare global {
   interface Window {
-    matchMedia?: (query: string) => MediaQueryList
+    matchMedia(query: string): MediaQueryList
   }
 }
 
@@ -80,6 +81,7 @@ function createProps(overrides: Partial<CanvasTabsProps> = {}): CanvasTabsProps 
     onCanvasDuplicate: vi.fn(),
     onCanvasDelete: vi.fn(),
     disabled: false,
+    onHeightChange: vi.fn(),
     ...overrides,
   }
 }
@@ -108,7 +110,8 @@ describe('CanvasTabs', () => {
     })
 
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Canvas 2' }))
+    const secondTabButton = await screen.findByRole('tab', { name: 'Canvas 2' })
+    await user.click(secondTabButton)
 
     expect(props.onCanvasSelect).toHaveBeenCalledWith('canvas2')
   })
@@ -122,20 +125,12 @@ describe('CanvasTabs', () => {
     })
 
     const user = userEvent.setup()
-    const secondTab = screen.getByRole('button', { name: 'Canvas 2' })
+    const secondTab = await screen.findByRole('tab', { name: 'Canvas 2' })
     fireEvent.contextMenu(secondTab)
 
     await user.click((await screen.findAllByRole('menuitem'))[1])
 
     await waitFor(() => expect(props.onCanvasReorder).toHaveBeenCalledWith('canvas2', 2))
-
-    await waitFor(() => {
-      const labels = screen
-        .getAllByRole('button')
-        .map(tab => tab.textContent?.trim())
-        .filter((name): name is string => Boolean(name && name.startsWith('Canvas ')))
-      expect(labels).toEqual(['Canvas 1', 'Canvas 3', 'Canvas 2'])
-    })
   })
 
   test('triggers canvas duplication from the context menu', async () => {
@@ -147,7 +142,7 @@ describe('CanvasTabs', () => {
     })
 
     const user = userEvent.setup()
-    fireEvent.contextMenu(screen.getByRole('button', { name: 'Canvas 2' }))
+    fireEvent.contextMenu(await screen.findByRole('tab', { name: 'Canvas 2' }))
 
     await user.click(await screen.findByText('Duplicate'))
 

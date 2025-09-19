@@ -1127,6 +1127,7 @@ Eliminated `updl-srv` - Flowise server provides all backend functionality. Simpl
 
 **Stabilization & Refactors**
 - Spaces + Canvases Refactor (2025-09-07): State race fixed, local API/hooks, UI cleanup.
+- Spaces-FRT Packaging Refresh (2025-09-19): TS build configs (compact tsconfig + tsconfig.types), API migration to TS, Vitest mocks + test target, README updates.
 - Ship Movement Optimization (2025-01-27): Physics fallback + clean logging.
 - Profile-SRV Package (2025-06-24): Scoped package conversion.
 

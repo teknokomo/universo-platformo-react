@@ -1,4 +1,4 @@
-import { createMockRepository } from '@testing/backend/typeormMocks'
+import { createMockRepository } from '../utils/typeormMocks'
 import { ProfileService } from '../../services/profileService'
 
 describe('ProfileService', () => {

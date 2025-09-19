@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction, Router } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
@@ -9,19 +9,12 @@ import {
 import {
   createSupabaseClientMock,
   type SupabaseClientMockConfig,
-  type SupabaseHandler
-} from '@testing/backend/mocks'
+  type SupabaseHandler,
+  ensureAuth
+} from '../utils/supabaseMocks'
 
 describe('uniks routes', () => {
-  const ensureAuth = (user?: { sub: string }) =>
-    (req: Request, _res: Response, next: NextFunction) => {
-      if (user) {
-        ;(req as any).user = user
-      }
-      next()
-    }
-
-  const createApp = (router: express.Router) => {
+  const createApp = (router: Router) => {
     const app = express()
     app.use(express.json())
     app.use(router)

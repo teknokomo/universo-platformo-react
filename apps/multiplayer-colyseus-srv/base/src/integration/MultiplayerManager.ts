@@ -4,6 +4,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import logger from '../utils/logger'
+import { ensurePortAvailable } from '@universo-tools/network'
 
 export class MultiplayerManager {
     private colyseusProcess: ChildProcess | null = null
@@ -39,6 +40,11 @@ export class MultiplayerManager {
                 logger.warn('[Multiplayer] Skipping multiplayer server startup')
                 return
             }
+
+            await ensurePortAvailable(this.port, this.host).catch((error: Error) => {
+                logger.error(`[Multiplayer] ${error.message}`)
+                throw error
+            })
 
             // Start Colyseus server as child process
             this.colyseusProcess = spawn('pnpm', ['start'], {

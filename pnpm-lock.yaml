@@ -65,6 +65,9 @@ importers:
       '@typescript-eslint/typescript-estree':
         specifier: ^7.13.1
         version: 7.18.0(typescript@5.8.3)
+      '@vitest/coverage-v8':
+        specifier: ^2.1.4
+        version: 2.1.9(vitest@2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1))
       eslint:
         specifier: ^8.24.0
         version: 8.57.1
@@ -135,6 +138,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.5
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.1.2
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
@@ -150,6 +162,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/finance-frt/base:
     dependencies:
@@ -160,6 +175,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.5
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.1.2
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/gulp':
         specifier: 4.0.9
         version: 4.0.9
@@ -178,6 +202,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/finance-srv/base:
     dependencies:
@@ -200,15 +227,30 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      supertest:
+        specifier: ^6.3.0
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
 
   apps/metaverses-frt/base:
     dependencies:
@@ -317,12 +359,21 @@ importers:
         specifier: ^0.16.4
         version: 0.16.4(@colyseus/auth@0.16.6(@colyseus/core@0.16.19(@colyseus/schema@3.0.54))(express@5.1.0))(@colyseus/core@0.16.19(@colyseus/schema@3.0.54))(@colyseus/redis-driver@0.16.1(@colyseus/schema@3.0.54))(@colyseus/redis-presence@0.16.4(@colyseus/schema@3.0.54))(@colyseus/schema@3.0.54)(@colyseus/uwebsockets-transport@0.16.9(@colyseus/core@0.16.19(@colyseus/schema@3.0.54)))(@colyseus/ws-transport@0.16.5(@colyseus/core@0.16.19(@colyseus/schema@3.0.54))(bufferutil@4.0.9)(utf-8-validate@6.0.5))
     devDependencies:
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.0
         version: 5.0.10
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
       ts-node:
         specifier: ^10.9.0
         version: 10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)
@@ -342,6 +393,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.5
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.1.2
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
@@ -357,6 +417,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/profile-srv/base:
     dependencies:
@@ -376,15 +439,30 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      supertest:
+        specifier: ^6.3.0
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
 
   apps/publish-frt/base:
     dependencies:
@@ -425,6 +503,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.5
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.1.2
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/file-saver':
         specifier: ^2.0.7
         version: 2.0.7
@@ -449,6 +536,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/publish-srv/base:
     dependencies:
@@ -468,15 +558,30 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      supertest:
+        specifier: ^6.3.0
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
 
   apps/resources-frt/base:
     dependencies:
@@ -560,15 +665,30 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      supertest:
+        specifier: ^6.3.0
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
       typescript:
         specifier: 5.8.3
         version: 5.8.3
@@ -582,6 +702,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.5
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.1.2
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/gulp':
         specifier: 4.0.9
         version: 4.0.9
@@ -600,6 +729,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/space-builder-srv/base:
     dependencies:
@@ -619,20 +751,35 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      supertest:
+        specifier: ^6.3.0
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
 
   apps/spaces-frt/base:
     dependencies:
       '@dnd-kit/core':
-        specifier: ^6.1.0
+        specifier: ^6.3.1
         version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@dnd-kit/sortable':
         specifier: ^8.0.0
@@ -665,6 +812,15 @@ importers:
         specifier: ^11.5.6
         version: 11.11.4(@types/react@18.3.23)(immer@10.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.8.0
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.3.1
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
@@ -677,6 +833,9 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/spaces-srv/base:
     dependencies:
@@ -725,7 +884,7 @@ importers:
         version: 6.3.4
       ts-jest:
         specifier: ^29.1.0
-        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
 
   apps/template-mmoomm/base:
     dependencies:
@@ -745,6 +904,9 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/template-quiz/base:
     dependencies:
@@ -764,6 +926,9 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/uniks-frt/base:
     dependencies:
@@ -774,6 +939,15 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
     devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.5
+        version: 6.8.0
+      '@testing-library/react':
+        specifier: ^14.1.2
+        version: 14.3.1(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ^14.5.2
+        version: 14.6.1(@testing-library/dom@9.3.4)
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
@@ -789,6 +963,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/uniks-srv/base:
     dependencies:
@@ -808,15 +985,30 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
       '@types/node':
         specifier: 20.12.12
         version: 20.12.12
+      '@types/supertest':
+        specifier: ^6.0.0
+        version: 6.0.3
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jest:
+        specifier: ^29.5.0
+        version: 29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      supertest:
+        specifier: ^6.3.0
+        version: 6.3.4
+      ts-jest:
+        specifier: ^29.1.0
+        version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3)
 
   apps/universo-platformo-types/base:
     devDependencies:
@@ -832,6 +1024,9 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/universo-platformo-utils/base:
     dependencies:
@@ -854,6 +1049,9 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   apps/updl/base:
     dependencies:
@@ -876,6 +1074,9 @@ importers:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
 
   packages/api-documentation:
     dependencies:
@@ -7330,6 +7531,15 @@ packages:
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0-beta.0
 
+  '@vitest/coverage-v8@2.1.9':
+    resolution: {integrity: sha512-Z2cOr0ksM00MpEfyVE8KXIYPEcBFxdbLSs56L8PO0QQMxt/6bDj45uQfxoc96v05KW3clk7vvgP0qfDit9DmfQ==}
+    peerDependencies:
+      '@vitest/browser': 2.1.9
+      vitest: 2.1.9
+    peerDependenciesMeta:
+      '@vitest/browser':
+        optional: true
+
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
 
@@ -8815,6 +9025,7 @@ packages:
 
   composio-core@0.4.8:
     resolution: {integrity: sha512-XcC3zib6M7o+zgk5gCqE/BNXKqR0uyonOaaRNO4jKbIjArihKrk0MPXC5dF1V23GvsN+qA4OF0tFmQl8poOjTA==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     hasBin: true
 
   compressible@2.0.18:
@@ -9954,6 +10165,7 @@ packages:
   eslint-plugin-markdown@3.0.1:
     resolution: {integrity: sha512-8rqoc148DWdGdmYF6WSQFT3uQ6PO7zXYgeBpHAOAakX/zpq+NvFYbDA/H7PYzHajwtmaOzAwfxyl++x0g1/N9A==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: Please use @eslint/markdown instead
     peerDependencies:
       eslint: ^6.0.0 || ^7.0.0 || ^8.0.0
 
@@ -11856,6 +12068,10 @@ packages:
     resolution: {integrity: sha512-n3s8EwkdFIJCG3BPKBYvskgXGoy88ARzvegkitk60NxRdwltLOTaH7CUiMRXvwYorl0Q712iEjcWB+fK/MrWVw==}
     engines: {node: '>=10'}
 
+  istanbul-lib-source-maps@5.0.6:
+    resolution: {integrity: sha512-yg2d+Em4KizZC5niWhQaIomgf5WlL4vOOjZ5xGCmF8SnPE/mDWWXgvRExdcpCgh9lLRRa1/fSYp2ymmbJ1pI+A==}
+    engines: {node: '>=10'}
+
   istanbul-reports@3.1.7:
     resolution: {integrity: sha512-BewmUXImeuRk2YY0PVbxgKAysvhRPUQE0h5QRM++nVWyubKGV0l8qQ5op8+B2DOmwSe63Jivj0BjkPQVf8fP5g==}
     engines: {node: '>=8'}
@@ -12849,6 +13065,9 @@ packages:
 
   magic-string@0.30.17:
     resolution: {integrity: sha512-sNPKHvyjVf7gyjwS4xGTaW/mCnF8wnjtifKBEhxfZ7E/S8tQ0rssrwGNn6q8JH/ohItJfSQp9mBtQYuTlH5QnA==}
+
+  magicast@0.3.5:
+    resolution: {integrity: sha512-L0WhttDl+2BOsybvEOLK7fW3UA0OQ0IQ2d6Zl2x/a6vVRs3bAY0ECOSHHeL5jD+SbOpOCUEi0y1DgHEn9Qn1AQ==}
 
   make-dir@3.1.0:
     resolution: {integrity: sha512-g3FeP20LNwhALb/6Cz6Dd4F2ngze0jz7tbzrD2wAV+o9FeNHe4rL+yK2md0J/fiSf1sa1ADhXqi5+oVwOM/eGw==}
@@ -15068,7 +15287,7 @@ packages:
   puppeteer@20.9.0:
     resolution: {integrity: sha512-kAglT4VZ9fWEGg3oLc4/de+JcONuEJhlh3J6f5R1TLkrY/EHHIHxWXDOzXvaxQCtedmyVXBwg8M+P8YCO/wZjw==}
     engines: {node: '>=16.3.0'}
-    deprecated: < 24.9.0 is no longer supported
+    deprecated: < 24.10.2 is no longer supported
 
   pure-color@1.3.0:
     resolution: {integrity: sha512-QFADYnsVoBMw1srW7OVKEYjG+MbIa49s54w1MA1EDY6r2r/sTcKKYqRX1f4GYvnXP7eN/Pe9HFcX+hwzmrXRHA==}
@@ -16755,6 +16974,10 @@ packages:
   test-exclude@6.0.0:
     resolution: {integrity: sha512-cAGWPIyOHU6zlmg88jwm7VRyXnMN7iV68OGAbYDk/Mh/xC/pzVPlQtY6ngoIH/5/tciuhGfvESU8GrHrcxD56w==}
     engines: {node: '>=8'}
+
+  test-exclude@7.0.1:
+    resolution: {integrity: sha512-pFYqmTw68LXVjeWJMST4+borgQP2AyMNbg1BpZh9LbyhUeNkeaPF9gzfPGUAnSMV3qPYdWUwDIjjCLiSDOl7vg==}
+    engines: {node: '>=18'}
 
   text-decoder@1.2.3:
     resolution: {integrity: sha512-3/o9z3X0X0fTupwsYvR03pJ/DjWuqqrfwBgTQzdWDiQSm9KitAyz/9WqsT2JQW7KV2m+bC2ol/zqpW37NHxLaA==}
@@ -25974,6 +26197,24 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1))':
+    dependencies:
+      '@ampproject/remapping': 2.3.0
+      '@bcoe/v8-coverage': 0.2.3
+      debug: 4.4.1(supports-color@8.1.1)
+      istanbul-lib-coverage: 3.2.2
+      istanbul-lib-report: 3.0.1
+      istanbul-lib-source-maps: 5.0.6
+      istanbul-reports: 3.1.7
+      magic-string: 0.30.17
+      magicast: 0.3.5
+      std-env: 3.9.0
+      test-exclude: 7.0.1
+      tinyrainbow: 1.2.0
+      vitest: 2.1.9(@types/node@20.12.12)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5))(sass@1.89.2)(terser@5.43.1)
+    transitivePeerDependencies:
+      - supports-color
+
   '@vitest/expect@2.1.9':
     dependencies:
       '@vitest/spy': 2.1.9
@@ -31635,6 +31876,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  istanbul-lib-source-maps@5.0.6:
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.28
+      debug: 4.4.1(supports-color@8.1.1)
+      istanbul-lib-coverage: 3.2.2
+    transitivePeerDependencies:
+      - supports-color
+
   istanbul-reports@3.1.7:
     dependencies:
       html-escaper: 2.0.2
@@ -33240,6 +33489,12 @@ snapshots:
   magic-string@0.30.17:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.3
+
+  magicast@0.3.5:
+    dependencies:
+      '@babel/parser': 7.27.7
+      '@babel/types': 7.27.7
+      source-map-js: 1.2.1
 
   make-dir@3.1.0:
     dependencies:
@@ -38093,6 +38348,12 @@ snapshots:
       glob: 7.2.3
       minimatch: 3.1.2
 
+  test-exclude@7.0.1:
+    dependencies:
+      '@istanbuljs/schema': 0.1.3
+      glob: 10.4.5
+      minimatch: 9.0.5
+
   text-decoder@1.2.3:
     dependencies:
       b4a: 1.6.7
@@ -38277,7 +38538,7 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
-  ts-jest@29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3):
+  ts-jest@29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0))(typescript@5.8.3):
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0

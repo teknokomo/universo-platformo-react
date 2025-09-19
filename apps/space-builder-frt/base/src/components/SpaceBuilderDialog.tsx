@@ -45,6 +45,11 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     supportsAsyncModels: boolean
     inputsSchema: Array<{ name: string; label: string; type: string; default?: any; options?: Array<{ label: string; name: string }> }>
   }
+  type CredentialInput = {
+    name: string
+    label?: string
+    type?: string
+  }
   const [providers, setProviders] = useState<ProviderMeta[]>([])
   const [providerId, setProviderId] = useState('')
   const [credentialId, setCredentialId] = useState('')
@@ -52,6 +57,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   const [advParams, setAdvParams] = useState<{ temperature?: number; streaming?: boolean; maxTokens?: number; topP?: number }>({})
   // Cache async model options per provider id to avoid losing them after re-open
   const [modelOptionsMap, setModelOptionsMap] = useState<Record<string, string[]>>({})
+  const testKey = useMemo(() => (Array.isArray(testItems) ? testItems.map((i) => `${i.id}:${i.model}`).join('|') : ''), [testItems])
   // Create Credential dialog state
   const [createOpen, setCreateOpen] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
@@ -128,15 +134,14 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         // Default selection: first test provider if present, else first base
         if (!providerId && finalList.length) {
           setProviderId(finalList[0].id)
-          // Pre-fill test model
-          if (finalList[0].id.startsWith('test:')) setModelName((testItems[0]?.model) || '')
+          if (finalList[0].id.startsWith('test:')) setModelName(testItems[0]?.model || '')
         }
       } catch {
         setProviders([])
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, testMode, JSON.stringify(testItems)])
+  }, [open, testMode, testKey])
 
   // Ensure async model list is available whenever settings are open and provider supports it
   useEffect(() => {
@@ -331,9 +336,9 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
       const tm = testModelOptions?.[0]
       if (tm) return { provider: tm.provider, modelName: tm.modelName }
     }
-    if (model) return { provider: model.provider, modelName: model.modelName, credentialId: model.credentialId }
     if (providerId && modelName) return { provider: providerId, modelName, credentialId: credentialId || undefined }
-    return { provider: 'openai', modelName: 'gpt-4o-mini' }
+    if (model) return { provider: model.provider, modelName: model.modelName, credentialId: model.credentialId }
+    throw new Error('No model selected')
   }
 
   // Obsolete: rely on MUI focus restore; keeping helper if needed in future
@@ -614,9 +619,9 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
           />
-          {(Array.isArray(createSchema?.inputs) ? createSchema.inputs : [])
-            .filter((inp: any) => inp?.type === 'password' || inp?.type === 'string')
-            .map((inp: any) => (
+          {(Array.isArray(createSchema?.inputs) ? (createSchema.inputs as CredentialInput[]) : [])
+            .filter((inp) => inp?.type === 'password' || inp?.type === 'string')
+            .map((inp) => (
               <TextField
                 key={inp.name}
                 fullWidth
@@ -760,9 +765,21 @@ const FriendlyReviseHint: React.FC = () => {
   if (!open) return null
   return (
     <Alert
-      severity='info'
+      severity='warning'
+      variant='standard'
       onClose={() => setOpen(false)}
-      sx={{ mt: 2 }}
+      sx={(theme) => {
+        const bg = theme.palette.warning.light
+        const fg = theme.palette.getContrastText(bg)
+        return {
+          mt: 2,
+          backgroundColor: bg,
+          border: `1px solid ${theme.palette.warning.main}`,
+          '& .MuiAlert-message': { color: fg },
+          '& .MuiAlert-icon': { color: theme.palette.warning.main },
+          '& .MuiAlert-action': { color: fg }
+        }
+      }}
     >
       {t('spaceBuilder.reviseHint')}
     </Alert>

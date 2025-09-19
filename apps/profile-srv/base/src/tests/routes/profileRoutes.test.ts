@@ -14,7 +14,7 @@ jest.mock('typeorm', () => {
 import type { Request, Response, NextFunction } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
-import { createMockDataSource, createMockRepository } from '@testing/backend/typeormMocks'
+import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
 import { createProfileRoutes } from '../../routes/profileRoutes'
 
 const controllerMethods = {

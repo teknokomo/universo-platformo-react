@@ -60,6 +60,17 @@ Fix incorrect i18n namespaces/usages causing raw keys to appear in UI for Publis
  - Completed normalization fixes eliminate visible raw keys in top-right API dialog and embed/share panels.
 
 
+## Current Implementation - spaces-frt build & testing (2025-09-19)
+
+### Objective
+Восстановить сборку `@universo/spaces-frt`, обеспечить генерацию типов и согласовать пакет с новой Vitest-инфраструктурой.
+
+### План работ
+- [x] Подготовить конфигурацию TypeScript: добавить `tsconfig.types.json`, обновить `tsconfig.json`/`tsconfig.esm.json` для чётких путей, `rootDir`, `moduleResolution`.
+- [x] Перевести `spacesApi` и точку входа на TypeScript, добавить точечные декларации и сохранить совместимость с Flowise JSX.
+- [x] Обновить `package.json` пакета (`build` скрипты, зависимости), починить `scripts/build-spaces-package.mjs`.
+- [x] Запустить сборку/тесты, обновить README и зафиксировать изменения в memory-bank.
+
 ## Current Implementation - QR Code Download Notification Fix (2025-09-18)
 
 ### Objective
