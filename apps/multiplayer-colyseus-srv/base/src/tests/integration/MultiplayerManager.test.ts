@@ -8,16 +8,16 @@ const resolveMock = jest.fn(() => MULTIPLAYER_PATH)
 jest.mock('path', () => ({
   __esModule: true,
   default: {
-    resolve: (...args: any[]) => resolveMock(...args)
+    resolve: resolveMock
   }
 }))
 
 jest.mock('child_process', () => ({
-  spawn: (...args: any[]) => spawnMock(...args)
+  spawn: spawnMock
 }))
 
 jest.mock('fs', () => ({
-  existsSync: (...args: any[]) => existsSyncMock(...args)
+  existsSync: existsSyncMock
 }))
 
 const { MultiplayerManager } = require('../../integration/MultiplayerManager') as typeof import('../../integration/MultiplayerManager')
@@ -26,11 +26,11 @@ describe('MultiplayerManager', () => {
   const originalEnv = { ...process.env }
 
   const createChildProcessMock = () => {
-    const eventHandlers: Record<string, Function[]> = {}
-    const child = {
+    const eventHandlers: Record<string, Array<(...args: any[]) => void>> = {}
+    const child: any = {
       stdout: new EventEmitter(),
       stderr: new EventEmitter(),
-      on: jest.fn((event: string, handler: Function) => {
+      on: jest.fn((event: string, handler: (...args: any[]) => void) => {
         eventHandlers[event] = eventHandlers[event] || []
         eventHandlers[event].push(handler)
         return child

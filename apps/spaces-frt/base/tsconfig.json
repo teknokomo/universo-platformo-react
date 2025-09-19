@@ -1,27 +1,33 @@
 {
   "compilerOptions": {
-    "target": "ES2019",
+    "target": "ES2020",
     "module": "CommonJS",
+    "lib": ["ES2020", "DOM"],
     "jsx": "react-jsx",
-    "allowJs": true,
+    "allowJs": false,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": false,
     "outDir": "dist/cjs",
+    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
       "@ui/*": ["../../../packages/ui/src/*"],
-      "@universo/space-builder-frt": ["../../space-builder-frt/base/src/index.ts"]
+      "@universo/space-builder-frt": ["../../space-builder-frt/base/dist/cjs/index.js"]
     }
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/i18n/**/*.json"
+    "src/index.ts",
+    "src/api/**/*.ts",
+    "src/i18n/**/*.ts",
+    "src/types/**/*.d.ts"
   ],
-  "exclude": ["dist", "node_modules"]
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }

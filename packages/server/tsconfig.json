@@ -6,6 +6,12 @@
         "emitDecoratorMetadata": true /* Emit design-type metadata for decorated declarations in source files. */,
         "module": "commonjs" /* Specify what module code is generated. */,
         "outDir": "dist",
+        "baseUrl": ".",
+        "rootDirs": ["./src", "../../tools"],
+        "paths": {
+            "@universo-tools/network": ["../../tools/network/ensurePortAvailable"]
+        },
+        "moduleResolution": "node",
         "esModuleInterop": true /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables `allowSyntheticDefaultImports` for type compatibility. */,
         "forceConsistentCasingInFileNames": true /* Ensure that casing is correct in imports. */,
         "strict": true /* Enable all strict type-checking options. */,
@@ -14,6 +20,6 @@
         "strictPropertyInitialization": false,
         "declaration": false
     },
-    "include": ["src/**/*.ts"],
+    "include": ["src/**/*.ts", "../../tools/network/**/*.ts"],
     "exclude": ["node_modules", "**/*.test.ts"]
 }

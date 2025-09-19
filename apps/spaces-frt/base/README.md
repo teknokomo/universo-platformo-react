@@ -22,13 +22,18 @@ Configured in `tsconfig.json`:
 - `@/*` → local `src/*` (primary)
 - `@ui/*` → Flowise `packages/ui/src/*` (temporary bridge until full migration)
 
-## Build
+## Build & Test
 ```
-pnpm --filter @universo/spaces-frt build
+pnpm --filter @universo/spaces-frt build     # produces dist/cjs, dist/esm, dist/types
+pnpm --filter @universo/spaces-frt test      # Vitest + testing-library setup
 pnpm --filter @universo/spaces-frt lint
 ```
+
+### TypeScript packaging
+- `tsconfig.json` — emits CommonJS bundle (`dist/cjs`)
+- `tsconfig.esm.json` — emits ES Module bundle (`dist/esm`)
+- `tsconfig.types.json` — emits declaration files (`dist/types`)
 
 ## Migration Notes
 - Localized HTTP client and `useCanvases` to remove tight coupling to Flowise.
 - Gradually replace `@ui/*` imports with local components; remove Flowise files once unused.
-

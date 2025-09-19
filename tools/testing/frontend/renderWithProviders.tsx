@@ -9,7 +9,6 @@ import {
   type EnhancedStore,
   type Reducer,
   type AnyAction,
-  type PreloadedState,
 } from '@reduxjs/toolkit'
 import { SnackbarProvider, SnackbarProviderProps } from 'notistack'
 import { I18nextProvider } from 'react-i18next'
@@ -20,6 +19,12 @@ import { createTestI18n } from './i18n'
 export type AdditionalWrapper = React.ComponentType<{ children: ReactNode }>
 
 type DefaultState = Record<string, unknown>
+
+type DeepPartial<T> = T extends object
+  ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : T
+
+type PreloadedState<S> = DeepPartial<S> | undefined
 
 export interface CreateTestStoreOptions<S extends DefaultState = DefaultState> {
   reducer?: Reducer<S, AnyAction>

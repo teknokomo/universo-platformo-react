@@ -21,11 +21,17 @@
 - `@/*` → локальный `src/*`
 - `@ui/*` → Flowise `packages/ui/src/*` (временный мост до полной миграции)
 
-## Сборка
+## Сборка и тесты
 ```
-pnpm --filter @universo/spaces-frt build
+pnpm --filter @universo/spaces-frt build     # собирает dist/cjs, dist/esm и dist/types
+pnpm --filter @universo/spaces-frt test      # юнит-тесты через Vitest + Testing Library
 pnpm --filter @universo/spaces-frt lint
 ```
+
+### Пакетирование TypeScript
+- `tsconfig.json` — сборка CommonJS (`dist/cjs`)
+- `tsconfig.esm.json` — сборка ES Module (`dist/esm`)
+- `tsconfig.types.json` — генерация деклараций (`dist/types`)
 
 ## Примечания по миграции
 - Локализованы HTTP‑клиент и `useCanvases`.

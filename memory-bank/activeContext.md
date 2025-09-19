@@ -22,6 +22,18 @@ Notes:
 
 Next steps: Observe in-browser result; if transparency ordering issues appear, consider `alphaTest` tuning or `render-order`.
 
+## 2025-09-19 — spaces-frt packaging & testing refresh
+
+- Added dedicated TypeScript configs for `@universo/spaces-frt`:
+  - `tsconfig.build.cjs.json` (CommonJS), `tsconfig.build.esm.json` (ESM) and `tsconfig.types.json` (declarations).
+- Migrated `src/api/spaces` and package entrypoint to TypeScript; exposed `SpacesApi` type for consumers.
+- Updated package scripts to produce `dist/cjs`, `dist/esm`, `dist/types`; adjusted workspace script to stop rewriting `package.json`.
+- Introduced Vitest-specific mocks for `@dnd-kit/*` to unblock component tests; added `pnpm --filter @universo/spaces-frt test` shortcut.
+- READMEs updated (RU/EN) documenting build/tests pipeline.
+- Follow-up: reverted to compact `tsconfig.json`/`tsconfig.esm.json` + `tsconfig.types.json`, removed custom build configs and redundant build script; cleaned up API by converting `client`/`canvases` to TS and deleting JS duplicates.
+- Added startup safeguards: server checks port availability before boot; multiplayer manager skips launch when target port occupied, preventing `EADDRINUSE` crashes during `pnpm start`.
+- Root build currently blocked by upstream Flowise UI Rollup issue (`Loader` default export mismatch) unrelated to spaces-frt; package-specific build/test succeed.
+
 ### i18n Normalization (2025-09-18)
 - Objective: Fix UI showing raw i18n keys by aligning `useTranslation` namespaces and using relative keys.
 - Completed today: normalized keys in `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, and `Configuration.jsx`.
