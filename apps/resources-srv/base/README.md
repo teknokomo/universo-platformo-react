@@ -287,3 +287,13 @@ Configure database connection through the main application's environment configu
 ---
 
 **Universo Platformo | Resources Backend Service**
+
+## Testing
+
+Execute the Jest suite to cover route guards and repository flows:
+
+```bash
+pnpm --filter @universo/resources-srv test
+```
+
+The tests reuse TypeORM mocks and the Supabase helpers from `@testing/backend/mocks` to avoid hitting real databases.

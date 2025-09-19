@@ -68,6 +68,15 @@ const supabase = createMockSupabaseClient({
 
 Because `setupAfterEnv.ts` automatically assigns this factory to `global.createMockSupabaseClient`, tests may use it without importing when preferred.
 
+## Focused backend mocks (`mocks/`)
+
+The `mocks/` subfolder exposes higher-level helpers tailored for service and route unit tests:
+
+- `createSupabaseClientMock` – declarative Supabase table mocking that records filters, payloads, and return values without duplicating query-builder scaffolding in every test.
+- `createFlowDataServiceMock` – lightweight mock for services that depend on `FlowDataService` so route tests can inject deterministic behaviour.
+
+These utilities are published via the `@testing/backend/mocks` alias and complement the lower-level factories from `setupAfterEnv.ts`.
+
 ## Path aliases
 
 The repository root `tsconfig.json` defines the `@testing/backend/*` path alias. Any backend package that relies on the shared utilities should ensure its TypeScript configuration extends or respects the root options so the alias resolves inside editors and during type-checking.

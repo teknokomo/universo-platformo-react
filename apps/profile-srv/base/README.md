@@ -494,3 +494,13 @@ These indexes reduce full-table scans during high-traffic nickname validation an
 **Version**: 0.1.0
 
 _Universo Platformo | Profile Service Backend_
+
+## Testing
+
+Execute Jest tests to validate repository logic and lazy route initialization:
+
+```bash
+pnpm --filter @universo/profile-srv test
+```
+
+The suite leverages the TypeORM factories and Supabase mocks provided by `@testing/backend/mocks` for deterministic results.

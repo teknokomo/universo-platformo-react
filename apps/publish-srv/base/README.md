@@ -212,3 +212,13 @@ pnpm --filter @universo/publish-srv dev
 ---
 
 _Universo Platformo | Publication Service_
+
+## Testing
+
+Run Jest tests for services and routes:
+
+```bash
+pnpm --filter @universo/publish-srv test
+```
+
+The Flow data scenarios use the shared TypeORM factories and `createFlowDataServiceMock`/`createSupabaseClientMock` helpers from `@testing/backend/mocks`.

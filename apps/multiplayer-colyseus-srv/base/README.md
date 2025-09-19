@@ -78,3 +78,13 @@ This server integrates with the MMOOMM PlayCanvas template when multiplayer mode
 
 - `PORT`: Server port (default: 2567)
 - `NODE_ENV`: Environment mode (development/production)
+
+## Testing
+
+Run the Jest suite to verify the process manager lifecycle:
+
+```bash
+pnpm --filter @universo/multiplayer-colyseus-srv test
+```
+
+The tests mock `child_process.spawn` and filesystem checks to exercise start/stop behaviour without launching a real Colyseus server.
