@@ -41,10 +41,7 @@ export class MultiplayerManager {
                 return
             }
 
-            await net.ensurePortAvailable(this.port, this.host).catch((error: Error) => {
-                logger.error(`[Multiplayer] ${error.message}`)
-                throw error
-            })
+            await net.ensurePortAvailable(this.port, this.host)
 
             // Start Colyseus server as child process
             this.colyseusProcess = spawn('pnpm', ['start'], {
