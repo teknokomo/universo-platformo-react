@@ -1,6 +1,6 @@
 # @universo-platformo/utils
 
-Утилиты, используемые на фронтенде и бэкенде для валидации, сериализации, дельт и синхронизации времени в Universo Platformo. Пакет не зависит от конкретного рантайма (browser/Node), поддерживает tree‑shaking и использует безопасные значения по умолчанию.
+Утилиты, используемые на фронтенде и бэкенде для валидации, сериализации, дельт, синхронизации времени и сетевых утилит в Universo Platformo. Пакет не зависит от конкретного рантайма (browser/Node), поддерживает tree‑shaking и использует безопасные значения по умолчанию.
 
 ## Обзор
 
@@ -8,6 +8,7 @@
 -   Вычисление и применение минимальных дельт компонент для ECS снапшотов
 -   Детерминированная сериализация и безопасный парсинг JSON
 -   Оценка синхронизации времени (по аналогии с NTP) и простые seq/ack хелперы
+-   Утилиты для проверки доступности сетевых портов в серверных приложениях
 -   Zod‑схемы UPDL (passthrough) для совместимой валидации на фронте и бэке
 
 ## Установка (workspace)
@@ -23,7 +24,7 @@ import { validation, delta, net, serialization, math, updl } from '@universo-pla
 
 -   validation.schemas: Zod‑схемы для DTO (strict)
 -   delta: computeDelta, applyDelta
--   net: createTimeSyncEstimator, updateSeqState, reconcileAck
+-   net: createTimeSyncEstimator, updateSeqState, reconcileAck, ensurePortAvailable
 -   serialization: stableStringify, safeParseJson, hashFNV1a32
 -   math: clamp, lerp, approxEq
 -   updl.schemas: Zod‑схемы для UPDL (passthrough)
@@ -55,13 +56,19 @@ const d = delta.computeDelta(prev.entities, next.entities, prev.tick, next.tick)
 const merged = delta.applyDelta(prev, d)
 ```
 
-### Синхронизация времени
+### Синхронизация времени и сетевые утилиты
 
 ```ts
 import { net } from '@universo-platformo/utils'
+
+// Синхронизация времени
 const est = net.createTimeSyncEstimator()
 est.addSample({ tClientSendMs, tServerRecvMs, tServerSendMs, tClientRecvMs })
 const { offsetMs, rttMs, jitterMs } = est.getState()
+
+// Проверка доступности порта (только Node.js)
+await net.ensurePortAvailable(3000)
+await net.ensurePortAvailable(8080, 'localhost')
 ```
 
 ### Валидация UPDL (frontend/backend)

@@ -1,6 +1,6 @@
 # @universo-platformo/utils
 
-Utilities shared across frontend and backend for validation, serialization, deltas and time sync in Universo Platformo. This package is runtime-agnostic (browser/Node), tree‑shaking friendly, and designed for safe defaults.
+Utilities shared across frontend and backend for validation, serialization, deltas, time sync, and network utilities in Universo Platformo. This package is runtime-agnostic (browser/Node), tree‑shaking friendly, and designed for safe defaults.
 
 ## Overview
 
@@ -8,6 +8,7 @@ Utilities shared across frontend and backend for validation, serialization, delt
 -   Computes and applies minimal component deltas for ECS snapshots
 -   Deterministic serialization and safe JSON parsing
 -   Time synchronization estimator (NTP‑like) and simple seq/ack helpers
+-   Network port availability utilities for server applications
 -   UPDL Zod schemas (passthrough) for forward‑compatible validation on both sides
 
 ## Installation (workspace)
@@ -23,7 +24,7 @@ import { validation, delta, net, serialization, math, updl } from '@universo-pla
 
 -   validation.schemas: Zod schemas for DTOs (strict)
 -   delta: computeDelta, applyDelta
--   net: createTimeSyncEstimator, updateSeqState, reconcileAck
+-   net: createTimeSyncEstimator, updateSeqState, reconcileAck, ensurePortAvailable
 -   serialization: stableStringify, safeParseJson, hashFNV1a32
 -   math: clamp, lerp, approxEq
 -   updl.schemas: Zod schemas for UPDL (passthrough)
@@ -55,13 +56,19 @@ const d = delta.computeDelta(prev.entities, next.entities, prev.tick, next.tick)
 const merged = delta.applyDelta(prev, d)
 ```
 
-### Time sync
+### Time sync and network utilities
 
 ```ts
 import { net } from '@universo-platformo/utils'
+
+// Time synchronization
 const est = net.createTimeSyncEstimator()
 est.addSample({ tClientSendMs, tServerRecvMs, tServerSendMs, tClientRecvMs })
 const { offsetMs, rttMs, jitterMs } = est.getState()
+
+// Port availability check (Node.js only)
+await net.ensurePortAvailable(3000)
+await net.ensurePortAvailable(8080, 'localhost')
 ```
 
 ### UPDL validation (frontend/backend)

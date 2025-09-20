@@ -1,3 +1,38 @@
+## 2025-09-20 — Build Error Resolution
+
+Current focus: Fixed critical TypeScript build error "Cannot find module '@universo/multiplayer-colyseus-srv'" that was blocking full workspace builds.
+
+**Root Cause Identified:**
+- `rootDirs: ["./src", "../../../tools"]` configuration in tsconfig.json was causing compilation artifacts to land in wrong directory structure
+- Generated dist/ files ended up in `dist/apps/multiplayer-colyseus-srv/base/src/` instead of `dist/` 
+- Similar issue affected packages/server
+
+**Solution Implemented:**
+- Created centralized ensurePortAvailable utility in @universo-platformo/utils package
+- Removed problematic rootDirs configuration from both affected packages
+- Updated workspace dependencies to use @universo-platformo/utils instead of cross-directory imports
+- Simplified tsconfig includes and baseUrl settings
+
+**Build Status:**
+- ✅ All individual package builds pass
+- ✅ Full workspace build (`pnpm build`) completes successfully in 3m51s across 27 packages
+- ✅ No TypeScript compilation errors
+- ✅ Proper dist/ structure generated
+
+**Files Modified:**
+- `apps/universo-platformo-utils/base/src/net/ensurePortAvailable.ts` (created)
+- `apps/multiplayer-colyseus-srv/base/tsconfig.json` (cleaned rootDirs)
+- `packages/server/tsconfig.json` (cleaned rootDirs)  
+- Updated imports and dependencies across affected packages
+
+Next: Monitor for any runtime issues and continue with regular development workflow.
+
+**Quality Assurance Complete (2025-09-20):**
+- ✅ Removed obsolete `tools/network/ensurePortAvailable.ts` and empty directory
+- ✅ Updated all README documentation (English and Russian) for @universo-platformo/utils package
+- ✅ Updated project documentation in `docs/en/` and `docs/ru/` with new net utilities
+- ✅ Final build validation successful - all packages compile correctly
+
 ## 2025-09-18 — Build Fix for spaces-srv
 
 Current focus: Restore monorepo build by fixing TS path alias errors in `@universo/spaces-srv`.
