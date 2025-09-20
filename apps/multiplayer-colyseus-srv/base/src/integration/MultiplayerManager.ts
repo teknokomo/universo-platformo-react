@@ -4,7 +4,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import logger from '../utils/logger'
-import { ensurePortAvailable } from '@universo-tools/network'
+import { net } from '@universo-platformo/utils'
 
 export class MultiplayerManager {
     private colyseusProcess: ChildProcess | null = null
@@ -41,7 +41,7 @@ export class MultiplayerManager {
                 return
             }
 
-            await ensurePortAvailable(this.port, this.host).catch((error: Error) => {
+            await net.ensurePortAvailable(this.port, this.host).catch((error: Error) => {
                 logger.error(`[Multiplayer] ${error.message}`)
                 throw error
             })

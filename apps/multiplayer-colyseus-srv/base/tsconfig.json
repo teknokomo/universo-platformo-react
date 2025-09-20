@@ -4,11 +4,7 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "baseUrl": ".",
-    "rootDirs": ["./src", "../../../tools"],
-    "paths": {
-      "@universo-tools/network": ["../../../tools/network/ensurePortAvailable"]
-    },
+    "baseUrl": "./src",
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
@@ -23,11 +19,11 @@
     "emitDecoratorMetadata": true
   },
   "include": [
-    "src/**/*",
-    "../../../tools/network/**/*.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/tests/**"
   ]
 }

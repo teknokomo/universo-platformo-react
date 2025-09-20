@@ -1,3 +1,38 @@
+### 2025-09-20 — Fix rootDirs build error in @universo/multiplayer-colyseus-srv and flowise packages
+
+Issue:
+- Build failed with TS2307 "Cannot find module '@universo/multiplayer-colyseus-srv'" error
+- Root cause: `rootDirs: ["./src", "../../../tools"]` in tsconfig.json caused compilation artifacts to land in wrong location (dist/apps/multiplayer-colyseus-srv/base/src/ instead of dist/)
+- Similar issue affected packages/server which also had problematic rootDirs configuration
+
+Resolution:
+- Created ensurePortAvailable utility in @universo-platformo/utils package to centralize network functions
+- Removed rootDirs configuration from both affected tsconfig.json files
+- Cleaned up include paths and excluded test directories appropriately  
+- Updated package.json dependencies to use @universo-platformo/utils workspace package
+- Modified import statements from @universo-tools/network to @universo-platformo/utils/net
+
+Files modified:
+- `apps/universo-platformo-utils/base/src/net/ensurePortAvailable.ts` (created)
+- `apps/universo-platformo-utils/base/src/net/index.ts` (updated exports)
+- `apps/multiplayer-colyseus-srv/base/package.json` (added dependency)
+- `apps/multiplayer-colyseus-srv/base/tsconfig.json` (removed rootDirs)
+- `apps/multiplayer-colyseus-srv/base/src/integration/MultiplayerManager.ts` (updated imports)
+- `packages/server/package.json` (added dependency)
+- `packages/server/tsconfig.json` (removed rootDirs)
+- `packages/server/src/commands/start.ts` (updated imports)
+
+Validation:
+- `pnpm --filter @universo-platformo/utils build` SUCCESS
+- `pnpm --filter @universo/multiplayer-colyseus-srv build` SUCCESS  
+- `pnpm --filter flowise build` SUCCESS
+- Full `pnpm build` completes across 27 packages in 3m51s without failures
+
+Cleanup:
+- Removed obsolete `tools/network/ensurePortAvailable.ts` and empty `tools/network/` directory
+- Updated README.md and README-RU.md for @universo-platformo/utils package with new net utilities documentation
+- Updated documentation in `docs/en/universo-platformo/utils/README.md` and `docs/ru/universo-platformo/utils/README.md`
+
 ### 2025-09-18 — Fix TS path alias build error in @universo/spaces-srv
 
 Issue:

@@ -1,19 +1,30 @@
-## Build Failure Fix - spaces-srv (2025-09-18)
+## Build Failure Fix - multiplayer-colyseus-srv (2025-09-20)
 
-Objective: Fix TypeScript build errors in `@universo/spaces-srv` (TS2307 for `@/database/entities/*`) and restore full workspace build.
+Objective: Fix TypeScript build error "Cannot find module '@universo/multiplayer-colyseus-srv'" by resolving rootDirs issues and integrating ensurePortAvailable into @universo-platformo/utils.
 
-- [x] Analyze tsconfig and add alias
-   - Add `"@/*": ["*"]` under `compilerOptions.paths` with `baseUrl: "./src"` in `apps/spaces-srv/base/tsconfig.json`.
-- [x] Exclude tests from compilation
-   - Add `"src/tests/**"` to `exclude` to avoid compiling test fixtures during `build`.
-- [x] Verify entity files exist under local package
-   - Confirm `src/database/entities/{Canvas,Space,SpaceCanvas}.ts` exist and exports are correct.
-- [x] Run filtered package build
-   - `pnpm --filter @universo/spaces-srv build` and ensure no TS errors remain.
-- [x] Run full root build
-   - `pnpm build` to validate workspace integrity.
-- [x] Update progress and active context
-   - Document the fix and decisions in `progress.md` and `activeContext.md`.
+- [x] Add ensurePortAvailable to @universo-platformo/utils
+   - Create `src/net/ensurePortAvailable.ts` in utils package
+   - Export from `src/net/index.ts`
+- [x] Update dependencies in multiplayer-colyseus-srv
+   - Add @universo-platformo/utils workspace dependency
+   - Update imports to use utils package
+- [x] Fix tsconfig.json in multiplayer-colyseus-srv
+   - Remove problematic rootDirs configuration
+   - Set baseUrl to "./src"
+   - Remove tools include paths
+- [x] Update dependencies in packages/server
+   - Add @universo-platformo/utils workspace dependency
+   - Update imports to use utils package
+- [x] Fix tsconfig.json in packages/server
+   - Remove problematic rootDirs configuration
+   - Simplify include paths
+- [x] Build and validate changes
+   - Test individual package builds
+   - Run full workspace build
+- [x] Update memory-bank documentation
+   - Document the fix in progress.md and activeContext.md
+   - Clean up obsolete files (tools/network/ensurePortAvailable.ts)
+   - Update package and docs READMEs with new net utilities
 
 - [x] AR.js wallpaper: add flat shader to `a-sphere` background
 

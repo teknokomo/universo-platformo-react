@@ -22,7 +22,8 @@
   "dependencies": {
     "@colyseus/redis-presence": "^0.16.0",
     "@colyseus/schema": "^3.0.54",
-    "colyseus": "^0.16.4"
+    "colyseus": "^0.16.4",
+    "@universo-platformo/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
