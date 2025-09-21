@@ -3,6 +3,9 @@ import { Request, Response, NextFunction } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
+import session from 'express-session'
+import csurf from 'csurf'
+import rateLimit from 'express-rate-limit'
 // Universo Platformo | Removed express-basic-auth import - Basic Auth is no longer used
 // import basicAuth from 'express-basic-auth'
 const cookieParser = require('cookie-parser') // Universo Platformo | Add cookie-parser for refresh tokens
@@ -21,6 +24,7 @@ import { getAPIKeys } from './utils/apiKey'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import { Telemetry } from './utils/telemetry'
 import flowiseApiV1Router from './routes'
+import { passport, createAuthRouter } from '@universo/auth-srv'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { validateAPIKey } from './utils/validateKey'
@@ -31,6 +35,14 @@ import { QueueManager } from './queue/QueueManager'
 import { RedisEventSubscriber } from './queue/RedisEventSubscriber'
 import { WHITELIST_URLS } from './utils/constants'
 import 'global-agent/bootstrap'
+
+const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
+    if (!value) return 'lax'
+    const normalized = value.toLowerCase()
+    if (['lax', 'strict', 'none'].includes(normalized)) return normalized as 'lax' | 'strict' | 'none'
+    if (['true', 'false'].includes(normalized)) return normalized === 'true'
+    return 'lax'
+}
 
 declare global {
     namespace Express {
@@ -133,6 +145,13 @@ export class App {
     }
 
     async config() {
+        // Validate required authentication secrets at startup
+        const jwtSecret = process.env.SUPABASE_JWT_SECRET as string | undefined
+        if (!jwtSecret) {
+            logger.error('❌ [auth] SUPABASE_JWT_SECRET is not configured')
+            throw new Error('Auth configuration error: SUPABASE_JWT_SECRET is required')
+        }
+
         // Limit is needed to allow sending/receiving base64 encoded string
         const flowise_file_size_limit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
         this.app.use(express.json({ limit: flowise_file_size_limit }))
@@ -142,6 +161,43 @@ export class App {
 
         // Universo Platformo | Add cookie-parser middleware
         this.app.use(cookieParser() as any)
+
+        const sessionSecret = process.env.SESSION_SECRET
+        if (!sessionSecret) {
+            logger.warn('⚠️ [auth] SESSION_SECRET is not set. Falling back to insecure development secret.')
+        }
+
+        const sessionMaxAge = Number(process.env.SESSION_COOKIE_MAXAGE ?? 1000 * 60 * 60 * 24 * 7)
+        const cookieConfig: session.CookieOptions = {
+            httpOnly: true,
+            sameSite: parseSameSite(process.env.SESSION_COOKIE_SAMESITE),
+            secure: process.env.SESSION_COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
+            maxAge: Number.isFinite(sessionMaxAge) ? sessionMaxAge : 1000 * 60 * 60 * 24 * 7
+        }
+
+        if (cookieConfig.sameSite === 'none') {
+            cookieConfig.secure = true
+        }
+
+        if (process.env.SESSION_COOKIE_PARTITIONED === 'true') {
+            ;(cookieConfig as session.CookieOptions & { partitioned?: boolean }).partitioned = true
+        }
+
+        this.app.use(
+            session({
+                name: process.env.SESSION_COOKIE_NAME ?? 'up.session',
+                secret: sessionSecret ?? 'change-me',
+                resave: false,
+                saveUninitialized: false,
+                cookie: cookieConfig,
+            })
+        )
+
+        this.app.use(passport.initialize())
+        this.app.use(passport.session())
+
+        const csrfProtection = csurf({ cookie: false })
+        const loginLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
 
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))
@@ -166,6 +222,8 @@ export class App {
 
         // Add the sanitizeMiddleware to guard against XSS
         this.app.use(sanitizeMiddleware)
+
+        this.app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter))
 
         const whitelistURLs = WHITELIST_URLS
         const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
@@ -194,32 +252,46 @@ export class App {
                 // console.log(`[AUTH DEBUG] URL is whitelisted, allowing`)
                 return next()
             }
-            // Universo Platformo | Extract Authorization header
-            const authHeader = req.headers['authorization'] || req.headers['Authorization']
-            let supabaseUserId: string | null = null
-            if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-                const token = authHeader.substring(7)
-                try {
-                    // Universo Platformo | Verify JWT using Supabase secret key
-                    const decoded: any = jwt.verify(token, process.env.SUPABASE_JWT_SECRET as string)
-                    supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
-                    if (supabaseUserId) {
-                        // Universo Platformo | Save user data in req.user for further use
-                        ;(req as any).user = { id: supabaseUserId, ...decoded }
-                    }
-                } catch (err) {
-                    supabaseUserId = null
-                }
+            const sessionTokens = (req.session as any)?.tokens
+            const hasSession = Boolean(req.isAuthenticated?.() && sessionTokens?.access)
+            if (hasSession) {
+                req.headers.authorization = `Bearer ${sessionTokens.access}`
             }
-            // Universo Platformo | If JWT is missing or invalid, check API key
-            if (!supabaseUserId) {
+
+            const headerValue = req.headers['authorization'] || req.headers['Authorization']
+            const bearerToken =
+                typeof headerValue === 'string' && headerValue.startsWith('Bearer ')
+                    ? headerValue.substring(7)
+                    : null
+
+            const tokenToVerify = bearerToken ?? (hasSession ? sessionTokens?.access : null)
+
+            if (!tokenToVerify) {
                 const apiKeyValid = await validateAPIKey(req)
                 if (!apiKeyValid) {
-                    return res.status(401).json({ error: 'Unauthorized Access' })
+                    return res.status(401).json({ error: 'Unauthorized Access: Missing token' })
                 }
                 return next()
             }
-            return next()
+
+            try {
+                // JWT secret was already validated at startup
+                const decoded: any = jwt.verify(tokenToVerify, jwtSecret)
+                const supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
+                if (supabaseUserId) {
+                    ;(req as any).user = { id: supabaseUserId, ...decoded }
+                } else {
+                    ;(req as any).user = decoded
+                }
+                return next()
+            } catch (error) {
+                logger.warn('[auth] JWT verification error', error as Error)
+                const apiKeyValid = await validateAPIKey(req)
+                if (!apiKeyValid) {
+                    return res.status(401).json({ error: 'Unauthorized Access: Invalid or expired token' })
+                }
+                return next()
+            }
         })
         // ======= END NEW AUTHENTICATION MIDDLEWARE =======
 

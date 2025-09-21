@@ -1,61 +1,60 @@
-# Auth (Passport.js + Supabase) — Изолированный PoC
+# Auth (Passport.js + Supabase)
 
-Этот документ описывает изолированный PoC аутентификации, реализованный как отдельные пакеты: `apps/auth-srv/base` (сервер) и `apps/auth-frt/base` (фронтенд). PoC хранит токены Supabase на сервере и предоставляет безопасный cookie/CSRF‑базированный API для клиента.
+В Universo Platformo внедрена сессионная авторизация на базе Passport.js и Supabase. Реализация вынесена в два переиспользуемых пакета:
 
-> Важно: код PoC полностью изолирован и НЕ интегрирован в текущую систему. Существующие роуты и UI не изменялись.
+- `@universo/auth-srv` — интеграция Express/Passport, подключённая в `packages/server`
+- `@universo/auth-frt` — React-примитивы (`createAuthClient`, `useSession`, `LoginForm`), используемые в `packages/ui`
 
-## Возможности
+## Поток запросов
 
--   Passport LocalStrategy с Supabase как IdP
--   Серверные сессии с безопасными cookies (HttpOnly, SameSite, Secure)
--   Защита CSRF (double‑submit cookie + `X-CSRF-Token`)
--   Rate‑limit на `/login`
--   Per‑request клиент Supabase с RLS через `Authorization: Bearer <access>` из сессии
--   Автоматический refresh (single‑flight); при ошибке refresh — сессия инвалидируется
+1. `POST /api/v1/auth/login`
+    - Проверяет учётные данные через Supabase Auth (Passport LocalStrategy)
+    - Сохраняет access/refresh токены в Express-сессии (HttpOnly cookie)
+2. Все последующие запросы
+    - Браузер отправляет cookie сессии (`up.sid` по умолчанию)
+    - Middleware добавляет заголовок `Authorization: Bearer <access>`, поэтому существующие сервисы продолжают работать
+    - Токены автоматически обновляются при истечении срока
+3. `GET /api/v1/auth/me`
+    - Возвращает профиль пользователя Supabase из текущей сессии
+4. `POST /api/v1/auth/logout`
+    - Завершает сессию в Supabase и уничтожает сессию Express
 
-## Эндпоинты (префикс: `/api/v2/auth`)
+CSRF-защита включена для всех state-changing маршрутов через `csurf` и заголовок `X-CSRF-Token`, получаемый из `GET /api/v1/auth/csrf`.
 
--   `GET /csrf` — возвращает `{ csrfToken }`
--   `POST /login` — `{ email, password }` (требуется CSRF)
--   `GET /me` — возвращает `{ id, email }` при аутентификации
--   `POST /refresh` — опциональный ручной refresh (требуется CSRF); авто‑refresh прозрачен
--   `POST /logout` — выход (требуется CSRF)
+## Интеграция на фронтенде
 
-## Окружение
+`packages/ui` использует `@universo/auth-frt`:
 
--   `PORT` (по умолчанию: 3101)
--   `SESSION_SECRET` (обязательно)
--   `SUPABASE_URL` (обязательно)
--   `SUPABASE_ANON_KEY` (обязательно)
--   `SAME_SITE` (опционально; `lax` или `none`)
--   `DEV_SAME_ORIGIN` (опционально; `true` для dev при едином origin)
+```ts
+const authClient = createAuthClient({ baseURL: `${baseURL}/api/v1` })
+const { user, refresh, logout } = useSession({ client: authClient })
+```
 
-## Быстрый старт (PoC)
+Экран входа переиспользует `LoginForm`, полностью отказавшись от хранения токенов в `localStorage` и полагаясь на cookies + `withCredentials`.
 
--   Сервер (`apps/auth-srv/base`):
-    ```bash
-    pnpm --filter @universo/auth-srv build
-    pnpm --filter @universo/auth-srv start
-    ```
--   Фронтенд (`apps/auth-frt/base`):
-    ```bash
-    # установить VITE_AUTH_API=http://localhost:3101/api/v2
-    pnpm --filter @universo/auth-frt dev
-    ```
+## Переменные окружения
 
-## План внедрения (замена текущей авторизации)
+Определяются в `packages/server`:
 
-1. PoC (изолированно)
-    - Запустить сервер авторизации на порту 3101
-    - Клиент `apps/auth-frt`: проверить login → me → auto‑refresh → logout
-2. Интеграция в `packages/server`
-    - Добавить `express-session`, `passport`, `helmet`, `csurf`, `cors` при необходимости
-    - Заменить RLS по заголовку на RLS по сессии: `Authorization: Bearer <req.session.tokens.access>`
-    - Защищать маршруты через `req.isAuthenticated()`
-3. Интеграция в `packages/ui`
-    - Удалить хранение токенов в `localStorage` и Authorization‑интерсептор
-    - Перейти на `withCredentials: true` и `GET /auth/me` для guard‑логики
-4. Продакшен
-    - Redis‑хранилище сессий; cookies `SameSite=Lax; Secure; HttpOnly`
-    - CSRF для всех state‑changing запросов
-    - Регрессионные и нагрузочные тесты (rate‑limit логина)
+- `SESSION_SECRET`
+- `SESSION_COOKIE_NAME` (опционально, по умолчанию `up.sid`)
+- `SESSION_COOKIE_MAXAGE` (опционально, миллисекунды, по умолчанию 7 дней)
+- `SESSION_COOKIE_SAMESITE` (`lax`, `strict`, `none` или `true`/`false`)
+- `SESSION_COOKIE_SECURE` (`true` для Secure-cookie)
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
+
+## Сборка и проверка
+
+```bash
+pnpm --filter @universo/auth-srv build
+pnpm --filter @universo/auth-frt build
+pnpm --filter flowise build   # packages/server
+pnpm --filter flowise lint
+```
+
+После сборки запустите сервер (`pnpm --filter flowise dev`) и проверьте цепочку:
+
+1. `POST /api/v1/auth/login`
+2. `GET /api/v1/auth/me`
+3. Вызов защищённого маршрута (например, `/api/v1/uniks`) — проходит без ручного токена
+4. `POST /api/v1/auth/logout`

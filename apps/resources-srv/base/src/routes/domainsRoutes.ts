@@ -9,6 +9,12 @@ import { ResourceDomain } from '../database/entities/ResourceDomain'
 import { ensureClusterAccess, ensureDomainAccess } from './guards'
 import { z } from 'zod'
 
+const resolveUserId = (req: Request): string | undefined => {
+  const user = (req as any).user
+  if (!user) return undefined
+  return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Comments in English only
 export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
   const router = Router({ mergeParams: true })
@@ -52,7 +58,7 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
 
   // GET /domains
   router.get('/', asyncHandler(async (req, res) => {
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
     const { clusterUserRepo, domainClusterRepo } = repos()
@@ -87,7 +93,7 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
     const parsed = schema.safeParse(req.body || {})
     if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
     const { name, description, clusterId } = parsed.data
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -120,7 +126,7 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
   // GET /domains/:domainId
   router.get('/:domainId', asyncHandler(async (req, res) => {
     const { domainId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureDomainAccess(getDataSource(), userId, domainId)
     const { domainRepo } = repos()
@@ -133,7 +139,7 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
   router.put('/:domainId', asyncHandler(async (req, res) => {
     const { domainId } = req.params
     const { name, description } = req.body || {}
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureDomainAccess(getDataSource(), userId, domainId)
     const { domainRepo } = repos()
@@ -151,7 +157,7 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
   // DELETE /domains/:domainId
   router.delete('/:domainId', asyncHandler(async (req, res) => {
     const { domainId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureDomainAccess(getDataSource(), userId, domainId)
     const { domainRepo } = repos()
@@ -166,7 +172,7 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
   // GET /domains/:domainId/resources
   router.get('/:domainId/resources', asyncHandler(async (req, res) => {
     const { domainId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureDomainAccess(getDataSource(), userId, domainId)
     const { domainRepo, resourceDomainRepo } = repos()

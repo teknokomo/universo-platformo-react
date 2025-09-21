@@ -1,3 +1,47 @@
+## 2025-09-21 — Auth Session Integration
+
+Current focus: Merge Passport.js + Supabase session flow into core monorepo using @universo/auth-srv and @universo/auth-frt.
+
+**Server updates:**
+- Mounted `/api/v1/auth` router from `@universo/auth-srv` inside `packages/server` with express-session + csurf.
+- Added session-aware guard replacing legacy JWT middleware; Authorization header auto-populated from session tokens.
+- Removed obsolete `controllers/up-auth` REST endpoints.
+
+**Frontend updates:**
+- Consumed `createAuthClient`, `useSession`, and `LoginForm` in `packages/ui`.
+- Removed `localStorage` token logic; axios clients rely on cookies + automatic redirects on 401.
+- Rebuilt login page around shared `LoginForm` with i18n labels.
+
+**Documentation:**
+- READMEs (`apps/auth-*` + docs/en|ru) now describe integrated workflow, environment knobs, and build steps.
+
+Next: configure Redis-backed session store for production and QA end-to-end flow.
+
+### 2025-09-21 — Uniks Schema & RLS Refactor (In Progress)
+Refactored existing AddUniks migration (same ID) to introduce dedicated schema `uniks`, rename membership table to `uniks.uniks_users`, and replace permissive `auth.role()='authenticated'` policies with strict membership + `auth.uid()` based policies:
+- Policies enforce: member-only SELECT, owner/admin UPDATE/DELETE, controlled membership changes, initial unik insertion allowed for any authenticated user (application must create owner membership row transactionally).
+- Added helpful indexes on `(unik_id)` and `(user_id)` in membership table.
+- Added idempotent column attachment logic for `unik_id` on core tables (does not force NOT NULL yet to allow gradual backfill).
+Pending follow-up tasks: adjust dependent migrations/entities to schema-qualify foreign keys, implement user-scoped Supabase client factory, and refactor access control + routers to use `uniks.uniks_users`.
+Update (later 2025-09-21): Dependent finance & spaces migrations updated to reference `uniks.uniks`; added user-scoped client factory; refactored access control service and Uniks routers to use schema-qualified tables. Next: add RLS integration tests and documentation updates.
+Update (2025-09-21 evening): внедрён TypeORM-сервис `WorkspaceAccessService` с кешированием по запросу, переведены контроллеры Chatflows/Assistants/Credentials/Variables/DocumentStore/API Keys/Bots на новый слой доступа, Supabase REST-клиент удалён. Для Spaces добавлен транзакционный пайплайн (через `manager.getRepository`), обновлены сессионные cookie (`SESSION_COOKIE_PARTITIONED`, дефолт `up.session`). Добавлен unit-тест `packages/server/src/services/access-control/__tests__/workspaceAccessService.test.ts`.
+
+## 2025-09-20 — Flowise UI PropTypes Guard
+
+- Added an explicit `prop-types` import for `ProfileSection` to restore production builds (missing import caused `PropTypes is not defined`).
+- Verified the issue by inspecting Vite bundle output; other components already import PropTypes via `import * as PropTypes`.
+- Plan: gradually replace PropTypes with TypeScript definitions using the official React 19 codemod (`npx codemod@latest react/prop-types-typescript`), starting from high-traffic UI modules.
+
+## 2025-09-20 — Auth UI Regression Analysis
+
+- `/auth` kept reloading because the shared Axios client automatically redirected to `/auth` on every 401; `useSession` calls `/auth/me` even on the auth page, triggering the redirect loop.
+- Legacy login/registration layout (MUI form with toggle) lives in backup repo `universo-platformo-react-2025-09-20` and must be reintroduced on top of the new session-based context.
+- Applied fix: guard the Axios 401 interceptor against executing on `/auth`, restore the MUI login/registration UI, and expose a CSRF-protected `/auth/register` endpoint in `@universo/auth-srv` for Supabase sign-up.
+- Shared React UI primitives now come from `@universо/auth-frt`: added `AuthView` (MUI-based login/register form with slot overrides) and updated `useSession.refresh()` to return the fetched user so `login()` can surface refresh failures immediately.
+- Normalized session consumers to Passport: `@universо/uniks-srv` now reads `req.user.id` (fallback to `sub`) and front-end 401 handlers avoid repeated logout storms.
+- Server-side Supabase client switches to `SUPABASE_SERVICE_ROLE_KEY` (with fallback to anon key) so backend routers can read/write Supabase tables under RLS.
+- Uniks-роуты используют `schema('uniks')` с fallback на fully-qualified имена и логирование PGRST106/42P01; сервер передаёт per-request Supabase client через `getSupabaseForReq`.
+
 ## 2025-09-20 — Build Error Resolution
 
 Current focus: Fixed critical TypeScript build error "Cannot find module '@universo/multiplayer-colyseus-srv'" that was blocking full workspace builds.

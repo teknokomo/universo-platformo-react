@@ -7,25 +7,27 @@ import { useCallback } from 'react'
  * Provides consistent 401 error handling across components
  */
 export const useAuthError = () => {
-    const { logout } = useAuth()
+    const { logout, isAuthenticated } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
 
     const handleAuthError = useCallback(
         (error) => {
             if (error?.response?.status === 401) {
-                // Clear authentication tokens
-                logout()
-                // Redirect to auth page with return path
-                navigate('/auth', {
-                    state: { from: location.pathname },
-                    replace: true
-                })
+                const isAuthPath = location.pathname.startsWith('/auth')
+                if (isAuthenticated) {
+                    logout()
+                } else if (!isAuthPath) {
+                    navigate('/auth', {
+                        state: { from: location.pathname },
+                        replace: true
+                    })
+                }
                 return true // Error was handled
             }
             return false // Error was not handled, let component handle it
         },
-        [logout, navigate, location]
+        [logout, navigate, location, isAuthenticated]
     )
 
     return { handleAuthError }

@@ -96,8 +96,10 @@ services:
     restart: always
     environment:
       - PORT=3000
-      - FLOWISE_USERNAME=admin
-      - FLOWISE_PASSWORD=1234
+      - SESSION_SECRET=super-secret
+      - SUPABASE_URL=https://xyz.supabase.co
+      - SUPABASE_ANON_KEY=public-anon
+      - SUPABASE_JWT_SECRET=service-secret
       - FLOWISE_FILE_SIZE_LIMIT=50mb
     ports:
       - '3000:3000'

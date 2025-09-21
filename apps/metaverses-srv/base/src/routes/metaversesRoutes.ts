@@ -8,6 +8,12 @@ import { Section } from '../database/entities/Section'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { ensureMetaverseAccess, ensureSectionAccess } from './guards'
 
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Comments in English only
 export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
     const router = Router({ mergeParams: true })
@@ -44,7 +50,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     router.get(
         '/',
         asyncHandler(async (req, res) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             const { metaverseUserRepo } = repos()
@@ -70,7 +76,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             if (!name) return res.status(400).json({ error: 'name is required' })
 
             // Get user ID from middleware (req.user should be set by ensureAuth)
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -107,7 +113,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         '/:metaverseId/entities',
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             // Debug log removed
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -139,7 +145,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         '/:metaverseId/entities/:entityId',
         asyncHandler(async (req, res) => {
             const { metaverseId, entityId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
             const { linkRepo, metaverseRepo, entityRepo } = repos()
@@ -160,7 +166,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         '/:metaverseId/entities/:entityId',
         asyncHandler(async (req, res) => {
             const { metaverseId, entityId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
             const { linkRepo } = repos()
@@ -178,7 +184,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             const { metaverseId } = req.params
             const { items } = req.body || {}
             if (!Array.isArray(items)) return res.status(400).json({ error: 'items must be an array' })
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
             const { linkRepo } = repos()
@@ -201,7 +207,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         '/:metaverseId/sections',
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             // Debug log removed
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -233,7 +239,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         '/:metaverseId/sections/:sectionId',
         asyncHandler(async (req, res) => {
             const { metaverseId, sectionId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             // Ensure the user can access both the metaverse and the section
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId)

@@ -3,7 +3,7 @@ import assistantsService from '../../services/assistants'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
 import { AssistantType } from '../../Interface'
-import { accessControlService } from '../../services/access-control'
+import { ensureUnikMembershipResponse } from '../../services/access-control'
 
 const createAssistant = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -21,20 +21,10 @@ const createAssistant = async (req: Request, res: Response, next: NextFunction) 
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.createAssistant({ ...req.body, unikId })
         return res.json(apiResponse)
@@ -59,20 +49,10 @@ const deleteAssistant = async (req: Request, res: Response, next: NextFunction) 
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.deleteAssistant(req.params.id, req.query.isDeleteBoth, unikId)
         return res.json(apiResponse)
@@ -92,20 +72,10 @@ const getAllAssistants = async (req: Request, res: Response, next: NextFunction)
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.getAllAssistants(type, unikId)
         return res.json(apiResponse)
@@ -130,20 +100,10 @@ const getAssistantById = async (req: Request, res: Response, next: NextFunction)
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.getAssistantById(req.params.id, unikId)
         return res.json(apiResponse)
@@ -174,20 +134,10 @@ const updateAssistant = async (req: Request, res: Response, next: NextFunction) 
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.updateAssistant(req.params.id, req.body, unikId)
         return res.json(apiResponse)
@@ -206,20 +156,10 @@ const getChatModels = async (req: Request, res: Response, next: NextFunction) =>
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.getChatModels()
         return res.json(apiResponse)
@@ -238,20 +178,10 @@ const getDocumentStores = async (req: Request, res: Response, next: NextFunction
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.getDocumentStores()
         return res.json(apiResponse)
@@ -267,20 +197,10 @@ const getTools = async (req: Request, res: Response, next: NextFunction) => {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: assistantsController.getTools - unikId not provided!`)
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.getTools()
         return res.json(apiResponse)
@@ -305,20 +225,10 @@ const generateAssistantInstruction = async (req: Request, res: Response, next: N
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: 'Access denied: You do not have permission to access this Unik'
+        })
+        if (!userId) return
 
         const apiResponse = await assistantsService.generateAssistantInstruction(req.body.task, req.body.selectedChatModel)
         return res.json(apiResponse)

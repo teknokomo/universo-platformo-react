@@ -2,18 +2,22 @@
 
 Бекенд workspace-пакет для функциональности управления рабочими пространствами в экосистеме Universo Platformo.
 
+> Обновление Q3 2025: Добавлена выделенная схема Postgres `uniks` с RLS, расширенная ролевая модель (`owner|admin|editor|member`), гибридная аутентификация Passport.js + Supabase (сессии + валидация токена), переход с Supabase REST на TypeORM репозитории.
+
 ## Обзор
 
 Uniks Server - это бекенд workspace-пакет (`@universo/uniks-srv`), который предоставляет функциональность управления рабочими пространствами. Он обрабатывает CRUD операции с рабочими пространствами, управление участниками и интегрируется с основным сервером Flowise для предоставления workspace-специфичной маршрутизации.
 
 ## Ключевые возможности
 
--   **CRUD операции с рабочими пространствами**: Создание, чтение, обновление и удаление рабочих пространств
--   **Управление участниками**: Добавление и удаление участников рабочих пространств
--   **Интеграция с базой данных**: TypeORM сущности и миграции PostgreSQL
--   **Аутентификация**: Интеграция с Supabase для аутентификации пользователей
--   **Интеграция роутов**: Вложенное монтирование роутов под префиксом `/:unikId`
--   **Типобезопасность**: Полная поддержка TypeScript с декларациями типов
+- **Workspace CRUD**: Репозитории TypeORM (таблица `uniks.uniks`)
+- **Управление участниками**: Ролевая модель с жёстким перечислением
+- **Расширенные роли**: `owner`, `admin`, `editor`, `member` (вместо прежних owner/member)
+- **Гибридная аутентификация**: Passport.js сессии + Supabase токены
+- **RLS защита**: Политики Postgres на основе членства
+- **Кэш членства**: На уровне запроса (минимизация повторных запросов)
+- **Безопасные роуты**: Централизованная проверка доступа
+- **Типобезопасность**: Строгие enum/union типы + runtime guard'ы
 
 ## Структура
 
@@ -29,66 +33,93 @@ src/
 └── index.ts        # Точка входа пакета
 ```
 
-## API эндпоинты
+## API эндпоинты (обновлено)
 
 ### Управление рабочими пространствами
 
--   `GET /uniks` - Список всех рабочих пространств для аутентифицированного пользователя
--   `POST /uniks` - Создание нового рабочего пространства
--   `GET /uniks/:id` - Получение деталей рабочего пространства
--   `PUT /uniks/:id` - Обновление рабочего пространства
--   `DELETE /uniks/:id` - Удаление рабочего пространства
+- `GET /uniks` – Рабочие пространства, доступные пользователю (требуется членство)
+- `POST /uniks` – Создание (создатель получает роль `owner`)
+- `GET /uniks/:id` – Детали (любой участник)
+- `PUT /uniks/:id` – Обновление (роли: `admin|owner`)
+- `DELETE /uniks/:id` – Удаление (роль: `owner`)
 
 ### Управление участниками
 
--   `POST /uniks/members` - Добавление участника в рабочее пространство
--   `DELETE /uniks/members/:userId` - Удаление участника из рабочего пространства
--   `GET /uniks/:id/members` - Список участников рабочего пространства
+- `GET /uniks/:id/members` – Список участников (любой member)
+- `POST /uniks/:id/members` – Добавление участника (роли: `admin|owner`)
+- `PUT /uniks/:id/members/:userId` – Смена роли (роль: `owner`)
+- `DELETE /uniks/:id/members/:userId` – Удаление (роль: `owner`)
 
-## Схема базы данных
+## Схема базы данных (текущая)
 
-### Сущность Unik
+### Схема и таблицы
+Все таблицы находятся в выделенной схеме `uniks`:
 
-```typescript
-interface Unik {
-    id: string
-    name: string
-    description?: string
-    owner_id: string
-    created_at: Date
-    updated_at: Date
-}
+```sql
+CREATE SCHEMA IF NOT EXISTS uniks;
+
+CREATE TABLE uniks.uniks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE uniks.uniks_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    unik_id UUID NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('owner','admin','editor','member')),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, unik_id)
+);
 ```
 
-### Сущность UserUnik
-
+### TypeORM сущности (фрагмент)
 ```typescript
-interface UserUnik {
-    id: string
-    user_id: string
-    unik_id: string
-    role: 'owner' | 'member'
-    created_at: Date
-}
+export const UNIK_ROLES = ['owner','admin','editor','member'] as const
+export type UnikRole = typeof UNIK_ROLES[number]
+
+@Entity({ schema: 'uniks', name: 'uniks' })
+export class Unik { /* поля, таймстемпы, связи memberships */ }
+
+@Entity({ schema: 'uniks', name: 'uniks_users' })
+export class UnikUser { /* id, userId, unikId, role, createdAt */ }
+```
+
+### Политики RLS (концепт)
+```sql
+ALTER TABLE uniks.uniks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE uniks.uniks_users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY uniks_select_members ON uniks.uniks
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM uniks.uniks_users mu
+            WHERE mu.unik_id = uniks.id AND mu.user_id = auth.uid()
+        )
+    );
 ```
 
 ## Интеграция
 
 Этот пакет интегрируется с:
 
--   **Основным сервером**: Предоставляет роуты рабочих пространств основному серверу Flowise
--   **Supabase**: Использует сервисы аутентификации и базы данных
--   **TypeORM**: ORM базы данных для управления сущностями
--   **Express**: Веб-фреймворк для обработки роутов
+- **Основным сервером**: Монтаж роутов + инъекция контекста сессии
+- **Passport.js**: Слой сессий, гидратация личности пользователя
+- **Supabase**: Валидация токенов и источник identity
+- **TypeORM**: Репозитории и сущности в схеме
+- **Express**: Маршрутизация и middleware цепочка
 
 ## Разработка
 
 ### Предварительные требования
 
--   Node.js 18+
--   Менеджер пакетов PNPM
--   База данных PostgreSQL
--   Доступ к проекту Supabase
+- Node.js 18+
+- PNPM
+- PostgreSQL с `pgcrypto` (для `gen_random_uuid()`)
+- Доступ к Supabase (URL, anon/service ключи)
 
 ### Установка
 
@@ -142,12 +173,14 @@ pnpm build --filter @universo/uniks-srv
 
 ## Миграции базы данных
 
-Пакет включает миграции PostgreSQL для:
+Единственная обновлённая миграция (in-place `AddUniks`):
 
--   Создания таблицы `uniks`
--   Создания таблицы `user_uniks`
--   Настройки правильных индексов и ограничений
--   Добавления связей внешних ключей
+- Добавлена схема `uniks`
+- Переименование `user_uniks` → `uniks.uniks_users`
+- Композитная уникальность `(user_id, unik_id)`
+- Расширенный набор ролей + CHECK ограничение
+- Включён RLS + политики членства
+- Индексы для быстрого поиска членств
 
 ## Декларации типов
 
@@ -159,19 +192,23 @@ pnpm build --filter @universo/uniks-srv
 
 ## Безопасность
 
--   **Аутентификация**: Все роуты требуют валидные JWT токены Supabase
--   **Авторизация**: Операции с рабочими пространствами ограничены владельцами/участниками
--   **Защита от SQL инъекций**: Использование параметризованных запросов TypeORM
--   **Валидация ввода**: Валидация запросов для всех эндпоинтов
+- **Гибридная аутентификация**: Passport.js сессии + Supabase JWT проверка
+- **Авторизация ролей**: Центральный guard (`WorkspaceAccessService.ensure`)
+- **Многоуровневая защита**: Политики RLS + проверки приложения
+- **SQL защита**: Параметризация в TypeORM
+- **Валидация ввода**: DTO / schema проверка
+- **Минимально необходимые привилегии**: Расширенные роли уменьшают поверхность прав
 
 ## Обработка ошибок
 
-Пакет реализует комплексную обработку ошибок:
+Стандартизированная таксономия ошибок:
 
--   **Ошибки базы данных**: Правильные ответы об ошибках для операций с базой данных
--   **Ошибки аутентификации**: 401 ответы для невалидных токенов
--   **Ошибки авторизации**: 403 ответы для неавторизованного доступа
--   **Ошибки валидации**: 400 ответы для невалидных входных данных
+- **401 Unauthorized**: Отсутствует/некорректна сессия или токен
+- **403 Forbidden**: Недостаточная роль (логируется без утечки деталей)
+- **404 Not Found**: Недоступно или не существует
+- **409 Conflict**: Дублируемое членство
+- **422 Unprocessable Entity**: Ошибка валидации
+- **500 Internal Error**: Неожиданная ошибка (корреляция по request id)
 
 ## Вклад в разработку
 

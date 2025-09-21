@@ -2,17 +2,20 @@
 
 Frontend application for workspace management functionality in the Universo Platformo ecosystem.
 
+> Q3 2025 Update: Interface aligned with new backend architecture (schema `uniks`, expanded roles `owner/admin/editor/member`, Passport.js + Supabase hybrid auth, membership-based access control).
+
 ## Overview
 
 The Uniks Frontend application provides a user-friendly interface for creating, managing, and organizing workspaces. It offers workspace listing, creation, editing, and member management capabilities with full internationalization support.
 
 ## Key Features
 
--   **Workspace Management**: Create, edit, and delete workspaces
--   **User Interface**: Responsive Material-UI based interface
--   **Member Management**: Add and remove workspace members
--   **Internationalization**: Full support for English and Russian languages
--   **Navigation**: Seamless integration with main platform navigation
+- **Workspace Management**: Create, edit, delete (role-gated)
+- **Member Management**: Add/remove & view roles (live constraints)
+- **Expanded Role Awareness**: UI reacts to `owner/admin/editor/member`
+- **Responsive UI**: Material-UI system
+- **Internationalization**: English & Russian parity
+- **Navigation Integration**: Unified platform routing
 
 ## Structure
 
@@ -57,9 +60,10 @@ Translation keys are organized under the `uniks` namespace.
 
 This application integrates with:
 
--   **Main UI Package**: Provides workspace management functionality to the main platform
--   **Uniks Backend**: Communicates with `@universo/uniks-srv` for data operations
--   **Supabase**: Uses authentication and user management services
+- **Main UI Package**: Routed via shared shell layout
+- **Uniks Backend**: Calls `@universo/uniks-srv` endpoints (role-gated)
+- **Hybrid Auth Layer**: Passport.js session context + Supabase identity
+- **Access Control Hooks**: Derived capabilities from membership data
 
 ## Development
 
@@ -134,22 +138,38 @@ The application uses the following configuration:
 
 ## API Integration
 
-The application communicates with the backend through the main UI package integration, which handles:
+The application communicates with the backend through shared platform API utilities:
 
--   Workspace CRUD operations
--   Member management
--   User authentication
--   Data synchronization
+- Workspace CRUD (schema-qualified server layer)
+- Membership listing & mutation
+- Role derivation -> conditional UI rendering
+- Session state (Passport.js) + identity (Supabase) consumption
 
 ## Contributing
+## Testing
 
-When contributing to this application:
+Role-aware UI behavior should be covered by component tests (e.g. action buttons hidden for `member` but visible for `admin`). Suggested areas:
 
-1. Follow the established TypeScript patterns
-2. Maintain internationalization support
-3. Use Material-UI components for consistency
-4. Test with both English and Russian languages
-5. Follow the project's coding standards
+- Workspace list rendering (empty, populated, filtered)
+- Membership role badge display
+- Conditional action menus per role
+- Dialog form validation & submission lifecycle
+
+Run tests (if configured):
+
+```bash
+pnpm --filter @universo/uniks-frt test
+```
+
+If a test harness is not yet present, add one under `src/__tests__/` using React Testing Library.
+
+When contributing:
+
+1. Preserve role-based conditional rendering (avoid hard-coded role names)
+2. Maintain i18n parity (EN/RU) — no untranslated strings
+3. Keep network logic inside shared hooks/services (no ad-hoc fetch in components)
+4. Avoid direct assumptions about membership shape (use exported types)
+5. Follow accessibility guidelines (focus management in dialogs)
 
 ## Related Documentation
 

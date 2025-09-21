@@ -55,10 +55,10 @@ export class SpacesCore1743000000000 implements MigrationInterface {
         try {
             await queryRunner.query(`
                 ALTER TABLE "public"."spaces"
-                    ADD CONSTRAINT "FK_spaces_unik" FOREIGN KEY ("unik_id") REFERENCES "uniks"("id") ON DELETE CASCADE;
+                    ADD CONSTRAINT "FK_spaces_unik" FOREIGN KEY ("unik_id") REFERENCES uniks.uniks(id) ON DELETE CASCADE;
             `)
         } catch (e) {
-            console.warn('[SpacesCore] Unable to add FK spaces.unik_id -> uniks(id). Continuing without it.', e)
+            console.warn('[SpacesCore] Unable to add FK spaces.unik_id -> uniks.uniks(id). Continuing without it.', e)
         }
 
         try {

@@ -5,32 +5,20 @@ import { Dialog, DialogContent, DialogTitle, TableContainer, Table, TableHead, T
 import moment from 'moment'
 import axios from 'axios'
 import { baseURL } from '@/store/constant'
+import { useAuth } from '@/utils/authProvider'
 import { useTranslation } from 'react-i18next'
 
 const AboutDialog = ({ show, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const { t } = useTranslation()
+    const { client } = useAuth()
 
     const [data, setData] = useState({})
 
     useEffect(() => {
         if (show) {
-            const username = localStorage.getItem('username')
-            const password = localStorage.getItem('password')
-
-            const config = {}
-            if (username && password) {
-                config.auth = {
-                    username,
-                    password
-                }
-                config.headers = {
-                    'Content-type': 'application/json',
-                    'x-request-from': 'internal'
-                }
-            }
             const latestReleaseReq = axios.get('https://api.github.com/repos/FlowiseAI/Flowise/releases/latest')
-            const currentVersionReq = axios.get(`${baseURL}/api/v1/version`, { ...config })
+            const currentVersionReq = client.get('version')
 
             Promise.all([latestReleaseReq, currentVersionReq])
                 .then(([latestReleaseData, currentVersionData]) => {
@@ -45,8 +33,7 @@ const AboutDialog = ({ show, onCancel }) => {
                 })
         }
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [show])
+    }, [show, client])
 
     const component = show ? (
         <Dialog

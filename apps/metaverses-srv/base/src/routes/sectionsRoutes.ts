@@ -9,6 +9,12 @@ import { EntitySection } from '../database/entities/EntitySection'
 import { ensureSectionAccess } from './guards'
 import { z } from 'zod'
 
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Comments in English only
 export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
     const router = Router({ mergeParams: true })
@@ -56,7 +62,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     router.get(
         '/',
         asyncHandler(async (req, res) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             const { metaverseUserRepo, sectionMetaverseRepo } = repos()
@@ -94,7 +100,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
             const { name, description, metaverseId } = parsed.data
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -131,7 +137,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
         '/:sectionId',
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)
             const { sectionRepo } = repos()
@@ -147,7 +153,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
             const { name, description } = req.body || {}
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)
             const { sectionRepo } = repos()
@@ -168,7 +174,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
         '/:sectionId',
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)
             const { sectionRepo } = repos()
@@ -186,7 +192,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
         '/:sectionId/entities',
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)
             const { sectionRepo, entitySectionRepo } = repos()

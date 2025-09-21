@@ -1,8 +1,7 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import PropTypes from 'prop-types'
-import axios from 'axios'
 
 // Material
 import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
@@ -11,9 +10,7 @@ import { styled } from '@mui/material/styles'
 
 // API
 import credentialsApi from '@/api/credentials'
-
-// const
-import { baseURL } from '@/store/constant'
+import { useAuth } from '@/utils/authProvider'
 
 const StyledPopper = styled(Popper)({
     boxShadow: '0px 8px 10px -5px rgb(0 0 0 / 20%), 0px 16px 24px 2px rgb(0 0 0 / 14%), 0px 6px 30px 5px rgb(0 0 0 / 12%)',
@@ -26,29 +23,6 @@ const StyledPopper = styled(Popper)({
         }
     }
 })
-
-const fetchList = async ({ name, nodeData }) => {
-    const loadMethod = nodeData.inputParams.find((param) => param.name === name)?.loadMethod
-    const username = localStorage.getItem('username')
-    const password = localStorage.getItem('password')
-
-    let lists = await axios
-        .post(
-            `${baseURL}/api/v1/node-load-method/${nodeData.name}`,
-            { ...nodeData, loadMethod },
-            {
-                auth: username && password ? { username, password } : undefined,
-                headers: { 'Content-type': 'application/json', 'x-request-from': 'internal' }
-            }
-        )
-        .then(async function (response) {
-            return response.data
-        })
-        .catch(function (error) {
-            console.error(error)
-        })
-    return lists
-}
 
 export const AsyncDropdown = ({
     name,
@@ -65,6 +39,7 @@ export const AsyncDropdown = ({
 }) => {
     const customization = useSelector((state) => state.customization)
     const { unikId } = useParams()
+    const { client } = useAuth()
 
     const [open, setOpen] = useState(false)
     const [options, setOptions] = useState([])
@@ -85,7 +60,7 @@ export const AsyncDropdown = ({
     const addNewOption = [{ label: '- Create New -', name: '-create-' }]
     let [internalValue, setInternalValue] = useState(value ?? 'choose an option')
 
-    const fetchCredentialList = async () => {
+    const fetchCredentialList = useCallback(async () => {
         try {
             let names = ''
             if (credentialNames.length > 1) {
@@ -109,22 +84,39 @@ export const AsyncDropdown = ({
         } catch (error) {
             console.error(error)
         }
-    }
+    }, [credentialNames, unikId])
+
+    const fetchDynamicOptions = useCallback(async () => {
+        try {
+            const loadMethod = nodeData.inputParams.find((param) => param.name === name)?.loadMethod
+            const response = await client.post(`node-load-method/${nodeData.name}`, { ...nodeData, loadMethod })
+            return response.data ?? []
+        } catch (error) {
+            console.error(error)
+            return []
+        }
+    }, [client, name, nodeData])
 
     useEffect(() => {
-        setLoading(true)
-        ;(async () => {
-            const fetchData = async () => {
-                let response = credentialNames.length ? await fetchCredentialList() : await fetchList({ name, nodeData })
-                if (isCreateNewOption) setOptions([...response, ...addNewOption])
-                else setOptions([...response])
-                setLoading(false)
+        let isMounted = true
+        const loadOptions = async () => {
+            setLoading(true)
+            try {
+                const response = credentialNames.length ? await fetchCredentialList() : await fetchDynamicOptions()
+                if (!isMounted) return
+                const nextOptions = response ?? []
+                setOptions(isCreateNewOption ? [...nextOptions, ...addNewOption] : [...nextOptions])
+            } finally {
+                if (isMounted) setLoading(false)
             }
-            fetchData()
-        })()
+        }
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        loadOptions()
+
+        return () => {
+            isMounted = false
+        }
+    }, [fetchCredentialList, fetchDynamicOptions, isCreateNewOption])
 
     return (
         <>

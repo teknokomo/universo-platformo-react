@@ -1,159 +1,125 @@
+jest.mock('typeorm', () => {
+  const decorator = () => () => {}
+  return {
+    __esModule: true,
+    Entity: decorator,
+    PrimaryGeneratedColumn: decorator,
+    Column: decorator,
+    ManyToOne: decorator,
+    JoinColumn: decorator,
+    Unique: decorator
+  }
+}, { virtual: true })
+
 import type { Request, Response, NextFunction, Router } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
+import { createUniksCollectionRouter, createUnikIndividualRouter } from '../../routes/uniksRoutes'
+import { createMockRepository, createMockDataSource } from '../utils/typeormMocks'
 
-import {
-  createUniksCollectionRouter,
-  createUnikIndividualRouter
-} from '../../routes/uniksRoutes'
-import {
-  createSupabaseClientMock,
-  type SupabaseClientMockConfig,
-  type SupabaseHandler,
-  ensureAuth
-} from '../utils/supabaseMocks'
+const ensureAuth = (userId: string) => (req: Request, _res: Response, next: NextFunction) => {
+  ;(req as any).user = { id: userId }
+  next()
+}
 
-describe('uniks routes', () => {
-  const createApp = (router: Router) => {
+describe('uniks routes (TypeORM)', () => {
+  const buildCollectionApp = (userId: string, repos: { unikRepo: any; membershipRepo: any }) => {
+    const dataSource = createMockDataSource({ Unik: repos.unikRepo, UnikUser: repos.membershipRepo })
+    const router = createUniksCollectionRouter(ensureAuth(userId), () => dataSource as any)
     const app = express()
     app.use(express.json())
     app.use(router)
-    return app
+    return { app, dataSource }
   }
 
-  const buildCollectionApp = (userId: string, config: SupabaseClientMockConfig) =>
-    createApp(createUniksCollectionRouter(ensureAuth({ sub: userId }), createSupabaseClientMock(config) as any))
+  const buildIndividualApp = (userId: string, repos: { unikRepo: any; membershipRepo: any }) => {
+    const dataSource = createMockDataSource({ Unik: repos.unikRepo, UnikUser: repos.membershipRepo })
+    const router = createUnikIndividualRouter(ensureAuth(userId), () => dataSource as any)
+    const app = express()
+    app.use(express.json())
+    app.use(router)
+    return { app }
+  }
 
-  const buildIndividualApp = (userId: string, config: SupabaseClientMockConfig) =>
-    createApp(createUnikIndividualRouter(ensureAuth({ sub: userId }), createSupabaseClientMock(config) as any))
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
 
   it('возвращает список юников текущего пользователя', async () => {
-    const selectHandler: SupabaseHandler = jest.fn().mockResolvedValue({
-      data: [
-        { role: 'owner', unik: { id: 'unik-1', name: 'Main workspace' } },
-        { role: 'editor', unik: { id: 'unik-2', name: 'Second' } }
-      ],
-      error: null
-    })
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.find.mockResolvedValue([
+      { unik_id: 'unik-1', role: 'owner', unik: { id: 'unik-1', name: 'Main', created_at: '2025-01-01' } },
+      { unik_id: 'unik-2', role: 'editor', unik: { id: 'unik-2', name: 'Side', created_at: '2025-01-02' } }
+    ])
 
-    const app = buildCollectionApp('user-1', {
-      user_uniks: { select: selectHandler }
-    })
-
+    const { app } = buildCollectionApp('user-1', { unikRepo, membershipRepo })
     const response = await request(app).get('/')
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual([
-      { id: 'unik-1', name: 'Main workspace', role: 'owner' },
-      { id: 'unik-2', name: 'Second', role: 'editor' }
+      { id: 'unik-1', name: 'Main', created_at: '2025-01-01', role: 'owner' },
+      { id: 'unik-2', name: 'Side', created_at: '2025-01-02', role: 'editor' }
     ])
-    expect(selectHandler).toHaveBeenCalledWith({
-      table: 'user_uniks',
-      method: 'select',
-      filters: [{ column: 'user_id', value: 'user-1' }],
-      payload: undefined,
-      returning: true
+    expect(membershipRepo.find).toHaveBeenCalledWith({
+      where: { user_id: 'user-1' },
+      relations: ['unik'],
+      order: { role: 'ASC' }
     })
   })
 
   it('создаёт уник и связывает владельца', async () => {
-    const insertUnik: SupabaseHandler = jest.fn().mockResolvedValue({
-      data: [{ id: 'unik-3', name: 'Workspace' }],
-      error: null
-    })
-    const insertRelation: SupabaseHandler = jest.fn().mockResolvedValue({
-      data: [{ id: 'relation-1' }],
-      error: null
-    })
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    unikRepo.create.mockImplementation((payload) => ({ id: 'unik-3', created_at: new Date().toISOString(), ...payload }))
+    unikRepo.save.mockResolvedValue({ id: 'unik-3', name: 'Workspace', created_at: '2025-01-05' })
+    membershipRepo.create.mockImplementation((payload) => payload)
+    membershipRepo.save.mockResolvedValue({})
 
-    const app = buildCollectionApp('user-42', {
-      uniks: { insert: insertUnik },
-      user_uniks: {
-        select: jest.fn().mockResolvedValue({ data: [], error: null }),
-        insert: insertRelation
-      }
-    })
-
+    const { app } = buildCollectionApp('user-42', { unikRepo, membershipRepo })
     const response = await request(app).post('/').send({ name: 'Workspace' })
 
     expect(response.status).toBe(201)
-    expect(response.body).toEqual({ id: 'unik-3', name: 'Workspace' })
-    expect(insertUnik).toHaveBeenCalledWith({
-      table: 'uniks',
-      method: 'insert',
-      filters: [],
-      payload: { name: 'Workspace' },
-      returning: true
-    })
-    expect(insertRelation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        table: 'user_uniks',
-        method: 'insert',
-        payload: {
-          user_id: 'user-42',
-          unik_id: 'unik-3',
-          role: 'owner'
-        }
-      })
-    )
+    expect(unikRepo.create).toHaveBeenCalledWith({ name: 'Workspace' })
+    expect(membershipRepo.create).toHaveBeenCalledWith({ user_id: 'user-42', unik_id: 'unik-3', role: 'owner' })
+    expect(response.body).toEqual({ id: 'unik-3', name: 'Workspace', created_at: '2025-01-05' })
   })
 
   it('запрещает добавление участника без прав владельца', async () => {
-    const membershipCheck: SupabaseHandler = jest.fn().mockResolvedValue({
-      data: { role: 'editor' },
-      error: null
-    })
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.findOne.mockResolvedValue({ role: 'editor' })
 
-    const app = buildCollectionApp('user-7', {
-      user_uniks: {
-        select: membershipCheck,
-        insert: jest.fn()
-      }
-    })
-
+    const { app } = buildCollectionApp('user-7', { unikRepo, membershipRepo })
     const response = await request(app)
       .post('/members')
       .send({ unik_id: 'unik-9', user_id: 'member-1', role: 'editor' })
 
     expect(response.status).toBe(403)
-    expect(membershipCheck).toHaveBeenCalledWith({
-      table: 'user_uniks',
-      method: 'select',
-      filters: [
-        { column: 'unik_id', value: 'unik-9' },
-        { column: 'user_id', value: 'user-7' }
-      ],
-      payload: undefined,
-      returning: true
-    })
+  })
+
+  it('обновляет уник редактором (editor разрешён)', async () => {
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.findOne.mockResolvedValue({ role: 'editor' })
+    unikRepo.createQueryBuilder().execute.mockResolvedValue({ raw: [{ id: 'unik-1', name: 'Renamed' }] })
+
+    const { app } = buildIndividualApp('user-55', { unikRepo, membershipRepo })
+    const response = await request(app).put('/unik-1').send({ name: 'Renamed' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({ id: 'unik-1', name: 'Renamed' })
   })
 
   it('удаляет уник владельцем', async () => {
-    const membership: SupabaseHandler = jest.fn().mockResolvedValue({
-      data: { role: 'owner' },
-      error: null
-    })
-    const deleteHandler: SupabaseHandler = jest.fn().mockResolvedValue({ error: null })
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.findOne.mockResolvedValue({ role: 'owner' })
+    unikRepo.delete.mockResolvedValue({ affected: 1 })
 
-    const app = buildIndividualApp('user-99', {
-      user_uniks: {
-        select: membership,
-        insert: jest.fn()
-      },
-      uniks: {
-        delete: deleteHandler
-      }
-    })
-
+    const { app } = buildIndividualApp('user-99', { unikRepo, membershipRepo })
     const response = await request(app).delete('/123')
 
     expect(response.status).toBe(204)
-    expect(deleteHandler).toHaveBeenCalledWith({
-      table: 'uniks',
-      method: 'delete',
-      filters: [{ column: 'id', value: '123' }],
-      payload: undefined,
-      returning: false
-    })
   })
 })

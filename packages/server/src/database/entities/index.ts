@@ -12,7 +12,7 @@ import { UpsertHistory } from './UpsertHistory'
 import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
 import { financeEntities } from '@universo/finance-srv'
-import { Unik, UserUnik } from '@universo/uniks-srv'
+import { Unik, UnikUser } from '@universo/uniks-srv'
 import { Profile } from '@universo/profile-srv'
 import { metaversesEntities } from '@universo/metaverses-srv'
 import { resourcesEntities } from '@universo/resources-srv'
@@ -51,7 +51,7 @@ export const entities = {
   ...resourcesEntitiesObject,
   // Uniks entities
   Unik,
-  UserUnik,
+  UnikUser,
   // Profile entities
   Profile,
   // Spaces entities
