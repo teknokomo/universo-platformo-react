@@ -145,6 +145,13 @@ export class App {
     }
 
     async config() {
+        // Validate required authentication secrets at startup
+        const jwtSecret = process.env.SUPABASE_JWT_SECRET as string | undefined
+        if (!jwtSecret) {
+            logger.error('❌ [auth] SUPABASE_JWT_SECRET is not configured')
+            throw new Error('Auth configuration error: SUPABASE_JWT_SECRET is required')
+        }
+
         // Limit is needed to allow sending/receiving base64 encoded string
         const flowise_file_size_limit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
         this.app.use(express.json({ limit: flowise_file_size_limit }))
@@ -268,12 +275,8 @@ export class App {
             }
 
             try {
-                const secret = process.env.SUPABASE_JWT_SECRET as string | undefined
-                if (!secret) {
-                    logger.error('[auth] SUPABASE_JWT_SECRET is not configured')
-                    return res.status(500).json({ error: 'Auth configuration error' })
-                }
-                const decoded: any = jwt.verify(tokenToVerify, secret)
+                // JWT secret was already validated at startup
+                const decoded: any = jwt.verify(tokenToVerify, jwtSecret)
                 const supabaseUserId = decoded.sub || decoded.user_id || decoded.uid || null
                 if (supabaseUserId) {
                     ;(req as any).user = { id: supabaseUserId, ...decoded }

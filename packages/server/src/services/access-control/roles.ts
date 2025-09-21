@@ -27,7 +27,13 @@ export const ROLE_HIERARCHY: Record<UnikRole, number> = {
  */
 export function hasRequiredRole(actual: UnikRole, allowed: UnikRole[] = []): boolean {
     if (!allowed.length) return true // No role restrictions
-    return allowed.includes(actual)
+    
+    // Check if user has one of the explicitly allowed roles
+    if (allowed.includes(actual)) return true
+    
+    // Check if user has a higher role than any of the allowed roles (role hierarchy)
+    const actualLevel = ROLE_HIERARCHY[actual]
+    return allowed.some(allowedRole => actualLevel > ROLE_HIERARCHY[allowedRole])
 }
 
 /**

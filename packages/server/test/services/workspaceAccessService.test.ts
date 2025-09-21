@@ -152,8 +152,40 @@ describe('WorkspaceAccessService', () => {
 
       const req = createRequest()
 
-      const result = await service.requireUnikRole(req, 'user-1', 'unik-1', {})
-      expect(result).toBe(membership)
+      await expect(
+        service.requireUnikRole(req, 'user-1', 'unik-1')
+      ).resolves.toEqual(membership)
+    })
+
+    it('allows higher roles to access lower role operations (hierarchy)', async () => {
+      const { service, membershipRepo } = setupService()
+      
+      // Owner should be able to do admin operations
+      const ownerMembership = createMembership({ role: 'owner' })
+      membershipRepo.findOne.mockResolvedValueOnce(ownerMembership)
+      
+      const req1 = createRequest()
+      await expect(
+        service.requireUnikRole(req1, 'user-1', 'unik-1', { allowedRoles: ['admin'] })
+      ).resolves.toEqual(ownerMembership)
+
+      // Admin should be able to do editor operations
+      const adminMembership = createMembership({ role: 'admin' })
+      membershipRepo.findOne.mockResolvedValueOnce(adminMembership)
+      
+      const req2 = createRequest()
+      await expect(
+        service.requireUnikRole(req2, 'user-2', 'unik-1', { allowedRoles: ['editor'] })
+      ).resolves.toEqual(adminMembership)
+
+      // Editor should be able to do member operations
+      const editorMembership = createMembership({ role: 'editor' })
+      membershipRepo.findOne.mockResolvedValueOnce(editorMembership)
+      
+      const req3 = createRequest()
+      await expect(
+        service.requireUnikRole(req3, 'user-3', 'unik-1', { allowedRoles: ['member'] })
+      ).resolves.toEqual(editorMembership)
     })
   })
 
