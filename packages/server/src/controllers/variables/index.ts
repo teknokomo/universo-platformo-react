@@ -3,7 +3,9 @@ import variablesService from '../../services/variables'
 import { Variable } from '../../database/entities/Variable'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
-import { accessControlService } from '../../services/access-control'
+import { ensureUnikMembershipResponse } from '../../services/access-control'
+
+const ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this Unik'
 
 const createVariable = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -21,20 +23,10 @@ const createVariable = async (req: Request, res: Response, next: NextFunction) =
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const body = req.body
         const newVariable = new Variable()
@@ -59,20 +51,10 @@ const deleteVariable = async (req: Request, res: Response, next: NextFunction) =
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const apiResponse = await variablesService.deleteVariable(req.params.id, unikId)
         return res.json(apiResponse)
@@ -91,20 +73,10 @@ const getAllVariables = async (req: Request, res: Response, next: NextFunction) 
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const apiResponse = await variablesService.getAllVariables(unikId)
         return res.json(apiResponse)
@@ -126,20 +98,10 @@ const getVariableById = async (req: Request, res: Response, next: NextFunction) 
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const apiResponse = await variablesService.getVariableById(req.params.id, unikId)
         return res.json(apiResponse)
@@ -167,20 +129,10 @@ const updateVariable = async (req: Request, res: Response, next: NextFunction) =
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const variable = await variablesService.getVariableById(req.params.id, unikId)
         if (!variable) {

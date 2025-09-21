@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import axios from 'axios'
-import { baseURL } from '@/store/constant'
+import React, { createContext, useContext, useMemo, useRef } from 'react'
+import { useSession } from '@universo/auth-frt'
+import client from '@/api/client'
 
 /**
  * Universo Platformo | Authentication context
@@ -18,114 +18,48 @@ export const useAuth = () => useContext(AuthContext)
  * Manages authentication state, token refresh, and provides auth methods
  */
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(true)
+    const session = useSession({ client })
+    const logoutInProgress = useRef(false)
 
-    // Check authentication on load
-    useEffect(() => {
-        const checkAuth = async () => {
+    const value = useMemo(() => {
+        const login = async (email, password) => {
+            await client.post('auth/login', { email, password })
+            const refreshedUser = await session.refresh()
+            if (!refreshedUser) {
+                throw new Error('Failed to refresh session after login')
+            }
+        }
+
+        const logout = async () => {
+            if (logoutInProgress.current) return
+            logoutInProgress.current = true
             try {
-                const token = localStorage.getItem('token')
-                if (!token) {
-                    setUser(null)
-                    setLoading(false)
-                    return
+                if (session.user) {
+                    await session.logout()
                 }
-
-                const res = await axios.get(`${baseURL}/api/v1/auth/me`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                })
-
-                setUser(res.data)
             } catch (error) {
-                console.error('Auth check failed:', error)
-                localStorage.removeItem('token')
-                setUser(null)
+                console.error('[auth] logout failed', error)
             } finally {
-                setLoading(false)
-            }
-        }
-
-        checkAuth()
-    }, [])
-
-    // Periodic token refresh to prevent expiration
-    useEffect(() => {
-        if (!user) return
-
-        // Refresh the token every 50 minutes (if session lasts 1 hour)
-        const refreshInterval = setInterval(async () => {
-            try {
-                console.log('Refreshing auth token...')
-                const res = await axios.post(
-                    `${baseURL}/api/v1/auth/refresh`,
-                    {},
-                    {
-                        withCredentials: true
-                    }
-                )
-
-                if (res.data.accessToken) {
-                    localStorage.setItem('token', res.data.accessToken)
+                try {
+                    await session.refresh()
+                } finally {
+                    window.location.href = '/auth'
+                    logoutInProgress.current = false
                 }
-            } catch (error) {
-                console.error('Token refresh failed:', error)
             }
-        }, 50 * 60 * 1000) // 50 minutes
-
-        return () => clearInterval(refreshInterval)
-    }, [user])
-
-    // Authentication functions
-    const login = async (email, password) => {
-        const res = await axios.post(`${baseURL}/api/v1/auth/login`, { email, password })
-        localStorage.setItem('token', res.data.token)
-        setUser(res.data.user)
-        return res.data
-    }
-
-    const logout = async () => {
-        try {
-            const token = localStorage.getItem('token')
-            if (token) {
-                await axios.post(
-                    `${baseURL}/api/v1/auth/logout`,
-                    {},
-                    {
-                        headers: { Authorization: `Bearer ${token}` },
-                        withCredentials: true
-                    }
-                )
-            }
-        } catch (error) {
-            console.error('Logout failed:', error)
-        } finally {
-            localStorage.removeItem('token')
-            setUser(null)
-            // Redirect to auth page
-            window.location.href = '/auth'
         }
-    }
 
-    // Get access token for API calls
-    const getAccessToken = () => {
-        return localStorage.getItem('token')
-    }
+        return {
+            user: session.user,
+            loading: session.loading,
+            error: session.error,
+            login,
+            logout,
+            refresh: session.refresh,
+            client,
+            isAuthenticated: !!session.user
+        }
+    }, [session])
 
-    return (
-        <AuthContext.Provider
-            value={{
-                user,
-                loading,
-                login,
-                logout,
-                getAccessToken,
-                isAuthenticated: !!user
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
-    )
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -12,10 +12,16 @@ enum EXIT_CODE {
 
 export abstract class BaseCommand extends Command {
     static flags = {
-        FLOWISE_USERNAME: Flags.string(),
-        FLOWISE_PASSWORD: Flags.string(),
         FLOWISE_FILE_SIZE_LIMIT: Flags.string(),
         PORT: Flags.string(),
+        SESSION_SECRET: Flags.string(),
+        SUPABASE_URL: Flags.string(),
+        SUPABASE_ANON_KEY: Flags.string(),
+        SUPABASE_JWT_SECRET: Flags.string(),
+        SESSION_COOKIE_NAME: Flags.string(),
+        SESSION_COOKIE_MAXAGE: Flags.string(),
+        SESSION_COOKIE_SAMESITE: Flags.string(),
+        SESSION_COOKIE_SECURE: Flags.string(),
         CORS_ORIGINS: Flags.string(),
         IFRAME_ORIGINS: Flags.string(),
         DEBUG: Flags.string(),
@@ -131,9 +137,15 @@ export abstract class BaseCommand extends Command {
         if (flags.SHOW_COMMUNITY_NODES) process.env.SHOW_COMMUNITY_NODES = flags.SHOW_COMMUNITY_NODES
         if (flags.DISABLED_NODES) process.env.DISABLED_NODES = flags.DISABLED_NODES
 
-        // Authorization
-        if (flags.FLOWISE_USERNAME) process.env.FLOWISE_USERNAME = flags.FLOWISE_USERNAME
-        if (flags.FLOWISE_PASSWORD) process.env.FLOWISE_PASSWORD = flags.FLOWISE_PASSWORD
+        // Session configuration
+        if (flags.SESSION_SECRET) process.env.SESSION_SECRET = flags.SESSION_SECRET
+        if (flags.SUPABASE_URL) process.env.SUPABASE_URL = flags.SUPABASE_URL
+        if (flags.SUPABASE_ANON_KEY) process.env.SUPABASE_ANON_KEY = flags.SUPABASE_ANON_KEY
+        if (flags.SUPABASE_JWT_SECRET) process.env.SUPABASE_JWT_SECRET = flags.SUPABASE_JWT_SECRET
+        if (flags.SESSION_COOKIE_NAME) process.env.SESSION_COOKIE_NAME = flags.SESSION_COOKIE_NAME
+        if (flags.SESSION_COOKIE_MAXAGE) process.env.SESSION_COOKIE_MAXAGE = flags.SESSION_COOKIE_MAXAGE
+        if (flags.SESSION_COOKIE_SAMESITE) process.env.SESSION_COOKIE_SAMESITE = flags.SESSION_COOKIE_SAMESITE
+        if (flags.SESSION_COOKIE_SECURE) process.env.SESSION_COOKIE_SECURE = flags.SESSION_COOKIE_SECURE
         if (flags.APIKEY_STORAGE_TYPE) process.env.APIKEY_STORAGE_TYPE = flags.APIKEY_STORAGE_TYPE
         if (flags.APIKEY_PATH) process.env.APIKEY_PATH = flags.APIKEY_PATH
 

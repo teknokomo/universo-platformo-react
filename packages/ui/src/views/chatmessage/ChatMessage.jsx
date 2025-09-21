@@ -6,10 +6,11 @@ import rehypeMathjax from 'rehype-mathjax'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import { EventStreamContentType, fetchEventSource } from '@microsoft/fetch-event-source'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/utils/authProvider'
+import { getStoredCsrfToken } from '@universo/auth-frt'
 
 import {
     Box,
@@ -164,6 +165,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { t } = useTranslation('chatmessage')
+    const { client } = useAuth()
 
     const ps = useRef()
 
@@ -866,18 +868,25 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const fetchResponseFromEventStream = async (canvasId, params) => {
         const chatId = params.chatId
         const input = params.question
-        const username = localStorage.getItem('username')
-        const password = localStorage.getItem('password')
         params.streaming = true
-        await fetchEventSource(`${baseURL}/api/v1/internal-prediction/${canvasId}`, {
+
+        const csrfToken = getStoredCsrfToken(client)
+        const headers = {
+            ...(client.defaults.headers.common || {}),
+            'Content-Type': 'application/json'
+        }
+        headers['x-request-from'] = headers['x-request-from'] || 'internal'
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken
+        }
+
+        const apiBaseUrl = client.defaults.baseURL || `${baseURL}/api/v1`
+        await fetchEventSource(`${apiBaseUrl}/internal-prediction/${canvasId}`, {
             openWhenHidden: true,
             method: 'POST',
             body: JSON.stringify(params),
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: username && password ? `Basic ${btoa(`${username}:${password}`)}` : undefined,
-                'x-request-from': 'internal'
-            },
+            headers,
+            credentials: 'include',
             async onopen(response) {
                 if (response.ok && response.headers.get('content-type') === EventStreamContentType) {
                     //console.log('EventSource Open')
@@ -999,8 +1008,8 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     const downloadFile = async (fileAnnotation) => {
         try {
-            const response = await axios.post(
-                `${baseURL}/api/v1/openai-assistants-file/download`,
+            const response = await client.post(
+                'openai-assistants-file/download',
                 { fileName: fileAnnotation.fileName, chatflowId: canvasId, chatId: chatId },
                 { responseType: 'blob' }
             )

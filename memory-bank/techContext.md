@@ -2,19 +2,63 @@
 
 ## 🔄 Custom Modifications to Preserve
 
-### 1. Authentication Architecture
+### Authentication Architecture - **COMPLETED MIGRATION**
 
--   **Current**: Multi-user Supabase JWT authentication
--   **Integration Point**: Must create bridge between Supabase JWT ↔ Passport.js
--   **Files Affected**: All middleware, controllers, UI authentication
+**Previous**: Multi-user Supabase JWT authentication
+**Current**: Passport.js + Supabase hybrid authentication with session management
+**Integration Point**: Bridge between Supabase JWT ↔ Passport.js successfully implemented
+**Files Affected**: All middleware, controllers, UI authentication components migrated
+
+### Access Control Evolution (Phase 2 - TypeORM Enforcement) - **COMPLETED**
+
+**Current Model (September 2025)**: Application-level access control with TypeORM middleware
+
+**Key Components:**
+- **WorkspaceAccessService**: Centralized membership validation with per-request caching
+- **Role System**: Strict TypeScript enum (`owner`, `admin`, `editor`, `member`) with hierarchy validation  
+- **Schema Isolation**: Dedicated `uniks` schema with RLS policies (Supabase-level protection)
+- **Dual Query Strategy**: Membership lookup + entity fetch for cross-schema compatibility
+- **TypeORM Integration**: Complete migration from Supabase REST to Repository pattern
+
+**Implementation Pattern:**
+```typescript
+// All Unik-scoped controllers use this pattern
+const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+  roles: ['editor', 'admin', 'owner'], // Optional role filtering
+  errorMessage: 'Access denied'
+})
+if (!userId) return // Response already sent
+```
+
+**Security Layers:**
+1. **Application Layer**: TypeORM-based membership validation (primary protection)
+2. **Database Layer**: RLS policies on `uniks.uniks_users` and `uniks.uniks` (fallback protection)
+3. **Request Cache**: In-memory membership cache to minimize database hits during request lifecycle
+
+**Migration Context:** 
+- **Phase 1 (Complete)**: Supabase REST client with embedded relationship queries
+- **Phase 2 (Current)**: TypeORM direct access with application-level enforcement
+- **Future Consideration**: Low-privilege database role with mandatory RLS for additional protection
+
+**Critical Security Note:** All new routes accessing Unik-scoped resources MUST use `ensureUnikMembershipResponse` or `requireUnikRole` middleware. Missing this enforcement bypasses all access control.
 
 #### 2. Uniks (Workspace) System
 
 -   **Purpose**: Multi-tenant workspace isolation (enterprise feature simulation)
--   **Implementation**: Hierarchical entity relationships with access control
--   **Database Schema**: Custom entities with `unik_id` foreign keys
+-   **Implementation**: Schema-isolated entities with TypeORM access control
+-   **Database Schema**: 
+    - `uniks.uniks` - Workspace entities
+    - `uniks.uniks_users` - Membership relationships with roles
+    - Cross-references from dependent modules (finance, spaces, resources)
+-   **Access Model**: Application-level enforcement via `WorkspaceAccessService`
 -   **UI Components**: Custom workspace selection and management pages
 -   **Risk**: High - Core business logic that must be preserved
+-   **Role Hierarchy**: `owner` (4) > `admin` (3) > `editor` (2) > `member` (1)
+-   **Key Operations**:
+    - Create workspace → Auto-assign owner role
+    - Invite members → Owner/admin privilege required  
+    - Update/delete → Role-based restrictions
+    - Data access → Membership validation required
 
 #### 3. Internationalization (i18n)
 

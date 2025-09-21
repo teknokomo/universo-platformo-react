@@ -2,18 +2,22 @@
 
 Backend workspace package for workspace management functionality in the Universo Platformo ecosystem.
 
+> Q3 2025 Update: Migrated to dedicated Postgres schema `uniks` with RLS, expanded role model (`owner|admin|editor|member`), Passport.js + Supabase hybrid session auth, and TypeORM Repository pattern replacing legacy Supabase REST usage.
+
 ## Overview
 
 The Uniks Server is a backend workspace package (`@universo/uniks-srv`) that provides workspace management functionality. It handles workspace CRUD operations, member management, and integrates with the main Flowise server to provide workspace-specific routing.
 
 ## Key Features
 
--   **Workspace CRUD Operations**: Create, read, update, and delete workspaces
--   **Member Management**: Add and remove workspace members
--   **Database Integration**: TypeORM entities and PostgreSQL migrations
--   **Authentication**: Supabase integration for user authentication
--   **Route Integration**: Nested route mounting under `/:unikId` prefix
--   **Type Safety**: Full TypeScript support with type declarations
+- **Workspace CRUD**: TypeORM repositories, schema-qualified (`uniks.uniks`)
+- **Member Management**: Role-based with strict union types
+- **Expanded Roles**: `owner`, `admin`, `editor`, `member` (replaces legacy owner/member)
+- **Hybrid Authentication**: Passport.js session + Supabase token validation
+- **RLS Enforcement**: Postgres Row Level Security policies scoped by membership
+- **Per-Request Membership Cache**: Avoids redundant lookups in request lifecycle
+- **Secure Routing**: Centralized access guard service
+- **Type Safety**: Strict TypeScript enums & runtime guards
 
 ## Structure
 
@@ -29,66 +33,93 @@ src/
 └── index.ts        # Package entry point
 ```
 
-## API Endpoints
+## API Endpoints (Updated)
 
 ### Workspace Management
 
--   `GET /uniks` - List all workspaces for the authenticated user
--   `POST /uniks` - Create a new workspace
--   `GET /uniks/:id` - Get workspace details
--   `PUT /uniks/:id` - Update workspace
--   `DELETE /uniks/:id` - Delete workspace
+- `GET /uniks` – List workspaces visible to user (membership required)
+- `POST /uniks` – Create workspace (creator becomes `owner`)
+- `GET /uniks/:id` – Details (any member)
+- `PUT /uniks/:id` – Update (roles: `admin|owner`)
+- `DELETE /uniks/:id` – Delete (role: `owner`)
 
 ### Member Management
 
--   `POST /uniks/members` - Add member to workspace
--   `DELETE /uniks/members/:userId` - Remove member from workspace
--   `GET /uniks/:id/members` - List workspace members
+- `GET /uniks/:id/members` – List members (any member)
+- `POST /uniks/:id/members` – Add member (roles: `admin|owner`)
+- `PUT /uniks/:id/members/:userId` – Change role (role: `owner`)
+- `DELETE /uniks/:id/members/:userId` – Remove member (role: `owner`)
 
-## Database Schema
+## Database Schema (Current)
 
-### Unik Entity
+### Schema & Tables
+All tables reside in dedicated schema `uniks`:
 
-```typescript
-interface Unik {
-    id: string
-    name: string
-    description?: string
-    owner_id: string
-    created_at: Date
-    updated_at: Date
-}
+```sql
+CREATE SCHEMA IF NOT EXISTS uniks;
+
+CREATE TABLE uniks.uniks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE uniks.uniks_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    unik_id UUID NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('owner','admin','editor','member')),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, unik_id)
+);
 ```
 
-### UserUnik Entity
-
+### TypeORM Entities (Excerpt)
 ```typescript
-interface UserUnik {
-    id: string
-    user_id: string
-    unik_id: string
-    role: 'owner' | 'member'
-    created_at: Date
-}
+export const UNIK_ROLES = ['owner','admin','editor','member'] as const
+export type UnikRole = typeof UNIK_ROLES[number]
+
+@Entity({ schema: 'uniks', name: 'uniks' })
+export class Unik { /* id, name, description, timestamps, memberships */ }
+
+@Entity({ schema: 'uniks', name: 'uniks_users' })
+export class UnikUser { /* id, userId, unikId, role, createdAt */ }
+```
+
+### RLS Policies (Conceptual)
+```sql
+ALTER TABLE uniks.uniks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE uniks.uniks_users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY uniks_select_members ON uniks.uniks
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM uniks.uniks_users mu
+            WHERE mu.unik_id = uniks.id AND mu.user_id = auth.uid()
+        )
+    );
 ```
 
 ## Integration
 
 This package integrates with:
 
--   **Main Server**: Provides workspace routes to the main Flowise server
--   **Supabase**: Uses authentication and database services
--   **TypeORM**: Database ORM for entity management
--   **Express**: Web framework for route handling
+- **Main Server**: Route mounting + session context injection
+- **Passport.js**: Session layer; user identity hydration
+- **Supabase**: Token validation & identity source
+- **TypeORM**: Repository access, schema-scoped entities
+- **Express**: Routing & middleware chain
 
 ## Development
 
 ### Prerequisites
 
--   Node.js 18+
--   PNPM package manager
--   PostgreSQL database
--   Supabase project access
+- Node.js 18+
+- PNPM package manager
+- PostgreSQL with `pgcrypto` (for `gen_random_uuid()`)
+- Supabase project access (URL, anon/service keys)
 
 ### Installation
 
@@ -142,12 +173,14 @@ The package uses the following configuration:
 
 ## Database Migrations
 
-The package includes PostgreSQL migrations for:
+Single in-place updated migration (`AddUniks`) modified to:
 
--   Creating the `uniks` table
--   Creating the `user_uniks` table
--   Setting up proper indexes and constraints
--   Adding foreign key relationships
+- Introduce schema `uniks`
+- Rename legacy `user_uniks` → `uniks.uniks_users`
+- Add composite uniqueness `(user_id, unik_id)`
+- Expand role set + CHECK constraint
+- Enable RLS + membership policies
+- Add indexes for membership lookup
 
 ## Type Declarations
 
@@ -159,19 +192,23 @@ The package provides TypeScript declarations for external modules:
 
 ## Security
 
--   **Authentication**: All routes require valid Supabase JWT tokens
--   **Authorization**: Workspace operations are restricted to owners/members
--   **SQL Injection Protection**: Uses TypeORM parameterized queries
--   **Input Validation**: Request validation for all endpoints
+- **Hybrid Auth**: Passport.js session + Supabase JWT verification
+- **Role Authorization**: Central guard (`WorkspaceAccessService.ensure`)
+- **RLS Defense-in-Depth**: DB isolation + application checks
+- **SQL Injection Protection**: TypeORM parameterization
+- **Input Validation**: DTO-level sanitization & schema checks
+- **Least Privilege**: Multi-tier roles allow minimization of power
 
 ## Error Handling
 
-The package implements comprehensive error handling:
+Standardized error taxonomy:
 
--   **Database Errors**: Proper error responses for database operations
--   **Authentication Errors**: 401 responses for invalid tokens
--   **Authorization Errors**: 403 responses for unauthorized access
--   **Validation Errors**: 400 responses for invalid input data
+- **401 Unauthorized**: Missing/invalid session or token
+- **403 Forbidden**: Role insufficient (logged & anonymized)
+- **404 Not Found**: Workspace inaccessible or absent
+- **409 Conflict**: Duplicate membership
+- **422 Unprocessable Entity**: Validation failure
+- **500 Internal Error**: Unexpected server fault (correlated via request ID)
 
 ## Contributing
 

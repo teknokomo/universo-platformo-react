@@ -1,113 +1,184 @@
-// Universo Platformo | Access Control Service
-// Centralized service for checking user access to resources
+import type { Request, Response, NextFunction } from 'express'
+import type { DataSource, Repository } from 'typeorm'
+import { UnikUser } from '@universo/uniks-srv'
+import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
+import { ChatFlow } from '../../database/entities/ChatFlow'
+import { UnikRole, hasRequiredRole, isValidUnikRole } from './roles'
 
-// Import the correct Supabase clients
-import { supabase } from '../../utils/supabase'
+const membershipCacheSymbol = Symbol('workspaceAccessMembershipCache')
 
-/**
- * Service for checking user access permissions to various resources
- */
-export class AccessControlService {
-    /**
-     * Checks if a user has access to a specific Unik
-     * @param userId The user ID to check
-     * @param unikId The Unik ID to check access for
-     * @param authToken JWT token for authenticated requests
-     * @returns Promise resolving to true if user has access, false otherwise
-     */
-    async checkUnikAccess(userId: string, unikId: string, authToken?: string): Promise<boolean> {
-        if (!userId || !unikId) {
-            return false
-        }
+type MembershipCache = Map<string, Map<string, UnikUser | null>>
 
-        try {
-            // Use SQL query with explicit UUID casting
-            const { data, error } = await supabase
-                .from('user_uniks')
-                .select('*')
-                .filter('user_id', 'eq', userId)
-                .filter('unik_id', 'eq', unikId)
+type RequireRoleOptions = {
+    allowedRoles?: UnikRole[]
+    errorMessage?: string
+}
 
-            const hasAccess = !error && Array.isArray(data) && data.length > 0
-            return hasAccess
-        } catch (error) {
-            console.error('AccessControlService error during checkUnikAccess:', error)
-            return false
-        }
+const ensureDataSource = (dataSource: DataSource): DataSource => {
+    if (!dataSource?.isInitialized) {
+        throw new Error('DataSource is not initialized')
+    }
+    return dataSource
+}
+
+const getCacheForRequest = (req: Request): MembershipCache => {
+    const anyReq = req as any
+    if (!anyReq[membershipCacheSymbol]) {
+        anyReq[membershipCacheSymbol] = new Map()
+    }
+    return anyReq[membershipCacheSymbol] as MembershipCache
+}
+
+export class WorkspaceAccessService {
+    constructor(private readonly getDataSourceFn: () => DataSource = () => ensureDataSource(getRunningExpressApp().AppDataSource)) {}
+
+    private get dataSource(): DataSource {
+        return ensureDataSource(this.getDataSourceFn())
     }
 
-    /**
-     * Checks if a user is the owner of a specific Unik
-     * @param userId The user ID to check
-     * @param unikId The Unik ID to check ownership for
-     * @param authToken JWT token for authenticated requests
-     * @returns Promise resolving to true if user is the owner, false otherwise
-     */
-    async isUnikOwner(userId: string, unikId: string, authToken?: string): Promise<boolean> {
-        if (!userId || !unikId) return false
-
-        try {
-            const { data, error } = await supabase
-                .from('user_uniks')
-                .select('role')
-                .filter('user_id', 'eq', userId)
-                .filter('unik_id', 'eq', unikId)
-                .filter('role', 'eq', 'owner')
-
-            return !error && Array.isArray(data) && data.length > 0
-        } catch (error) {
-            console.error('Error checking Unik ownership:', error)
-            return false
-        }
+    private get membershipRepository(): Repository<UnikUser> {
+        return this.dataSource.getRepository(UnikUser)
     }
 
-    /**
-     * Gets all Uniks that a user has access to
-     * @param userId The user ID to get Uniks for
-     * @param authToken JWT token for authenticated requests
-     * @returns Promise resolving to an array of Unik objects with access information
-     */
-    async getUserUniks(userId: string, authToken?: string): Promise<any[]> {
+    private async readMembership(userId: string, unikId: string): Promise<UnikUser | null> {
+        if (!userId || !unikId) return null
+        return this.membershipRepository.findOne({ where: { user_id: userId, unik_id: unikId } })
+    }
+
+    private async getCachedMembership(req: Request, userId: string, unikId: string): Promise<UnikUser | null> {
+        const cache = getCacheForRequest(req)
+        const byUser = cache.get(userId) ?? new Map<string, UnikUser | null>()
+        if (!cache.has(userId)) {
+            cache.set(userId, byUser)
+        }
+
+        if (byUser.has(unikId)) {
+            return byUser.get(unikId) ?? null
+        }
+        const membership = await this.readMembership(userId, unikId)
+        byUser.set(unikId, membership ?? null)
+        return membership ?? null
+    }
+
+    async hasUnikAccess(req: Request, userId: string, unikId: string): Promise<boolean> {
+        const membership = await this.getCachedMembership(req, userId, unikId)
+        return Boolean(membership)
+    }
+
+    async requireUnikRole(req: Request, userId: string, unikId: string, options: RequireRoleOptions = {}): Promise<UnikUser> {
+        const membership = await this.getCachedMembership(req, userId, unikId)
+        if (!membership) {
+            const err = Object.assign(new Error(options.errorMessage ?? 'Access denied: membership not found'), { status: 403 })
+            throw err
+        }
+
+        // Validate role from database is a known role
+        if (!isValidUnikRole(membership.role)) {
+            const err = Object.assign(new Error(`Invalid role in database: ${membership.role}`), { status: 500 })
+            throw err
+        }
+
+        if (options.allowedRoles?.length && !hasRequiredRole(membership.role as UnikRole, options.allowedRoles)) {
+            const err = Object.assign(new Error(options.errorMessage ?? 'Access denied: insufficient role'), { status: 403 })
+            throw err
+        }
+        return membership
+    }
+
+    async getUserMemberships(userId: string): Promise<UnikUser[]> {
         if (!userId) return []
-
-        try {
-            const { data, error } = await supabase.from('user_uniks').select('unik_id, role').filter('user_id', 'eq', userId)
-
-            return data || []
-        } catch (error) {
-            console.error('Error getting user Uniks:', error)
-            return []
-        }
+        return this.membershipRepository.find({ where: { user_id: userId } })
     }
 
-    /**
-     * Checks if a user has access to a Chatflow through Unik ownership
-     * @param userId The user ID to check
-     * @param chatflowId The Chatflow ID to check access for
-     * @param authToken JWT token for authenticated requests
-     * @returns Promise resolving to true if user has access, false otherwise
-     */
-    async checkChatflowAccess(userId: string, chatflowId: string, authToken?: string): Promise<boolean> {
+    async getUnikIdForCanvas(canvasId: string): Promise<string | null> {
+        if (!canvasId) return null
+        const result = await this.dataSource.query(
+            `
+            SELECT space.unik_id AS "unikId"
+            FROM spaces_canvases sc
+            INNER JOIN spaces space ON space.id = sc.space_id
+            WHERE sc.canvas_id = $1
+            LIMIT 1
+            `,
+            [canvasId]
+        )
+
+        const unikIdFromSpace = result?.[0]?.unikId as string | null | undefined
+        if (unikIdFromSpace) {
+            return unikIdFromSpace
+        }
+
+        const chatflow = await this.dataSource.getRepository(ChatFlow).findOne({ where: { id: canvasId } })
+        const inferred = (chatflow as any)?.unik?.id ?? (chatflow as any)?.unik_id
+        return inferred ?? null
+    }
+
+    async hasChatflowAccess(req: Request, userId: string, chatflowId: string): Promise<boolean> {
         if (!userId || !chatflowId) return false
+        const unikId = await this.getUnikIdForCanvas(chatflowId)
+        if (!unikId) return false
+        return this.hasUnikAccess(req, userId, unikId)
+    }
+}
 
+export const workspaceAccessService = new WorkspaceAccessService()
+
+export const resolveRequestUserId = (req: Request): string | undefined => {
+    const user: any = (req as any).user
+    return user?.id ?? user?.sub ?? user?.user_id ?? user?.userId ?? undefined
+}
+
+type EnsureMembershipOptions = {
+    roles?: UnikRole[]
+    errorMessage?: string
+}
+
+export const ensureUnikMembershipResponse = async (
+    req: Request,
+    res: Response,
+    unikId: string,
+    options: EnsureMembershipOptions = {}
+): Promise<string | null> => {
+    const userId = resolveRequestUserId(req)
+    if (!userId) {
+        res.status(401).json({ error: 'Unauthorized: User not authenticated' })
+        return null
+    }
+    try {
+        await workspaceAccessService.requireUnikRole(req, userId, unikId, {
+            allowedRoles: options.roles,
+            errorMessage: options.errorMessage
+        })
+        return userId
+    } catch (error: any) {
+        if (typeof error?.status === 'number') {
+            res.status(error.status).json({ error: error.message })
+            return null
+        }
+        throw error
+    }
+}
+
+export const requireUnikRole = (roles: UnikRole[]) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
         try {
-            // First get the Unik ID for this chatflow
-            const { data: chatflow, error: chatflowError } = await supabase
-                .from('chat_flow')
-                .select('unik_id')
-                .filter('id', 'eq', chatflowId)
-                .maybeSingle()
-
-            if (chatflowError || !chatflow) return false
-
-            // Then check if user has access to this Unik
-            return await this.checkUnikAccess(userId, chatflow.unik_id, authToken)
-        } catch (error) {
-            console.error('Error checking Chatflow access:', error)
-            return false
+            const userId = resolveRequestUserId(req)
+            const unikId = (req.params?.unikId as string) || (req.params?.id as string)
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized: user not resolved' })
+            }
+            if (!unikId) {
+                return res.status(400).json({ error: 'Unik ID is required' })
+            }
+            await workspaceAccessService.requireUnikRole(req, userId, unikId, { allowedRoles: roles })
+            next()
+        } catch (error: any) {
+            if (typeof error?.status === 'number') {
+                return res.status(error.status).json({ error: error.message })
+            }
+            next(error)
         }
     }
 }
 
-// Export a singleton instance of the service
-export const accessControlService = new AccessControlService()
+export const requireUnikMembership = () => requireUnikRole([])

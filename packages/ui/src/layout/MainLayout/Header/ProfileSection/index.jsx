@@ -1,7 +1,6 @@
 import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, REMOVE_DIRTY } from '@/store/actions'
 import { exportData, stringify } from '@/utils/exportImport'
 import useNotifier from '@/utils/useNotifier'
-import PropTypes from 'prop-types'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDispatch, useSelector } from 'react-redux'
@@ -35,6 +34,7 @@ import {
 import { useTheme } from '@mui/material/styles'
 
 // third-party
+import PropTypes from 'prop-types'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 
 // project imports
@@ -169,12 +169,12 @@ ExportDialog.propTypes = {
 
 // ==============================|| PROFILE MENU ||============================== //
 
-const ProfileSection = ({ username, handleLogout }) => {
+const ProfileSection = () => {
     const theme = useTheme()
     const { unikId } = useParams()
     const customization = useSelector((state) => state.customization)
     const { t } = useTranslation(['menu', 'common'])
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, user, logout } = useAuth()
 
     const [open, setOpen] = useState(false)
     const [aboutDialogOpen, setAboutDialogOpen] = useState(false)
@@ -385,7 +385,7 @@ const ProfileSection = ({ username, handleLogout }) => {
                                     {username && (
                                         <Box sx={{ p: 2 }}>
                                             <Typography component='span' variant='h4'>
-                                                {username}
+                                                {user?.email || ''}
                                             </Typography>
                                         </Box>
                                     )}
@@ -452,7 +452,14 @@ const ProfileSection = ({ username, handleLogout }) => {
                                                 {isAuthenticated && (
                                                     <ListItemButton
                                                         sx={{ borderRadius: `${customization.borderRadius}px` }}
-                                                        onClick={handleLogout}
+                                                        onClick={async () => {
+                                                            setOpen(false)
+                                                            try {
+                                                                await logout()
+                                                            } catch (error) {
+                                                                console.error('Failed to logout', error)
+                                                            }
+                                                        }}
                                                     >
                                                         <ListItemIcon>
                                                             <IconLogout stroke={1.5} size='1.3rem' />
@@ -475,11 +482,6 @@ const ProfileSection = ({ username, handleLogout }) => {
             <ExportDialog show={exportDialogOpen} onCancel={() => setExportDialogOpen(false)} onExport={(data) => onExport(data)} />
         </>
     )
-}
-
-ProfileSection.propTypes = {
-    username: PropTypes.string,
-    handleLogout: PropTypes.func
 }
 
 export default ProfileSection

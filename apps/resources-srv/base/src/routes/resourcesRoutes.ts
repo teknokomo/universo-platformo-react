@@ -10,6 +10,12 @@ import { ResourceCluster } from '../database/entities/ResourceCluster'
 import { ensureClusterAccess, ensureDomainAccess, ensureResourceAccess } from './guards'
 import { z } from 'zod'
 
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Helper to get repositories from the data source
 function getRepositories(getDataSource: () => DataSource) {
     const dataSource = getDataSource()
@@ -64,7 +70,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
     router.get(
         '/',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             const { clusterUserRepo, domainClusterRepo, resourceDomainRepo } = getRepositories(getDataSource)
@@ -121,7 +127,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
             const { name, description, clusterId, domainId } = parsed.data
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -161,7 +167,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
     router.get(
         '/:resourceId',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureResourceAccess(getDataSource(), userId, req.params.resourceId)
             const { resourceRepo } = getRepositories(getDataSource)
@@ -177,7 +183,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
     router.put(
         '/:resourceId',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureResourceAccess(getDataSource(), userId, req.params.resourceId)
             const { resourceRepo } = getRepositories(getDataSource)
@@ -196,7 +202,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
     router.delete(
         '/:resourceId',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureResourceAccess(getDataSource(), userId, req.params.resourceId)
             const { resourceRepo } = getRepositories(getDataSource)
@@ -216,7 +222,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
             const resourceId = req.params.resourceId
             const { domainId } = req.body || {}
             if (!domainId) return res.status(400).json({ error: 'domainId is required' })
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureResourceAccess(getDataSource(), userId, resourceId)
             await ensureDomainAccess(getDataSource(), userId, domainId)
@@ -242,7 +248,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
         asyncHandler(async (req: Request, res: Response) => {
             const { resourceRepo, resourceDomainRepo } = getRepositories(getDataSource)
             const resourceId = req.params.resourceId
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureResourceAccess(getDataSource(), userId, resourceId)
             const resource = await resourceRepo.findOneBy({ id: resourceId })

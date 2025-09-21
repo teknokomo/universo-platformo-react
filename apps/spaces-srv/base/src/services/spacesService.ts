@@ -105,27 +105,31 @@ export class SpacesService {
      */
     async createSpace(unikId: string, data: CreateSpaceDto): Promise<SpaceResponse> {
         return await this.dataSource.transaction(async (manager) => {
+            const spaceRepo = manager.getRepository(Space)
+            const canvasRepo = manager.getRepository(Canvas)
+            const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
+
             // Create space
-            const space = this.spaceRepository.create({
+            const space = spaceRepo.create({
                 ...data,
                 unik: { id: unikId } as any
             })
-            const savedSpace = await manager.save(space)
+            const savedSpace = await spaceRepo.save(space)
 
             // Create default canvas
-            const canvas = this.canvasRepository.create({
+            const canvas = canvasRepo.create({
                 name: 'Main Canvas',
                 flowData: '{}'
             })
-            const savedCanvas = await manager.save(canvas)
+            const savedCanvas = await canvasRepo.save(canvas)
 
             // Link space and canvas
-            const spaceCanvas = this.spaceCanvasRepository.create({
+            const spaceCanvas = spaceCanvasRepo.create({
                 space: savedSpace,
                 canvas: savedCanvas,
                 sortOrder: 1
             })
-            await manager.save(spaceCanvas)
+            await spaceCanvasRepo.save(spaceCanvas)
 
             return {
                 id: savedSpace.id,
@@ -409,20 +413,23 @@ export class SpacesService {
         const nextSortOrder = (maxSortOrder?.maxOrder || 0) + 1
 
         return await this.dataSource.transaction(async (manager: EntityManager) => {
+            const canvasRepo = manager.getRepository(Canvas)
+            const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
+
             // Create canvas
-            const canvas = this.canvasRepository.create({
+            const canvas = canvasRepo.create({
                 name: data.name || 'New Canvas',
                 flowData: data.flowData || '{}'
             })
-            const savedCanvas = await manager.save(canvas)
+            const savedCanvas = await canvasRepo.save(canvas)
 
             // Link to space
-            const spaceCanvas = this.spaceCanvasRepository.create({
+            const spaceCanvas = spaceCanvasRepo.create({
                 space: { id: spaceId } as any,
                 canvas: savedCanvas,
                 sortOrder: nextSortOrder
             })
-            await manager.save(spaceCanvas)
+            await spaceCanvasRepo.save(spaceCanvas)
 
             return {
                 id: savedCanvas.id,

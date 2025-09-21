@@ -32,7 +32,7 @@ Flowise предоставляет многоуровневую систему �
 ### Типы аутентификации
 
 #### Базовая аутентификация
-- Простая настройка с именем пользователя и паролем
+- Основана на Passport.js и Supabase с сессионными cookie
 - Подходит для небольших команд и тестовых сред
 - Быстрое развертывание без дополнительной инфраструктуры
 
@@ -90,26 +90,34 @@ Flowise предоставляет многоуровневую систему �
 ### Разработка
 ```bash
 # Минимальная настройка для разработки
-FLOWISE_USERNAME=admin
-FLOWISE_PASSWORD=admin123
+SESSION_SECRET=dev-secret
+SUPABASE_URL=https://dev-project.supabase.co
+SUPABASE_ANON_KEY=public-anon-key
+SUPABASE_JWT_SECRET=service-jwt-secret
 ```
 
 ### Тестирование
 ```bash
 # Более строгие настройки для тестирования
-FLOWISE_USERNAME=testadmin
-FLOWISE_PASSWORD=SecureTestPassword123!
+SESSION_SECRET=test-secret
+SUPABASE_URL=https://test-project.supabase.co
+SUPABASE_ANON_KEY=public-anon-key
+SUPABASE_JWT_SECRET=service-jwt-secret
 FLOWISE_SECRETKEY_OVERWRITE=test-secret-key-32-chars-long
 ```
 
 ### Продакшн
 ```bash
 # Максимальная безопасность для продакшна
-FLOWISE_USERNAME=admin
-FLOWISE_PASSWORD=VerySecureProductionPassword123!
+SESSION_SECRET=replace-with-strong-production-secret
+SUPABASE_URL=https://prod-project.supabase.co
+SUPABASE_ANON_KEY=public-anon-key
+SUPABASE_JWT_SECRET=service-jwt-secret
 FLOWISE_SECRETKEY_OVERWRITE=production-secret-key-must-be-very-long-and-secure
 DATABASE_SSL=true
 CORS_ORIGINS=https://yourdomain.com
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=strict
 ```
 
 ## Устранение проблем
@@ -135,8 +143,8 @@ CORS_ORIGINS=https://yourdomain.com
 
 ```bash
 # Проверка переменных окружения
-echo $FLOWISE_USERNAME
-echo $FLOWISE_PASSWORD
+echo $SESSION_SECRET
+echo $SUPABASE_URL
 
 # Проверка логов аутентификации
 tail -f logs/server.log | grep "auth"

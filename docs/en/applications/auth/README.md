@@ -1,61 +1,60 @@
-# Auth (Passport.js + Supabase) — Isolated PoC
+# Auth (Passport.js + Supabase)
 
-This document describes the isolated authentication Proof of Concept (PoC) implemented as separate packages under `apps/auth-srv/base` (server) and `apps/auth-frt/base` (frontend). The PoC stores Supabase tokens server-side and exposes a safe cookie/CSRF-based API for the client.
+Universo Platformo now uses Passport.js sessions backed by Supabase for authentication. The implementation lives in two reusable packages:
 
-> Important: The PoC code is fully isolated and NOT integrated into the current system. No existing routes or UI were modified.
+- `@universo/auth-srv` — Express/Passport integration mounted inside `packages/server`
+- `@universo/auth-frt` — React primitives (`createAuthClient`, `useSession`, `LoginForm`) consumed by `packages/ui`
 
-## Features
+## Request flow
 
--   Passport LocalStrategy with Supabase as IdP
--   Server-side sessions with secure cookies (HttpOnly, SameSite, Secure)
--   CSRF protection (double-submit cookie + `X-CSRF-Token`)
--   Rate limiting on `/login`
--   Per-request Supabase client with RLS using `Authorization: Bearer <access>` from the session
--   Automatic token refresh (single-flight); session invalidation on refresh failure
+1. `POST /api/v1/auth/login`
+    - Validates credentials against Supabase Auth using Passport LocalStrategy
+    - Stores access/refresh tokens inside the Express session (HttpOnly cookie)
+2. Subsequent API calls
+    - Browser sends the session cookie (`up.sid` by default)
+    - Middleware upgrades the request with `Authorization: Bearer <access>` so existing services keep working
+    - Tokens are transparently refreshed when they are near expiry
+3. `GET /api/v1/auth/me`
+    - Returns the Supabase user profile associated with the current session
+4. `POST /api/v1/auth/logout`
+    - Revokes the Supabase session and destroys the Express session
 
-## Endpoints (prefix: `/api/v2/auth`)
+CSRF protection is enforced on state-changing routes via `csurf` and the `X-CSRF-Token` header fetched from `GET /api/v1/auth/csrf`.
 
--   `GET /csrf` — returns `{ csrfToken }`
--   `POST /login` — `{ email, password }` (CSRF required)
--   `GET /me` — returns `{ id, email }` if authenticated
--   `POST /refresh` — optional manual refresh (CSRF required); auto refresh is transparent
--   `POST /logout` — logs out (CSRF required)
+## Frontend integration
 
-## Environment
+`packages/ui` consumes `@universo/auth-frt`:
 
--   `PORT` (default: 3101)
--   `SESSION_SECRET` (required)
--   `SUPABASE_URL` (required)
--   `SUPABASE_ANON_KEY` (required)
--   `SAME_SITE` (optional; `lax` or `none`)
--   `DEV_SAME_ORIGIN` (optional; `true` to force `lax` during dev on same origin)
+```ts
+const authClient = createAuthClient({ baseURL: `${baseURL}/api/v1` })
+const { user, refresh, logout } = useSession({ client: authClient })
+```
 
-## Quick Start (PoC)
+The login screen reuses `LoginForm`, removes all `localStorage` token handling, and relies on cookies + `withCredentials` requests.
 
--   Server (`apps/auth-srv/base`):
-    ```bash
-    pnpm --filter @universo/auth-srv build
-    pnpm --filter @universo/auth-srv start
-    ```
--   Frontend (`apps/auth-frt/base`):
-    ```bash
-    # set VITE_AUTH_API=http://localhost:3101/api/v2
-    pnpm --filter @universo/auth-frt dev
-    ```
+## Environment variables
 
-## Rollout Plan (Replacing current auth)
+Defined in `packages/server`:
 
-1. PoC (isolated)
-    - Run auth server on port 3101
-    - Use the `apps/auth-frt` client to verify login → me → auto-refresh → logout
-2. Integrate into `packages/server`
-    - Add `express-session`, `passport`, `helmet`, `csurf`, `cors` as needed
-    - Replace header-based RLS with session-based: `Authorization: Bearer <req.session.tokens.access>`
-    - Protect routes with `req.isAuthenticated()`
-3. Integrate UI in `packages/ui`
-    - Remove `localStorage` token usage and Authorization interceptor
-    - Switch to `withCredentials: true` and `GET /auth/me` for guards
-4. Production
-    - Redis session store, `SameSite=Lax; Secure; HttpOnly` cookies
-    - CSRF for state-changing routes
-    - Regression and performance tests (login rate limiting)
+- `SESSION_SECRET`
+- `SESSION_COOKIE_NAME` (optional, default `up.sid`)
+- `SESSION_COOKIE_MAXAGE` (optional, milliseconds, default 7 days)
+- `SESSION_COOKIE_SAMESITE` (`lax`, `strict`, `none`, or `true`/`false`)
+- `SESSION_COOKIE_SECURE` (`true` to force Secure cookies)
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
+
+## Build & testing tips
+
+```bash
+pnpm --filter @universo/auth-srv build
+pnpm --filter @universo/auth-frt build
+pnpm --filter flowise build   # packages/server
+pnpm --filter flowise lint
+```
+
+After building, start the server (`pnpm --filter flowise dev`) and verify the flow:
+
+1. `POST /api/v1/auth/login`
+2. `GET /api/v1/auth/me`
+3. Call a protected route (e.g. `/api/v1/uniks`) — succeeds without manual tokens
+4. `POST /api/v1/auth/logout`

@@ -9,7 +9,13 @@ import { getErrorMessage } from '../../errors/utils'
 import { ChatflowType } from '../../Interface'
 import chatflowsService from '../../services/chatflows'
 import logger from '../../utils/logger'
-import { accessControlService } from '../../services/access-control'
+import {
+    ensureUnikMembershipResponse,
+    resolveRequestUserId,
+    workspaceAccessService
+} from '../../services/access-control'
+
+const ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this Unik'
 
 const checkIfChatflowIsValidForStreaming = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -51,20 +57,10 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.deleteChatflow - unikId not provided!`)
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const apiResponse = await chatflowsService.deleteChatflow(req.params.id, unikId)
         return res.json(apiResponse)
@@ -80,20 +76,10 @@ const getAllChatflows = async (req: Request, res: Response, next: NextFunction) 
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getAllChatflows - unikId not provided!`)
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const apiResponse = await chatflowsService.getAllChatflows(req.query?.type as ChatflowType, unikId)
         return res.json(apiResponse)
@@ -132,20 +118,10 @@ const getChatflowById = async (req: Request, res: Response, next: NextFunction) 
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.getChatflowById - unikId not provided!`)
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const apiResponse = await chatflowsService.getChatflowById(req.params.id, unikId)
         return res.json(apiResponse)
@@ -169,20 +145,10 @@ const saveChatflow = async (req: Request, res: Response, next: NextFunction) => 
             )
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, body.unik_id, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, body.unik_id, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const newChatFlow = new ChatFlow()
         Object.assign(newChatFlow, body)
@@ -219,20 +185,10 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsRouter.updateChatflow - unikId not provided!`)
         }
 
-        // Universo Platformo | Check user access to this Unik
-        const userId = (req as any).user?.sub
-        if (!userId) {
-            return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
-        }
-
-        // Get auth token from request
-        const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-        // Check if user has access to this Unik using AccessControlService
-        const hasAccess = await accessControlService.checkUnikAccess(userId, unikId, authToken)
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied: You do not have permission to access this Unik' })
-        }
+        const userId = await ensureUnikMembershipResponse(req, res, unikId, {
+            errorMessage: ACCESS_DENIED_MESSAGE
+        })
+        if (!userId) return
 
         const chatflow = await chatflowsService.getChatflowById(req.params.id, unikId)
         if (!chatflow) {
@@ -288,17 +244,12 @@ const getSinglePublicBotConfig = async (req: Request, res: Response, next: NextF
 
         // Universo Platformo | If chatflow belongs to a Unik, verify user access
         if (chatflow && chatflow.unikId) {
-            // Universo Platformo | Check user access to this Unik
-            const userId = (req as any).user?.sub
+            const userId = resolveRequestUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
             }
 
-            // Get auth token from request
-            const authToken = (req as any).headers?.authorization?.split(' ')?.[1]
-
-            // Check if user has access to this Unik using AccessControlService
-            const hasAccess = await accessControlService.checkUnikAccess(userId, chatflow.unikId, authToken)
+            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, chatflow.unikId)
             if (!hasAccess) {
                 return res.status(403).json({ error: 'Access denied: You do not have permission to access this bot' })
             }

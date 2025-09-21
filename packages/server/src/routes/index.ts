@@ -43,10 +43,8 @@ import vectorRouter from './vectors'
 import verifyRouter from './verify'
 import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
-import upAuthRouter from './up-auth'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-srv'
 import { createFinanceRouter } from '@universo/finance-srv'
-import { supabase } from '../utils/supabase'
 import { createResourcesRouter, createClustersRoutes, createDomainsRoutes } from '@universo/resources-srv'
 import { createMetaversesRoutes, createSectionsRoutes, createEntitiesRouter } from '@universo/metaverses-srv'
 // Universo Platformo | Bots
@@ -54,7 +52,7 @@ import botsRouter from './bots'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
-import upAuth from '../middlewares/up-auth'
+import { ensureAuth } from '@universo/auth-srv'
 // Universo Platformo | AR.js publishing integration
 import { createPublishRoutes } from '@universo/publish-srv'
 // Universo Platformo | Profile service integration
@@ -129,13 +127,12 @@ router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
-router.use('/auth', upAuthRouter)
 // Apply ensureAuth middleware to /uniks route (collection operations: list, create)
 router.use(
     '/uniks',
     createUniksCollectionRouter(
-        upAuth.ensureAuth,
-        supabase
+        ensureAuth,
+        () => getDataSource()
     )
 )
 
@@ -143,8 +140,8 @@ router.use(
 router.use(
     '/unik',
     createUniksRouter(
-        upAuth.ensureAuth,
-        supabase,
+        ensureAuth,
+        () => getDataSource(),
         chatflowsRouter,
         chatflowsStreamingRouter,
         chatflowsUploadsRouter,
@@ -165,8 +162,8 @@ router.use(
 router.use(
     '/unik',
     createUnikIndividualRouter(
-        upAuth.ensureAuth,
-        supabase
+        ensureAuth,
+        () => getDataSource()
     )
 )
 console.log('[DEBUG] Registering resources router at /api/v1/resources')
@@ -174,7 +171,7 @@ const resourcesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders:
 router.use(
     '/resources',
     resourcesLimiter,
-    createResourcesRouter(upAuth.ensureAuth, () => getDataSource())
+    createResourcesRouter(ensureAuth, () => getDataSource())
 )
 console.log('[DEBUG] Resources router registered')
 
@@ -183,41 +180,41 @@ const clustersLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: 
 router.use(
     '/clusters',
     clustersLimiter,
-    createClustersRoutes(upAuth.ensureAuth, () => getDataSource())
+    createClustersRoutes(ensureAuth, () => getDataSource())
 )
 const domainsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
 router.use(
     '/domains',
     domainsLimiter,
-    createDomainsRoutes(upAuth.ensureAuth, () => getDataSource())
+    createDomainsRoutes(ensureAuth, () => getDataSource())
 )
 
 const metaversesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
 router.use(
     '/metaverses',
     metaversesLimiter,
-    createMetaversesRoutes(upAuth.ensureAuth, () => getDataSource())
+    createMetaversesRoutes(ensureAuth, () => getDataSource())
 )
 const sectionsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
 router.use(
     '/sections',
     sectionsLimiter,
-    createSectionsRoutes(upAuth.ensureAuth, () => getDataSource())
+    createSectionsRoutes(ensureAuth, () => getDataSource())
 )
 router.use(
     '/entities',
-    createEntitiesRouter(upAuth.ensureAuth, () => getDataSource())
+    createEntitiesRouter(ensureAuth, () => getDataSource())
 )
 // Universo Platformo | Chatflows Streaming
-router.use('/api/v1/chatflows-streaming', upAuth.ensureAuth, chatflowsStreamingRouter)
+router.use('/api/v1/chatflows-streaming', ensureAuth, chatflowsStreamingRouter)
 // Universo Platformo | Bots
-router.use('/api/v1/bots', upAuth.ensureAuth, botsRouter)
+router.use('/api/v1/bots', ensureAuth, botsRouter)
 
 // Universo Platformo | Space Builder
 const spaceBuilderLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true })
 router.use(
     '/space-builder',
-    upAuth.ensureAuth,
+    ensureAuth,
     spaceBuilderLimiter,
     createSpaceBuilderRouter({
         resolveCredential: async (credentialId: string) => {
@@ -283,7 +280,7 @@ const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: tr
 // Mount under /unik/:id so UI paths match both /spaces/* and /canvases/*
 router.use(
     '/unik/:id',
-    upAuth.ensureAuth,
+    ensureAuth,
     spacesLimiter,
     // Parameter compatibility for Spaces routes (expects :unikId)
     (req, _res, next) => { if (req.params.id && !req.params.unikId) req.params.unikId = req.params.id; next(); },
@@ -296,6 +293,6 @@ router.use('/publish', createPublishRoutes(getDataSource()))
 // Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
 // Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints
 const createProfileRoutesWithAuth = createProfileRoutes as unknown as (dataSource: any, authMiddleware?: any) => ExpressRouter
-router.use('/profile', createProfileRoutesWithAuth(getDataSource(), upAuth.ensureAuth))
+router.use('/profile', createProfileRoutesWithAuth(getDataSource(), ensureAuth))
 
 export default router

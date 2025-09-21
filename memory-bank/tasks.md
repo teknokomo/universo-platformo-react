@@ -1,3 +1,47 @@
+## IMPLEMENT - PropTypes Runtime Fix (2025-09-20)
+
+- [x] Подтвердить отсутствие `PropTypes` в production-бандле и указать проблемный модуль
+- [x] Внести точечный патч, возвращающий безопасный доступ к `PropTypes` без поломки линтеров
+- [x] Зафиксировать стратегию дальнейшей миграции с PropTypes на TypeScript в соответствующих заметках
+
+## IMPLEMENT - Auth UI Regression (2025-09-20)
+
+- [x] Document the root cause of the `/auth` refresh loop and capture UI requirements from the 2025-09-20 backup.
+- [x] Restore the legacy login/registration layout in `packages/ui/src/views/up-auth/Auth.jsx` while reusing the new auth context.
+- [x] Provide a compatible registration endpoint in `@universo/auth-srv` and wire up the frontend to use it; run `pnpm --filter flowise-ui build` for verification.
+
+## IMPLEMENT - Uniks Schema Migration (2025-09-21)
+
+- [x] Переключить серверные обращения Supabase (утилита + маршруты Uniks) на `schema('uniks')` с fallback на публичную схему.
+- [x] Обновить тесты/типизацию после переноса и прогнать `tsc` для задействованных пакетов.
+- [x] Задокументировать изменения в memory-bank и подготовить отчёт.
+
+## IMPLEMENT - Passport.js Session Hardening (2025-09-21)
+
+- [x] Consolidate auth middleware into shared packages
+  - Move `ensureAuth` logic into `apps/auth-srv/base` with typed helpers for session tokens
+  - Update `packages/server` to consume the shared middleware and drop `middlewares/up-auth`
+- [x] Replace legacy Basic Auth usage in UI
+  - Use `useAuth()` and the shared Axios client for logout, About dialog, AsyncDropdown, and streaming chat
+  - Ensure streaming requests send cookies/CSRF tokens instead of Basic Auth headers
+- [x] Refresh documentation and tooling for session flow
+  - Remove `FLOWISE_USERNAME/PASSWORD` references from docs, docker configs, and CLI flags
+  - Document required Passport.js/Supabase environment variables and session behaviour across languages
+
+## IMPLEMENT - Passport.js Session MVP (2025-09-21)
+
+- [x] Align auth packages for integration
+  - Remove standalone Vite build from apps/auth-frt/base and expose reusable UI components
+  - Ensure apps/auth-srv/base exports passport router and session utilities
+- [x] Wire Passport.js session stack into packages/server
+  - Add express-session, passport initialization, CSRF route, and mount new /api/v1/auth endpoints
+  - Replace legacy token-based up-auth controllers with session-based flow
+- [x] Update packages/ui authentication client
+  - Replace localStorage token usage with cookie-based session checks via /auth/me
+  - Add shared hooks/components consuming apps/auth-frt/base login form
+- [x] Refresh docs and memory bank
+  - Document new session flow in auth READMEs and update progress log
+
 ## Build Failure Fix - multiplayer-colyseus-srv (2025-09-20)
 
 Objective: Fix TypeScript build error "Cannot find module '@universo/multiplayer-colyseus-srv'" by resolving rootDirs issues and integrating ensurePortAvailable into @universo-platformo/utils.
@@ -27,10 +71,6 @@ Objective: Fix TypeScript build error "Cannot find module '@universo/multiplayer
    - Update package and docs READMEs with new net utilities
 
 - [x] AR.js wallpaper: add flat shader to `a-sphere` background
-
-## Camera Usage Mode Simplification
-
-- [x] Update frontend UI logic
   - Hide AR display type and wallpaper type fields when camera usage is "none"
   - Show background color picker when camera usage is "none"
   - Add background color field to form state management
@@ -38,81 +78,34 @@ Objective: Fix TypeScript build error "Cannot find module '@universo/multiplayer
   - Add backgroundColor field to arjs section
   - Ensure proper saving/loading from Supabase canvases table
 - [x] Update ARJSQuizBuilder 
-  - Handle backgroundColor option when cameraUsage is "none"
-  - Generate simple color background instead of AR wallpaper
-  - Simplify scene generation for no-camera mode
 - [x] Test the complete flow
   - Frontend form shows/hides fields correctly
-  - Backend saves backgroundColor to chatbotConfig
-  - Published app uses backgroundColor when cameraUsage is "none"
-   - Updated `apps/template-quiz/base/src/arjs/ARJSQuizBuilder.ts` to use `shader: flat; wireframe: true` and increased opacity for visibility without lights.
-- [x] AR.js wallpaper: support `a-sky` as alternative
    - Added optional `wallpaperType === 'sky'` to generate `<a-sky>`; extended `DataHandler` to treat `a-sky` as always visible.
 - [x] Adjust DataHandler visibility logic
-   - Recognize wallpaper sphere via material flags and keep it visible; include `a-sky` in query selector and visibility exceptions.
-- [x] Build affected packages
-   - Built `@universo/template-quiz` and `publish-frt` successfully.
 
 # Tasks Tracker
-## Current Implementation - i18n keys show in UI (2025-09-18)
-
 ### Objective
 Fix incorrect i18n namespaces/usages causing raw keys to appear in UI for Publish AR.js and API dialogs.
 
 ### Plan
-- [x] ARJSPublisher: switch to `useTranslation('publish')` and use relative keys (`arjs.*`)
-- [x] APICodeDialog: remove redundant `chatflows.` prefix in `t()` calls; use relative keys (`apiCodeDialog.*`)
-- [x] PythonCode/LinksCode: use `useTranslation('chatflows')` and relative keys (`apiPython.*`, `apiLinks.*`)
- - [x] Chatflows views (EmbedChat, ShareChatbot, index, Configuration, Agentflows): normalize to relative keys to avoid double prefix
- - [x] Validate build/lint for changed files and smoke test translations
-
 ### Notes
-- `packages/ui/src/i18n/index.js` registers namespaces: `publish`, `chatflows`, etc. Components must use the correct namespace without duplicating it in keys.
  - Completed normalization fixes eliminate visible raw keys in top-right API dialog and embed/share panels.
-
-
-## Current Implementation - spaces-frt build & testing (2025-09-19)
-
-### Objective
-Восстановить сборку `@universo/spaces-frt`, обеспечить генерацию типов и согласовать пакет с новой Vitest-инфраструктурой.
-
+   - Move tables into uniks schema; rename user_uniks to uniks_users; update policies (completed 2025-09-21)
+   - Implemented membership + auth.uid() RLS policies replacing broad auth.role() rules
 ### План работ
 - [x] Подготовить конфигурацию TypeScript: добавить `tsconfig.types.json`, обновить `tsconfig.json`/`tsconfig.esm.json` для чётких путей, `rootDir`, `moduleResolution`.
-- [x] Перевести `spacesApi` и точку входа на TypeScript, добавить точечные декларации и сохранить совместимость с Flowise JSX.
-- [x] Обновить `package.json` пакета (`build` скрипты, зависимости), починить `scripts/build-spaces-package.mjs`.
-- [x] Запустить сборку/тесты, обновить README и зафиксировать изменения в memory-bank.
-
 ## Current Implementation - QR Code Download Notification Fix (2025-09-18)
-
-### Objective
-Fix missing notification when QR code download completes successfully.
 
 ### [x] Task 1: Add Download Success Notification
 - Added Snackbar component to QRCodeSection.jsx
-- Implemented success notification after QR code download completes
-- Added state management for snackbar open/close
-
 ### [x] Task 2: Update UI Components
 - Added Material-UI Snackbar import
-- Added snackbar state: `{ open: false, message: '' }`
-- Added handleSnackbarClose function for proper state management
-- Added success message display with 3-second auto-hide
-
-### [x] Task 3: Verify Translations
 - Confirmed `downloadSuccess` key exists in both en/main.json and ru/main.json
 - English: "QR code saved successfully"
-- Russian: "QR-код успешно сохранён"
-
-### [x] Task 4: Build and Deploy
 - Successfully built publish-frt with updated QR code notification
 - QR code download now shows proper user feedback
 
-## Camera Usage Mode Simplification (Previous)
-
-### [x] Task 1: Fix AR.js Scene Initialization
-- Remove `arjs` attribute from `<a-scene>` when `cameraUsage='none'`
 - Update both wallpaper and marker modes in ARJSQuizBuilder.ts
-- Add debug console logging to track attribute removal
 
 ### [x] Task 2: Fix UI Field Ordering
 - Move "Использование камеры" field to appear after "Шаблон экспорта" 
@@ -122,34 +115,18 @@ Fix missing notification when QR code download completes successfully.
 ### [x] Task 3: Enhance Debug Logging  
 - Add console logs in ARJSQuizBuilder to track `cameraUsage` value
 - Log whether `arjs` attribute is added or removed
-- Help troubleshoot camera initialization issues
-
-### [x] Task 4: Fix HTML Generation Issues
 - Fixed invalid HTML generation causing "кусок кода" artifacts
 - Removed comment injection into tag attributes
-- Implemented clean array-based attribute construction
-- Fixed both wallpaper and marker mode HTML generation
-
 ### [x] Task 5: Complete Camera Entity Removal
 - Fixed all camera entity creation points in ARJSQuizBuilder.ts
-- Verified CameraHandler properly returns empty string when cameraUsage='none'
-- Ensured no AR.js initialization when camera is disabled
-
 ### [x] Task 6: Fix Library Loading Logic
 - Updated getRequiredLibraries() to conditionally exclude AR.js when cameraUsage='none'
-- Fixed AbstractTemplateBuilder to pass options to getRequiredLibraries()
-- Ensured AR.js script is not loaded when camera is disabled
-
 ### [x] Task 7: Fix AR-обои (Wallpaper) for No-Camera Mode
 - **Problem**: AR-обои didn't work with cameraUsage='none' because AR.js was completely disabled
-- **Solution**: Wallpaper mode now works with just A-Frame (no AR.js) when camera disabled
-- Updated wallpaper HTML generation to conditionally include arjs attribute
-- Fixed camera entity to be optional in wallpaper mode
 - Now: wallpaper + cameraUsage='none' = A-Frame 3D scene without AR.js or camera
 
 ### [x] Task 8: Package Build and Validation
 - Build template-quiz package with all camera disable logic
-- Build publish-frt package with UI improvements  
 - Validate TypeScript compilation across affected packages
 
 ### Status: ✅ COMPLETED
@@ -166,19 +143,11 @@ All tasks implemented and built successfully. Camera usage settings now properly
 ### Objective
 Implement QR code download functionality for published applications.
 
-## QR Code Download Feature Implementation
-
 ### [x] Task 1: Create SVG to PNG Conversion Utility
 - Create a utility function to convert QR code SVG to high-quality PNG image (512x512)
-- Handle error cases and resource cleanup
-- Support configurable quality settings
-
-### [x] Task 2: Add Download Button to QR Code Section  
-- Integrate download button with Material-UI design system
 - Add proper loading states during download process
 - Position button appropriately in the component layout
 
-### [x] Task 3: Implement Download Logic
 - Connect QR code SVG element with download functionality
 - Generate appropriate filename for downloaded file
 - Handle download errors with user feedback
@@ -188,22 +157,12 @@ Implement QR code download functionality for published applications.
 - Add corresponding English translations
 - Include loading, success, and error message keys
 
-### [x] Task 5: Package Build and Validation
-- Run individual package build to verify TypeScript compilation
-- Perform full workspace build to apply changes across dependencies
 - Validate that all changes integrate properly
 
 ### Status: ✅ COMPLETED
 All tasks have been successfully implemented. QR code download feature is ready for testing.
-
----
-
 ## Previous Fix - AR.js Internationalization (2025-01-17)
 
-### Objective
-Fix translation issues in AR.js published applications where language keys were showing instead of translated text during loading.
-
-## Previous Fix - Quiz Lead Saving Fix Implementation  
 
 ### Objective
 Fix quiz lead saving functionality to ensure quiz completion always creates exactly one lead record.
@@ -221,72 +180,27 @@ Fix quiz lead saving functionality to ensure quiz completion always creates exac
 - ✅ **Fixed ARViewPage.tsx**: Updated useTranslation('publish'), corrected 'publish.arjs.loading' → 'arjs.loading'  
 - ✅ **Added Missing Keys**: Added 'applicationNotAvailable' to both Russian and English translation files
 - ✅ **Package Rebuild**: Successfully compiled publish-frt package
-- ✅ **Full Workspace Build**: Applied changes across all dependent packages
-
-**Result**: Loading screens now display proper translated text instead of raw language keys.
 
 ---
-
-## Previous Fix - Quiz Lead Saving Fix Implementation
 
 **Status**: ✅ **COMPLETED**
 
 ### Problem Identified
 After initial fix for duplicate records, quiz completion stopped creating ANY lead records due to overly restrictive `leadData.hasData` condition.
 
-### Root Cause
-- Lead saving was conditional on `leadData.hasData = true`
-- This flag was only set when lead collection form was used
-- Quizzes without lead forms never set `hasData = true`, so no records were saved
 
 ### Solution Implemented
 
 #### 1. Universal Lead Saving
-- ✅ **Always Save Lead**: Modified logic to save lead record on every quiz completion
-- ✅ **Basic Record Creation**: Create lead record with null values when no form data collected
-- ✅ **Points Preservation**: Always save quiz points regardless of lead form presence
-
-#### 2. Updated Logic Flow
 - ✅ **Form Data Check**: Check if `leadData.hasData` is false (no form used)
 - ✅ **Basic Record Setup**: Set name/email/phone to null for basic completion tracking
 - ✅ **Enable Saving**: Set `hasData = true` to enable saveLeadDataToSupabase call
-- ✅ **Duplicate Prevention**: Maintain existing `leadSaved` global flag protection
-
-#### 3. Implementation Details
-```typescript
-// Always save lead data when quiz completes, regardless of ending type
-// If no lead form data was collected, save basic completion record
-if (!leadData.hasData) {
-    // Create basic lead record for quiz completion tracking
-    leadData.name = null;
-    leadData.email = null;
-    leadData.phone = null;
-    leadData.hasData = true; // Enable saving
-    console.log('[MultiSceneQuiz] No lead form used, creating basic completion record');
-}
 saveLeadDataToSupabase(leadData, pointsManager.getCurrentPoints());
 ```
 
-#### 4. Build and Validation
-- ✅ **Package Rebuild**: Successfully compiled template-quiz with ESM and CJS outputs
-- ✅ **Code Verification**: Confirmed changes applied in compiled JavaScript files
-- ✅ **Expected Result**: Every quiz completion now creates exactly one lead record
-
 ### Files Modified
-- `apps/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` - Universal lead saving logic
-- Generated outputs: `dist/esm/` and `dist/cjs/` - Updated via build process
-
-## Previous Implementation - Duplicate Prevention (2025-01-17)
-
-**Status**: ✅ **COMPLETED** (with follow-up fix above)
-
-### Duplicate Record Fix
-- ✅ **Global Flag**: Added `leadSaved` variable to prevent duplicate saves
-- ✅ **Centralized Logic**: Moved lead saving to main quiz completion handler
 - ✅ **Removed Duplicates**: Eliminated duplicate call from showQuizResults function
 - ✅ **Race Condition Protection**: Global flag prevents timing issues
-
-## Final Status: RESOLVED ✅
 
 Quiz lead saving now works correctly:
 - **Every quiz completion** creates exactly **one lead record**

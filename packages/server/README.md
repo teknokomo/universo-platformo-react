@@ -24,12 +24,27 @@ Drag & drop UI to build your customized LLM flow
 
 ## 🔒 Authentication
 
-To enable app level authentication, add `FLOWISE_USERNAME` and `FLOWISE_PASSWORD` to the `.env` file:
+Universo Platformo now relies on Passport.js sessions backed by Supabase. Add the following variables to `packages/server/.env` (or provide them via CLI flags) to enable the built-in login flow exposed at `/api/v1/auth`:
 
 ```
-FLOWISE_USERNAME=user
-FLOWISE_PASSWORD=1234
+SESSION_SECRET=replace-with-strong-secret
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_ANON_KEY=public-anon-key
+SUPABASE_JWT_SECRET=service-jwt-secret
 ```
+
+Optional cookie hardening:
+
+```
+SESSION_COOKIE_NAME=up.session
+SESSION_COOKIE_MAXAGE=86400000
+SESSION_COOKIE_SAMESITE=lax
+SESSION_COOKIE_SECURE=false
+SESSION_COOKIE_PARTITIONED=false
+```
+
+- Use `SESSION_COOKIE_PARTITIONED=true` when deploying behind cross-site iframes in Chrome Privacy Sandbox.
+- Setting `SESSION_COOKIE_SAMESITE=none` automatically forces `SESSION_COOKIE_SECURE=true`.
 
 ## 🌱 Env Variables
 

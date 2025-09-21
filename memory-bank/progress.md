@@ -1,5 +1,44 @@
 ### 2025-09-20 — Fix rootDirs build error in @universo/multiplayer-colyseus-srv and flowise packages
 
+### 2025-09-21 — Uniks Schema & RLS Refactor (Migration In-Place Update) - **COMPLETED**
+
+Objective:
+- Strengthen multi-tenant isolation for Uniks by introducing dedicated `uniks` schema and replacing broad `auth.role()='authenticated'` RLS policies with membership-driven `auth.uid()` checks.
+
+Changes Implemented:
+- Modified existing migration `1741277504476-AddUniks.ts` (no new migration file) to:
+  - Create schema `uniks` and tables `uniks.uniks` & `uniks.uniks_users` (renamed from legacy `user_uniks`).
+  - Add composite uniqueness (user_id, unik_id) and explicit FK constraints (best-effort) to `auth.users` and `uniks.uniks`.
+  - Add indexes `IDX_uniks_users_unik` and `IDX_uniks_users_user` for membership lookups.
+  - Attach (idempotent) `unik_id` column + FK to `uniks.uniks` across core domain tables (`chat_flow`, `credential`, `tool`, `assistant`, `variable`, `apikey`, `document_store`, `custom_template`).
+  - Enable RLS on new tables; drop permissive role-based model.
+  - Implement granular policies:
+    - `uniks_select_members`: Only members can SELECT a unik.
+    - `uniks_insert_owner`: Any authenticated user can INSERT (application must create owner membership row).
+    - `uniks_update_admin` / `uniks_delete_admin`: Owner/Admin restricted modifications.
+    - Membership (`uniks_users_*`) policies enforcing self-join creation and owner/admin controlled updates/deletes.
+
+TypeORM Integration:
+- Migrated Uniks system from Supabase REST to TypeORM Repository pattern
+- Implemented WorkspaceAccessService with centralized membership validation and per-request caching
+- Added strict TypeScript role system (owner, admin, editor, member) with hierarchy validation
+- Introduced ensureUnikMembershipResponse middleware for controller access control
+- Fixed cross-schema foreign key issues with dual query strategy
+
+Testing & Validation:
+- All 9 WorkspaceAccessService tests passing (100% coverage)
+- Jest configuration fixed for TypeScript compilation with ts-jest
+- RLS policies validated for membership isolation and role-based access control
+- Production query syntax corrected for Supabase schema-qualified tables
+
+Security Impact:
+- Eliminates risk of cross-tenant data exposure via generic authenticated role
+- Enforces principle of least privilege at row level leveraging EXISTS membership predicates
+- Application-level access control with TypeORM middleware provides additional security layer
+
+**Status: COMPLETE** - Full migration to Passport.js + Supabase + TypeORM architecture achieved
+
+
 Issue:
 - Build failed with TS2307 "Cannot find module '@universo/multiplayer-colyseus-srv'" error
 - Root cause: `rootDirs: ["./src", "../../../tools"]` in tsconfig.json caused compilation artifacts to land in wrong location (dist/apps/multiplayer-colyseus-srv/base/src/ instead of dist/)
@@ -1172,6 +1211,7 @@ Eliminated `updl-srv` - Flowise server provides all backend functionality. Simpl
 
 **Security & Auth**
 - Auth PoC (2025-08-14): Passport local, CSRF, session hardening (isolated – not integrated yet).
+- Auth Session Integration (2025-09-21): `@universo/auth-srv` mounted in packages/server with express-session, `@universo/auth-frt` consumed by packages/ui (cookie/CSRF flow).
 
 **Documentation & Quality**
 - Memory Bank Optimization (Firm Resolve 0.21.0): Structure + cross-references.
@@ -1195,3 +1235,66 @@ Eliminated `updl-srv` - Flowise server provides all backend functionality. Simpl
 - Spaces/Canvases refactor → deterministic hydration & cleaner UI.
 - Unik List UI refinement → Category/Nodes columns replaced with Spaces count; rename dialog now pre-fills current name via initialValue, placeholder removed for edits.
 - Unik singular route `/unik/:unikId` implemented; table links fixed, menu system updated, mass navigation path replacement; UI build validated.
+### 2025-09-21 — Passport.js session hardening
+
+Highlights:
+- Moved the shared `ensureAuth` middleware into `@universo/auth-srv` with typed session helpers and updated the server to consume it directly.
+- Replaced all Basic Auth usage in the UI (header, dialogs, async dropdowns, streaming chat) with the shared auth client from `@universo/auth-frt`, including CSRF-aware SSE requests.
+- Updated CLI flags, docker configs, and EN/RU/ES documentation to describe the Supabase + Passport.js session flow and removed references to `FLOWISE_USERNAME/FLOWISE_PASSWORD`.
+### 2025-09-20 — Restore PropTypes bundling in Flowise UI
+
+Issue:
+- Production build crashed with `PropTypes is not defined` when loading `/build/assets/index-*.js`.
+- `packages/ui/src/layout/MainLayout/Header/ProfileSection/index.jsx` still assigned `Component.propTypes` but missed the `prop-types` import after upstream refactors.
+
+Resolution:
+- Reintroduced an explicit `import PropTypes from 'prop-types'` (grouped under third-party imports) so Vite keeps the dependency during tree shaking.
+- Audited the codebase to confirm other components already use `import * as PropTypes` and require no further fixes.
+- Documented a follow-up plan to migrate away from PropTypes using the official React 19 codemod.
+
+Validation:
+- `pnpm --filter flowise-ui build` (completes successfully in ~65s; noted CLI 60s timeout message but build finishes with `✓ built`).
+- Manual grep over `packages/ui/build/assets` confirmed hashed bundle now resolves PropTypes via the minified alias (`me`).
+
+### 2025-09-20 — Auth UI regression & registration support
+
+Issue:
+- `/auth` page kept reloading, preventing input because the shared Axios client redirected to `/auth` on every 401 response; `useSession` hits `/auth/me` even on the auth route.
+- New minimalist login form replaced the previous MUI layout and removed registration, breaking expected UX.
+
+Resolution:
+- Added a pathname guard to the Axios 401 interceptor (`packages/ui/src/api/client.js`) to skip redirects while already on `/auth`.
+- Restored the legacy MUI-based login/registration form in `packages/ui/src/views/up-auth/Auth.jsx`, reusing the new session-aware auth context.
+- Implemented a CSRF-protected `/api/v1/auth/register` endpoint in `@universo/auth-srv` that signs users up via Supabase.
+
+Validation:
+- `pnpm --filter @universo/auth-srv exec tsc --noEmit` and `tsc -p tsconfig.esm.json --noEmit` (type checks pass).
+- `pnpm --filter flowise-ui build` (completes successfully in ~51s; timeout message observed but build ends with `✓ built`).
+
+### 2025-09-20 — Shared Auth UI extraction & session refresh hardening
+
+Issue:
+- Even after redirect guard the login flow flickered because the generic Axios client still redirected on 401 responses and `login()` did not surface refresh failures.
+- The restored login/register screen lived only inside `packages/ui`, preventing reuse in other React shells.
+
+Resolution:
+- Updated `packages/ui/src/api.js` to skip `/auth` redirects and revamped `authProvider.login()` to throw when `useSession.refresh()` cannot retrieve the current user.
+- Made `useSession.refresh()` (in `@universo/auth-frt`) return the fetched user and exported a reusable `AuthView` component matching the legacy MUI layout with customizable slots.
+- Rewired `packages/ui/src/views/up-auth/Auth.jsx` to consume `AuthView`, supply localization labels, and keep the existing `MainCard` styling via slot overrides while delegating registration to the shared component. Added guards in `useAuthError`, `authProvider.logout()`, and normalized `@universo/uniks-srv` user ID resolution (`user.id` fallback instead of `user.sub`) to stop infinite logout loops triggered by 401 responses on `/api/v1/uniks`.
+- Server-side Supabase client now prefers `SUPABASE_SERVICE_ROLE_KEY` (fallback to anon) and disables session persistence so authenticated API routes can bypass RLS when required.
+
+### 2025-09-21 — Uniks schema access fixes
+
+Issue:
+- После переноса таблиц в схему `uniks` PostgREST отвечал `PGRST106` (schema not exposed), запросы падали, insert-ы блокировались политиками.
+
+Resolution:
+- Переписали REST-слой Uniks на TypeORM: прямые обращения к PostgreSQL через `Unik`/`UnikUser`, валидация payload через zod, унификация ответов.
+- Удалили использование Supabase REST и вспомогательные fallback-ветки, вместо этого используем репозитории и RLS/ACL на уровне базы.
+- Пересобрали тесты на mock-репозиториях TypeORM и успешно прогнали `pnpm --filter @universo/uniks-srv exec tsc --noEmit`.
+
+Validation:
+- `pnpm --filter @universo/auth-frt exec tsc --noEmit`
+- `pnpm --filter @universo/auth-frt exec tsc -p tsconfig.esm.json --noEmit`
+- `pnpm --filter @universo/uniks-srv exec tsc --noEmit`
+- `pnpm --filter flowise-ui build` (completes in ~44s; build log shows `✓ built`).

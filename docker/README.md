@@ -11,13 +11,15 @@ Starts Flowise from [DockerHub Image](https://hub.docker.com/r/flowiseai/flowise
 
 ## 🔒 Authentication
 
-1. Create `.env` file and specify the `PORT`, `FLOWISE_USERNAME`, and `FLOWISE_PASSWORD` (refer to `.env.example`)
-2. Pass `FLOWISE_USERNAME` and `FLOWISE_PASSWORD` to the `docker-compose.yml` file:
+1. Create `.env` file and specify the `PORT`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_JWT_SECRET` (refer to `.env.example`)
+2. Pass the variables to the `docker-compose.yml` file:
     ```
     environment:
         - PORT=${PORT}
-        - FLOWISE_USERNAME=${FLOWISE_USERNAME}
-        - FLOWISE_PASSWORD=${FLOWISE_PASSWORD}
+        - SESSION_SECRET=${SESSION_SECRET}
+        - SUPABASE_URL=${SUPABASE_URL}
+        - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+        - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
     ```
 3. `docker compose up -d`
 4. Open [http://localhost:3000](http://localhost:3000)

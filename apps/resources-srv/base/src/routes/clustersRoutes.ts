@@ -8,6 +8,12 @@ import { Domain } from '../database/entities/Domain'
 import { DomainCluster } from '../database/entities/DomainCluster'
 import { ensureClusterAccess, ensureDomainAccess } from './guards'
 
+const resolveUserId = (req: Request): string | undefined => {
+  const user = (req as any).user
+  if (!user) return undefined
+  return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Comments in English only
 export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
   const router = Router({ mergeParams: true })
@@ -40,7 +46,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
 
   // GET /clusters
   router.get('/', asyncHandler(async (req, res) => {
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
     const { clusterUserRepo } = repos()
@@ -63,7 +69,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
     if (!name) return res.status(400).json({ error: 'name is required' })
 
     // Get user ID from middleware (req.user should be set by ensureAuth)
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
 
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -94,7 +100,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   // GET /clusters/:clusterId/resources
   router.get('/:clusterId/resources', asyncHandler(async (req, res) => {
     const { clusterId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     // Debug log removed
     
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -120,7 +126,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   // POST /clusters/:clusterId/resources/:resourceId (attach)
   router.post('/:clusterId/resources/:resourceId', asyncHandler(async (req, res) => {
     const { clusterId, resourceId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureClusterAccess(getDataSource(), userId, clusterId)
     const { linkRepo, clusterRepo, resourceRepo } = repos()
@@ -138,7 +144,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   // DELETE /clusters/:clusterId/resources/:resourceId (detach)
   router.delete('/:clusterId/resources/:resourceId', asyncHandler(async (req, res) => {
     const { clusterId, resourceId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureClusterAccess(getDataSource(), userId, clusterId)
     const { linkRepo } = repos()
@@ -153,7 +159,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
     const { clusterId } = req.params
     const { items } = req.body || {}
     if (!Array.isArray(items)) return res.status(400).json({ error: 'items must be an array' })
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     await ensureClusterAccess(getDataSource(), userId, clusterId)
     const { linkRepo } = repos()
@@ -173,7 +179,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   // GET /clusters/:clusterId/domains
   router.get('/:clusterId/domains', asyncHandler(async (req, res) => {
     const { clusterId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     // Debug log removed
     
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -199,7 +205,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
   // POST /clusters/:clusterId/domains/:domainId (attach)
   router.post('/:clusterId/domains/:domainId', asyncHandler(async (req, res) => {
     const { clusterId, domainId } = req.params
-    const userId = (req as any).user?.sub
+    const userId = resolveUserId(req)
     if (!userId) return res.status(401).json({ error: 'User not authenticated' })
     // Ensure the user can access both the cluster and the domain
     await ensureClusterAccess(getDataSource(), userId, clusterId)

@@ -10,6 +10,12 @@ import { EntityMetaverse } from '../database/entities/EntityMetaverse'
 import { ensureMetaverseAccess, ensureSectionAccess, ensureEntityAccess } from './guards'
 import { z } from 'zod'
 
+const resolveUserId = (req: Request): string | undefined => {
+    const user = (req as any).user
+    if (!user) return undefined
+    return user.id ?? user.sub ?? user.user_id ?? user.userId
+}
+
 // Helper to get repositories from the data source
 function getRepositories(getDataSource: () => DataSource) {
     const dataSource = getDataSource()
@@ -64,7 +70,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     router.get(
         '/',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             const { metaverseUserRepo, sectionMetaverseRepo, entitySectionRepo } = getRepositories(getDataSource)
@@ -119,7 +125,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
             const { name, description, metaverseId, sectionId } = parsed.data
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
@@ -159,7 +165,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     router.get(
         '/:entityId',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureEntityAccess(getDataSource(), userId, req.params.entityId)
             const { entityRepo } = getRepositories(getDataSource)
@@ -175,7 +181,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     router.put(
         '/:entityId',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureEntityAccess(getDataSource(), userId, req.params.entityId)
             const { entityRepo } = getRepositories(getDataSource)
@@ -194,7 +200,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     router.delete(
         '/:entityId',
         asyncHandler(async (req: Request, res: Response) => {
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureEntityAccess(getDataSource(), userId, req.params.entityId)
             const { entityRepo } = getRepositories(getDataSource)
@@ -214,7 +220,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             const entityId = req.params.entityId
             const { sectionId } = req.body || {}
             if (!sectionId) return res.status(400).json({ error: 'sectionId is required' })
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureEntityAccess(getDataSource(), userId, entityId)
             await ensureSectionAccess(getDataSource(), userId, sectionId)
@@ -240,7 +246,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
         asyncHandler(async (req: Request, res: Response) => {
             const { entityRepo, entitySectionRepo } = getRepositories(getDataSource)
             const entityId = req.params.entityId
-            const userId = (req as any).user?.sub
+            const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureEntityAccess(getDataSource(), userId, entityId)
             const entity = await entityRepo.findOneBy({ id: entityId })

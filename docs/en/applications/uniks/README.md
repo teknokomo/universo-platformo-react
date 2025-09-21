@@ -1,44 +1,69 @@
 # Workspace Management (Uniks)
 
+> Updated Q3 2025: Migrated to Passport.js + Supabase session bridge, TypeORM repositories, dedicated `uniks` schema with RLS, and expanded role model (owner/admin/editor/member).
+
 The Uniks workspace management system provides comprehensive functionality for creating, organizing, and managing collaborative workspaces within the Universo Platformo ecosystem.
 
-## Overview
+## Updated Overview
 
-The Uniks system consists of two main components:
+The Uniks system now consists of clearly separated components with stricter security and access control layers:
 
--   **uniks-frt**: Frontend application providing the user interface for workspace management
--   **uniks-srv**: Backend workspace package handling data operations and API endpoints
+- **uniks-frt**: Frontend application (React + Material UI + i18n) providing workspace UI
+- **uniks-srv**: Backend package exposing workspace/member APIs and TypeORM entities
+- **Main Server**: Passport.js session + Supabase auth bridge + global middleware
 
-This system enables users to create dedicated workspaces, manage team members, and organize their projects within a collaborative environment.
+Key 2025 Enhancements:
+- Migrated from Supabase REST queries to TypeORM Repository pattern
+- Introduced dedicated Postgres schema `uniks` with RLS policies
+- Replaced implicit (owner/member) model with strict roles: `owner`, `admin`, `editor`, `member`
+- Added per-request membership caching via `WorkspaceAccessService`
+- Implemented dual-check strategy (membership fetch + entity fetch) for cross-schema safety
 
 ## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│   uniks-frt     │◄──►│   uniks-srv     │◄──►│   Main Server   │
-│   (Frontend)    │    │   (Backend)     │    │   (Flowise)     │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│   Material-UI   │    │   PostgreSQL    │    │   Supabase      │
-│   Components    │    │   Database      │    │   Auth          │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌───────────────┐    ┌────────────────┐    ┌────────────────┐
+│   uniks-frt   │◄──►│   uniks-srv    │◄──►│  Main Server    │
+│ (Frontend)    │    │ (Workspace API)│    │ (platform core)│
+└───────────────┘    └────────────────┘    └────────────────┘
+    │                    │                      │
+    ▼                    ▼                      ▼
+┌───────────────┐    ┌────────────────┐    ┌────────────────┐
+│ React/MUI/i18n │    │ TypeORM +      │    │ Passport.js +   │
+│ TypeScript     │    │ Schema `uniks` │    │ Supabase Auth   │
+└───────────────┘    └────────────────┘    └────────────────┘
+               │
+               ▼
+           RLS (membership)
+```
+
+### Role Model (2025)
+
+| Role  | Purpose                    | Examples |
+|-------|----------------------------|----------|
+| owner | Full control               | Delete workspace, promote roles |
+| admin | Administrative management  | Add/remove members, update meta |
+| editor| Content contribution       | Create/update internal resources |
+| member| Basic participation        | View and perform basic actions |
+
+Role constants are defined in a strict union to prevent typos (`roles.ts`).
+
+### Access Validation Pattern
+```typescript
+const membership = await WorkspaceAccessService.ensure(userId, unikId, ['admin','owner'])
+// membership contains validated role (cached per request)
 ```
 
 ## Frontend Application (uniks-frt)
 
 ### Key Features
 
--   **Workspace Management Interface**: Create, edit, and delete workspaces
--   **Member Management**: Add and remove workspace members with role-based permissions
--   **Responsive Design**: Mobile-friendly interface using Material-UI components
--   **Internationalization**: Full support for English and Russian languages
--   **Navigation Integration**: Seamless integration with main platform navigation
+- Workspace CRUD management UI
+- Member management with live role constraints
+- Multi-role awareness (owner/admin/editor/member)
+- Responsive Material UI layout
+- EN/RU internationalization
+- Integrated navigation & auth state awareness
 
 ### Components
 
@@ -80,11 +105,12 @@ Modal dialog for workspace operations:
 
 ### Key Features
 
--   **CRUD Operations**: Complete workspace lifecycle management
--   **Member Management**: User role assignment and permission handling
--   **Database Integration**: TypeORM entities and PostgreSQL migrations
--   **Authentication**: Supabase JWT token validation
--   **Route Integration**: Nested routing under `/:unikId` prefix
+- CRUD operations (TypeORM repositories)
+- Membership + role validation (central service)
+- RLS-enforced data isolation via `uniks` schema
+- Passport.js session + Supabase JWT validation
+- Cached membership resolution per request
+- Strict role union enforcement
 
 ### API Endpoints
 
@@ -106,30 +132,31 @@ DELETE /uniks/members/:userId  # Remove member from workspace
 GET    /uniks/:id/members  # List workspace members
 ```
 
-### Database Schema
+### Database Schema (Updated)
 
-#### Unik Entity
-
+#### Unik Entity (TypeORM)
 ```typescript
-interface Unik {
-    id: string
-    name: string
-    description?: string
-    owner_id: string
-    created_at: Date
-    updated_at: Date
+@Entity({ schema: 'uniks', name: 'uniks' })
+export class Unik {
+    @PrimaryGeneratedColumn('uuid') id!: string
+    @Column({ type: 'text' }) name!: string
+    @Column({ type: 'text', nullable: true }) description?: string
+    @CreateDateColumn({ name: 'created_at' }) createdAt!: Date
+    @UpdateDateColumn({ name: 'updated_at' }) updatedAt!: Date
+    @OneToMany(() => UnikUser, (uu) => uu.unik) memberships!: UnikUser[]
 }
 ```
 
-#### UserUnik Entity
-
+#### UnikUser Entity (Membership)
 ```typescript
-interface UserUnik {
-    id: string
-    user_id: string
-    unik_id: string
-    role: 'owner' | 'member'
-    created_at: Date
+@Entity({ schema: 'uniks', name: 'uniks_users' })
+export class UnikUser {
+    @PrimaryGeneratedColumn('uuid') id!: string
+    @Column({ name: 'user_id', type: 'uuid' }) userId!: string
+    @Column({ name: 'unik_id', type: 'uuid' }) unikId!: string
+    @Column({ type: 'text' }) role!: UnikRole // 'owner' | 'admin' | 'editor' | 'member'
+    @ManyToOne(() => Unik, (unik) => unik.memberships) @JoinColumn({ name: 'unik_id' }) unik!: Unik
+    @CreateDateColumn({ name: 'created_at' }) createdAt!: Date
 }
 ```
 
@@ -161,26 +188,26 @@ The Uniks system integrates with the main Flowise platform through:
 
 ### Authentication Integration
 
--   **JWT Tokens**: Consistent authentication across all applications
--   **Supabase Client**: Centralized user management
--   **Route Protection**: Unified access control
--   **Role-Based Permissions**: Workspace-specific authorization
+- Passport.js session management + Supabase token validation
+- Per-request user context passed to TypeORM services
+- Membership fetched once and cached
+- Role-based permission gate applied before business logic
 
 ## Security Features
 
 ### Authentication & Authorization
 
--   JWT token-based authentication via Supabase
--   Role-based access control (owner/member)
--   Workspace-specific permission validation
--   Secure token validation middleware
+- Hybrid Passport.js (session) + Supabase JWT bridge
+- Expanded role-based access control (owner/admin/editor/member)
+- Central membership verification service
+- Type-safe role guards preventing typo-based bypass
 
 ### Data Protection
 
--   SQL injection prevention through TypeORM
--   Input validation and sanitization
--   Secure password handling
--   HTTPS-only communication
+- RLS policies enforcing membership-based visibility
+- TypeORM parameterization for SQL injection prevention
+- Input validation + sanitized error surfaces
+- Least privilege role design
 
 ### API Security
 
@@ -260,10 +287,10 @@ JWT_SECRET=...
 
 ### Backend Testing
 
--   API endpoint testing
--   Database operation testing
--   Authentication flow testing
--   Error handling validation
+- API endpoint testing (workspace + membership routes)
+- Membership role matrix (owner/admin/editor/member) scenarios
+- RLS behavior validation (positive + negative cases)
+- Caching behavior tests (single-request membership reuse)
 
 ### Integration Testing
 
@@ -312,17 +339,17 @@ pnpm deploy
 
 ### Planned Features
 
--   **Real-time Collaboration**: WebSocket integration for live updates
--   **Advanced Permissions**: Granular role-based access control
--   **Workspace Templates**: Pre-configured workspace setups
--   **Integration APIs**: Third-party service connections
+- Real-time presence + collaboration updates
+- Granular permission flags (feature-level ACL)
+- Workspace templates & cloning
+- Bulk invitation workflows
 
 ### Technical Improvements
 
--   **Microservices Architecture**: Further modularization
--   **Container Deployment**: Docker containerization
--   **Caching Layer**: Redis integration for performance
--   **API Versioning**: Backward-compatible API evolution
+- Redis caching layer for membership hydration
+- Auditing trail for administrative actions
+- Enhanced migration automation + idempotency checks
+- API versioning & deprecation strategy
 
 ## Troubleshooting
 
