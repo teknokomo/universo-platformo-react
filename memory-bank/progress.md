@@ -1298,3 +1298,30 @@ Validation:
 - `pnpm --filter @universo/auth-frt exec tsc -p tsconfig.esm.json --noEmit`
 - `pnpm --filter @universo/uniks-srv exec tsc --noEmit`
 - `pnpm --filter flowise-ui build` (completes in ~44s; build log shows `✓ built`).
+
+### 2025-09-23 — Unik deletion cascade cleanup
+
+Issue:
+- Deleting a Unik via REST removed the workspace row but left orphaned canvases, chat history, and Document Store references because the router called `unikRepo.delete` directly without replicating the manual cascade implemented in `SpacesService.deleteSpace`.
+
+Resolution:
+- Wrapped Unik deletion in a single transaction (`createUnikIndividualRouter`) that verifies ownership, gathers all related space and canvas identifiers, removes their `spaces_canvases` links, and deletes orphan canvases alongside chat messages, feedback, leads, and upsert history rows.
+- Added Document Store hygiene by stripping deleted canvas IDs from `document_store.whereUsed` and scheduled storage cleanup via `removeFolderFromStorage` for each removed canvas.
+- Extended Jest coverage with transactional route tests (mocked manager/transaction) and a helper-focused scenario using an in-memory manager to prove that spaces, canvases, chat artefacts, and Document Store metadata are purged.
+
+Validation:
+- `pnpm --filter @universo/uniks-srv test`
+
+### 2025-09-24 — Shared purge helper for spaces cleanup
+
+Issue:
+- Unik deletion and single-space deletion executed separate cascade implementations, leading to duplicated SQL and inconsistent cleanup of canvases, chat artefacts, and Document Store metadata across packages.
+
+Resolution:
+- Decoupled the `Space` entity from a direct `@universo/uniks-srv` import (string-based relation plus `unikId` column) to break the workspace dependency cycle and allow cross-package helper reuse.
+- Introduced `purgeSpacesForUnik` under `@universo/spaces-srv`, consolidating space/canvas collection, chat table pruning, Document Store updates, and returning canvas IDs for storage cleanup.
+- Refactored `SpacesService.deleteSpace` and the Unik DELETE route to call the shared helper inside existing transactions, updated Jest suites, and added dedicated helper tests covering multi-space and targeted deletions.
+
+Validation:
+- `pnpm --filter @universo/spaces-srv test`
+- `pnpm --filter @universo/uniks-srv test`

@@ -11,11 +11,38 @@ jest.mock('typeorm', () => {
   }
 }, { virtual: true })
 
+jest.mock(
+  'flowise-components',
+  () => ({
+    removeFolderFromStorage: jest.fn().mockResolvedValue(undefined)
+  }),
+  { virtual: true }
+)
+
+jest.mock(
+  '@universo/spaces-srv',
+  () => ({
+    purgeSpacesForUnik: jest.fn(),
+    cleanupCanvasStorage: jest.fn().mockResolvedValue(undefined)
+  }),
+  { virtual: true }
+)
+
 import type { Request, Response, NextFunction, Router } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
-import { createUniksCollectionRouter, createUnikIndividualRouter } from '../../routes/uniksRoutes'
+import * as routes from '../../routes/uniksRoutes'
 import { createMockRepository, createMockDataSource } from '../utils/typeormMocks'
+
+const { createUniksCollectionRouter, createUnikIndividualRouter } = routes
+const { removeFolderFromStorage } = require('flowise-components') as {
+  removeFolderFromStorage: jest.Mock
+}
+const { purgeSpacesForUnik, cleanupCanvasStorage } = require('@universo/spaces-srv') as {
+  purgeSpacesForUnik: jest.Mock
+  cleanupCanvasStorage: jest.Mock
+}
+
 
 const ensureAuth = (userId: string) => (req: Request, _res: Response, next: NextFunction) => {
   ;(req as any).user = { id: userId }
@@ -32,13 +59,17 @@ describe('uniks routes (TypeORM)', () => {
     return { app, dataSource }
   }
 
-  const buildIndividualApp = (userId: string, repos: { unikRepo: any; membershipRepo: any }) => {
-    const dataSource = createMockDataSource({ Unik: repos.unikRepo, UnikUser: repos.membershipRepo })
+  const buildIndividualApp = (
+    userId: string,
+    repos: { unikRepo: any; membershipRepo: any },
+    options?: { transaction?: jest.Mock }
+  ) => {
+    const dataSource = createMockDataSource({ Unik: repos.unikRepo, UnikUser: repos.membershipRepo }, options)
     const router = createUnikIndividualRouter(ensureAuth(userId), () => dataSource as any)
     const app = express()
     app.use(express.json())
     app.use(router)
-    return { app }
+    return { app, dataSource }
   }
 
   beforeEach(() => {
@@ -111,15 +142,92 @@ describe('uniks routes (TypeORM)', () => {
     expect(response.body).toMatchObject({ id: 'unik-1', name: 'Renamed' })
   })
 
-  it('удаляет уник владельцем', async () => {
+  it('удаляет уник владельцем с каскадной очисткой', async () => {
     const unikRepo = createMockRepository<any>()
     const membershipRepo = createMockRepository<any>()
     membershipRepo.findOne.mockResolvedValue({ role: 'owner' })
-    unikRepo.delete.mockResolvedValue({ affected: 1 })
+    const managerUnikRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 'unik-1' }),
+      delete: jest.fn().mockResolvedValue({ affected: 1 })
+    }
+    purgeSpacesForUnik.mockResolvedValue({
+      deletedCanvasIds: ['canvas-1'],
+      deletedSpaceIds: ['space-1']
+    })
+    const transaction = jest.fn(async (callback: any) => {
+      return callback({
+        getRepository: jest.fn(() => managerUnikRepo)
+      })
+    })
 
-    const { app } = buildIndividualApp('user-99', { unikRepo, membershipRepo })
+    const { app } = buildIndividualApp('user-99', { unikRepo, membershipRepo }, { transaction })
     const response = await request(app).delete('/123')
 
     expect(response.status).toBe(204)
+    expect(transaction).toHaveBeenCalled()
+    expect(managerUnikRepo.findOne).toHaveBeenCalledWith({ where: { id: '123' } })
+    expect(managerUnikRepo.delete).toHaveBeenCalledWith({ id: '123' })
+    expect(purgeSpacesForUnik).toHaveBeenCalledWith(expect.anything(), { unikId: '123' })
+    expect(cleanupCanvasStorage).toHaveBeenCalledWith(
+      ['canvas-1'],
+      removeFolderFromStorage,
+      { source: 'Uniks' }
+    )
+    purgeSpacesForUnik.mockReset()
+    cleanupCanvasStorage.mockReset()
+  })
+
+  it('не вызывает очистку хранилища если helper не удалил канвасы', async () => {
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.findOne.mockResolvedValue({ role: 'owner' })
+    const managerUnikRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 'unik-1' }),
+      delete: jest.fn().mockResolvedValue({ affected: 1 })
+    }
+    purgeSpacesForUnik.mockResolvedValue({
+      deletedCanvasIds: [],
+      deletedSpaceIds: ['space-1']
+    })
+    const transaction = jest.fn(async (callback: any) =>
+      callback({
+        getRepository: jest.fn(() => managerUnikRepo)
+      })
+    )
+
+    const { app } = buildIndividualApp('user-1', { unikRepo, membershipRepo }, { transaction })
+    const response = await request(app).delete('/777')
+
+    expect(response.status).toBe(204)
+    expect(purgeSpacesForUnik).toHaveBeenCalledWith(expect.anything(), { unikId: '777' })
+    expect(cleanupCanvasStorage).not.toHaveBeenCalled()
+  })
+
+  it('возвращает 404 если уник не найден внутри транзакции', async () => {
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.findOne.mockResolvedValue({ role: 'owner' })
+
+    const managerUnikRepo = {
+      findOne: jest.fn().mockResolvedValue(undefined),
+      delete: jest.fn()
+    }
+
+    const transaction = jest.fn(async (callback: any) => {
+      try {
+        await callback({
+          getRepository: jest.fn(() => managerUnikRepo)
+        })
+      } catch (error) {
+        throw error
+      }
+    })
+
+    const { app } = buildIndividualApp('user-11', { unikRepo, membershipRepo }, { transaction })
+    const response = await request(app).delete('/missing')
+
+    expect(response.status).toBe(404)
+    expect(managerUnikRepo.delete).not.toHaveBeenCalled()
+    expect(purgeSpacesForUnik).not.toHaveBeenCalled()
   })
 })

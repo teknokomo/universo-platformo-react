@@ -1,16 +1,7 @@
 import { Canvas } from '@/database/entities/Canvas'
 import { Space } from '@/database/entities/Space'
 import { SpaceCanvas } from '@/database/entities/SpaceCanvas'
-import { Unik } from '@universo/uniks-srv'
-
 const baseDate = new Date('2024-01-01T00:00:00.000Z')
-
-export const createUnikFixture = (overrides: Partial<Unik> = {}): Unik => ({
-  id: 'unik-1',
-  name: 'Primary Unik',
-  created_at: baseDate,
-  ...overrides
-})
 
 export const createSpaceFixture = (overrides: Partial<Space> = {}): Space => ({
   id: 'space-1',
@@ -19,7 +10,8 @@ export const createSpaceFixture = (overrides: Partial<Space> = {}): Space => ({
   visibility: 'private',
   createdDate: baseDate,
   updatedDate: baseDate,
-  unik: createUnikFixture(),
+  unikId: 'unik-1',
+  unik: { id: 'unik-1' },
   spaceCanvases: [],
   ...overrides
 })

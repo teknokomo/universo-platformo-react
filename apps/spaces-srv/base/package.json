@@ -27,7 +27,7 @@
         "typescript": "^5.4.5",
         "@supabase/supabase-js": "^2.39.0",
         "zod": "3.25.76",
-        "@universo/uniks-srv": "workspace:*"
+        "flowise-components": "workspace:^"
     },
     "devDependencies": {
         "@types/express": "^4.17.21",

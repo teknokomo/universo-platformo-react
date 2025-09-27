@@ -2,9 +2,14 @@ import 'reflect-metadata'
 import { EntityManager } from 'typeorm'
 import { SpacesService } from '@/services/spacesService'
 
-jest.mock('@universo/uniks-srv', () => ({
-  Unik: class Unik {}
-}), { virtual: true })
+jest.mock(
+  'flowise-components',
+  () => ({
+    removeFolderFromStorage: jest.fn().mockResolvedValue(undefined)
+  }),
+  { virtual: true }
+)
+
 jest.mock('@/database/entities/Space', () => ({
   Space: class Space {}
 }))
@@ -14,6 +19,10 @@ jest.mock('@/database/entities/Canvas', () => ({
 jest.mock('@/database/entities/SpaceCanvas', () => ({
   SpaceCanvas: class SpaceCanvas {}
 }))
+jest.mock('@/services/purgeUnikSpaces', () => ({
+  purgeSpacesForUnik: jest.fn(),
+  cleanupCanvasStorage: jest.fn().mockResolvedValue(undefined)
+}))
 import { createCanvasFixture, createSpaceCanvasFixture, createSpaceFixture } from '@/tests/fixtures/spaces'
 import { Canvas } from '@/database/entities/Canvas'
 import { Space } from '@/database/entities/Space'
@@ -22,6 +31,14 @@ import {
   createMockDataSource,
   createMockRepository
 } from '@testing/backend/typeormMocks'
+
+const { removeFolderFromStorage } = require('flowise-components') as {
+  removeFolderFromStorage: jest.Mock
+}
+const { purgeSpacesForUnik, cleanupCanvasStorage } = require('@/services/purgeUnikSpaces') as {
+  purgeSpacesForUnik: jest.Mock
+  cleanupCanvasStorage: jest.Mock
+}
 
 describe('SpacesService', () => {
   const createService = (options?: {
@@ -33,6 +50,10 @@ describe('SpacesService', () => {
         ...data
       }))
     })
+    spaceRepo.save.mockImplementation(async (entity?: Partial<Space>) => ({
+      ...createSpaceFixture(),
+      ...entity
+    }))
 
     const canvasRepo = createMockRepository<Canvas>({
       create: jest.fn((data?: Partial<Canvas>) => ({
@@ -40,6 +61,10 @@ describe('SpacesService', () => {
         ...data
       }))
     })
+    canvasRepo.save.mockImplementation(async (entity?: Partial<Canvas>) => ({
+      ...createCanvasFixture(),
+      ...entity
+    }))
 
     const spaceCanvasRepo = createMockRepository<SpaceCanvas>({
       create: jest.fn((data?: Partial<SpaceCanvas>) => ({
@@ -47,8 +72,12 @@ describe('SpacesService', () => {
         ...data
       }))
     })
+    spaceCanvasRepo.save.mockImplementation(async (entity?: Partial<SpaceCanvas>) => ({
+      ...createSpaceCanvasFixture(),
+      ...entity
+    }))
 
-    const managerBase: Partial<EntityManager> = {
+    const managerBase: Partial<EntityManager> & { getRepository?: jest.Mock } = {
       save: jest.fn(async (entity: any) => entity),
       delete: jest.fn(async () => undefined),
       count: jest.fn(async () => 0)
@@ -56,10 +85,17 @@ describe('SpacesService', () => {
 
     const manager = {
       transaction: jest.fn(async (run) => run(manager as unknown as EntityManager)),
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === Space) return spaceRepo
+        if (entity === Canvas) return canvasRepo
+        if (entity === SpaceCanvas) return spaceCanvasRepo
+        throw new Error('Unexpected entity request in test double')
+      }),
       ...managerBase,
       ...options?.manager
     } as unknown as EntityManager & {
       save: jest.Mock
+      getRepository: jest.Mock
     }
 
     spaceRepo.manager = manager
@@ -91,6 +127,12 @@ describe('SpacesService', () => {
       dataSource
     }
   }
+
+  beforeEach(() => {
+    purgeSpacesForUnik.mockReset()
+    cleanupCanvasStorage.mockReset()
+    removeFolderFromStorage.mockClear()
+  })
 
   it('возвращает агрегированные пространства с подсчитанным количеством канвасов', async () => {
     const space = createSpaceFixture()
@@ -124,26 +166,15 @@ describe('SpacesService', () => {
   })
 
   it('создаёт пространство и привязывает канвас в одной транзакции', async () => {
-    const { service, repositories, manager, dataSource } = createService({
-      manager: {
-        save: jest.fn(async (entity: any) => {
-          if ('sortOrder' in entity && 'canvas' in entity) {
-            return { ...entity, id: 'space-canvas-1' }
-          }
-
-          if ('flowData' in entity) {
-            return { ...entity, id: 'canvas-1' }
-          }
-
-          return { ...entity, id: 'space-1' }
-        })
-      }
-    })
+    const { service, repositories, dataSource, manager } = createService()
 
     const result = await service.createSpace('unik-1', { name: 'Space One', description: 'desc', visibility: 'private' })
 
     expect(dataSource.transaction).toHaveBeenCalled()
-    expect(manager.save).toHaveBeenCalledTimes(3)
+    expect(manager.getRepository).toHaveBeenCalledTimes(3)
+    expect(repositories.spaceRepo.save).toHaveBeenCalled()
+    expect(repositories.canvasRepo.save).toHaveBeenCalled()
+    expect(repositories.spaceCanvasRepo.save).toHaveBeenCalled()
     expect(repositories.spaceRepo.create).toHaveBeenCalledWith({
       name: 'Space One',
       description: 'desc',
@@ -162,20 +193,64 @@ describe('SpacesService', () => {
   })
 
   it('прокидывает ошибку при неудаче во время транзакции и не продолжает сохранение', async () => {
-    const failingManager: Partial<EntityManager> = {
-      save: jest
-        .fn()
-        .mockImplementationOnce(async (entity: any) => ({ ...entity, id: 'space-1' }))
-        .mockRejectedValueOnce(new Error('failed to persist canvas'))
-    }
+    const { service, repositories, dataSource } = createService()
+    repositories.spaceRepo.save.mockResolvedValue({ ...createSpaceFixture(), id: 'space-1' })
+    repositories.canvasRepo.save.mockRejectedValueOnce(new Error('failed to persist canvas'))
 
-    const { service, manager, dataSource } = createService({ manager: failingManager })
-
-    await expect(
-      service.createSpace('unik-1', { name: 'Broken Space' })
-    ).rejects.toThrow('failed to persist canvas')
+    await expect(service.createSpace('unik-1', { name: 'Broken Space' })).rejects.toThrow(
+      'failed to persist canvas'
+    )
 
     expect(dataSource.transaction).toHaveBeenCalled()
-    expect(manager.save).toHaveBeenCalledTimes(2)
+    expect(repositories.canvasRepo.save).toHaveBeenCalled()
+  })
+
+  it('делегирует удаление пространства helper-у и возвращает true', async () => {
+    const { service, repositories, dataSource } = createService()
+    repositories.spaceRepo.findOne.mockResolvedValue({ id: 'space-1', unikId: 'unik-1' })
+    purgeSpacesForUnik.mockResolvedValue({
+      deletedSpaceIds: ['space-1'],
+      deletedCanvasIds: ['canvas-1']
+    })
+
+    const result = await service.deleteSpace('unik-1', 'space-1')
+
+    expect(result).toBe(true)
+    expect(dataSource.transaction).toHaveBeenCalled()
+    expect(purgeSpacesForUnik).toHaveBeenCalledWith(expect.anything(), {
+      unikId: 'unik-1',
+      spaceIds: ['space-1']
+    })
+    expect(cleanupCanvasStorage).toHaveBeenCalledWith(
+      ['canvas-1'],
+      removeFolderFromStorage,
+      { source: 'SpacesService' }
+    )
+  })
+
+  it('возвращает false если пространство не принадлежит юнику', async () => {
+    const { service, repositories } = createService()
+    repositories.spaceRepo.findOne.mockResolvedValue(null)
+
+    const result = await service.deleteSpace('unik-1', 'space-missing')
+
+    expect(result).toBe(false)
+    expect(purgeSpacesForUnik).not.toHaveBeenCalled()
+    expect(cleanupCanvasStorage).not.toHaveBeenCalled()
+  })
+
+  it('не вызывает очистку хранилища если канвасы не удалены', async () => {
+    const { service, repositories, dataSource } = createService()
+    repositories.spaceRepo.findOne.mockResolvedValue({ id: 'space-1', unikId: 'unik-1' })
+    purgeSpacesForUnik.mockResolvedValue({
+      deletedSpaceIds: ['space-1'],
+      deletedCanvasIds: []
+    })
+
+    const result = await service.deleteSpace('unik-1', 'space-1')
+
+    expect(result).toBe(true)
+    expect(dataSource.transaction).toHaveBeenCalled()
+    expect(cleanupCanvasStorage).not.toHaveBeenCalled()
   })
 })

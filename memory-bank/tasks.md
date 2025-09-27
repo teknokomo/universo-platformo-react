@@ -1,3 +1,11 @@
+## IMPLEMENT - Unik Cascade Consolidation (2025-09-22)
+
+- [x] Decouple @universo/spaces-srv from direct Unik entity import by switching `Space` to string-based relations and updating related tests/build config.
+- [x] Introduce a shared purge helper under `apps/spaces-srv/base/src/services` that accepts an `EntityManager` plus target identifiers to remove spaces, canvases, and chat/document-store/storage artifacts.
+- [x] Refactor `SpacesService.deleteSpace` to delegate its cleanup work to the shared helper while keeping single-space semantics and transaction boundaries.
+- [x] Update `apps/uniks-srv/base/src/routes/uniksRoutes.ts` to consume the helper, drop duplicated logic, and adjust mocks/tests to cover the new import path.
+- [x] Extend automated coverage (spaces service + uniks route) and refresh memory-bank progress notes to describe the consolidated cascade behaviour.
+
 ## IMPLEMENT - PropTypes Runtime Fix (2025-09-20)
 
 - [x] Подтвердить отсутствие `PropTypes` в production-бандле и указать проблемный модуль
@@ -605,3 +613,9 @@ Enhance markerless AR experience with additional options.
 - [x] Expose structured errors from `useSpaceBuilder` and add manual quiz normalization hook.
 - [x] Add manual editing mode to `SpaceBuilderDialog` with guard against pending changes and ✅ insertion helper.
 - [x] Implement backend manual quiz normalization endpoint with deterministic parser and tests.
+
+## IMPLEMENT - Unik Deletion Cascade Cleanup (2025-09-23)
+
+- [x] Implement transactional Unik deletion cascade in `apps/uniks-srv/base/src/routes/uniksRoutes.ts`, ensuring spaces, space_canvases, canvases, chat history, and document store references are purged before removing the Unik row.
+- [x] Add integration coverage verifying DELETE `/unik/:id` removes spaces, canvases, chat artefacts, and storage folders for a seeded Unik.
+- [x] Document the cascade cleanup in `memory-bank/progress.md` with implementation notes and follow-up considerations.

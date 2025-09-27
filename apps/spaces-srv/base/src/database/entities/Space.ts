@@ -1,6 +1,7 @@
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm'
-import { Unik } from '@universo/uniks-srv'
 import { SpaceCanvas } from './SpaceCanvas'
+
+type UnikReference = { id: string }
 
 @Entity('spaces')
 export class Space {
@@ -24,10 +25,13 @@ export class Space {
     @UpdateDateColumn({ name: 'updated_date' })
     updatedDate!: Date
 
-    // Foreign key to link with Unik
-    @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
+    @Column({ name: 'unik_id' })
+    unikId!: string
+
+    // Foreign key to link with Unik without importing the module to avoid package cycles
+    @ManyToOne('Unik', { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
-    unik!: Unik
+    unik!: UnikReference
 
     // Relationship with SpaceCanvas
     @OneToMany(() => SpaceCanvas, spaceCanvas => spaceCanvas.space)

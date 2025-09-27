@@ -2,6 +2,8 @@ import { Repository, DataSource, EntityManager } from 'typeorm'
 import { Space } from '../database/entities/Space'
 import { Canvas } from '../database/entities/Canvas'
 import { SpaceCanvas } from '../database/entities/SpaceCanvas'
+import { removeFolderFromStorage } from 'flowise-components'
+import { cleanupCanvasStorage, purgeSpacesForUnik } from './purgeUnikSpaces'
 import {
     CreateSpaceDto,
     UpdateSpaceDto,
@@ -239,53 +241,20 @@ export class SpacesService {
      */
     async deleteSpace(unikId: string, spaceId: string): Promise<boolean> {
         // Ensure space exists and belongs to unik
-        const space = await this.spaceRepository.findOne({ where: { id: spaceId, unik: { id: unikId } } })
+        const space = await this.spaceRepository.findOne({ where: { id: spaceId, unikId } })
         if (!space) return false
 
-        await this.dataSource.transaction(async (manager: EntityManager) => {
-            // 1) Collect canvas ids linked to this space
-            const rows = await manager
-                .createQueryBuilder(SpaceCanvas, 'sc')
-                .select('sc.canvas_id', 'canvasId')
-                .where('sc.space_id = :spaceId', { spaceId })
-                .getRawMany()
+        const result = await this.dataSource.transaction((manager: EntityManager) =>
+            purgeSpacesForUnik(manager, { unikId, spaceIds: [spaceId] })
+        )
 
-            const canvasIds: string[] = (rows || []).map((r: any) => r.canvasId).filter(Boolean)
+        if (result.deletedCanvasIds.length > 0) {
+            await cleanupCanvasStorage(result.deletedCanvasIds, removeFolderFromStorage, {
+                source: 'SpacesService'
+            })
+        }
 
-            // 2) Unlink canvases from this space
-            await manager
-                .createQueryBuilder()
-                .delete()
-                .from(SpaceCanvas)
-                .where('space_id = :spaceId', { spaceId })
-                .execute()
-
-            if (canvasIds.length > 0) {
-                // 3) Detect canvases still linked to other spaces
-                const stillLinkedRows = await manager
-                    .createQueryBuilder(SpaceCanvas, 'sc')
-                    .select('sc.canvas_id', 'canvasId')
-                    .where('sc.canvas_id IN (:...ids)', { ids: canvasIds })
-                    .getRawMany()
-                const stillLinked = new Set((stillLinkedRows || []).map((r: any) => r.canvasId))
-
-                // 4) Delete only canvases that are no longer linked anywhere
-                const deletableIds = canvasIds.filter((id) => !stillLinked.has(id))
-                if (deletableIds.length > 0) {
-                    await manager
-                        .createQueryBuilder()
-                        .delete()
-                        .from(Canvas)
-                        .where('id IN (:...ids)', { ids: deletableIds })
-                        .execute()
-                }
-            }
-
-            // 5) Delete the space itself
-            await manager.delete(Space, { id: spaceId })
-        })
-
-        return true
+        return result.deletedSpaceIds.length > 0
     }
 
     /**

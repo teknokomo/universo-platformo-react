@@ -38,13 +38,16 @@ export const createMockRepository = <T extends object>(): MockRepository<T> => {
 
 type RepoMap = Record<string, any>
 
-export const createMockDataSource = (repositories: RepoMap) => {
-  return {
+export const createMockDataSource = (repositories: RepoMap, overrides?: { transaction?: jest.Mock }) => {
+  const dataSource: any = {
     getRepository: jest.fn((entity: any) => {
       if (typeof entity === 'string') {
         return repositories[entity]
       }
       return repositories[entity?.name] ?? repositories[entity]
-    })
-  } as any
+    }),
+    transaction: overrides?.transaction ?? jest.fn()
+  }
+
+  return dataSource as any
 }

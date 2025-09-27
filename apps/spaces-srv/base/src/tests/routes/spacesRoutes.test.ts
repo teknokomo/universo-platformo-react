@@ -12,9 +12,14 @@ import {
   createMockRepository
 } from '@testing/backend/typeormMocks'
 
-jest.mock('@universo/uniks-srv', () => ({
-  Unik: class Unik {}
-}), { virtual: true })
+jest.mock(
+  'flowise-components',
+  () => ({
+    removeFolderFromStorage: jest.fn().mockResolvedValue(undefined)
+  }),
+  { virtual: true }
+)
+
 jest.mock('@/database/entities/Space', () => ({
   Space: class Space {}
 }))
@@ -51,6 +56,12 @@ describe('spacesRoutes', () => {
       delete: jest.fn(async () => undefined),
       count: jest.fn(async () => 0)
     }
+    manager.getRepository = jest.fn((entity: unknown) => {
+      if (entity === Space) return spaceRepo
+      if (entity === Canvas) return canvasRepo
+      if (entity === SpaceCanvas) return spaceCanvasRepo
+      throw new Error('Unexpected entity in manager.getRepository test double')
+    })
     manager.transaction = jest.fn(async (run: (mgr: EntityManager) => Promise<unknown> | unknown) => run(manager))
 
     spaceRepo.manager = manager
@@ -125,27 +136,28 @@ describe('spacesRoutes', () => {
   })
 
   it('создаёт пространство и возвращает 201', async () => {
-    const { app, manager } = createTestServer()
-    manager.save.mockImplementation(async (entity: unknown) => {
-      if (entity && typeof entity === 'object' && 'sortOrder' in entity && 'canvas' in entity) {
-        return { ...(entity as Record<string, unknown>), id: 'space-canvas-1' }
-      }
-
-      if (entity && typeof entity === 'object' && 'flowData' in entity) {
-        return createCanvasFixture()
-      }
-
-      return createSpaceFixture({
-        ...((entity as Record<string, unknown>) || {}),
-        name: 'New Space'
-      })
-    })
+    const { app, repositories } = createTestServer()
+    repositories.spaceRepo.save.mockImplementation(async (entity?: Partial<Space>) => ({
+      ...createSpaceFixture(),
+      ...entity
+    }))
+    repositories.canvasRepo.save.mockImplementation(async (entity?: Partial<Canvas>) => ({
+      ...createCanvasFixture(),
+      ...entity
+    }))
+    repositories.spaceCanvasRepo.save.mockImplementation(async (entity?: Partial<SpaceCanvas>) => ({
+      ...createSpaceCanvasFixture(),
+      ...entity,
+      id: 'space-canvas-1'
+    }))
 
     const response = await request(app)
       .post('/api/v1/uniks/unik-1/spaces')
       .send({ name: 'New Space' })
 
-    expect(manager.save).toHaveBeenCalledTimes(3)
+    expect(repositories.spaceRepo.save).toHaveBeenCalled()
+    expect(repositories.canvasRepo.save).toHaveBeenCalled()
+    expect(repositories.spaceCanvasRepo.save).toHaveBeenCalled()
     expect(response.status).toBe(201)
     expect(response.body).toEqual({
       success: true,
