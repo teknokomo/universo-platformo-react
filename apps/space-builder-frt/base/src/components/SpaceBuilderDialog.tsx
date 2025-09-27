@@ -636,7 +636,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     return (
         <>
             <Dialog
-                open={isDialogVisible}
+                open={open}
                 onClose={handleDialogClose}
                 fullWidth
                 maxWidth='md'

@@ -3,7 +3,7 @@ import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders, screen, waitFor, fireEvent, createTestI18n } from '@testing/frontend'
 
-import { SpaceBuilderDialog } from '../SpaceBuilderDialog'
+import { SpaceBuilderDialog, type SpaceBuilderDialogProps } from '../SpaceBuilderDialog'
 import type { QuizPlan } from '../../hooks/useSpaceBuilder'
 import enTranslations from '../../i18n/locales/en/main.json'
 
@@ -143,15 +143,19 @@ describe('SpaceBuilderDialog manual safeguards', () => {
             }
         })
 
+        const dialogProps: Omit<SpaceBuilderDialogProps, 'open'> = {
+            onClose,
+            onApply,
+            models: [
+                { key: 'model-a', label: 'Model A', provider: 'openai', modelName: 'gpt-4', credentialId: 'cred-a' }
+            ],
+            onError
+        }
+
         const initialRender = await renderWithProviders(
             <SpaceBuilderDialog
                 open={false}
-                onClose={onClose}
-                onApply={onApply}
-                models={[
-                    { key: 'model-a', label: 'Model A', provider: 'openai', modelName: 'gpt-4', credentialId: 'cred-a' }
-                ]}
-                onError={onError}
+                {...dialogProps}
             />,
             { i18n }
         )
@@ -162,12 +166,7 @@ describe('SpaceBuilderDialog manual safeguards', () => {
             initialRender.rerender(
                 <SpaceBuilderDialog
                     open
-                    onClose={onClose}
-                    onApply={onApply}
-                    models={[
-                        { key: 'model-a', label: 'Model A', provider: 'openai', modelName: 'gpt-4', credentialId: 'cred-a' }
-                    ]}
-                    onError={onError}
+                    {...dialogProps}
                 />
             )
         }).not.toThrow()
