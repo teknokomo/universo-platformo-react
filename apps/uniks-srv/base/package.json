@@ -23,6 +23,8 @@
     "license": "Omsk Open License",
     "dependencies": {
         "express": "^4.18.2",
+        "flowise-components": "workspace:^",
+        "@universo/spaces-srv": "workspace:*",
         "typeorm": "^0.3.6",
         "typescript": "^5.4.5",
         "@supabase/supabase-js": "^2.39.0"

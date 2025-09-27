@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm'
 import { z } from 'zod'
 import { Unik } from '../database/entities/Unik'
 import { UnikUser } from '../database/entities/UnikUser'
+import { removeFolderFromStorage } from 'flowise-components'
+import { purgeSpacesForUnik, cleanupCanvasStorage } from '@universo/spaces-srv'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -19,9 +21,11 @@ const getRepositories = (getDataSource: () => DataSource) => {
     const dataSource = getDataSource()
     return {
         unikRepo: dataSource.getRepository(Unik),
-        membershipRepo: dataSource.getRepository(UnikUser)
+        membershipRepo: dataSource.getRepository(UnikUser),
+        dataSource
     }
 }
+
 
 const createUnikSchema = z.object({
     name: z.string().min(1, 'name is required')
@@ -212,7 +216,7 @@ export function createUnikIndividualRouter(
             return
         }
 
-        const { unikRepo, membershipRepo } = getRepositories(getDataSource)
+        const { unikRepo, membershipRepo, dataSource } = getRepositories(getDataSource)
         const membership = await membershipRepo.findOne({
             where: { unik_id: req.params.id, user_id: userId }
         })
@@ -222,10 +226,35 @@ export function createUnikIndividualRouter(
             return
         }
 
-        const result = await unikRepo.delete({ id: req.params.id })
-        if (!result.affected) {
-            res.status(404).json({ error: 'Unik not found' })
-            return
+        const unikId = req.params.id
+        let deletedCanvasIds: string[] = []
+
+        try {
+            deletedCanvasIds = await dataSource.transaction(async (manager) => {
+                const existing = await manager.getRepository(Unik).findOne({ where: { id: unikId } })
+                if (!existing) {
+                    throw new Error('UNIK_NOT_FOUND')
+                }
+
+                const { deletedCanvasIds: canvasesToDelete } = await purgeSpacesForUnik(manager, { unikId })
+
+                const deleteResult = await manager.getRepository(Unik).delete({ id: unikId })
+                if (!deleteResult.affected) {
+                    throw new Error('UNIK_NOT_FOUND')
+                }
+
+                return canvasesToDelete
+            })
+        } catch (error: any) {
+            if (error?.message === 'UNIK_NOT_FOUND') {
+                res.status(404).json({ error: 'Unik not found' })
+                return
+            }
+            throw error
+        }
+
+        if (deletedCanvasIds.length > 0) {
+            await cleanupCanvasStorage(deletedCanvasIds, removeFolderFromStorage, { source: 'Uniks' })
         }
 
         res.status(204).send()

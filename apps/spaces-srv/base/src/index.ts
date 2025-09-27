@@ -6,6 +6,7 @@ export { SpacesController } from './controllers/spacesController'
 
 // Services
 export { SpacesService } from './services/spacesService'
+export { purgeSpacesForUnik, cleanupCanvasStorage } from './services/purgeUnikSpaces'
 
 // Types
 export * from './types'
