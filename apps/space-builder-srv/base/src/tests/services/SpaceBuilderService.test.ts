@@ -1,5 +1,6 @@
 import { SpaceBuilderService } from '../../services/SpaceBuilderService'
 import { callProvider } from '../../services/providers/ModelFactory'
+import { ManualQuizParseError } from '../../services/parsers/manualQuiz'
 
 jest.mock('../../services/providers/ModelFactory', () => ({
   callProvider: jest.fn()
@@ -59,5 +60,53 @@ describe('SpaceBuilderService', () => {
 
     expect(result.nodes.some(node => node.data.inputs?.dataType === 'question')).toBe(true)
     expect(result.edges.length).toBeGreaterThan(0)
+  })
+
+  it('нормализует ручной текст без вызова провайдера', async () => {
+    const manualText = ['1. Question one', '- Answer A ✅', '- Answer B'].join('\n')
+
+    const plan = await service.normalizeManualQuiz({
+      rawText: manualText,
+      selectedChatModel: {}
+    })
+
+    expect(callProviderMock).not.toHaveBeenCalled()
+    expect(plan.items).toHaveLength(1)
+    expect(plan.items[0].answers.find((a) => a.isCorrect)?.text).toBe('Answer A')
+  })
+
+  it('бросает ManualQuizParseError без fallback и использует провайдера с fallback', async () => {
+    const invalidText = ['1. Broken question', '- Answer A', '- Answer B'].join('\n')
+
+    await expect(
+      service.normalizeManualQuiz({
+        rawText: invalidText,
+        selectedChatModel: {}
+      })
+    ).rejects.toBeInstanceOf(ManualQuizParseError)
+
+    callProviderMock.mockResolvedValueOnce(
+      JSON.stringify({
+        items: [
+          {
+            question: 'Fallback question',
+            answers: [
+              { text: 'Fallback A', isCorrect: true },
+              { text: 'Fallback B', isCorrect: false }
+            ]
+          }
+        ]
+      })
+    )
+
+    const plan = await service.normalizeManualQuiz({
+      rawText: invalidText,
+      selectedChatModel: { provider: 'openai', modelName: 'gpt-4o' },
+      fallbackToLLM: true
+    })
+
+    expect(callProviderMock).toHaveBeenCalledTimes(1)
+    expect(plan.items[0].question).toBe('Fallback question')
+    expect(plan.items[0].answers[0].isCorrect).toBe(true)
   })
 })

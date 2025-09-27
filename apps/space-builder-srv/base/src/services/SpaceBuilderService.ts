@@ -1,8 +1,11 @@
 import { getQuizMetaPrompt } from './prompts/quiz'
 import { getPreparePrompt } from './prompts/prepare'
 import { getRevisePrompt } from './prompts/revise'
+import { getNormalizePrompt } from './prompts/normalize'
 import { callProvider } from './providers/ModelFactory'
 import type { QuizPlan } from '../schemas/quiz'
+import { QuizPlanSchema } from '../schemas/quiz'
+import { ManualQuizParseError, parseManualQuizText } from './parsers/manualQuiz'
 
 export class SpaceBuilderService {
   // Layout constants for deterministic positioning
@@ -61,6 +64,56 @@ export class SpaceBuilderService {
     }
     if (!json) throw new Error('Failed to parse revised quiz plan JSON from provider')
     return this.normalizePlan(json)
+  }
+
+  async normalizeManualQuiz(input: {
+    rawText: string
+    selectedChatModel: { provider?: string; modelName?: string; credentialId?: string }
+    fallbackToLLM?: boolean
+  }): Promise<QuizPlan> {
+    try {
+      const manualPlan = parseManualQuizText(input.rawText)
+      const parsed = QuizPlanSchema.safeParse(manualPlan)
+      if (!parsed.success) {
+        const issues = parsed.error.issues.map((issue) => issue.message || issue.code)
+        throw new ManualQuizParseError('Manual quiz validation failed', issues)
+      }
+      return parsed.data
+    } catch (err) {
+      if (!(err instanceof ManualQuizParseError)) {
+        throw err
+      }
+      if (!input.fallbackToLLM) {
+        throw err
+      }
+
+      const prompt = getNormalizePrompt({ rawText: String(input.rawText || '').slice(0, 6000) })
+      const provider = String(input.selectedChatModel.provider || '').trim()
+      const modelName = String(input.selectedChatModel.modelName || '').trim()
+      if (!provider || !modelName) {
+        throw new ManualQuizParseError('AI normalization is unavailable', [
+          'Select a chat model before using AI fallback for manual normalization.'
+        ])
+      }
+      const llmText = await callProvider({
+        provider,
+        model: modelName,
+        credentialId: input.selectedChatModel.credentialId,
+        prompt
+      })
+      const json = this.extractAnyJSON(llmText)
+      if (!json) {
+        throw new ManualQuizParseError('AI normalization returned no JSON', [
+          'The AI fallback could not produce a valid quiz structure. Please fix the text manually.'
+        ])
+      }
+      const parsed = QuizPlanSchema.safeParse(json)
+      if (!parsed.success) {
+        const issues = parsed.error.issues.map((issue) => issue.message || issue.code)
+        throw new ManualQuizParseError('AI normalization produced invalid quiz plan', issues)
+      }
+      return this.normalizePlan(parsed.data)
+    }
   }
 
   private extractAnyJSON(text: string): any | null {

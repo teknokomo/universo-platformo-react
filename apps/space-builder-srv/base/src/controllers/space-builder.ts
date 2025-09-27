@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { spaceBuilderService } from '../services/SpaceBuilderService'
 import { GraphSchema } from '../schemas/graph'
 import { QuizPlanSchema } from '../schemas/quiz'
+import { ManualQuizParseError, describeManualError } from '../services/parsers/manualQuiz'
 
 export async function prepareController(req: Request, res: Response) {
   const { sourceText, selectedChatModel, options, additionalConditions } = req.body || {}
@@ -114,5 +115,41 @@ export async function reviseController(req: Request, res: Response) {
     console.error('[space-builder] revise error', err)
     const message = typeof err?.message === 'string' ? err.message : 'Unknown error'
     return res.status(500).json({ error: 'Revision failed', details: message })
+  }
+}
+
+export async function manualController(req: Request, res: Response) {
+  const { rawText, selectedChatModel, fallbackToLLM } = req.body || {}
+  const text = String(rawText || '')
+  if (!text.trim() || text.length > 6000) {
+    return res.status(400).json({ error: 'Invalid input: rawText length must be 1..6000 characters' })
+  }
+  if (fallbackToLLM) {
+    const provider = String(selectedChatModel?.provider || '').trim()
+    const modelName = String(selectedChatModel?.modelName || '').trim()
+    if (!provider || !modelName) {
+      return res.status(400).json({ error: 'Invalid input: selectedChatModel is required when fallbackToLLM is true' })
+    }
+  }
+  try {
+    const plan = await spaceBuilderService.normalizeManualQuiz({
+      rawText: text,
+      selectedChatModel: selectedChatModel || {},
+      fallbackToLLM: Boolean(fallbackToLLM)
+    })
+    const parsed = QuizPlanSchema.safeParse(plan)
+    if (!parsed.success) {
+      return res.status(422).json({ error: 'Invalid quizPlan', issues: parsed.error.issues })
+    }
+    return res.json({ quizPlan: parsed.data })
+  } catch (err: any) {
+    if (err instanceof ManualQuizParseError) {
+      const shaped = describeManualError(err)
+      return res.status(422).json({ error: shaped.message, issues: shaped.issues })
+    }
+    // eslint-disable-next-line no-console
+    console.error('[space-builder] manual normalize error', err)
+    const message = typeof err?.message === 'string' ? err.message : 'Unknown error'
+    return res.status(500).json({ error: 'Manual normalization failed', details: message })
   }
 }

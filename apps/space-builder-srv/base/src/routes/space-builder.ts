@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import type { Router as ExpressRouter } from 'express'
-import { generateController, prepareController, reviseController } from '../controllers/space-builder'
+import { generateController, manualController, prepareController, reviseController } from '../controllers/space-builder'
 
 const router: ExpressRouter = Router()
 
@@ -173,5 +173,6 @@ router.get('/providers', async (req, res) => {
 router.post('/prepare', prepareController)
 router.post('/generate', generateController)
 router.post('/revise', reviseController)
+router.post('/manual', manualController)
 
 export default router
