@@ -14,6 +14,66 @@ describe('SpaceBuilderService', () => {
     jest.clearAllMocks()
   })
 
+  it('подготавливает план викторины из markdown-JSON ответа провайдера', async () => {
+    const rawPlan = {
+      items: [
+        {
+          question: 'Question 1',
+          answers: [
+            { text: 'Answer 1', isCorrect: true },
+            { text: 'Answer 2', isCorrect: false }
+          ]
+        },
+        {
+          question: 'Question 2',
+          answers: [
+            { text: 'Answer 3', isCorrect: false },
+            { text: 'Answer 4', isCorrect: true }
+          ]
+        }
+      ]
+    }
+
+    const markdownResponse = ['```json', JSON.stringify(rawPlan, null, 2), '```'].join('\n')
+    callProviderMock.mockResolvedValueOnce(markdownResponse)
+
+    const plan = await service.proposeQuiz({
+      sourceText: 'Material',
+      selectedChatModel: { provider: 'openai', modelName: 'gpt-4o', credentialId: 'cred-1' },
+      options: { questionsCount: 2, answersPerQuestion: 2 }
+    })
+
+    expect(plan.items).toHaveLength(2)
+    expect(plan.items[0].answers).toHaveLength(2)
+    expect(plan.items[1].answers[1].isCorrect).toBe(true)
+  })
+
+  it('распознаёт план, даже если провайдер вернул строку с экранированным JSON', async () => {
+    const rawPlan = {
+      items: [
+        {
+          question: 'Double encoded',
+          answers: [
+            { text: 'Yes', isCorrect: true },
+            { text: 'No', isCorrect: false }
+          ]
+        }
+      ]
+    }
+
+    callProviderMock.mockResolvedValueOnce(JSON.stringify(JSON.stringify(rawPlan)))
+
+    const plan = await service.proposeQuiz({
+      sourceText: 'Material',
+      selectedChatModel: { provider: 'openai', modelName: 'gpt-4o', credentialId: 'cred-2' },
+      options: { questionsCount: 1, answersPerQuestion: 2 }
+    })
+
+    expect(plan.items).toHaveLength(1)
+    expect(plan.items[0].question).toBe('Double encoded')
+    expect(plan.items[0].answers[0].isCorrect).toBe(true)
+  })
+
   it('генерирует граф при валидном JSON от провайдера', async () => {
     callProviderMock.mockResolvedValueOnce(
       JSON.stringify({

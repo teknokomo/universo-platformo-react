@@ -119,18 +119,54 @@ export class SpaceBuilderService {
   }
 
   private extractAnyJSON(text: string): any | null {
-    try {
-      const parsed = JSON.parse(text)
-      if (parsed && typeof parsed === 'object') return parsed
-    } catch (_) {}
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    if (start >= 0 && end > start) {
-      try {
-        const parsed = JSON.parse(text.substring(start, end + 1))
-        if (parsed && typeof parsed === 'object') return parsed
-      } catch (_) {}
+    const raw = String(text || '')
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+
+    const candidates = new Set<string>([trimmed])
+
+    // Handle Markdown code fences like ```json\n{ ... }\n``` or ```\n[ ... ]\n```
+    if (trimmed.startsWith('```')) {
+      const fenceMatch = trimmed.match(/^```[a-zA-Z0-9]*\n([\s\S]*?)```$/)
+      if (fenceMatch?.[1]) {
+        candidates.add(fenceMatch[1].trim())
+      }
     }
+
+    const curlyStart = trimmed.indexOf('{')
+    const curlyEnd = trimmed.lastIndexOf('}')
+    if (curlyStart >= 0 && curlyEnd > curlyStart) {
+      candidates.add(trimmed.substring(curlyStart, curlyEnd + 1))
+    }
+
+    const arrayStart = trimmed.indexOf('[')
+    const arrayEnd = trimmed.lastIndexOf(']')
+    if (arrayStart >= 0 && arrayEnd > arrayStart) {
+      candidates.add(trimmed.substring(arrayStart, arrayEnd + 1))
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate)
+        if (parsed && typeof parsed === 'object') {
+          return parsed
+        }
+        if (typeof parsed === 'string') {
+          const inner = parsed.trim()
+          if (inner) {
+            try {
+              const reparsed = JSON.parse(inner)
+              if (reparsed && typeof reparsed === 'object') {
+                return reparsed
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {
+        continue
+      }
+    }
+
     return null
   }
 
