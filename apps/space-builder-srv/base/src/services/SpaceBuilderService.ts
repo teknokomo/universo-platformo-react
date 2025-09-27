@@ -7,6 +7,8 @@ import type { QuizPlan } from '../schemas/quiz'
 import { QuizPlanSchema } from '../schemas/quiz'
 import { ManualQuizParseError, parseManualQuizText } from './parsers/manualQuiz'
 
+export const MANUAL_QUIZ_MAX_LENGTH = 6000
+
 export class SpaceBuilderService {
   // Layout constants for deterministic positioning
   private readonly SPACE_V = 1000
@@ -87,7 +89,7 @@ export class SpaceBuilderService {
         throw err
       }
 
-      const prompt = getNormalizePrompt({ rawText: String(input.rawText || '').slice(0, 6000) })
+      const prompt = getNormalizePrompt({ rawText: String(input.rawText || '').slice(0, MANUAL_QUIZ_MAX_LENGTH) })
       const provider = String(input.selectedChatModel.provider || '').trim()
       const modelName = String(input.selectedChatModel.modelName || '').trim()
       if (!provider || !modelName) {

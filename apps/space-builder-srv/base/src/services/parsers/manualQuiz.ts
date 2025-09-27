@@ -12,6 +12,7 @@ export class ManualQuizParseError extends Error {
 
 const QUESTION_RE = /^\s*(\d+)[.)]\s+(.*\S)\s*$/
 const ANSWER_RE = /^\s*[-•]\s+(.+?)(?:\s*(✅|\[V\])\s*)?$/i
+const CORRECT_MARKER_RE = /✅|\[V\]/gi
 
 type DraftAnswer = { text: string; isCorrect: boolean; sourceLine: number }
 
@@ -62,7 +63,8 @@ export function parseManualQuizText(rawText: string): QuizPlan {
         issues.push(`Answer defined before any question (line ${lineNumber}).`)
         return
       }
-      const markerMatches = line.match(/✅|\[V\]/gi) || []
+      CORRECT_MARKER_RE.lastIndex = 0
+      const markerMatches = line.match(CORRECT_MARKER_RE) || []
       if (markerMatches.length > 1) {
         issues.push(`Answer on line ${lineNumber} contains multiple correctness markers.`)
       }

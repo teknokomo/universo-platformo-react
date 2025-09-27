@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { spaceBuilderService } from '../services/SpaceBuilderService'
+import { MANUAL_QUIZ_MAX_LENGTH, spaceBuilderService } from '../services/SpaceBuilderService'
 import { GraphSchema } from '../schemas/graph'
 import { QuizPlanSchema } from '../schemas/quiz'
 import { ManualQuizParseError, describeManualError } from '../services/parsers/manualQuiz'
@@ -121,8 +121,10 @@ export async function reviseController(req: Request, res: Response) {
 export async function manualController(req: Request, res: Response) {
   const { rawText, selectedChatModel, fallbackToLLM } = req.body || {}
   const text = String(rawText || '')
-  if (!text.trim() || text.length > 6000) {
-    return res.status(400).json({ error: 'Invalid input: rawText length must be 1..6000 characters' })
+  if (!text.trim() || text.length > MANUAL_QUIZ_MAX_LENGTH) {
+    return res.status(400).json({
+      error: `Invalid input: rawText length must be 1..${MANUAL_QUIZ_MAX_LENGTH} characters`
+    })
   }
   if (fallbackToLLM) {
     const provider = String(selectedChatModel?.provider || '').trim()

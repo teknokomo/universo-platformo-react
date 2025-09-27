@@ -206,8 +206,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             const m = testItems.find((x) => `test:${x.id}` === providerId)?.model || ''
             setModelName(m)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [providerId])
+    }, [providerId, testItems])
 
     // Build test model options from server config
     const testModelOptions = useMemo(
@@ -355,9 +354,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     const handleDialogClose = useCallback(
         (event: React.SyntheticEvent | Event, _reason: 'backdropClick' | 'escapeKeyDown') => {
             if (busy || manualApplyBusy) {
-                if ('preventDefault' in event && typeof event.preventDefault === 'function') {
-                    event.preventDefault()
-                }
+                event.preventDefault()
                 return
             }
             onClose()
@@ -416,6 +413,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             const normalized = await normalizeManualQuiz({
                 rawText: text,
                 selectedChatModel: buildSelectedChatModel(),
+                // Always allow AI fallback so users can recover from parser errors without losing edits.
                 fallbackToLLM: true
             })
             if (!isMountedRef.current) return
