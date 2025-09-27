@@ -33,33 +33,37 @@ const updateDocumentStoreUsage = async (manager: EntityManager, canvasIds: strin
     .where('ds."whereUsed" IS NOT NULL AND ds."whereUsed" <> :empty', { empty: '[]' })
     .getRawMany<{ id: string; whereUsed: string | null }>()
 
-  for (const store of stores) {
-    const current = parseJsonArray(store.whereUsed)
-    const filtered = current.filter((entry) => !canvasSet.has(entry))
-    if (filtered.length === current.length) {
-      continue
-    }
+  await Promise.all(
+    stores.map(async (store) => {
+      const current = parseJsonArray(store.whereUsed)
+      const filtered = current.filter((entry) => !canvasSet.has(entry))
+      if (filtered.length === current.length) {
+        return
+      }
 
-    await manager
-      .createQueryBuilder()
-      .update('document_store')
-      .set({ whereUsed: JSON.stringify(filtered) })
-      .where('id = :id', { id: store.id })
-      .execute()
-  }
+      await manager
+        .createQueryBuilder()
+        .update('document_store')
+        .set({ whereUsed: JSON.stringify(filtered) })
+        .where('id = :id', { id: store.id })
+        .execute()
+    })
+  )
 }
 
 const deleteChatflowArtifacts = async (manager: EntityManager, canvasIds: string[]) => {
   if (canvasIds.length === 0) return
 
-  for (const { table, column } of CHATFLOW_TABLES) {
-    await manager
-      .createQueryBuilder()
-      .delete()
-      .from(table)
-      .where(`${column} IN (:...ids)`, { ids: canvasIds })
-      .execute()
-  }
+  await Promise.all(
+    CHATFLOW_TABLES.map(({ table, column }) =>
+      manager
+        .createQueryBuilder()
+        .delete()
+        .from(table)
+        .where(`${column} IN (:...ids)`, { ids: canvasIds })
+        .execute()
+    )
+  )
 }
 
 const collectSpaceIds = async (
@@ -69,7 +73,7 @@ const collectSpaceIds = async (
 ): Promise<string[]> => {
   const query = manager
     .createQueryBuilder()
-    .select('space.id', 'spaceId')
+    .select('DISTINCT space.id', 'spaceId')
     .from('spaces', 'space')
     .where('space.unik_id = :unikId', { unikId })
 
@@ -78,15 +82,7 @@ const collectSpaceIds = async (
   }
 
   const rows = await query.getRawMany<{ spaceId?: string | null }>()
-  const unique = new Set<string>()
-
-  for (const row of rows) {
-    if (row.spaceId) {
-      unique.add(row.spaceId)
-    }
-  }
-
-  return Array.from(unique)
+  return rows.map((row) => row.spaceId).filter((id): id is string => !!id)
 }
 
 const collectCanvasIds = async (manager: EntityManager, spaceIds: string[]): Promise<string[]> => {
@@ -94,19 +90,12 @@ const collectCanvasIds = async (manager: EntityManager, spaceIds: string[]): Pro
 
   const rows = await manager
     .createQueryBuilder()
-    .select('sc.canvas_id', 'canvasId')
+    .select('DISTINCT sc.canvas_id', 'canvasId')
     .from('spaces_canvases', 'sc')
     .where('sc.space_id IN (:...ids)', { ids: spaceIds })
     .getRawMany<{ canvasId?: string | null }>()
 
-  const unique = new Set<string>()
-  for (const row of rows) {
-    if (row.canvasId) {
-      unique.add(row.canvasId)
-    }
-  }
-
-  return Array.from(unique)
+  return rows.map((row) => row.canvasId).filter((id): id is string => !!id)
 }
 
 const filterDeletableCanvasIds = async (
@@ -204,7 +193,7 @@ export const cleanupCanvasStorage = async (
   const { logger = console, source = 'Spaces' } = options
 
   const removals = await Promise.allSettled(
-    canvasIds.map((canvasId) => Promise.resolve(removeFolder(canvasId)))
+    canvasIds.map((canvasId) => Promise.resolve().then(() => removeFolder(canvasId)))
   )
 
   removals.forEach((result, index) => {
