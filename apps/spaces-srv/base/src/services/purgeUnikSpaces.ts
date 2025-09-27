@@ -7,14 +7,17 @@ const CHATFLOW_TABLES: Array<{ table: string; column: string }> = [
   { table: 'lead', column: 'chatflowid' }
 ]
 
-const parseJsonArray = (value: string | null): string[] => {
+const parseJsonArray = (
+  value: string | null,
+  logger: { warn: (msg: string, meta?: any) => void } = console
+): string[] => {
   if (!value) return []
 
   try {
     const parsed = JSON.parse(value)
     return Array.isArray(parsed) ? parsed : []
   } catch (error) {
-    console.warn('[Spaces] Failed to parse JSON value during purge', { error })
+    logger.warn('[Spaces] Failed to parse JSON value during purge', { error })
     return []
   }
 }
