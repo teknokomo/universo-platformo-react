@@ -133,6 +133,48 @@ describe('SpaceBuilderDialog manual safeguards', () => {
         vi.unstubAllGlobals()
     })
 
+    it('keeps hook order stable when opening after an initial closed render', async () => {
+        const onClose = vi.fn()
+        const onApply = vi.fn()
+        const onError = vi.fn()
+        const i18n = await createTestI18n({
+            resources: {
+                en: { translation: enTranslations }
+            }
+        })
+
+        const initialRender = await renderWithProviders(
+            <SpaceBuilderDialog
+                open={false}
+                onClose={onClose}
+                onApply={onApply}
+                models={[
+                    { key: 'model-a', label: 'Model A', provider: 'openai', modelName: 'gpt-4', credentialId: 'cred-a' }
+                ]}
+                onError={onError}
+            />,
+            { i18n }
+        )
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+        expect(() => {
+            initialRender.rerender(
+                <SpaceBuilderDialog
+                    open
+                    onClose={onClose}
+                    onApply={onApply}
+                    models={[
+                        { key: 'model-a', label: 'Model A', provider: 'openai', modelName: 'gpt-4', credentialId: 'cred-a' }
+                    ]}
+                    onError={onError}
+                />
+            )
+        }).not.toThrow()
+
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+    })
+
     it('disables revise action while manual edits are pending', async () => {
         const onClose = vi.fn()
         const { user } = await renderPreview(onClose)
