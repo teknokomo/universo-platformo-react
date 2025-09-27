@@ -357,8 +357,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         [busy, manualApplyBusy, onClose]
     )
 
-    const isDialogVisible = open
-    if (!isDialogVisible) return null
+    if (!open) return null
 
     const manualPreviewValue = manualMode ? manualText : previewText
     const disableConfigure = busy || manualApplyBusy || hasPendingManual
