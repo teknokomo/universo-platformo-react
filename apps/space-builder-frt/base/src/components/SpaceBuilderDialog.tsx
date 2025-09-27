@@ -346,11 +346,6 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
 
     const hasPendingManual = manualMode && manualTouched
 
-    if (!open) return null
-    const manualPreviewValue = manualMode ? manualText : previewText
-    const disableConfigure = busy || manualApplyBusy || hasPendingManual
-    const disableGenerate = busy || manualApplyBusy || !quizPlan || hasPendingManual
-
     const handleDialogClose = useCallback(
         (event: React.SyntheticEvent | Event, _reason: 'backdropClick' | 'escapeKeyDown') => {
             if (busy || manualApplyBusy) {
@@ -361,6 +356,12 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         },
         [busy, manualApplyBusy, onClose]
     )
+
+    if (!open) return null
+
+    const manualPreviewValue = manualMode ? manualText : previewText
+    const disableConfigure = busy || manualApplyBusy || hasPendingManual
+    const disableGenerate = busy || manualApplyBusy || !quizPlan || hasPendingManual
 
     function handleManualToggle() {
         if (!quizPlan) return
