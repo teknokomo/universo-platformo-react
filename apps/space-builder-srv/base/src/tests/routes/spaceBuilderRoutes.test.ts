@@ -9,9 +9,17 @@ jest.mock('openai', () => ({
   }))
 }))
 
+jest.mock('../../services/SpaceBuilderService', () => ({
+  spaceBuilderService: {
+    normalizeManualQuiz: jest.fn()
+  }
+}))
+
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import router, { configureProviders } from '../../routes/space-builder'
+import { spaceBuilderService } from '../../services/SpaceBuilderService'
+import { ManualQuizParseError } from '../../services/parsers/manualQuiz'
 
 describe('space-builder routes', () => {
   afterEach(() => {
@@ -25,6 +33,7 @@ describe('space-builder routes', () => {
 
   const buildApp = () => {
     const app = express()
+    app.use(express.json())
     app.use(router)
     return app
   }
@@ -72,5 +81,52 @@ describe('space-builder routes', () => {
       credentials: [expect.objectContaining({ id: 'cred-1' })]
     })
     expect(listUserCredentials).toHaveBeenCalledWith('unik-1', 'openaiApi')
+  })
+
+  it('успешно нормализует ручной текст через маршрут /manual', async () => {
+    ;(spaceBuilderService.normalizeManualQuiz as jest.Mock).mockResolvedValueOnce({
+      items: [
+        {
+          question: 'Parsed question',
+          answers: [
+            { text: 'A', isCorrect: true },
+            { text: 'B', isCorrect: false }
+          ]
+        }
+      ]
+    })
+
+    const response = await request(buildApp())
+      .post('/manual')
+      .send({ rawText: '1. Q\n- A ✅\n- B', selectedChatModel: {}, fallbackToLLM: false })
+
+    expect(response.status).toBe(200)
+    expect(response.body.quizPlan.items[0].question).toBe('Parsed question')
+    expect(spaceBuilderService.normalizeManualQuiz).toHaveBeenCalledWith({
+      rawText: expect.any(String),
+      selectedChatModel: {},
+      fallbackToLLM: false
+    })
+  })
+
+  it('возвращает 422 и issues при ошибке парсера', async () => {
+    ;(spaceBuilderService.normalizeManualQuiz as jest.Mock).mockRejectedValueOnce(
+      new ManualQuizParseError('Manual quiz parsing failed', ['Issue 1'])
+    )
+
+    const response = await request(buildApp())
+      .post('/manual')
+      .send({ rawText: 'broken', selectedChatModel: {}, fallbackToLLM: false })
+
+    expect(response.status).toBe(422)
+    expect(response.body.issues).toEqual(['Issue 1'])
+  })
+
+  it('валидация отклоняет fallback без модели', async () => {
+    const response = await request(buildApp())
+      .post('/manual')
+      .send({ rawText: '1. Q\n- A ✅\n- B', fallbackToLLM: true })
+
+    expect(response.status).toBe(400)
   })
 })

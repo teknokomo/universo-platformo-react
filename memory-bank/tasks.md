@@ -593,3 +593,15 @@ Enhance markerless AR experience with additional options.
 - [ ] Integrate session-based Supabase client
 - [ ] Remove localStorage tokens, switch to `withCredentials`
 - [ ] Add production hardening (Redis, HTTPS, SameSite)
+
+## IMPLEMENT - Space Builder Manual Safeguards (2025-09-22)
+
+- [x] Guard the revise action when manual edits are pending so user changes cannot be discarded.
+- [x] Prevent closing the Space Builder dialog while manual normalization is running to avoid post-unmount updates.
+- [x] Cover the new safeguards with focused component tests or interaction specs.
+
+## IMPLEMENT - Space Builder Manual Quiz Editing (2025-09-22)
+
+- [x] Expose structured errors from `useSpaceBuilder` and add manual quiz normalization hook.
+- [x] Add manual editing mode to `SpaceBuilderDialog` with guard against pending changes and ✅ insertion helper.
+- [x] Implement backend manual quiz normalization endpoint with deterministic parser and tests.
