@@ -31,6 +31,9 @@
   "duplicateSuccess": "Canvas duplicated successfully",
   "duplicateError": "Failed to duplicate canvas",
   "reorderError": "Failed to reorder canvas",
+  "spaceBuilder": {
+    "newCanvasError": "Failed to create canvas for generated graph"
+  },
   "messages": {
     "saveFirst": "Please save the flow first",
     "saveSuccessWithType": "{type} saved successfully.",

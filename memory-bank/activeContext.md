@@ -1,3 +1,9 @@
+## 2025-09-22 — Space Builder canvas option integration
+
+- Space Builder dialog exposes a new `allowNewCanvas` flag and prioritizes the "new canvas" creation mode for saved spaces while hiding it for unsaved spaces.
+- Spaces canvas view calls `useCanvases.createCanvas` with serialized flow data when generating a new quiz, activates the returned canvas, and clears dirty flags.
+- Added localized snackbar messaging for Space Builder errors plus expanded manual safeguard tests covering the new mode.
+
 ## 2025-09-21 — Auth Session Integration
 
 Current focus: Merge Passport.js + Supabase session flow into core monorepo using @universo/auth-srv and @universo/auth-frt.

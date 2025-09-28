@@ -31,6 +31,9 @@
   "duplicateSuccess": "Холст успешно дублирован",
   "duplicateError": "Не удалось дублировать холст",
   "reorderError": "Не удалось изменить порядок холста",
+  "spaceBuilder": {
+    "newCanvasError": "Не удалось создать холст для сгенерированного графа"
+  },
   "messages": {
     "saveFirst": "Пожалуйста, сначала сохраните пространство",
     "saveSuccessWithType": "{type} успешно сохранено.",

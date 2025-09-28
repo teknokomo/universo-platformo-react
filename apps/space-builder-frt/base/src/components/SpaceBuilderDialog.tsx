@@ -22,15 +22,25 @@ import {
 import { LoadingButton } from '@mui/lab'
 import SettingsIcon from '@mui/icons-material/Settings'
 
+export type SpaceBuilderCreationMode = 'replace' | 'append' | 'newSpace' | 'newCanvas'
+
 export type SpaceBuilderDialogProps = {
     open: boolean
     onClose: () => void
-    onApply: (graph: { nodes: unknown[]; edges: unknown[] }, mode: 'append' | 'replace' | 'newSpace') => void
+    onApply: (graph: { nodes: unknown[]; edges: unknown[] }, mode: SpaceBuilderCreationMode) => void
     models: Array<{ key: string; label: string; provider: string; modelName: string; credentialId: string }>
     onError?: (message: string) => void
+    allowNewCanvas?: boolean
 }
 
-export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, onClose, onApply, models, onError }) => {
+export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
+    open,
+    onClose,
+    onApply,
+    models,
+    onError,
+    allowNewCanvas = false
+}) => {
     const { t } = useTranslation()
     const { prepareQuiz, generateFlow, reviseQuiz, normalizeManualQuiz } = useSpaceBuilder()
     const [step, setStep] = useState<'input' | 'preview' | 'settings'>('input')
@@ -38,7 +48,8 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     const [additionalConditions, setAdditionalConditions] = useState('')
     const [reviseText, setReviseText] = useState('')
     const [modelKey, setModelKey] = useState(models?.[0]?.key || '')
-    const [creationMode, setCreationMode] = useState<'replace' | 'append' | 'newSpace'>('newSpace')
+    const defaultCreationMode: SpaceBuilderCreationMode = allowNewCanvas ? 'newCanvas' : 'newSpace'
+    const [creationMode, setCreationMode] = useState<SpaceBuilderCreationMode>(defaultCreationMode)
     const [busy, setBusy] = useState(false)
     const [questionsCount, setQuestionsCount] = useState(1)
     const [answersPerQuestion, setAnswersPerQuestion] = useState(2)
@@ -94,6 +105,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
 
     useEffect(() => {
         if (!open) return
+        setCreationMode(defaultCreationMode)
         const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
         const load = async () => {
             const call = async (bearer?: string) =>
@@ -125,7 +137,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             setDisableUserCreds(false)
             setTestItems([])
         })
-    }, [open])
+    }, [open, defaultCreationMode])
 
     // Load available providers when dialog opens (merge test providers if test mode)
     useEffect(() => {
@@ -173,6 +185,10 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         })()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, testMode, testKey])
+
+    useEffect(() => {
+        if (!allowNewCanvas && creationMode === 'newCanvas') setCreationMode('newSpace')
+    }, [allowNewCanvas, creationMode])
 
     // Ensure async model list is available whenever settings are open and provider supports it
     useEffect(() => {
@@ -328,7 +344,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
         setAdditionalConditions('')
         setReviseText('')
         setModelKey('')
-        setCreationMode('newSpace')
+        setCreationMode(defaultCreationMode)
         setQuestionsCount(1)
         setAnswersPerQuestion(2)
         setQuizPlan(null)
@@ -715,8 +731,13 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
                                     <Select
                                         label={t('spaceBuilder.creationModeLabel') || 'Creation mode'}
                                         value={creationMode}
-                                        onChange={(e) => setCreationMode(String(e.target.value) as any)}
+                                        onChange={(e) => setCreationMode(e.target.value as SpaceBuilderCreationMode)}
                                     >
+                                        {allowNewCanvas && (
+                                            <MenuItem value='newCanvas'>
+                                                {t('spaceBuilder.creationMode.newCanvas')}
+                                            </MenuItem>
+                                        )}
                                         <MenuItem value='newSpace'>{t('spaceBuilder.creationMode.newSpace')}</MenuItem>
                                         <MenuItem value='replace'>{t('spaceBuilder.creationMode.replace')}</MenuItem>
                                         <MenuItem value='append'>{t('spaceBuilder.creationMode.append')}</MenuItem>

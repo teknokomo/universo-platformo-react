@@ -1,3 +1,11 @@
+## IMPLEMENT - Space Builder Canvas Mode (2025-09-22)
+
+- [x] Update SpaceBuilderDialog creation modes to support newCanvas defaults and localized labels for saved spaces.
+- [x] Propagate allowNewCanvas through Space Builder triggers and keep apply handlers consistent across entry points.
+- [x] Extend Spaces canvas view to create a dedicated canvas for generated graphs and synchronize React Flow state.
+- [x] Enhance useCanvases.createCanvas to accept initial flow payloads and surface errors cleanly to callers.
+- [x] Refresh Space Builder tests/documentation for the new mode and execute the targeted frontend test suite.
+
 ## IMPLEMENT - Unik Cascade Consolidation (2025-09-22)
 
 - [x] Decouple @universo/spaces-srv from direct Unik entity import by switching `Space` to string-based relations and updating related tests/build config.

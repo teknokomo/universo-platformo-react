@@ -385,6 +385,32 @@ const Canvas = () => {
         }
     }
 
+    const handleNewCanvasFromGeneratedGraph = async (graph) => {
+        if (!spaceId) return handleNewSpaceFromGeneratedGraph(graph)
+        try {
+            const { nodes, edges } = hydrateGeneratedGraph(graph)
+            const payload = { nodes, edges }
+            const created = await createCanvas(t('newCanvas', 'New Canvas'), { flowData: payload })
+            if (created?.id) {
+                selectCanvas(created.id)
+                markCanvasDirty(created.id, false)
+            }
+            dispatch({ type: REMOVE_DIRTY })
+        } catch (error) {
+            console.error('[SpaceBuilder] create canvas from generated graph failed', error)
+            enqueueSnackbar({
+                message: t(
+                    'spaceBuilder.newCanvasError',
+                    'Failed to create canvas for generated graph'
+                ),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'error'
+                }
+            })
+        }
+    }
+
     const remapIds = (nodes, edges, existingIds) => {
         const map = new Map()
         const uniq = (base) => {
@@ -1066,10 +1092,11 @@ const Canvas = () => {
                                 />
                                 <SpaceBuilderFab
                                     sx={{ position: 'absolute', left: 76, top: 20, zIndex: 1100 }}
-                                    
+
                                     onApply={(graph, mode) => {
                                         if (mode === 'append') return handleAppendGeneratedGraphBelow(graph)
                                         if (mode === 'newSpace') return handleNewSpaceFromGeneratedGraph(graph)
+                                        if (mode === 'newCanvas') return handleNewCanvasFromGeneratedGraph(graph)
                                         handleApplyGeneratedGraph(graph)
                                     }}
                                     onError={(message) => enqueueSnackbar({
@@ -1079,6 +1106,7 @@ const Canvas = () => {
                                             variant: 'error'
                                         }
                                     })}
+                                    allowNewCanvas={Boolean(spaceId)}
                                 />
                                 {isSyncNodesButtonEnabled && (
                                     <Fab

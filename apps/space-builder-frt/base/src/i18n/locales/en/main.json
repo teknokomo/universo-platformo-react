@@ -56,6 +56,7 @@
         "creationModeLabel": "Creation mode",
         "creationMode": {
             "replace": "Clear current canvas",
+            "newCanvas": "Create a new canvas in this space",
             "newSpace": "Create a new space",
             "append": "Append to current space (as separate nodes)"
         }

@@ -79,16 +79,26 @@ const useCanvases = (spaceId) => {
     setActiveCanvasId(canvasId)
   }, [])
 
-  const createCanvas = useCallback(async (name = 'New Canvas') => {
+  const createCanvas = useCallback(async (name = 'New Canvas', options = {}) => {
     if (!spaceId || !unikId) return null
     try {
+      const flowPayload = options.flowData
+      const flowDataString =
+        typeof flowPayload === 'string'
+          ? flowPayload
+          : JSON.stringify(flowPayload || { nodes: [], edges: [] })
       const created = await createCanvasApi.request(unikId, spaceId, {
         name,
-        flowData: JSON.stringify({ nodes: [], edges: [] }),
-        sortOrder: canvases.length + 1
+        flowData: flowDataString,
+        sortOrder: options.sortOrder ?? canvases.length + 1
       })
       if (created?.id) setActiveCanvasId(created.id)
-      await getCanvasesApi.request()
+      if (created) {
+        setCanvases((prev) => {
+          const next = [...prev, { ...created }]
+          return next.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        })
+      }
       return created
     } catch (err) {
       throw err

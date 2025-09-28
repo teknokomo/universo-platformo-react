@@ -73,7 +73,7 @@ function createJsonResponse(data: unknown) {
     }
 }
 
-async function renderPreview(onClose: () => void) {
+async function renderPreview(onClose: () => void, extraProps: Partial<SpaceBuilderDialogProps> = {}) {
     const user = userEvent.setup()
     const i18n = await createTestI18n({
         resources: {
@@ -90,6 +90,7 @@ async function renderPreview(onClose: () => void) {
                 { key: 'model-a', label: 'Model A', provider: 'openai', modelName: 'gpt-4', credentialId: 'cred-a' }
             ]}
             onError={vi.fn()}
+            {...extraProps}
         />,
         { i18n }
     )
@@ -113,6 +114,7 @@ describe('SpaceBuilderDialog manual safeguards', () => {
         generateFlowMock.mockReset()
         normalizeManualQuizMock.mockReset()
         prepareQuizMock.mockResolvedValue(samplePlan)
+        generateFlowMock.mockResolvedValue({ nodes: [], edges: [] })
         normalizeManualQuizMock.mockResolvedValue(samplePlan)
         vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
             const url = typeof input === 'string' ? input : input.toString()
@@ -222,5 +224,49 @@ describe('SpaceBuilderDialog manual safeguards', () => {
 
         fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape', keyCode: 27 })
         await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    })
+
+    it('defaults to the new canvas creation mode when allowed', async () => {
+        const onClose = vi.fn()
+        const { user } = await renderPreview(onClose, { allowNewCanvas: true })
+
+        await user.click(screen.getByRole('button', { name: /Configure/i }))
+
+        const combo = screen.getByRole('combobox')
+        expect(combo).toHaveTextContent(enTranslations.spaceBuilder.creationMode.newCanvas)
+    })
+
+    it('hides the new canvas mode when it is not allowed', async () => {
+        const onClose = vi.fn()
+        const { user } = await renderPreview(onClose)
+
+        await user.click(screen.getByRole('button', { name: /Configure/i }))
+
+        const combo = screen.getByRole('combobox')
+        expect(combo).toHaveTextContent(enTranslations.spaceBuilder.creationMode.newSpace)
+        await user.click(combo)
+        expect(
+            screen.queryByRole('option', {
+                name: enTranslations.spaceBuilder.creationMode.newCanvas
+            })
+        ).not.toBeInTheDocument()
+        await user.keyboard('{Escape}')
+        await user.keyboard('{Escape}')
+    })
+
+    it('passes the newCanvas mode to onApply when selected', async () => {
+        const onClose = vi.fn()
+        const onApply = vi.fn()
+        const { user } = await renderPreview(onClose, { allowNewCanvas: true, onApply })
+
+        await user.click(screen.getByRole('button', { name: /Configure/i }))
+
+        const combo = screen.getByRole('combobox')
+        expect(combo).toHaveTextContent(enTranslations.spaceBuilder.creationMode.newCanvas)
+
+        await user.click(screen.getByRole('button', { name: /Generate/i }))
+
+        await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1))
+        expect(onApply.mock.calls[0][1]).toBe('newCanvas')
     })
 })
