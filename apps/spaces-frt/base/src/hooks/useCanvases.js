@@ -95,11 +95,10 @@ const useCanvases = (spaceId) => {
       if (created?.id) setActiveCanvasId(created.id)
       if (created) {
         setCanvases((prev) => {
-          const next = [...prev.filter((c) => c.id !== created.id), { ...created }]
+          const next = [...prev, { ...created }]
           return next.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         })
       }
-      await getCanvasesApi.request()
       return created
     } catch (err) {
       throw err

@@ -395,8 +395,6 @@ const Canvas = () => {
                 selectCanvas(created.id)
                 markCanvasDirty(created.id, false)
             }
-            setNodes(nodes)
-            setEdges(edges)
             dispatch({ type: REMOVE_DIRTY })
         } catch (error) {
             console.error('[SpaceBuilder] create canvas from generated graph failed', error)
