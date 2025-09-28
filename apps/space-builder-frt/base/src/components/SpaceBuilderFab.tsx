@@ -1,19 +1,20 @@
 import React, { useState } from 'react'
 import { Fab, Tooltip } from '@mui/material'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
-import { SpaceBuilderDialog } from './SpaceBuilderDialog'
+import { SpaceBuilderDialog, type SpaceBuilderCreationMode } from './SpaceBuilderDialog'
 import { useTranslation } from 'react-i18next'
 
 export type ModelOpt = { key: string; label: string; provider: string; modelName: string; credentialId: string }
 
 export type SpaceBuilderFabProps = {
   models?: ModelOpt[]
-  onApply: (graph: { nodes: any[]; edges: any[] }, mode: 'append' | 'replace' | 'newSpace') => void
+  onApply: (graph: { nodes: any[]; edges: any[] }, mode: SpaceBuilderCreationMode) => void
   onError?: (message: string) => void
   sx?: any
+  allowNewCanvas?: boolean
 }
 
-export const SpaceBuilderFab: React.FC<SpaceBuilderFabProps> = ({ models, onApply, onError, sx }) => {
+export const SpaceBuilderFab: React.FC<SpaceBuilderFabProps> = ({ models, onApply, onError, sx, allowNewCanvas }) => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
@@ -25,7 +26,14 @@ export const SpaceBuilderFab: React.FC<SpaceBuilderFabProps> = ({ models, onAppl
         </Fab>
       </Tooltip>
 
-      <SpaceBuilderDialog open={open} onClose={() => setOpen(false)} onApply={onApply} onError={onError} models={models || []} />
+      <SpaceBuilderDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onApply={onApply}
+        onError={onError}
+        models={models || []}
+        allowNewCanvas={allowNewCanvas}
+      />
     </>
   )
 }

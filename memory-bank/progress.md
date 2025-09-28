@@ -1,3 +1,9 @@
+### 2025-09-22 — Space Builder new canvas mode for saved spaces
+
+- Space Builder dialog now receives an `allowNewCanvas` flag, defaults to the "new canvas" mode for saved spaces, and exposes localized labels for the additional option.
+- Updated Space Builder triggers and Spaces canvas view to create dedicated canvases with generated graphs, reuse existing hydration helpers, and surface i18n-aware snackbar errors when API calls fail.
+- Extended `useCanvases.createCanvas` to accept initial flow payloads, refreshed manual safeguard tests to cover the new mode, and ran `pnpm --filter @universo/space-builder-frt test` (vitest) successfully.
+
 ### 2025-09-20 — Fix rootDirs build error in @universo/multiplayer-colyseus-srv and flowise packages
 
 ### 2025-09-21 — Uniks Schema & RLS Refactor (Migration In-Place Update) - **COMPLETED**
