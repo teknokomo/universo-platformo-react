@@ -73,13 +73,21 @@ describe('SpacesController', () => {
 
     const req = createRequest({
       params: { unikId: 'unik-1' },
-      body: { name: 'Space One' }
+      body: {
+        name: ' Space One ',
+        defaultCanvasName: ' Основной холст ',
+        defaultCanvasFlowData: '{}'
+      }
     })
     const res = createResponse()
 
     await controller.createSpace(req, res)
 
-    expect(service.createSpace).toHaveBeenCalledWith('unik-1', { name: 'Space One' })
+    expect(service.createSpace).toHaveBeenCalledWith('unik-1', {
+      name: 'Space One',
+      defaultCanvasName: 'Основной холст',
+      defaultCanvasFlowData: '{}'
+    })
     expect(res.status).toHaveBeenCalledWith(201)
     expect(res.json).toHaveBeenCalledWith({
       success: true,
@@ -102,6 +110,24 @@ describe('SpacesController', () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       error: 'Space name is required'
+    })
+  })
+
+  it('возвращает 400, если имя канваса превышает лимит', async () => {
+    const longName = 'a'.repeat(201)
+    const req = createRequest({
+      params: { unikId: 'unik-1' },
+      body: { name: 'Space One', defaultCanvasName: longName }
+    })
+    const res = createResponse()
+
+    await controller.createSpace(req, res)
+
+    expect(service.createSpace).not.toHaveBeenCalled()
+    expect(res.status).toHaveBeenCalledWith(400)
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: 'Canvas name must be 200 characters or less'
     })
   })
 
