@@ -1,3 +1,9 @@
+## IMPLEMENT - Localized Canvas Naming Fix (2025-09-23)
+
+- [x] Frontend: Replace temp canvas rename flow with local state in Canvas/CanvasTabs and ensure localized default propagates on save.
+- [x] Backend: Extend Spaces create pipeline with defaultCanvasName validation and localized seeding.
+- [x] Cleanup: Remove auto-rename side effects, adjust tests, and document the new behavior.
+
 ## IMPLEMENT - Space Builder Canvas Mode (2025-09-22)
 
 - [x] Update SpaceBuilderDialog creation modes to support newCanvas defaults and localized labels for saved spaces.

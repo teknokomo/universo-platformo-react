@@ -168,7 +168,13 @@ describe('SpacesService', () => {
   it('создаёт пространство и привязывает канвас в одной транзакции', async () => {
     const { service, repositories, dataSource, manager } = createService()
 
-    const result = await service.createSpace('unik-1', { name: 'Space One', description: 'desc', visibility: 'private' })
+    const result = await service.createSpace('unik-1', {
+      name: '  Space One  ',
+      description: 'desc',
+      visibility: 'private',
+      defaultCanvasName: ' Основной холст ',
+      defaultCanvasFlowData: '{"nodes":[]}'
+    })
 
     expect(dataSource.transaction).toHaveBeenCalled()
     expect(manager.getRepository).toHaveBeenCalledTimes(3)
@@ -181,6 +187,10 @@ describe('SpacesService', () => {
       visibility: 'private',
       unik: { id: 'unik-1' }
     })
+    expect(repositories.canvasRepo.create).toHaveBeenCalledWith({
+      name: 'Основной холст',
+      flowData: '{"nodes":[]}'
+    })
     expect(result).toEqual({
       id: 'space-1',
       name: 'Space One',
@@ -188,7 +198,25 @@ describe('SpacesService', () => {
       visibility: 'private',
       canvasCount: 1,
       createdDate: expect.anything(),
-      updatedDate: expect.anything()
+      updatedDate: expect.anything(),
+      defaultCanvas: {
+        id: 'canvas-1',
+        name: 'Основной холст',
+        sortOrder: 1,
+        flowData: '{"nodes":[]}',
+        deployed: false,
+        isPublic: false,
+        apikeyid: undefined,
+        chatbotConfig: undefined,
+        apiConfig: undefined,
+        analytic: undefined,
+        speechToText: undefined,
+        followUpPrompts: undefined,
+        category: undefined,
+        type: 'CHATFLOW',
+        createdDate: expect.anything(),
+        updatedDate: expect.anything()
+      }
     })
   })
 

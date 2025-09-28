@@ -99,7 +99,8 @@ export class SpacesController {
                 return
             }
 
-            if (!spaceData.name || spaceData.name.trim().length === 0) {
+            const trimmedName = spaceData.name?.trim()
+            if (!trimmedName || trimmedName.length === 0) {
                 res.status(400).json({
                     success: false,
                     error: 'Space name is required'
@@ -107,7 +108,7 @@ export class SpacesController {
                 return
             }
 
-            if (spaceData.name.length > 200) {
+            if (trimmedName.length > 200) {
                 res.status(400).json({
                     success: false,
                     error: 'Space name must be 200 characters or less'
@@ -123,7 +124,23 @@ export class SpacesController {
                 return
             }
 
-            const space = await this.spacesService.createSpace(unikId, spaceData)
+            const trimmedCanvasName = typeof spaceData.defaultCanvasName === 'string' ? spaceData.defaultCanvasName.trim() : undefined
+            if (trimmedCanvasName && trimmedCanvasName.length > 200) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Canvas name must be 200 characters or less'
+                } as ApiResponse)
+                return
+            }
+
+            const payload: CreateSpaceDto = {
+                ...spaceData,
+                name: trimmedName,
+                defaultCanvasName: trimmedCanvasName,
+                defaultCanvasFlowData: typeof spaceData.defaultCanvasFlowData === 'string' ? spaceData.defaultCanvasFlowData : undefined
+            }
+
+            const space = await this.spacesService.createSpace(unikId, payload)
 
             res.status(201).json({
                 success: true,

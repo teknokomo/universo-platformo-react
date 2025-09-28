@@ -4,6 +4,8 @@ export interface CreateSpaceDto {
     name: string
     description?: string
     visibility?: 'private' | 'public'
+    defaultCanvasName?: string
+    defaultCanvasFlowData?: string
 }
 
 export interface UpdateSpaceDto {
@@ -49,6 +51,7 @@ export interface SpaceResponse {
     canvasCount?: number
     createdDate: Date
     updatedDate: Date
+    defaultCanvas?: CanvasResponse
 }
 
 export interface SpaceDetailsResponse extends SpaceResponse {

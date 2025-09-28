@@ -153,7 +153,7 @@ describe('spacesRoutes', () => {
 
     const response = await request(app)
       .post('/api/v1/uniks/unik-1/spaces')
-      .send({ name: 'New Space' })
+      .send({ name: ' New Space ', defaultCanvasName: ' Основной холст ', defaultCanvasFlowData: '{}' })
 
     expect(repositories.spaceRepo.save).toHaveBeenCalled()
     expect(repositories.canvasRepo.save).toHaveBeenCalled()
@@ -164,7 +164,12 @@ describe('spacesRoutes', () => {
       data: expect.objectContaining({
         id: 'space-1',
         name: 'New Space',
-        canvasCount: 1
+        canvasCount: 1,
+        defaultCanvas: expect.objectContaining({
+          id: 'canvas-1',
+          name: 'Основной холст',
+          flowData: '{}'
+        })
       }),
       message: 'Space created successfully'
     })

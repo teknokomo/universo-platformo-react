@@ -1,3 +1,16 @@
+### 2025-09-25 — QA review for localized default canvas flow
+
+- Verified temporary canvas rename now stays client-side until the space is persisted, preventing 500 errors from hitting `/canvases/temp`.
+- Confirmed Spaces service accepts `defaultCanvasName` and persists localized labels during creation; API responses include seeded canvas metadata.
+- Automated Jest suite `pnpm --filter @universo/spaces-srv test` passes across controller, routes, and service specs, validating new DTO paths.
+- Archived the temporary plan document after QA sign-off so future updates rely on the consolidated progress log.
+
+### 2025-09-23 — Localized default canvas flow for new spaces
+
+- Canvas view keeps unsaved "temp" canvases in local state, allowing rename without hitting the API and forwarding the chosen label when the space is persisted.
+- `@universo/spaces-srv` now accepts `defaultCanvasName`/`defaultCanvasFlowData`, trims inputs, seeds the initial canvas with localized names, and returns the created canvas in the response.
+- Removed the frontend auto-rename effect that overwrote saved canvases on locale change; updated Jest suites for spaces service, controller, and routes to cover the new payload.
+
 ### 2025-09-22 — Space Builder new canvas mode for saved spaces
 
 - Space Builder dialog now receives an `allowNewCanvas` flag, defaults to the "new canvas" mode for saved spaces, and exposes localized labels for the additional option.

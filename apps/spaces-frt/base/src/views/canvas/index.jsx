@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useContext } from 'react'
+import { useEffect, useRef, useState, useCallback, useContext, useMemo } from 'react'
 import ReactFlow, { addEdge, Controls, Background, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
 import './index.css'
@@ -128,7 +128,14 @@ const Canvas = () => {
 
     // State for Space data
     const [spaceData, setSpaceData] = useState(null)
-    const autoRenamedRef = useRef(false)
+
+    const localizedDefaultCanvasName = t('mainCanvas', 'Main Canvas')
+    const [tempCanvas, setTempCanvas] = useState(() => ({
+        id: 'temp',
+        name: localizedDefaultCanvasName,
+        isDirty: canvas.isDirty,
+        isCustom: false
+    }))
 
     // ==============================|| Canvases Management ||============================== //
 
@@ -152,6 +159,8 @@ const Canvas = () => {
         getActiveCanvas
     } = useCanvases(spaceId)
 
+    const newSpaceCanvases = useMemo(() => [tempCanvas], [tempCanvas])
+
     // ==============================|| Chatflow API ||============================== //
 
     const getNodesApi = useApi(nodesApi.getAllNodes)
@@ -159,6 +168,7 @@ const Canvas = () => {
     const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
     const getSpecificChatflowApi = useApi(() => chatflowsApi.getSpecificChatflow(parentUnikId, chatflowId))
     const getSpaceApi = useApi(() => spaceId ? spacesApi.getSpace(parentUnikId, spaceId) : null)
+    const createSpaceApi = useApi(spacesApi.createSpace)
     const updateSpaceApi = useApi(spacesApi.updateSpace)
 
     // ==============================|| Events & Actions ||============================== //
@@ -483,7 +493,7 @@ const Canvas = () => {
         }
     }
 
-    const handleSaveFlow = (chatflowName) => {
+    const handleSaveFlow = async (chatflowName) => {
         if (reactFlowInstance) {
             const nodes = reactFlowInstance.getNodes().map((node) => {
                 const nodeData = cloneDeep(node.data)
@@ -504,15 +514,46 @@ const Canvas = () => {
 
             // If we're in a space with active canvas, save only graph to canvas (do not rename canvas)
             if (spaceId && activeCanvasId) {
-                updateCanvasData(activeCanvasId, {
-                    flowData
-                }).then(() => {
+                try {
+                    await updateCanvasData(activeCanvasId, {
+                        flowData
+                    })
                     saveChatflowSuccess()
                     dispatch({ type: REMOVE_DIRTY })
-                }).catch((error) => {
+                } catch (error) {
                     console.error('Failed to save canvas:', error)
                     errorFailed(`Failed to save canvas: ${error.message}`)
-                })
+                }
+            } else if (!spaceId && !isAgentCanvas) {
+                try {
+                    const sanitizedSpaceName = chatflowName?.trim() || t('untitledSpace', 'Untitled Space')
+                    const response = await createSpaceApi.request(parentUnikId, {
+                        name: sanitizedSpaceName,
+                        defaultCanvasName: tempCanvas.name,
+                        defaultCanvasFlowData: flowData
+                    })
+                    const payload = response?.data || response
+                    if (payload?.defaultCanvas) {
+                        const defaultCanvas = payload.defaultCanvas
+                        const canvasAsChatflow = {
+                            id: defaultCanvas.id,
+                            name: defaultCanvas.name,
+                            flowData: defaultCanvas.flowData,
+                            deployed: defaultCanvas.deployed || false,
+                            isPublic: defaultCanvas.isPublic || false,
+                            type: isAgentCanvas ? 'MULTIAGENT' : 'CHATFLOW',
+                            unik_id: parentUnikId
+                        }
+                        dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
+                    }
+                    saveChatflowSuccess()
+                    if (payload?.id) {
+                        navigate(`/unik/${parentUnikId}/space/${payload.id}`, { replace: true })
+                    }
+                } catch (error) {
+                    const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
+                    errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
+                }
             } else {
                 // Original chatflow save logic
                 if (!chatflow?.id) {
@@ -799,21 +840,6 @@ const Canvas = () => {
         }
     }, [getSpaceApi.data])
 
-    // Ensure the first canvas does NOT inherit the space name after creation
-    useEffect(() => {
-        if (!spaceId) return
-        if (autoRenamedRef.current) return
-        if (!Array.isArray(canvases) || canvases.length !== 1) return
-        const only = canvases[0]
-        const defaultName = t('mainCanvas', 'Main Canvas')
-        // Heuristic: backend sometimes creates an initial canvas with id===spaceId or with the same name as space
-        const shouldRename = (only?.id === spaceId) || (!!spaceData?.name && only?.name === spaceData?.name)
-        if (shouldRename && only?.name !== defaultName) {
-            renameCanvas(only.id, defaultName)
-                .then(() => { autoRenamedRef.current = true })
-                .catch(() => { /* noop */ })
-        }
-    }, [spaceId, canvases, spaceData?.name, renameCanvas, t])
 
     // Initialization
     useEffect(() => {
@@ -853,6 +879,20 @@ const Canvas = () => {
     useEffect(() => {
         setCanvasDataStore(canvas)
     }, [canvas])
+
+    useEffect(() => {
+        if (spaceId) return
+        setTempCanvas((prev) => {
+            if (prev.isCustom) return prev
+            if (prev.name === localizedDefaultCanvasName) return prev
+            return { ...prev, name: localizedDefaultCanvasName }
+        })
+    }, [localizedDefaultCanvasName, spaceId])
+
+    useEffect(() => {
+        if (spaceId) return
+        setTempCanvas((prev) => ({ ...prev, isDirty: canvas.isDirty }))
+    }, [canvas.isDirty, spaceId])
 
     useEffect(() => {
         function handlePaste(e) {
@@ -962,8 +1002,31 @@ const Canvas = () => {
     }, [createCanvas, enqueueSnackbar, t])
 
     const handleCanvasRename = useReactCallback(async (canvasId, newName) => {
+        const trimmedName = (newName || '').trim()
+        if (!trimmedName) {
+            enqueueSnackbar({
+                message: t('renameError', 'Failed to rename canvas'),
+                options: { key: new Date().getTime() + Math.random(), variant: 'error' }
+            })
+            return
+        }
+
+        if (!spaceId && canvasId === 'temp') {
+            setTempCanvas((prev) => ({
+                ...prev,
+                name: trimmedName,
+                isDirty: true,
+                isCustom: trimmedName !== localizedDefaultCanvasName
+            }))
+            enqueueSnackbar({
+                message: t('renameSuccess', 'Canvas renamed successfully'),
+                options: { key: new Date().getTime() + Math.random(), variant: 'success' }
+            })
+            return
+        }
+
         try {
-            await renameCanvas(canvasId, newName)
+            await renameCanvas(canvasId, trimmedName)
             enqueueSnackbar({
                 message: t('renameSuccess', 'Canvas renamed successfully'),
                 options: { key: new Date().getTime() + Math.random(), variant: 'success' }
@@ -974,7 +1037,7 @@ const Canvas = () => {
                 options: { key: new Date().getTime() + Math.random(), variant: 'error' }
             })
         }
-    }, [renameCanvas, enqueueSnackbar, t])
+    }, [renameCanvas, enqueueSnackbar, t, spaceId, localizedDefaultCanvasName])
 
     const handleCanvasDelete = useReactCallback(async (canvasId) => {
         const confirmed = await confirm({
@@ -1139,7 +1202,7 @@ const Canvas = () => {
                 {/* Canvas Tabs - show for saved spaces or new spaces after first interaction */}
                 {true && (
                     <CanvasTabs
-                        canvases={spaceId ? canvases : [{ id: 'temp', name: t('mainCanvas','Main Canvas'), isDirty: canvas.isDirty }]}
+                        canvases={spaceId ? canvases : newSpaceCanvases}
                         activeCanvasId={spaceId ? activeCanvasId : 'temp'}
                         onCanvasSelect={spaceId ? selectCanvas : undefined}
                         onCanvasCreate={spaceId ? handleCanvasCreate : undefined}

@@ -111,17 +111,32 @@ export class SpacesService {
             const canvasRepo = manager.getRepository(Canvas)
             const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
 
+            const { defaultCanvasName, defaultCanvasFlowData, ...spacePayload } = data
+            const trimmedSpaceName = spacePayload.name?.trim()
+            const trimmedDescription = spacePayload.description?.trim()
+            const sanitizedSpace: Partial<Space> = {
+                ...spacePayload,
+                name: trimmedSpaceName?.length ? trimmedSpaceName : spacePayload.name,
+                description: trimmedDescription?.length ? trimmedDescription : undefined
+            }
+
+            const resolvedCanvasName = (defaultCanvasName ?? 'Main Canvas').trim() || 'Main Canvas'
+            const normalizedCanvasName = resolvedCanvasName.slice(0, 200)
+            const canvasFlowData = typeof defaultCanvasFlowData === 'string' && defaultCanvasFlowData.trim().length
+                ? defaultCanvasFlowData
+                : '{}'
+
             // Create space
             const space = spaceRepo.create({
-                ...data,
+                ...sanitizedSpace,
                 unik: { id: unikId } as any
             })
             const savedSpace = await spaceRepo.save(space)
 
             // Create default canvas
             const canvas = canvasRepo.create({
-                name: 'Main Canvas',
-                flowData: '{}'
+                name: normalizedCanvasName,
+                flowData: canvasFlowData
             })
             const savedCanvas = await canvasRepo.save(canvas)
 
@@ -140,7 +155,25 @@ export class SpacesService {
                 visibility: savedSpace.visibility,
                 canvasCount: 1,
                 createdDate: savedSpace.createdDate,
-                updatedDate: savedSpace.updatedDate
+                updatedDate: savedSpace.updatedDate,
+                defaultCanvas: {
+                    id: savedCanvas.id,
+                    name: savedCanvas.name,
+                    sortOrder: 1,
+                    flowData: savedCanvas.flowData,
+                    deployed: savedCanvas.deployed,
+                    isPublic: savedCanvas.isPublic,
+                    apikeyid: savedCanvas.apikeyid,
+                    chatbotConfig: savedCanvas.chatbotConfig,
+                    apiConfig: savedCanvas.apiConfig,
+                    analytic: savedCanvas.analytic,
+                    speechToText: savedCanvas.speechToText,
+                    followUpPrompts: savedCanvas.followUpPrompts,
+                    category: savedCanvas.category,
+                    type: savedCanvas.type,
+                    createdDate: savedCanvas.createdDate,
+                    updatedDate: savedCanvas.updatedDate
+                }
             }
         })
     }

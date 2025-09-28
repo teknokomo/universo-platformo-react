@@ -1,3 +1,9 @@
+## 2025-09-23 — Localized default canvas handling
+
+- Canvas view keeps the temporary `temp` canvas entirely client-side: rename actions update local state, block PUTs until the space is persisted, and forward the chosen label when creating a space.
+- Spaces API `createSpace` accepts `defaultCanvasName` and `defaultCanvasFlowData`, trims/validates inputs, and returns the seeded canvas so the UI can hydrate immediately after navigation.
+- Removed the legacy auto-rename effect that overwrote saved canvases on locale switch; backend now stores the intended default name, and tests cover the new response shape.
+
 ## 2025-09-22 — Space Builder canvas option integration
 
 - Space Builder dialog exposes a new `allowNewCanvas` flag and prioritizes the "new canvas" creation mode for saved spaces while hiding it for unsaved spaces.
