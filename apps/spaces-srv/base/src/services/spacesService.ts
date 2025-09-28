@@ -16,6 +16,27 @@ import {
     ChatflowType
 } from '../types'
 
+function toCanvasResponse(canvas: Canvas, sortOrder: number): CanvasResponse {
+    return {
+        id: canvas.id,
+        name: canvas.name,
+        sortOrder,
+        flowData: canvas.flowData,
+        deployed: canvas.deployed,
+        isPublic: canvas.isPublic,
+        apikeyid: canvas.apikeyid,
+        chatbotConfig: canvas.chatbotConfig,
+        apiConfig: canvas.apiConfig,
+        analytic: canvas.analytic,
+        speechToText: canvas.speechToText,
+        followUpPrompts: canvas.followUpPrompts,
+        category: canvas.category,
+        type: canvas.type,
+        createdDate: canvas.createdDate,
+        updatedDate: canvas.updatedDate
+    }
+}
+
 export class SpacesService {
     private _spaceRepository?: Repository<Space>
     private _canvasRepository?: Repository<Canvas>
@@ -112,12 +133,10 @@ export class SpacesService {
             const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
 
             const { defaultCanvasName, defaultCanvasFlowData, ...spacePayload } = data
-            const trimmedSpaceName = spacePayload.name?.trim()
-            const trimmedDescription = spacePayload.description?.trim()
             const sanitizedSpace: Partial<Space> = {
                 ...spacePayload,
-                name: trimmedSpaceName?.length ? trimmedSpaceName : spacePayload.name,
-                description: trimmedDescription?.length ? trimmedDescription : undefined
+                name: spacePayload.name,
+                description: spacePayload.description?.trim() || undefined
             }
 
             const resolvedCanvasName = (defaultCanvasName ?? 'Main Canvas').trim() || 'Main Canvas'
@@ -156,24 +175,7 @@ export class SpacesService {
                 canvasCount: 1,
                 createdDate: savedSpace.createdDate,
                 updatedDate: savedSpace.updatedDate,
-                defaultCanvas: {
-                    id: savedCanvas.id,
-                    name: savedCanvas.name,
-                    sortOrder: 1,
-                    flowData: savedCanvas.flowData,
-                    deployed: savedCanvas.deployed,
-                    isPublic: savedCanvas.isPublic,
-                    apikeyid: savedCanvas.apikeyid,
-                    chatbotConfig: savedCanvas.chatbotConfig,
-                    apiConfig: savedCanvas.apiConfig,
-                    analytic: savedCanvas.analytic,
-                    speechToText: savedCanvas.speechToText,
-                    followUpPrompts: savedCanvas.followUpPrompts,
-                    category: savedCanvas.category,
-                    type: savedCanvas.type,
-                    createdDate: savedCanvas.createdDate,
-                    updatedDate: savedCanvas.updatedDate
-                }
+                defaultCanvas: toCanvasResponse(savedCanvas, 1)
             }
         })
     }
@@ -197,24 +199,9 @@ export class SpacesService {
                 return null
             }
 
-            const canvases: CanvasResponse[] = space.spaceCanvases?.map((sc: any) => ({
-                id: sc.canvas.id,
-                name: sc.canvas.name,
-                sortOrder: sc.sortOrder,
-                deployed: sc.canvas.deployed,
-                isPublic: sc.canvas.isPublic,
-                flowData: sc.canvas.flowData,
-                apikeyid: sc.canvas.apikeyid,
-                chatbotConfig: sc.canvas.chatbotConfig,
-                apiConfig: sc.canvas.apiConfig,
-                analytic: sc.canvas.analytic,
-                speechToText: sc.canvas.speechToText,
-                followUpPrompts: sc.canvas.followUpPrompts,
-                category: sc.canvas.category,
-                type: sc.canvas.type,
-                createdDate: sc.canvas.createdDate,
-                updatedDate: sc.canvas.updatedDate
-            })) || []
+            const canvases: CanvasResponse[] = space.spaceCanvases?.map((sc: any) =>
+                toCanvasResponse(sc.canvas, sc.sortOrder)
+            ) || []
 
             return {
                 id: space.id,
@@ -331,24 +318,7 @@ export class SpacesService {
                 .orderBy('sc.sort_order', 'ASC')
                 .getMany()
 
-            return spaceCanvases.map((sc: any) => ({
-                id: sc.canvas.id,
-                name: sc.canvas.name,
-                sortOrder: sc.sortOrder,
-                flowData: sc.canvas.flowData,
-                deployed: sc.canvas.deployed,
-                isPublic: sc.canvas.isPublic,
-                apikeyid: sc.canvas.apikeyid,
-                chatbotConfig: sc.canvas.chatbotConfig,
-                apiConfig: sc.canvas.apiConfig,
-                analytic: sc.canvas.analytic,
-                speechToText: sc.canvas.speechToText,
-                followUpPrompts: sc.canvas.followUpPrompts,
-                category: sc.canvas.category,
-                type: sc.canvas.type,
-                createdDate: sc.canvas.createdDate,
-                updatedDate: sc.canvas.updatedDate
-            }))
+            return spaceCanvases.map((sc: any) => toCanvasResponse(sc.canvas, sc.sortOrder))
         } catch (e: any) {
             console.error('[SpacesService] getCanvasesForSpace failed', { unikId, spaceId, error: String(e?.message || e) })
             throw e
@@ -370,25 +340,7 @@ export class SpacesService {
 
         if (!spaceCanvas) return null
 
-        const c = spaceCanvas.canvas
-        return {
-            id: c.id,
-            name: c.name,
-            sortOrder: spaceCanvas.sortOrder,
-            flowData: c.flowData,
-            deployed: c.deployed,
-            isPublic: c.isPublic,
-            apikeyid: c.apikeyid,
-            chatbotConfig: c.chatbotConfig,
-            apiConfig: c.apiConfig,
-            analytic: c.analytic,
-            speechToText: c.speechToText,
-            followUpPrompts: c.followUpPrompts,
-            category: c.category,
-            type: c.type,
-            createdDate: c.createdDate,
-            updatedDate: c.updatedDate
-        }
+        return toCanvasResponse(spaceCanvas.canvas, spaceCanvas.sortOrder)
     }
 
     /**
@@ -433,24 +385,7 @@ export class SpacesService {
             })
             await spaceCanvasRepo.save(spaceCanvas)
 
-            return {
-                id: savedCanvas.id,
-                name: savedCanvas.name,
-                sortOrder: nextSortOrder,
-                flowData: savedCanvas.flowData,
-                deployed: savedCanvas.deployed,
-                isPublic: savedCanvas.isPublic,
-                apikeyid: savedCanvas.apikeyid,
-                chatbotConfig: savedCanvas.chatbotConfig,
-                apiConfig: savedCanvas.apiConfig,
-                analytic: savedCanvas.analytic,
-                speechToText: savedCanvas.speechToText,
-                followUpPrompts: savedCanvas.followUpPrompts,
-                category: savedCanvas.category,
-                type: savedCanvas.type,
-                createdDate: savedCanvas.createdDate,
-                updatedDate: savedCanvas.updatedDate
-            }
+            return toCanvasResponse(savedCanvas, nextSortOrder)
         })
     }
 
@@ -484,24 +419,7 @@ export class SpacesService {
             return null
         }
 
-        return {
-            id: updatedCanvas.id,
-            name: updatedCanvas.name,
-            sortOrder: spaceCanvas.sortOrder,
-            flowData: updatedCanvas.flowData,
-            deployed: updatedCanvas.deployed,
-            isPublic: updatedCanvas.isPublic,
-            apikeyid: updatedCanvas.apikeyid,
-            chatbotConfig: updatedCanvas.chatbotConfig,
-            apiConfig: updatedCanvas.apiConfig,
-            analytic: updatedCanvas.analytic,
-            speechToText: updatedCanvas.speechToText,
-            followUpPrompts: updatedCanvas.followUpPrompts,
-            category: updatedCanvas.category,
-            type: updatedCanvas.type,
-            createdDate: updatedCanvas.createdDate,
-            updatedDate: updatedCanvas.updatedDate
-        }
+        return toCanvasResponse(updatedCanvas, spaceCanvas.sortOrder)
     }
 
     /**

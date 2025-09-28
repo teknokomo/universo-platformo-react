@@ -1018,6 +1018,7 @@ const Canvas = () => {
                 isDirty: true,
                 isCustom: trimmedName !== localizedDefaultCanvasName
             }))
+            setDirty()
             enqueueSnackbar({
                 message: t('renameSuccess', 'Canvas renamed successfully'),
                 options: { key: new Date().getTime() + Math.random(), variant: 'success' }
