@@ -50,6 +50,12 @@ export interface IChatFlow {
     apiConfig?: string
     category?: string
     type?: ChatflowType
+    versionGroupId: string
+    versionUuid: string
+    versionLabel: string
+    versionDescription?: string
+    versionIndex: number
+    isActive: boolean
 }
 
 export interface IChatMessage {

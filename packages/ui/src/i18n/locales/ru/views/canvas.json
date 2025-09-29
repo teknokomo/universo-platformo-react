@@ -93,6 +93,7 @@
             "loadChatflow": "Загрузить холст",
             "exportChatflow": "Экспортировать холст",
             "deleteChatflow": "Удалить холст",
+            "canvasVersions": "Версии холста",
             "deleteFlow": "Удалить холст"
         },
         "configuration": {

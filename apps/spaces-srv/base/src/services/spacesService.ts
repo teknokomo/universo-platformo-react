@@ -1,4 +1,5 @@
 import { Repository, DataSource, EntityManager } from 'typeorm'
+import { randomUUID } from 'crypto'
 import { Space } from '../database/entities/Space'
 import { Canvas } from '../database/entities/Canvas'
 import { SpaceCanvas } from '../database/entities/SpaceCanvas'
@@ -13,8 +14,24 @@ import {
     SpaceResponse,
     SpaceDetailsResponse,
     CanvasResponse,
+    CanvasVersionResponse,
+    CreateCanvasVersionDto,
     ChatflowType
 } from '../types'
+
+function toCanvasVersionResponse(canvas: Canvas): CanvasVersionResponse {
+    return {
+        id: canvas.id,
+        versionGroupId: canvas.versionGroupId,
+        versionUuid: canvas.versionUuid,
+        versionLabel: canvas.versionLabel,
+        versionDescription: canvas.versionDescription ?? undefined,
+        versionIndex: canvas.versionIndex,
+        isActive: Boolean(canvas.isActive),
+        createdDate: canvas.createdDate,
+        updatedDate: canvas.updatedDate
+    }
+}
 
 function toCanvasResponse(canvas: Canvas, sortOrder: number): CanvasResponse {
     return {
@@ -33,7 +50,13 @@ function toCanvasResponse(canvas: Canvas, sortOrder: number): CanvasResponse {
         category: canvas.category,
         type: canvas.type,
         createdDate: canvas.createdDate,
-        updatedDate: canvas.updatedDate
+        updatedDate: canvas.updatedDate,
+        versionGroupId: canvas.versionGroupId,
+        versionUuid: canvas.versionUuid,
+        versionLabel: canvas.versionLabel,
+        versionDescription: canvas.versionDescription ?? undefined,
+        versionIndex: canvas.versionIndex,
+        isActive: Boolean(canvas.isActive)
     }
 }
 
@@ -81,6 +104,23 @@ export class SpacesService {
             this._spaceCanvasRepository = this.dataSource.getRepository(SpaceCanvas)
         }
         return this._spaceCanvasRepository
+    }
+
+    private async loadCanvasForSpace(
+        unikId: string,
+        spaceId: string,
+        canvasId: string,
+        manager?: EntityManager
+    ): Promise<Canvas | null> {
+        const repo = manager ? manager.getRepository(Canvas) : this.canvasRepository
+        return repo
+            .createQueryBuilder('canvas')
+            .innerJoin('spaces_canvases', 'sc', 'sc.version_group_id = canvas.version_group_id')
+            .innerJoin('spaces', 'space', 'space.id = sc.space_id')
+            .where('canvas.id = :canvasId', { canvasId })
+            .andWhere('space.id = :spaceId', { spaceId })
+            .andWhere('space.unik_id = :unikId', { unikId })
+            .getOne()
     }
 
     /**
@@ -135,7 +175,7 @@ export class SpacesService {
             const { defaultCanvasName, defaultCanvasFlowData, ...spacePayload } = data
             const sanitizedSpace: Partial<Space> = {
                 ...spacePayload,
-                name: spacePayload.name,
+                name: spacePayload.name?.trim(),
                 description: spacePayload.description?.trim() || undefined
             }
 
@@ -153,9 +193,15 @@ export class SpacesService {
             const savedSpace = await spaceRepo.save(space)
 
             // Create default canvas
+            const versionGroupId = randomUUID()
             const canvas = canvasRepo.create({
                 name: normalizedCanvasName,
-                flowData: canvasFlowData
+                flowData: canvasFlowData,
+                versionGroupId,
+                versionUuid: randomUUID(),
+                versionLabel: 'v1',
+                versionIndex: 1,
+                isActive: true
             })
             const savedCanvas = await canvasRepo.save(canvas)
 
@@ -163,6 +209,7 @@ export class SpacesService {
             const spaceCanvas = spaceCanvasRepo.create({
                 space: savedSpace,
                 canvas: savedCanvas,
+                versionGroupId,
                 sortOrder: 1
             })
             await spaceCanvasRepo.save(spaceCanvas)
@@ -300,6 +347,7 @@ export class SpacesService {
                     const mapping = this.spaceCanvasRepository.create({
                         space: { id: spaceId } as any,
                         canvas: { id: legacyCanvas.id } as any,
+                        versionGroupId: legacyCanvas.versionGroupId || legacyCanvas.id,
                         sortOrder: 1
                     })
                     await this.spaceCanvasRepository.save(mapping)
@@ -371,9 +419,15 @@ export class SpacesService {
             const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
 
             // Create canvas
+            const versionGroupId = randomUUID()
             const canvas = canvasRepo.create({
                 name: data.name || 'New Canvas',
-                flowData: data.flowData || '{}'
+                flowData: data.flowData || '{}',
+                versionGroupId,
+                versionUuid: randomUUID(),
+                versionLabel: 'v1',
+                versionIndex: 1,
+                isActive: true
             })
             const savedCanvas = await canvasRepo.save(canvas)
 
@@ -381,6 +435,7 @@ export class SpacesService {
             const spaceCanvas = spaceCanvasRepo.create({
                 space: { id: spaceId } as any,
                 canvas: savedCanvas,
+                versionGroupId,
                 sortOrder: nextSortOrder
             })
             await spaceCanvasRepo.save(spaceCanvas)
@@ -438,6 +493,8 @@ export class SpacesService {
             return false
         }
 
+        const versionGroupId = spaceCanvas.versionGroupId
+
         // Check if this is the last canvas in the space
         const canvasCount = await this.spaceCanvasRepository.count({
             where: { space: { id: spaceCanvas.space.id } }
@@ -451,11 +508,13 @@ export class SpacesService {
             // 1) Remove the space<->canvas link first to avoid FK issues on DBs without ON DELETE CASCADE
             await manager.delete(SpaceCanvas, { id: spaceCanvas.id })
 
-            // 2) If the canvas is no longer linked to any space, delete the canvas entity itself
-            const remainingLinks = await manager.count(SpaceCanvas, { where: { canvas: { id: canvasId } as any } })
-            if (remainingLinks === 0) {
-                await manager.delete(Canvas, { id: canvasId })
-            }
+            // 2) Remove all canvas versions tied to this group
+            await manager
+                .createQueryBuilder()
+                .delete()
+                .from(Canvas)
+                .where('version_group_id = :versionGroupId', { versionGroupId })
+                .execute()
 
             // 3) Renumber remaining canvases in this space to keep sort_order contiguous
             const remainingCanvases = await manager
@@ -468,6 +527,202 @@ export class SpacesService {
                 await manager.update(SpaceCanvas, remainingCanvases[i].id, { sortOrder: i + 1 })
             }
 
+            return true
+        })
+    }
+
+    /**
+     * List versions for a canvas group
+     */
+    async getCanvasVersions(
+        unikId: string,
+        spaceId: string,
+        canvasId: string
+    ): Promise<CanvasVersionResponse[] | null> {
+        const canvas = await this.loadCanvasForSpace(unikId, spaceId, canvasId)
+        if (!canvas) {
+            return null
+        }
+
+        const versions = await this.canvasRepository.find({
+            where: { versionGroupId: canvas.versionGroupId },
+            order: { versionIndex: 'ASC', createdDate: 'ASC' }
+        })
+
+        return versions.map(toCanvasVersionResponse)
+    }
+
+    /**
+     * Create a new version snapshot for a canvas group
+     */
+    async createCanvasVersion(
+        unikId: string,
+        spaceId: string,
+        canvasId: string,
+        data: CreateCanvasVersionDto
+    ): Promise<CanvasVersionResponse | null> {
+        return this.dataSource.transaction(async (manager: EntityManager) => {
+            const baseCanvas = await this.loadCanvasForSpace(unikId, spaceId, canvasId, manager)
+            if (!baseCanvas) {
+                return null
+            }
+
+            const canvasRepo = manager.getRepository(Canvas)
+            const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
+
+            if (data.activate) {
+                await canvasRepo
+                    .createQueryBuilder()
+                    .update(Canvas)
+                    .set({ isActive: false })
+                    .where('version_group_id = :versionGroupId', { versionGroupId: baseCanvas.versionGroupId })
+                    .execute()
+            }
+
+            const nextIndexRaw = await canvasRepo
+                .createQueryBuilder('canvas')
+                .select('COALESCE(MAX(canvas.version_index), 0) + 1', 'nextIndex')
+                .where('canvas.version_group_id = :versionGroupId', { versionGroupId: baseCanvas.versionGroupId })
+                .getRawOne<{ nextIndex?: string }>()
+
+            const nextIndex = Number(nextIndexRaw?.nextIndex ?? 1)
+            const trimmedLabel = data.label?.trim()
+            const trimmedDescription = data.description?.trim()
+
+            const {
+                id,
+                createdDate,
+                updatedDate,
+                spaceCanvases,
+                versionUuid,
+                versionLabel,
+                versionDescription,
+                versionIndex,
+                isActive,
+                ...baseCanvasRest
+            } = baseCanvas
+
+            const newCanvas = canvasRepo.create({
+                ...baseCanvasRest,
+                versionGroupId: baseCanvas.versionGroupId,
+                versionUuid: randomUUID(),
+                versionLabel: trimmedLabel && trimmedLabel.length > 0 ? trimmedLabel : `v${nextIndex}`,
+                versionDescription: trimmedDescription || undefined,
+                versionIndex: nextIndex,
+                isActive: Boolean(data.activate)
+            })
+
+            const savedCanvas = await canvasRepo.save(newCanvas)
+
+            if (data.activate) {
+                await spaceCanvasRepo
+                    .createQueryBuilder()
+                    .update(SpaceCanvas)
+                    .set({ canvas: { id: savedCanvas.id } as any })
+                    .where('space_id = :spaceId', { spaceId })
+                    .andWhere('version_group_id = :versionGroupId', { versionGroupId: baseCanvas.versionGroupId })
+                    .execute()
+            }
+
+            return toCanvasVersionResponse(savedCanvas)
+        })
+    }
+
+    /**
+     * Activate a specific canvas version within a group
+     */
+    async activateCanvasVersion(
+        unikId: string,
+        spaceId: string,
+        canvasId: string,
+        versionId: string
+    ): Promise<CanvasResponse | null> {
+        return this.dataSource.transaction(async (manager: EntityManager) => {
+            const reference = await this.loadCanvasForSpace(unikId, spaceId, canvasId, manager)
+            if (!reference) {
+                return null
+            }
+
+            const target = await this.loadCanvasForSpace(unikId, spaceId, versionId, manager)
+            if (!target) {
+                return null
+            }
+
+            if (reference.versionGroupId !== target.versionGroupId) {
+                throw new Error('Requested version does not belong to the canvas group')
+            }
+
+            const canvasRepo = manager.getRepository(Canvas)
+            const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
+
+            await canvasRepo
+                .createQueryBuilder()
+                .update(Canvas)
+                .set({ isActive: false })
+                .where('version_group_id = :versionGroupId', { versionGroupId: reference.versionGroupId })
+                .execute()
+
+            await canvasRepo
+                .createQueryBuilder()
+                .update(Canvas)
+                .set({ isActive: true })
+                .where('id = :versionId', { versionId })
+                .execute()
+
+            await spaceCanvasRepo
+                .createQueryBuilder()
+                .update(SpaceCanvas)
+                .set({ canvas: { id: versionId } as any })
+                .where('space_id = :spaceId', { spaceId })
+                .andWhere('version_group_id = :versionGroupId', { versionGroupId: reference.versionGroupId })
+                .execute()
+
+            const active = await canvasRepo.findOne({ where: { id: versionId } })
+            if (!active) {
+                return null
+            }
+
+            const mapping = await spaceCanvasRepo
+                .createQueryBuilder('sc')
+                .where('sc.space_id = :spaceId', { spaceId })
+                .andWhere('sc.version_group_id = :versionGroupId', { versionGroupId: reference.versionGroupId })
+                .getOne()
+
+            return toCanvasResponse(active, mapping?.sortOrder ?? 1)
+        })
+    }
+
+    /**
+     * Delete a non-active canvas version
+     */
+    async deleteCanvasVersion(
+        unikId: string,
+        spaceId: string,
+        canvasId: string,
+        versionId: string
+    ): Promise<boolean> {
+        return this.dataSource.transaction(async (manager: EntityManager) => {
+            const reference = await this.loadCanvasForSpace(unikId, spaceId, canvasId, manager)
+            if (!reference) {
+                return false
+            }
+
+            const target = await this.loadCanvasForSpace(unikId, spaceId, versionId, manager)
+            if (!target || target.versionGroupId !== reference.versionGroupId) {
+                return false
+            }
+
+            if (target.isActive) {
+                throw new Error('Cannot delete the active version. Activate another version first.')
+            }
+
+            const canvasRepo = manager.getRepository(Canvas)
+            const versionCount = await canvasRepo.count({ where: { versionGroupId: reference.versionGroupId } })
+            if (versionCount <= 1) {
+                throw new Error('Cannot delete the last version of a canvas')
+            }
+
+            await manager.delete(Canvas, { id: target.id })
             return true
         })
     }

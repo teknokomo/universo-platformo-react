@@ -12,6 +12,10 @@ export interface MockSelectQueryBuilder<Entity> {
   leftJoinAndSelect: jest.Mock<MockSelectQueryBuilder<Entity>, any>
   innerJoin: jest.Mock<MockSelectQueryBuilder<Entity>, any>
   innerJoinAndSelect: jest.Mock<MockSelectQueryBuilder<Entity>, any>
+  update: jest.Mock<MockSelectQueryBuilder<Entity>, any>
+  delete: jest.Mock<MockSelectQueryBuilder<Entity>, any>
+  set: jest.Mock<MockSelectQueryBuilder<Entity>, any>
+  from: jest.Mock<MockSelectQueryBuilder<Entity>, any>
   where: jest.Mock<MockSelectQueryBuilder<Entity>, any>
   andWhere: jest.Mock<MockSelectQueryBuilder<Entity>, any>
   orWhere: jest.Mock<MockSelectQueryBuilder<Entity>, any>
@@ -44,6 +48,10 @@ export const createMockQueryBuilder = <Entity>(
     leftJoinAndSelect: createChainableMethod(),
     innerJoin: createChainableMethod(),
     innerJoinAndSelect: createChainableMethod(),
+    update: createChainableMethod(),
+    delete: createChainableMethod(),
+    set: createChainableMethod(),
+    from: createChainableMethod(),
     where: createChainableMethod(),
     andWhere: createChainableMethod(),
     orWhere: createChainableMethod(),

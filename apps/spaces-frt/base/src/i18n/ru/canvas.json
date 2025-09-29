@@ -125,6 +125,37 @@
     "loadChatflow": "Загрузить холст",
     "exportChatflow": "Экспортировать холст",
     "deleteChatflow": "Удалить холст",
-    "deleteSpace": "Удалить пространство"
+    "deleteSpace": "Удалить пространство",
+    "canvasVersions": "Версии холста"
+  },
+  "versionsDialog": {
+    "title": "Версии холста",
+    "labelInput": "Название версии",
+    "descriptionInput": "Описание (необязательно)",
+    "activateSwitch": "Сделать текущей версией",
+    "createButton": "Сохранить версию",
+    "empty": "Версии пока не созданы.",
+    "table": {
+      "label": "Название",
+      "description": "Описание",
+      "created": "Создана",
+      "status": "Статус",
+      "actions": "Действия"
+    },
+    "active": "Активна",
+    "inactive": "Неактивна",
+    "activateAction": "Сделать активной",
+    "deleteAction": "Удалить",
+    "noDescription": "Описание отсутствует",
+    "createSuccess": "Версия успешно сохранена",
+    "createError": "Не удалось сохранить версию",
+    "activateSuccess": "Версия активирована",
+    "activateError": "Не удалось активировать версию",
+    "deleteSuccess": "Версия удалена",
+    "deleteError": "Не удалось удалить версию",
+    "confirmDeleteTitle": "Удаление версии",
+    "confirmDeleteDescription": "Вы уверены, что хотите удалить эту версию? Это действие нельзя отменить.",
+    "saveSpaceFirst": "Сначала сохраните пространство, чтобы управлять версиями",
+    "loadError": "Не удалось загрузить версии"
   }
 }

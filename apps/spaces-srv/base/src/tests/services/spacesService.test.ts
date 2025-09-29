@@ -187,10 +187,15 @@ describe('SpacesService', () => {
       visibility: 'private',
       unik: { id: 'unik-1' }
     })
-    expect(repositories.canvasRepo.create).toHaveBeenCalledWith({
-      name: 'Основной холст',
-      flowData: '{"nodes":[]}'
-    })
+    expect(repositories.canvasRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Основной холст',
+        flowData: '{"nodes":[]}',
+        versionLabel: 'v1',
+        versionIndex: 1,
+        isActive: true
+      })
+    )
     expect(result).toEqual({
       id: 'space-1',
       name: 'Space One',
@@ -199,7 +204,7 @@ describe('SpacesService', () => {
       canvasCount: 1,
       createdDate: expect.anything(),
       updatedDate: expect.anything(),
-      defaultCanvas: {
+      defaultCanvas: expect.objectContaining({
         id: 'canvas-1',
         name: 'Основной холст',
         sortOrder: 1,
@@ -214,9 +219,15 @@ describe('SpacesService', () => {
         followUpPrompts: undefined,
         category: undefined,
         type: 'CHATFLOW',
+        versionLabel: 'v1',
+        versionIndex: 1,
+        isActive: true,
+        versionDescription: undefined,
+        versionGroupId: expect.any(String),
+        versionUuid: expect.any(String),
         createdDate: expect.anything(),
         updatedDate: expect.anything()
-      }
+      })
     })
   })
 
@@ -280,5 +291,151 @@ describe('SpacesService', () => {
     expect(result).toBe(true)
     expect(dataSource.transaction).toHaveBeenCalled()
     expect(cleanupCanvasStorage).not.toHaveBeenCalled()
+  })
+
+  describe('управление версиями канваса', () => {
+    it('возвращает список версий канваса', async () => {
+      const { service, repositories } = createService()
+      const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123' })
+      const versions = [
+        createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123', versionIndex: 1 }),
+        createCanvasFixture({
+          id: 'canvas-2',
+          versionGroupId: 'group-123',
+          versionIndex: 2,
+          versionLabel: 'Snapshot',
+          isActive: false
+        })
+      ]
+
+      const loadCanvasSpy = jest
+        .spyOn(service as unknown as { loadCanvasForSpace: jest.Mock }, 'loadCanvasForSpace')
+        .mockResolvedValue(baseCanvas)
+
+      repositories.canvasRepo.find.mockResolvedValue(versions as any)
+
+      const result = await service.getCanvasVersions('unik-1', 'space-1', 'canvas-1')
+
+      expect(loadCanvasSpy).toHaveBeenCalledWith('unik-1', 'space-1', 'canvas-1')
+      expect(repositories.canvasRepo.find).toHaveBeenCalledWith({
+        where: { versionGroupId: 'group-123' },
+        order: { versionIndex: 'ASC', createdDate: 'ASC' }
+      })
+      expect(result).toEqual([
+        {
+          id: versions[0].id,
+          versionGroupId: 'group-123',
+          versionUuid: versions[0].versionUuid,
+          versionLabel: versions[0].versionLabel,
+          versionDescription: versions[0].versionDescription,
+          versionIndex: versions[0].versionIndex,
+          isActive: versions[0].isActive,
+          createdDate: versions[0].createdDate,
+          updatedDate: versions[0].updatedDate
+        },
+        {
+          id: versions[1].id,
+          versionGroupId: 'group-123',
+          versionUuid: versions[1].versionUuid,
+          versionLabel: versions[1].versionLabel,
+          versionDescription: versions[1].versionDescription,
+          versionIndex: versions[1].versionIndex,
+          isActive: versions[1].isActive,
+          createdDate: versions[1].createdDate,
+          updatedDate: versions[1].updatedDate
+        }
+      ])
+
+      loadCanvasSpy.mockRestore()
+    })
+
+    it('создаёт новую версию и активирует её при необходимости', async () => {
+      const { service, repositories, manager } = createService()
+      const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123', isActive: true })
+      const savedVersion = createCanvasFixture({
+        id: 'canvas-2',
+        versionGroupId: 'group-123',
+        versionIndex: 2,
+        versionLabel: 'Release',
+        versionDescription: 'Stable snapshot',
+        isActive: true
+      })
+
+      const loadCanvasSpy = jest
+        .spyOn(service as unknown as { loadCanvasForSpace: jest.Mock }, 'loadCanvasForSpace')
+        .mockResolvedValue(baseCanvas)
+
+      repositories.canvasRepo.queryBuilder.getRawOne.mockResolvedValue({ nextIndex: '2' })
+      repositories.canvasRepo.save.mockImplementation(async (entity?: Partial<Canvas>) => ({
+        ...savedVersion,
+        ...entity
+      }) as Canvas)
+
+      const result = await service.createCanvasVersion('unik-1', 'space-1', 'canvas-1', {
+        label: 'Release',
+        description: 'Stable snapshot',
+        activate: true
+      })
+
+      expect(loadCanvasSpy).toHaveBeenCalledTimes(1)
+      expect(repositories.canvasRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          versionGroupId: 'group-123',
+          versionLabel: 'Release',
+          versionDescription: 'Stable snapshot',
+          versionIndex: 2,
+          isActive: true
+        })
+      )
+      expect(repositories.canvasRepo.queryBuilder.update).toHaveBeenCalled()
+      expect(repositories.spaceCanvasRepo.queryBuilder.update).toHaveBeenCalled()
+      expect(manager.getRepository).toHaveBeenCalledWith(Canvas)
+      expect(result).toMatchObject({
+        versionGroupId: 'group-123',
+        versionLabel: 'Release',
+        versionDescription: 'Stable snapshot',
+        versionIndex: 2,
+        isActive: true
+      })
+
+      loadCanvasSpy.mockRestore()
+    })
+
+    it('не позволяет удалить активную версию и удаляет неактивную', async () => {
+      const { service, repositories, manager } = createService()
+      const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123', isActive: true })
+      const activeVersion = createCanvasFixture({
+        id: 'canvas-1',
+        versionGroupId: 'group-123',
+        isActive: true
+      })
+
+      const loadCanvasSpy = jest
+        .spyOn(service as unknown as { loadCanvasForSpace: jest.Mock }, 'loadCanvasForSpace')
+        .mockResolvedValueOnce(baseCanvas)
+        .mockResolvedValueOnce(activeVersion)
+
+      await expect(
+        service.deleteCanvasVersion('unik-1', 'space-1', 'canvas-1', 'canvas-1')
+      ).rejects.toThrow('Cannot delete the active version. Activate another version first.')
+
+      loadCanvasSpy.mockReset()
+
+      const inactiveVersion = createCanvasFixture({
+        id: 'canvas-2',
+        versionGroupId: 'group-123',
+        versionIndex: 2,
+        isActive: false
+      })
+
+      loadCanvasSpy.mockResolvedValueOnce(baseCanvas).mockResolvedValueOnce(inactiveVersion)
+      repositories.canvasRepo.count.mockResolvedValue(2)
+
+      const deleted = await service.deleteCanvasVersion('unik-1', 'space-1', 'canvas-1', 'canvas-2')
+
+      expect(deleted).toBe(true)
+      expect(manager.delete).toHaveBeenCalledWith(Canvas, { id: 'canvas-2' })
+      loadCanvasSpy.mockRestore()
+    })
   })
 })

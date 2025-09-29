@@ -1,3 +1,16 @@
+### 2025-09-26 — Canvas versions UI and orchestration
+
+- Removed the unused SQLite migration stub for spaces so Supabase remains the single source of truth for canvas metadata.
+- Added a dedicated `CanvasVersionsDialog` in `apps/spaces-frt/base` with list/create/activate/delete actions, optimistic updates, and snackbar feedback.
+- Wired the dialog into the canvas header menu with a new "Canvas Versions" entry, surfaced the active version label next to the space title, and exposed refresh/select callbacks so activating a snapshot reloads the active canvas flow.
+- Introduced REST clients for version APIs plus translations (EN/RU) and menu icons across `spaces-frt` and shared UI packages to keep settings consistent.
+
+### 2025-09-25 — Canvas versioning backend groundwork
+
+- Extended Supabase migrations (Postgres + SQLite) with canvas version metadata, unique active-version constraints, and data backfill so existing canvases become their own active groups.
+- Updated TypeORM entities (`Canvas`, `SpaceCanvas`, `ChatFlow`) plus Flowise interfaces to expose version fields, ensuring chatflow creation seeds version identifiers consistently.
+- Implemented version lifecycle helpers in `SpacesService` (list/create/activate/delete) with REST endpoints, DTOs, and Flowise `chatflows` synchronization, accompanied by Jest coverage for version flows and upgraded TypeORM test mocks.
+
 ### 2025-09-25 — QA review for localized default canvas flow
 
 - Verified temporary canvas rename now stays client-side until the space is persisted, preventing 500 errors from hitting `/canvases/temp`.
@@ -1344,3 +1357,8 @@ Resolution:
 Validation:
 - `pnpm --filter @universo/spaces-srv test`
 - `pnpm --filter @universo/uniks-srv test`
+### 2025-09-23 — Canvas versioning backend groundwork
+
+- Updated the Spaces Supabase migration (Postgres/SQLite) to add canvas version metadata, enforce one active version per group via indexes, and seed existing rows with group ids.
+- Extended TypeORM entities plus Flowise `ChatFlow` model with version fields, added REST endpoints for listing/creating/activating/deleting versions, and introduced a stub declaration for `flowise-components` in the spaces service.
+- Enhanced `SpacesService` logic and Flowise chatflow auto-provisioning to respect version groups; Jest suite `pnpm --filter @universo/spaces-srv test` passes with updated fixtures and expectations.

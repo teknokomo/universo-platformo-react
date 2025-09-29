@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
-import { Avatar, Box, ButtonBase, Typography, Stack, TextField, Button, CircularProgress } from '@mui/material'
+import { Avatar, Box, ButtonBase, Typography, Stack, TextField, Button, CircularProgress, Chip } from '@mui/material'
 
 // icons
 import { IconSettings, IconChevronLeft, IconDeviceFloppy, IconPencil, IconCheck, IconX, IconCode } from '@tabler/icons-react'
@@ -21,6 +21,7 @@ import ChatflowConfigurationDialog from '@/ui-component/dialog/ChatflowConfigura
 import UpsertHistoryDialog from '@/views/vectorstore/UpsertHistoryDialog'
 import ViewLeadsDialog from '@/ui-component/dialog/ViewLeadsDialog'
 import ExportAsTemplateDialog from '@/ui-component/dialog/ExportAsTemplateDialog'
+import CanvasVersionsDialog from './CanvasVersionsDialog'
 
 // API
 import chatflowsApi from '@/api/chatflows'
@@ -36,7 +37,19 @@ import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackba
 
 // ==============================|| CANVAS HEADER ||============================== //
 
-const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlow, handleLoadFlow, spaceId, spaceName, spaceLoading, onRenameSpace }) => {
+const CanvasHeader = ({
+    chatflow,
+    isAgentCanvas,
+    handleSaveFlow,
+    handleDeleteFlow,
+    handleLoadFlow,
+    spaceId,
+    spaceName,
+    spaceLoading,
+    onRenameSpace,
+    onRefreshCanvases,
+    onSelectCanvas
+}) => {
     const theme = useTheme()
     const dispatch = useDispatch()
     const navigate = useNavigate()
@@ -62,6 +75,8 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
 
     const [exportAsTemplateDialogOpen, setExportAsTemplateDialogOpen] = useState(false)
     const [exportAsTemplateDialogProps, setExportAsTemplateDialogProps] = useState({})
+    const [canvasVersionsDialogOpen, setCanvasVersionsDialogOpen] = useState(false)
+    const [canvasVersionsDialogProps, setCanvasVersionsDialogProps] = useState({})
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
     const { confirm } = useConfirm()
@@ -183,6 +198,25 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 chatflow: chatflow
             })
             setUpsertHistoryDialogOpen(true)
+        } else if (setting === 'canvasVersions') {
+            if (!spaceId || !chatflow?.id) {
+                enqueueSnackbar({
+                    message: t('versionsDialog.saveSpaceFirst', 'Save the space before managing versions'),
+                    options: { key: new Date().getTime() + Math.random(), variant: 'error' }
+                })
+                return
+            }
+
+            const currentUnikId = extractUnikId()
+            setCanvasVersionsDialogProps({
+                unikId: currentUnikId,
+                spaceId: String(spaceId),
+                canvasId: chatflow.id,
+                canvasName: chatflow.name,
+                versionLabel: chatflow.versionLabel,
+                versionDescription: chatflow.versionDescription
+            })
+            setCanvasVersionsDialogOpen(true)
         } else if (setting === 'chatflowConfiguration') {
             // Pass explicit identifiers for downstream API calls
             setChatflowConfigurationDialogProps({
@@ -385,6 +419,15 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                                         {canvas.isDirty && <strong style={{ color: theme.palette.orange.main }}>*</strong>}
                                         {spaceId && spaceName ? spaceName : flowName}
                                     </Typography>
+                                    {chatflow?.versionLabel && (
+                                        <Chip
+                                            size='small'
+                                            variant='outlined'
+                                            color='primary'
+                                            label={chatflow.versionLabel}
+                                            sx={{ mt: 0.5, alignSelf: 'flex-start' }}
+                                        />
+                                    )}
                                     {/* Do not show active canvas name under space title */}
                                 </Stack>
                                 {(spaceId || chatflow?.id) && (
@@ -604,6 +647,18 @@ const CanvasHeader = ({ chatflow, isAgentCanvas, handleSaveFlow, handleDeleteFlo
                 onCancel={() => setChatflowConfigurationDialogOpen(false)}
                 isAgentCanvas={isAgentCanvas}
             />
+            <CanvasVersionsDialog
+                show={canvasVersionsDialogOpen}
+                dialogProps={canvasVersionsDialogProps}
+                onCancel={() => setCanvasVersionsDialogOpen(false)}
+                onRefreshCanvases={onRefreshCanvases}
+                onSelectCanvas={onSelectCanvas}
+                onActiveVersionChange={(canvas) => {
+                    if (canvas?.id) {
+                        setCanvasVersionsDialogProps((prev) => ({ ...prev, canvasId: canvas.id }))
+                    }
+                }}
+            />
         </>
     )
 }
@@ -616,7 +671,9 @@ CanvasHeader.propTypes = {
     isAgentCanvas: PropTypes.bool,
     spaceId: PropTypes.string,
     spaceName: PropTypes.string,
-    spaceLoading: PropTypes.bool
+    spaceLoading: PropTypes.bool,
+    onRefreshCanvases: PropTypes.func,
+    onSelectCanvas: PropTypes.func
 }
 
 export default CanvasHeader

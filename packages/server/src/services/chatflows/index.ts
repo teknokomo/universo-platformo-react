@@ -19,6 +19,25 @@ import { validate } from 'uuid'
 import { Space, SpaceCanvas } from '@universo/spaces-srv'
 import type { Canvas } from '@universo/spaces-srv'
 import type { Unik } from '@universo/uniks-srv'
+import { randomUUID } from 'crypto'
+
+const ensureVersioningFields = (chatflow: Partial<ChatFlow>): void => {
+    if (!chatflow.versionGroupId) {
+        chatflow.versionGroupId = randomUUID()
+    }
+    if (!chatflow.versionUuid) {
+        chatflow.versionUuid = randomUUID()
+    }
+    if (!chatflow.versionLabel) {
+        chatflow.versionLabel = 'v1'
+    }
+    if (typeof chatflow.versionIndex !== 'number' || Number.isNaN(chatflow.versionIndex)) {
+        chatflow.versionIndex = 1
+    }
+    if (typeof chatflow.isActive !== 'boolean') {
+        chatflow.isActive = true
+    }
+}
 
 // Check if chatflow valid for streaming
 const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<any> => {
@@ -217,6 +236,9 @@ const getChatflowById = async (chatflowId: string, unikId?: string): Promise<any
 const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
+
+        ensureVersioningFields(newChatFlow)
+
         let dbResponse: ChatFlow
         if (containsBase64File(newChatFlow)) {
             // we need a 2-step process, as we need to save the chatflow first and then update the file paths
@@ -257,16 +279,33 @@ const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
             // link Space ↔ Canvas in junction if not exists
             const existsJunction = (await scRepo
                 .createQueryBuilder('sc')
-                .where('sc.space_id = :sid AND sc.canvas_id = :cid', { sid: dbResponse.id, cid: dbResponse.id })
+                .where('sc.space_id = :sid AND sc.version_group_id = :vgid', {
+                    sid: dbResponse.id,
+                    vgid: dbResponse.versionGroupId
+                })
                 .getCount()) > 0
             if (!existsJunction) {
                 const spaceCanvas = scRepo.create({
                     // default first position
                     sortOrder: 1,
                     space: ({ id: dbResponse.id } as Space),
-                    canvas: ({ id: dbResponse.id } as unknown as Canvas)
+                    canvas: ({ id: dbResponse.id } as unknown as Canvas),
+                    versionGroupId: dbResponse.versionGroupId
                 })
                 await scRepo.save(spaceCanvas)
+            } else {
+                await scRepo
+                    .createQueryBuilder()
+                    .update(SpaceCanvas)
+                    .set({
+                        canvas: ({ id: dbResponse.id } as unknown as Canvas),
+                        versionGroupId: dbResponse.versionGroupId
+                    })
+                    .where('space_id = :sid AND version_group_id = :vgid', {
+                        sid: dbResponse.id,
+                        vgid: dbResponse.versionGroupId
+                    })
+                    .execute()
             }
         } catch (linkErr) {
             logger.warn(`[server]: Unable to ensure Space/Canvas relation for ${dbResponse.id}: ${getErrorMessage(linkErr)}`)
@@ -332,6 +371,7 @@ const importChatflows = async (newChatflows: Partial<ChatFlow>[], queryRunner?: 
                 newChatflow.name += ' (1)'
             }
             newChatflow.flowData = JSON.stringify(JSON.parse(flowData))
+            ensureVersioningFields(newChatflow)
             return newChatflow
         })
 

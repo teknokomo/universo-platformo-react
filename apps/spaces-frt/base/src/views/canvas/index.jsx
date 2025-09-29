@@ -156,7 +156,8 @@ const Canvas = () => {
         reorderCanvas,
         updateCanvasData,
         markCanvasDirty,
-        getActiveCanvas
+        getActiveCanvas,
+        refresh: refreshCanvases
     } = useCanvases(spaceId)
 
     const newSpaceCanvases = useMemo(() => [tempCanvas], [tempCanvas])
@@ -1113,6 +1114,8 @@ const Canvas = () => {
                             spaceName={spaceData?.name}
                             spaceLoading={!!spaceId && !!getSpaceApi.loading}
                             onRenameSpace={handleRenameSpace}
+                            onRefreshCanvases={refreshCanvases}
+                            onSelectCanvas={selectCanvas}
                         />
                     </Toolbar>
                 </AppBar>

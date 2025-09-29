@@ -161,7 +161,8 @@
             "duplicateChatflow": "Дублировать холст",
             "loadChatflow": "Загрузить холст",
             "exportChatflow": "Экспортировать холст",
-            "deleteChatflow": "Удалить холст"
+            "deleteChatflow": "Удалить холст",
+            "canvasVersions": "Версии холста"
         },
         "configuration": {
             "title": "Настройка холста",
