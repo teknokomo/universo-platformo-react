@@ -12,8 +12,7 @@ import { OTLPTraceExporter as GrpcOTLPTraceExporter } from '@opentelemetry/expor
 import { OTLPTraceExporter as ProtoOTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
 import { registerInstrumentations } from '@opentelemetry/instrumentation'
 import { Resource } from '@opentelemetry/resources'
-import { SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
+import { NodeTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-node'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 
 import { BaseCallbackHandler, NewTokenIndices, HandleLLMNewTokenCallbackFields } from '@langchain/core/callbacks/base'
@@ -64,7 +63,7 @@ function getArizeTracer(options: ArizeTracerOptions): Tracer | undefined {
                 model_id: options.projectName
             })
         })
-        tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter) as any)
+        tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter))
         if (options.enableCallback) {
             registerInstrumentations({
                 instrumentations: []
@@ -105,7 +104,7 @@ function getPhoenixTracer(options: PhoenixTracerOptions): Tracer | undefined {
                 [SEMRESATTRS_PROJECT_NAME]: options.projectName
             })
         })
-        tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter) as any)
+        tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter))
         if (options.enableCallback) {
             registerInstrumentations({
                 instrumentations: []
@@ -149,7 +148,7 @@ function getOpikTracer(options: OpikTracerOptions): Tracer | undefined {
                 [SEMRESATTRS_PROJECT_NAME]: options.projectName
             })
         })
-        tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter) as any)
+        tracerProvider.addSpanProcessor(new SimpleSpanProcessor(traceExporter))
         if (options.enableCallback) {
             registerInstrumentations({
                 instrumentations: []

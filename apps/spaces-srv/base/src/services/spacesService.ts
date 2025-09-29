@@ -589,19 +589,21 @@ export class SpacesService {
             const trimmedLabel = data.label?.trim()
             const trimmedDescription = data.description?.trim()
 
+            const {
+                id,
+                createdDate,
+                updatedDate,
+                spaceCanvases,
+                versionUuid,
+                versionLabel,
+                versionDescription,
+                versionIndex,
+                isActive,
+                ...baseCanvasRest
+            } = baseCanvas
+
             const newCanvas = canvasRepo.create({
-                name: baseCanvas.name,
-                flowData: baseCanvas.flowData,
-                deployed: baseCanvas.deployed,
-                isPublic: baseCanvas.isPublic,
-                apikeyid: baseCanvas.apikeyid,
-                chatbotConfig: baseCanvas.chatbotConfig,
-                apiConfig: baseCanvas.apiConfig,
-                analytic: baseCanvas.analytic,
-                speechToText: baseCanvas.speechToText,
-                followUpPrompts: baseCanvas.followUpPrompts,
-                category: baseCanvas.category,
-                type: baseCanvas.type as ChatflowType | undefined,
+                ...baseCanvasRest,
                 versionGroupId: baseCanvas.versionGroupId,
                 versionUuid: randomUUID(),
                 versionLabel: trimmedLabel && trimmedLabel.length > 0 ? trimmedLabel : `v${nextIndex}`,

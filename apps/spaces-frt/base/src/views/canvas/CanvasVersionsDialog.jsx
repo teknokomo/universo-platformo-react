@@ -119,14 +119,11 @@ const CanvasVersionsDialog = ({
 
   useEffect(() => {
     const raw = listVersionsApi.data
-    if (!raw) return
-    const items = Array.isArray(raw)
-      ? raw
-      : Array.isArray(raw?.data?.versions)
-        ? raw.data.versions
-        : Array.isArray(raw?.versions)
-          ? raw.versions
-          : []
+    if (!raw) {
+      setVersions([])
+      return
+    }
+    const items = Array.isArray(raw?.data?.versions) ? raw.data.versions : []
     setVersions(sortVersions(items))
   }, [listVersionsApi.data])
 

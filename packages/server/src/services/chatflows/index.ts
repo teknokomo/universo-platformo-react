@@ -21,6 +21,24 @@ import type { Canvas } from '@universo/spaces-srv'
 import type { Unik } from '@universo/uniks-srv'
 import { randomUUID } from 'crypto'
 
+const ensureVersioningFields = (chatflow: Partial<ChatFlow>): void => {
+    if (!chatflow.versionGroupId) {
+        chatflow.versionGroupId = randomUUID()
+    }
+    if (!chatflow.versionUuid) {
+        chatflow.versionUuid = randomUUID()
+    }
+    if (!chatflow.versionLabel) {
+        chatflow.versionLabel = 'v1'
+    }
+    if (typeof chatflow.versionIndex !== 'number' || Number.isNaN(chatflow.versionIndex)) {
+        chatflow.versionIndex = 1
+    }
+    if (typeof chatflow.isActive !== 'boolean') {
+        chatflow.isActive = true
+    }
+}
+
 // Check if chatflow valid for streaming
 const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<any> => {
     try {
@@ -219,21 +237,7 @@ const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
 
-        if (!newChatFlow.versionGroupId) {
-            newChatFlow.versionGroupId = randomUUID()
-        }
-        if (!newChatFlow.versionUuid) {
-            newChatFlow.versionUuid = randomUUID()
-        }
-        if (!newChatFlow.versionLabel) {
-            newChatFlow.versionLabel = 'v1'
-        }
-        if (typeof newChatFlow.versionIndex !== 'number' || Number.isNaN(newChatFlow.versionIndex)) {
-            newChatFlow.versionIndex = 1
-        }
-        if (typeof newChatFlow.isActive !== 'boolean') {
-            newChatFlow.isActive = true
-        }
+        ensureVersioningFields(newChatFlow)
 
         let dbResponse: ChatFlow
         if (containsBase64File(newChatFlow)) {
@@ -367,21 +371,7 @@ const importChatflows = async (newChatflows: Partial<ChatFlow>[], queryRunner?: 
                 newChatflow.name += ' (1)'
             }
             newChatflow.flowData = JSON.stringify(JSON.parse(flowData))
-            if (!newChatflow.versionGroupId) {
-                newChatflow.versionGroupId = randomUUID()
-            }
-            if (!newChatflow.versionUuid) {
-                newChatflow.versionUuid = randomUUID()
-            }
-            if (!newChatflow.versionLabel) {
-                newChatflow.versionLabel = 'v1'
-            }
-            if (typeof newChatflow.versionIndex !== 'number' || Number.isNaN(newChatflow.versionIndex)) {
-                newChatflow.versionIndex = 1
-            }
-            if (typeof newChatflow.isActive !== 'boolean') {
-                newChatflow.isActive = true
-            }
+            ensureVersioningFields(newChatflow)
             return newChatflow
         })
 
