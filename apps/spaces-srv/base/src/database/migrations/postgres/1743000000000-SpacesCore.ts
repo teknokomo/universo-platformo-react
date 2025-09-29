@@ -33,6 +33,12 @@ export class SpacesCore1743000000000 implements MigrationInterface {
                 "followUpPrompts" text,
                 "category" text,
                 "type" varchar,
+                "version_group_id" uuid NOT NULL DEFAULT gen_random_uuid(),
+                "version_uuid" uuid NOT NULL DEFAULT gen_random_uuid(),
+                "version_label" varchar NOT NULL DEFAULT 'v1',
+                "version_description" text,
+                "version_index" integer NOT NULL DEFAULT 1,
+                "is_active" boolean NOT NULL DEFAULT false,
                 "created_date" timestamptz NOT NULL DEFAULT now(),
                 "updated_date" timestamptz NOT NULL DEFAULT now()
             );
@@ -44,11 +50,120 @@ export class SpacesCore1743000000000 implements MigrationInterface {
                 "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
                 "space_id" uuid NOT NULL,
                 "canvas_id" uuid NOT NULL,
+                "version_group_id" uuid NOT NULL,
                 "sort_order" integer NOT NULL DEFAULT 1,
                 "created_date" timestamptz NOT NULL DEFAULT now(),
                 CONSTRAINT "uq_space_canvas" UNIQUE("space_id", "canvas_id"),
+                CONSTRAINT "uq_space_canvas_group" UNIQUE("space_id", "version_group_id"),
                 CONSTRAINT "uq_space_sort" UNIQUE("space_id", "sort_order")
             );
+        `)
+
+        // Ensure versioning columns exist on canvases (idempotent migrations)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ADD COLUMN IF NOT EXISTS "version_group_id" uuid
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ADD COLUMN IF NOT EXISTS "version_uuid" uuid
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ADD COLUMN IF NOT EXISTS "version_label" varchar
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ADD COLUMN IF NOT EXISTS "version_description" text
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ADD COLUMN IF NOT EXISTS "version_index" integer
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ADD COLUMN IF NOT EXISTS "is_active" boolean
+        `)
+
+        // Ensure version group linkage exists on spaces_canvases
+        await queryRunner.query(`
+            ALTER TABLE "public"."spaces_canvases"
+                ADD COLUMN IF NOT EXISTS "version_group_id" uuid
+        `)
+
+        // Backfill existing canvas rows with version metadata
+        await queryRunner.query(`
+            UPDATE "public"."canvases"
+            SET
+                version_group_id = COALESCE(version_group_id, id),
+                version_uuid = COALESCE(version_uuid, gen_random_uuid()),
+                version_label = COALESCE(NULLIF(version_label, ''), 'v1'),
+                version_index = COALESCE(version_index, 1),
+                is_active = COALESCE(is_active, true)
+        `)
+
+        // Backfill junction table to align with version groups
+        await queryRunner.query(`
+            UPDATE "public"."spaces_canvases" sc
+            SET version_group_id = COALESCE(version_group_id, canvas_id)
+        `)
+
+        // Enforce non-null constraints and defaults for version metadata
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_group_id" SET DEFAULT gen_random_uuid()
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_group_id" SET NOT NULL
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_uuid" SET DEFAULT gen_random_uuid()
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_uuid" SET NOT NULL
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_label" SET DEFAULT 'v1'
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_label" SET NOT NULL
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_index" SET DEFAULT 1
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "version_index" SET NOT NULL
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "is_active" SET DEFAULT false
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."canvases"
+                ALTER COLUMN "is_active" SET NOT NULL
+        `)
+        await queryRunner.query(`
+            ALTER TABLE "public"."spaces_canvases"
+                ALTER COLUMN "version_group_id" SET NOT NULL
+        `)
+
+        await queryRunner.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'uq_space_canvas_group'
+                ) THEN
+                    ALTER TABLE "public"."spaces_canvases"
+                        ADD CONSTRAINT "uq_space_canvas_group" UNIQUE ("space_id", "version_group_id");
+                END IF;
+            END $$;
         `)
 
         // 4) Add foreign keys (best effort)
@@ -90,10 +205,22 @@ export class SpacesCore1743000000000 implements MigrationInterface {
             CREATE INDEX IF NOT EXISTS "idx_canvases_apikey" ON "public"."canvases"("apikeyid");
         `)
         await queryRunner.query(`
+            CREATE INDEX IF NOT EXISTS "idx_canvases_version_group" ON "public"."canvases"("version_group_id");
+        `)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS "uq_canvases_version_uuid" ON "public"."canvases"("version_uuid");
+        `)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS "uq_canvases_active_version" ON "public"."canvases"("version_group_id") WHERE is_active;
+        `)
+        await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "idx_sc_space" ON "public"."spaces_canvases"("space_id");
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "idx_sc_space_sort" ON "public"."spaces_canvases"("space_id", "sort_order");
+        `)
+        await queryRunner.query(`
+            CREATE INDEX IF NOT EXISTS "idx_sc_version_group" ON "public"."spaces_canvases"("version_group_id");
         `)
 
         // 6) Enable RLS (soft mode - authenticated users can read)
@@ -133,8 +260,12 @@ export class SpacesCore1743000000000 implements MigrationInterface {
         await queryRunner.query(`DROP POLICY IF EXISTS spaces_select ON "public"."spaces";`)
 
         // Drop indexes
+        await queryRunner.query(`DROP INDEX IF EXISTS "idx_sc_version_group";`)
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_sc_space_sort";`)
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_sc_space";`)
+        await queryRunner.query(`DROP INDEX IF EXISTS "uq_canvases_active_version";`)
+        await queryRunner.query(`DROP INDEX IF EXISTS "uq_canvases_version_uuid";`)
+        await queryRunner.query(`DROP INDEX IF EXISTS "idx_canvases_version_group";`)
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_canvases_apikey";`)
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_canvases_updated";`)
         await queryRunner.query(`DROP INDEX IF EXISTS "idx_spaces_unik";`)

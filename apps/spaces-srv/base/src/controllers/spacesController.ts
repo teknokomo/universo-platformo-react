@@ -7,6 +7,7 @@ import {
     UpdateCanvasDto,
     ReorderCanvasesDto,
     ApiResponse,
+    CreateCanvasVersionDto,
     ChatflowType
 } from '../types'
 
@@ -469,6 +470,188 @@ export class SpacesController {
 
             console.error('[SpacesController] Error deleting canvas:', error)
             res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * GET /uniks/:unikId/spaces/:spaceId/canvases/:canvasId/versions - List canvas versions
+     */
+    async getCanvasVersions(req: Request, res: Response): Promise<void> {
+        try {
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId, canvasId } = req.params
+
+            if (!unikId || !spaceId || !canvasId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Unik ID, Space ID, and Canvas ID are required'
+                } as ApiResponse)
+                return
+            }
+
+            const versions = await this.spacesService.getCanvasVersions(unikId, spaceId, canvasId)
+
+            if (!versions) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Canvas not found'
+                } as ApiResponse)
+                return
+            }
+
+            res.json({
+                success: true,
+                data: { versions }
+            } as ApiResponse)
+        } catch (error) {
+            console.error('[SpacesController] Error fetching canvas versions:', error)
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * POST /uniks/:unikId/spaces/:spaceId/canvases/:canvasId/versions - Create a new canvas version
+     */
+    async createCanvasVersion(req: Request, res: Response): Promise<void> {
+        try {
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId, canvasId } = req.params
+
+            if (!unikId || !spaceId || !canvasId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Unik ID, Space ID, and Canvas ID are required'
+                } as ApiResponse)
+                return
+            }
+
+            const payload: CreateCanvasVersionDto = {
+                label: typeof req.body?.label === 'string' ? req.body.label.trim() || undefined : undefined,
+                description: typeof req.body?.description === 'string' ? req.body.description.trim() || undefined : undefined,
+                activate: Boolean(req.body?.activate)
+            }
+
+            if (payload.label && payload.label.length > 200) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Version label must be 200 characters or less'
+                } as ApiResponse)
+                return
+            }
+
+            if (payload.description && payload.description.length > 2000) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Version description must be 2000 characters or less'
+                } as ApiResponse)
+                return
+            }
+
+            const version = await this.spacesService.createCanvasVersion(unikId, spaceId, canvasId, payload)
+
+            if (!version) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Canvas not found'
+                } as ApiResponse)
+                return
+            }
+
+            res.status(201).json({
+                success: true,
+                data: version,
+                message: 'Canvas version created successfully'
+            } as ApiResponse)
+        } catch (error) {
+            console.error('[SpacesController] Error creating canvas version:', error)
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * POST /uniks/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId/activate - Activate a version
+     */
+    async activateCanvasVersion(req: Request, res: Response): Promise<void> {
+        try {
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId, canvasId, versionId } = req.params
+
+            if (!unikId || !spaceId || !canvasId || !versionId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Unik ID, Space ID, Canvas ID, and Version ID are required'
+                } as ApiResponse)
+                return
+            }
+
+            const canvas = await this.spacesService.activateCanvasVersion(unikId, spaceId, canvasId, versionId)
+
+            if (!canvas) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Canvas version not found'
+                } as ApiResponse)
+                return
+            }
+
+            res.json({
+                success: true,
+                data: canvas,
+                message: 'Canvas version activated successfully'
+            } as ApiResponse)
+        } catch (error) {
+            console.error('[SpacesController] Error activating canvas version:', error)
+            const status = error instanceof Error ? 400 : 500
+            res.status(status).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * DELETE /uniks/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId - Delete a version
+     */
+    async deleteCanvasVersion(req: Request, res: Response): Promise<void> {
+        try {
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId, canvasId, versionId } = req.params
+
+            if (!unikId || !spaceId || !canvasId || !versionId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Unik ID, Space ID, Canvas ID, and Version ID are required'
+                } as ApiResponse)
+                return
+            }
+
+            const deleted = await this.spacesService.deleteCanvasVersion(unikId, spaceId, canvasId, versionId)
+
+            if (!deleted) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Canvas version not found'
+                } as ApiResponse)
+                return
+            }
+
+            res.json({
+                success: true,
+                message: 'Canvas version deleted successfully'
+            } as ApiResponse)
+        } catch (error) {
+            console.error('[SpacesController] Error deleting canvas version:', error)
+            const status = error instanceof Error ? 400 : 500
+            res.status(status).json({
                 success: false,
                 error: error instanceof Error ? error.message : 'Internal server error'
             } as ApiResponse)

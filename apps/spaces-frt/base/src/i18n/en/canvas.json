@@ -125,6 +125,37 @@
     "loadChatflow": "Load",
     "exportChatflow": "Export",
     "deleteChatflow": "Delete",
-    "deleteSpace": "Delete Space"
+    "deleteSpace": "Delete Space",
+    "canvasVersions": "Canvas Versions"
+  },
+  "versionsDialog": {
+    "title": "Canvas Versions",
+    "labelInput": "Version label",
+    "descriptionInput": "Description (optional)",
+    "activateSwitch": "Set as active version",
+    "createButton": "Save version",
+    "empty": "No versions available yet.",
+    "table": {
+      "label": "Label",
+      "description": "Description",
+      "created": "Created",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "active": "Active",
+    "inactive": "Inactive",
+    "activateAction": "Activate",
+    "deleteAction": "Delete",
+    "noDescription": "No description",
+    "createSuccess": "Version saved successfully",
+    "createError": "Failed to save version",
+    "activateSuccess": "Version activated",
+    "activateError": "Failed to activate version",
+    "deleteSuccess": "Version deleted",
+    "deleteError": "Failed to delete version",
+    "confirmDeleteTitle": "Delete version",
+    "confirmDeleteDescription": "Are you sure you want to delete this version? This action cannot be undone.",
+    "saveSpaceFirst": "Save the space before managing versions",
+    "loadError": "Failed to load versions"
   }
 }

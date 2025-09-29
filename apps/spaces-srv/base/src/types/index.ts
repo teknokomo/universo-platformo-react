@@ -75,6 +75,12 @@ export interface CanvasResponse {
     type?: ChatflowType
     createdDate: Date
     updatedDate: Date
+    versionGroupId: string
+    versionUuid: string
+    versionLabel: string
+    versionDescription?: string
+    versionIndex: number
+    isActive: boolean
 }
 
 export interface ApiResponse<T = any> {
@@ -90,4 +96,22 @@ export interface SpacesListResponse {
 
 export interface CanvasesListResponse {
     canvases: CanvasResponse[]
+}
+
+export interface CanvasVersionResponse {
+    id: string
+    versionGroupId: string
+    versionUuid: string
+    versionLabel: string
+    versionDescription?: string
+    versionIndex: number
+    isActive: boolean
+    createdDate: Date
+    updatedDate: Date
+}
+
+export interface CreateCanvasVersionDto {
+    label?: string
+    description?: string
+    activate?: boolean
 }

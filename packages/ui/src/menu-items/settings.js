@@ -8,7 +8,8 @@ import {
     IconDatabaseExport,
     IconAdjustmentsHorizontal,
     IconUsers,
-    IconTemplate
+    IconTemplate,
+    IconVersions
 } from '@tabler/icons-react'
 import i18n from '@/i18n'
 
@@ -22,7 +23,8 @@ const icons = {
     IconDatabaseExport,
     IconAdjustmentsHorizontal,
     IconUsers,
-    IconTemplate
+    IconTemplate,
+    IconVersions
 }
 
 // ==============================|| SETTINGS MENU ITEMS ||============================== //
@@ -52,6 +54,13 @@ const settings = {
             type: 'item',
             url: '',
             icon: icons.IconDatabaseExport
+        },
+        {
+            id: 'canvasVersions',
+            title: i18n.t('canvas.contextMenu.canvasVersions'),
+            type: 'item',
+            url: '',
+            icon: icons.IconVersions
         },
         {
             id: 'chatflowConfiguration',

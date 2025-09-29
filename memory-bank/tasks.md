@@ -4,6 +4,55 @@
 - [x] Backend: Extend Spaces create pipeline with defaultCanvasName validation and localized seeding.
 - [x] Cleanup: Remove auto-rename side effects, adjust tests, and document the new behavior.
 
+## PLAN - Canvas Versioning MVP (2025-09-23)
+
+### Overview
+- Establish manual canvas versioning so each Space can store multiple saved snapshots per canvas while keeping backwards compatibility with existing Flowise chatflow storage.
+- Prepare the data model for future publication links that can point either to the active version or to a specific saved version (planned `/b/{versionUuid}` URLs).
+
+### Affected Areas
+- Database: `apps/spaces-srv/base/src/database/migrations/postgres/1743000000000-SpacesCore.ts`, `apps/spaces-srv/base/src/database/entities/{Canvas.ts,SpaceCanvas.ts}`.
+- Backend services and API: `apps/spaces-srv/base/src/services/spacesService.ts`, `apps/spaces-srv/base/src/controllers/spacesController.ts`, `apps/spaces-srv/base/src/routes/spacesRoutes.ts`, DTOs under `apps/spaces-srv/base/src/types`.
+- Frontend: `apps/spaces-frt/base/src/views/canvas/*`, especially `CanvasHeader.jsx`, dialogs under `packages/ui/src/ui-component/dialog`, hooks in `apps/spaces-frt/base/src/hooks`, and API clients in `apps/spaces-frt/base/src/api`.
+- Shared Flowise components leveraged by dialogs (reuse patterns from `ViewLeadsDialog.jsx` and `UpsertHistoryDialog.jsx`).
+
+### Step Breakdown
+- [ ] **Data Model Extensions**: Add versioning columns to `canvases` (e.g., `version_group_id`, `version_index`, `version_uuid`, `version_label`, `version_description`, `is_active`) and adjust `spaces_canvases` if we need to differentiate active linkage versus archived entries. Ensure transactional integrity and unique constraints (one active version per `(space_id, version_group_id)`).
+- [ ] **Entity & DTO Updates**: Reflect new fields in TypeORM entities and API DTOs, keeping optional fields for backward compatibility with existing Flowise UI calls.
+- [ ] **Repository Logic**: Extend `SpacesService` to load version collections, create new versions (clone flow + metadata), switch active version, and delete archived versions while respecting storage cleanup. Ensure `createSpace` seeds an initial version group.
+- [ ] **API Surface**: Introduce REST endpoints such as `GET /spaces/:spaceId/canvases/:canvasId/versions`, `POST /spaces/:spaceId/canvases/:canvasId/versions`, `POST /canvases/:canvasId/versions/:versionId/activate`, and `DELETE /canvases/:canvasId/versions/:versionId`. Maintain compatibility with legacy `/canvases/:canvasId` operations by always returning the active version.
+- [ ] **Frontend State Management**: Extend `useCanvases` (or dedicated hook) to fetch, cache, and mutate version lists. Keep Redux slice updates minimal while surfacing active version metadata to existing components.
+- [ ] **Versions Dialog UI**: Build a versions management dialog in `apps/spaces-frt/base/src/views/canvas` (or colocated) that mirrors table interactions from `ViewLeadsDialog` (basic tabular list) while allowing create/activate/delete actions. Include metadata editing inputs for version label/description.
+- [ ] **Settings Menu Integration**: Replace or augment the current "Upsert History" menu item in `CanvasHeader.jsx` with "Canvas Versions" linking to the new dialog. Preserve access to the existing Upsert History dialog via secondary navigation if still needed.
+- [ ] **Publication Readiness**: Store `version_uuid` for each saved version so later publishing services can generate `/b/{uuid}` links. Document how to resolve active vs explicit versions when building shareable URLs.
+- [ ] **Testing & Documentation**: Add service-level unit tests for version operations, adapt existing integration specs, and document workflows in `docs/en/applications/spaces/README.md` plus memory-bank updates.
+
+## IMPLEMENT - Canvas Versioning Backend (2025-09-23)
+
+- [x] Migrate the existing Supabase schema (Postgres + SQLite variants) to include canvas version metadata, enforce a single active version per group, and backfill current rows so every canvas is seeded as its own active version.
+- [x] Extend TypeORM entities (`Canvas`, `SpaceCanvas`, `ChatFlow`) and related repository helpers to surface the new columns with sensible defaults.
+- [x] Implement version lifecycle logic inside `SpacesService`, providing methods to list, create (clone), activate, and delete versions while keeping legacy canvas APIs functional.
+- [x] Update DTOs, controller handlers, and Express routes to expose REST endpoints for version management alongside existing canvas operations.
+- [x] Align Flowise `chatflows` service with version groups so auto-provisioned canvases/spaces use the correct metadata during creation and updates.
+
+### Implementation Checklist (2025-09-23)
+- [x] Update Postgres + SQLite migrations to add version metadata, defaults, indexes, and data backfill aligned with existing tables.
+- [x] Reflect version columns across TypeORM entities and shared interfaces to keep Flowise compatibility.
+- [x] Extend `SpacesService` with transactional version lifecycle helpers and reuse them in controllers/routes.
+- [x] Expose REST DTOs and handlers for listing/creating/activating/deleting versions.
+- [x] Synchronize Flowise `chatflows` service with version groups during create/update flows.
+
+### Potential Challenges
+- Maintaining backward compatibility with Flowise components that expect a single `canvas.id` while we introduce version grouping.
+- Enforcing a single active version per canvas group inside existing tables without adding new migrations (must alter current migration safely).
+- Handling large `flowData` cloning efficiently and ensuring storage cleanup does not delete assets shared across versions.
+- Coordinating future publication routes so they can dereference archived versions without duplicating business logic.
+
+### Follow-up Tasks (Detailed Prompts)
+- **Task 1 — Backend Data Model & Services**: "Extend `apps/spaces-srv/base` to support versioned canvases by updating the existing Postgres migration and entities with version metadata, enforcing one active version per group, and exposing service methods plus REST endpoints to list/create/activate/delete versions while keeping legacy canvas operations functional."
+- **Task 2 — Frontend Version Management UI**: "Implement a Canvas Versions dialog inside `apps/spaces-frt/base` that consumes the new API, displays version lists with labels/descriptions, enables manual saves, activation, and deletion, and wires the dialog into `CanvasHeader` settings alongside notifications."
+- **Task 3 — Documentation & Tests**: "Document the canvas versioning workflow (EN/RU) across spaces READMEs, update memory-bank notes, and add automated tests covering backend version lifecycle plus frontend interaction smoke cases."
+
 ## IMPLEMENT - Space Builder Canvas Mode (2025-09-22)
 
 - [x] Update SpaceBuilderDialog creation modes to support newCanvas defaults and localized labels for saved spaces.

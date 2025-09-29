@@ -161,7 +161,8 @@
             "duplicateChatflow": "Duplicate Canvas",
             "loadChatflow": "Load Canvas",
             "exportChatflow": "Export Canvas",
-            "deleteChatflow": "Delete Canvas"
+            "deleteChatflow": "Delete Canvas",
+            "canvasVersions": "Canvas Versions"
         },
         "configuration": {
             "title": "Canvas Configuration",

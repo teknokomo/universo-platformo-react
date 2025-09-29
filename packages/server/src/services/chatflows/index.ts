@@ -19,6 +19,7 @@ import { validate } from 'uuid'
 import { Space, SpaceCanvas } from '@universo/spaces-srv'
 import type { Canvas } from '@universo/spaces-srv'
 import type { Unik } from '@universo/uniks-srv'
+import { randomUUID } from 'crypto'
 
 // Check if chatflow valid for streaming
 const checkIfChatflowIsValidForStreaming = async (chatflowId: string): Promise<any> => {
@@ -217,6 +218,23 @@ const getChatflowById = async (chatflowId: string, unikId?: string): Promise<any
 const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
+
+        if (!newChatFlow.versionGroupId) {
+            newChatFlow.versionGroupId = randomUUID()
+        }
+        if (!newChatFlow.versionUuid) {
+            newChatFlow.versionUuid = randomUUID()
+        }
+        if (!newChatFlow.versionLabel) {
+            newChatFlow.versionLabel = 'v1'
+        }
+        if (typeof newChatFlow.versionIndex !== 'number' || Number.isNaN(newChatFlow.versionIndex)) {
+            newChatFlow.versionIndex = 1
+        }
+        if (typeof newChatFlow.isActive !== 'boolean') {
+            newChatFlow.isActive = true
+        }
+
         let dbResponse: ChatFlow
         if (containsBase64File(newChatFlow)) {
             // we need a 2-step process, as we need to save the chatflow first and then update the file paths
@@ -257,16 +275,33 @@ const saveChatflow = async (newChatFlow: ChatFlow): Promise<any> => {
             // link Space ↔ Canvas in junction if not exists
             const existsJunction = (await scRepo
                 .createQueryBuilder('sc')
-                .where('sc.space_id = :sid AND sc.canvas_id = :cid', { sid: dbResponse.id, cid: dbResponse.id })
+                .where('sc.space_id = :sid AND sc.version_group_id = :vgid', {
+                    sid: dbResponse.id,
+                    vgid: dbResponse.versionGroupId
+                })
                 .getCount()) > 0
             if (!existsJunction) {
                 const spaceCanvas = scRepo.create({
                     // default first position
                     sortOrder: 1,
                     space: ({ id: dbResponse.id } as Space),
-                    canvas: ({ id: dbResponse.id } as unknown as Canvas)
+                    canvas: ({ id: dbResponse.id } as unknown as Canvas),
+                    versionGroupId: dbResponse.versionGroupId
                 })
                 await scRepo.save(spaceCanvas)
+            } else {
+                await scRepo
+                    .createQueryBuilder()
+                    .update(SpaceCanvas)
+                    .set({
+                        canvas: ({ id: dbResponse.id } as unknown as Canvas),
+                        versionGroupId: dbResponse.versionGroupId
+                    })
+                    .where('space_id = :sid AND version_group_id = :vgid', {
+                        sid: dbResponse.id,
+                        vgid: dbResponse.versionGroupId
+                    })
+                    .execute()
             }
         } catch (linkErr) {
             logger.warn(`[server]: Unable to ensure Space/Canvas relation for ${dbResponse.id}: ${getErrorMessage(linkErr)}`)
@@ -332,6 +367,21 @@ const importChatflows = async (newChatflows: Partial<ChatFlow>[], queryRunner?: 
                 newChatflow.name += ' (1)'
             }
             newChatflow.flowData = JSON.stringify(JSON.parse(flowData))
+            if (!newChatflow.versionGroupId) {
+                newChatflow.versionGroupId = randomUUID()
+            }
+            if (!newChatflow.versionUuid) {
+                newChatflow.versionUuid = randomUUID()
+            }
+            if (!newChatflow.versionLabel) {
+                newChatflow.versionLabel = 'v1'
+            }
+            if (typeof newChatflow.versionIndex !== 'number' || Number.isNaN(newChatflow.versionIndex)) {
+                newChatflow.versionIndex = 1
+            }
+            if (typeof newChatflow.isActive !== 'boolean') {
+                newChatflow.isActive = true
+            }
             return newChatflow
         })
 

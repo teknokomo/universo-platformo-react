@@ -11,6 +11,9 @@ export class SpaceCanvas {
     @Column({ name: 'sort_order' })
     sortOrder!: number
 
+    @Column({ name: 'version_group_id' })
+    versionGroupId!: string
+
     @CreateDateColumn({ name: 'created_date' })
     createdDate!: Date
 

@@ -93,6 +93,7 @@
             "loadChatflow": "Load Canvas",
             "exportChatflow": "Export Canvas",
             "deleteChatflow": "Delete Canvas",
+            "canvasVersions": "Canvas Versions",
             "deleteFlow": "Delete Canvas"
         },
         "configuration": {
