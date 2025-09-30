@@ -4,9 +4,6 @@ import apikeyRouter from './apikey'
 import assistantsRouter from './assistants'
 import attachmentsRouter from './attachments'
 import chatMessageRouter from './chat-messages'
-import chatflowsRouter from './chatflows'
-import chatflowsStreamingRouter from './chatflows-streaming'
-import chatflowsUploadsRouter from './chatflows-uploads'
 import componentsCredentialsRouter from './components-credentials'
 import componentsCredentialsIconRouter from './components-credentials-icon'
 import credentialsRouter from './credentials'
@@ -34,7 +31,6 @@ import openaiRealtimeRouter from './openai-realtime'
 import pingRouter from './ping'
 import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
-import publicChatflowsRouter from './public-chatflows'
 import statsRouter from './stats'
 import toolsRouter from './tools'
 import upsertHistoryRouter from './upsert-history'
@@ -67,6 +63,12 @@ import { Credential } from '../database/entities/Credential'
 import { decryptCredentialData } from '../utils'
 import nodesService from '../services/nodes'
 import componentsCredentialsService from '../services/components-credentials'
+import { canvasServiceConfig } from '../services/spacesCanvas'
+import { createCanvasPublicRoutes } from '@universo/spaces-srv'
+import chatflowsStreamingRouter from './chatflows-streaming'
+import { RateLimiterManager } from '../utils/rateLimit'
+import apiKeyService from '../services/apikey'
+import { ensureUnikMembershipResponse } from '../services/access-control'
 
 const router: ExpressRouter = express.Router()
 
@@ -115,7 +117,7 @@ router.use('/openai-assistants-vector-store', openaiAssistantsVectorStoreRouter)
 router.use('/openai-realtime', openaiRealtimeRouter)
 router.use('/prediction', predictionRouter)
 router.use('/prompts-list', promptListsRouter)
-router.use('/public-chatflows', publicChatflowsRouter)
+router.use('/public', createCanvasPublicRoutes(() => getDataSource(), canvasServiceConfig))
 router.use('/stats', statsRouter)
 // Global route for tools has been removed
 // router.use('/tools', toolsRouter)
@@ -143,9 +145,6 @@ router.use(
     createUniksRouter(
         ensureAuth,
         () => getDataSource(),
-        chatflowsRouter,
-        chatflowsStreamingRouter,
-        chatflowsUploadsRouter,
         flowConfigRouter,
         toolsRouter,
         variablesRouter,
@@ -156,7 +155,29 @@ router.use(
         documentStoreRouter,
         marketplacesRouter,
         createFinanceRouter(),
-        { spacesLimiter }
+        {
+            spacesLimiter,
+            spacesRoutes: {
+                canvasService: canvasServiceConfig,
+                rateLimiterManager: RateLimiterManager.getInstance(),
+                apiKeyService: {
+                    getApiKey: async (key: string) => {
+                        const record = await apiKeyService.getApiKey(key)
+                        if (record && typeof (record as any).id === 'string') {
+                            return { id: (record as any).id as string }
+                        }
+                        return null
+                    }
+                },
+                membership: {
+                    ensureUnikMembershipResponse: async (req, res, unikId, options) => {
+                        const userId = await ensureUnikMembershipResponse(req, res, unikId, options)
+                        return userId === null ? undefined : userId
+                    },
+                    accessDeniedMessage: 'Access denied: You do not have permission to access this Unik'
+                }
+            }
+        }
     )
 )
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { ChatMessageRatingType, ChatType, IReactFlowObject } from '../../Interface'
-import chatflowsService from '../../services/chatflows'
+import canvasService from '../../services/spacesCanvas'
 import chatMessagesService from '../../services/chat-messages'
 import { aMonthAgo, clearSessionMemory } from '../../utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
@@ -143,7 +143,7 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
             )
         }
         const chatflowid = req.params.id
-        const chatflow = await chatflowsService.getChatflowById(req.params.id)
+        const chatflow = await canvasService.getCanvasById(req.params.id)
         if (!chatflow) {
             return res.status(404).send(`Chatflow ${req.params.id} not found`)
         }

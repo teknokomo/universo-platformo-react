@@ -1350,6 +1350,12 @@ Resolution:
 Validation:
 - `pnpm --filter @universo/uniks-srv test`
 
+### 2025-09-24 — Canvas nested routes scope fix
+
+- Added nested `/spaces/:spaceId/canvases/:canvasId` GET/PUT/DELETE routes to the spaces service so canvas CRUD now requires the requested space scope.
+- Extended the canvas legacy controller unit tests and spaces router integration tests to assert `spaceId` propagation for nested operations.
+- Validated the workspace with `pnpm build` after wiring the new routes and tests.
+
 ### 2025-09-24 — Shared purge helper for spaces cleanup
 
 Issue:

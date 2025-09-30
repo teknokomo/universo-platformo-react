@@ -270,10 +270,43 @@ describe('uniks routes (TypeORM)', () => {
       buildStubRouter(),
       buildStubRouter(),
       buildStubRouter(),
-      buildStubRouter(),
-      buildStubRouter(),
-      buildStubRouter(),
-      { spacesLimiter: (_req, _res, next) => next() }
+      {
+        spacesLimiter: (_req, _res, next) => next(),
+        spacesRoutes: {
+          canvasService: {
+            entities: {
+              chatMessage: class {},
+              chatMessageFeedback: class {},
+              upsertHistory: class {}
+            },
+            dependencies: {
+              errorFactory: jest.fn((status: number, message: string) => {
+                const error = new Error(message)
+                ;(error as any).status = status
+                return error
+              }),
+              removeFolderFromStorage: jest.fn(),
+              updateDocumentStoreUsage: jest.fn(),
+              containsBase64File: jest.fn(() => false),
+              updateFlowDataWithFilePaths: jest.fn(async () => '{}'),
+              constructGraphs: jest.fn(() => ({ graph: {}, nodeDependencies: {} })),
+              getEndingNodes: jest.fn(() => []),
+              isFlowValidForStream: jest.fn(() => true),
+              getAppVersion: jest.fn(async () => 'test'),
+              getTelemetryFlowObj: jest.fn(() => ({})),
+              telemetry: undefined,
+              metricsProvider: undefined,
+              metricsConfig: {
+                chatflowCreatedCounter: 'chatflow_created',
+                agentflowCreatedCounter: 'agentflow_created',
+                successStatusLabel: 'success'
+              },
+              logger: { warn: jest.fn(), error: jest.fn() },
+              getUploadsConfig: jest.fn(async () => ({}))
+            }
+          }
+        }
+      }
     )
 
     const app = express()
@@ -283,6 +316,29 @@ describe('uniks routes (TypeORM)', () => {
     const response = await request(app).get('/unik-1/spaces')
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ items: [] })
-    expect(createSpacesRoutes).toHaveBeenCalledWith(expect.any(Function))
+    expect(createSpacesRoutes).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ canvasService: expect.any(Object) }))
+  })
+
+  it('проксирует canvas-маршруты с параметрами unikId и spaceId', async () => {
+    const handled: Array<{ unikId: string; spaceId: string }> = []
+    createSpacesRoutes.mockImplementationOnce(() => {
+      const router = express.Router({ mergeParams: true })
+      router.get('/spaces/:spaceId/canvases', (req, res) => {
+        handled.push({ unikId: (req.params as any).unikId, spaceId: req.params.spaceId })
+        res.json({ ok: true })
+      })
+      return router
+    })
+
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    membershipRepo.findOne.mockResolvedValue({ role: 'owner' })
+
+    const { app } = buildIndividualApp('user-1', { unikRepo, membershipRepo })
+    const response = await request(app).get('/unik-1/spaces/space-7/canvases')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ ok: true })
+    expect(handled).toEqual([{ unikId: 'unik-1', spaceId: 'space-7' }])
   })
 })

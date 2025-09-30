@@ -6,7 +6,7 @@ const getAllAgentflows = (unikId) => client.get(`/unik/${unikId}/chatflows?type=
 
 const getSpecificChatflow = (unikId, id) => client.get(`/unik/${unikId}/chatflows/${id}`)
 
-const getSpecificChatflowFromPublicEndpoint = (id) => client.get(`/public-chatflows/${id}`)
+const getSpecificChatflowFromPublicEndpoint = (id) => client.get(`/public/canvases/${id}`)
 
 const createNewChatflow = (unikId, body) => client.post(`/unik/${unikId}/chatflows`, body)
 

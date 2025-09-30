@@ -61,7 +61,7 @@ const PublicFlowView: React.FC = () => {
                     console.warn('⚠️ [PublicFlowView] Canvas API failed, trying legacy API:', canvasError)
 
                     // Fallback to legacy public-chatflows API
-                    response = await fetch(`/api/v1/public-chatflows/${targetId}`)
+                    response = await fetch(`/public/canvases/${targetId}`)
                     if (!response.ok) {
                         throw new Error(`Failed to fetch canvas/chatflow data: ${response.status}`)
                     }

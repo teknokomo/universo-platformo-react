@@ -1,5 +1,6 @@
 // Routes
-export { createSpacesRoutes } from './routes/spacesRoutes'
+export { createSpacesRoutes, type CreateSpacesRoutesOptions } from './routes/spacesRoutes'
+export { createCanvasPublicRoutes } from './routes/canvasPublicRoutes'
 
 // Controllers
 export { SpacesController } from './controllers/spacesController'
@@ -14,6 +15,12 @@ export {
     type LegacyChatflowMetricsConfig,
     type LegacyChatflowPublicCanvas
 } from './services/legacyChatflowsService'
+export {
+    createCanvasService,
+    type CanvasService,
+    type CanvasServiceFactoryOptions,
+    type CanvasFlowResult
+} from './services/canvasServiceFactory'
 
 // Types
 export * from './types'

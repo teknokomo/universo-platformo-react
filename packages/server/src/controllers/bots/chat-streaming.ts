@@ -8,7 +8,7 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { MODE } from '../../Interface'
 import logger from '../../utils/logger'
-import chatflowsService from '../../services/chatflows'
+import canvasService from '../../services/spacesCanvas'
 import { ChatFlow } from '../../database/entities/ChatFlow'
 import { ICommonObject } from 'flowise-components'
 import { resolveRequestUserId, workspaceAccessService } from '../../services/access-control'
@@ -35,7 +35,7 @@ export class ChatStreamingController {
     getStreamingResponse = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
         try {
             const appServer = getRunningExpressApp()
-            const chatflowid = req.params.chatflowid
+            const chatflowid = req.params.chatflowid ?? (req.params as any).id
             if (!chatflowid) {
                 throw new InternalFlowiseError(
                     StatusCodes.PRECONDITION_FAILED,
@@ -47,7 +47,7 @@ export class ChatStreamingController {
             logger.info(`Streaming request for chat bot (chatflow: ${chatflowid}, session: ${sessionid})`)
 
             // Universo Platformo | Check that the chatflow exists and supports streaming
-            const streamable = await chatflowsService.checkIfChatflowIsValidForStreaming(chatflowid)
+            const streamable = await canvasService.checkIfCanvasIsValidForStreaming(chatflowid)
             if (!streamable || !streamable.isStreaming) {
                 return res.status(400).json({ error: 'Chatflow not configured for streaming' })
             }

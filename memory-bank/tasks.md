@@ -734,3 +734,9 @@ Enhance markerless AR experience with additional options.
 - [x] Implement transactional Unik deletion cascade in `apps/uniks-srv/base/src/routes/uniksRoutes.ts`, ensuring spaces, space_canvases, canvases, chat history, and document store references are purged before removing the Unik row.
 - [x] Add integration coverage verifying DELETE `/unik/:id` removes spaces, canvases, chat artefacts, and storage folders for a seeded Unik.
 - [x] Document the cascade cleanup in `memory-bank/progress.md` with implementation notes and follow-up considerations.
+## IMPLEMENT - Canvas Nested Routes Scope Fix (2025-09-24)
+
+ - [x] Expose GET/PUT/DELETE endpoints under `/spaces/:spaceId/canvases/:canvasId` and ensure the legacy controller forwards the `spaceId` scope for CRUD actions.
+ - [x] Extend backend tests (controller + spaces router) to cover the new nested routes and confirm scope enforcement.
+ - [x] Run `pnpm build` to validate the workspace after wiring the new routes and tests.
+
