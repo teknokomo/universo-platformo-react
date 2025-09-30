@@ -1,3 +1,10 @@
+## 2025-09-24 — Chatflow alias bridge & service extraction
+
+- Introduced `CanvasId` alias plus helper mappers in `packages/server/src/Interface.ts`, ensuring every chatflow response now carries both `id` and `canvasId` while consumers gradually migrate terminology.
+- Replaced the legacy in-repo chatflows service with `LegacyChatflowsService` under `@universo/spaces-srv`, injecting Flowise dependencies so backend logic executes from the Spaces package while preserving telemetry, metrics, and document store updates.
+- Updated the server adapter to delegate CRUD calls to the Spaces service, keeping `/chatflows` routes functional but emitting Canvas-first payloads for downstream routers/controllers.
+- Embedded the Spaces router inside `createUniksRouter`, forwarding `/unik/:id/spaces` and `/unik/:id/canvases` through `@universo/spaces-srv` with optional rate limiting while preserving legacy chatflows mounts.
+
 ## 2025-09-23 — Localized default canvas handling
 
 - Canvas view keeps the temporary `temp` canvas entirely client-side: rename actions update local state, block PUTs until the space is persisted, and forward the chosen label when creating a space.

@@ -72,5 +72,5 @@ export class Canvas {
 
     // Relationship with SpaceCanvas
     @OneToMany(() => SpaceCanvas, spaceCanvas => spaceCanvas.canvas)
-    spaceCanvases!: SpaceCanvas[]
+    spaceCanvases?: SpaceCanvas[]
 }

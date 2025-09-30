@@ -18,6 +18,12 @@
 - Automated Jest suite `pnpm --filter @universo/spaces-srv test` passes across controller, routes, and service specs, validating new DTO paths.
 - Archived the temporary plan document after QA sign-off so future updates rely on the consolidated progress log.
 
+### 2025-09-24 — Spaces router embedded into Uniks
+
+- Mounted `createSpacesRoutes` directly inside the Uniks router so `/unik/:id/spaces` and `/unik/:id/canvases` reuse the Spaces service without an extra express mount layer.
+- Preserved the existing `ensureAuth` guard and wrapped a conditional rate limiter that only fires for `/spaces` and `/canvases` paths to avoid throttling unrelated legacy chatflow routes.
+- Extended Jest route tests to stub the Spaces router, verify bootstrapping, and ensure cleanup helpers continue to be mocked, keeping regression coverage for the new wiring.
+
 ### 2025-09-23 — Localized default canvas flow for new spaces
 
 - Canvas view keeps unsaved "temp" canvases in local state, allowing rename without hitting the API and forwarding the chosen label when the space is persisted.

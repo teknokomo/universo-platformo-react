@@ -67,7 +67,6 @@ import { Credential } from '../database/entities/Credential'
 import { decryptCredentialData } from '../utils'
 import nodesService from '../services/nodes'
 import componentsCredentialsService from '../services/components-credentials'
-import { createSpacesRoutes } from '@universo/spaces-srv'
 
 const router: ExpressRouter = express.Router()
 
@@ -137,6 +136,8 @@ router.use(
 )
 
 // Mount nested routes for Unik-specific resources at /unik/:id
+const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
+
 router.use(
     '/unik',
     createUniksRouter(
@@ -154,7 +155,8 @@ router.use(
         apikeyRouter,
         documentStoreRouter,
         marketplacesRouter,
-        createFinanceRouter()
+        createFinanceRouter(),
+        { spacesLimiter }
     )
 )
 
@@ -273,18 +275,6 @@ router.use(
             try { return await credentialsService.getAllCredentials(names, unikId) } catch (e) { logger.error('[SpaceBuilder] Failed to list user credentials:', e); return [] }
         }
     })
-)
-
-// Universo Platformo | Spaces routes
-const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
-// Mount under /unik/:id so UI paths match both /spaces/* and /canvases/*
-router.use(
-    '/unik/:id',
-    ensureAuth,
-    spacesLimiter,
-    // Parameter compatibility for Spaces routes (expects :unikId)
-    (req, _res, next) => { if (req.params.id && !req.params.unikId) req.params.unikId = req.params.id; next(); },
-    createSpacesRoutes(() => getDataSource())
 )
 
 // Universo Platformo | Publishing Routes

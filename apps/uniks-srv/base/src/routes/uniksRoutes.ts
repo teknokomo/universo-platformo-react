@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { Unik } from '../database/entities/Unik'
 import { UnikUser } from '../database/entities/UnikUser'
 import { removeFolderFromStorage } from 'flowise-components'
-import { purgeSpacesForUnik, cleanupCanvasStorage } from '@universo/spaces-srv'
+import { purgeSpacesForUnik, cleanupCanvasStorage, createSpacesRoutes } from '@universo/spaces-srv'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -266,7 +266,7 @@ export function createUnikIndividualRouter(
 // Main router for nested resources - mounted at /uniks/:unikId
 export function createUniksRouter(
     ensureAuth: RequestHandler,
-    _getDataSource: () => DataSource,
+    getDataSource: () => DataSource,
     chatflowsRouter: Router,
     chatflowsStreamingRouter: Router,
     chatflowsUploadsRouter: Router,
@@ -279,11 +279,31 @@ export function createUniksRouter(
     apikeyRouter: Router,
     documentStoreRouter: Router,
     marketplacesRouter: Router,
-    financeRouter: Router
+    financeRouter: Router,
+    options?: { spacesLimiter?: RequestHandler }
 ): Router {
     const router = Router()
 
     router.use(ensureAuth)
+
+    const spacesRouter = createSpacesRoutes(getDataSource)
+
+    router.use('/:unikId', (req: Request, _res: Response, next: NextFunction) => {
+        if (!req.params.unikId && (req.params as any).id) {
+            req.params.unikId = (req.params as any).id
+        }
+        next()
+    })
+    if (options?.spacesLimiter) {
+        router.use('/:unikId', (req: Request, res: Response, next: NextFunction) => {
+            const path = req.path || ''
+            if (path.startsWith('/spaces') || path.startsWith('/canvases')) {
+                return options.spacesLimiter!(req, res, next)
+            }
+            return next()
+        })
+    }
+    router.use('/:unikId', spacesRouter)
 
     router.use('/:unikId/chatflows', chatflowsRouter)
     router.use('/:unikId/chatflows-streaming', chatflowsStreamingRouter)
