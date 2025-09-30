@@ -34,6 +34,8 @@ export enum ChatMessageRatingType {
 /**
  * Databases
  */
+export type CanvasId = string
+
 export interface IChatFlow {
     id: string
     name: string
@@ -56,6 +58,21 @@ export interface IChatFlow {
     versionDescription?: string
     versionIndex: number
     isActive: boolean
+}
+
+export interface ICanvasFlow extends IChatFlow {
+    canvasId: CanvasId
+}
+
+export const withCanvasAlias = <T extends IChatFlow>(chatflow: T): T & ICanvasFlow => {
+    return {
+        ...chatflow,
+        canvasId: chatflow.id
+    }
+}
+
+export const withCanvasAliases = <T extends IChatFlow>(chatflows: T[]): Array<T & ICanvasFlow> => {
+    return chatflows.map((chatflow) => withCanvasAlias(chatflow))
 }
 
 export interface IChatMessage {

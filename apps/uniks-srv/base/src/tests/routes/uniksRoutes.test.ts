@@ -21,10 +21,18 @@ jest.mock(
 
 jest.mock(
   '@universo/spaces-srv',
-  () => ({
-    purgeSpacesForUnik: jest.fn(),
-    cleanupCanvasStorage: jest.fn().mockResolvedValue(undefined)
-  }),
+  () => {
+    const express = require('express') as typeof import('express')
+    return {
+      purgeSpacesForUnik: jest.fn(),
+      cleanupCanvasStorage: jest.fn().mockResolvedValue(undefined),
+      createSpacesRoutes: jest.fn(() => {
+        const router = express.Router({ mergeParams: true })
+        router.use((_req, _res, next) => next())
+        return router
+      })
+    }
+  },
   { virtual: true }
 )
 
@@ -38,9 +46,10 @@ const { createUniksCollectionRouter, createUnikIndividualRouter } = routes
 const { removeFolderFromStorage } = require('flowise-components') as {
   removeFolderFromStorage: jest.Mock
 }
-const { purgeSpacesForUnik, cleanupCanvasStorage } = require('@universo/spaces-srv') as {
+const { purgeSpacesForUnik, cleanupCanvasStorage, createSpacesRoutes } = require('@universo/spaces-srv') as {
   purgeSpacesForUnik: jest.Mock
   cleanupCanvasStorage: jest.Mock
+  createSpacesRoutes: jest.Mock
 }
 
 
@@ -229,5 +238,51 @@ describe('uniks routes (TypeORM)', () => {
     expect(response.status).toBe(404)
     expect(managerUnikRepo.delete).not.toHaveBeenCalled()
     expect(purgeSpacesForUnik).not.toHaveBeenCalled()
+  })
+
+  it('подключает spaces маршруты внутри createUniksRouter', async () => {
+    const unikRepo = createMockRepository<any>()
+    const membershipRepo = createMockRepository<any>()
+    const dataSource = createMockDataSource({ Unik: unikRepo, UnikUser: membershipRepo })
+
+    const buildStubRouter = () => {
+      const r: Router = express.Router({ mergeParams: true })
+      r.use((_req, _res, next: NextFunction) => next())
+      return r
+    }
+
+    const spacesRouter = express.Router({ mergeParams: true })
+    spacesRouter.get('/spaces', (_req: Request, res: Response) => {
+      res.json({ items: [] })
+    })
+    createSpacesRoutes.mockReturnValueOnce(spacesRouter)
+
+    const router = routes.createUniksRouter(
+      ensureAuth('user-spaces'),
+      () => dataSource as any,
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      buildStubRouter(),
+      { spacesLimiter: (_req, _res, next) => next() }
+    )
+
+    const app = express()
+    app.use(express.json())
+    app.use(router)
+
+    const response = await request(app).get('/unik-1/spaces')
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ items: [] })
+    expect(createSpacesRoutes).toHaveBeenCalledWith(expect.any(Function))
   })
 })

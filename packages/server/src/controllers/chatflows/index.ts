@@ -101,7 +101,8 @@ const getChatflowByApiKey = async (req: Request, res: Response, next: NextFuncti
         if (!apikey) {
             return res.status(401).send('Unauthorized')
         }
-        const apiResponse = await chatflowsService.getChatflowByApiKey(apikey.id, req.query.keyonly)
+        const keyOnly = typeof req.query.keyonly === 'string' ? req.query.keyonly : undefined
+        const apiResponse = await chatflowsService.getChatflowByApiKey(apikey.id, keyOnly)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -199,7 +200,8 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         const updateChatFlow = new ChatFlow()
         Object.assign(updateChatFlow, body)
 
-        updateChatFlow.id = chatflow.id
+        const canvasId = chatflow.canvasId
+        updateChatFlow.id = canvasId
         const rateLimiterManager = RateLimiterManager.getInstance()
         await rateLimiterManager.updateRateLimiter(updateChatFlow)
 

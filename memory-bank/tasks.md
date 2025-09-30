@@ -53,6 +53,58 @@
 - **Task 2 — Frontend Version Management UI**: "Implement a Canvas Versions dialog inside `apps/spaces-frt/base` that consumes the new API, displays version lists with labels/descriptions, enables manual saves, activation, and deletion, and wires the dialog into `CanvasHeader` settings alongside notifications."
 - **Task 3 — Documentation & Tests**: "Document the canvas versioning workflow (EN/RU) across spaces READMEs, update memory-bank notes, and add automated tests covering backend version lifecycle plus frontend interaction smoke cases."
 
+## IMPLEMENT - Chatflow Router Consolidation (2025-09-24)
+
+- [x] Mount `apps/spaces-srv` Space/Canvas router under the Unik resource by composing it inside `createUniksRouter`, ensuring parameter aliases (`id` vs `unikId`) remain compatible with existing clients.
+- [x] Remove the duplicate Spaces router mount from `packages/server/src/routes/index.ts` and rely on the unified Unik router wiring while keeping rate limiting/auth behaviour intact.
+- [x] Update Jest route tests and mocks to account for the embedded Spaces router, providing a stub implementation for `createSpacesRoutes` and verifying the Unik router bootstraps without errors.
+
+## PLAN - Chatflow → Space Consolidation (2025-09-23)
+
+### Overview
+- Complete the migration from legacy Flowise `Chatflow` naming to the new Space/Canvas architecture by relocating remaining services and UI into `apps/spaces-srv` and `apps/spaces-frt`, while preserving compatibility with existing database rows and APIs consumed by other modules.
+- Reduce confusion for future work by providing clear alias layers, updated documentation, and a phased removal plan for temporary Chatflow bridges.
+
+### Affected Areas
+- **Backend core**: `packages/server/src/services/chatflows`, `packages/server/src/routes/{chatflows,chatflows-streaming,public-chatflows}`, shared interfaces in `packages/server/src/Interface.ts`, and TypeORM entities under `packages/server/src/database/entities`.
+- **Spaces service**: `apps/spaces-srv/base/src/{services,controllers,routes,types}`, migrations referencing `chatflows`, and export surface consumed by the server.
+- **Frontend**: `packages/ui/src/views/chatflows`, navigation under `packages/ui/src/routes/MainRoutes.jsx`, sidebar/menu configuration, and translations under `packages/ui/src/i18n/locales/*`.
+- **Documentation & tests**: READMEs in `docs/en|ru`, `memory-bank` notes, and jest/vitest specs under `packages/server/test` and `apps/spaces-frt/base/src`.
+
+### Step Breakdown
+- [ ] **Inventory & Alias Layer**: Produce a mapping table of every `Chatflow` reference (services, entities, routes, i18n keys) and introduce typed aliases in `packages/server/src/Interface.ts` so downstream consumers can start using `Canvas` terminology without breaking imports.
+- [ ] **Backend Service Extraction**: Move the business logic in `packages/server/src/services/chatflows` into `apps/spaces-srv/base`, exposing thin adapters that the legacy router can delegate to during the transition. Ensure transactional helpers (e.g., `purgeUnikSpaces`) remain shared.
+- [ ] **API Restructuring**: Replace the `/chatflows` routers mounted under `/unik/:id` with `/spaces` endpoints implemented inside `apps/spaces-srv/base`, keeping compatibility middleware for existing clients and updating rate limiters and auth guards accordingly.
+- [ ] **Frontend Migration**: Relocate `packages/ui/src/views/chatflows` screens into `apps/spaces-frt/base` (or retire them if redundant), update navigation to highlight Spaces-first workflows, and adjust hooks/components to consume the new API clients.
+- [ ] **Terminology Cleanup**: Update i18n resources, documentation, and test snapshots to use Space/Canvas terminology, providing migration notes where public APIs still mention `chatflowId` parameters.
+- [ ] **Bridge Removal**: Once new routes are validated, delete deprecated Chatflow entities/routers from `packages/server` and replace remaining references with re-exported types from `apps/spaces-srv/base`.
+
+### Potential Challenges
+- Coordinating changes across multiple packages without breaking Supabase migrations or existing automation that still sends `chatflowId` payloads.
+- Maintaining compatibility for Marketplace templates and Flowise import/export tooling that expect `Chatflow` names.
+- Ensuring UI lazy imports resolve correctly once modules move under `apps/spaces-frt/base` (avoid circular workspace dependencies).
+
+### Design Notes
+- Adopt a two-layer naming strategy: keep database columns like `chatflowid` for now, but expose new TypeScript interfaces (`CanvasId`) and helper mappers to prepare for eventual column rename migrations.
+- Favor dependency injection when moving services so that `packages/server` only wires Express routers while business logic lives in `apps/spaces-srv/base`.
+- Provide codemod-ready utility functions (e.g., `renameChatflowKeysToCanvas`) to normalize API responses before they reach the UI.
+
+### Dependencies
+- Requires stabilized session/auth middleware from `apps/auth-srv/base` and Unik access control from `packages/server/src/services/access-control` to avoid regression while routes shift.
+- Dependent on canvas versioning work to prevent merge conflicts in `apps/spaces-srv/base/src/services/spacesService.ts`.
+- Coordinate with template marketplace updates to confirm no hardcoded `/chatflows` URLs remain in JSON fixtures under `packages/server/marketplaces`.
+
+### Follow-up Tasks (Detailed Prompts)
+- **Task 1 — Backend Chatflow Extraction**: "Refactor `packages/server/src/services/chatflows` by moving core CRUD logic into `apps/spaces-srv/base` services, expose compatibility adapters for existing routers, and update shared interfaces to introduce `Canvas` terminology while keeping database compatibility."
+- **Task 2 — Spaces API & Router Migration**: "Replace legacy `/chatflows` Express routers under `packages/server/src/routes` with routes imported from `apps/spaces-srv/base`, update middleware wiring to rely on `unikId` context, and adjust rate limiting/auth configuration so `/unik/:id/spaces` and `/unik/:id/canvases` are the primary entry points."
+- **Task 3 — Frontend & Docs Rename**: "Migrate remaining Chatflow UI screens into `apps/spaces-frt/base`, update navigation/i18n to prefer Space/Canvas naming, adapt API clients, and refresh documentation plus memory-bank notes to describe the consolidated architecture."
+
+## IMPLEMENT - Chatflow Service Migration (2025-09-24)
+
+- [x] Establish transitional alias layer by cataloguing remaining `Chatflow` references and introducing Canvas-first types/utilities in `packages/server/src/Interface.ts`, updating key consumers to rely on the new names.
+- [x] Extract core CRUD/business logic from `packages/server/src/services/chatflows` into `apps/spaces-srv/base/src/services`, exposing adapter exports that keep legacy imports functional during rollout.
+- [x] Replace the Express router wiring under `packages/server/src/routes` to delegate `/unik/:id` chatflow endpoints to the new Spaces service/controller layer while keeping backwards-compatible request/response shapes.
+
 ## IMPLEMENT - Space Builder Canvas Mode (2025-09-22)
 
 - [x] Update SpaceBuilderDialog creation modes to support newCanvas defaults and localized labels for saved spaces.
