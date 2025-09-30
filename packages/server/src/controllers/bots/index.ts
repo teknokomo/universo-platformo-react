@@ -1,6 +1,7 @@
 // Universo Platformo | Bot controllers factory
 import { Request, Response, NextFunction } from 'express'
 import { ChatBotController } from './chat'
+import chatStreamingController from './chat-streaming'
 import { StatusCodes } from 'http-status-codes'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
@@ -216,14 +217,8 @@ const streamBot = async (req: Request, res: Response, next: NextFunction): Promi
             }
         }
 
-        // Universo Platformo | Use existing streaming controller
-        const streamController = require('../chatflows-streaming').default
-
-        // Universo Platformo | Modify request parameters to match controller expectations
-        req.params.chatflowid = req.params.id
-
         // Universo Platformo | Delegate request to streaming controller
-        return streamController.getResponse(req, res, next)
+        return chatStreamingController.getStreamingResponse(req, res, next)
     } catch (error) {
         logger.error(`Error in streamBot: ${getErrorMessage(error)}`)
         next(error)

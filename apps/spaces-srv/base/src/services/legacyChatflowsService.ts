@@ -1,4 +1,4 @@
-import { DataSource, EntityTarget, QueryRunner, Repository } from 'typeorm'
+import { DataSource, EntityTarget, QueryRunner, Repository, SelectQueryBuilder } from 'typeorm'
 import { StatusCodes } from 'http-status-codes'
 import { validate as validateUuid } from 'uuid'
 import { randomUUID } from 'crypto'
@@ -51,6 +51,11 @@ export interface LegacyChatflowPublicCanvas {
     isActive: boolean
 }
 
+export interface CanvasScope {
+    spaceId?: string
+    unikId?: string
+}
+
 export class LegacyChatflowsService {
     constructor(
         private readonly getDataSource: () => DataSource,
@@ -86,6 +91,217 @@ export class LegacyChatflowsService {
         return this.dataSource.getRepository(this.entities.upsertHistory)
     }
 
+    private getSpaceRepositoryForScope(queryRunner?: QueryRunner): Repository<Space> {
+        return queryRunner ? queryRunner.manager.getRepository(Space) : this.spaceRepository
+    }
+
+    private getSpaceCanvasRepositoryForScope(queryRunner?: QueryRunner): Repository<SpaceCanvas> {
+        return queryRunner ? queryRunner.manager.getRepository(SpaceCanvas) : this.spaceCanvasRepository
+    }
+
+    private getCanvasRepositoryForScope(queryRunner?: QueryRunner): Repository<Canvas> {
+        return queryRunner ? queryRunner.manager.getRepository(Canvas) : this.canvasRepository
+    }
+
+    private applyScopeToQuery(
+        query: SelectQueryBuilder<Canvas>,
+        scope?: CanvasScope
+    ): SelectQueryBuilder<Canvas> {
+        if (!scope?.spaceId && !scope?.unikId) {
+            return query
+        }
+
+        query.innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = canvas.id')
+
+        if (query.expressionMap.wheres.length === 0) {
+            query.where('1 = 1')
+        }
+
+        if (scope.spaceId) {
+            query.andWhere('sc.space_id = :spaceId', { spaceId: scope.spaceId })
+        }
+
+        if (scope.unikId) {
+            query.innerJoin('spaces', 'space', 'space.id = sc.space_id')
+            query.andWhere('space.unik_id = :unikId', { unikId: scope.unikId })
+        }
+
+        return query
+    }
+
+    private async resolveSpace(scope?: CanvasScope, queryRunner?: QueryRunner): Promise<Space | undefined> {
+        if (!scope?.spaceId) {
+            return undefined
+        }
+
+        const spaceRepo = this.getSpaceRepositoryForScope(queryRunner)
+        const space = await spaceRepo.findOne({ where: { id: scope.spaceId } })
+
+        if (!space || (scope.unikId && space.unikId !== scope.unikId)) {
+            throw this.createError(StatusCodes.NOT_FOUND, `Space ${scope.spaceId} not found`)
+        }
+
+        return space
+    }
+
+    private async attachCanvasToSpace(
+        canvas: Canvas,
+        space: Space,
+        queryRunner?: QueryRunner
+    ): Promise<void> {
+        const repo = this.getSpaceCanvasRepositoryForScope(queryRunner)
+
+        const existing = await repo
+            .createQueryBuilder('sc')
+            .where('sc.space_id = :spaceId', { spaceId: space.id })
+            .andWhere('sc.canvas_id = :canvasId', { canvasId: canvas.id })
+            .getOne()
+
+        if (existing) {
+            return
+        }
+
+        const maxOrderResult = await repo
+            .createQueryBuilder('sc')
+            .where('sc.space_id = :spaceId', { spaceId: space.id })
+            .select('MAX(sc.sort_order)', 'maxOrder')
+            .getRawOne()
+
+        const nextSortOrder = Number(maxOrderResult?.maxOrder ?? 0) + 1
+
+        const relation = repo.create({
+            space: ({ id: space.id } as Space),
+            canvas: ({ id: canvas.id } as Canvas),
+            versionGroupId: canvas.versionGroupId,
+            sortOrder: nextSortOrder
+        })
+
+        await repo.save(relation)
+    }
+
+    private async ensureCanvasLinkedToDefaultSpace(
+        canvas: Canvas,
+        options: { unikId?: string; fallbackName?: string },
+        queryRunner?: QueryRunner
+    ): Promise<void> {
+        const { unikId, fallbackName } = options
+
+        if (!unikId) {
+            this.deps.logger.warn(
+                `[spaces-srv]: Unable to ensure default Space relation for ${canvas.id}: unikId not provided`
+            )
+            return
+        }
+
+        try {
+            const spaceRepo = this.getSpaceRepositoryForScope(queryRunner)
+            const scRepo = this.getSpaceCanvasRepositoryForScope(queryRunner)
+
+            let existingSpace = await spaceRepo.findOne({ where: { id: canvas.id } })
+            let spaceIdConflict = false
+
+            if (existingSpace && existingSpace.unikId !== unikId) {
+                spaceIdConflict = true
+                this.deps.logger.warn(
+                    `[spaces-srv]: Space ${existingSpace.id} belongs to unik ${existingSpace.unikId}, expected ${unikId}. Creating a dedicated default space.`
+                )
+                existingSpace = null
+            }
+
+            if (!existingSpace) {
+                const baseName = fallbackName || canvas.name || 'Space'
+                const createdSpace = spaceRepo.create({
+                    ...(spaceIdConflict ? {} : { id: canvas.id }),
+                    name: baseName,
+                    visibility: 'private'
+                } as Partial<Space>)
+                ;(createdSpace as any).unik = { id: unikId }
+                ;(createdSpace as any).unikId = unikId
+
+                try {
+                    existingSpace = await spaceRepo.save(createdSpace)
+                } catch (creationError) {
+                    if (!spaceIdConflict) {
+                        this.deps.logger.warn(
+                            `[spaces-srv]: Failed to reuse space id ${canvas.id} for unik ${unikId}: ${
+                                creationError instanceof Error ? creationError.message : String(creationError)
+                            }. Retrying with generated id.`
+                        )
+                        const retrySpace = spaceRepo.create({
+                            name: baseName,
+                            visibility: 'private'
+                        } as Partial<Space>)
+                        ;(retrySpace as any).unik = { id: unikId }
+                        ;(retrySpace as any).unikId = unikId
+                        existingSpace = await spaceRepo.save(retrySpace)
+                    } else {
+                        throw creationError
+                    }
+                }
+            }
+
+            if (!existingSpace) {
+                return
+            }
+
+            const existsJunction =
+                (await scRepo
+                    .createQueryBuilder('sc')
+                    .where('sc.space_id = :sid AND sc.version_group_id = :vgid', {
+                        sid: existingSpace.id,
+                        vgid: canvas.versionGroupId
+                    })
+                    .getCount()) > 0
+
+            if (!existsJunction) {
+                const spaceCanvas = scRepo.create({
+                    sortOrder: 1,
+                    space: ({ id: existingSpace.id } as Space),
+                    canvas: ({ id: canvas.id } as Canvas),
+                    versionGroupId: canvas.versionGroupId
+                })
+                await scRepo.save(spaceCanvas)
+            } else {
+                await scRepo
+                    .createQueryBuilder()
+                    .update(SpaceCanvas)
+                    .set({
+                        canvas: ({ id: canvas.id } as Canvas),
+                        versionGroupId: canvas.versionGroupId
+                    })
+                    .where('space_id = :sid AND version_group_id = :vgid', {
+                        sid: existingSpace.id,
+                        vgid: canvas.versionGroupId
+                    })
+                    .execute()
+            }
+        } catch (linkErr) {
+            this.deps.logger.warn(
+                `[spaces-srv]: Unable to ensure Space/Canvas relation for ${canvas.id}: ${
+                    linkErr instanceof Error ? linkErr.message : String(linkErr)
+                }`
+            )
+        }
+    }
+
+    private async loadCanvasOrThrow(
+        chatflowId: string,
+        scope?: CanvasScope,
+        queryRunner?: QueryRunner
+    ): Promise<Canvas> {
+        let query = this.getCanvasRepositoryForScope(queryRunner).createQueryBuilder('canvas')
+        query = query.where('canvas.id = :id', { id: chatflowId })
+        query = this.applyScopeToQuery(query, scope)
+
+        const chatflow = await query.getOne()
+
+        if (!chatflow) {
+            throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
+        }
+
+        return chatflow
+    }
+
     private ensureVersioningFields(chatflow: Partial<Canvas>): void {
         if (!chatflow.versionGroupId) {
             chatflow.versionGroupId = randomUUID()
@@ -108,12 +324,12 @@ export class LegacyChatflowsService {
         return this.deps.errorFactory(status, message)
     }
 
-    async checkIfChatflowIsValidForStreaming(chatflowId: string): Promise<{ isStreaming: boolean }> {
+    async checkIfChatflowIsValidForStreaming(
+        chatflowId: string,
+        scope?: CanvasScope
+    ): Promise<{ isStreaming: boolean }> {
         try {
-            const chatflow = await this.canvasRepository.findOne({ where: { id: chatflowId } })
-            if (!chatflow) {
-                throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
-            }
+            const chatflow = await this.loadCanvasOrThrow(chatflowId, scope)
 
             let chatflowConfig: Record<string, any> = {}
             if (chatflow.chatbotConfig) {
@@ -145,6 +361,9 @@ export class LegacyChatflowsService {
 
             return { isStreaming }
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.checkIfChatflowIsValidForStreaming - ${error instanceof Error ? error.message : String(error)}`
@@ -152,10 +371,14 @@ export class LegacyChatflowsService {
         }
     }
 
-    async checkIfChatflowIsValidForUploads(chatflowId: string): Promise<any> {
+    async checkIfChatflowIsValidForUploads(chatflowId: string, scope?: CanvasScope): Promise<any> {
         try {
+            await this.loadCanvasOrThrow(chatflowId, scope)
             return await this.deps.getUploadsConfig(chatflowId)
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.checkIfChatflowIsValidForUploads - ${error instanceof Error ? error.message : String(error)}`
@@ -163,24 +386,9 @@ export class LegacyChatflowsService {
         }
     }
 
-    async deleteChatflow(chatflowId: string, unikId?: string): Promise<any> {
+    async deleteChatflow(chatflowId: string, scope?: CanvasScope): Promise<any> {
         try {
-            let chatflow: Canvas | null
-            if (unikId) {
-                chatflow = await this.canvasRepository
-                    .createQueryBuilder('canvas')
-                    .innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = canvas.id')
-                    .innerJoin('spaces', 'space', 'space.id = sc.space_id')
-                    .where('canvas.id = :id', { id: chatflowId })
-                    .andWhere('space.unik_id = :unikId', { unikId })
-                    .getOne()
-            } else {
-                chatflow = await this.canvasRepository.findOne({ where: { id: chatflowId } })
-            }
-
-            if (!chatflow) {
-                throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
-            }
+            const chatflow = await this.loadCanvasOrThrow(chatflowId, scope)
 
             const deleteResult = await this.canvasRepository.delete({ id: chatflowId })
 
@@ -196,6 +404,9 @@ export class LegacyChatflowsService {
 
             return deleteResult
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.deleteChatflow - ${error instanceof Error ? error.message : String(error)}`
@@ -203,15 +414,13 @@ export class LegacyChatflowsService {
         }
     }
 
-    async getAllChatflows(type?: ChatflowType, unikId?: string): Promise<Canvas[]> {
+    async getAllChatflows(type?: ChatflowType, scope?: CanvasScope): Promise<Canvas[]> {
         try {
             let queryBuilder = this.canvasRepository.createQueryBuilder('canvas')
+            queryBuilder = this.applyScopeToQuery(queryBuilder, scope)
 
-            if (unikId) {
-                queryBuilder = queryBuilder
-                    .innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = canvas.id')
-                    .innerJoin('spaces', 'space', 'space.id = sc.space_id')
-                    .where('space.unik_id = :unikId', { unikId })
+            if (queryBuilder.expressionMap.wheres.length === 0) {
+                queryBuilder = queryBuilder.where('1 = 1')
             }
 
             if (type === 'MULTIAGENT') {
@@ -224,6 +433,9 @@ export class LegacyChatflowsService {
 
             return await queryBuilder.getMany()
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.getAllChatflows - ${error instanceof Error ? error.message : String(error)}`
@@ -254,27 +466,13 @@ export class LegacyChatflowsService {
         }
     }
 
-    async getChatflowById(chatflowId: string, unikId?: string): Promise<Canvas> {
+    async getChatflowById(chatflowId: string, scope?: CanvasScope): Promise<Canvas> {
         try {
-            let chatflow: Canvas | null
-            if (unikId) {
-                chatflow = await this.canvasRepository
-                    .createQueryBuilder('canvas')
-                    .innerJoin('spaces_canvases', 'sc', 'sc.canvas_id = canvas.id')
-                    .innerJoin('spaces', 'space', 'space.id = sc.space_id')
-                    .where('canvas.id = :id', { id: chatflowId })
-                    .andWhere('space.unik_id = :unikId', { unikId })
-                    .getOne()
-            } else {
-                chatflow = await this.canvasRepository.findOne({ where: { id: chatflowId } })
-            }
-
-            if (!chatflow) {
-                throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
-            }
-
-            return chatflow
+            return await this.loadCanvasOrThrow(chatflowId, scope)
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.getChatflowById - ${error instanceof Error ? error.message : String(error)}`
@@ -297,8 +495,9 @@ export class LegacyChatflowsService {
         await this.deps.updateDocumentStoreUsage(chatflow.id, selectedStore)
     }
 
-    async saveChatflow(newChatFlow: Partial<Canvas>): Promise<Canvas> {
+    async saveChatflow(newChatFlow: Partial<Canvas>, scope?: CanvasScope): Promise<Canvas> {
         try {
+            const space = await this.resolveSpace(scope)
             this.ensureVersioningFields(newChatFlow)
 
             let saved: Canvas
@@ -317,60 +516,13 @@ export class LegacyChatflowsService {
                 saved = await this.canvasRepository.save(entity)
             }
 
-            try {
-                const spaceRepo = this.spaceRepository
-                const scRepo = this.spaceCanvasRepository
-
-                const existingSpace = await spaceRepo.findOne({ where: { id: saved.id } })
-                if (!existingSpace) {
-                    const baseSpacePayload: Record<string, unknown> = {
-                        id: saved.id,
-                        name: newChatFlow.name || 'Space',
-                        visibility: 'private'
-                    }
-                    const unikRelation = (newChatFlow as any)?.unik
-                    if (unikRelation) {
-                        baseSpacePayload.unik = unikRelation
-                    }
-                    const space = spaceRepo.create(baseSpacePayload as any)
-                    await spaceRepo.save(space)
-                }
-
-                const existsJunction =
-                    (await scRepo
-                        .createQueryBuilder('sc')
-                        .where('sc.space_id = :sid AND sc.version_group_id = :vgid', {
-                            sid: saved.id,
-                            vgid: saved.versionGroupId
-                        })
-                        .getCount()) > 0
-
-                if (!existsJunction) {
-                    const spaceCanvas = scRepo.create({
-                        sortOrder: 1,
-                        space: ({ id: saved.id } as Space),
-                        canvas: ({ id: saved.id } as Canvas),
-                        versionGroupId: saved.versionGroupId
-                    })
-                    await scRepo.save(spaceCanvas)
-                } else {
-                    await scRepo
-                        .createQueryBuilder()
-                        .update(SpaceCanvas)
-                        .set({
-                            canvas: ({ id: saved.id } as Canvas),
-                            versionGroupId: saved.versionGroupId
-                        })
-                        .where('space_id = :sid AND version_group_id = :vgid', {
-                            sid: saved.id,
-                            vgid: saved.versionGroupId
-                        })
-                        .execute()
-                }
-            } catch (linkErr) {
-                this.deps.logger.warn(
-                    `[spaces-srv]: Unable to ensure Space/Canvas relation for ${saved.id}: ${linkErr instanceof Error ? linkErr.message : String(linkErr)}`
-                )
+            if (space) {
+                await this.attachCanvasToSpace(saved, space)
+            } else {
+                await this.ensureCanvasLinkedToDefaultSpace(saved, {
+                    unikId: scope?.unikId,
+                    fallbackName: newChatFlow.name
+                })
             }
 
             if (this.deps.telemetry) {
@@ -393,6 +545,9 @@ export class LegacyChatflowsService {
 
             return saved
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.saveChatflow - ${error instanceof Error ? error.message : String(error)}`
@@ -400,8 +555,13 @@ export class LegacyChatflowsService {
         }
     }
 
-    async importChatflows(newChatflows: Partial<Canvas>[], queryRunner?: QueryRunner): Promise<any> {
+    async importChatflows(
+        newChatflows: Partial<Canvas>[],
+        scope?: CanvasScope,
+        queryRunner?: QueryRunner
+    ): Promise<any> {
         try {
+            const space = await this.resolveSpace(scope, queryRunner)
             for (const data of newChatflows) {
                 if (data.id && !validateUuid(data.id)) {
                     throw this.createError(StatusCodes.PRECONDITION_FAILED, 'Error: importChatflows - invalid id!')
@@ -442,8 +602,53 @@ export class LegacyChatflowsService {
                 return newChatflow
             })
 
-            return await repository.insert(prepChatflows)
+            const insertResult = await repository.insert(prepChatflows)
+
+            const canvasRepo = this.getCanvasRepositoryForScope(queryRunner)
+            const identifiers = insertResult.identifiers || []
+
+            if (space) {
+                await Promise.all(
+                    identifiers.map(async (identifier: any, index: number) => {
+                        const insertedId = identifier?.id ?? prepChatflows[index]?.id
+                        if (!insertedId) {
+                            return
+                        }
+
+                        const canvas = await canvasRepo.findOne({ where: { id: insertedId } })
+                        if (canvas) {
+                            await this.attachCanvasToSpace(canvas, space, queryRunner)
+                        }
+                    })
+                )
+            } else {
+                await Promise.all(
+                    identifiers.map(async (identifier: any, index: number) => {
+                        const insertedId = identifier?.id ?? prepChatflows[index]?.id
+                        if (!insertedId) {
+                            return
+                        }
+
+                        const canvas = await canvasRepo.findOne({ where: { id: insertedId } })
+                        if (canvas) {
+                            await this.ensureCanvasLinkedToDefaultSpace(
+                                canvas,
+                                {
+                                    unikId: scope?.unikId,
+                                    fallbackName: prepChatflows[index]?.name
+                                },
+                                queryRunner
+                            )
+                        }
+                    })
+                )
+            }
+
+            return insertResult
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.saveChatflows - ${error instanceof Error ? error.message : String(error)}`
@@ -451,7 +656,7 @@ export class LegacyChatflowsService {
         }
     }
 
-    async updateChatflow(chatflow: Canvas, updateChatFlow: Canvas, unikId?: string): Promise<Canvas> {
+    async updateChatflow(chatflow: Canvas, updateChatFlow: Canvas, scope?: CanvasScope): Promise<Canvas> {
         try {
             if (updateChatFlow.flowData && this.deps.containsBase64File({ flowData: updateChatFlow.flowData })) {
                 updateChatFlow.flowData = await this.deps.updateFlowDataWithFilePaths(chatflow.id, updateChatFlow.flowData)
@@ -461,17 +666,18 @@ export class LegacyChatflowsService {
             await this.checkAndUpdateDocumentStoreUsage(merged)
             const saved = await this.canvasRepository.save(merged)
 
-            if (unikId) {
-                await this.spaceCanvasRepository
-                    .createQueryBuilder()
-                    .update(SpaceCanvas)
-                    .set({ canvas: ({ id: saved.id } as Canvas) })
-                    .where('canvas_id = :id', { id: saved.id })
-                    .execute()
+            if (scope?.spaceId) {
+                const space = await this.resolveSpace(scope)
+                if (space) {
+                    await this.attachCanvasToSpace(saved, space)
+                }
             }
 
             return saved
         } catch (error) {
+            if (error && typeof error === 'object' && 'status' in error) {
+                throw error
+            }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
                 `Error: chatflowsService.updateChatflow - ${error instanceof Error ? error.message : String(error)}`

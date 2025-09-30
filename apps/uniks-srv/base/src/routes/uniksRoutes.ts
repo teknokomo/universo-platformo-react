@@ -4,7 +4,12 @@ import { z } from 'zod'
 import { Unik } from '../database/entities/Unik'
 import { UnikUser } from '../database/entities/UnikUser'
 import { removeFolderFromStorage } from 'flowise-components'
-import { purgeSpacesForUnik, cleanupCanvasStorage, createSpacesRoutes } from '@universo/spaces-srv'
+import {
+    purgeSpacesForUnik,
+    cleanupCanvasStorage,
+    createSpacesRoutes,
+    type CreateSpacesRoutesOptions
+} from '@universo/spaces-srv'
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -267,9 +272,6 @@ export function createUnikIndividualRouter(
 export function createUniksRouter(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
-    chatflowsRouter: Router,
-    chatflowsStreamingRouter: Router,
-    chatflowsUploadsRouter: Router,
     flowConfigRouter: Router,
     toolsRouter: Router,
     variablesRouter: Router,
@@ -280,13 +282,17 @@ export function createUniksRouter(
     documentStoreRouter: Router,
     marketplacesRouter: Router,
     financeRouter: Router,
-    options?: { spacesLimiter?: RequestHandler }
+    options?: { spacesLimiter?: RequestHandler; spacesRoutes?: CreateSpacesRoutesOptions }
 ): Router {
     const router = Router()
 
     router.use(ensureAuth)
 
-    const spacesRouter = createSpacesRoutes(getDataSource)
+    if (!options?.spacesRoutes) {
+        throw new Error('createUniksRouter requires spacesRoutes configuration')
+    }
+
+    const spacesRouter = createSpacesRoutes(getDataSource, options.spacesRoutes)
 
     router.use('/:unikId', (req: Request, _res: Response, next: NextFunction) => {
         if (!req.params.unikId && (req.params as any).id) {
@@ -305,9 +311,6 @@ export function createUniksRouter(
     }
     router.use('/:unikId', spacesRouter)
 
-    router.use('/:unikId/chatflows', chatflowsRouter)
-    router.use('/:unikId/chatflows-streaming', chatflowsStreamingRouter)
-    router.use('/:unikId/chatflows-uploads', chatflowsUploadsRouter)
     router.use('/:unikId/flow-config', flowConfigRouter)
     router.use('/:unikId/tools', toolsRouter)
     router.use('/:unikId/variables', variablesRouter)

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { RateLimiterManager } from '../../utils/rateLimit'
-import chatflowsService from '../../services/chatflows'
+import canvasService from '../../services/spacesCanvas'
 import logger from '../../utils/logger'
 import predictionsServices from '../../services/predictions'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
@@ -25,7 +25,7 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
                 `Error: predictionsController.createPrediction - body not provided!`
             )
         }
-        const chatflow = await chatflowsService.getChatflowById(req.params.id)
+        const chatflow = await canvasService.getCanvasById(req.params.id)
         if (!chatflow) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${req.params.id} not found`)
         }
@@ -52,7 +52,7 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
             }
         }
         if (isDomainAllowed) {
-            const streamable = await chatflowsService.checkIfChatflowIsValidForStreaming(req.params.id)
+            const streamable = await canvasService.checkIfCanvasIsValidForStreaming(req.params.id)
             const isStreamingRequested = req.body.streaming === 'true' || req.body.streaming === true
             if (streamable?.isStreaming && isStreamingRequested) {
                 const sseStreamer = getRunningExpressApp().sseStreamer

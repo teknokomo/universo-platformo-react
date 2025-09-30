@@ -15,7 +15,7 @@ import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import assistantService from '../assistants'
 import chatMessagesService from '../chat-messages'
-import chatflowService from '../chatflows'
+import canvasService from '../spacesCanvas'
 import documenStoreService from '../documentstore'
 import marketplacesService from '../marketplaces'
 import toolsService from '../tools'
@@ -84,12 +84,17 @@ const convertExportInput = (body: any): ExportInput => {
 const FileDefaultName = 'ExportData.json'
 const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ FileDefaultName: string } & ExportData> => {
     try {
-        let AgentFlow: ChatFlow[] = exportInput.agentflow === true ? await chatflowService.getAllChatflows('MULTIAGENT', unikId) : []
+        let AgentFlow: ChatFlow[] =
+            exportInput.agentflow === true
+                ? ((await canvasService.getAllCanvases({ unikId, type: 'MULTIAGENT' })) as unknown as ChatFlow[])
+                : []
 
         let AssistantCustom: Assistant[] =
             exportInput.assistantCustom === true ? await assistantService.getAllAssistants('CUSTOM', unikId) : []
         let AssistantFlow: ChatFlow[] =
-            exportInput.assistantCustom === true ? await chatflowService.getAllChatflows('ASSISTANT', unikId) : []
+            exportInput.assistantCustom === true
+                ? ((await canvasService.getAllCanvases({ unikId, type: 'ASSISTANT' })) as unknown as ChatFlow[])
+                : []
 
         let AssistantOpenAI: Assistant[] =
             exportInput.assistantOpenAI === true ? await assistantService.getAllAssistants('OPENAI', unikId) : []
@@ -97,7 +102,10 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
         let AssistantAzure: Assistant[] =
             exportInput.assistantAzure === true ? await assistantService.getAllAssistants('AZURE', unikId) : []
 
-        let ChatFlow: ChatFlow[] = exportInput.chatflow === true ? await chatflowService.getAllChatflows('CHATFLOW', unikId) : []
+        let ChatFlow: ChatFlow[] =
+            exportInput.chatflow === true
+                ? ((await canvasService.getAllCanvases({ unikId, type: 'CHATFLOW' })) as unknown as ChatFlow[])
+                : []
 
         let ChatMessage: ChatMessage[] = exportInput.chat_message === true ? await chatMessagesService.getAllMessages() : []
 

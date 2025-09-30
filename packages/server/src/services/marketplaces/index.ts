@@ -8,7 +8,7 @@ import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { DeleteResult } from 'typeorm'
 import { CustomTemplate } from '../../database/entities/CustomTemplate'
 
-import chatflowsService from '../chatflows'
+import canvasService from '../spacesCanvas'
 
 type ITemplate = {
     badge: string
@@ -168,7 +168,7 @@ const saveCustomTemplate = async (body: any): Promise<any> => {
         }
 
         if (body.chatflowId) {
-            const chatflow = await chatflowsService.getChatflowById(body.chatflowId)
+            const chatflow = await canvasService.getCanvasById(body.chatflowId)
             const flowData = JSON.parse(chatflow.flowData)
             const { framework, exportJson } = _generateExportFlowData(flowData)
             flowDataStr = JSON.stringify(exportJson)

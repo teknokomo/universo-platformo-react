@@ -3,6 +3,7 @@ import express = require('express')
 import request = require('supertest')
 import { EntityManager } from 'typeorm'
 import { createSpacesRoutes } from '@/routes/spacesRoutes'
+import { CanvasLegacyController } from '@/controllers/canvasLegacyController'
 import { createCanvasFixture, createSpaceFixture, createSpaceCanvasFixture } from '@/tests/fixtures/spaces'
 import { Canvas } from '@/database/entities/Canvas'
 import { Space } from '@/database/entities/Space'
@@ -80,9 +81,50 @@ describe('spacesRoutes', () => {
       }
     )
 
+    const canvasServiceOptions = {
+      entities: {
+        chatMessage: class TestChatMessage {},
+        chatMessageFeedback: class TestChatMessageFeedback {},
+        upsertHistory: class TestUpsertHistory {}
+      },
+      dependencies: {
+        errorFactory: (status: number, message: string) => {
+          const error = new Error(message)
+          ;(error as any).status = status
+          return error
+        },
+        removeFolderFromStorage: jest.fn().mockResolvedValue(undefined),
+        updateDocumentStoreUsage: jest.fn().mockResolvedValue(undefined),
+        containsBase64File: () => false,
+        updateFlowDataWithFilePaths: jest.fn(async () => '{}'),
+        constructGraphs: () => ({ graph: {}, nodeDependencies: {} }),
+        getEndingNodes: () => [],
+        isFlowValidForStream: () => true,
+        getAppVersion: async () => 'test-version',
+        getTelemetryFlowObj: () => ({}),
+        telemetry: undefined,
+        metricsProvider: undefined,
+        metricsConfig: {
+          chatflowCreatedCounter: 'chatflow_created',
+          agentflowCreatedCounter: 'agentflow_created',
+          successStatusLabel: 'success'
+        },
+        logger: {
+          warn: jest.fn(),
+          error: jest.fn()
+        },
+        getUploadsConfig: jest.fn().mockResolvedValue({})
+      }
+    }
+
     const app = express()
     app.use(express.json())
-    app.use('/api/v1/uniks/:unikId', createSpacesRoutes(() => dataSource as any))
+    app.use(
+      '/api/v1/uniks/:unikId',
+      createSpacesRoutes(() => dataSource as any, {
+        canvasService: canvasServiceOptions as any
+      })
+    )
 
     return {
       app,
@@ -173,5 +215,85 @@ describe('spacesRoutes', () => {
       }),
       message: 'Space created successfully'
     })
+  })
+
+  it('проксирует GET /spaces/:spaceId/canvases/:canvasId в контроллер', async () => {
+    const getSpy = jest
+      .spyOn(CanvasLegacyController.prototype, 'getCanvasById')
+      .mockImplementation(async (_req, res) => {
+        res.json({ ok: true })
+      })
+
+    const { app } = createTestServer()
+
+    const response = await request(app).get(
+      '/api/v1/uniks/unik-1/spaces/space-1/canvases/canvas-1'
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ ok: true })
+    expect(getSpy).toHaveBeenCalledTimes(1)
+
+    getSpy.mockRestore()
+  })
+
+  it('проксирует PUT /spaces/:spaceId/canvases/:canvasId в контроллер', async () => {
+    const updateSpy = jest
+      .spyOn(CanvasLegacyController.prototype, 'updateCanvas')
+      .mockImplementation(async (_req, res) => {
+        res.json({ updated: true })
+      })
+
+    const { app } = createTestServer()
+
+    const response = await request(app)
+      .put('/api/v1/uniks/unik-1/spaces/space-1/canvases/canvas-1')
+      .send({ name: 'Updated' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ updated: true })
+    expect(updateSpy).toHaveBeenCalledTimes(1)
+
+    updateSpy.mockRestore()
+  })
+
+  it('проксирует DELETE /spaces/:spaceId/canvases/:canvasId в контроллер', async () => {
+    const deleteSpy = jest
+      .spyOn(CanvasLegacyController.prototype, 'deleteCanvas')
+      .mockImplementation(async (_req, res) => {
+        res.json({ removed: true })
+      })
+
+    const { app } = createTestServer()
+
+    const response = await request(app).delete(
+      '/api/v1/uniks/unik-1/spaces/space-1/canvases/canvas-1'
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ removed: true })
+    expect(deleteSpy).toHaveBeenCalledTimes(1)
+
+    deleteSpy.mockRestore()
+  })
+
+  it('проксирует GET /chatflows-streaming/:canvasId в контроллер', async () => {
+    const streamingSpy = jest
+      .spyOn(CanvasLegacyController.prototype, 'checkIfCanvasIsValidForStreaming')
+      .mockImplementation(async (_req, res) => {
+        res.json({ isStreaming: true })
+      })
+
+    const { app } = createTestServer()
+
+    const response = await request(app).get(
+      '/api/v1/uniks/unik-1/chatflows-streaming/canvas-1'
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ isStreaming: true })
+    expect(streamingSpy).toHaveBeenCalledTimes(1)
+
+    streamingSpy.mockRestore()
   })
 })
