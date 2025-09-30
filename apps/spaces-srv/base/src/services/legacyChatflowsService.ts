@@ -414,18 +414,19 @@ export class LegacyChatflowsService {
 
             if (newChatflows.length === 0) return
 
-            let ids = '('
-            let count = 0
-            const lastCount = newChatflows.length - 1
-            newChatflows.forEach((newChatflow) => {
-                ids += `'${newChatflow.id}'`
-                if (lastCount !== count) ids += ','
-                if (lastCount === count) ids += ')'
-                count += 1
-            })
+            const chatflowIds = newChatflows
+                .map((newChatflow) => newChatflow.id)
+                .filter((id): id is string => Boolean(id))
 
-            const selectResponse = await repository.createQueryBuilder('cf').select('cf.id').where(`cf.id IN ${ids}`).getMany()
-            const foundIds = selectResponse.map((response) => response.id)
+            let foundIds: string[] = []
+            if (chatflowIds.length > 0) {
+                const selectResponse = await repository
+                    .createQueryBuilder('cf')
+                    .select('cf.id')
+                    .where('cf.id IN (:...ids)', { ids: chatflowIds })
+                    .getMany()
+                foundIds = selectResponse.map((response) => response.id)
+            }
 
             const prepChatflows: Partial<Canvas>[] = newChatflows.map((newChatflow) => {
                 let id = ''
@@ -489,6 +490,7 @@ export class LegacyChatflowsService {
                     'canvas.name',
                     'canvas.flowData',
                     'canvas.isPublic',
+                    'canvas.chatbotConfig',
                     'canvas.type',
                     'canvas.versionGroupId',
                     'canvas.versionUuid',
@@ -503,6 +505,26 @@ export class LegacyChatflowsService {
 
             if (!chatflow) {
                 throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
+            }
+
+            const isPublic = chatflow.canvas_isPublic === true
+            let hasPublicConfig = false
+
+            if (!isPublic && chatflow.canvas_chatbotConfig) {
+                try {
+                    const chatbotConfig = JSON.parse(chatflow.canvas_chatbotConfig)
+                    if (chatbotConfig && typeof chatbotConfig === 'object') {
+                        hasPublicConfig = Object.values(chatbotConfig as Record<string, any>).some(
+                            (config: any) => config?.isPublic === true
+                        )
+                    }
+                } catch {
+                    // ignore JSON parse errors and fall back to legacy authorization checks
+                }
+            }
+
+            if (!isPublic && !hasPublicConfig) {
+                throw this.createError(StatusCodes.UNAUTHORIZED, 'Unauthorized')
             }
 
             return {
