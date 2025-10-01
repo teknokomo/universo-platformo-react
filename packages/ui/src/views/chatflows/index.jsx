@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -90,6 +90,10 @@ const Chatflows = () => {
 
     const getSpacesApi = useApi(spacesApi.getSpaces)
     const getCanvasesApi = useApi(canvasesApi.getCanvases)
+    const getCanvasesRequestRef = useRef(getCanvasesApi.request)
+    useEffect(() => {
+        getCanvasesRequestRef.current = getCanvasesApi.request
+    }, [getCanvasesApi.request])
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
     const { handleAuthError } = useAuthError()
 
@@ -131,10 +135,12 @@ const Chatflows = () => {
             const aggregated = []
             const failures = []
 
+            const requestCanvases = getCanvasesRequestRef.current
+
             await Promise.all(
                 spaceList.map(async (space) => {
                     try {
-                        const data = await getCanvasesApi.request(unikId, space.id, { type: 'CHATFLOW' })
+                        const data = await requestCanvases(unikId, space.id, { type: 'CHATFLOW' })
                         const list = extractCanvases(data)
                         list.forEach((canvas) => {
                             aggregated.push({ ...canvas, spaceId: space.id, spaceName: space.name, unikId })
@@ -153,7 +159,7 @@ const Chatflows = () => {
 
             return aggregated.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         },
-        [getCanvasesApi.request, handleAuthError, unikId]
+        [handleAuthError, unikId]
     )
 
     const refreshCanvases = useCallback(async () => {
