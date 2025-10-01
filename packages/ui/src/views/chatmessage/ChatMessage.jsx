@@ -341,14 +341,18 @@ export const ChatMessage = ({
 
     const isFileAllowedForUpload = (file) => {
         const constraints = getCanvasUploadsApi.data
+        if (!constraints) {
+            alert('Upload capabilities are still loading. Please try again in a moment.')
+            return false
+        }
         /**
          * {isImageUploadAllowed: boolean, imgUploadSizeAndTypes: Array<{ fileTypes: string[], maxUploadSize: number }>}
          */
         let acceptFile = false
-        if (constraints.isImageUploadAllowed) {
+        if (constraints?.isImageUploadAllowed) {
             const fileType = file.type
             const sizeInMB = file.size / 1024 / 1024
-            constraints.imgUploadSizeAndTypes.map((allowed) => {
+            constraints.imgUploadSizeAndTypes?.map((allowed) => {
                 if (allowed.fileTypes.includes(fileType) && sizeInMB <= allowed.maxUploadSize) {
                     acceptFile = true
                 }
@@ -357,10 +361,10 @@ export const ChatMessage = ({
 
         if (fullFileUpload) {
             return true
-        } else if (constraints.isRAGFileUploadAllowed) {
+        } else if (constraints?.isRAGFileUploadAllowed) {
             const fileExt = file.name.split('.').pop()
             if (fileExt) {
-                constraints.fileUploadSizeAndTypes.map((allowed) => {
+                constraints.fileUploadSizeAndTypes?.map((allowed) => {
                     if (allowed.fileTypes.length === 1 && allowed.fileTypes[0] === '*') {
                         acceptFile = true
                     } else if (allowed.fileTypes.includes(`.${fileExt}`)) {
@@ -2657,7 +2661,7 @@ ChatMessage.propTypes = {
     previews: PropTypes.array,
     setPreviews: PropTypes.func,
     chatConfig: PropTypes.object,
-    unikId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    unikId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     spaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 

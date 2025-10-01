@@ -214,8 +214,8 @@ const Canvas = () => {
         refresh: refreshCanvases
     } = useCanvases(spaceId)
 
-    const derivedCanvasId = spaceId ? activeCanvasId : initialCanvasId
-    const chatflowId = chatflow?.id || derivedCanvasId || undefined
+    const activeCanvasIdentifier = spaceId ? activeCanvasId : initialCanvasId
+    const canvasId = chatflow?.id || activeCanvasIdentifier || undefined
     const normalizedParentUnikId =
         parentUnikId && String(parentUnikId).trim().length > 0 ? String(parentUnikId) : null
     const chatflowSpaceIdentifier = chatflow?.spaceId ?? chatflow?.space_id ?? chatflow?.spaceID ?? null
@@ -579,9 +579,8 @@ const Canvas = () => {
         }
     }
 
-    const handleSaveFlow = async (canvasName) => {
-        if (!reactFlowInstance) return
-
+    const serializeFlowData = () => {
+        if (!reactFlowInstance) return null
         const nodes = reactFlowInstance.getNodes().map((node) => {
             const nodeData = cloneDeep(node.data)
             if (Object.prototype.hasOwnProperty.call(nodeData.inputs, FLOWISE_CREDENTIAL_ID)) {
@@ -597,68 +596,66 @@ const Canvas = () => {
 
         const rfInstanceObject = reactFlowInstance.toObject()
         rfInstanceObject.nodes = nodes
-        const flowData = JSON.stringify(rfInstanceObject)
+        return JSON.stringify(rfInstanceObject)
+    }
 
-        if (spaceId && activeCanvasId) {
-            try {
-                await updateCanvasData(activeCanvasId, { flowData })
-                saveChatflowSuccess()
-                dispatch({ type: REMOVE_DIRTY })
-            } catch (error) {
-                console.error('Failed to save canvas:', error)
-                errorFailed(`Failed to save canvas: ${error.message}`)
-            }
-            return
+    const saveCanvasInExistingSpace = async (flowData) => {
+        if (!spaceId || !activeCanvasId) return
+        try {
+            await updateCanvasData(activeCanvasId, { flowData })
+            saveChatflowSuccess()
+            dispatch({ type: REMOVE_DIRTY })
+        } catch (error) {
+            console.error('Failed to save canvas:', error)
+            errorFailed(`Failed to save canvas: ${error.message}`)
         }
+    }
 
-        const sanitizedName = canvasName?.trim() || t('untitledSpace', 'Untitled Space')
+    const createNewSpaceWithCanvas = async (sanitizedName, flowData) => {
+        try {
+            const response = await createSpaceApi.request(parentUnikId, {
+                name: sanitizedName,
+                defaultCanvasName: tempCanvas.name,
+                defaultCanvasFlowData: flowData
+            })
+            const payload = response?.data || response
+            const defaultCanvas = payload?.defaultCanvas
 
-        if (!chatflow?.id) {
-            try {
-                const response = await createSpaceApi.request(parentUnikId, {
-                    name: sanitizedName,
-                    defaultCanvasName: tempCanvas.name,
-                    defaultCanvasFlowData: flowData
-                })
-                const payload = response?.data || response
-                const defaultCanvas = payload?.defaultCanvas
-
-                if (defaultCanvas?.id) {
-                    if (isAgentCanvas) {
-                        await updateCanvasApi.request(parentUnikId, defaultCanvas.id, {
-                            type: 'MULTIAGENT'
-                        })
-                    }
-
-                    const canvasAsChatflow = buildCanvasAsChatflow(defaultCanvas, {
-                        unikId: parentUnikId,
-                        spaceId:
-                            defaultCanvas.spaceId ||
-                            defaultCanvas.space_id ||
-                            payload?.id ||
-                            null,
-                        spaceName: payload?.name || sanitizedName,
-                        isAgentCanvas
+            if (defaultCanvas?.id) {
+                if (isAgentCanvas) {
+                    await updateCanvasApi.request(parentUnikId, defaultCanvas.id, {
+                        type: 'MULTIAGENT'
                     })
-                    dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
-                    setChatflow(canvasAsChatflow)
                 }
 
-                saveChatflowSuccess()
-                if (payload?.id) {
-                    const redirectPath = isAgentCanvas
-                        ? `/unik/${parentUnikId}/agentcanvas/${defaultCanvas?.id || payload.id}`
-                        : `/unik/${parentUnikId}/space/${payload.id}`
-                    navigate(redirectPath, { replace: true })
-                }
-            } catch (error) {
-                const serverMessage =
-                    error?.response?.data?.error || error?.response?.data?.message || error?.message
-                errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
+                const canvasAsChatflow = buildCanvasAsChatflow(defaultCanvas, {
+                    unikId: parentUnikId,
+                    spaceId:
+                        defaultCanvas.spaceId ||
+                        defaultCanvas.space_id ||
+                        payload?.id ||
+                        null,
+                    spaceName: payload?.name || sanitizedName,
+                    isAgentCanvas
+                })
+                dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
+                setChatflow(canvasAsChatflow)
             }
-            return
-        }
 
+            saveChatflowSuccess()
+            if (payload?.id) {
+                const redirectPath = isAgentCanvas
+                    ? `/unik/${parentUnikId}/agentcanvas/${defaultCanvas?.id || payload.id}`
+                    : `/unik/${parentUnikId}/space/${payload.id}`
+                navigate(redirectPath, { replace: true })
+            }
+        } catch (error) {
+            const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
+            errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
+        }
+    }
+
+    const updateLegacyCanvas = async (sanitizedName, flowData) => {
         try {
             const updateBody = {
                 name: sanitizedName,
@@ -679,10 +676,28 @@ const Canvas = () => {
             }
             saveChatflowSuccess()
         } catch (error) {
-            const serverMessage =
-                error?.response?.data?.error || error?.response?.data?.message || error?.message
+            const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
             errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
         }
+    }
+
+    const handleSaveFlow = async (canvasName) => {
+        const flowData = serializeFlowData()
+        if (!flowData) return
+
+        if (spaceId && activeCanvasId) {
+            await saveCanvasInExistingSpace(flowData)
+            return
+        }
+
+        const sanitizedName = canvasName?.trim() || t('untitledSpace', 'Untitled Space')
+
+        if (!chatflow?.id) {
+            await createNewSpaceWithCanvas(sanitizedName, flowData)
+            return
+        }
+
+        await updateLegacyCanvas(sanitizedName, flowData)
     }
 
     // eslint-disable-next-line
@@ -1281,10 +1296,10 @@ const Canvas = () => {
                                         <IconRefreshAlert style={{ marginRight: 8 }} /> {t('syncNodes')}
                                     </Fab>
                                 )}
-                                {isUpsertButtonEnabled && <VectorStorePopUp chatflowid={chatflowId} />}
+                                {isUpsertButtonEnabled && <VectorStorePopUp chatflowid={canvasId} />}
                                 <ChatPopUp
                                     isAgentCanvas={isAgentCanvas}
-                                    chatflowid={chatflowId}
+                                    chatflowid={canvasId}
                                     unikId={chatPopUpUnikId}
                                     spaceId={chatPopUpSpaceId}
                                 />

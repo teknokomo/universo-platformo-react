@@ -4,13 +4,19 @@ import client from './client'
 import canvasesApi from './canvases'
 
 const issuedWarnings = new Set()
+const SHOW_ALL_DEPRECATION_WARNINGS =
+    typeof process !== 'undefined' &&
+    process.env &&
+    (process.env.SHOW_ALL_DEPRECATION_WARNINGS === 'true' || process.env.NODE_ENV === 'development')
 
 const warnDeprecated = (method, message) => {
-    if (issuedWarnings.has(method)) return
+    if (!SHOW_ALL_DEPRECATION_WARNINGS && issuedWarnings.has(method)) return
     if (typeof console !== 'undefined' && console.warn) {
         console.warn(`[chatflowsApi.${method}] ${message}`)
     }
-    issuedWarnings.add(method)
+    if (!SHOW_ALL_DEPRECATION_WARNINGS) {
+        issuedWarnings.add(method)
+    }
 }
 
 const warnMissingSpaceId = (method) =>

@@ -57,11 +57,8 @@ const getPublicCanvas = (canvasId, config) => client.get(`/public/canvases/${can
 
 const createCanvas = (unikId, spaceId, body) => {
     const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'createCanvas')
-    const resolvedSpaceId = normalizeIdentifier(spaceId)
-    if (resolvedSpaceId) {
-        return client.post(`/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases`, body)
-    }
-    return client.post(`/unik/${resolvedUnikId}/chatflows`, body)
+    const resolvedSpaceId = ensureIdentifier(spaceId, 'spaceId', 'createCanvas')
+    return client.post(`/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases`, body)
 }
 
 const updateCanvas = (unikId, canvasId, body, options = {}) => {
@@ -91,20 +88,18 @@ const duplicateCanvas = (unikId, canvasId, options = {}) => {
     return client.post(`${buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId)}/duplicate`)
 }
 
-const exportCanvas = (unikId, canvasId, config, options = {}) => {
+const exportCanvas = (unikId, canvasId, options = {}) => {
     const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'exportCanvas')
     const resolvedCanvasId = ensureIdentifier(canvasId, 'canvasId', 'exportCanvas')
-    const resolvedSpaceId = normalizeIdentifier(options.spaceId)
+    const { spaceId, config } = resolveRequestOptions(options)
+    const resolvedSpaceId = normalizeIdentifier(spaceId)
     return client.get(`${buildCanvasPath(resolvedUnikId, resolvedCanvasId, resolvedSpaceId)}/export`, config)
 }
 
 const importCanvas = (unikId, spaceId, body) => {
     const resolvedUnikId = ensureIdentifier(unikId, 'unikId', 'importCanvas')
-    const resolvedSpaceId = normalizeIdentifier(spaceId)
-    if (resolvedSpaceId) {
-        return client.post(`/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases/import`, body)
-    }
-    return client.post(`/unik/${resolvedUnikId}/chatflows/importchatflows`, body)
+    const resolvedSpaceId = ensureIdentifier(spaceId, 'spaceId', 'importCanvas')
+    return client.post(`/unik/${resolvedUnikId}/spaces/${resolvedSpaceId}/canvases/import`, body)
 }
 
 const getCanvasStreaming = (unikId, canvasId, options = {}) => {

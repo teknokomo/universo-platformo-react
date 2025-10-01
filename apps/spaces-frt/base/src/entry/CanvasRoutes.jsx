@@ -1,9 +1,10 @@
-import { lazy } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { lazy, useEffect } from 'react'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 
 // Load UI framework pieces via @ui alias to avoid local alias conflicts
 import Loadable from '@ui/ui-component/loading/Loadable'
 import MinimalLayout from '@ui/layout/MinimalLayout'
+import canvasesApi from '@ui/api/canvases'
 
 // Canvas screens (Flowise UI)
 const Canvas = Loadable(lazy(() => import('@ui/views/canvas')))
@@ -21,7 +22,37 @@ const LegacyChatflowsRedirect = () => {
 
 const LegacyChatflowDetailRedirect = () => {
   const { unikId, id } = useParams()
-  return <Navigate to={`/unik/${unikId}/canvas/${id}`} replace />
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    let isMounted = true
+    const resolveRedirect = async () => {
+      if (!unikId || !id) return
+      try {
+        const response = await canvasesApi.getCanvasById(id)
+        const canvas = response?.data || response
+        const resolvedSpaceId =
+          canvas?.spaceId ??
+          canvas?.space_id ??
+          canvas?.space?.id ??
+          null
+        const target = resolvedSpaceId
+          ? `/unik/${unikId}/space/${resolvedSpaceId}/canvas/${id}`
+          : `/unik/${unikId}/canvas/${id}`
+        if (isMounted) navigate(target, { replace: true })
+      } catch (error) {
+        if (isMounted) navigate(`/unik/${unikId}/canvas/${id}`, { replace: true })
+      }
+    }
+
+    resolveRedirect()
+
+    return () => {
+      isMounted = false
+    }
+  }, [id, navigate, unikId])
+
+  return null
 }
 
 const CanvasRoutes = {
