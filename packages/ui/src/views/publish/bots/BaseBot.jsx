@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import PropTypes from 'prop-types'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -18,17 +18,17 @@ const BaseBot = ({ children }) => {
     const navigate = useNavigate()
     const { t } = useTranslation()
 
-    const [chatflow, setChatflow] = useState(null)
+    const [canvas, setCanvas] = useState(null)
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    const getSpecificChatflowFromPublicApi = useApi(chatflowsApi.getSpecificChatflowFromPublicEndpoint)
-    const getSpecificChatflowApi = useApi(chatflowsApi.getSpecificChatflow)
+    const getPublicCanvasApi = useApi(canvasesApi.getPublicCanvas)
+    const getCanvasApi = useApi(canvasesApi.getCanvasById)
     const { handleAuthError } = useAuthError()
 
     useEffect(() => {
         if (id) {
-            getSpecificChatflowFromPublicApi.request(id)
+            getPublicCanvasApi.request(id)
         } else {
             setError(t('chatbot.idMissing', 'Bot ID not provided'))
             setLoading(false)
@@ -37,34 +37,34 @@ const BaseBot = ({ children }) => {
     }, [id])
 
     useEffect(() => {
-        if (getSpecificChatflowFromPublicApi.error) {
-            if (getSpecificChatflowFromPublicApi.error?.response?.status === 401) {
+        if (getPublicCanvasApi.error) {
+            if (getPublicCanvasApi.error?.response?.status === 401) {
                 // For public endpoints that return 401, try authenticated endpoint
-                getSpecificChatflowApi.request(id)
+                getCanvasApi.request(id)
             } else {
-                setError(getSpecificChatflowFromPublicApi.error.message)
+                setError(getPublicCanvasApi.error.message)
                 setLoading(false)
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getSpecificChatflowFromPublicApi.error])
+    }, [getPublicCanvasApi.error])
 
     useEffect(() => {
-        if (getSpecificChatflowApi.error) {
-            if (!handleAuthError(getSpecificChatflowApi.error)) {
-                setError(getSpecificChatflowApi.error.message)
+        if (getCanvasApi.error) {
+            if (!handleAuthError(getCanvasApi.error)) {
+                setError(getCanvasApi.error.message)
                 setLoading(false)
             }
         }
-    }, [getSpecificChatflowApi.error, handleAuthError])
+    }, [getCanvasApi.error, handleAuthError])
 
     useEffect(() => {
-        if (getSpecificChatflowFromPublicApi.data || getSpecificChatflowApi.data) {
-            const chatflowData = getSpecificChatflowFromPublicApi.data || getSpecificChatflowApi.data
-            setChatflow(chatflowData)
+        if (getPublicCanvasApi.data || getCanvasApi.data) {
+            const canvasData = getPublicCanvasApi.data || getCanvasApi.data
+            setCanvas(canvasData)
             setLoading(false)
         }
-    }, [getSpecificChatflowFromPublicApi.data, getSpecificChatflowApi.data])
+    }, [getPublicCanvasApi.data, getCanvasApi.data])
 
     if (isLoading) {
         return null
@@ -74,11 +74,11 @@ const BaseBot = ({ children }) => {
         return <p>{error}</p>
     }
 
-    if (!chatflow || chatflow.apikeyid) {
+    if (!canvas || canvas.apikeyid) {
         return <p>{t('chatbot.invalid')}</p>
     }
 
-    return <>{children(chatflow)}</>
+    return <>{children(canvas)}</>
 }
 
 BaseBot.propTypes = {

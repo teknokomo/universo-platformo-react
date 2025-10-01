@@ -14,14 +14,14 @@ const Spaces = Loadable(lazy(() => import('@apps/spaces-frt/base/src/views/space
 
 // ==============================|| CANVAS ROUTING (MinimalLayout) ||============================== //
 
-const ChatflowRedirect = () => {
+const LegacyChatflowsRedirect = () => {
   const { unikId } = useParams()
   return <Navigate to={`/unik/${unikId}/spaces`} replace />
 }
 
-const ChatflowDetailRedirect = () => {
+const LegacyChatflowDetailRedirect = () => {
   const { unikId, id } = useParams()
-  return <Navigate to={`/unik/${unikId}/space/${id}`} replace />
+  return <Navigate to={`/unik/${unikId}/canvas/${id}`} replace />
 }
 
 const CanvasRoutes = {
@@ -29,8 +29,10 @@ const CanvasRoutes = {
   element: <MinimalLayout />,
   children: [
     // legacy redirects
-    { path: 'chatflows', element: <ChatflowRedirect /> },
-    { path: 'chatflows/:id', element: <ChatflowDetailRedirect /> },
+    { path: 'chatflows', element: <LegacyChatflowsRedirect /> },
+    { path: 'chatflows/:id', element: <LegacyChatflowDetailRedirect /> },
+    { path: 'canvas/:canvasId', element: <Canvas /> },
+    { path: 'canvases/:canvasId', element: <Canvas /> },
 
     // spaces
     { path: 'spaces', element: <Spaces /> },

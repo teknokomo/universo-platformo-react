@@ -20,7 +20,7 @@ const MenuList = () => {
             ...unikDashboard,
             children: unikDashboard.children.map((item) => ({
                 ...item,
-                // Universo Platformo | Assume that links in unikDashboard.js start with '/' (e.g., '/chatflows')
+                // Universo Platformo | Assume that links in unikDashboard.js start with '/' (e.g., '/canvases')
                 url: `/unik/${unikId}${item.url}`
             }))
         }

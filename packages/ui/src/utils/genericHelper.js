@@ -633,27 +633,27 @@ export const formatDataGridRows = (rows) => {
     }
 }
 
-export const setLocalStorageChatflow = (chatflowid, chatId, saveObj = {}) => {
-    const chatDetails = localStorage.getItem(`${chatflowid}_INTERNAL`)
+export const setLocalStorageCanvas = (canvasId, chatId, saveObj = {}) => {
+    const chatDetails = localStorage.getItem(`${canvasId}_INTERNAL`)
     const obj = { ...saveObj }
     if (chatId) obj.chatId = chatId
 
     if (!chatDetails) {
-        localStorage.setItem(`${chatflowid}_INTERNAL`, JSON.stringify(obj))
+        localStorage.setItem(`${canvasId}_INTERNAL`, JSON.stringify(obj))
     } else {
         try {
             const parsedChatDetails = JSON.parse(chatDetails)
-            localStorage.setItem(`${chatflowid}_INTERNAL`, JSON.stringify({ ...parsedChatDetails, ...obj }))
+            localStorage.setItem(`${canvasId}_INTERNAL`, JSON.stringify({ ...parsedChatDetails, ...obj }))
         } catch (e) {
-            const chatId = chatDetails
-            obj.chatId = chatId
-            localStorage.setItem(`${chatflowid}_INTERNAL`, JSON.stringify(obj))
+            const fallbackChatId = chatDetails
+            obj.chatId = fallbackChatId
+            localStorage.setItem(`${canvasId}_INTERNAL`, JSON.stringify(obj))
         }
     }
 }
 
-export const getLocalStorageChatflow = (chatflowid) => {
-    const chatDetails = localStorage.getItem(`${chatflowid}_INTERNAL`)
+export const getLocalStorageCanvas = (canvasId) => {
+    const chatDetails = localStorage.getItem(`${canvasId}_INTERNAL`)
     if (!chatDetails) return {}
     try {
         return JSON.parse(chatDetails)
@@ -662,23 +662,28 @@ export const getLocalStorageChatflow = (chatflowid) => {
     }
 }
 
-export const removeLocalStorageChatHistory = (chatflowid) => {
-    const chatDetails = localStorage.getItem(`${chatflowid}_INTERNAL`)
+export const removeLocalStorageCanvasHistory = (canvasId) => {
+    const chatDetails = localStorage.getItem(`${canvasId}_INTERNAL`)
     if (!chatDetails) return
     try {
         const parsedChatDetails = JSON.parse(chatDetails)
         if (parsedChatDetails.lead) {
             // Dont remove lead when chat is cleared
             const obj = { lead: parsedChatDetails.lead }
-            localStorage.removeItem(`${chatflowid}_INTERNAL`)
-            localStorage.setItem(`${chatflowid}_INTERNAL`, JSON.stringify(obj))
+            localStorage.removeItem(`${canvasId}_INTERNAL`)
+            localStorage.setItem(`${canvasId}_INTERNAL`, JSON.stringify(obj))
         } else {
-            localStorage.removeItem(`${chatflowid}_INTERNAL`)
+            localStorage.removeItem(`${canvasId}_INTERNAL`)
         }
     } catch (e) {
         return
     }
 }
+
+// Legacy aliases to avoid breaking older modules while migration continues.
+export const setLocalStorageChatflow = (...args) => setLocalStorageCanvas(...args)
+export const getLocalStorageChatflow = (...args) => getLocalStorageCanvas(...args)
+export const removeLocalStorageChatHistory = (...args) => removeLocalStorageCanvasHistory(...args)
 
 export const unshiftFiles = (configData) => {
     const filesConfig = configData.find((config) => config.name === 'files')

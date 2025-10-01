@@ -33,7 +33,7 @@ import { StyledFab } from '@/ui-component/button/StyledFab'
 import ErrorBoundary from '@/ErrorBoundary'
 import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 import { MultiDropdown } from '@/ui-component/dropdown/MultiDropdown'
-import APICodeDialog from '@/views/chatflows/APICodeDialog'
+import APICodeDialog from '@/views/canvases/APICodeDialog'
 import ViewMessagesDialog from '@/ui-component/dialog/ViewMessagesDialog'
 import ChatflowConfigurationDialog from '@/ui-component/dialog/ChatflowConfigurationDialog'
 import ViewLeadsDialog from '@/ui-component/dialog/ViewLeadsDialog'
@@ -44,7 +44,7 @@ import ExpandTextDialog from '@/ui-component/dialog/ExpandTextDialog'
 
 // API
 import assistantsApi from '@/api/assistants'
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 import nodesApi from '@/api/nodes'
 import documentstoreApi from '@/api/documentstore'
 
@@ -58,6 +58,11 @@ import useNotifier from '@/utils/useNotifier'
 import { toolAgentFlow } from './toolAgentFlow'
 
 // ===========================|| CustomAssistantConfigurePreview ||=========================== //
+
+const resolveErrorMessage = (error) =>
+    typeof error?.response?.data === 'object'
+        ? error?.response?.data?.message
+        : error?.response?.data || error?.message || 'Unknown error'
 
 const MemoizedFullPageChat = memo(
     ({ ...props }) => (
@@ -86,7 +91,7 @@ const CustomAssistantConfigurePreview = () => {
     const getChatModelsApi = useApi(assistantsApi.getChatModels)
     const getDocStoresApi = useApi(assistantsApi.getDocStores)
     const getToolsApi = useApi(assistantsApi.getTools)
-    const getSpecificChatflowApi = useApi(chatflowsApi.getSpecificChatflow)
+    const getCanvasApi = useApi(canvasesApi.getCanvas)
     const getAllAssistantsApi = useApi(assistantsApi.getAllAssistants)
 
     const { id: customAssistantId, unikId } = useParams()
@@ -109,8 +114,8 @@ const CustomAssistantConfigurePreview = () => {
     const [viewMessagesDialogProps, setViewMessagesDialogProps] = useState({})
     const [viewLeadsDialogOpen, setViewLeadsDialogOpen] = useState(false)
     const [viewLeadsDialogProps, setViewLeadsDialogProps] = useState({})
-    const [chatflowConfigurationDialogOpen, setChatflowConfigurationDialogOpen] = useState(false)
-    const [chatflowConfigurationDialogProps, setChatflowConfigurationDialogProps] = useState({})
+    const [canvasConfigurationDialogOpen, setCanvasConfigurationDialogOpen] = useState(false)
+    const [canvasConfigurationDialogProps, setCanvasConfigurationDialogProps] = useState({})
     const [isSettingsOpen, setSettingsOpen] = useState(false)
     const [assistantPromptGeneratorDialogOpen, setAssistantPromptGeneratorDialogOpen] = useState(false)
     const [assistantPromptGeneratorDialogProps, setAssistantPromptGeneratorDialogProps] = useState({})
@@ -120,6 +125,13 @@ const CustomAssistantConfigurePreview = () => {
     const [loading, setLoading] = useState(false)
     const [loadingAssistant, setLoadingAssistant] = useState(true)
     const [error, setError] = useState(null)
+
+    const resolveSpaceId = () =>
+        selectedCustomAssistant.spaceId ||
+        selectedCustomAssistant.space_id ||
+        canvas.chatflow?.spaceId ||
+        canvas.chatflow?.space_id ||
+        null
 
     const dispatch = useDispatch()
     const { confirm } = useConfirm()
@@ -219,11 +231,15 @@ const CustomAssistantConfigurePreview = () => {
                 unik_id: unikId
             }
             try {
+                const spaceId = resolveSpaceId()
+                if (spaceId) {
+                    saveObj.spaceId = spaceId
+                }
                 let saveResp
                 if (!customAssistantCanvasId) {
-                    saveResp = await chatflowsApi.createNewChatflow(unikId, saveObj)
+                    saveResp = await canvasesApi.createCanvas(unikId, spaceId, saveObj)
                 } else {
-                    saveResp = await chatflowsApi.updateChatflow(unikId, customAssistantCanvasId, saveObj)
+                    saveResp = await canvasesApi.updateCanvas(unikId, customAssistantCanvasId, saveObj, { spaceId })
                 }
 
                 if (saveResp.data) {
@@ -235,6 +251,7 @@ const CustomAssistantConfigurePreview = () => {
                         chatModel: selectedChatModel,
                         instruction: customAssistantInstruction,
                         canvasId: saveResp.data.id,
+                        spaceId: saveResp.data.spaceId || spaceId,
                         documentStores: selectedDocumentStores,
                         tools: selectedTools
                     }
@@ -261,9 +278,9 @@ const CustomAssistantConfigurePreview = () => {
                 }
             } catch (error) {
                 setLoading(false)
+                const errorMessage = resolveErrorMessage(error)
                 enqueueSnackbar({
-                    message: `Failed to save assistant: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                        }`,
+                    message: `Failed to save assistant: ${errorMessage}`,
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -463,8 +480,7 @@ const CustomAssistantConfigurePreview = () => {
         } catch (error) {
             console.error('Error preparing config', error)
             enqueueSnackbar({
-                message: `Failed to save assistant: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                message: `Failed to save assistant: ${resolveErrorMessage(error)}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -496,14 +512,14 @@ const CustomAssistantConfigurePreview = () => {
                 chatflow: canvas.chatflow
             })
             setViewLeadsDialogOpen(true)
-        } else if (setting === 'chatflowConfiguration') {
-            setChatflowConfigurationDialogProps({
+        } else if (setting === 'canvasConfiguration') {
+            setCanvasConfigurationDialogProps({
                 title: `Assistant Configuration`,
                 chatflow: canvas.chatflow,
                 unikId: unikId,
                 canvasId: customAssistantCanvasId
             })
-            setChatflowConfigurationDialogOpen(true)
+            setCanvasConfigurationDialogOpen(true)
         }
     }
 
@@ -520,12 +536,12 @@ const CustomAssistantConfigurePreview = () => {
             try {
                 const resp = await assistantsApi.deleteAssistant(unikId, customAssistantId)
                 if (resp.data && customAssistantCanvasId) {
-                    await chatflowsApi.deleteChatflow(unikId, customAssistantCanvasId)
+                    await canvasesApi.deleteCanvas(unikId, customAssistantCanvasId, { spaceId: resolveSpaceId() })
                 }
                 navigate(-1)
             } catch (error) {
                 enqueueSnackbar({
-                    message: typeof error.response.data === 'object' ? error.response.data.message : error.response.data,
+                    message: resolveErrorMessage(error),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -602,7 +618,7 @@ const CustomAssistantConfigurePreview = () => {
             console.error('Error generating doc store tool desc', error)
             setLoading(false)
             enqueueSnackbar({
-                message: typeof error.response.data === 'object' ? error.response.data.message : error.response.data,
+                message: resolveErrorMessage(error),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -741,7 +757,10 @@ const CustomAssistantConfigurePreview = () => {
 
                 if (assistantDetails.canvasId) {
                     setCustomAssistantCanvasId(assistantDetails.canvasId)
-                    getSpecificChatflowApi.request(unikId, assistantDetails.canvasId)
+                    const assistantSpaceId = assistantDetails.spaceId || assistantDetails.space_id
+                    getCanvasApi.request(unikId, assistantDetails.canvasId, {
+                        spaceId: assistantSpaceId ?? resolveSpaceId()
+                    })
                 }
 
                 if (assistantDetails.documentStores) {
@@ -760,15 +779,17 @@ const CustomAssistantConfigurePreview = () => {
     }, [getSpecificAssistantApi.data])
 
     useEffect(() => {
-        if (getSpecificChatflowApi.data) {
-            const chatflow = getSpecificChatflowApi.data
+        if (getCanvasApi.data) {
+            const chatflow = getCanvasApi.data
             dispatch({ type: SET_CHATFLOW, chatflow })
-        } else if (getSpecificChatflowApi.error) {
-            setError(`Failed to retrieve: ${getSpecificChatflowApi.error.response.data.message}`)
+        } else if (getCanvasApi.error) {
+            const errorMessage =
+                getCanvasApi.error?.response?.data?.message || getCanvasApi.error?.message || 'Unknown error'
+            setError(`Failed to retrieve: ${errorMessage}`)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getSpecificChatflowApi.data, getSpecificChatflowApi.error])
+    }, [getCanvasApi.data, getCanvasApi.error])
 
     useEffect(() => {
         if (getSpecificAssistantApi.error) {
@@ -1358,10 +1379,10 @@ const CustomAssistantConfigurePreview = () => {
             />
             <ViewLeadsDialog show={viewLeadsDialogOpen} dialogProps={viewLeadsDialogProps} onCancel={() => setViewLeadsDialogOpen(false)} />
             <ChatflowConfigurationDialog
-                key='chatflowConfiguration'
-                show={chatflowConfigurationDialogOpen}
-                dialogProps={chatflowConfigurationDialogProps}
-                onCancel={() => setChatflowConfigurationDialogOpen(false)}
+                key='canvasConfiguration'
+                show={canvasConfigurationDialogOpen}
+                dialogProps={canvasConfigurationDialogProps}
+                onCancel={() => setCanvasConfigurationDialogOpen(false)}
             />
             <PromptGeneratorDialog
                 show={assistantPromptGeneratorDialogOpen}

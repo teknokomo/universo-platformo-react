@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -18,7 +18,8 @@ import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
+import spacesApi from '@/api/spaces'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -30,22 +31,169 @@ import { baseURL } from '@/store/constant'
 // icons
 import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 
-// ==============================|| CHATFLOWS ||============================== //
+const extractSpaces = (payload) => {
+    if (!payload) return []
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.data?.spaces)) return payload.data.spaces
+    if (Array.isArray(payload?.spaces)) return payload.spaces
+    if (Array.isArray(payload?.data)) return payload.data
+    return []
+}
+
+const extractCanvases = (payload) => {
+    if (!payload) return []
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.canvases)) return payload.canvases
+    if (Array.isArray(payload?.data?.canvases)) return payload.data.canvases
+    if (Array.isArray(payload?.data)) return payload.data
+    return []
+}
+
+const buildImageMap = (items) => {
+    const images = {}
+    items.forEach((canvas) => {
+        if (!canvas?.id) return
+        images[canvas.id] = []
+        if (!canvas.flowData) return
+        try {
+            const flowData = typeof canvas.flowData === 'string' ? JSON.parse(canvas.flowData) : canvas.flowData
+            const nodes = flowData?.nodes || []
+            nodes.forEach((node) => {
+                const imageSrc = `${baseURL}/api/v1/node-icon/${node?.data?.name}`
+                if (imageSrc && !images[canvas.id].includes(imageSrc)) {
+                    images[canvas.id].push(imageSrc)
+                }
+            })
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[Canvases] Failed to parse flowData for canvas preview', { canvasId: canvas.id, error })
+        }
+    })
+    return images
+}
+
+// ==============================|| CANVASES LIST (LEGACY CHATFLOWS) ||============================== //
 
 const Chatflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation('chatflows')
-    const { unikId } = useParams() // Get Unik ID
-    const location = useLocation() // Get location object for access to state
+    const { t } = useTranslation('canvases')
+    const { unikId } = useParams()
+    const location = useLocation()
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
     const [search, setSearch] = useState('')
+    const [spaces, setSpaces] = useState([])
+    const [canvases, setCanvases] = useState([])
+    const [aggregating, setAggregating] = useState(false)
 
-    const getAllChatflowsApi = useApi(() => chatflowsApi.getAllChatflows(unikId))
+    const getSpacesApi = useApi(spacesApi.getSpaces)
+    const getCanvasesApi = useApi(canvasesApi.getCanvases)
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
     const { handleAuthError } = useAuthError()
+
+    useEffect(() => {
+        if (!unikId) {
+            console.error('Unik ID is missing in URL')
+            setError(new Error('Missing unikId'))
+            return
+        }
+        localStorage.setItem('parentUnikId', unikId)
+        if (location.state?.templateFlowData) {
+            navigate(`/unik/${unikId}/spaces/new`, { state: { templateFlowData: location.state.templateFlowData } })
+            return
+        }
+        if (unikId) {
+            getSpacesApi.request(unikId)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unikId, location.state, navigate])
+
+    useEffect(() => {
+        if (getSpacesApi.error && !handleAuthError(getSpacesApi.error)) {
+            setError(getSpacesApi.error)
+        }
+    }, [getSpacesApi.error, handleAuthError])
+
+    useEffect(() => {
+        setLoading(getSpacesApi.loading || aggregating)
+    }, [getSpacesApi.loading, aggregating])
+
+    useEffect(() => {
+        const normalizedSpaces = extractSpaces(getSpacesApi.data)
+        setSpaces(normalizedSpaces)
+    }, [getSpacesApi.data])
+
+    const loadCanvasesForSpaces = useCallback(
+        async (spaceList) => {
+            if (!unikId || !Array.isArray(spaceList) || spaceList.length === 0) return []
+            const aggregated = []
+            const failures = []
+
+            await Promise.all(
+                spaceList.map(async (space) => {
+                    try {
+                        const data = await getCanvasesApi.request(unikId, space.id, { type: 'CHATFLOW' })
+                        const list = extractCanvases(data)
+                        list.forEach((canvas) => {
+                            aggregated.push({ ...canvas, spaceId: space.id, spaceName: space.name, unikId })
+                        })
+                    } catch (err) {
+                        if (!handleAuthError(err)) {
+                            failures.push(err)
+                        }
+                    }
+                })
+            )
+
+            if (failures.length > 0) {
+                throw failures[0]
+            }
+
+            return aggregated.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        },
+        [getCanvasesApi.request, handleAuthError, unikId]
+    )
+
+    const refreshCanvases = useCallback(async () => {
+        const aggregated = await loadCanvasesForSpaces(spaces)
+        setCanvases(aggregated)
+        setImages(buildImageMap(aggregated))
+        setError(null)
+        return aggregated
+    }, [loadCanvasesForSpaces, spaces])
+
+    useEffect(() => {
+        let cancelled = false
+        const run = async () => {
+            if (!spaces || spaces.length === 0) {
+                setCanvases([])
+                setImages({})
+                setError(null)
+                return
+            }
+            setAggregating(true)
+            try {
+                const aggregated = await loadCanvasesForSpaces(spaces)
+                if (!cancelled) {
+                    setCanvases(aggregated)
+                    setImages(buildImageMap(aggregated))
+                    setError(null)
+                }
+            } catch (err) {
+                if (!cancelled && !handleAuthError(err)) {
+                    setError(err)
+                }
+            } finally {
+                if (!cancelled) setAggregating(false)
+            }
+        }
+        run()
+        return () => {
+            cancelled = true
+        }
+    }, [spaces, loadCanvasesForSpaces, handleAuthError])
 
     const handleChange = (event, nextView) => {
         if (nextView === null) return
@@ -57,72 +205,30 @@ const Chatflows = () => {
         setSearch(event.target.value)
     }
 
-    function filterFlows(data) {
-        return (
-            data.name.toLowerCase().indexOf(search.toLowerCase()) > -1 ||
-            (data.category && data.category.toLowerCase().indexOf(search.toLowerCase()) > -1) ||
-            data.id.toLowerCase().indexOf(search.toLowerCase()) > -1
-        )
-    }
+    const filterFlows = useCallback(
+        (data) => {
+            if (!data) return false
+            const target = search.toLowerCase()
+            return (
+                (data.name || '').toLowerCase().includes(target) ||
+                (data.spaceName || '').toLowerCase().includes(target) ||
+                (data.category || '').toLowerCase().includes(target) ||
+                (data.id || '').toLowerCase().includes(target)
+            )
+        },
+        [search]
+    )
 
     const addNew = () => {
-        localStorage.setItem('parentUnikId', unikId)
-        navigate(`/unik/${unikId}/chatflows/new`)
+        navigate(`/unik/${unikId}/spaces/new`)
     }
 
-    const goToCanvas = (selectedChatflow) => {
-        navigate(`/unik/${unikId}/chatflows/${selectedChatflow.id}`)
+    const goToCanvas = (selectedCanvas) => {
+        if (!selectedCanvas?.spaceId) return
+        navigate(`/unik/${unikId}/space/${selectedCanvas.spaceId}/canvas/${selectedCanvas.id}`)
     }
 
-    useEffect(() => {
-        // Check if location.state has templateFlowData - redirect to the new chatflow page
-        if (location.state && location.state.templateFlowData) {
-            navigate(`/unik/${unikId}/chatflows/new`, { state: { templateFlowData: location.state.templateFlowData } })
-            return
-        }
-
-        if (unikId) {
-            getAllChatflowsApi.request()
-        } else {
-            console.error('Unik ID is missing in URL')
-        }
-    }, [unikId, location.state, navigate])
-
-    useEffect(() => {
-        if (getAllChatflowsApi.error) {
-            if (!handleAuthError(getAllChatflowsApi.error)) {
-                setError(getAllChatflowsApi.error)
-            }
-        }
-    }, [getAllChatflowsApi.error, handleAuthError])
-
-    useEffect(() => {
-        setLoading(getAllChatflowsApi.loading)
-    }, [getAllChatflowsApi.loading])
-
-    useEffect(() => {
-        if (getAllChatflowsApi.data) {
-            try {
-                const chatflows = getAllChatflowsApi.data
-                const images = {}
-                for (let i = 0; i < chatflows.length; i += 1) {
-                    const flowDataStr = chatflows[i].flowData
-                    const flowData = JSON.parse(flowDataStr)
-                    const nodes = flowData.nodes || []
-                    images[chatflows[i].id] = []
-                    for (let j = 0; j < nodes.length; j += 1) {
-                        const imageSrc = `${baseURL}/api/v1/node-icon/${nodes[j].data.name}`
-                        if (!images[chatflows[i].id].includes(imageSrc)) {
-                            images[chatflows[i].id].push(imageSrc)
-                        }
-                    }
-                }
-                setImages(images)
-            } catch (e) {
-                console.error(e)
-            }
-        }
-    }, [getAllChatflowsApi.data])
+    const tableRefreshAdapter = useMemo(() => ({ request: refreshCanvases }), [refreshCanvases])
 
     return (
         <MainCard>
@@ -174,7 +280,7 @@ const Chatflows = () => {
                     </ViewHeader>
                     {!view || view === 'card' ? (
                         <>
-                            {isLoading && !getAllChatflowsApi.data ? (
+                            {isLoading && canvases.length === 0 ? (
                                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                     <Skeleton variant='rounded' height={160} />
                                     <Skeleton variant='rounded' height={160} />
@@ -182,23 +288,23 @@ const Chatflows = () => {
                                 </Box>
                             ) : (
                                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
-                                    {getAllChatflowsApi.data?.filter(filterFlows).map((data, index) => (
-                                        <ItemCard key={index} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
+                                    {canvases.filter(filterFlows).map((data) => (
+                                        <ItemCard key={data.id} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
                                     ))}
                                 </Box>
                             )}
                         </>
                     ) : (
                         <FlowListTable
-                            data={getAllChatflowsApi.data}
+                            data={canvases}
                             images={images}
                             isLoading={isLoading}
                             filterFunction={filterFlows}
-                            updateFlowsApi={getAllChatflowsApi}
+                            updateFlowsApi={tableRefreshAdapter}
                             setError={setError}
                         />
                     )}
-                    {!isLoading && (!getAllChatflowsApi.data || getAllChatflowsApi.data.length === 0) && (
+                    {!isLoading && canvases.length === 0 && (
                         <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                             <Box sx={{ p: 2, height: 'auto' }}>
                                 <img
@@ -207,7 +313,7 @@ const Chatflows = () => {
                                     alt='WorkflowEmptySVG'
                                 />
                             </Box>
-                            <div>{t('noChatflowsYet')}</div>
+                            <div>{t('noCanvasesYet')}</div>
                         </Stack>
                     )}
                 </Stack>

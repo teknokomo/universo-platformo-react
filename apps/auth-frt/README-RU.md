@@ -146,7 +146,7 @@ const MyComponent = () => {
 
 Следующие компоненты были успешно перенесены с устаревшей аутентификации:
 
-1. **`packages/ui/src/views/chatflows/index.jsx`**
+1. **`packages/ui/src/views/canvases/index.jsx`**
 
     - Удалено: Импорт и использование `LoginDialog`
     - Добавлено: Интеграция хука `useAuthError`

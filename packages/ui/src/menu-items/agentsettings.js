@@ -47,7 +47,7 @@ const agent_settings = {
             icon: icons.IconUsers
         },
         {
-            id: 'chatflowConfiguration',
+            id: 'canvasConfiguration',
             title: i18n.t('canvas.contextMenu.configuration'),
             type: 'item',
             url: '',
@@ -61,29 +61,29 @@ const agent_settings = {
             icon: icons.IconTemplate
         },
         {
-            id: 'duplicateChatflow',
-            title: i18n.t('canvas.contextMenu.duplicateChatflow'),
+            id: 'duplicateCanvas',
+            title: i18n.t('canvas.contextMenu.duplicateCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconCopy
         },
         {
-            id: 'loadChatflow',
-            title: i18n.t('canvas.contextMenu.loadChatflow'),
+            id: 'loadCanvas',
+            title: i18n.t('canvas.contextMenu.loadCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconFileUpload
         },
         {
-            id: 'exportChatflow',
-            title: i18n.t('canvas.contextMenu.exportChatflow'),
+            id: 'exportCanvas',
+            title: i18n.t('canvas.contextMenu.exportCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconFileExport
         },
         {
-            id: 'deleteChatflow',
-            title: i18n.t('canvas.contextMenu.deleteChatflow'),
+            id: 'deleteCanvas',
+            title: i18n.t('canvas.contextMenu.deleteCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconTrash

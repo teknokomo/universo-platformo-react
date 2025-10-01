@@ -10,7 +10,7 @@ import { baseURL } from '@/store/constant'
 
 // Universo Platformo | Component to display API links
 const LinksCode = ({ chatflowid }) => {
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
 
     // Universo Platformo | Common styles for links
     const linkStyle = {

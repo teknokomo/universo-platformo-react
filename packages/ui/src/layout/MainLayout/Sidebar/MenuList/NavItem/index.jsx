@@ -51,7 +51,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     if (item?.external) {
         listItemProps = { component: 'a', href: item.url, target: itemTarget }
     }
-    if (item?.id === 'loadChatflow') {
+    if (item?.id === 'loadCanvas') {
         listItemProps.component = 'label'
     }
 
@@ -122,7 +122,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             }
 
             // Check if the current path contains the menu item's URL
-            // For chatflows type items, check for /chatflows in the path
+            // For canvas list type items, check for /canvases in the path
             if (item.url && location.pathname.includes(item.url)) {
                 dispatch({ type: MENU_OPEN, id: item.id })
                 return
@@ -162,7 +162,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
             selected={customization.isOpen.findIndex((id) => id === item.id) > -1}
             onClick={() => itemHandler(item.id)}
         >
-            {item.id === 'loadChatflow' && <input type='file' hidden accept='.json' onChange={(e) => handleFileUpload(e)} />}
+            {item.id === 'loadCanvas' && <input type='file' hidden accept='.json' onChange={(e) => handleFileUpload(e)} />}
             <ListItemIcon sx={{ my: 'auto', minWidth: !item?.icon ? 18 : 36 }}>{itemIcon}</ListItemIcon>
             <ListItemText
                 primary={

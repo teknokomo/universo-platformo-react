@@ -37,7 +37,7 @@ import opikPNG from '@/assets/images/opik.png'
 import useNotifier from '@/utils/useNotifier'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 const analyticProviders = [
     {
@@ -224,6 +224,12 @@ const AnalyseFlow = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
+    const chatflow = dialogProps?.chatflow || {}
+    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
+    const canvasId = chatflow.id || dialogProps?.chatflowid
+
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -234,9 +240,14 @@ const AnalyseFlow = ({ dialogProps }) => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
-                analytic: JSON.stringify(analytic)
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    analytic: JSON.stringify(analytic)
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('canvas.configuration.analyseChatflow.configSaved'),
@@ -253,10 +264,10 @@ const AnalyseFlow = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('canvas.configuration.analyseChatflow.failedToSave')}: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `${t('canvas.configuration.analyseChatflow.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',

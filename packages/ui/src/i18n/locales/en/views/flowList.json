@@ -1,9 +1,10 @@
 {
   "flowList": {
     "entities": {
-  "chatflow": "Chatflow",
-  "agent": "Agent",
-  "unik": "Unik"
+      "canvas": "Canvas",
+      "chatflow": "Canvas",
+      "agent": "Agent",
+      "unik": "Unik"
     },
     "table": {
       "columns": {

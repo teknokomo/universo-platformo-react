@@ -27,7 +27,7 @@ import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackba
 // Utils
 import { getLocalStorageChatflow, removeLocalStorageChatHistory } from '@/utils/genericHelper'
 
-export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
+export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
     const theme = useTheme()
     const { confirm } = useConfirm()
     const dispatch = useDispatch()
@@ -62,7 +62,9 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
     const expandChat = () => {
         const props = {
             open: true,
-            chatflowid: canvasId
+            chatflowid: canvasId,
+            unikId,
+            spaceId
         }
         setExpandDialogProps(props)
         setShowExpandDialog(true)
@@ -209,6 +211,8 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
                                     <ChatMessage
                                         isAgentCanvas={isAgentCanvas}
                                         chatflowid={canvasId}
+                                        unikId={unikId}
+                                        spaceId={spaceId}
                                         open={open}
                                         previews={previews}
                                         setPreviews={setPreviews}
@@ -232,4 +236,9 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas }) => {
     )
 }
 
-ChatPopUp.propTypes = { chatflowid: PropTypes.string, isAgentCanvas: PropTypes.bool }
+ChatPopUp.propTypes = {
+    chatflowid: PropTypes.string,
+    isAgentCanvas: PropTypes.bool,
+    unikId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    spaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+}

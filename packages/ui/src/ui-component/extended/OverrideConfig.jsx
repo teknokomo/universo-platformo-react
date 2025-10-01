@@ -33,7 +33,7 @@ import { IconX, IconBox, IconVariable } from '@tabler/icons-react'
 
 // API
 import useApi from '@/hooks/useApi'
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 import configApi from '@/api/config'
 import variablesApi from '@/api/variables'
 
@@ -89,6 +89,9 @@ const OverrideConfig = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const canvasId = chatflow.id
+    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
     const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
     const { t } = useTranslation()
 
@@ -271,9 +274,14 @@ const OverrideConfig = ({ dialogProps }) => {
 
     const onOverrideConfigSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, canvasId, {
-                overrideConfig: JSON.stringify(formatObj())
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    overrideConfig: JSON.stringify(formatObj())
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Override Configuration Saved',
@@ -290,9 +298,10 @@ const OverrideConfig = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `Failed to save Override Configuration: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                message: `Failed to save Override Configuration: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -309,16 +318,16 @@ const OverrideConfig = ({ dialogProps }) => {
 
     useEffect(() => {
         if (dialogProps?.chatflow) {
-            // Derive IDs from dialogProps or fallback to chatflow fields
-            const unikId = dialogProps.unikId || dialogProps.chatflow?.unik_id
-            const canvasId = dialogProps.canvasId || dialogProps.chatflow?.id
+            // Derive IDs from dialogProps or fallback to Redux chatflow fields
+            const resolvedUnikId = dialogProps.unikId || dialogProps.chatflow?.unik_id || dialogProps.chatflow?.unikId || unikId
+            const resolvedCanvasId = dialogProps.canvasId || dialogProps.chatflow?.id || canvasId
 
-            if (unikId && canvasId) {
-                getConfigApi.request(unikId, canvasId)
+            if (resolvedUnikId && resolvedCanvasId) {
+                getConfigApi.request(resolvedUnikId, resolvedCanvasId)
             }
 
-            if (unikId) {
-                getAllVariablesApi.request(unikId)
+            if (resolvedUnikId) {
+                getAllVariablesApi.request(resolvedUnikId)
             }
         }
 

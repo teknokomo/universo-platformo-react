@@ -1,3 +1,15 @@
+### 2025-09-26 — ChatMessage canvases API alignment
+
+- Propagated `unikId`/`spaceId` from the Spaces canvas view into `ChatPopUp`, `ChatExpandDialog`, and `ChatMessage` so capability checks call `canvasesApi` with scoped identifiers instead of falling back to `/canvases/:id`.
+- Added identifier normalization inside `ChatMessage` with safe localStorage fallback to keep embedded chat widgets functional while preferring space-aware routes.
+- Re-ran scoped (`@universo/spaces-frt`) and monorepo builds to confirm the refactor compiles cleanly across Flowise UI packages.
+
+### 2025-09-26 — Flowise canvases API helper migration
+
+- Added a dedicated `packages/ui/src/api/canvases.js` module mirroring the Spaces canvases client so Flowise views can call `/spaces/:spaceId/canvases` and `/canvases/:canvasId` endpoints directly.
+- Refactored the legacy `chatflows` API wrapper to delegate CRUD calls to the canvases helper when provided a `spaceId`, while logging one-time deprecation warnings when callers fall back to `/chatflows` endpoints.
+- Introduced `packages/ui/src/api/index.js` to re-export both helpers, guiding downstream modules toward the new canvases client for future migrations.
+
 ### 2025-09-26 — Canvas versions UI and orchestration
 
 - Removed the unused SQLite migration stub for spaces so Supabase remains the single source of truth for canvas metadata.

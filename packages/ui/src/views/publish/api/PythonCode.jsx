@@ -9,7 +9,7 @@ import { baseURL } from '@/store/constant'
 
 // Universo Platformo | Component to display Python code based on the mode
 const PythonCode = ({ chatflowid, apiKey, mode = 'chat' }) => {
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
 
     // Universo Platformo | Function to generate Python code for chat without authorization
     const getPythonChatCode = (chatflowid) => {

@@ -45,6 +45,7 @@
     "detail": {
       "description": "Описание",
       "chatflowsUsed": "Используемые холсты:",
+      "canvasesUsed": "Используемые холсты:",
       "someFilesPendingProcessing": "Некоторые файлы ожидают обработки. Пожалуйста, обновите для получения последнего статуса."
     },
     "messages": {

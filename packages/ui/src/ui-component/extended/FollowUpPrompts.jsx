@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 // Project Imports
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { SwitchInput } from '@/ui-component/switch/Switch'
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CHATFLOW } from '@/store/actions'
 import useNotifier from '@/utils/useNotifier'
 import anthropicIcon from '@/assets/images/anthropic.svg'
@@ -311,6 +311,12 @@ const FollowUpPrompts = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
+    const chatflow = dialogProps?.chatflow || {}
+    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
+    const canvasId = chatflow.id || dialogProps?.chatflowid
+
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -380,9 +386,14 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 }
             }
 
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
-                chatbotConfig: JSON.stringify(chatbotConfig)
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    chatbotConfig: JSON.stringify(chatbotConfig)
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('canvas.configuration.followUpPrompts.configSaved'),
@@ -399,7 +410,8 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
-            const errorData = error.response.data || `${error.response.status}: ${error.response.statusText}`
+            const errorData =
+                error?.response?.data || `${error?.response?.status}: ${error?.response?.statusText || 'Unknown Error'}`
             enqueueSnackbar({
                 message: `${t('canvas.configuration.followUpPrompts.failedToSave')}: ${errorData}`,
                 options: {

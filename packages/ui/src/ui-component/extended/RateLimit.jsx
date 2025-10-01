@@ -15,7 +15,7 @@ import { SwitchInput } from '@/ui-component/switch/Switch'
 import { IconX } from '@tabler/icons-react'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 // utils
 import useNotifier from '@/utils/useNotifier'
@@ -24,6 +24,9 @@ const RateLimit = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const canvasId = chatflow.id
+    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
     let apiConfig = {}
     try {
         apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
@@ -88,9 +91,14 @@ const RateLimit = ({ dialogProps }) => {
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(chatflow.unik_id, canvasId, {
-                rateLimit: JSON.stringify(formatObj())
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    rateLimit: JSON.stringify(formatObj())
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Rate Limit Configuration Saved',
@@ -107,9 +115,10 @@ const RateLimit = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `Failed to save Rate Limit Configuration: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                message: `Failed to save Rate Limit Configuration: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',

@@ -1,8 +1,9 @@
 {
-    "chatflows": {
+    "canvases": {
         "title": "Spaces",
         "searchPlaceholder": "Search by name or category",
         "noChatflowsYet": "No spaces yet",
+        "noCanvasesYet": "No spaces yet",
         "agents": {
             "title": "Agent Flows",
             "searchPlaceholder": "Search by name or category",
@@ -30,6 +31,7 @@
             "version": "Version"
         },
         "addChatflow": "Add Space",
+        "addCanvas": "Add Space",
         "addAgent": "Add Agent",
         "canvas": {
             "back": "Back",
@@ -47,6 +49,7 @@
             "api": "API",
             "embed": "Embed",
             "chatflowSettings": "Space Settings",
+            "canvasSettings": "Space Settings",
             "dropFlowDescription": "Select a JSON file containing a space configuration",
             "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
             "saveSuccess": "Space saved successfully",
