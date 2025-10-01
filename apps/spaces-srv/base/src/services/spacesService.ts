@@ -329,33 +329,6 @@ export class SpacesService {
      */
     async getCanvasesForSpace(unikId: string, spaceId: string): Promise<CanvasResponse[]> {
         try {
-            // Compatibility bridge: auto-provision Space and mapping if it doesn't exist yet
-            const spaceCount = await this.spaceRepository.count({ where: { id: spaceId } })
-            if (spaceCount === 0) {
-                // If a canvas with the same id exists (legacy behavior), create a Space and link it
-                const legacyCanvas = await this.canvasRepository.findOne({ where: { id: spaceId } })
-                if (legacyCanvas) {
-                    const newSpace = this.spaceRepository.create({
-                        id: spaceId as any, // allow explicit id assignment for compatibility
-                        name: legacyCanvas.name || 'Migrated Space',
-                        description: null as any,
-                        visibility: 'private',
-                        unik: { id: unikId } as any
-                    })
-                    await this.spaceRepository.save(newSpace)
-
-                    const mapping = this.spaceCanvasRepository.create({
-                        space: { id: spaceId } as any,
-                        canvas: { id: legacyCanvas.id } as any,
-                        versionGroupId: legacyCanvas.versionGroupId || legacyCanvas.id,
-                        sortOrder: 1
-                    })
-                    await this.spaceCanvasRepository.save(mapping)
-                    // eslint-disable-next-line no-console
-                    console.info('[SpacesService] Created compatibility Space+mapping', { unikId, spaceId })
-                }
-            }
-
             const spaceCanvases = await this.spaceCanvasRepository
                 .createQueryBuilder('sc')
                 .leftJoinAndSelect('sc.canvas', 'canvas')

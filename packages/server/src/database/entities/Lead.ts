@@ -19,8 +19,8 @@ export class Lead implements ILead {
     @Column({ type: 'integer', default: 0, nullable: false })
     points: number
 
-    @Column()
-    chatflowid: string // Now refers to canvasId (backward compatibility maintained)
+    @Column({ name: 'canvas_id' })
+    canvasId: string
 
     @Column()
     chatId: string

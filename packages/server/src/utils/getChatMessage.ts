@@ -7,7 +7,7 @@ import { aMonthAgo } from '.'
 
 /**
  * Method that get chat messages.
- * @param {string} chatflowid
+ * @param {string} canvasId
  * @param {ChatType[]} chatTypes
  * @param {string} sortOrder
  * @param {string} chatId
@@ -19,7 +19,7 @@ import { aMonthAgo } from '.'
  * @param {ChatMessageRatingType[]} feedbackTypes
  */
 interface GetChatMessageParams {
-    chatflowid: string
+    canvasId: string
     chatTypes?: ChatType[]
     sortOrder?: string
     chatId?: string
@@ -33,7 +33,7 @@ interface GetChatMessageParams {
 }
 
 export const utilGetChatMessage = async ({
-    chatflowid,
+    canvasId,
     chatTypes,
     sortOrder = 'ASC',
     chatId,
@@ -53,7 +53,7 @@ export const utilGetChatMessage = async ({
         // do the join with chat message feedback based on messageId for each chat message in the chatflow
         query
             .leftJoinAndMapOne('chat_message.feedback', ChatMessageFeedback, 'feedback', 'feedback.messageId = chat_message.id')
-            .where('chat_message.chatflowid = :chatflowid', { chatflowid })
+            .where('chat_message.canvas_id = :canvasId', { canvasId })
 
         // based on which parameters are available add `andWhere` clauses to the query
         if (chatTypes && chatTypes.length > 0) {
@@ -113,7 +113,7 @@ export const utilGetChatMessage = async ({
 
     return await appServer.AppDataSource.getRepository(ChatMessage).find({
         where: {
-            chatflowid,
+            canvasId,
             chatType: chatTypes?.length ? In(chatTypes) : undefined,
             chatId,
             memoryType: memoryType ?? undefined,

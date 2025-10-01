@@ -112,7 +112,7 @@ export class OpenTelemetry implements IMetricsProvider {
                 try {
                     // Check if we've already created this metric
                     if (!createdMetrics.has(value)) {
-                        // derive proper counter name from the enum value (chatflow_created = Chatflow Created)
+                        // derive proper counter name from the enum value (canvas_created = Canvas Created)
                         const properCounterName: string = name.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
                         this.counters.set(
                             value,

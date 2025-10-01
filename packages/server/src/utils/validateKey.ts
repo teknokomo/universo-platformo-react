@@ -1,15 +1,15 @@
 import { Request } from 'express'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { compareKeys } from './apiKey'
 import apikeyService from '../services/apikey'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 
 /**
  * Validate Chatflow API Key
  * If req.user already has a user, return true immediately.
  * @param {Request} req
- * @param {ChatFlow} chatflow
+ * @param {CanvasFlowResult} chatflow
  */
-export const validateChatflowAPIKey = async (req: Request, chatflow: ChatFlow): Promise<boolean> => {
+export const validateChatflowAPIKey = async (req: Request, chatflow: CanvasFlowResult): Promise<boolean> => {
     if ((req as any).user) return true // Universo Platformo | If JWT authorization has already passed, skip the check
 
     const chatFlowApiKeyId = chatflow?.apikeyid

@@ -11,8 +11,8 @@ export class ChatMessage implements IChatMessage {
     role: MessageType
 
     @Index()
-    @Column({ type: 'uuid' })
-    chatflowid: string // Now refers to canvasId (backward compatibility maintained)
+    @Column({ type: 'uuid', name: 'canvas_id' })
+    canvasId: string
 
     @Column({ type: 'text' })
     content: string

@@ -1,4 +1,3 @@
-import { ChatFlow } from './ChatFlow'
 import { ChatMessage } from './ChatMessage'
 import { ChatMessageFeedback } from './ChatMessageFeedback'
 import { Credential } from './Credential'
@@ -30,7 +29,6 @@ const resourcesEntitiesObject = Object.fromEntries(
 )
 
 export const entities = {
-  ChatFlow,
   ChatMessage,
   ChatMessageFeedback,
   Credential,

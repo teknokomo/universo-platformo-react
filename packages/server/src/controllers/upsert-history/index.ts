@@ -4,10 +4,10 @@ import upsertHistoryService from '../../services/upsert-history'
 const getAllUpsertHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const sortOrder = req.query?.order as string | undefined
-        const chatflowid = req.params?.id as string | undefined
+        const canvasId = req.params?.id as string | undefined
         const startDate = req.query?.startDate as string | undefined
         const endDate = req.query?.endDate as string | undefined
-        const apiResponse = await upsertHistoryService.getAllUpsertHistory(sortOrder, chatflowid, startDate, endDate)
+        const apiResponse = await upsertHistoryService.getAllUpsertHistory(sortOrder, canvasId, startDate, endDate)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

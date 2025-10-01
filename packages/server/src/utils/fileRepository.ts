@@ -1,8 +1,8 @@
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { IReactFlowObject } from '../Interface'
 import { addBase64FilesToStorage } from 'flowise-components'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 
-export const containsBase64File = (chatflow: ChatFlow) => {
+export const containsBase64File = (chatflow: CanvasFlowResult) => {
     const parsedFlowData: IReactFlowObject = JSON.parse(chatflow.flowData)
     const re = new RegExp('^data.*;base64', 'i')
     let found = false

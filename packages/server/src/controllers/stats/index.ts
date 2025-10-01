@@ -9,7 +9,7 @@ const getChatflowStats = async (req: Request, res: Response, next: NextFunction)
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: statsController.getChatflowStats - id not provided!`)
         }
-        const chatflowid = req.params.id
+        const canvasId = req.params.id
         const _chatTypes = req.query?.chatType as string | undefined
         let chatTypes: ChatType[] | undefined
         if (_chatTypes) {
@@ -45,7 +45,7 @@ const getChatflowStats = async (req: Request, res: Response, next: NextFunction)
                 return res.status(500).send(e)
             }
         }
-        const apiResponse = await statsService.getChatflowStats(chatflowid, chatTypes, startDate, endDate, '', true, feedbackTypeFilters)
+        const apiResponse = await statsService.getChatflowStats(canvasId, chatTypes, startDate, endDate, '', true, feedbackTypeFilters)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

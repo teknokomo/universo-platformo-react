@@ -15,20 +15,7 @@ export interface CanvasServiceFactoryOptions {
     dependencies: LegacyChatflowDependencies
 }
 
-export interface CanvasFlowResult extends Canvas {
-    canvasId: string
-}
-
-const withCanvasAlias = <T extends Canvas>(canvas: T): CanvasFlowResult => {
-    return {
-        ...(canvas as Canvas),
-        canvasId: canvas.id
-    }
-}
-
-const withCanvasAliases = <T extends Canvas>(canvases: T[]): CanvasFlowResult[] => {
-    return canvases.map((canvas) => withCanvasAlias(canvas))
-}
+export type CanvasFlowResult = Canvas
 
 export interface CanvasService {
     readonly legacyService: LegacyChatflowsService
@@ -66,20 +53,16 @@ export const createCanvasService = (options: CanvasServiceFactoryOptions): Canva
             return legacyService.deleteChatflow(canvasId, scope)
         },
         getAllCanvases: async ({ unikId, spaceId, type }: { unikId?: string; spaceId?: string; type?: ChatflowType }) => {
-            const canvases = await legacyService.getAllChatflows(type, { unikId, spaceId })
-            return withCanvasAliases(canvases as Canvas[])
+            return legacyService.getAllChatflows(type, { unikId, spaceId })
         },
         getCanvasByApiKey: async (apiKeyId: string, keyOnly?: string) => {
-            const canvases = await legacyService.getChatflowByApiKey(apiKeyId, keyOnly)
-            return withCanvasAliases(canvases as Canvas[])
+            return legacyService.getChatflowByApiKey(apiKeyId, keyOnly)
         },
         getCanvasById: async (canvasId: string, scope?: CanvasScope) => {
-            const canvas = await legacyService.getChatflowById(canvasId, scope)
-            return withCanvasAlias(canvas as Canvas)
+            return legacyService.getChatflowById(canvasId, scope)
         },
         saveCanvas: async (canvasData: Partial<Canvas>, scope?: CanvasScope) => {
-            const saved = await legacyService.saveChatflow(canvasData, scope)
-            return withCanvasAlias(saved as Canvas)
+            return legacyService.saveChatflow(canvasData, scope)
         },
         importCanvases: async (canvases: Partial<Canvas>[], scope?: CanvasScope, queryRunner?: any) => {
             return legacyService.importChatflows(canvases, scope, queryRunner)
@@ -89,8 +72,7 @@ export const createCanvasService = (options: CanvasServiceFactoryOptions): Canva
             const updateEntity = new Canvas()
             Object.assign(updateEntity, update)
             updateEntity.id = canvasId
-            const updated = await legacyService.updateChatflow(existing as Canvas, updateEntity, scope)
-            return withCanvasAlias(updated as Canvas)
+            return legacyService.updateChatflow(existing as Canvas, updateEntity, scope)
         },
         getSinglePublicCanvas: async (canvasId: string) => {
             return legacyService.getSinglePublicChatflow(canvasId)

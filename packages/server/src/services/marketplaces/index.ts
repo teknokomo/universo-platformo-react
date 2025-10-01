@@ -167,9 +167,9 @@ const saveCustomTemplate = async (body: any): Promise<any> => {
             delete body.unikId
         }
 
-        if (body.chatflowId) {
-            const chatflow = await canvasService.getCanvasById(body.chatflowId)
-            const flowData = JSON.parse(chatflow.flowData)
+        if (body.canvasId) {
+            const canvas = await canvasService.getCanvasById(body.canvasId)
+            const flowData = JSON.parse(canvas.flowData)
             const { framework, exportJson } = _generateExportFlowData(flowData)
             flowDataStr = JSON.stringify(exportJson)
             customTemplate.framework = framework

@@ -21,13 +21,13 @@ class ChatflowTool_Tools implements INode {
     inputs: INodeParams[]
 
     constructor() {
-        this.label = 'Chatflow Tool'
+        this.label = 'Canvas Tool'
         this.name = 'ChatflowTool'
         this.version = 5.0
         this.type = 'ChatflowTool'
         this.icon = 'chatflowTool.svg'
         this.category = 'Tools'
-        this.description = 'Use as a tool to execute another chatflow'
+        this.description = 'Use as a tool to execute another canvas'
         this.baseClasses = [this.type, 'Tool']
         this.credential = {
             label: 'Connect Credential',
@@ -38,7 +38,7 @@ class ChatflowTool_Tools implements INode {
         }
         this.inputs = [
             {
-                label: 'Select Chatflow',
+                label: 'Select Canvas',
                 name: 'selectedChatflow',
                 type: 'asyncOptions',
                 loadMethod: 'listChatflows'
@@ -66,7 +66,7 @@ class ChatflowTool_Tools implements INode {
             {
                 label: 'Override Config',
                 name: 'overrideConfig',
-                description: 'Override the config passed to the Chatflow.',
+                description: 'Override the config passed to the canvas.',
                 type: 'json',
                 optional: true,
                 additionalParams: true
@@ -76,7 +76,7 @@ class ChatflowTool_Tools implements INode {
                 name: 'baseURL',
                 type: 'string',
                 description:
-                    'Base URL to Flowise. By default, it is the URL of the incoming request. Useful when you need to execute the Chatflow through an alternative route.',
+                    'Base URL to Flowise. By default, it is the URL of the incoming request. Useful when you need to execute the canvas through an alternative route.',
                 placeholder: 'http://localhost:3000',
                 optional: true,
                 additionalParams: true
@@ -86,7 +86,7 @@ class ChatflowTool_Tools implements INode {
                 name: 'startNewSession',
                 type: 'boolean',
                 description:
-                    'Whether to continue the session with the Chatflow tool or start a new one with each interaction. Useful for Chatflows with memory if you want to avoid it.',
+                    'Whether to continue the session with the canvas tool or start a new one with each interaction. Useful for canvases with memory if you want to avoid it.',
                 default: false,
                 optional: true,
                 additionalParams: true
@@ -96,7 +96,7 @@ class ChatflowTool_Tools implements INode {
                 name: 'useQuestionFromChat',
                 type: 'boolean',
                 description:
-                    'Whether to use the question from the chat as input to the chatflow. If turned on, this will override the custom input.',
+                    'Whether to use the question from the chat as input to the canvas. If turned on, this will override the custom input.',
                 optional: true,
                 additionalParams: true
             },
@@ -104,7 +104,7 @@ class ChatflowTool_Tools implements INode {
                 label: 'Custom Input',
                 name: 'customInput',
                 type: 'string',
-                description: 'Custom input to be passed to the chatflow. Leave empty to let LLM decides the input.',
+                description: 'Custom input to be passed to the canvas. Leave empty to let the LLM decide the input.',
                 optional: true,
                 additionalParams: true
             }
@@ -122,13 +122,13 @@ class ChatflowTool_Tools implements INode {
                 return returnData
             }
 
-            const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).find()
+            const canvases = await appDataSource.getRepository(databaseEntities['Canvas']).find()
 
-            for (let i = 0; i < chatflows.length; i += 1) {
-                const chatflow = chatflows[i] as any
+            for (let i = 0; i < canvases.length; i += 1) {
+                const canvas = canvases[i] as any
                 const data = {
-                    label: safeGet(chatflow, 'name', 'Unknown Chatflow'),
-                    name: safeGet(chatflow, 'id', '')
+                    label: safeGet(canvas, 'name', 'Unknown Canvas'),
+                    name: safeGet(canvas, 'id', '')
                 } as INodeOptionsValue
                 returnData.push(data)
             }
@@ -157,7 +157,7 @@ class ChatflowTool_Tools implements INode {
         const credentialData = await getCredentialData(nodeData.credential ?? '', options)
         const chatflowApiKey = getCredentialParam('chatflowApiKey', credentialData, nodeData)
 
-        if (selectedChatflowId === options.chatflowid) throw new Error('Cannot call the same chatflow!')
+        if (selectedChatflowId === options.chatflowid) throw new Error('Cannot call the same canvas!')
 
         let headers = {}
         if (chatflowApiKey) headers = { Authorization: `Bearer ${chatflowApiKey}` }
@@ -192,7 +192,7 @@ class ChatflowTool extends StructuredTool {
 
     name = 'chatflow_tool'
 
-    description = 'Execute another chatflow'
+    description = 'Execute another canvas'
 
     input = ''
 

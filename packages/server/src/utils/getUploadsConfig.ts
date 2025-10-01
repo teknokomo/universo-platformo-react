@@ -1,9 +1,9 @@
 import { StatusCodes } from 'http-status-codes'
 import { INodeParams } from 'flowise-components'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 import { IUploadFileSizeAndTypes, IReactFlowNode, IReactFlowEdge } from '../Interface'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
+import canvasService from '../services/spacesCanvas'
 
 type IUploadConfig = {
     isSpeechToTextEnabled: boolean
@@ -15,15 +15,18 @@ type IUploadConfig = {
 
 /**
  * Method that checks if uploads are enabled in the chatflow
- * @param {string} chatflowid
+ * @param {string} canvasId
  */
-export const utilGetUploadsConfig = async (chatflowid: string): Promise<IUploadConfig> => {
+export const utilGetUploadsConfig = async (canvasId: string): Promise<IUploadConfig> => {
     const appServer = getRunningExpressApp()
-    const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-        id: chatflowid
-    })
-    if (!chatflow) {
-        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+    let chatflow
+    try {
+        chatflow = await canvasService.getCanvasById(canvasId)
+    } catch (error: any) {
+        if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${canvasId} not found`)
+        }
+        throw error
     }
 
     const flowObj = JSON.parse(chatflow.flowData)

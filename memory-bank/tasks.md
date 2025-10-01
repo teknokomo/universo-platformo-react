@@ -1,3 +1,31 @@
+## IMPLEMENT - Canvas Controller & Flowise Alignment (2025-09-27)
+
+- [x] Update Flowise ExecuteFlow and ChatflowTool nodes to source Canvas records through the shared Canvas entity/service and display Canvas terminology in option labels.
+- [x] Refactor server controllers and services (OpenAI assistants file download, general file download, marketplace templates) to accept `canvasId` payloads and remove residual `chatflowId` DTO fields.
+- [x] Run `pnpm build` and `pnpm --filter flowise test --runInBand` to verify the refactor compiles and passes targeted coverage.
+
+## IMPLEMENT - Canvas Alias Decommission (2025-09-26)
+
+- [x] Remove the redundant chatflow-to-canvas migration and clean up registry references so fresh environments start directly with canvas identifiers.
+- [x] Delete legacy alias helpers (`withCanvasAlias`, `withCanvasAliases`) and refactor server code to rely on native canvas DTOs without fallback keys.
+- [x] Drop the auto-provision bridge in `SpacesService.getCanvasesForSpace`, ensuring all consumers provide explicit `spaceId` and `canvasId` values.
+- [x] Rename metrics and telemetry constants from `chatflow_*` to `canvas_*`, updating dependent modules and cached payloads.
+- [x] Run `pnpm build` and `pnpm test --filter server` to validate the cleanup.
+
+## IMPLEMENT - Chatflow Column Rename Alignment (2025-09-27)
+
+- [x] Generate forward migrations for Postgres, MySQL, MariaDB, and SQLite under `packages/server/src/database/migrations/<driver>/` that rename `chatflowid` columns, indexes, and constraints to `canvas_id` across chat persistence tables.
+- [x] Register the new migrations inside each driver-specific `index.ts` so TypeORM executes them automatically.
+- [x] Verify that migrations are idempotent by guarding against environments where the rename has already occurred.
+- [x] Run `pnpm build` and `pnpm test --filter server` to ensure schema bindings and runtime expectations remain valid.
+
+## IMPLEMENT - Chatflow Column Rename (2025-09-25)
+
+- [x] Generate Postgres migration to rename `chatflowid` columns to `canvas_id` across chat messages, leads, feedback, and upsert history, updating indexes and foreign keys.
+- [x] Mirror the column rename expectations in entities (`ChatMessage`, `ChatMessageFeedback`, `Lead`, `UpsertHistory`) so they expose `canvasId` mapped to the new database fields.
+- [x] Refactor services and utilities (including purge helpers and raw SQL) to reference `canvas_id` / `canvasId` consistently and update any serialized DTO payloads.
+- [x] Execute repository build and targeted server tests (`pnpm build`, `pnpm test --filter server`) verifying the migration compiles and runtime logic still works.
+
 ## IMPLEMENT - Localized Canvas Naming Fix (2025-09-23)
 
 - [x] Frontend: Replace temp canvas rename flow with local state in Canvas/CanvasTabs and ensure localized default propagates on save.

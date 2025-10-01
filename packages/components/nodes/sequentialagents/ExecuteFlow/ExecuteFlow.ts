@@ -41,7 +41,7 @@ class ExecuteFlow_SeqAgents implements INode {
         this.type = 'ExecuteFlow'
         this.icon = 'executeflow.svg'
         this.category = 'Sequential Agents'
-        this.description = `Execute chatflow/agentflow and return final response`
+        this.description = `Execute canvas/agentflow and return final response`
         this.baseClasses = [this.type]
         this.credential = {
             label: 'Connect Credential',
@@ -142,13 +142,13 @@ class ExecuteFlow_SeqAgents implements INode {
                 return returnData
             }
 
-            const chatflows = await appDataSource.getRepository(databaseEntities['ChatFlow']).find()
+            const canvases = await appDataSource.getRepository(databaseEntities['Canvas']).find()
 
-            for (let i = 0; i < chatflows.length; i += 1) {
-                const chatflow = chatflows[i] as any
+            for (let i = 0; i < canvases.length; i += 1) {
+                const canvas = canvases[i] as any
                 const data = {
-                    label: safeGet(chatflow, 'name', 'Unknown Flow'),
-                    name: safeGet(chatflow, 'id', '')
+                    label: safeGet(canvas, 'name', 'Unknown Flow'),
+                    name: safeGet(canvas, 'id', '')
                 } as INodeOptionsValue
                 returnData.push(data)
             }

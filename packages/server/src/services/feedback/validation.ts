@@ -65,17 +65,17 @@ export const validateFeedbackForCreation = async (feedback: Partial<IChatMessage
         feedback.chatId = message.chatId
     }
 
-    // If chatflowid is provided, validate it matches the message's chatflowid
-    if (feedback.chatflowid) {
-        if (message.chatflowid !== feedback.chatflowid) {
+    // If canvasId is provided, validate it matches the message's canvasId
+    if (feedback.canvasId) {
+        if (message.canvasId !== feedback.canvasId) {
             throw new InternalFlowiseError(
                 StatusCodes.BAD_REQUEST,
-                `Inconsistent chatflow ID: message with ID ${message.id} does not belong to chatflow with ID ${feedback.chatflowid}`
+                `Inconsistent canvas ID: message with ID ${message.id} does not belong to canvas with ID ${feedback.canvasId}`
             )
         }
     } else {
-        // If not provided, use the message's chatflowid
-        feedback.chatflowid = message.chatflowid
+        // If not provided, use the message's canvasId
+        feedback.canvasId = message.canvasId
     }
 
     return feedback
@@ -95,7 +95,7 @@ export const validateFeedbackForUpdate = async (
 
     feedback.messageId = feedback.messageId ?? existingFeedback.messageId
     feedback.chatId = feedback.chatId ?? existingFeedback.chatId
-    feedback.chatflowid = feedback.chatflowid ?? existingFeedback.chatflowid
+    feedback.canvasId = feedback.canvasId ?? existingFeedback.canvasId
 
     // If messageId is provided, validate it exists and get the message
     let message: ChatMessage | null = null
@@ -113,12 +113,12 @@ export const validateFeedbackForUpdate = async (
         }
     }
 
-    // If chatflowid is provided and we have a message, validate it matches the message's chatflowid
-    if (feedback.chatflowid && message) {
-        if (message?.chatflowid !== feedback.chatflowid) {
+    // If canvasId is provided and we have a message, validate it matches the message's canvasId
+    if (feedback.canvasId && message) {
+        if (message?.canvasId !== feedback.canvasId) {
             throw new InternalFlowiseError(
                 StatusCodes.BAD_REQUEST,
-                `Inconsistent chatflow ID: message with ID ${message?.id} does not belong to chatflow with ID ${feedback.chatflowid}`
+                `Inconsistent canvas ID: message with ID ${message?.id} does not belong to canvas with ID ${feedback.canvasId}`
             )
         }
     }

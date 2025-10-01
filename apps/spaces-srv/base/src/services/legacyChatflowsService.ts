@@ -13,7 +13,7 @@ export interface LegacyChatflowEntities {
 }
 
 export interface LegacyChatflowMetricsConfig {
-    chatflowCreatedCounter: string
+    canvasCreatedCounter: string
     agentflowCreatedCounter: string
     successStatusLabel: string
 }
@@ -395,9 +395,9 @@ export class LegacyChatflowsService {
             try {
                 await this.deps.removeFolderFromStorage(chatflowId)
                 await this.deps.updateDocumentStoreUsage(chatflowId, undefined)
-                await this.chatMessageRepository.delete({ chatflowid: chatflowId })
-                await this.chatMessageFeedbackRepository.delete({ chatflowid: chatflowId })
-                await this.upsertHistoryRepository.delete({ chatflowid: chatflowId })
+                await this.chatMessageRepository.delete({ canvasId: chatflowId })
+                await this.chatMessageFeedbackRepository.delete({ canvasId: chatflowId })
+                await this.upsertHistoryRepository.delete({ canvasId: chatflowId })
             } catch (cleanupError) {
                 this.deps.logger.error(`[spaces-srv]: Error deleting file storage for chatflow ${chatflowId}: ${cleanupError}`)
             }
@@ -526,9 +526,9 @@ export class LegacyChatflowsService {
             }
 
             if (this.deps.telemetry) {
-                await this.deps.telemetry.sendTelemetry('chatflow_created', {
+                await this.deps.telemetry.sendTelemetry('canvas_created', {
                     version: await this.deps.getAppVersion(),
-                    chatflowId: saved.id,
+                    canvasId: saved.id,
                     flowGraph: this.deps.getTelemetryFlowObj(
                         JSON.parse(saved.flowData)?.nodes,
                         JSON.parse(saved.flowData)?.edges
@@ -539,7 +539,7 @@ export class LegacyChatflowsService {
             this.deps.metricsProvider?.incrementCounter(
                 saved?.type === 'MULTIAGENT'
                     ? this.deps.metricsConfig.agentflowCreatedCounter
-                    : this.deps.metricsConfig.chatflowCreatedCounter,
+                    : this.deps.metricsConfig.canvasCreatedCounter,
                 { status: this.deps.metricsConfig.successStatusLabel }
             )
 

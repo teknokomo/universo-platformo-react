@@ -43,7 +43,6 @@ import nodesService from '../nodes'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
 import { getErrorMessage } from '../../errors/utils'
-import { ChatFlow } from '../../database/entities/ChatFlow'
 import { Document } from '@langchain/core/documents'
 import { UpsertHistory } from '../../database/entities/UpsertHistory'
 import { cloneDeep, omit } from 'lodash'
@@ -51,6 +50,7 @@ import { DOCUMENTSTORE_TOOL_DESCRIPTION_PROMPT_GENERATOR } from '../../utils/pro
 import { DataSource } from 'typeorm'
 import { Telemetry } from '../../utils/telemetry'
 import { INPUT_PARAMS_TYPE, OMIT_QUEUE_JOB_DATA } from '../../utils/constants'
+import canvasService from '../spacesCanvas'
 
 const DOCUMENT_STORE_BASE_FOLDER = 'docustore'
 
@@ -183,20 +183,23 @@ const getDocumentStoreById = async (storeId: string, unikId?: string) => {
 
 const getUsedChatflowNames = async (entity: DocumentStore) => {
     try {
-        const appServer = getRunningExpressApp()
         if (entity.whereUsed) {
             const whereUsed = JSON.parse(entity.whereUsed)
             const updatedWhereUsed: IDocumentStoreWhereUsed[] = []
             for (let i = 0; i < whereUsed.length; i++) {
-                const associatedChatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOne({
-                    where: { id: whereUsed[i] },
-                    select: ['id', 'name']
-                })
-                if (associatedChatflow) {
-                    updatedWhereUsed.push({
-                        id: whereUsed[i],
-                        name: associatedChatflow.name
-                    })
+                try {
+                    const associatedChatflow = await canvasService.getCanvasById(whereUsed[i])
+                    if (associatedChatflow) {
+                        updatedWhereUsed.push({
+                            id: whereUsed[i],
+                            name: associatedChatflow.name
+                        })
+                    }
+                } catch (error: any) {
+                    if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+                        continue
+                    }
+                    throw error
                 }
             }
             return updatedWhereUsed
@@ -323,7 +326,7 @@ const deleteDocumentStore = async (storeId: string, unikId?: string) => {
 
         // delete upsert history
         await appServer.AppDataSource.getRepository(UpsertHistory).delete({
-            chatflowid: storeId
+            canvasId: storeId
         })
 
         // now delete the store with unikId filter if provided
@@ -401,6 +404,7 @@ const deleteVectorStoreFromStore = async (storeId: string) => {
         }
 
         const options: ICommonObject = {
+            canvasId: storeId,
             chatflowid: storeId,
             appDataSource: appServer.AppDataSource,
             databaseEntities,
@@ -545,8 +549,10 @@ const _splitIntoChunks = async (appDataSource: DataSource, componentNodes: IComp
             inputs: { ...data.loaderConfig, textSplitter: splitterInstance },
             outputs: { output: 'document' }
         }
+        const tempCanvasId = uuidv4()
         const options: ICommonObject = {
-            chatflowid: uuidv4(),
+            canvasId: tempCanvasId,
+            chatflowid: tempCanvasId,
             appDataSource,
             databaseEntities,
             logger
@@ -1169,10 +1175,11 @@ const _insertIntoVectorStoreWorkerThread = async (
     try {
         const entity = await saveVectorStoreConfig(appDataSource, data, isStrictSave)
         let upsertHistory: Record<string, any> = {}
-        const chatflowid = data.storeId // fake chatflowid because this is not tied to any chatflow
+        const canvasId = data.storeId // fake canvasId because this is not tied to any canvas
 
         const options: ICommonObject = {
-            chatflowid,
+            canvasId,
+            chatflowid: canvasId,
             appDataSource,
             databaseEntities,
             logger
@@ -1218,7 +1225,7 @@ const _insertIntoVectorStoreWorkerThread = async (
             const result = cloneDeep(upsertHistory)
             result['flowData'] = JSON.stringify(result['flowData'])
             result['result'] = JSON.stringify(omit(indexResult, ['totalKeys', 'addedDocs']))
-            result.chatflowid = chatflowid
+            result.canvasId = canvasId
             const newUpsertHistory = new UpsertHistory()
             Object.assign(newUpsertHistory, result)
             const upsertHistoryItem = appDataSource.getRepository(UpsertHistory).create(newUpsertHistory)
@@ -1227,7 +1234,7 @@ const _insertIntoVectorStoreWorkerThread = async (
 
         await telemetry.sendTelemetry('vector_upserted', {
             version: await getAppVersion(),
-            chatlowId: chatflowid,
+            canvasId,
             type: ChatType.INTERNAL,
             flowGraph: omit(indexResult['result'], ['totalKeys', 'addedDocs'])
         })
@@ -1295,8 +1302,10 @@ const queryVectorStore = async (data: ICommonObject) => {
         if (!entity) {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Document store ${data.storeId} not found`)
         }
+        const tempCanvasId = uuidv4()
         const options: ICommonObject = {
-            chatflowid: uuidv4(),
+            canvasId: tempCanvasId,
+            chatflowid: tempCanvasId,
             appDataSource: appServer.AppDataSource,
             databaseEntities,
             logger

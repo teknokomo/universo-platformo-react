@@ -355,7 +355,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                 msg.artifacts = chatmsg.artifacts
                 msg.artifacts.forEach((artifact) => {
                     if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                        artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatmsg.chatflowid}&chatId=${
+                        artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.chatflowid}&chatId=${
                             chatmsg.chatId
                         }&fileName=${artifact.data.replace('FILE-STORAGE::', '')}`
                     }
@@ -493,7 +493,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
             if (chatmsg.fileUploads && Array.isArray(chatmsg.fileUploads)) {
                 chatmsg.fileUploads.forEach((file) => {
                     if (file.type === 'stored-file') {
-                        file.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatmsg.chatflowid}&chatId=${chatmsg.chatId}&fileName=${file.name}`
+                        file.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.chatflowid}&chatId=${chatmsg.chatId}&fileName=${file.name}`
                     }
                 })
             }
@@ -510,7 +510,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                 obj.artifacts = chatmsg.artifacts
                 obj.artifacts.forEach((artifact) => {
                     if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                        artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${chatmsg.chatflowid}&chatId=${
+                        artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.chatflowid}&chatId=${
                             chatmsg.chatId
                         }&fileName=${artifact.data.replace('FILE-STORAGE::', '')}`
                     }
@@ -591,7 +591,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         try {
             const response = await axios.post(
                 `${baseURL}/api/v1/openai-assistants-file/download`,
-                { fileName: fileAnnotation.fileName, chatflowId: dialogProps.chatflow.id, chatId: selectedChatId },
+                { fileName: fileAnnotation.fileName, canvasId: dialogProps.chatflow.id, chatId: selectedChatId },
                 { responseType: 'blob' }
             )
             const blob = new Blob([response.data], { type: response.headers['content-type'] })
@@ -768,7 +768,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
             const artifact = newArtifacts[i]
             if (artifact && (artifact.type === 'png' || artifact.type === 'jpeg')) {
                 const data = artifact.data
-                newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?chatflowId=${
+                newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?canvasId=${
                     dialogProps.chatflow.id
                 }&chatId=${selectedChatId}&fileName=${data.replace('FILE-STORAGE::', '')}`
             }

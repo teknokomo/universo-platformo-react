@@ -10,10 +10,9 @@ import {
 import { DataSource } from 'typeorm'
 import { CachePool } from './CachePool'
 import { Telemetry } from './utils/telemetry'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 
 export type MessageType = 'apiMessage' | 'userMessage'
-
-export type ChatflowType = 'CHATFLOW' | 'MULTIAGENT' | 'ASSISTANT'
 
 export type AssistantType = 'CUSTOM' | 'OPENAI' | 'AZURE'
 
@@ -36,50 +35,11 @@ export enum ChatMessageRatingType {
  */
 export type CanvasId = string
 
-export interface IChatFlow {
-    id: string
-    name: string
-    flowData: string
-    updatedDate: Date
-    createdDate: Date
-    deployed?: boolean
-    isPublic?: boolean
-    apikeyid?: string
-    analytic?: string
-    speechToText?: string
-    chatbotConfig?: string
-    followUpPrompts?: string
-    apiConfig?: string
-    category?: string
-    type?: ChatflowType
-    versionGroupId: string
-    versionUuid: string
-    versionLabel: string
-    versionDescription?: string
-    versionIndex: number
-    isActive: boolean
-}
-
-export interface ICanvasFlow extends IChatFlow {
-    canvasId: CanvasId
-}
-
-export const withCanvasAlias = <T extends IChatFlow>(chatflow: T): T & ICanvasFlow => {
-    return {
-        ...chatflow,
-        canvasId: chatflow.id
-    }
-}
-
-export const withCanvasAliases = <T extends IChatFlow>(chatflows: T[]): Array<T & ICanvasFlow> => {
-    return chatflows.map((chatflow) => withCanvasAlias(chatflow))
-}
-
 export interface IChatMessage {
     id: string
     role: MessageType
     content: string
-    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
+    canvasId: string
     sourceDocuments?: string
     usedTools?: string
     fileAnnotations?: string
@@ -99,7 +59,7 @@ export interface IChatMessage {
 export interface IChatMessageFeedback {
     id: string
     content?: string
-    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
+    canvasId: string
     chatId: string
     messageId: string
     rating: ChatMessageRatingType
@@ -151,14 +111,14 @@ export interface ILead {
     email?: string
     phone?: string
     points?: number
-    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
+    canvasId: string
     chatId: string
     createdDate: Date
 }
 
 export interface IUpsertHistory {
     id: string
-    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
+    canvasId: string
     result: string
     flowData: string
     date: Date
@@ -352,7 +312,7 @@ export interface IPredictionQueueAppServer {
 
 export interface IExecuteFlowParams extends IPredictionQueueAppServer {
     incomingInput: IncomingInput
-    chatflow: IChatFlow
+    chatflow: CanvasFlowResult
     chatId: string
     baseURL: string
     isInternal: boolean

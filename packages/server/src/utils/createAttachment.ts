@@ -14,7 +14,7 @@ import { getRunningExpressApp } from './getRunningExpressApp'
 import { getErrorMessage } from '../errors/utils'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
-import { ChatFlow } from '../database/entities/ChatFlow'
+import canvasService from '../services/spacesCanvas'
 
 /**
  * Create attachment
@@ -23,9 +23,9 @@ import { ChatFlow } from '../database/entities/ChatFlow'
 export const createFileAttachment = async (req: Request) => {
     const appServer = getRunningExpressApp()
 
-    const chatflowid = req.params.chatflowId
-    if (!chatflowid || !isValidUUID(chatflowid)) {
-        throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Invalid chatflowId format - must be a valid UUID')
+    const canvasId = req.params.canvasId
+    if (!canvasId || !isValidUUID(canvasId)) {
+        throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Invalid canvasId format - must be a valid UUID')
     }
 
     const chatId = req.params.chatId
@@ -34,16 +34,18 @@ export const createFileAttachment = async (req: Request) => {
     }
 
     // Check for path traversal attempts
-    if (isPathTraversal(chatflowid) || isPathTraversal(chatId)) {
+    if (isPathTraversal(canvasId) || isPathTraversal(chatId)) {
         throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Invalid path characters detected')
     }
 
-    // Validate chatflow exists and check API key
-    const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-        id: chatflowid
-    })
-    if (!chatflow) {
-        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+    // Validate canvas exists and check API key
+    try {
+        await canvasService.getCanvasById(canvasId)
+    } catch (error: any) {
+        if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found`)
+        }
+        throw error
     }
 
     // Find FileLoader node
@@ -53,7 +55,9 @@ export const createFileAttachment = async (req: Request) => {
     const fileLoaderNodeInstance = new fileLoaderNodeModule.nodeClass()
     const options = {
         retrieveAttachmentChatId: true,
-        chatflowid,
+        canvasId,
+        // Temporary bridge for nodes still expecting chatflowid option
+        chatflowid: canvasId,
         chatId
     }
     const files = (req.files as Express.Multer.File[]) || []
@@ -67,7 +71,7 @@ export const createFileAttachment = async (req: Request) => {
             // Address file name with special characters: https://github.com/expressjs/multer/issues/1104
             file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
 
-            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, chatflowid, chatId)
+            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId, chatId)
 
             const fileInputFieldFromMimeType = mapMimeTypeToInputField(file.mimetype)
 

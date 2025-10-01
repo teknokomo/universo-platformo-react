@@ -11,7 +11,7 @@ import { utilGetChatMessage } from '../../utils/getChatMessage'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import logger from '../../utils/logger'
 
-// Add chatmessages for chatflowid
+// Add chatmessages for a canvas
 const createChatMessage = async (chatMessage: Partial<IChatMessage>) => {
     try {
         const dbResponse = await utilAddChatMessage(chatMessage)
@@ -24,9 +24,9 @@ const createChatMessage = async (chatMessage: Partial<IChatMessage>) => {
     }
 }
 
-// Get all chatmessages from chatflowid
+// Get all chatmessages for a canvas
 const getAllChatMessages = async (
-    chatflowId: string,
+    canvasId: string,
     chatTypes: ChatType[] | undefined,
     sortOrder: string = 'ASC',
     chatId?: string,
@@ -40,7 +40,7 @@ const getAllChatMessages = async (
 ): Promise<ChatMessage[]> => {
     try {
         const dbResponse = await utilGetChatMessage({
-            chatflowid: chatflowId,
+            canvasId,
             chatTypes,
             sortOrder,
             chatId,
@@ -61,9 +61,9 @@ const getAllChatMessages = async (
     }
 }
 
-// Get internal chatmessages from chatflowid
+// Get internal chatmessages for a canvas
 const getAllInternalChatMessages = async (
-    chatflowId: string,
+    canvasId: string,
     chatTypes: ChatType[] | undefined,
     sortOrder: string = 'ASC',
     chatId?: string,
@@ -77,7 +77,7 @@ const getAllInternalChatMessages = async (
 ): Promise<ChatMessage[]> => {
     try {
         const dbResponse = await utilGetChatMessage({
-            chatflowid: chatflowId,
+            canvasId,
             chatTypes,
             sortOrder,
             chatId,
@@ -100,7 +100,7 @@ const getAllInternalChatMessages = async (
 
 const removeAllChatMessages = async (
     chatId: string,
-    chatflowid: string,
+    canvasId: string,
     deleteOptions: FindOptionsWhere<ChatMessage>
 ): Promise<DeleteResult> => {
     try {
@@ -110,12 +110,12 @@ const removeAllChatMessages = async (
         const feedbackDeleteOptions: FindOptionsWhere<ChatMessageFeedback> = { chatId }
         await appServer.AppDataSource.getRepository(ChatMessageFeedback).delete(feedbackDeleteOptions)
 
-        // Delete all uploads corresponding to this chatflow/chatId
+        // Delete all uploads corresponding to this canvas/chatId
         if (chatId) {
             try {
-                await removeFilesFromStorage(chatflowid, chatId)
+                await removeFilesFromStorage(canvasId, chatId)
             } catch (e) {
-                logger.error(`[server]: Error deleting file storage for chatflow ${chatflowid}, chatId ${chatId}: ${e}`)
+                logger.error(`[server]: Error deleting file storage for canvas ${canvasId}, chatId ${chatId}: ${e}`)
             }
         }
         const dbResponse = await appServer.AppDataSource.getRepository(ChatMessage).delete(deleteOptions)
@@ -129,7 +129,7 @@ const removeAllChatMessages = async (
 }
 
 const removeChatMessagesByMessageIds = async (
-    chatflowid: string,
+    canvasId: string,
     chatIdMap: Map<string, ChatMessage[]>,
     messageIds: string[]
 ): Promise<DeleteResult> => {
@@ -143,8 +143,8 @@ const removeChatMessagesByMessageIds = async (
             const feedbackDeleteOptions: FindOptionsWhere<ChatMessageFeedback> = { chatId }
             await appServer.AppDataSource.getRepository(ChatMessageFeedback).delete(feedbackDeleteOptions)
 
-            // Delete all uploads corresponding to this chatflow/chatId
-            await removeFilesFromStorage(chatflowid, chatId)
+        // Delete all uploads corresponding to this canvas/chatId
+            await removeFilesFromStorage(canvasId, chatId)
         }
 
         const dbResponse = await appServer.AppDataSource.getRepository(ChatMessage).delete(messageIds)
@@ -157,10 +157,10 @@ const removeChatMessagesByMessageIds = async (
     }
 }
 
-const abortChatMessage = async (chatId: string, chatflowid: string) => {
+const abortChatMessage = async (chatId: string, canvasId: string) => {
     try {
         const appServer = getRunningExpressApp()
-        const id = `${chatflowid}_${chatId}`
+        const id = `${canvasId}_${chatId}`
 
         if (process.env.MODE === MODE.QUEUE) {
             await appServer.queueManager.getPredictionQueueEventsProducer().publishEvent({

@@ -9,9 +9,9 @@ const router = express.Router()
  * Universo Platformo | Route for streaming chatbot responses
  * Uses the new streaming controller from the bots architecture
  */
-router.get(['/:chatflowid', '/:chatflowid/', '/:chatflowid/:sessionid', '/:chatflowid/:sessionid/'], async (req, res, next) => {
+router.get(['/:canvasId', '/:canvasId/', '/:canvasId/:sessionid', '/:canvasId/:sessionid/'], async (req, res, next) => {
     try {
-        logger.debug(`Chat streaming request received for chatflow: ${req.params.chatflowid}`)
+        logger.debug(`Chat streaming request received for canvas: ${req.params.canvasId}`)
 
         // Universo Platformo | Use the new controller for streaming
         await chatStreamingController.getStreamingResponse(req, res, next)

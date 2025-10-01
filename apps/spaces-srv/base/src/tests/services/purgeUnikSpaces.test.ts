@@ -5,10 +5,10 @@ type FakeTableState = {
   spaces: Array<{ id: string; unik_id: string }>
   spaces_canvases: Array<{ id: string; space_id: string; canvas_id: string }>
   canvases: Array<{ id: string }>
-  chat_message: Array<{ chatflowid: string }>
-  chat_message_feedback: Array<{ chatflowid: string }>
-  upsert_history: Array<{ chatflowid: string }>
-  lead: Array<{ chatflowid: string }>
+  chat_message: Array<{ canvas_id: string }>
+  chat_message_feedback: Array<{ canvas_id: string }>
+  upsert_history: Array<{ canvas_id: string }>
+  lead: Array<{ canvas_id: string }>
   document_store: Array<{ id: string; whereUsed: string }>
 }
 
@@ -131,18 +131,18 @@ const createFakeManager = (stateOverrides: Partial<FakeTableState> = {}) => {
             state.canvases = state.canvases.filter((row) => !ids.includes(row.id))
             return { affected: 1 }
           case 'delete:chat_message':
-            state.chat_message = state.chat_message.filter((row) => !ids.includes(row.chatflowid))
+            state.chat_message = state.chat_message.filter((row) => !ids.includes(row.canvas_id))
             return { affected: 1 }
           case 'delete:chat_message_feedback':
             state.chat_message_feedback = state.chat_message_feedback.filter(
-              (row) => !ids.includes(row.chatflowid)
+              (row) => !ids.includes(row.canvas_id)
             )
             return { affected: 1 }
           case 'delete:upsert_history':
-            state.upsert_history = state.upsert_history.filter((row) => !ids.includes(row.chatflowid))
+            state.upsert_history = state.upsert_history.filter((row) => !ids.includes(row.canvas_id))
             return { affected: 1 }
           case 'delete:lead':
-            state.lead = state.lead.filter((row) => !ids.includes(row.chatflowid))
+            state.lead = state.lead.filter((row) => !ids.includes(row.canvas_id))
             return { affected: 1 }
           case 'update:document_store': {
             const id = context.where?.params?.id
@@ -183,10 +183,10 @@ describe('purgeSpacesForUnik', () => {
         { id: 'sc-3', space_id: 'space-3', canvas_id: 'canvas-3' }
       ],
       canvases: [{ id: 'canvas-1' }, { id: 'canvas-2' }, { id: 'canvas-3' }],
-      chat_message: [{ chatflowid: 'canvas-1' }, { chatflowid: 'canvas-2' }],
-      chat_message_feedback: [{ chatflowid: 'canvas-1' }],
-      upsert_history: [{ chatflowid: 'canvas-2' }],
-      lead: [{ chatflowid: 'canvas-1' }],
+      chat_message: [{ canvas_id: 'canvas-1' }, { canvas_id: 'canvas-2' }],
+      chat_message_feedback: [{ canvas_id: 'canvas-1' }],
+      upsert_history: [{ canvas_id: 'canvas-2' }],
+      lead: [{ canvas_id: 'canvas-1' }],
       document_store: [
         { id: 'doc-1', whereUsed: JSON.stringify(['canvas-1', 'canvas-3']) },
         { id: 'doc-2', whereUsed: JSON.stringify(['canvas-2']) }

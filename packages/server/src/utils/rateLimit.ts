@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { rateLimit, RateLimitRequestHandler } from 'express-rate-limit'
-import { IChatFlow, MODE } from '../Interface'
+import { MODE } from '../Interface'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 import { Mutex } from 'async-mutex'
 import { RedisStore } from 'rate-limit-redis'
 import Redis from 'ioredis'
@@ -119,7 +120,7 @@ export class RateLimiterManager {
         }
     }
 
-    public async updateRateLimiter(chatFlow: IChatFlow, isInitialized?: boolean): Promise<void> {
+    public async updateRateLimiter(chatFlow: CanvasFlowResult, isInitialized?: boolean): Promise<void> {
         if (!chatFlow.apiConfig) return
         const apiConfig = JSON.parse(chatFlow.apiConfig)
 
@@ -145,7 +146,7 @@ export class RateLimiterManager {
         }
     }
 
-    public async initializeRateLimiters(chatflows: IChatFlow[]): Promise<void> {
+    public async initializeRateLimiters(chatflows: CanvasFlowResult[]): Promise<void> {
         await Promise.all(
             chatflows.map(async (chatFlow) => {
                 await this.updateRateLimiter(chatFlow, true)

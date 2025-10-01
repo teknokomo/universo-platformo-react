@@ -1,10 +1,10 @@
 import { EntityManager } from 'typeorm'
 
-const CHATFLOW_TABLES: Array<{ table: string; column: string }> = [
-  { table: 'chat_message', column: 'chatflowid' },
-  { table: 'chat_message_feedback', column: 'chatflowid' },
-  { table: 'upsert_history', column: 'chatflowid' },
-  { table: 'lead', column: 'chatflowid' }
+const CANVAS_TABLES: Array<{ table: string; column: string }> = [
+  { table: 'chat_message', column: 'canvas_id' },
+  { table: 'chat_message_feedback', column: 'canvas_id' },
+  { table: 'upsert_history', column: 'canvas_id' },
+  { table: 'lead', column: 'canvas_id' }
 ]
 
 const parseJsonArray = (
@@ -55,7 +55,7 @@ const deleteChatflowArtifacts = async (manager: EntityManager, canvasIds: string
   if (canvasIds.length === 0) return
 
   await Promise.all(
-    CHATFLOW_TABLES.map(({ table, column }) =>
+    CANVAS_TABLES.map(({ table, column }) =>
       manager
         .createQueryBuilder()
         .delete()

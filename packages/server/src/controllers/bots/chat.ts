@@ -1,10 +1,9 @@
 // Universo Platformo | Chat bot controller
 import { Request, Response, NextFunction } from 'express'
 import logger from '../../utils/logger'
-import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import { ChatFlow } from '../../database/entities/ChatFlow'
 import { StatusCodes } from 'http-status-codes'
 import { ICommonObject } from 'flowise-components'
+import canvasService from '../../services/spacesCanvas'
 
 // Universo Platformo | Helper function to safely parse JSON
 const safeParseJSON = (jsonString: string | null | undefined): ICommonObject => {
@@ -25,7 +24,6 @@ export class ChatBotController {
      */
     renderBot = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
         try {
-            const appServer = getRunningExpressApp()
             const id = req.params.id
             logger.info(`[CHAT CONTROLLER] Rendering Chat Bot with ID: ${id}`)
 
@@ -37,12 +35,23 @@ export class ChatBotController {
                 })
             }
 
-            // Universo Platformo | Get ChatFlow directly from DB
-            const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id })
+            let chatflow
+            try {
+                chatflow = await canvasService.getCanvasById(id)
+            } catch (error: any) {
+                if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+                    logger.error(`[CHAT CONTROLLER] Chatflow ${id} not found`)
+                    return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
+                        error: 'Chat Bot config not found',
+                        botType: 'chat'
+                    })
+                }
+                throw error
+            }
 
             if (!chatflow) {
                 logger.error(`[CHAT CONTROLLER] Chatflow ${id} not found`)
-                return res.status(404).set('Content-Type', 'application/json').json({
+                return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
                     error: 'Chat Bot config not found',
                     botType: 'chat'
                 })
@@ -78,7 +87,6 @@ export class ChatBotController {
      */
     getBotConfig = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
         try {
-            const appServer = getRunningExpressApp()
             const id = req.params.id
             logger.info(`[CHAT CONTROLLER] Getting Chat Bot config with ID: ${id}`)
 
@@ -90,12 +98,23 @@ export class ChatBotController {
                 })
             }
 
-            // Universo Platformo | Get ChatFlow directly from DB
-            const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id })
+            let chatflow
+            try {
+                chatflow = await canvasService.getCanvasById(id)
+            } catch (error: any) {
+                if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+                    logger.error(`[CHAT CONTROLLER] Config not found for ${id}`)
+                    return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
+                        error: 'Chat Bot config not found',
+                        botType: 'chat'
+                    })
+                }
+                throw error
+            }
 
             if (!chatflow) {
                 logger.error(`[CHAT CONTROLLER] Config not found for ${id}`)
-                return res.status(404).set('Content-Type', 'application/json').json({
+                return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
                     error: 'Chat Bot config not found',
                     botType: 'chat'
                 })

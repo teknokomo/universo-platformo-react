@@ -9,11 +9,10 @@ import { getErrorMessage } from '../../errors/utils'
 import { MODE } from '../../Interface'
 import logger from '../../utils/logger'
 import canvasService from '../../services/spacesCanvas'
-import { ChatFlow } from '../../database/entities/ChatFlow'
 import { ICommonObject } from 'flowise-components'
 import { resolveRequestUserId, workspaceAccessService } from '../../services/access-control'
 
-const ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this chatflow'
+const ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this canvas'
 
 // Universo Platformo | Helper function to safely parse JSON (copied from chat.ts)
 const safeParseJSON = (jsonString: string | null | undefined): ICommonObject => {
@@ -35,40 +34,52 @@ export class ChatStreamingController {
     getStreamingResponse = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
         try {
             const appServer = getRunningExpressApp()
-            const chatflowid = req.params.chatflowid ?? (req.params as any).id
-            if (!chatflowid) {
+            const canvasId = req.params.canvasId ?? (req.params as any).id
+            if (!canvasId) {
                 throw new InternalFlowiseError(
                     StatusCodes.PRECONDITION_FAILED,
-                    `Error: ChatStreamingController.getStreamingResponse - chatflowid not provided!`
+                    `Error: ChatStreamingController.getStreamingResponse - canvasId not provided!`
                 )
             }
 
             const sessionid = req.params.sessionid || uuidv4()
-            logger.info(`Streaming request for chat bot (chatflow: ${chatflowid}, session: ${sessionid})`)
+            logger.info(`Streaming request for chat bot (canvas: ${canvasId}, session: ${sessionid})`)
 
             // Universo Platformo | Check that the chatflow exists and supports streaming
-            const streamable = await canvasService.checkIfCanvasIsValidForStreaming(chatflowid)
+            const streamable = await canvasService.checkIfCanvasIsValidForStreaming(canvasId)
             if (!streamable || !streamable.isStreaming) {
-                return res.status(400).json({ error: 'Chatflow not configured for streaming' })
+                return res.status(400).json({ error: 'Canvas not configured for streaming' })
             }
 
-            // Universo Platformo | Get ChatFlow directly from DB to check botType
-            const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: chatflowid })
+            let chatflow
+            try {
+                chatflow = await canvasService.getCanvasById(canvasId)
+            } catch (error: any) {
+                if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+                    logger.error(`Canvas ${canvasId} not found`)
+                    return res.status(StatusCodes.NOT_FOUND).json({
+                        error: 'Chat Bot not found or not public'
+                    })
+                }
+                throw error
+            }
+
             if (!chatflow) {
-                logger.error(`Chatflow ${chatflowid} not found`)
-                return res.status(404).json({
+                logger.error(`Canvas ${canvasId} not found`)
+                return res.status(StatusCodes.NOT_FOUND).json({
                     error: 'Chat Bot not found or not public'
                 })
             }
 
             // Universo Platformo | Check user access to the Unik this chatflow belongs to
-            if (chatflow && chatflow.unik && chatflow.unik.id) {
+            const unikId = await workspaceAccessService.getUnikIdForCanvas(canvasId)
+            if (unikId) {
                 const userId = resolveRequestUserId(req)
                 if (!userId) {
                     return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
                 }
 
-                const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, chatflow.unik.id)
+                const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, unikId)
                 if (!hasAccess) {
                     return res.status(403).json({ error: ACCESS_DENIED_MESSAGE })
                 }
@@ -78,7 +89,7 @@ export class ChatStreamingController {
 
             // Universo Platformo | Verify that this is a chat bot
             if (config.botType !== 'chat' && config.botType !== undefined) {
-                logger.error(`Bot with ID ${chatflowid} is not a chat bot (type: ${config.botType})`)
+                logger.error(`Bot with ID ${canvasId} is not a chat bot (type: ${config.botType})`)
                 return res.status(400).json({
                     error: 'Bot type mismatch',
                     message: 'The requested bot is not a chat bot.'

@@ -7,14 +7,14 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 
 const streamUploadedFile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.query.chatflowId || !req.query.chatId || !req.query.fileName) {
+        if (!req.query.canvasId || !req.query.chatId || !req.query.fileName) {
             return res.status(500).send(`Invalid file path`)
         }
-        const chatflowId = req.query.chatflowId as string
+        const canvasId = req.query.canvasId as string
         const chatId = req.query.chatId as string
         const fileName = req.query.fileName as string
         res.setHeader('Content-Disposition', contentDisposition(fileName))
-        const fileStream = await streamStorageFile(chatflowId, chatId, fileName)
+        const fileStream = await streamStorageFile(canvasId, chatId, fileName)
 
         if (!fileStream) throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: streamStorageFile`)
 

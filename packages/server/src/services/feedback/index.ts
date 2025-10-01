@@ -6,16 +6,16 @@ import { IChatMessageFeedback } from '../../Interface'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
-// Get all chatmessage feedback from chatflowid
+// Get all chatmessage feedback for a canvas
 const getAllChatMessageFeedback = async (
-    chatflowid: string,
+    canvasId: string,
     chatId: string | undefined,
     sortOrder: string | undefined,
     startDate: string | undefined,
     endDate: string | undefined
 ) => {
     try {
-        const dbResponse = await utilGetChatMessageFeedback(chatflowid, chatId, sortOrder, startDate, endDate)
+        const dbResponse = await utilGetChatMessageFeedback(canvasId, chatId, sortOrder, startDate, endDate)
         return dbResponse
     } catch (error) {
         throw new InternalFlowiseError(

@@ -120,7 +120,7 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
             unikId
         }
         if (dialogProps.chatflow) {
-            template.chatflowId = dialogProps.chatflow.id
+            template.canvasId = dialogProps.chatflow.id
         }
         if (dialogProps.tool) {
             template.tool = {

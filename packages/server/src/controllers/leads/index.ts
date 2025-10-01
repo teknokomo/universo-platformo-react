@@ -11,8 +11,8 @@ const getAllLeadsForChatflow = async (req: Request, res: Response, next: NextFun
                 `Error: leadsController.getAllLeadsForChatflow - id not provided!`
             )
         }
-        const chatflowid = req.params.id
-        const apiResponse = await leadsService.getAllLeads(chatflowid)
+        const canvasId = req.params.id
+        const apiResponse = await leadsService.getAllLeads(canvasId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -27,7 +27,14 @@ const createLeadInChatflow = async (req: Request, res: Response, next: NextFunct
                 `Error: leadsController.createLeadInChatflow - body not provided!`
             )
         }
-        const apiResponse = await leadsService.createLead(req.body)
+        const payload = { ...req.body }
+        if (!payload.canvasId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: leadsController.createLeadInChatflow - canvasId not provided!`
+            )
+        }
+        const apiResponse = await leadsService.createLead(payload)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

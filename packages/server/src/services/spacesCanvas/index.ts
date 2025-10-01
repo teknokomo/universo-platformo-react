@@ -51,7 +51,7 @@ export const canvasServiceConfig = {
             }
         },
         metricsConfig: {
-            chatflowCreatedCounter: FLOWISE_METRIC_COUNTERS.CHATFLOW_CREATED,
+            canvasCreatedCounter: FLOWISE_METRIC_COUNTERS.CANVAS_CREATED,
             agentflowCreatedCounter: FLOWISE_METRIC_COUNTERS.AGENTFLOW_CREATED,
             successStatusLabel: FLOWISE_COUNTER_STATUS.SUCCESS
         },

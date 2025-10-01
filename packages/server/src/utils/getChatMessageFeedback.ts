@@ -4,14 +4,14 @@ import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 
 /**
  * Method that get chat messages.
- * @param {string} chatflowid
+ * @param {string} canvasId
  * @param {string} sortOrder
  * @param {string} chatId
  * @param {string} startDate
  * @param {string} endDate
  */
 export const utilGetChatMessageFeedback = async (
-    chatflowid: string,
+    canvasId: string,
     chatId?: string,
     sortOrder: string = 'ASC',
     startDate?: string,
@@ -25,7 +25,7 @@ export const utilGetChatMessageFeedback = async (
     if (endDate) toDate = new Date(endDate)
     return await appServer.AppDataSource.getRepository(ChatMessageFeedback).find({
         where: {
-            chatflowid,
+            canvasId,
             chatId,
             createdDate: toDate && fromDate ? Between(fromDate, toDate) : undefined
         },

@@ -7,8 +7,6 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import logger from '../../utils/logger'
 import { resolveRequestUserId, workspaceAccessService } from '../../services/access-control'
-import { ChatFlow } from '../../database/entities/ChatFlow'
-import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 
 const ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this bot'
 
@@ -58,17 +56,16 @@ const getBotConfig = async (req: Request, res: Response, next: NextFunction): Pr
         logger.info(`[BOT CONFIG] Getting bot config for ID: ${botId}`)
 
         // Universo Platformo | Retrieve chatflow to check its Unik ID
-        const appServer = getRunningExpressApp()
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
+        const unikId = await workspaceAccessService.getUnikIdForCanvas(botId)
 
         // Universo Platformo | If chatflow belongs to a Unik, verify user access
-        if (chatflow && chatflow.unik && chatflow.unik.id) {
+        if (unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
             }
 
-            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, chatflow.unik.id)
+            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, unikId)
             if (!hasAccess) {
                 return res.status(403).json({ error: ACCESS_DENIED_MESSAGE })
             }
@@ -128,17 +125,16 @@ const renderBot = async (req: Request, res: Response, next: NextFunction): Promi
         logger.info(`[BOT RENDER] Rendering bot for ID: ${botId}`)
 
         // Universo Platformo | Retrieve chatflow to check its Unik ID
-        const appServer = getRunningExpressApp()
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
+        const unikId = await workspaceAccessService.getUnikIdForCanvas(botId)
 
         // Universo Platformo | If chatflow belongs to a Unik, verify user access
-        if (chatflow && chatflow.unik && chatflow.unik.id) {
+        if (unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
             }
 
-            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, chatflow.unik.id)
+            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, unikId)
             if (!hasAccess) {
                 return res.status(403).json({ error: ACCESS_DENIED_MESSAGE })
             }
@@ -201,17 +197,16 @@ const streamBot = async (req: Request, res: Response, next: NextFunction): Promi
         const botId = req.params.id
 
         // Universo Platformo | Retrieve chatflow to check its Unik ID
-        const appServer = getRunningExpressApp()
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: botId })
+        const unikId = await workspaceAccessService.getUnikIdForCanvas(botId)
 
         // Universo Platformo | If chatflow belongs to a Unik, verify user access
-        if (chatflow && chatflow.unik && chatflow.unik.id) {
+        if (unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
             }
 
-            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, chatflow.unik.id)
+            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, unikId)
             if (!hasAccess) {
                 return res.status(403).json({ error: ACCESS_DENIED_MESSAGE })
             }

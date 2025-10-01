@@ -6,12 +6,12 @@ import { ILead } from '../../Interface'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
-const getAllLeads = async (chatflowid: string) => {
+const getAllLeads = async (canvasId: string) => {
     try {
         const appServer = getRunningExpressApp()
         const dbResponse = await appServer.AppDataSource.getRepository(Lead).find({
             where: {
-                chatflowid
+                canvasId
             }
         })
         return dbResponse
