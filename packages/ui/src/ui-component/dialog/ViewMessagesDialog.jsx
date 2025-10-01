@@ -335,7 +335,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                 chatmsg.fileUploads.forEach((file) => {
                     if (file.type === 'stored-file') {
                         filePaths.push(
-                            `${storagePath}${fileSeparator}${chatmsg.chatflowid}${fileSeparator}${chatmsg.chatId}${fileSeparator}${file.name}`
+                            `${storagePath}${fileSeparator}${chatmsg.canvasId}${fileSeparator}${chatmsg.chatId}${fileSeparator}${file.name}`
                         )
                     }
                 })
@@ -355,7 +355,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                 msg.artifacts = chatmsg.artifacts
                 msg.artifacts.forEach((artifact) => {
                     if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                        artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.chatflowid}&chatId=${
+                        artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.canvasId}&chatId=${
                             chatmsg.chatId
                         }&fileName=${artifact.data.replace('FILE-STORAGE::', '')}`
                     }
@@ -493,7 +493,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
             if (chatmsg.fileUploads && Array.isArray(chatmsg.fileUploads)) {
                 chatmsg.fileUploads.forEach((file) => {
                     if (file.type === 'stored-file') {
-                        file.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.chatflowid}&chatId=${chatmsg.chatId}&fileName=${file.name}`
+                        file.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.canvasId}&chatId=${chatmsg.chatId}&fileName=${file.name}`
                     }
                 })
             }
@@ -510,7 +510,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                 obj.artifacts = chatmsg.artifacts
                 obj.artifacts.forEach((artifact) => {
                     if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                        artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.chatflowid}&chatId=${
+                        artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${chatmsg.canvasId}&chatId=${
                             chatmsg.chatId
                         }&fileName=${artifact.data.replace('FILE-STORAGE::', '')}`
                     }

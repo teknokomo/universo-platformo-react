@@ -26,6 +26,7 @@ import {
     IncomingInput
 } from '../Interface'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
+import { Canvas } from '@universo/spaces-srv'
 import { cloneDeep, get, isEqual } from 'lodash'
 import {
     convertChatHistoryToText,
@@ -96,7 +97,8 @@ export const databaseEntities: IDatabaseEntity = {
     Assistant: Assistant,
     Variable: Variable,
     DocumentStore: DocumentStore,
-    DocumentStoreFileChunk: DocumentStoreFileChunk
+    DocumentStoreFileChunk: DocumentStoreFileChunk,
+    Canvas: Canvas
 }
 
 /**
