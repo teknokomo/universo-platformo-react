@@ -228,14 +228,25 @@ const Canvas = () => {
     // ==============================|| Chatflow API ||============================== //
 
     const getNodesApi = useApi(nodesApi.getAllNodes)
+    const mergeSpaceOptions = useCallback(
+        (options = {}) => {
+            const { spaceId: overrideSpaceId, ...restOptions } = options || {}
+            const resolvedSpaceId =
+                overrideSpaceId !== undefined ? overrideSpaceId : spaceId
+
+            return { ...restOptions, spaceId: resolvedSpaceId }
+        },
+        [spaceId]
+    )
+
     const getCanvasApi = useApi((unik, canvasId, options = {}) =>
-        canvasesApi.getCanvas(unik, canvasId, { ...options, spaceId })
+        canvasesApi.getCanvas(unik, canvasId, mergeSpaceOptions(options))
     )
     const updateCanvasApi = useApi((unik, canvasId, body, options = {}) =>
-        canvasesApi.updateCanvas(unik, canvasId, body, { ...options, spaceId })
+        canvasesApi.updateCanvas(unik, canvasId, body, mergeSpaceOptions(options))
     )
     const deleteCanvasApi = useApi((unik, canvasId, options = {}) =>
-        canvasesApi.deleteCanvas(unik, canvasId, { ...options, spaceId })
+        canvasesApi.deleteCanvas(unik, canvasId, mergeSpaceOptions(options))
     )
     const getSpaceApi = useApi(() => (spaceId ? spacesApi.getSpace(parentUnikId, spaceId) : null))
     const createSpaceApi = useApi(spacesApi.createSpace)
@@ -620,21 +631,29 @@ const Canvas = () => {
             })
             const payload = response?.data || response
             const defaultCanvas = payload?.defaultCanvas
+            const createdSpaceId =
+                defaultCanvas?.spaceId ||
+                defaultCanvas?.space_id ||
+                payload?.id ||
+                payload?.spaceId ||
+                payload?.space_id ||
+                null
 
             if (defaultCanvas?.id) {
                 if (isAgentCanvas) {
-                    await updateCanvasApi.request(parentUnikId, defaultCanvas.id, {
-                        type: 'MULTIAGENT'
-                    })
+                    await updateCanvasApi.request(
+                        parentUnikId,
+                        defaultCanvas.id,
+                        {
+                            type: 'MULTIAGENT'
+                        },
+                        { spaceId: createdSpaceId }
+                    )
                 }
 
                 const canvasAsChatflow = buildCanvasAsChatflow(defaultCanvas, {
                     unikId: parentUnikId,
-                    spaceId:
-                        defaultCanvas.spaceId ||
-                        defaultCanvas.space_id ||
-                        payload?.id ||
-                        null,
+                    spaceId: createdSpaceId,
                     spaceName: payload?.name || sanitizedName,
                     isAgentCanvas
                 })
