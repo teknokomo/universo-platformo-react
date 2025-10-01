@@ -114,6 +114,7 @@ export class ChatStreamingController {
                 }
 
                 // Universo Platformo | Prepare request for streaming
+                ;(req.params as any).id = canvasId
                 req.body = {
                     question: req.query.q || '',
                     chatId: chatId,
