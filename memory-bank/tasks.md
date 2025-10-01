@@ -4,6 +4,19 @@
 - [x] Backend: Extend Spaces create pipeline with defaultCanvasName validation and localized seeding.
 - [x] Cleanup: Remove auto-rename side effects, adjust tests, and document the new behavior.
 
+## IMPLEMENT - Spaces Canvas View canvasesApi Migration (2025-09-24)
+
+- [x] Audit `apps/spaces-frt/base/src/views/canvas/index.jsx` to list every remaining `chatflowsApi` dependency and understand how `useCanvases` currently behaves.
+- [x] Replace legacy `useApi` wrappers with calls to `canvasesApi` (or hook helpers) for create/update/delete/duplicate/reorder/import/export/version flows, wiring required `{ unikId, spaceId, canvasId }` arguments.
+- [x] Update event handlers (`handleSaveFlow`, `handleDeleteFlow`, template duplication, upsert) to use the hook operations and keep Redux state (`SET_CHATFLOW`, dirty flags) synchronized.
+- [x] Remove lingering `chatflow` terminology/state within the component so it consistently treats the entity as a canvas within a space while preserving compatibility with `CanvasHeader` props.
+
+## IMPLEMENT - Flowise canvases API helper introduction (2025-09-24)
+
+- [x] Create a Flowise canvases API helper mirroring the Spaces implementation and targeting `/spaces/:spaceId/canvases` plus `/canvases/:canvasId` endpoints.
+- [x] Refactor `packages/ui/src/api/chatflows.js` to delegate CRUD calls to the canvases helper while emitting deprecation warnings for fallback paths.
+- [x] Expose the canvases helper through Flowise API barrel exports or documentation points so downstream modules can adopt it.
+
 ## PLAN - Canvas Versioning MVP (2025-09-23)
 
 ### Overview
@@ -739,4 +752,11 @@ Enhance markerless AR experience with additional options.
  - [x] Expose GET/PUT/DELETE endpoints under `/spaces/:spaceId/canvases/:canvasId` and ensure the legacy controller forwards the `spaceId` scope for CRUD actions.
  - [x] Extend backend tests (controller + spaces router) to cover the new nested routes and confirm scope enforcement.
  - [x] Run `pnpm build` to validate the workspace after wiring the new routes and tests.
+
+## IMPLEMENT - Flowise Canvas Migration Cleanup (2025-09-25)
+
+- [x] Replace remaining `chatflowsApi` usage inside `apps/spaces-frt/base/src/views/canvas` with `canvasesApi` and hook helpers for CRUD/version actions.
+- [x] Migrate Flowise UI components (API layer, list views, dialogs, chat message) to the new canvases helper targeting `/spaces/:spaceId/canvases` and `/canvases/:canvasId` while preserving compatibility shims only where unavoidable.
+- [x] Update Flowise routing, menus, and i18n resources to use Canvas terminology and ensure legacy `/chatflows` paths redirect to the new routes.
+- [x] Run scoped and root builds (`pnpm --filter @universo/spaces-frt build`, `pnpm --filter @universo/ui build`, `pnpm build`) to confirm type safety after the refactor.
 

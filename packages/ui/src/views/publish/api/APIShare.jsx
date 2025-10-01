@@ -87,7 +87,7 @@ const curlCode = (chatflowid) => {
 
 const APIShare = ({ chatflowid, unikId }) => {
     const [value, setValue] = useState(0)
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
 
     const handleChange = (event, newValue) => {
         setValue(newValue)

@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useParams } from 'react-router-dom'
 
 // project imports
 import MainLayout from '@/layout/MainLayout'
@@ -25,8 +25,8 @@ const EntityDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then
 // Workspace dashboard component
 const UnikDetail = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikDetail.jsx')))
 
-// chatflows routing
-const Chatflows = Loadable(lazy(() => import('@/views/chatflows')))
+// canvases routing (Flowise list view)
+const Canvases = Loadable(lazy(() => import('@/views/canvases')))
 
 // spaces routing (load from spaces-frt package)
 const Spaces = Loadable(lazy(() => import('@apps/spaces-frt/base/src/views/spaces')))
@@ -76,6 +76,11 @@ const UniksContainer = () => <Outlet />
 const ClustersContainer = () => <Outlet />
 const MetaversesContainer = () => <Outlet />
 
+const LegacyPublishedChatflowRedirect = () => {
+    const { chatflowId } = useParams()
+    return <Navigate to={`/published/canvas/${chatflowId}`} replace />
+}
+
 const MainRoutes = {
     path: '/',
     element: <MainLayout />,
@@ -113,7 +118,11 @@ const MainRoutes = {
                         },
                         {
                             path: 'chatflows',
-                            element: <Chatflows />
+                            element: <Navigate to='../canvases' replace />
+                        },
+                        {
+                            path: 'canvases',
+                            element: <Canvases />
                         },
                         {
                             path: 'spaces',
@@ -344,7 +353,7 @@ const PublicCanvasRoutes = {
         // Legacy redirect route
         {
             path: 'chatflow/:chatflowId',
-            element: <PublicFlowView />
+            element: <LegacyPublishedChatflowRedirect />
         }
     ]
 }

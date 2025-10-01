@@ -46,7 +46,7 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
     useEffect(() => {
         if (chatflow && !chatflow.id) {
             const menus = isAgentCanvas ? agentsettings : settings
-            const base = menus.children.filter((menu) => menu.id === 'loadChatflow')
+            const base = menus.children.filter((menu) => menu.id === 'loadCanvas')
             setSettingsMenu(base)
         } else if (chatflow && chatflow.id) {
             if (isCustomAssistant) {
@@ -58,7 +58,7 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
                 // В режиме Пространства переименуем пункт удаления на "Удалить пространство"
                 if (!isAgentCanvas) {
                     items = items.map((m) =>
-                        m.id === 'deleteChatflow'
+                        m.id === 'deleteCanvas'
                             ? { ...m, id: 'deleteSpace', title: i18n.t('canvas:contextMenu.deleteSpace') }
                             : m
                     )
@@ -97,7 +97,7 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
                     pl: `24px`
                 }}
                 onClick={() => {
-                    if (menu.id === 'loadChatflow' && inputFile) {
+                    if (menu.id === 'loadCanvas' && inputFile) {
                         inputFile?.current.click()
                     } else {
                         onSettingsItemClick(menu.id)

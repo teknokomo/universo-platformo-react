@@ -50,7 +50,7 @@ import { IconBulb, IconBox, IconVariable, IconExclamationCircle, IconX } from '@
 
 // API
 import apiKeyApi from '@/api/apikey'
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 import configApi from '@/api/config'
 import variablesApi from '@/api/variables'
 
@@ -100,9 +100,10 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const apiConfig = chatflow?.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
     const overrideConfigStatus = apiConfig?.overrideConfig?.status !== undefined ? apiConfig.overrideConfig.status : false
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
     const { t: tPub } = useTranslation('publish')
     const { enqueueSnackbar, closeSnackbar } = useSnackbar()
+    const resolvedSpaceId = dialogProps?.spaceId || chatflow?.spaceId || chatflow?.space_id || null
 
     const [value, setValue] = useState(0)
     const [codes, setCodes] = useState([])
@@ -127,8 +128,8 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     })
 
     const getAllAPIKeysApi = useApi(apiKeyApi.getAllAPIKeys)
-    const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
-    const getIsChatflowStreamingApi = useApi(chatflowsApi.getIsChatflowStreaming)
+    const updateCanvasApi = useApi(canvasesApi.updateCanvas)
+    const getCanvasStreamingApi = useApi(canvasesApi.getCanvasStreaming)
     const getConfigApi = useApi(configApi.getConfig)
     const getAllVariablesApi = useApi(variablesApi.getAllVariables)
 
@@ -150,7 +151,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
         const updateBody = {
             apikeyid: keyValue
         }
-        updateChatflowApi.request(unikId, dialogProps.chatflowid, updateBody)
+        updateCanvasApi.request(unikId, dialogProps.chatflowid, updateBody, { spaceId: resolvedSpaceId })
     }
 
     const groupByNodeLabel = (nodes) => {
@@ -269,10 +270,10 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     }
 
     useEffect(() => {
-        if (updateChatflowApi.data) {
-            dispatch({ type: SET_CHATFLOW, chatflow: updateChatflowApi.data })
+        if (updateCanvasApi.data) {
+            dispatch({ type: SET_CHATFLOW, chatflow: updateCanvasApi.data })
         }
-    }, [updateChatflowApi.data, dispatch])
+    }, [updateCanvasApi.data, dispatch])
 
     useEffect(() => {
         if (getConfigApi.data) {
@@ -327,7 +328,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     useEffect(() => {
         if (show) {
             getAllAPIKeysApi.request(unikId)
-            getIsChatflowStreamingApi.request(unikId, dialogProps.chatflowid)
+            getCanvasStreamingApi.request(unikId, dialogProps.chatflowid, { spaceId: resolvedSpaceId })
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -991,7 +992,7 @@ formData.append("openAIApiKey[openAIEmbeddings_0]", "sk-my-openai-2nd-key")`
                                         </div>
                                     </>
                                 )}
-                                {getIsChatflowStreamingApi.data?.isStreaming && (
+                                {getCanvasStreamingApi.data?.isStreaming && (
                                     <p>
                                         {t('apiCodeDialog.readHere')}&nbsp;
                                         <a rel='noreferrer' target='_blank' href='https://docs.flowiseai.com/using-flowise/streaming'>

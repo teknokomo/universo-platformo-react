@@ -15,11 +15,17 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 import useNotifier from '@/utils/useNotifier'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 const StarterPrompts = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
+
+    const chatflow = dialogProps?.chatflow || {}
+    const unikId = dialogProps?.unikId || chatflow.unik_id || chatflow.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
+    const canvasId = dialogProps?.canvasId || chatflow.id || dialogProps?.chatflowid
 
     useNotifier()
 
@@ -64,13 +70,14 @@ const StarterPrompts = ({ dialogProps }) => {
             }
             chatbotConfig.starterPrompts = value.starterPrompts
 
-            // Use unikId and canvasId from parameters or from chatflow
-            const unikId = dialogProps.unikId || dialogProps.chatflow?.unik_id;
-            const canvasId = dialogProps.canvasId || dialogProps.chatflow?.id;
-
-            const saveResp = await chatflowsApi.updateChatflow(unikId, canvasId, {
-                chatbotConfig: JSON.stringify(chatbotConfig)
-            });
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    chatbotConfig: JSON.stringify(chatbotConfig)
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: 'Conversation Starter Prompts Saved',
@@ -87,9 +94,10 @@ const StarterPrompts = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `Failed to save Conversation Starter Prompts: ${typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                    }`,
+                message: `Failed to save Conversation Starter Prompts: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',

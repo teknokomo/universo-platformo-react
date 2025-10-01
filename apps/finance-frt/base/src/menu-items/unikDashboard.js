@@ -43,10 +43,10 @@ const unikDashboard = {
             breadcrumbs: false
         },
         {
-            id: 'chatflows',
-            title: 'menu.chatflows',
+            id: 'spaces',
+            title: 'menu.spaces',
             type: 'item',
-            url: '/chatflows',
+            url: '/spaces',
             icon: icons.IconHierarchy,
             breadcrumbs: true
         },

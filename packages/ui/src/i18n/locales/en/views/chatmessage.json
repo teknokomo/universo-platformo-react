@@ -49,6 +49,9 @@
       "submitFeedback": "Submit Feedback",
       "feedbackSuccess": "Feedback submitted successfully",
       "feedbackError": "Failed to submit feedback"
+    },
+    "errors": {
+      "missingCanvasContext": "Unable to load canvas capabilities because the unik context is unavailable. Refresh the page and try again."
     }
   },
   "chatbot": {

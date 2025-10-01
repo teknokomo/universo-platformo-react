@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
+import { useState, useRef, useEffect, useCallback, Fragment, useMemo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
 import { cloneDeep } from 'lodash'
@@ -66,7 +66,7 @@ import './ChatMessage.css'
 
 // api
 import chatmessageApi from '@/api/chatmessage'
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 import predictionApi from '@/api/prediction'
 import vectorstoreApi from '@/api/vectorstore'
 import attachmentsApi from '@/api/attachments'
@@ -81,7 +81,12 @@ import { baseURL, maxScroll } from '@/store/constant'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 
 // Utils
-import { isValidURL, removeDuplicateURL, setLocalStorageChatflow, getLocalStorageChatflow } from '@/utils/genericHelper'
+import {
+    isValidURL,
+    removeDuplicateURL,
+    setLocalStorageCanvas,
+    getLocalStorageCanvas
+} from '@/utils/genericHelper'
 import useNotifier from '@/utils/useNotifier'
 import FollowUpPromptsCard from '@/ui-component/cards/FollowUpPromptsCard'
 
@@ -92,6 +97,27 @@ const messageImageStyle = {
     width: '128px',
     height: '128px',
     objectFit: 'cover'
+}
+
+const normalizeIdentifier = (value) => {
+    if (value === null || value === undefined) return undefined
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed.length ? trimmed : undefined
+    }
+    if (typeof value === 'number') return String(value)
+    if (typeof value === 'object') {
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                const normalized = normalizeIdentifier(item)
+                if (normalized) return normalized
+            }
+            return undefined
+        }
+        if ('id' in value) return normalizeIdentifier(value.id)
+        if ('value' in value) return normalizeIdentifier(value.value)
+    }
+    return undefined
 }
 
 const CardWithDeleteOverlay = ({ item, disabled, customization, onDelete }) => {
@@ -161,13 +187,25 @@ CardWithDeleteOverlay.propTypes = {
     onDelete: PropTypes.func
 }
 
-export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, previews, setPreviews, chatConfig }) => {
+export const ChatMessage = ({
+    open,
+    chatflowid,
+    isAgentCanvas,
+    isDialog,
+    previews,
+    setPreviews,
+    chatConfig,
+    unikId,
+    spaceId
+}) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
+    const activeCanvas = useSelector((state) => state.canvas?.chatflow)
     const { t } = useTranslation('chatmessage')
     const { client } = useAuth()
 
     const ps = useRef()
+    const capabilityToastShownRef = useRef(false)
 
     const dispatch = useDispatch()
 
@@ -177,6 +215,55 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     // For agents, chatflowid now represents canvasId
     const canvasId = isAgentCanvas ? chatflowid : chatflowid
+    const resolvedUnikId = useMemo(() => {
+        const candidates = [
+            unikId,
+            chatConfig?.unikId,
+            chatConfig?.unik_id,
+            chatConfig?.unikID,
+            chatConfig?.unik?.id,
+            chatConfig?.unik,
+            activeCanvas?.unikId,
+            activeCanvas?.unik_id,
+            activeCanvas?.unikID,
+            activeCanvas?.unik?.id,
+            activeCanvas?.unik
+        ]
+        for (const candidate of candidates) {
+            const normalized = normalizeIdentifier(candidate)
+            if (normalized) return normalized
+        }
+        if (typeof window !== 'undefined' && window?.localStorage) {
+            try {
+                const stored = window.localStorage.getItem('parentUnikId')
+                const normalized = normalizeIdentifier(stored)
+                if (normalized) return normalized
+            } catch (error) {
+                // Ignore storage access errors (e.g., privacy mode)
+            }
+        }
+        return undefined
+    }, [unikId, chatConfig, activeCanvas])
+    const resolvedSpaceId = useMemo(() => {
+        const candidates = [
+            spaceId,
+            chatConfig?.spaceId,
+            chatConfig?.space_id,
+            chatConfig?.spaceID,
+            chatConfig?.space?.id,
+            chatConfig?.space,
+            activeCanvas?.spaceId,
+            activeCanvas?.space_id,
+            activeCanvas?.spaceID,
+            activeCanvas?.space?.id,
+            activeCanvas?.space
+        ]
+        for (const candidate of candidates) {
+            const normalized = normalizeIdentifier(candidate)
+            if (normalized) return normalized
+        }
+        return undefined
+    }, [spaceId, chatConfig, activeCanvas])
 
     const [userInput, setUserInput] = useState('')
     const [loading, setLoading] = useState(false)
@@ -199,8 +286,10 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     const inputRef = useRef(null)
     const getChatmessageApi = useApi(chatmessageApi.getInternalChatmessageFromChatflow)
-    const getIsChatflowStreamingApi = useApi(chatflowsApi.getIsChatflowStreaming)
-    const getAllowChatFlowUploads = useApi(chatflowsApi.getAllowChatflowUploads)
+    const getCanvasStreamingApi = useApi(canvasesApi.getCanvasStreaming)
+    const getCanvasUploadsApi = useApi(canvasesApi.getCanvasUploads)
+
+    const [canvasCapabilitiesLoaded, setCanvasCapabilitiesLoaded] = useState(false)
 
     const [starterPrompts, setStarterPrompts] = useState([])
 
@@ -233,21 +322,37 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     const [isChatFlowAvailableForRAGFileUploads, setIsChatFlowAvailableForRAGFileUploads] = useState(false)
     const [isDragActive, setIsDragActive] = useState(false)
 
+    const resetCanvasCapabilities = useCallback(() => {
+        setCanvasCapabilitiesLoaded(false)
+        setIsChatFlowAvailableToStream(false)
+        setIsChatFlowAvailableForSpeech(false)
+        setIsChatFlowAvailableForImageUploads(false)
+        setIsChatFlowAvailableForFileUploads(false)
+        setIsChatFlowAvailableForRAGFileUploads(false)
+        setImageUploadAllowedTypes('')
+        setFileUploadAllowedTypes('')
+        setFullFileUploadAllowedTypes('')
+    }, [])
+
     // recording
     const [isRecording, setIsRecording] = useState(false)
     const [recordingNotSupported, setRecordingNotSupported] = useState(false)
     const [isLoadingRecording, setIsLoadingRecording] = useState(false)
 
     const isFileAllowedForUpload = (file) => {
-        const constraints = getAllowChatFlowUploads.data
+        const constraints = getCanvasUploadsApi.data
+        if (!constraints) {
+            alert('Upload capabilities are still loading. Please try again in a moment.')
+            return false
+        }
         /**
          * {isImageUploadAllowed: boolean, imgUploadSizeAndTypes: Array<{ fileTypes: string[], maxUploadSize: number }>}
          */
         let acceptFile = false
-        if (constraints.isImageUploadAllowed) {
+        if (constraints?.isImageUploadAllowed) {
             const fileType = file.type
             const sizeInMB = file.size / 1024 / 1024
-            constraints.imgUploadSizeAndTypes.map((allowed) => {
+            constraints.imgUploadSizeAndTypes?.map((allowed) => {
                 if (allowed.fileTypes.includes(fileType) && sizeInMB <= allowed.maxUploadSize) {
                     acceptFile = true
                 }
@@ -256,10 +361,10 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
         if (fullFileUpload) {
             return true
-        } else if (constraints.isRAGFileUploadAllowed) {
+        } else if (constraints?.isRAGFileUploadAllowed) {
             const fileExt = file.name.split('.').pop()
             if (fileExt) {
-                constraints.fileUploadSizeAndTypes.map((allowed) => {
+                constraints.fileUploadSizeAndTypes?.map((allowed) => {
                     if (allowed.fileTypes.length === 1 && allowed.fileTypes[0] === '*') {
                         acceptFile = true
                     } else if (allowed.fileTypes.includes(`.${fileExt}`)) {
@@ -849,7 +954,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                         }
                     ])
 
-                    setLocalStorageChatflow(canvasId, data.chatId)
+                    setLocalStorageCanvas(canvasId, data.chatId)
                     setLoading(false)
                     setUserInput('')
                     setUploadedFiles([])
@@ -933,7 +1038,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                         closeResponse()
                         break
                     case 'end':
-                        setLocalStorageChatflow(canvasId, chatId)
+                        setLocalStorageCanvas(canvasId, chatId)
                         closeResponse()
                         break
                 }
@@ -1076,7 +1181,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                 return obj
             })
             setMessages((prevMessages) => [...prevMessages, ...loadedMessages])
-            setLocalStorageChatflow(canvasId, chatId)
+            setLocalStorageCanvas(canvasId, chatId)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1084,23 +1189,27 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     // Get chatflow streaming capability
     useEffect(() => {
-        if (getIsChatflowStreamingApi.data) {
-            setIsChatFlowAvailableToStream(getIsChatflowStreamingApi.data?.isStreaming ?? false)
+        if (getCanvasStreamingApi.data) {
+            setIsChatFlowAvailableToStream(getCanvasStreamingApi.data?.isStreaming ?? false)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getIsChatflowStreamingApi.data])
+    }, [getCanvasStreamingApi.data])
 
     // Get chatflow uploads capability
     useEffect(() => {
-        if (getAllowChatFlowUploads.data) {
-            setIsChatFlowAvailableForImageUploads(getAllowChatFlowUploads.data?.isImageUploadAllowed ?? false)
-            setIsChatFlowAvailableForRAGFileUploads(getAllowChatFlowUploads.data?.isRAGFileUploadAllowed ?? false)
-            setIsChatFlowAvailableForSpeech(getAllowChatFlowUploads.data?.isSpeechToTextEnabled ?? false)
-            setImageUploadAllowedTypes(getAllowChatFlowUploads.data?.imgUploadSizeAndTypes.map((allowed) => allowed.fileTypes).join(','))
-            setFileUploadAllowedTypes(getAllowChatFlowUploads.data?.fileUploadSizeAndTypes.map((allowed) => allowed.fileTypes).join(','))
+        if (getCanvasUploadsApi.data) {
+            setIsChatFlowAvailableForImageUploads(getCanvasUploadsApi.data?.isImageUploadAllowed ?? false)
+            setIsChatFlowAvailableForRAGFileUploads(getCanvasUploadsApi.data?.isRAGFileUploadAllowed ?? false)
+            setIsChatFlowAvailableForSpeech(getCanvasUploadsApi.data?.isSpeechToTextEnabled ?? false)
+            setImageUploadAllowedTypes(
+                getCanvasUploadsApi.data?.imgUploadSizeAndTypes.map((allowed) => allowed.fileTypes).join(',')
+            )
+            setFileUploadAllowedTypes(
+                getCanvasUploadsApi.data?.fileUploadSizeAndTypes.map((allowed) => allowed.fileTypes).join(',')
+            )
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getAllowChatFlowUploads.data])
+    }, [getCanvasUploadsApi.data])
 
     // Universo Platformo | Use useEffect to handle chatConfig passed via props
     useEffect(() => {
@@ -1135,7 +1244,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             if (chatConfig.leads) {
                 setLeadsConfig(chatConfig.leads)
                 console.log('Set leadsConfig:', chatConfig.leads)
-                if (chatConfig.leads.status && !getLocalStorageChatflow(canvasId)?.lead) {
+                if (chatConfig.leads.status && !getLocalStorageCanvas(canvasId)?.lead) {
                     console.log('Leads status is enabled and lead is not saved, showing form.')
                     setMessages((prevMessages) => {
                         // Universo Platformo | Check if a message for lead capture has already been added
@@ -1188,6 +1297,11 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
     }, [chatConfig, canvasId]) // Added canvasId as a dependency
 
     useEffect(() => {
+        if (!canvasCapabilitiesLoaded) {
+            setIsChatFlowAvailableForFileUploads(false)
+            return
+        }
+
         if (fullFileUpload) {
             setIsChatFlowAvailableForFileUploads(true)
         } else if (isChatFlowAvailableForRAGFileUploads) {
@@ -1195,7 +1309,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         } else {
             setIsChatFlowAvailableForFileUploads(false)
         }
-    }, [isChatFlowAvailableForRAGFileUploads, fullFileUpload])
+    }, [canvasCapabilitiesLoaded, isChatFlowAvailableForRAGFileUploads, fullFileUpload])
 
     // Auto scroll chat to bottom
     useEffect(() => {
@@ -1212,10 +1326,64 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
 
     useEffect(() => {
         if (open && canvasId) {
+            capabilityToastShownRef.current = false
+
+            resetCanvasCapabilities()
+
             // API request
             getChatmessageApi.request(canvasId)
-            getIsChatflowStreamingApi.request(canvasId)
-            getAllowChatFlowUploads.request(canvasId)
+
+            const loadCanvasCapabilities = async () => {
+                const effectiveUnikId = resolvedUnikId
+                const effectiveSpaceId = resolvedSpaceId
+
+                if (!effectiveUnikId) {
+                    if (!capabilityToastShownRef.current) {
+                        capabilityToastShownRef.current = true
+                        enqueueSnackbar({
+                            message: t(
+                                'chatMessage.errors.missingCanvasContext',
+                                'Unable to resolve canvas context.'
+                            ),
+                            options: {
+                                key: new Date().getTime() + Math.random(),
+                                variant: 'error'
+                            }
+                        })
+                    }
+                    resetCanvasCapabilities()
+                    return
+                }
+
+                const requestOptions = effectiveSpaceId ? { spaceId: effectiveSpaceId } : undefined
+
+                try {
+                    await Promise.all([
+                        getCanvasStreamingApi.request(effectiveUnikId, canvasId, requestOptions),
+                        getCanvasUploadsApi.request(effectiveUnikId, canvasId, requestOptions)
+                    ])
+                    setCanvasCapabilitiesLoaded(true)
+                } catch (error) {
+                    const serverMessage =
+                        error?.response?.data?.error ||
+                        error?.response?.data?.message ||
+                        error?.message
+
+                    if (serverMessage && !capabilityToastShownRef.current) {
+                        capabilityToastShownRef.current = true
+                        enqueueSnackbar({
+                            message: serverMessage,
+                            options: {
+                                key: new Date().getTime() + Math.random(),
+                                variant: 'error'
+                            }
+                        })
+                    }
+                    resetCanvasCapabilities()
+                }
+            }
+
+            loadCanvasCapabilities()
 
             // Scroll to bottom
             scrollToBottom()
@@ -1223,7 +1391,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             setIsRecording(false)
 
             // leads
-            const savedLead = getLocalStorageChatflow(canvasId)?.lead
+            const savedLead = getLocalStorageCanvas(canvasId)?.lead
             if (savedLead) {
                 setIsLeadSaved(!!savedLead)
                 setLeadEmail(savedLead.email)
@@ -1251,10 +1419,12 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
             setFullFileUpload(false)
             setIsLeadSaved(false)
             setLeadEmail('')
+            resetCanvasCapabilities()
+            capabilityToastShownRef.current = false
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, canvasId])
+    }, [open, canvasId, resolvedUnikId, resolvedSpaceId, resetCanvasCapabilities])
 
     useEffect(() => {
         // wait for audio recording to load and then send
@@ -1377,7 +1547,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
         if (result.data) {
             const data = result.data
             setChatId(data.chatId)
-            setLocalStorageChatflow(canvasId, data.chatId, { lead: { name: leadName, email: leadEmail, phone: leadPhone } })
+            setLocalStorageCanvas(canvasId, data.chatId, { lead: { name: leadName, email: leadEmail, phone: leadPhone } })
             setIsLeadSaved(true)
             setLeadEmail(leadEmail)
             setMessages((prevMessages) => {
@@ -1601,12 +1771,12 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                 />
             )}
             {isDragActive &&
-                (getAllowChatFlowUploads.data?.isImageUploadAllowed || getAllowChatFlowUploads.data?.isRAGFileUploadAllowed) && (
+                (getCanvasUploadsApi.data?.isImageUploadAllowed || getCanvasUploadsApi.data?.isRAGFileUploadAllowed) && (
                     <Box className='drop-overlay'>
                         <Typography variant='h2'>Drop here to upload</Typography>
                         {[
-                            ...getAllowChatFlowUploads.data.imgUploadSizeAndTypes,
-                            ...getAllowChatFlowUploads.data.fileUploadSizeAndTypes
+                            ...getCanvasUploadsApi.data.imgUploadSizeAndTypes,
+                            ...getCanvasUploadsApi.data.fileUploadSizeAndTypes
                         ].map((allowed) => {
                             return (
                                 <>
@@ -1941,7 +2111,7 @@ export const ChatMessage = ({ open, chatflowid, isAgentCanvas, isDialog, preview
                                         )}
                                         <div className='markdownanswer'>
                                             {message.type === 'leadCaptureMessage' &&
-                                                !getLocalStorageChatflow(canvasId)?.lead &&
+                                                !getLocalStorageCanvas(canvasId)?.lead &&
                                                 leadsConfig.status ? (
                                                 <Box
                                                     sx={{
@@ -2490,7 +2660,9 @@ ChatMessage.propTypes = {
     isDialog: PropTypes.bool,
     previews: PropTypes.array,
     setPreviews: PropTypes.func,
-    chatConfig: PropTypes.object // Added chatConfig to propTypes
+    chatConfig: PropTypes.object,
+    unikId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    spaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 
 export default ChatMessage

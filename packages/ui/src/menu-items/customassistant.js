@@ -31,7 +31,7 @@ const customAssistantSettings = {
             icon: icons.IconUsers
         },
         {
-            id: 'chatflowConfiguration',
+            id: 'canvasConfiguration',
             title: 'Configuration',
             type: 'item',
             url: '',

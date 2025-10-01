@@ -54,6 +54,8 @@ const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel,
                     open={dialogProps.open}
                     isAgentCanvas={isAgentCanvas}
                     chatflowid={dialogProps.chatflowid}
+                    unikId={dialogProps.unikId}
+                    spaceId={dialogProps.spaceId}
                     previews={previews}
                     setPreviews={setPreviews}
                 />

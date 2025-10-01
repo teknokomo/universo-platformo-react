@@ -4,7 +4,7 @@ import { useParams, useLocation } from 'react-router-dom'
 import PropTypes from 'prop-types'
 
 // Project import
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 import useApi from '@/hooks/useApi'
 import { Backdrop, CircularProgress } from '@mui/material'
 
@@ -20,13 +20,13 @@ const BotLoader = ({ botId: propBotId, type: propType }) => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [botType, setBotType] = useState(propType || null)
-    const [chatflow, setChatflow] = useState(null)
+    const [canvas, setCanvas] = useState(null)
 
-    const getSpecificChatflowFromPublicApi = useApi(chatflowsApi.getSpecificChatflowFromPublicEndpoint)
+    const getPublicCanvasApi = useApi(canvasesApi.getPublicCanvas)
 
     useEffect(() => {
         if (botId) {
-            getSpecificChatflowFromPublicApi.request(botId)
+            getPublicCanvasApi.request(botId)
         } else {
             setError('Bot ID not provided')
             setLoading(false)
@@ -34,20 +34,20 @@ const BotLoader = ({ botId: propBotId, type: propType }) => {
     }, [botId])
 
     useEffect(() => {
-        if (getSpecificChatflowFromPublicApi.error) {
-            setError(getSpecificChatflowFromPublicApi.error.message)
+        if (getPublicCanvasApi.error) {
+            setError(getPublicCanvasApi.error.message)
             setLoading(false)
         }
-    }, [getSpecificChatflowFromPublicApi.error])
+    }, [getPublicCanvasApi.error])
 
     useEffect(() => {
-        if (getSpecificChatflowFromPublicApi.data) {
-            setChatflow(getSpecificChatflowFromPublicApi.data)
+        if (getPublicCanvasApi.data) {
+            setCanvas(getPublicCanvasApi.data)
             // Determine bot type based on URL and data
-            determineBotType(getSpecificChatflowFromPublicApi.data)
+            determineBotType(getPublicCanvasApi.data)
             setLoading(false)
         }
-    }, [getSpecificChatflowFromPublicApi.data])
+    }, [getPublicCanvasApi.data])
 
     const determineBotType = (flowData) => {
         const params = new URLSearchParams(location.search)
@@ -87,8 +87,8 @@ const BotLoader = ({ botId: propBotId, type: propType }) => {
         return <div>Error: {error}</div>
     }
 
-    if (!chatflow) {
-        return <div>Invalid Chatflow</div>
+    if (!canvas) {
+        return <div>Invalid Canvas</div>
     }
 
     return (

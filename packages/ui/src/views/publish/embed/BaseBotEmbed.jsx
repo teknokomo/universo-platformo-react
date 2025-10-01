@@ -63,7 +63,7 @@ const BaseBotEmbed = ({
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedCheckboxVal, setEmbedCheckbox] = useState(false)
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
 
     const onCheckBoxEmbedChanged = (newVal) => {
         setEmbedCheckbox(newVal)
@@ -117,7 +117,7 @@ const BaseBotEmbed = ({
                 </Tabs>
             </Box>
             <Box sx={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
-                <Typography sx={{ fontSize: '0.875rem' }}>{t('chatflows.embedBot.customization')}</Typography>
+                <Typography sx={{ fontSize: '0.875rem' }}>{t('canvases.embedBot.customization')}</Typography>
                 <CheckboxInput
                     label={''}
                     defaultValue={embedCheckboxVal}

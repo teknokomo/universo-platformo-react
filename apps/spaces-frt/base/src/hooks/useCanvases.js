@@ -15,8 +15,12 @@ const useCanvases = (spaceId) => {
   // API hooks
   const getCanvasesApi = useApi(() => canvasesApi.getCanvases(unikId, spaceId))
   const createCanvasApi = useApi(canvasesApi.createCanvas)
-  const updateCanvasApi = useApi(canvasesApi.updateCanvas)
-  const deleteCanvasApi = useApi(canvasesApi.deleteCanvas)
+  const updateCanvasApi = useApi((unik, canvasId, body, options = {}) =>
+    canvasesApi.updateCanvas(unik, canvasId, body, { ...options, spaceId })
+  )
+  const deleteCanvasApi = useApi((unik, canvasId, options = {}) =>
+    canvasesApi.deleteCanvas(unik, canvasId, { ...options, spaceId })
+  )
   const reorderCanvasesApi = useApi(canvasesApi.reorderCanvases)
 
   // Load canvases when spaceId changes
@@ -108,21 +112,21 @@ const useCanvases = (spaceId) => {
 
   const renameCanvas = useCallback(async (canvasId, newName) => {
     if (!canvasId || !newName?.trim()) return false
-    await updateCanvasApi.request(unikId, canvasId, { name: newName.trim() })
+    await updateCanvasApi.request(unikId, canvasId, { name: newName.trim() }, { spaceId })
     setCanvases((prev) => prev.map((c) => (c.id === canvasId ? { ...c, name: newName.trim() } : c)))
     return true
-  }, [unikId, updateCanvasApi])
+  }, [unikId, spaceId, updateCanvasApi])
 
   const deleteCanvas = useCallback(async (canvasId) => {
     if (!canvasId || canvases.length <= 1) return false
-    await deleteCanvasApi.request(unikId, canvasId)
+    await deleteCanvasApi.request(unikId, canvasId, { spaceId })
     if (activeCanvasId === canvasId) {
       const remain = canvases.filter((c) => c.id !== canvasId)
       if (remain.length > 0) setActiveCanvasId(remain[0].id)
     }
     await getCanvasesApi.request()
     return true
-  }, [canvases, activeCanvasId, unikId, deleteCanvasApi, getCanvasesApi])
+  }, [canvases, activeCanvasId, unikId, spaceId, deleteCanvasApi, getCanvasesApi])
 
   const duplicateCanvas = useCallback(async (canvasId) => {
     const src = canvases.find((c) => c.id === canvasId)
@@ -152,10 +156,10 @@ const useCanvases = (spaceId) => {
 
   const updateCanvasData = useCallback(async (canvasId, data) => {
     if (!canvasId) return false
-    await updateCanvasApi.request(unikId, canvasId, data)
+    await updateCanvasApi.request(unikId, canvasId, data, { spaceId })
     setCanvases((prev) => prev.map((c) => (c.id === canvasId ? { ...c, ...data } : c)))
     return true
-  }, [unikId, updateCanvasApi])
+  }, [unikId, spaceId, updateCanvasApi])
 
   const getActiveCanvas = useCallback(() => canvases.find((c) => c.id === activeCanvasId) || null, [canvases, activeCanvasId])
 

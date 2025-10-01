@@ -52,9 +52,9 @@ import ruTemplatesTranslation from './locales/ru/views/templates.json'
 
 // Canvas translations now come from spaces-frt module
 
-// Universo Platformo | Import chatflows namespaces
-import enChatflowsTranslation from './locales/en/views/chatflows.json'
-import ruChatflowsTranslation from './locales/ru/views/chatflows.json'
+// Universo Platformo | Import canvases namespaces (legacy chatflows)
+import enCanvasesTranslation from './locales/en/views/canvases.json'
+import ruCanvasesTranslation from './locales/ru/views/canvases.json'
 
 // Universo Platformo | Import chatmessage namespaces
 import enChatmessageTranslation from './locales/en/views/chatmessage.json'
@@ -103,8 +103,9 @@ i18n.use(LanguageDetector)
                     tools: enToolsTranslation,
                     templates: enTemplatesTranslation,
                     // canvas translations provided by spacesFrtTranslations below
-                    // Use the nested object to avoid double key level (chatflows.chatflows.*)
-                    chatflows: enChatflowsTranslation?.chatflows || enChatflowsTranslation,
+                    canvases: enCanvasesTranslation?.canvases || enCanvasesTranslation,
+                    // Legacy namespace alias for backward compatibility
+                    chatflows: enCanvasesTranslation?.canvases || enCanvasesTranslation,
                     chatmessage: enChatmessageTranslation,
                     flowList: enFlowListTranslation.flowList || enFlowListTranslation,
                     publish: publishTranslations.en.publish,
@@ -134,7 +135,8 @@ i18n.use(LanguageDetector)
                     tools: ruToolsTranslation,
                     templates: ruTemplatesTranslation,
                     // canvas translations provided by spacesFrtTranslations below
-                    chatflows: ruChatflowsTranslation?.chatflows || ruChatflowsTranslation,
+                    canvases: ruCanvasesTranslation?.canvases || ruCanvasesTranslation,
+                    chatflows: ruCanvasesTranslation?.canvases || ruCanvasesTranslation,
                     chatmessage: ruChatmessageTranslation,
                     flowList: ruFlowListTranslation.flowList || ruFlowListTranslation,
                     publish: publishTranslations.ru.publish,
@@ -176,6 +178,7 @@ i18n.use(LanguageDetector)
                 'templates',
                 'spaces',
                 'canvas',
+                'canvases',
                 'chatflows',
                 'chatmessage',
                 'flowList',

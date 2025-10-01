@@ -45,7 +45,25 @@ const StyledTableRow = styled(TableRow)(() => ({
 }))
 
 const getLocalStorageKeyName = (name, isAgentCanvas) => {
-    return (isAgentCanvas ? 'agentcanvas' : 'chatflowcanvas') + '_' + name
+    if (isAgentCanvas) {
+        return `agentcanvas_${name}`
+    }
+
+    const legacyKey = `chatflowcanvas_${name}`
+    const newKey = `canvaslist_${name}`
+
+    try {
+        const legacyValue = localStorage.getItem(legacyKey)
+        if (legacyValue !== null && localStorage.getItem(newKey) === null) {
+            localStorage.setItem(newKey, legacyValue)
+            localStorage.removeItem(legacyKey)
+        }
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('[FlowListTable] Unable to migrate legacy chatflow localStorage keys', error)
+    }
+
+    return newKey
 }
 
 export const FlowListTable = ({
@@ -90,6 +108,27 @@ export const FlowListTable = ({
               return 0
           })
         : []
+
+    const resolveUnikId = (row) => row.unikId || row.unik_id || localStorage.getItem('parentUnikId') || ''
+    const resolveSpaceId = (row) => row.spaceId || row.space_id || row.spaceID || null
+
+    const buildEntityLink = (row) => {
+        if (isUnikTable) {
+            return `/unik/${row.id}`
+        }
+
+        const unik = resolveUnikId(row)
+        if (isAgentCanvas) {
+            return unik ? `/unik/${unik}/agentcanvas/${row.id}` : `/agentcanvas/${row.id}`
+        }
+
+        const space = resolveSpaceId(row)
+        if (unik && space) {
+            return `/unik/${unik}/space/${space}/canvas/${row.id}`
+        }
+
+        return `/canvas/${row.id}`
+    }
 
     return (
         <>
@@ -191,11 +230,7 @@ export const FlowListTable = ({
                                                     }}
                                                 >
                                                     <Link
-                                                        to={
-                                                            isUnikTable
-                                                                ? `/unik/${row.id}`
-                                                                : `/${isAgentCanvas ? 'agentcanvas' : 'canvas'}/${row.id}`
-                                                        }
+                                                        to={buildEntityLink(row)}
                                                         style={{ color: '#2196f3', textDecoration: 'none' }}
                                                     >
                                                         {row.templateName || row.name}

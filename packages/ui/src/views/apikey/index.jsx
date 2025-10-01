@@ -149,12 +149,12 @@ function APIKeyRow(props) {
                     <StyledTableCell sx={{ p: 2 }} colSpan={6}>
                         <Collapse in={open} timeout='auto' unmountOnExit>
                             <Box sx={{ borderRadius: 2, border: 1, borderColor: theme.palette.grey[900] + 25, overflow: 'hidden' }}>
-                                <Table aria-label='chatflow table'>
+                                <Table aria-label='canvas table'>
                                     <TableHead sx={{ height: 48 }}>
                                         <TableRow>
-                                            <StyledTableCell sx={{ width: '30%' }}>{t('apiKeys.chatflowDetails.name')}</StyledTableCell>
-                                            <StyledTableCell sx={{ width: '20%' }}>{t('apiKeys.chatflowDetails.modifiedOn')}</StyledTableCell>
-                                            <StyledTableCell sx={{ width: '50%' }}>{t('apiKeys.chatflowDetails.category')}</StyledTableCell>
+                                            <StyledTableCell sx={{ width: '30%' }}>{t('apiKeys.canvasDetails.name')}</StyledTableCell>
+                                            <StyledTableCell sx={{ width: '20%' }}>{t('apiKeys.canvasDetails.modifiedOn')}</StyledTableCell>
+                                            <StyledTableCell sx={{ width: '50%' }}>{t('apiKeys.canvasDetails.category')}</StyledTableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -294,7 +294,7 @@ const APIKey = () => {
             description:
                 key.chatFlows.length === 0
                     ? t('apiKeys.deleteToolConfirm').replace('{name}', key.keyName)
-                    : `${t('apiKeys.common.delete')} ${key.keyName}? ${t('apiKeys.thereAre')} ${key.chatFlows.length} ${t('apiKeys.chatflowsUsingKey')}`,
+                    : `${t('apiKeys.common.delete')} ${key.keyName}? ${t('apiKeys.thereAre')} ${key.chatFlows.length} ${t('apiKeys.canvasesUsingKey')}`,
             confirmButtonName: t('apiKeys.common.delete'),
             cancelButtonName: t('apiKeys.common.cancel'),
             customBtnId: 'btn_initiateDeleteApiKey'

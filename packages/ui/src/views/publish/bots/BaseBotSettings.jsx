@@ -18,7 +18,7 @@ import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 import { IconX, IconCopy, IconArrowUpRightCircle } from '@tabler/icons-react'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 // utils
 import useNotifier from '@/utils/useNotifier'
@@ -44,7 +44,7 @@ const BaseBotSettings = ({
     const theme = useTheme()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const botConfig = chatflow[configKey] ? JSON.parse(chatflow[configKey]) : defaultConfig
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
 
@@ -116,10 +116,10 @@ const BaseBotSettings = ({
 
             console.log('Сохраняем конфигурацию:', updateData)
 
-            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, updateData)
+            const saveResp = await canvasesApi.updateCanvas(unikId, chatflowid, updateData)
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t(`chatflows.${updateTranslationKey}.configSaved`),
+                    message: t(`canvases.${updateTranslationKey}.configSaved`),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -135,7 +135,7 @@ const BaseBotSettings = ({
         } catch (error) {
             console.error('Ошибка при сохранении конфигурации:', error)
             enqueueSnackbar({
-                message: t(`chatflows.${updateTranslationKey}.saveError`),
+                message: t(`canvases.${updateTranslationKey}.saveError`),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -204,10 +204,10 @@ const BaseBotSettings = ({
 
             console.log('Данные для обновления:', updateData)
 
-            const saveResp = await chatflowsApi.updateChatflow(unikId, chatflowid, updateData)
+            const saveResp = await canvasesApi.updateCanvas(unikId, chatflowid, updateData)
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t(`chatflows.${updateTranslationKey}.configSaved`),
+                    message: t(`canvases.${updateTranslationKey}.configSaved`),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -224,7 +224,7 @@ const BaseBotSettings = ({
         } catch (error) {
             console.error('Ошибка при обновлении статуса публичности:', error)
             enqueueSnackbar({
-                message: t(`chatflows.${updateTranslationKey}.saveError`),
+                message: t(`canvases.${updateTranslationKey}.saveError`),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',

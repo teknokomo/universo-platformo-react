@@ -1,8 +1,9 @@
 {
-    "chatflows": {
+    "canvases": {
         "title": "Пространства",
         "searchPlaceholder": "Поиск по имени или категории",
         "noChatflowsYet": "Пространств пока нет",
+        "noCanvasesYet": "Пространств пока нет",
         "noData": "Нет данных",
         "agents": {
             "title": "Агенты",
@@ -31,6 +32,7 @@
             "version": "Версия"
         },
         "addChatflow": "Добавить пространство",
+        "addCanvas": "Добавить пространство",
         "addAgent": "Добавить агент",
         "canvas": {
             "back": "Назад",
@@ -48,6 +50,7 @@
             "api": "API",
             "embed": "Встроить",
             "chatflowSettings": "Настройки пространства",
+            "canvasSettings": "Настройки пространства",
             "dropFlowDescription": "Выберите JSON-файл, содержащий конфигурацию пространства",
             "unsavedChanges": "У вас есть несохраненные изменения. Вы уверены, что хотите уйти?",
             "saveSuccess": "Пространство успешно сохранено",

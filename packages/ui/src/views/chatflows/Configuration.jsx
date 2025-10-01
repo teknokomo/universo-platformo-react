@@ -12,7 +12,7 @@ import { Box, Typography, Button, FormControl, FormControlLabel, Radio, RadioGro
 import { IconX } from '@tabler/icons-react'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 // utils
 import useNotifier from '@/utils/useNotifier'
@@ -23,10 +23,11 @@ import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDisplayMode, setDisplayMode: propSetDisplayMode }) => {
     const dispatch = useDispatch()
     const chatflow = useSelector((state) => state.canvas.chatflow)
-    const { t: tFlow } = useTranslation('chatflows')
+    const { t: tFlow } = useTranslation('canvases')
     const { t: tPub } = useTranslation('publish')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
+    const resolvedSpaceId = chatflow?.spaceId || chatflow?.space_id || null
 
     useNotifier()
 
@@ -68,7 +69,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                 setIsLoading(true)
                 setError(null)
 
-                const res = await chatflowsApi.getChatflowById(unikId, chatflowid)
+                const res = await canvasesApi.getCanvas(unikId, chatflowid, { spaceId: resolvedSpaceId })
 
                 if (res.data) {
                     // Universo Platformo | Do not update store if data is identical to current
@@ -84,9 +85,10 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
                 }
             } catch (error) {
                 console.error('Error loading chatflow:', error)
-                setError(error.message || tFlow('displaySettings.errorLoading', { error: 'unknown' }))
+                const fallbackMessage = error?.message || tFlow('displaySettings.errorLoading', { error: 'unknown' })
+                setError(fallbackMessage)
                 enqueueSnackbar({
-                    message: tFlow('displaySettings.errorLoading', { error: error.message || 'unknown' }),
+                    message: tFlow('displaySettings.errorLoading', { error: error?.message || 'unknown' }),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -103,7 +105,7 @@ const Configuration = ({ chatflowid, unikId: propUnikId, displayMode: propDispla
         }
 
         fetchChatflow()
-    }, [chatflowid, unikId, propDisplayMode])
+    }, [chatflowid, unikId, propDisplayMode, resolvedSpaceId])
 
     const handleDisplayModeChange = (event) => {
         const newMode = event.target.value

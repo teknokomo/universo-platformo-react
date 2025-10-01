@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -18,7 +18,8 @@ import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
+import spacesApi from '@/api/spaces'
 
 // Hooks
 import useApi from '@/hooks/useApi'
@@ -30,12 +31,53 @@ import { baseURL } from '@/store/constant'
 // icons
 import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 
-// ==============================|| AGENTS ||============================== //
+const extractSpaces = (payload) => {
+    if (!payload) return []
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.data?.spaces)) return payload.data.spaces
+    if (Array.isArray(payload?.spaces)) return payload.spaces
+    if (Array.isArray(payload?.data)) return payload.data
+    return []
+}
+
+const extractCanvases = (payload) => {
+    if (!payload) return []
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.canvases)) return payload.canvases
+    if (Array.isArray(payload?.data?.canvases)) return payload.data.canvases
+    if (Array.isArray(payload?.data)) return payload.data
+    return []
+}
+
+const buildImageMap = (items) => {
+    const images = {}
+    items.forEach((canvas) => {
+        if (!canvas?.id) return
+        images[canvas.id] = []
+        if (!canvas.flowData) return
+        try {
+            const flowData = typeof canvas.flowData === 'string' ? JSON.parse(canvas.flowData) : canvas.flowData
+            const nodes = flowData?.nodes || []
+            nodes.forEach((node) => {
+                const imageSrc = `${baseURL}/api/v1/node-icon/${node?.data?.name}`
+                if (imageSrc && !images[canvas.id].includes(imageSrc)) {
+                    images[canvas.id].push(imageSrc)
+                }
+            })
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[Agentflows] Failed to parse flowData for canvas preview', { canvasId: canvas.id, error })
+        }
+    })
+    return images
+}
+
+// ==============================|| MULTI-AGENT CANVASES LIST ||============================== //
 
 const Agentflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
     const { unikId } = useParams()
     const location = useLocation()
 
@@ -43,10 +85,120 @@ const Agentflows = () => {
     const [error, setError] = useState(null)
     const [images, setImages] = useState({})
     const [search, setSearch] = useState('')
+    const [spaces, setSpaces] = useState([])
+    const [canvases, setCanvases] = useState([])
+    const [aggregating, setAggregating] = useState(false)
 
-    const getAllAgentflows = useApi(chatflowsApi.getAllAgentflows)
+    const getSpacesApi = useApi(spacesApi.getSpaces)
+    const getCanvasesApi = useApi(canvasesApi.getCanvases)
+    const getCanvasesRequestRef = useRef(getCanvasesApi.request)
+    useEffect(() => {
+        getCanvasesRequestRef.current = getCanvasesApi.request
+    }, [getCanvasesApi.request])
     const [view, setView] = useState(localStorage.getItem('flowDisplayStyle') || 'card')
     const { handleAuthError } = useAuthError()
+
+    useEffect(() => {
+        if (!unikId) {
+            console.error('Unik ID is missing in URL')
+            setError(new Error('Missing unikId'))
+            return
+        }
+        localStorage.setItem('parentUnikId', unikId)
+        if (location.state?.templateFlowData) {
+            navigate(`/unik/${unikId}/agentcanvas`, { state: { templateFlowData: location.state.templateFlowData } })
+            return
+        }
+        getSpacesApi.request(unikId)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unikId, location.state, navigate])
+
+    useEffect(() => {
+        if (getSpacesApi.error && !handleAuthError(getSpacesApi.error)) {
+            setError(getSpacesApi.error)
+        }
+    }, [getSpacesApi.error, handleAuthError])
+
+    useEffect(() => {
+        setLoading(getSpacesApi.loading || aggregating)
+    }, [getSpacesApi.loading, aggregating])
+
+    useEffect(() => {
+        const normalizedSpaces = extractSpaces(getSpacesApi.data)
+        setSpaces(normalizedSpaces)
+    }, [getSpacesApi.data])
+
+    const loadAgentCanvases = useCallback(
+        async (spaceList) => {
+            if (!unikId || !Array.isArray(spaceList) || spaceList.length === 0) return []
+            const aggregated = []
+            const failures = []
+
+            const requestCanvases = getCanvasesRequestRef.current
+
+            await Promise.all(
+                spaceList.map(async (space) => {
+                    try {
+                        const data = await requestCanvases(unikId, space.id, { type: 'MULTIAGENT' })
+                        const list = extractCanvases(data)
+                        list.forEach((canvas) => {
+                            aggregated.push({ ...canvas, spaceId: space.id, spaceName: space.name, unikId })
+                        })
+                    } catch (err) {
+                        if (!handleAuthError(err)) {
+                            failures.push(err)
+                        }
+                    }
+                })
+            )
+
+            if (failures.length > 0) {
+                throw failures[0]
+            }
+
+            return aggregated.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        },
+        [handleAuthError, unikId]
+    )
+
+    const refreshCanvases = useCallback(async () => {
+        const aggregated = await loadAgentCanvases(spaces)
+        setCanvases(aggregated)
+        setImages(buildImageMap(aggregated))
+        setError(null)
+        return aggregated
+    }, [loadAgentCanvases, spaces])
+
+    useEffect(() => {
+        let cancelled = false
+        const run = async () => {
+            if (!spaces || spaces.length === 0) {
+                setCanvases([])
+                setImages({})
+                setError(null)
+                return
+            }
+            setAggregating(true)
+            try {
+                const aggregated = await loadAgentCanvases(spaces)
+                if (!cancelled) {
+                    setCanvases(aggregated)
+                    setImages(buildImageMap(aggregated))
+                    setError(null)
+                }
+            } catch (err) {
+                if (!cancelled && !handleAuthError(err)) {
+                    setError(err)
+                }
+            } finally {
+                if (!cancelled) setAggregating(false)
+            }
+        }
+        run()
+        return () => {
+            cancelled = true
+        }
+    }, [spaces, loadAgentCanvases, handleAuthError])
 
     const handleChange = (event, nextView) => {
         if (nextView === null) return
@@ -58,69 +210,29 @@ const Agentflows = () => {
         setSearch(event.target.value)
     }
 
-    function filterFlows(data) {
-        return (
-            data.name.toLowerCase().indexOf(search.toLowerCase()) > -1 ||
-            (data.category && data.category.toLowerCase().indexOf(search.toLowerCase()) > -1) ||
-            data.id.toLowerCase().indexOf(search.toLowerCase()) > -1
-        )
-    }
+    const filterFlows = useCallback(
+        (data) => {
+            if (!data) return false
+            const target = search.toLowerCase()
+            return (
+                (data.name || '').toLowerCase().includes(target) ||
+                (data.spaceName || '').toLowerCase().includes(target) ||
+                (data.category || '').toLowerCase().includes(target) ||
+                (data.id || '').toLowerCase().includes(target)
+            )
+        },
+        [search]
+    )
 
     const addNew = () => {
         navigate(`/unik/${unikId}/agentcanvas`)
     }
 
-    const goToCanvas = (selectedAgentflow) => {
-        navigate(`/unik/${unikId}/agentcanvas/${selectedAgentflow.id}`)
+    const goToCanvas = (selectedCanvas) => {
+        navigate(`/unik/${unikId}/agentcanvas/${selectedCanvas.id}`)
     }
 
-    useEffect(() => {
-        if (location.state && location.state.templateFlowData) {
-            navigate(`/unik/${unikId}/agentcanvas`, { state: { templateFlowData: location.state.templateFlowData } })
-            return
-        }
-
-        if (unikId) {
-            getAllAgentflows.request(unikId)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [unikId, location.state, navigate])
-
-    useEffect(() => {
-        if (getAllAgentflows.error) {
-            if (!handleAuthError(getAllAgentflows.error)) {
-                setError(getAllAgentflows.error)
-            }
-        }
-    }, [getAllAgentflows.error, handleAuthError])
-
-    useEffect(() => {
-        setLoading(getAllAgentflows.loading)
-    }, [getAllAgentflows.loading])
-
-    useEffect(() => {
-        if (getAllAgentflows.data) {
-            try {
-                const agentflows = getAllAgentflows.data
-                const images = {}
-                for (let i = 0; i < agentflows.length; i += 1) {
-                    const flowDataStr = agentflows[i].flowData
-                    const flowData = JSON.parse(flowDataStr)
-                    const nodes = flowData.nodes || []
-                    images[agentflows[i].id] = []
-                    for (let j = 0; j < nodes.length; j += 1) {
-                        const imageSrc = `${baseURL}/api/v1/node-icon/${nodes[j].data.name}`
-                        if (!images[agentflows[i].id].includes(imageSrc)) {
-                            images[agentflows[i].id].push(imageSrc)
-                        }
-                    }
-                }
-                setImages(images)
-            } catch (e) {
-                console.error(e)
-            }
-        }
-    }, [getAllAgentflows.data])
+    const tableRefreshAdapter = useMemo(() => ({ request: refreshCanvases }), [refreshCanvases])
 
     return (
         <MainCard>
@@ -172,7 +284,7 @@ const Agentflows = () => {
                     </ViewHeader>
                     {!view || view === 'card' ? (
                         <>
-                            {isLoading && !getAllAgentflows.data ? (
+                            {isLoading && canvases.length === 0 ? (
                                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                     <Skeleton variant='rounded' height={160} />
                                     <Skeleton variant='rounded' height={160} />
@@ -180,8 +292,8 @@ const Agentflows = () => {
                                 </Box>
                             ) : (
                                 <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
-                                    {getAllAgentflows.data?.filter(filterFlows).map((data, index) => (
-                                        <ItemCard key={index} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
+                                    {canvases.filter(filterFlows).map((data) => (
+                                        <ItemCard key={data.id} onClick={() => goToCanvas(data)} data={data} images={images[data.id]} />
                                     ))}
                                 </Box>
                             )}
@@ -189,15 +301,15 @@ const Agentflows = () => {
                     ) : (
                         <FlowListTable
                             isAgentCanvas={true}
-                            data={getAllAgentflows.data}
+                            data={canvases}
                             images={images}
                             isLoading={isLoading}
                             filterFunction={filterFlows}
-                            updateFlowsApi={getAllAgentflows}
+                            updateFlowsApi={tableRefreshAdapter}
                             setError={setError}
                         />
                     )}
-                    {!isLoading && (!getAllAgentflows.data || getAllAgentflows.data.length === 0) && (
+                    {!isLoading && canvases.length === 0 && (
                         <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                             <Box sx={{ p: 2, height: 'auto' }}>
                                 <img

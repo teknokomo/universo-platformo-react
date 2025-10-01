@@ -19,7 +19,7 @@ import { CheckboxInput } from '@/ui-component/checkbox/Checkbox'
 import { IconX, IconCopy, IconArrowUpRightCircle } from '@tabler/icons-react'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 // utils
 import useNotifier from '@/utils/useNotifier'
@@ -106,9 +106,10 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
     const theme = useTheme()
     const chatflow = useSelector((state) => state.canvas.chatflow)
     const chatbotConfig = chatflow.chatbotConfig ? JSON.parse(chatflow.chatbotConfig) : {}
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
+    const resolvedSpaceId = chatflow?.spaceId || chatflow?.space_id || null
 
     useNotifier()
 
@@ -241,9 +242,14 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
 
     const onSave = async () => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(unikId, canvasId, {
-                chatbotConfig: JSON.stringify(formatObj())
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    chatbotConfig: JSON.stringify(formatObj())
+                },
+                { spaceId: resolvedSpaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('shareChatbot.configSaved'),
@@ -260,9 +266,11 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
                 message: t('shareChatbot.saveError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: errorMessage || error?.message || 'Unknown error'
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),
@@ -280,7 +288,12 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
 
     const onSwitchChange = async (checked) => {
         try {
-            const saveResp = await chatflowsApi.updateChatflow(unikId, canvasId, { isPublic: checked })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                { isPublic: checked },
+                { spaceId: resolvedSpaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('shareChatbot.configSaved'),
@@ -297,9 +310,11 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
                 message: t('shareChatbot.saveError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: errorMessage || error?.message || 'Unknown error'
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),
@@ -497,7 +512,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
     useEffect(() => {
         const fetchChatflow = async () => {
             try {
-                const resp = await chatflowsApi.getSpecificChatflow(unikId, canvasId)
+                const resp = await canvasesApi.getCanvas(unikId, canvasId, { spaceId: resolvedSpaceId })
                 if (resp.data) {
                     dispatch({ type: SET_CHATFLOW, chatflow: resp.data })
                 }
@@ -509,7 +524,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId: prop
         if (canvasId !== chatflow.id) {
             fetchChatflow()
         }
-    }, [canvasId, chatflow.id, dispatch, unikId])
+    }, [canvasId, chatflow.id, dispatch, unikId, resolvedSpaceId])
 
     return (
         <>

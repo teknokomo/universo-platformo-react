@@ -25,7 +25,7 @@ import groqPng from '@/assets/images/groq.png'
 import useNotifier from '@/utils/useNotifier'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 // If implementing a new provider, this must be updated in
 // components/src/speechToText.ts as well
@@ -240,6 +240,12 @@ const SpeechToText = ({ dialogProps }) => {
     const speechToTextProviders = getSpeechToTextProviders(t)
     const dispatch = useDispatch()
 
+    const chatflow = dialogProps?.chatflow || {}
+    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
+    const canvasId = chatflow.id || dialogProps?.chatflowid
+
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -251,11 +257,16 @@ const SpeechToText = ({ dialogProps }) => {
     const onSave = async () => {
         const speechToText = setValue(true, selectedProvider, 'status')
         try {
-            const chatbotConfig = { ...dialogProps.chatflow }
+            const chatbotConfig = { ...chatflow }
             chatbotConfig.speechToText = speechToText
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
-                chatbotConfig: JSON.stringify(chatbotConfig)
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    chatbotConfig: JSON.stringify(chatbotConfig)
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('speechToText.configSaved'),
@@ -272,10 +283,10 @@ const SpeechToText = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('speechToText.failedToSave')}: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `${t('speechToText.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',

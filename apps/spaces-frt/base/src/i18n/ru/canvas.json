@@ -122,9 +122,13 @@
     "configuration": "Настройка",
     "saveAsTemplate": "Сохранить как шаблон",
     "duplicateChatflow": "Дублировать холст",
+    "duplicateCanvas": "Дублировать холст",
     "loadChatflow": "Загрузить холст",
+    "loadCanvas": "Загрузить холст",
     "exportChatflow": "Экспортировать холст",
+    "exportCanvas": "Экспортировать холст",
     "deleteChatflow": "Удалить холст",
+    "deleteCanvas": "Удалить холст",
     "deleteSpace": "Удалить пространство",
     "canvasVersions": "Версии холста"
   },

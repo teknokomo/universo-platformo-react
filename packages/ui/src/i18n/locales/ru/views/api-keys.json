@@ -10,6 +10,7 @@
     "deleteError": "Не удалось удалить API ключ: {error}",
     "thereAre": "Используется в",
     "chatflowsUsingKey": "холстов",
+    "canvasesUsingKey": "холстов",
     "copied": "Скопировано!",
     "buttonTitles": {
       "copy": "Копировать API ключ",
@@ -18,6 +19,11 @@
       "delete": "Удалить"
     },
     "chatflowDetails": {
+      "name": "Название холста",
+      "modifiedOn": "Дата изменения",
+      "category": "Категория"
+    },
+    "canvasDetails": {
       "name": "Название холста",
       "modifiedOn": "Дата изменения",
       "category": "Категория"

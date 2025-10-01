@@ -34,7 +34,7 @@ import React, { useCallback as useReactCallback } from 'react'
 
 // API
 import nodesApi from '@/api/nodes'
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '../../api/canvases'
 import spacesApi from '../../api/spaces'
 
 // Hooks
@@ -62,21 +62,75 @@ import { FLOWISE_CREDENTIAL_ID, uiBaseURL } from '@/store/constant'
 // Space Builder i18n and FAB
 import { SpaceBuilderFab, registerSpaceBuilderI18n } from '@universo/space-builder-frt'
 import i18n from '@/i18n'
-import client from '@/api/client'
 
 
 const nodeTypes = { customNode: CanvasNode, stickyNote: StickyNote }
 const edgeTypes = { buttonedge: ButtonEdge }
+
+const normalizeIdentifier = (value) => {
+    if (value === null || value === undefined) return null
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        return trimmed.length ? trimmed : null
+    }
+    if (typeof value === 'number') return String(value)
+    if (typeof value === 'object') {
+        if (value === null) return null
+        if ('id' in value) return normalizeIdentifier(value.id)
+        if ('value' in value) return normalizeIdentifier(value.value)
+    }
+    return null
+}
+
+const buildCanvasAsChatflow = (canvas, context) => {
+    if (!canvas) return null
+
+    const resolvedUnikId =
+        normalizeIdentifier(context?.unikId) ||
+        normalizeIdentifier(canvas.unikId) ||
+        normalizeIdentifier(canvas.unik_id)
+
+    const resolvedSpaceId =
+        normalizeIdentifier(context?.spaceId) ||
+        normalizeIdentifier(canvas.spaceId) ||
+        normalizeIdentifier(canvas.space_id) ||
+        normalizeIdentifier(canvas.space?.id)
+
+    const resolvedSpaceName =
+        context?.spaceName ||
+        canvas.spaceName ||
+        canvas.space_name ||
+        (typeof canvas.space === 'object' && canvas.space !== null ? canvas.space.name : null)
+
+    return {
+        id: canvas.id,
+        name: canvas.name,
+        flowData: canvas.flowData,
+        deployed: canvas.deployed || false,
+        isPublic: canvas.isPublic || false,
+        type: canvas.type || (context?.isAgentCanvas ? 'MULTIAGENT' : 'CHATFLOW'),
+        unik_id: resolvedUnikId || null,
+        unikId: resolvedUnikId || null,
+        spaceId: resolvedSpaceId || null,
+        space_id: resolvedSpaceId || null,
+        ...(resolvedSpaceName ? { spaceName: resolvedSpaceName } : {})
+    }
+}
 
 // ==============================|| CANVAS ||============================== //
 
 const Canvas = () => {
     const theme = useTheme()
     const navigate = useNavigate()
-    const { unikId, id } = useParams()
-    const chatflowId = id === 'new' ? undefined : id
+    const params = useParams()
+    const { unikId, spaceId: routeSpaceId, canvasId: routeCanvasId, id: legacyId } = params
     const location = useLocation()
-    const templateFlowData = location.state ? location.state.templateFlowData : ''
+    const locationState =
+        location.state && typeof location.state === 'object' && location.state !== null ? location.state : {}
+    const templateFlowData =
+        typeof locationState.templateFlowData === 'string' ? locationState.templateFlowData : ''
+    const stateSpaceId = typeof locationState.spaceId === 'string' ? locationState.spaceId : null
+    const stateCanvasId = typeof locationState.canvasId === 'string' ? locationState.canvasId : null
     const { t } = useTranslation('canvas')
 
     // Get unikId from URL params or state
@@ -92,13 +146,20 @@ const Canvas = () => {
 
     const URLpath = document.location.pathname.toString().split('/')
     const isAgentCanvas = URLpath.includes('agentcanvas')
+    const normalizedSpaceId = routeSpaceId && routeSpaceId !== 'new' ? routeSpaceId : null
+    const legacySpaceId = !isAgentCanvas && legacyId && legacyId !== 'new' ? legacyId : null
+    const spaceId = normalizedSpaceId || legacySpaceId || stateSpaceId || null
+    const normalizedCanvasId = routeSpaceId && routeCanvasId === 'new' ? null : routeCanvasId
+    const routeResolvedCanvasId =
+        normalizedCanvasId && normalizedCanvasId !== 'new' ? normalizedCanvasId : null
+    const legacyCanvasId = isAgentCanvas && legacyId && legacyId !== 'new' ? legacyId : null
+    const initialCanvasId = routeResolvedCanvasId || legacyCanvasId || stateCanvasId || null
     const canvasTitle = isAgentCanvas ? t('agent', 'Agent') : t('space', 'Space')
 
     const { confirm } = useConfirm()
 
     const dispatch = useDispatch()
-    const canvas = useSelector((state) => state.canvas)
-    const [canvasDataStore, setCanvasDataStore] = useState(canvas)
+    const canvasState = useSelector((state) => state.canvas)
     const [chatflow, setChatflow] = useState(null)
     const { reactFlowInstance, setReactFlowInstance } = useContext(flowContext)
 
@@ -120,9 +181,6 @@ const Canvas = () => {
     const reactFlowWrapper = useRef(null)
     const [tabsHeight, setTabsHeight] = useState(56)
 
-    // Flag to prevent immediate refetch after update
-    const [skipRefetch, setSkipRefetch] = useState(false)
-
     // State to show tabs for new spaces before they are saved
     const [showTabsForNewSpace, setShowTabsForNewSpace] = useState(false)
 
@@ -133,21 +191,17 @@ const Canvas = () => {
     const [tempCanvas, setTempCanvas] = useState(() => ({
         id: 'temp',
         name: localizedDefaultCanvasName,
-        isDirty: canvas.isDirty,
+        isDirty: canvasState.isDirty,
         isCustom: false
     }))
 
     // ==============================|| Canvases Management ||============================== //
-
-    // Extract spaceId from URL - for new spaces, we'll handle this differently
-    const spaceId = chatflowId && chatflowId !== 'new' ? chatflowId : null
 
     // Use canvases hook for managing multiple canvases
     const {
         canvases,
         activeCanvasId,
         loading: canvasesLoading,
-        error: canvasesError,
         selectCanvas,
         createCanvas,
         renameCanvas,
@@ -160,15 +214,41 @@ const Canvas = () => {
         refresh: refreshCanvases
     } = useCanvases(spaceId)
 
+    const activeCanvasIdentifier = spaceId ? activeCanvasId : initialCanvasId
+    const canvasId = chatflow?.id || activeCanvasIdentifier || undefined
+    const normalizedParentUnikId =
+        parentUnikId && String(parentUnikId).trim().length > 0 ? String(parentUnikId) : null
+    const chatflowSpaceIdentifier = chatflow?.spaceId ?? chatflow?.space_id ?? chatflow?.spaceID ?? null
+    const chatflowUnikIdentifier = chatflow?.unik_id ?? chatflow?.unikId ?? chatflow?.unikID ?? null
+    const chatPopUpUnikId = normalizedParentUnikId || chatflowUnikIdentifier || undefined
+    const chatPopUpSpaceId = spaceId || chatflowSpaceIdentifier || undefined
+
     const newSpaceCanvases = useMemo(() => [tempCanvas], [tempCanvas])
 
     // ==============================|| Chatflow API ||============================== //
 
     const getNodesApi = useApi(nodesApi.getAllNodes)
-    const createNewChatflowApi = useApi(chatflowsApi.createNewChatflow)
-    const updateChatflowApi = useApi(chatflowsApi.updateChatflow)
-    const getSpecificChatflowApi = useApi(() => chatflowsApi.getSpecificChatflow(parentUnikId, chatflowId))
-    const getSpaceApi = useApi(() => spaceId ? spacesApi.getSpace(parentUnikId, spaceId) : null)
+    const mergeSpaceOptions = useCallback(
+        (options = {}) => {
+            const { spaceId: overrideSpaceId, ...restOptions } = options || {}
+            const resolvedSpaceId =
+                overrideSpaceId !== undefined ? overrideSpaceId : spaceId
+
+            return { ...restOptions, spaceId: resolvedSpaceId }
+        },
+        [spaceId]
+    )
+
+    const getCanvasApi = useApi((unik, canvasId, options = {}) =>
+        canvasesApi.getCanvas(unik, canvasId, mergeSpaceOptions(options))
+    )
+    const updateCanvasApi = useApi((unik, canvasId, body, options = {}) =>
+        canvasesApi.updateCanvas(unik, canvasId, body, mergeSpaceOptions(options))
+    )
+    const deleteCanvasApi = useApi((unik, canvasId, options = {}) =>
+        canvasesApi.deleteCanvas(unik, canvasId, mergeSpaceOptions(options))
+    )
+    const getSpaceApi = useApi(() => (spaceId ? spacesApi.getSpace(parentUnikId, spaceId) : null))
     const createSpaceApi = useApi(spacesApi.createSpace)
     const updateSpaceApi = useApi(spacesApi.updateSpace)
 
@@ -238,7 +318,7 @@ const Canvas = () => {
     const hydrateGeneratedGraph = (graph) => {
         const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : []
         const rawEdges = Array.isArray(graph?.edges) ? graph.edges : []
-        const componentNodes = canvas.componentNodes || []
+        const componentNodes = canvasState.componentNodes || []
         const byName = new Map(componentNodes.map((c) => [c.name, c]))
 
         const nodesHydrated = rawNodes.map((n) => {
@@ -466,116 +546,177 @@ const Canvas = () => {
         }
         const isConfirmed = await confirm(confirmPayload)
 
-        if (isConfirmed) {
-            try {
-                await chatflowsApi.deleteChatflow(parentUnikId, chatflow.id)
-                localStorage.removeItem(`${chatflow.id}_INTERNAL`)
+        if (!isConfirmed) return
 
-                // Consider the type of canvas when redirecting after deletion
-                const redirectPath = isAgentCanvas
-                    ? `/unik/${parentUnikId}/agentflows`
-                    : `/unik/${parentUnikId}/spaces`;
-                navigate(redirectPath)
-            } catch (error) {
-                enqueueSnackbar({
-                    message: typeof error.response?.data === 'object' ? error.response.data.message : error.message,
-                    options: {
-                        key: new Date().getTime() + Math.random(),
-                        variant: 'error',
-                        persist: true,
-                        action: (key) => (
-                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                                <IconX />
-                            </Button>
-                        )
-                    }
-                })
+        try {
+            if (spaceId) {
+                const deleted = await deleteCanvas(chatflow.id)
+                if (!deleted) {
+                    enqueueSnackbar({
+                        message: t('deleteLastCanvasError', 'Cannot delete the last canvas in a space'),
+                        options: { key: new Date().getTime() + Math.random(), variant: 'error' }
+                    })
+                    return
+                }
+                await refreshCanvases()
+            } else {
+                await deleteCanvasApi.request(parentUnikId, chatflow.id)
             }
+
+            localStorage.removeItem(`${chatflow.id}_INTERNAL`)
+
+            const redirectPath = isAgentCanvas
+                ? `/unik/${parentUnikId}/agentflows`
+                : `/unik/${parentUnikId}/spaces`
+            navigate(redirectPath)
+        } catch (error) {
+            const serverMessage =
+                typeof error?.response?.data === 'object'
+                    ? error.response.data.message
+                    : error?.response?.data || error?.message
+            enqueueSnackbar({
+                message: serverMessage || t('deleteError', 'Failed to delete canvas'),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'error',
+                    persist: true,
+                    action: (key) => (
+                        <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                            <IconX />
+                        </Button>
+                    )
+                }
+            })
         }
     }
 
-    const handleSaveFlow = async (chatflowName) => {
-        if (reactFlowInstance) {
-            const nodes = reactFlowInstance.getNodes().map((node) => {
-                const nodeData = cloneDeep(node.data)
-                if (Object.prototype.hasOwnProperty.call(nodeData.inputs, FLOWISE_CREDENTIAL_ID)) {
-                    nodeData.credential = nodeData.inputs[FLOWISE_CREDENTIAL_ID]
-                    nodeData.inputs = omit(nodeData.inputs, [FLOWISE_CREDENTIAL_ID])
-                }
-                node.data = {
-                    ...nodeData,
-                    selected: false
-                }
-                return node
-            })
-
-            const rfInstanceObject = reactFlowInstance.toObject()
-            rfInstanceObject.nodes = nodes
-            const flowData = JSON.stringify(rfInstanceObject)
-
-            // If we're in a space with active canvas, save only graph to canvas (do not rename canvas)
-            if (spaceId && activeCanvasId) {
-                try {
-                    await updateCanvasData(activeCanvasId, {
-                        flowData
-                    })
-                    saveChatflowSuccess()
-                    dispatch({ type: REMOVE_DIRTY })
-                } catch (error) {
-                    console.error('Failed to save canvas:', error)
-                    errorFailed(`Failed to save canvas: ${error.message}`)
-                }
-            } else if (!spaceId && !isAgentCanvas) {
-                try {
-                    const sanitizedSpaceName = chatflowName?.trim() || t('untitledSpace', 'Untitled Space')
-                    const response = await createSpaceApi.request(parentUnikId, {
-                        name: sanitizedSpaceName,
-                        defaultCanvasName: tempCanvas.name,
-                        defaultCanvasFlowData: flowData
-                    })
-                    const payload = response?.data || response
-                    if (payload?.defaultCanvas) {
-                        const defaultCanvas = payload.defaultCanvas
-                        const canvasAsChatflow = {
-                            id: defaultCanvas.id,
-                            name: defaultCanvas.name,
-                            flowData: defaultCanvas.flowData,
-                            deployed: defaultCanvas.deployed || false,
-                            isPublic: defaultCanvas.isPublic || false,
-                            type: isAgentCanvas ? 'MULTIAGENT' : 'CHATFLOW',
-                            unik_id: parentUnikId
-                        }
-                        dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
-                    }
-                    saveChatflowSuccess()
-                    if (payload?.id) {
-                        navigate(`/unik/${parentUnikId}/space/${payload.id}`, { replace: true })
-                    }
-                } catch (error) {
-                    const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
-                    errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
-                }
-            } else {
-                // Original chatflow save logic
-                if (!chatflow?.id) {
-                    const newChatflowBody = {
-                        name: chatflowName,
-                        deployed: false,
-                        isPublic: false,
-                        flowData,
-                        type: isAgentCanvas ? 'MULTIAGENT' : 'CHATFLOW',
-                        unik_id: parentUnikId
-                    }
-                    createNewChatflowApi.request(parentUnikId, newChatflowBody)
-                } else {
-                    const updateBody = {
-                        name: chatflowName,
-                        flowData
-                    }
-                    updateChatflowApi.request(parentUnikId, chatflow.id, updateBody)
-                }
+    const serializeFlowData = () => {
+        if (!reactFlowInstance) return null
+        const nodes = reactFlowInstance.getNodes().map((node) => {
+            const nodeData = cloneDeep(node.data)
+            if (Object.prototype.hasOwnProperty.call(nodeData.inputs, FLOWISE_CREDENTIAL_ID)) {
+                nodeData.credential = nodeData.inputs[FLOWISE_CREDENTIAL_ID]
+                nodeData.inputs = omit(nodeData.inputs, [FLOWISE_CREDENTIAL_ID])
             }
+            node.data = {
+                ...nodeData,
+                selected: false
+            }
+            return node
+        })
+
+        const rfInstanceObject = reactFlowInstance.toObject()
+        rfInstanceObject.nodes = nodes
+        return JSON.stringify(rfInstanceObject)
+    }
+
+    const saveCanvasInExistingSpace = async (flowData) => {
+        if (!spaceId || !activeCanvasId) return
+        try {
+            await updateCanvasData(activeCanvasId, { flowData })
+            saveChatflowSuccess()
+            dispatch({ type: REMOVE_DIRTY })
+        } catch (error) {
+            console.error('Failed to save canvas:', error)
+            errorFailed(`Failed to save canvas: ${error.message}`)
         }
+    }
+
+    const createNewSpaceWithCanvas = async (sanitizedName, flowData) => {
+        try {
+            const response = await createSpaceApi.request(parentUnikId, {
+                name: sanitizedName,
+                defaultCanvasName: tempCanvas.name,
+                defaultCanvasFlowData: flowData
+            })
+            const payload = response?.data || response
+            const defaultCanvas = payload?.defaultCanvas
+            const createdSpaceId =
+                defaultCanvas?.spaceId ||
+                defaultCanvas?.space_id ||
+                payload?.id ||
+                payload?.spaceId ||
+                payload?.space_id ||
+                null
+
+            if (defaultCanvas?.id) {
+                if (isAgentCanvas) {
+                    await updateCanvasApi.request(
+                        parentUnikId,
+                        defaultCanvas.id,
+                        {
+                            type: 'MULTIAGENT'
+                        },
+                        { spaceId: createdSpaceId }
+                    )
+                }
+
+                const canvasAsChatflow = buildCanvasAsChatflow(defaultCanvas, {
+                    unikId: parentUnikId,
+                    spaceId: createdSpaceId,
+                    spaceName: payload?.name || sanitizedName,
+                    isAgentCanvas
+                })
+                dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
+                setChatflow(canvasAsChatflow)
+            }
+
+            saveChatflowSuccess()
+            if (payload?.id) {
+                const redirectPath = isAgentCanvas
+                    ? `/unik/${parentUnikId}/agentcanvas/${defaultCanvas?.id || payload.id}`
+                    : `/unik/${parentUnikId}/space/${payload.id}`
+                navigate(redirectPath, { replace: true })
+            }
+        } catch (error) {
+            const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
+            errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
+        }
+    }
+
+    const updateLegacyCanvas = async (sanitizedName, flowData) => {
+        try {
+            const updateBody = {
+                name: sanitizedName,
+                flowData,
+                type: isAgentCanvas ? 'MULTIAGENT' : 'CHATFLOW'
+            }
+            const updated = await updateCanvasApi.request(parentUnikId, chatflow.id, updateBody)
+            const payload = updated?.data || updated
+            if (payload) {
+                const canvasAsChatflow = buildCanvasAsChatflow(payload, {
+                    unikId: parentUnikId,
+                    spaceId: spaceId || payload.spaceId || payload.space_id || null,
+                    spaceName: spaceData?.name,
+                    isAgentCanvas
+                })
+                dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
+                setChatflow(canvasAsChatflow)
+            }
+            saveChatflowSuccess()
+        } catch (error) {
+            const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
+            errorFailed(`Failed to save ${canvasTitle}: ${serverMessage}`)
+        }
+    }
+
+    const handleSaveFlow = async (canvasName) => {
+        const flowData = serializeFlowData()
+        if (!flowData) return
+
+        if (spaceId && activeCanvasId) {
+            await saveCanvasInExistingSpace(flowData)
+            return
+        }
+
+        const sanitizedName = canvasName?.trim() || t('untitledSpace', 'Untitled Space')
+
+        if (!chatflow?.id) {
+            await createNewSpaceWithCanvas(sanitizedName, flowData)
+            return
+        }
+
+        await updateLegacyCanvas(sanitizedName, flowData)
     }
 
     // eslint-disable-next-line
@@ -658,7 +799,7 @@ const Canvas = () => {
     )
 
     const syncNodes = () => {
-        const componentNodes = canvas.componentNodes
+        const componentNodes = canvasState.componentNodes
 
         const cloneNodes = cloneDeep(nodes)
         const cloneEdges = cloneDeep(edges)
@@ -729,7 +870,7 @@ const Canvas = () => {
     }
 
     const checkIfSyncNodesAvailable = (nodes) => {
-        const componentNodes = canvas.componentNodes
+        const componentNodes = canvasState.componentNodes
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i]
@@ -745,87 +886,82 @@ const Canvas = () => {
 
     // ==============================|| useEffect ||============================== //
 
-    // Get specific chatflow successful (legacy path)
-    // In Spaces mode we ignore legacy chatflow responses to avoid overwriting Canvas state
     useEffect(() => {
         if (spaceId) return
-        if (getSpecificChatflowApi.data) {
-            const chatflow = getSpecificChatflowApi.data
-            const initialFlow = chatflow.flowData ? JSON.parse(chatflow.flowData) : []
-            setNodes(initialFlow.nodes || [])
-            setEdges(initialFlow.edges || [])
-            dispatch({ type: SET_CHATFLOW, chatflow })
-        } else if (getSpecificChatflowApi.error) {
-            errorFailed(
-                `Failed to retrieve ${canvasTitle}: ${getSpecificChatflowApi.error.response?.data?.message || getSpecificChatflowApi.error.message
-                }`
-            )
-        }
-
+        if (!initialCanvasId || !parentUnikId) return
+        getCanvasApi
+            .request(parentUnikId, initialCanvasId)
+            .catch((error) => {
+                const serverMessage =
+                    error?.response?.data?.error || error?.response?.data?.message || error?.message
+                errorFailed(`Failed to retrieve ${canvasTitle}: ${serverMessage}`)
+            })
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [spaceId, getSpecificChatflowApi.data, getSpecificChatflowApi.error])
+    }, [spaceId, initialCanvasId, parentUnikId])
 
-    // Create new chatflow successful (legacy path)
-    // Ignore in Spaces mode to prevent legacy redirects/state updates
     useEffect(() => {
         if (spaceId) return
-        if (createNewChatflowApi.data) {
-            const chatflow = createNewChatflowApi.data
-            dispatch({ type: SET_CHATFLOW, chatflow })
-            saveChatflowSuccess()
-            // Consider the type of canvas when redirecting
-            const redirectPath = isAgentCanvas
-                ? `/unik/${parentUnikId}/agentcanvas/${chatflow.id}`
-                : `/unik/${parentUnikId}/space/${chatflow.id}`;
-            navigate(redirectPath, { replace: true })
-        } else if (createNewChatflowApi.error) {
-            errorFailed(
-                `Failed to save ${canvasTitle}: ${createNewChatflowApi.error.response?.data?.message || createNewChatflowApi.error.message}`
-            )
+        if (!getCanvasApi.data) return
+        const response = getCanvasApi.data?.data || getCanvasApi.data
+        if (!response) return
+        try {
+            const parsed = response.flowData ? JSON.parse(response.flowData) : { nodes: [], edges: [] }
+            setNodes(parsed.nodes || [])
+            setEdges(parsed.edges || [])
+        } catch (error) {
+            setNodes([])
+            setEdges([])
         }
 
+        const canvasAsChatflow = buildCanvasAsChatflow(response, {
+            unikId: parentUnikId,
+            spaceId: response.spaceId || response.space_id || null,
+            spaceName: response.spaceName || response.space_name,
+            isAgentCanvas
+        })
+        dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
+        setChatflow(canvasAsChatflow)
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [spaceId, createNewChatflowApi.data, createNewChatflowApi.error])
-
-    // Update chatflow successful (legacy path)
-    // Ignore in Spaces mode to prevent overwriting Canvas state
-    useEffect(() => {
-        if (spaceId) return
-        if (updateChatflowApi.data) {
-            dispatch({ type: SET_CHATFLOW, chatflow: updateChatflowApi.data })
-            saveChatflowSuccess()
-            // Prevent immediate refetch
-            setSkipRefetch(true)
-            setTimeout(() => setSkipRefetch(false), 1000)
-        } else if (updateChatflowApi.error) {
-            errorFailed(
-                `Failed to save ${canvasTitle}: ${updateChatflowApi.error.response?.data?.message || updateChatflowApi.error.message}`
-            )
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [spaceId, updateChatflowApi.data, updateChatflowApi.error])
-
-    // Effect to fetch legacy chatflow when id or location changes
-    // Skip in Spaces mode to avoid state race with active Canvas loader
-    useEffect(() => {
-        if (spaceId) return
-        if (chatflowId && parentUnikId && !skipRefetch) {
-            getSpecificChatflowApi.request(parentUnikId, chatflowId)
-        }
-    }, [spaceId, chatflowId, parentUnikId, location.key, skipRefetch])
+    }, [spaceId, getCanvasApi.data])
 
     useEffect(() => {
-        setChatflow(canvasDataStore.chatflow)
-        if (canvasDataStore.chatflow) {
-            const flowData = canvasDataStore.chatflow.flowData ? JSON.parse(canvasDataStore.chatflow.flowData) : []
-            checkIfUpsertAvailable(flowData.nodes || [], flowData.edges || [])
-            checkIfSyncNodesAvailable(flowData.nodes || [])
+        if (!getCanvasApi.error || spaceId) return
+        const serverMessage =
+            getCanvasApi.error?.response?.data?.error ||
+            getCanvasApi.error?.response?.data?.message ||
+            getCanvasApi.error?.message
+        if (serverMessage) errorFailed(`Failed to retrieve ${canvasTitle}: ${serverMessage}`)
+    }, [getCanvasApi.error, spaceId])
+
+    useEffect(() => {
+        if (!canvasState?.chatflow) {
+            setChatflow(null)
+            checkIfUpsertAvailable([], [])
+            checkIfSyncNodesAvailable([])
+            return
         }
 
+        setChatflow(canvasState.chatflow)
+        try {
+            const parsed = canvasState.chatflow.flowData
+                ? JSON.parse(canvasState.chatflow.flowData)
+                : { nodes: [], edges: [] }
+            checkIfUpsertAvailable(parsed.nodes || [], parsed.edges || [])
+            checkIfSyncNodesAvailable(parsed.nodes || [])
+        } catch (error) {
+            checkIfUpsertAvailable([], [])
+            checkIfSyncNodesAvailable([])
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [canvasDataStore.chatflow])
+    }, [canvasState.chatflow])
 
+    useEffect(() => {
+        if (!spaceId || !initialCanvasId) return
+        if (!canvases?.length) return
+        if (activeCanvasId === initialCanvasId) return
+        const exists = canvases.some((canvasItem) => canvasItem.id === initialCanvasId)
+        if (exists) selectCanvas(initialCanvasId)
+    }, [spaceId, initialCanvasId, canvases, activeCanvasId, selectCanvas])
     // Load Space data when spaceId is available
     useEffect(() => {
         if (spaceId && parentUnikId) {
@@ -846,10 +982,7 @@ const Canvas = () => {
     useEffect(() => {
         setIsSyncNodesButtonEnabled(false)
         setIsUpsertButtonEnabled(false)
-        if (!spaceId && chatflowId) {
-            // Only fetch legacy chatflow on non-Spaces routes
-            getSpecificChatflowApi.request(parentUnikId, chatflowId)
-        } else {
+        if (!spaceId) {
             if (localStorage.getItem('duplicatedFlowData')) {
                 handleLoadFlow(localStorage.getItem('duplicatedFlowData'))
                 setTimeout(() => localStorage.removeItem('duplicatedFlowData'), 0)
@@ -878,10 +1011,6 @@ const Canvas = () => {
     }, [])
 
     useEffect(() => {
-        setCanvasDataStore(canvas)
-    }, [canvas])
-
-    useEffect(() => {
         if (spaceId) return
         setTempCanvas((prev) => {
             if (prev.isCustom) return prev
@@ -892,8 +1021,8 @@ const Canvas = () => {
 
     useEffect(() => {
         if (spaceId) return
-        setTempCanvas((prev) => ({ ...prev, isDirty: canvas.isDirty }))
-    }, [canvas.isDirty, spaceId])
+        setTempCanvas((prev) => ({ ...prev, isDirty: canvasState.isDirty }))
+    }, [canvasState.isDirty, spaceId])
 
     useEffect(() => {
         function handlePaste(e) {
@@ -923,45 +1052,36 @@ const Canvas = () => {
 
     // Load active canvas data when activeCanvasId changes
     useEffect(() => {
-        console.log('[Canvas] Active canvas changed:', { spaceId, activeCanvasId })
-        if (spaceId && activeCanvasId) {
-            const activeCanvas = getActiveCanvas()
-            console.log('[Canvas] Active canvas data:', activeCanvas)
-            if (activeCanvas && activeCanvas.flowData) {
-                try {
-                    const flowData = JSON.parse(activeCanvas.flowData)
-                    console.log('[Canvas] Loading flow data:', flowData)
-                    setNodes(flowData.nodes || [])
-                    setEdges(flowData.edges || [])
-
-                    // Update chatflow state to reflect active canvas
-                    const canvasAsChatflow = {
-                        id: activeCanvas.id,
-                        name: activeCanvas.name,
-                        flowData: activeCanvas.flowData,
-                        deployed: false,
-                        isPublic: false,
-                        type: isAgentCanvas ? 'MULTIAGENT' : 'CHATFLOW',
-                        unik_id: unikId
-                    }
-                    dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
-                } catch (error) {
-                    console.error('Failed to parse canvas flowData:', error)
-                    // Set empty flow if parsing fails
-                    setNodes([])
-                    setEdges([])
-                }
-            } else {
-                console.log('[Canvas] No active canvas or flowData, setting empty flow')
-                // Set empty flow for new canvas
+        if (!spaceId || !activeCanvasId) return
+        const activeCanvas = getActiveCanvas()
+        if (activeCanvas?.flowData) {
+            try {
+                const flowData = JSON.parse(activeCanvas.flowData)
+                setNodes(flowData.nodes || [])
+                setEdges(flowData.edges || [])
+            } catch (error) {
                 setNodes([])
                 setEdges([])
             }
+        } else {
+            setNodes([])
+            setEdges([])
+        }
+
+        if (activeCanvas) {
+            const canvasAsChatflow = buildCanvasAsChatflow(activeCanvas, {
+                unikId,
+                spaceId,
+                spaceName: spaceData?.name,
+                isAgentCanvas
+            })
+            dispatch({ type: SET_CHATFLOW, chatflow: canvasAsChatflow })
+            setChatflow(canvasAsChatflow)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeCanvasId, spaceId, getActiveCanvas])
+    }, [activeCanvasId, spaceId, getActiveCanvas, spaceData])
 
-    usePrompt(t('dirty'), canvas.isDirty)
+    usePrompt(t('dirty'), canvasState.isDirty)
 
     // Register space-builder translations once
     useEffect(() => {
@@ -1137,7 +1257,7 @@ const Canvas = () => {
                                 onConnect={onConnect}
                                 onInit={setReactFlowInstance}
                                 fitView
-                                deleteKeyCode={canvas.canvasDialogShow ? null : ['Delete']}
+                                deleteKeyCode={canvasState.canvasDialogShow ? null : ['Delete']}
                                 minZoom={0.1}
                                 className='chatflow-canvas'
                             >
@@ -1195,8 +1315,13 @@ const Canvas = () => {
                                         <IconRefreshAlert style={{ marginRight: 8 }} /> {t('syncNodes')}
                                     </Fab>
                                 )}
-                                {isUpsertButtonEnabled && <VectorStorePopUp chatflowid={chatflowId} />}
-                                <ChatPopUp isAgentCanvas={isAgentCanvas} chatflowid={chatflowId} />
+                                {isUpsertButtonEnabled && <VectorStorePopUp chatflowid={canvasId} />}
+                                <ChatPopUp
+                                    isAgentCanvas={isAgentCanvas}
+                                    chatflowid={canvasId}
+                                    unikId={chatPopUpUnikId}
+                                    spaceId={chatPopUpSpaceId}
+                                />
                             </ReactFlow>
                         </div>
                     </div>

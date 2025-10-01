@@ -290,7 +290,7 @@ const EmbedChat = ({ chatflowid }) => {
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedChatCheckboxVal, setEmbedChatCheckbox] = useState(false)
-    const { t } = useTranslation('chatflows')
+    const { t } = useTranslation('canvases')
 
     const onCheckBoxEmbedChatChanged = (newVal) => {
         setEmbedChatCheckbox(newVal)

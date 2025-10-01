@@ -11,7 +11,6 @@ import MicNoneOutlinedIcon from '@mui/icons-material/MicNoneOutlined'
 import ExportTemplateOutlinedIcon from '@mui/icons-material/BookmarksOutlined'
 import { generateExportFlowData } from '@/utils/genericHelper'
 import { uiBaseURL } from '@/store/constant'
-import chatflowsApi from '@/api/chatflows'
 
 // Helper to export flow data replicating old behavior.
 const exportHandler = (ctx) => {
@@ -72,7 +71,12 @@ export const chatflowActions = [
     onSelect: (ctx) => {
       try {
         localStorage.setItem('duplicatedFlowData', ctx.entity.flowData)
-        ctx.helpers.openWindow(`${uiBaseURL}/${ctx.entityKind === 'agent' ? 'agentcanvas' : 'canvas'}`)
+        const unikId = ctx.meta?.unikId || localStorage.getItem('parentUnikId') || ''
+        const targetPath =
+          ctx.entityKind === 'agent'
+            ? (unikId ? `/unik/${unikId}/agentcanvas` : '/agentcanvas')
+            : (unikId ? `/unik/${unikId}/spaces/new` : '/spaces/new')
+        ctx.helpers.openWindow(`${uiBaseURL}${targetPath}`)
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e)
@@ -196,7 +200,7 @@ export const chatflowActions = [
     }),
     onSelect: async (ctx) => {
       try {
-        await chatflowsApi.deleteChatflow(ctx.entity.id)
+        await ctx.api.deleteEntity?.(ctx.entity.id)
         await ctx.helpers.refreshList?.()
       } catch (error) {
         ctx.helpers.enqueueSnackbar?.({

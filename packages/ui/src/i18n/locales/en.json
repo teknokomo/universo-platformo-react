@@ -159,9 +159,13 @@
             "configuration": "Configuration",
             "saveAsTemplate": "Save As Template",
             "duplicateChatflow": "Duplicate Canvas",
+            "duplicateCanvas": "Duplicate Canvas",
             "loadChatflow": "Load Canvas",
+            "loadCanvas": "Load Canvas",
             "exportChatflow": "Export Canvas",
+            "exportCanvas": "Export Canvas",
             "deleteChatflow": "Delete Canvas",
+            "deleteCanvas": "Delete Canvas",
             "canvasVersions": "Canvas Versions"
         },
         "configuration": {

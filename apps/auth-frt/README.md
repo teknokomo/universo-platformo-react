@@ -146,7 +146,7 @@ const MyComponent = () => {
 
 The following components were successfully migrated from legacy authentication:
 
-1. **`packages/ui/src/views/chatflows/index.jsx`**
+1. **`packages/ui/src/views/canvases/index.jsx`**
 
     - Removed: `LoginDialog` import and usage
     - Added: `useAuthError` hook integration

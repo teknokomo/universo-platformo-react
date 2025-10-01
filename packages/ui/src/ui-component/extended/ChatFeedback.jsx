@@ -16,11 +16,17 @@ import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackba
 import useNotifier from '@/utils/useNotifier'
 
 // API
-import chatflowsApi from '@/api/chatflows'
+import canvasesApi from '@/api/canvases'
 
 const ChatFeedback = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
+
+    const chatflow = dialogProps?.chatflow || {}
+    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const spaceId =
+        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
+    const canvasId = chatflow.id || dialogProps?.chatflowid
 
     useNotifier()
 
@@ -42,9 +48,14 @@ const ChatFeedback = ({ dialogProps }) => {
                 }
             }
             chatbotConfig.chatFeedback = value.chatFeedback
-            const saveResp = await chatflowsApi.updateChatflow(dialogProps.chatflow.unik_id, dialogProps.chatflow.id, {
-                chatbotConfig: JSON.stringify(chatbotConfig)
-            })
+            const saveResp = await canvasesApi.updateCanvas(
+                unikId,
+                canvasId,
+                {
+                    chatbotConfig: JSON.stringify(chatbotConfig)
+                },
+                { spaceId }
+            )
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t('canvas.configuration.chatFeedback.settingsSaved'),
@@ -61,10 +72,10 @@ const ChatFeedback = ({ dialogProps }) => {
                 dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
             }
         } catch (error) {
+            const errorMessage =
+                typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('canvas.configuration.chatFeedback.failedToSave')}: ${
-                    typeof error.response.data === 'object' ? error.response.data.message : error.response.data
-                }`,
+                message: `${t('canvas.configuration.chatFeedback.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
