@@ -8,6 +8,7 @@ import {
     ReorderCanvasesDto,
     ApiResponse,
     CreateCanvasVersionDto,
+    UpdateCanvasVersionDto,
     ChatflowType
 } from '../types'
 
@@ -571,6 +572,98 @@ export class SpacesController {
         } catch (error) {
             console.error('[SpacesController] Error creating canvas version:', error)
             res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Internal server error'
+            } as ApiResponse)
+        }
+    }
+
+    /**
+     * PUT /uniks/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId - Update version metadata
+     */
+    async updateCanvasVersion(req: Request, res: Response): Promise<void> {
+        try {
+            const unikId = (req.params.unikId || req.params.id) as string
+            const { spaceId, canvasId, versionId } = req.params
+
+            if (!unikId || !spaceId || !canvasId || !versionId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Unik ID, Space ID, Canvas ID, and Version ID are required'
+                } as ApiResponse)
+                return
+            }
+
+            const body = req.body ?? {}
+            const hasLabel = Object.prototype.hasOwnProperty.call(body, 'label')
+            const hasDescription = Object.prototype.hasOwnProperty.call(body, 'description')
+
+            if (!hasLabel && !hasDescription) {
+                res.status(400).json({
+                    success: false,
+                    error: 'No fields provided for update'
+                } as ApiResponse)
+                return
+            }
+
+            const payload: UpdateCanvasVersionDto = {}
+
+            if (hasLabel) {
+                const label = typeof body.label === 'string' ? body.label.trim() : ''
+                if (!label) {
+                    res.status(400).json({
+                        success: false,
+                        error: 'Version label cannot be empty'
+                    } as ApiResponse)
+                    return
+                }
+                if (label.length > 200) {
+                    res.status(400).json({
+                        success: false,
+                        error: 'Version label must be 200 characters or less'
+                    } as ApiResponse)
+                    return
+                }
+                payload.label = label
+            }
+
+            if (hasDescription) {
+                const description = typeof body.description === 'string' ? body.description.trim() : ''
+                if (description.length > 2000) {
+                    res.status(400).json({
+                        success: false,
+                        error: 'Version description must be 2000 characters or less'
+                    } as ApiResponse)
+                    return
+                }
+                payload.description = description
+            }
+
+            const version = await this.spacesService.updateCanvasVersion(
+                unikId,
+                spaceId,
+                canvasId,
+                versionId,
+                payload
+            )
+
+            if (!version) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Canvas version not found'
+                } as ApiResponse)
+                return
+            }
+
+            res.json({
+                success: true,
+                data: version,
+                message: 'Canvas version updated successfully'
+            } as ApiResponse)
+        } catch (error) {
+            console.error('[SpacesController] Error updating canvas version:', error)
+            const status = error instanceof Error ? 400 : 500
+            res.status(status).json({
                 success: false,
                 error: error instanceof Error ? error.message : 'Internal server error'
             } as ApiResponse)

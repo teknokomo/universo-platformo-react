@@ -1,3 +1,10 @@
+### 2025-10-05 — Canvas version metadata editing
+
+- Added a scoped `PUT /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` endpoint that trims inputs, guards version groups, and refreshes `updatedDate` without touching snapshot payloads.
+- Expanded controller and service Jest suites to cover successful edits, missing versions, and cross-group rejection cases for the new route.
+- Introduced an update method in `canvasVersionsApi` plus busy-state wiring so `CanvasVersionsDialog` can trigger metadata saves and refresh lists/header callbacks.
+- Delivered an inline edit panel with validation, snackbars, and EN/RU translations, ensuring active canvas headers refresh after saving metadata changes.
+
 ### 2025-10-01 — Template MUI integration for Uniks
 
 - Routed `/` and `/uniks` views through `@universo/template-mui` by wiring `MainRoutesMUI`/`MainLayoutMUI`, enabling the new toolbar with breadcrumbs, theme toggle, and restored language switcher.

@@ -115,3 +115,8 @@ export interface CreateCanvasVersionDto {
     description?: string
     activate?: boolean
 }
+
+export interface UpdateCanvasVersionDto {
+    label?: string
+    description?: string
+}

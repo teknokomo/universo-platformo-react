@@ -30,7 +30,7 @@ import {
   Tooltip,
   Typography
 } from '@mui/material'
-import { IconPlayerPlay, IconTrash } from '@tabler/icons-react'
+import { IconEdit, IconPlayerPlay, IconTrash } from '@tabler/icons-react'
 
 // hooks & api
 import useApi from '../../hooks/useApi'
@@ -79,6 +79,9 @@ const CanvasVersionsDialog = ({
   const [label, setLabel] = useState('')
   const [description, setDescription] = useState('')
   const [activate, setActivate] = useState(true)
+  const [editingVersionId, setEditingVersionId] = useState(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [editDescription, setEditDescription] = useState('')
 
   const unikId = dialogProps?.unikId
   const spaceId = dialogProps?.spaceId
@@ -90,12 +93,29 @@ const CanvasVersionsDialog = ({
     referenceCanvasId ? canvasVersionsApi.list(unikId, spaceId, referenceCanvasId) : Promise.resolve({ data: [] })
   )
   const createVersionApi = useApi(canvasVersionsApi.create)
+  const updateVersionApi = useApi(canvasVersionsApi.update)
   const activateVersionApi = useApi(canvasVersionsApi.activate)
   const deleteVersionApi = useApi(canvasVersionsApi.remove)
+
+  const resetEditingState = () => {
+    setEditingVersionId(null)
+    setEditLabel('')
+    setEditDescription('')
+  }
+
+  const handleOpenEdit = (version) => {
+    setEditingVersionId(version.id)
+    setEditLabel(version.versionLabel || '')
+    setEditDescription(version.versionDescription || '')
+  }
 
   useEffect(() => {
     setReferenceCanvasId(dialogProps?.canvasId || '')
   }, [dialogProps?.canvasId])
+
+  useEffect(() => {
+    resetEditingState()
+  }, [referenceCanvasId])
 
   useEffect(() => {
     if (show) dispatch({ type: SHOW_CANVAS_DIALOG })
@@ -132,15 +152,92 @@ const CanvasVersionsDialog = ({
       setLabel('')
       setDescription('')
       setActivate(true)
+      resetEditingState()
     }
   }, [show])
 
+  const editingVersion = useMemo(
+    () => versions.find((item) => item.id === editingVersionId) || null,
+    [editingVersionId, versions]
+  )
+
+  const handleEditCancel = () => {
+    resetEditingState()
+  }
+
   const isBusy =
-    listVersionsApi.loading || createVersionApi.loading || activateVersionApi.loading || deleteVersionApi.loading
+    listVersionsApi.loading ||
+    createVersionApi.loading ||
+    activateVersionApi.loading ||
+    deleteVersionApi.loading ||
+    updateVersionApi.loading
 
   const handleRefreshVersions = async () => {
     if (unikId && spaceId && referenceCanvasId) {
       await listVersionsApi.request()
+    }
+  }
+
+  const handleEditSave = async () => {
+    if (!unikId || !spaceId || !referenceCanvasId || !editingVersionId) return
+
+    const trimmedLabel = (editLabel || '').trim()
+    const trimmedDescription = (editDescription || '').trim()
+
+    if (!trimmedLabel) {
+      enqueueSnackbar({
+        message: t('versionsDialog.updateEmptyLabel', 'Version label is required'),
+        options: { key: new Date().getTime() + Math.random(), variant: 'error' }
+      })
+      return
+    }
+
+    try {
+      const response = await updateVersionApi.request(
+        unikId,
+        spaceId,
+        referenceCanvasId,
+        editingVersionId,
+        {
+          label: trimmedLabel,
+          description: trimmedDescription.length ? trimmedDescription : ''
+        }
+      )
+      const version = response?.data || response
+      if (!version?.id) {
+        throw new Error('Invalid server response')
+      }
+
+      setVersions((prev) =>
+        sortVersions(
+          prev.map((item) => (item.id === version.id ? { ...item, ...version } : item))
+        )
+      )
+
+      resetEditingState()
+
+      if (typeof onRefreshCanvases === 'function') {
+        try {
+          await onRefreshCanvases()
+        } catch (refreshError) {
+          console.error('[CanvasVersionsDialog] Failed to refresh canvases after update', refreshError)
+        }
+      }
+
+      await handleRefreshVersions()
+
+      enqueueSnackbar({
+        message: t('versionsDialog.updateSuccess', 'Version updated successfully'),
+        options: { key: new Date().getTime() + Math.random(), variant: 'success' }
+      })
+    } catch (error) {
+      enqueueSnackbar({
+        message:
+          error?.response?.data?.error ||
+          error?.message ||
+          t('versionsDialog.updateError', 'Failed to update version'),
+        options: { key: new Date().getTime() + Math.random(), variant: 'error' }
+      })
     }
   }
 
@@ -367,6 +464,18 @@ const CanvasVersionsDialog = ({
                           </TableCell>
                           <TableCell align='right'>
                             <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                              <Tooltip title={t('versionsDialog.editAction', 'Edit')}>
+                                <span>
+                                  <IconButton
+                                    size='small'
+                                    onClick={() => handleOpenEdit(item)}
+                                    disabled={isBusy}
+                                    color='primary'
+                                  >
+                                    <IconEdit size={18} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
                               <Tooltip title={t('versionsDialog.activateAction', 'Activate')}>
                                 <span>
                                   <IconButton
@@ -396,11 +505,55 @@ const CanvasVersionsDialog = ({
                         </TableRow>
                       )
                     })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              </TableBody>
+            </Table>
+          </TableContainer>
             )}
           </Box>
+          {editingVersionId && (
+            <Paper variant='outlined' sx={{ p: 2 }}>
+              <Stack spacing={2}>
+                <Typography variant='subtitle1'>
+                  {t('versionsDialog.editTitle', 'Edit version metadata')}
+                </Typography>
+                {editingVersion?.versionUuid && (
+                  <Typography variant='caption' color='text.secondary'>
+                    {t('versionsDialog.editUuid', 'Version UUID')}: {editingVersion.versionUuid}
+                  </Typography>
+                )}
+                <TextField
+                  label={t('versionsDialog.editLabel', 'Version label')}
+                  value={editLabel}
+                  onChange={(event) => setEditLabel(event.target.value)}
+                  inputProps={{ maxLength: 200 }}
+                  fullWidth
+                  autoFocus
+                />
+                <TextField
+                  label={t('versionsDialog.editDescription', 'Description (optional)')}
+                  value={editDescription}
+                  onChange={(event) => setEditDescription(event.target.value)}
+                  inputProps={{ maxLength: 2000 }}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                />
+                <Stack direction='row' spacing={2} alignItems='center'>
+                  <Button
+                    variant='contained'
+                    onClick={handleEditSave}
+                    disabled={updateVersionApi.loading}
+                  >
+                    {t('versionsDialog.editSave', 'Save changes')}
+                  </Button>
+                  <Button onClick={handleEditCancel} disabled={updateVersionApi.loading}>
+                    {t('versionsDialog.editCancel', 'Cancel')}
+                  </Button>
+                  {updateVersionApi.loading && <CircularProgress size={20} />}
+                </Stack>
+              </Stack>
+            </Paper>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
