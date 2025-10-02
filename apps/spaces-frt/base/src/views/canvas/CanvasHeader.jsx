@@ -13,7 +13,7 @@ import { IconSettings, IconChevronLeft, IconDeviceFloppy, IconPencil, IconCheck,
 
 // project imports
 import Settings from '@/views/settings'
-import SaveChatflowDialog from '@/ui-component/dialog/SaveChatflowDialog'
+import SaveCanvasDialog from '@/ui-component/dialog/SaveCanvasDialog'
 import spacesApi from '../../api/spaces'
 import APICodeDialog from '@/views/canvases/APICodeDialog'
 import ViewMessagesDialog from '@/ui-component/dialog/ViewMessagesDialog'
@@ -602,7 +602,7 @@ const CanvasHeader = ({
                 onUploadFile={onUploadFile}
                 isAgentCanvas={isAgentCanvas}
             />
-            <SaveChatflowDialog
+            <SaveCanvasDialog
                 show={flowDialogOpen}
                 dialogProps={{
                     title: isAgentCanvas ? t('saveNewAgent','Save New Agent') : t('saveNewSpace','Save New Space'),

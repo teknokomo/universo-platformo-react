@@ -108,6 +108,64 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         })
     )
 
+    router.put(
+        '/:metaverseId',
+        asyncHandler(async (req, res) => {
+            const { metaverseId } = req.params
+            const { name, description } = req.body || {}
+            if (!name) {
+                return res.status(400).json({ error: 'name is required' })
+            }
+
+            const userId = resolveUserId(req)
+            if (!userId) {
+                return res.status(401).json({ error: 'User not authenticated' })
+            }
+
+            const { metaverseRepo, metaverseUserRepo } = repos()
+            const membership = await metaverseUserRepo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
+            if (!membership || membership.role !== 'owner') {
+                return res.status(403).json({ error: 'Not authorized to update this metaverse' })
+            }
+
+            const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
+            if (!metaverse) {
+                return res.status(404).json({ error: 'Metaverse not found' })
+            }
+
+            metaverse.name = name
+            metaverse.description = description
+
+            const saved = await metaverseRepo.save(metaverse)
+            res.json(saved)
+        })
+    )
+
+    router.delete(
+        '/:metaverseId',
+        asyncHandler(async (req, res) => {
+            const { metaverseId } = req.params
+            const userId = resolveUserId(req)
+            if (!userId) {
+                return res.status(401).json({ error: 'User not authenticated' })
+            }
+
+            const { metaverseRepo, metaverseUserRepo } = repos()
+            const membership = await metaverseUserRepo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
+            if (!membership || membership.role !== 'owner') {
+                return res.status(403).json({ error: 'Not authorized to delete this metaverse' })
+            }
+
+            const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
+            if (!metaverse) {
+                return res.status(404).json({ error: 'Metaverse not found' })
+            }
+
+            await metaverseRepo.remove(metaverse)
+            res.status(204).send()
+        })
+    )
+
     // GET /metaverses/:metaverseId/entities
     router.get(
         '/:metaverseId/entities',

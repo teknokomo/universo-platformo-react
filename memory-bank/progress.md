@@ -1,3 +1,43 @@
+### 2025-10-01 — Template MUI integration for Uniks
+
+- Routed `/` and `/uniks` views through `@universo/template-mui` by wiring `MainRoutesMUI`/`MainLayoutMUI`, enabling the new toolbar with breadcrumbs, theme toggle, and restored language switcher.
+- Copied Flowise card library into the template package and refactored `ItemCard` to use plain MUI `Card` styling with responsive min/max widths so demo lists render correctly across breakpoints.
+- Registered template-owned `flowList` translations (EN/RU) and patched `FlowListTable` to consume the global i18next instance, eliminating the `table.columns.*` key leakage.
+- Extended the shared `MainCard` component with `disableHeader`, `disableContentPadding`, `border`, and `shadow` switches; Uniks list now uses a flush container without redundant borders or padding.
+- Updated Uniks card grid to a `gridTemplateColumns` auto-fit layout (shared with skeleton state), ensuring single-column mobile rendering and multi-column desktop expansion.
+- Added a Template MUI navigation config plus localized `menu` resources and wired the demo `SideMenu` to render the root menu items using the shared i18next instance so localized labels display in the new layout.
+- Added `@universo/template-mui` as an explicit workspace dependency of `flowise-ui`, reran workspace install, and confirmed `pnpm --filter flowise-ui build` succeeds after copying CSS assets into both CJS/ESM bundles.
+
+### 2025-10-02 — Incremental Template MUI adoption (Metaverses & Clusters)
+
+- Migrated `MetaverseList` card view (`@universo/metaverses-frt`) to shared `@universo/template-mui` `ItemCard` with responsive `auto-fit` grid (`minmax(240px, 1fr)`) and skeleton parity (6 rounded placeholders) while leaving table view unchanged.
+- Added local stub declarations `template-mui.d.ts` and `gulp.d.ts` for metaverses front-end to satisfy TS in mixed JS/TS environment; build verified with `pnpm --filter @universo/metaverses-frt build`.
+- Replicated pattern for `ClusterList` card view (`@universo/resources-frt`): replaced legacy `@ui/ui-component/cards/ItemCard` import with `@universo/template-mui`, introduced identical responsive grid + skeleton set, untouched list/table path.
+- Added workspace dependency plus stub type files (`template-mui.d.ts`, `gulp.d.ts`) to resources front-end; build verified clean via `pnpm --filter @universo/resources-frt build` (no TS errors, gulp copy step OK).
+- Documented next safe step: evaluate consolidating list/table view once card usages confirmed stable in QA.
+
+### 2025-10-02 — Metaverse & Cluster table alignment
+
+- Extended `@universo/template-mui` `FlowListTable` with optional `getRowLink` override and resilient date handling so non-canvas entities (metaverses/clusters) can share the component without breaking Unik/Canvas flows.
+- Swapped metaverse and cluster list pages to the template table, wiring entity-specific action menus (`rename`, `delete`) that use lightweight confirm prompts and API adapters while keeping card view logic untouched.
+- Added dedicated action descriptor files plus EN/RU i18n entity labels to reuse existing dialog/confirm strings, and verified builds via `pnpm --filter @universo/template-mui build`, `pnpm --filter @universo/metaverses-frt build`, and `pnpm --filter @universo/resources-frt build`.
+
+### 2025-10-03 — Table counts & actions hardening
+
+- Implemented configurable column support in `FlowListTable`, enabling metaverse and cluster lists to show live counts (sections/entities, domains/resources) while preserving default card/table behaviour.
+- Added async fetchers on metaverse/cluster pages to aggregate related entities after list load, plus translations for the new headers in EN/RU locales.
+- Synced Unik list with `/unik/:id/spaces` to display accurate space counts in the shared table view.
+- Replaced ad-hoc `window.confirm` usage with the shared `ConfirmDialog` + `useConfirm` hook and wired rename/delete actions through newly exposed PUT/DELETE routes in metaverse and cluster services.
+- Confirmed builds for affected packages: `@universo/template-mui`, `@universo/metaverses-frt`, `@universo/resources-frt`, `@universo/uniks-frt`, `@universo/metaverses-srv`, `@universo/resources-srv`.
+
+### 2025-10-03 — Mobile header polish & Unik table fixes
+
+- Swapped the mobile app bar branding to “Kiberplano” and inserted the language switcher between the theme toggle and hamburger menu for parity with desktop controls.
+- Temporarily commented out the demo user card, promo block, and logout button in `SideMenuMobile`, keeping the layout while removing placeholder content until real data is wired.
+- Normalized Unik space counts by parsing `{ data: { spaces } }` responses and provided a `updatedDate` fallback (defaulting to created timestamp) so the shared list view shows meaningful dates.
+- Rebuilt `@universo/template-mui`, `@universo/metaverses-frt`, `@universo/resources-frt`, and `@universо/uniks-frt` to validate TypeScript after the UI refinements.
+- Added responsive card grid logic for Uniks: a `ResizeObserver` now computes visible columns so rows align left, stretch only when another card overflows to the next row, and shortened the global “Add” button labels (EN/RU) for Uniks, Metaverses, and Clusters.
+
 ### 2025-09-26 — ChatMessage canvases API alignment
 
 - Propagated `unikId`/`spaceId` from the Spaces canvas view into `ChatPopUp`, `ChatExpandDialog`, and `ChatMessage` so capability checks call `canvasesApi` with scoped identifiers instead of falling back to `/canvases/:id`.
@@ -1381,6 +1421,12 @@ Resolution:
 Validation:
 - `pnpm --filter @universo/spaces-srv test`
 - `pnpm --filter @universo/uniks-srv test`
+
+### 2025-10-02 — SaveCanvas dialog migration
+
+- Replaced the legacy `SaveChatflowDialog` implementation with a Canvas-specific dialog that mirrors the previous UX while defaulting translations to `dialog.saveCanvas.*`.
+- Updated `apps/spaces-frt` and Unik action loaders to consume the new dialog entry point, leaving a thin re-export for backwards compatibility.
+- Synced EN/RU locale bundles to include the `dialog.saveCanvas.placeholder` key and executed `pnpm --filter flowise-ui build` to verify Vite now resolves the module without Rollup default-export errors.
 ### 2025-09-23 — Canvas versioning backend groundwork
 
 - Updated the Spaces Supabase migration (Postgres/SQLite) to add canvas version metadata, enforce one active version per group via indexes, and seed existing rows with group ids.

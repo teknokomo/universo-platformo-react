@@ -26,6 +26,7 @@
         "@mui/material": "5.15.0",
         "@mui/x-tree-view": "^6.0.0",
         "@tabler/icons-react": "^3.30.0",
+        "@universo/template-mui": "workspace:*",
         "react": "^18.2.0",
         "react-i18next": "^15.4.1",
         "typescript": "^5.4.5",

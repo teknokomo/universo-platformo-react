@@ -20,7 +20,7 @@
     "unikList": {
       "title": "Ваши Уники",
       "searchPlaceholder": "Поиск по названию или ID",
-      "addUnik": "Добавить Уник",
+      "addUnik": "Добавить",
       "noUniksFound": "Уники не найдены",
       "addNewUnik": "Добавить новый Уник",
       "cardView": "Карточки", 

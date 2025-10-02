@@ -145,7 +145,7 @@ const UnikList = () => {
                                 sx={{
                                     borderColor: theme.palette.grey[900] + 25,
                                     borderRadius: 2,
-                                    color: theme?.customization?.isDarkMode ? 'white' : 'inherit'
+                                    color: theme.palette.mode === 'dark' ? 'white' : 'inherit'
                                 }}
                                 variant='contained'
                                 value='card'
@@ -157,7 +157,7 @@ const UnikList = () => {
                                 sx={{
                                     borderColor: theme.palette.grey[900] + 25,
                                     borderRadius: 2,
-                                    color: theme?.customization?.isDarkMode ? 'white' : 'inherit'
+                                    color: theme.palette.mode === 'dark' ? 'white' : 'inherit'
                                 }}
                                 variant='contained'
                                 value='list'

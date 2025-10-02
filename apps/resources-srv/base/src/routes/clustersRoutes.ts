@@ -97,6 +97,48 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
     }
   }))
 
+  router.put('/:clusterId', asyncHandler(async (req, res) => {
+    const { clusterId } = req.params
+    const { name, description } = req.body || {}
+    if (!name) return res.status(400).json({ error: 'name is required' })
+
+    const userId = resolveUserId(req)
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+
+    const { clusterRepo, clusterUserRepo } = repos()
+    const membership = await clusterUserRepo.findOne({ where: { cluster_id: clusterId, user_id: userId } })
+    if (!membership || membership.role !== 'owner') {
+      return res.status(403).json({ error: 'Not authorized to update this cluster' })
+    }
+
+    const cluster = await clusterRepo.findOne({ where: { id: clusterId } })
+    if (!cluster) return res.status(404).json({ error: 'Cluster not found' })
+
+    cluster.name = name
+    cluster.description = description
+
+    const saved = await clusterRepo.save(cluster)
+    res.json(saved)
+  }))
+
+  router.delete('/:clusterId', asyncHandler(async (req, res) => {
+    const { clusterId } = req.params
+    const userId = resolveUserId(req)
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+
+    const { clusterRepo, clusterUserRepo } = repos()
+    const membership = await clusterUserRepo.findOne({ where: { cluster_id: clusterId, user_id: userId } })
+    if (!membership || membership.role !== 'owner') {
+      return res.status(403).json({ error: 'Not authorized to delete this cluster' })
+    }
+
+    const cluster = await clusterRepo.findOne({ where: { id: clusterId } })
+    if (!cluster) return res.status(404).json({ error: 'Cluster not found' })
+
+    await clusterRepo.remove(cluster)
+    res.status(204).send()
+  }))
+
   // GET /clusters/:clusterId/resources
   router.get('/:clusterId/resources', asyncHandler(async (req, res) => {
     const { clusterId } = req.params

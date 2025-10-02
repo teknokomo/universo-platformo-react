@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -8,11 +8,10 @@ import { useTheme } from '@mui/material/styles'
 
 // project imports
 import MainCard from '../../../../../packages/ui/src/ui-component/cards/MainCard'
-import ItemCard from '../../../../../packages/ui/src/ui-component/cards/ItemCard'
+import { ItemCard, FlowListTable } from '@universo/template-mui'
 import { gridSpacing } from '../../../../../packages/ui/src/store/constant'
 import APIEmptySVG from '../../../../../packages/ui/src/assets/images/api_empty.svg'
 import ConfirmDialog from '../../../../../packages/ui/src/ui-component/dialog/ConfirmDialog'
-import { FlowListTable } from '../../../../../packages/ui/src/ui-component/table/FlowListTable'
 import BaseEntityMenu from '../../../../../packages/ui/src/ui-component/menu/BaseEntityMenu'
 import { unikActions } from './unik/unikActions'
 import useConfirm from '../../../../../packages/ui/src/hooks/useConfirm'
@@ -50,6 +49,7 @@ const UnikList = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [uniks, setUniks] = useState([])
+    const [spacesCounts, setSpacesCounts] = useState({})
     const [search, setSearch] = useState('')
 
     // State for modal window for creating/editing Unik
@@ -121,11 +121,146 @@ const UnikList = () => {
         }
     }, [getAllUniks.data])
 
+    useEffect(() => {
+        if (!Array.isArray(uniks) || uniks.length === 0) {
+            setSpacesCounts({})
+            return
+        }
+
+        let cancelled = false
+
+        const loadCounts = async () => {
+            const results = await Promise.allSettled(
+                uniks.map(async (unik) => {
+                    const response = await api.get(`/unik/${unik.id}/spaces`)
+                    const payload = response?.data
+
+                    const spacesArray = Array.isArray(payload?.data?.spaces)
+                        ? payload.data.spaces
+                        : Array.isArray(payload?.spaces)
+                          ? payload.spaces
+                          : Array.isArray(payload?.data)
+                              ? payload.data
+                              : Array.isArray(payload)
+                                  ? payload
+                                  : []
+
+                    const count = Array.isArray(spacesArray) ? spacesArray.length : 0
+                    return { id: unik.id, count }
+                })
+            )
+
+            if (cancelled) return
+
+            const next = {}
+            results.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    next[result.value.id] = result.value.count
+                }
+            })
+            setSpacesCounts(next)
+        }
+
+        loadCounts().catch((err) => {
+            if (!cancelled) {
+                console.error('Failed to load spaces count for uniks', err)
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [uniks])
+
     // For uniks we don't need to calculate images – pass empty array for each unik
     const images = {}
     uniks.forEach((unik) => {
         images[unik.id] = []
     })
+
+    const uniksWithCounts = useMemo(
+        () =>
+            uniks.map((unik) => {
+                const spacesCount = spacesCounts[unik.id] ?? 0
+                const updatedDate =
+                    unik.updatedDate ??
+                    unik.updated_at ??
+                    unik.updatedAt ??
+                    unik.created_at ??
+                    unik.createdAt ??
+                    null
+
+                return {
+                    ...unik,
+                    spacesCount,
+                    updatedDate
+                }
+            }),
+        [uniks, spacesCounts]
+    )
+
+    const gridRef = useRef(null)
+    const [gridConfig, setGridConfig] = useState({ columns: 1, stretch: false })
+    const CARD_MIN_WIDTH = 220
+    const CARD_MAX_WIDTH = 360
+
+    useEffect(() => {
+        const node = gridRef.current
+        if (!node) return
+
+        const gapPxRaw = parseFloat(theme.spacing(gridSpacing))
+        const gapPx = Number.isNaN(gapPxRaw) ? 0 : gapPxRaw
+
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0]
+            if (!entry) return
+            const width = entry.contentRect?.width || node.clientWidth || 0
+            if (!width) return
+            const totalCards = uniksWithCounts.length || 1
+            let bestColumns = 1
+            let bestLeftover = Number.POSITIVE_INFINITY
+
+            const maxCandidates = Math.min(totalCards, 12)
+
+            for (let candidate = 1; candidate <= maxCandidates; candidate += 1) {
+                const trackWidth = (width - gapPx * (candidate - 1)) / candidate
+                if (trackWidth < CARD_MIN_WIDTH) {
+                    continue
+                }
+
+                const clampedWidth = Math.min(trackWidth, CARD_MAX_WIDTH)
+                const leftover = width - candidate * clampedWidth - gapPx * (candidate - 1)
+                const error = Math.abs(leftover)
+
+                if (error < bestLeftover - 0.5 || (Math.abs(error - bestLeftover) <= 0.5 && candidate > bestColumns)) {
+                    bestColumns = candidate
+                    bestLeftover = error
+                }
+            }
+
+            bestColumns = Math.max(1, Math.min(bestColumns, totalCards))
+            const stretch = totalCards > bestColumns && bestColumns > 1
+            setGridConfig({ columns: bestColumns, stretch })
+        })
+
+        observer.observe(node)
+
+        return () => {
+            observer.disconnect()
+        }
+    }, [theme, uniksWithCounts.length])
+
+    const cardGridSx = useMemo(
+        () => ({
+            display: 'grid',
+            gap: gridSpacing,
+            justifyContent: 'flex-start',
+            justifyItems: 'stretch',
+            alignContent: 'flex-start',
+            gridTemplateColumns: `repeat(${gridConfig.columns}, minmax(${CARD_MIN_WIDTH}px, ${gridConfig.stretch ? '1fr' : `${CARD_MAX_WIDTH}px`}))`
+        }),
+        [gridConfig.columns, gridConfig.stretch]
+    )
 
     const dispatch = useDispatch()
     const { confirm } = useConfirm()
@@ -163,7 +298,14 @@ const UnikList = () => {
     })
 
     return (
-        <MainCard>
+        <MainCard
+            sx={{ maxWidth: '100%', width: '100%' }}
+            contentSX={{ px: 0, py: 0 }}
+            disableContentPadding
+            disableHeader
+            border={false}
+            shadow={false}
+        >
             {error ? (
                 <ErrorBoundary error={error} />
             ) : (
@@ -218,15 +360,21 @@ const UnikList = () => {
                     {!view || view === 'card' ? (
                         <>
                             {isLoading && uniks.length === 0 ? (
-                                <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                                <Box sx={cardGridSx}>
                                     <Skeleton variant='rounded' height={160} />
                                     <Skeleton variant='rounded' height={160} />
                                     <Skeleton variant='rounded' height={160} />
                                 </Box>
                             ) : (
-                                <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
-                                    {uniks.filter(filterUniks).map((unik, index) => (
-                                        <ItemCard key={index} onClick={() => goToUnik(unik)} data={unik} images={images[unik.id]} />
+                                <Box ref={gridRef} sx={cardGridSx}>
+                                    {uniksWithCounts.filter(filterUniks).map((unik) => (
+                                        <ItemCard
+                                            key={unik.id}
+                                            onClick={() => goToUnik(unik)}
+                                            data={unik}
+                                            images={images[unik.id]}
+                                            allowStretch={gridConfig.stretch}
+                                        />
                                     ))}
                                 </Box>
                             )}
@@ -234,7 +382,7 @@ const UnikList = () => {
                     ) : (
                         <FlowListTable
                             isUnikTable={true}
-                            data={uniks.filter(filterUniks)}
+                            data={uniksWithCounts.filter(filterUniks)}
                             images={images}
                             isLoading={isLoading}
                             filterFunction={filterUniks}
