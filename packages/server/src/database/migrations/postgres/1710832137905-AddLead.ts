@@ -5,7 +5,7 @@ export class AddLead1710832137905 implements MigrationInterface {
         await queryRunner.query(
             `CREATE TABLE IF NOT EXISTS lead (
                 id uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "chatflowid" varchar NOT NULL,
+                "canvas_id" uuid NOT NULL,
                 "chatId" varchar NOT NULL,
                 "name" text,
                 "email" text,
