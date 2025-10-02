@@ -1,3 +1,12 @@
+## 2025-10-01 — Uniks UI migration to Template MUI
+
+- Began routing Uniks front-end through the new `@universo/template-mui` stack: `MainLayoutMUI` now supplies the header, toolbar, language switcher, and theme controls while card/list views render inside the template container.
+- Replicated Flowise legacy card components into the template package and refactored `ItemCard` for neutral styling (no legacy MainCard dependency) plus responsive width constraints.
+- Added template-specific i18n bundles (EN/RU `flowList` namespace) and registered them with the global i18next instance so table headers/localized labels resolve without Flowise coupling.
+- Extended `MainCard` with `disableHeader`, `disableContentPadding`, `border={false}`, `shadow={false}` switches, enabling flush containers in the new layout without breaking legacy screens.
+- Updated Uniks list grid to use responsive `auto-fit` columns; skeleton state reuses identical layout ensuring smooth loading on mobile/tablet/desktop.
+- Registered template-owned menu translations (EN/RU) with the global i18next instance and swapped demo `SideMenu` contents to use the shared root menu config so the new layout renders localized items while preserving template placeholders.
+
 ## 2025-09-24 — Chatflow alias bridge & service extraction
 
 - Introduced `CanvasId` alias plus helper mappers in `packages/server/src/Interface.ts`, ensuring every chatflow response now carries both `id` and `canvasId` while consumers gradually migrate terminology.

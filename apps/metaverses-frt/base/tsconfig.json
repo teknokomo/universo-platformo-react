@@ -17,7 +17,7 @@
         "skipLibCheck": true,
         "jsx": "react-jsx",
         "allowJs": false,
-        "typeRoots": ["./src/types"],
+    "typeRoots": ["./src/types"],
         "baseUrl": "./src",
         "moduleResolution": "node",
         "noResolve": false

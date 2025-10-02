@@ -18,7 +18,7 @@
         "name": "Name",
         "description": "Description",
         "searchPlaceholder": "Search clusters...",
-        "addNew": "Add Cluster",
+        "addNew": "Add",
         "noClustersFound": "No clusters found",
         "edit": "Edit",
         "delete": "Delete",
@@ -31,7 +31,7 @@
         "list": {
             "title": "Clusters",
             "searchPlaceholder": "Search clusters...",
-            "addNew": "Add Cluster",
+            "addNew": "Add",
             "loading": "Loading clusters...",
             "error": "Failed to load clusters",
             "noClustersYet": "No clusters yet",
@@ -54,6 +54,10 @@
             "cancel": "Cancel",
             "save": "Save",
             "required": "This field is required"
+        },
+        "table": {
+            "domains": "Domains",
+            "resources": "Resources"
         }
     },
     "domains": {

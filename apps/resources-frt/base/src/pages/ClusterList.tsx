@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Card, Button } from '@mui/material'
 import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
@@ -6,11 +6,14 @@ import { useTranslation } from 'react-i18next'
 import { useTheme } from '@mui/material/styles'
 
 // project imports
-import ItemCard from '@ui/ui-component/cards/ItemCard'
+// Migrated to shared template-mui ItemCard (incremental step)
+import { ItemCard, FlowListTable } from '@universo/template-mui'
 import { gridSpacing } from '@ui/store/constant'
-import { FlowListTable } from '@ui/ui-component/table/FlowListTable'
 import ViewHeader from '@ui/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@ui/ErrorBoundary'
+import BaseEntityMenu from '@ui/ui-component/menu/BaseEntityMenu'
+import ConfirmDialog from '@ui/ui-component/dialog/ConfirmDialog'
+import useConfirm from '@ui/hooks/useConfirm'
 
 // assets
 import APIEmptySVG from '@ui/assets/images/api_empty.svg'
@@ -19,6 +22,7 @@ import { useApi } from '../hooks/useApi'
 import * as clustersApi from '../api/clusters'
 import { Cluster } from '../types'
 import ClusterDialog from './ClusterDialog'
+import clusterActions from './clusterActions'
 
 const ClusterList = () => {
     const navigate = useNavigate()
@@ -32,27 +36,32 @@ const ClusterList = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState<any>(null)
     const [clusters, setClusters] = useState<Cluster[]>([])
+    const [clusterStats, setClusterStats] = useState<Record<string, { domains: number; resources: number }>>({})
 
     const { request: loadClusters } = useApi(clustersApi.listClusters)
+    const updateClusterApi = useApi(clustersApi.updateCluster)
+    const deleteClusterApi = useApi(clustersApi.deleteCluster)
+
+    const { confirm } = useConfirm()
+
+    const fetchClusters = useCallback(async () => {
+        try {
+            setLoading(true)
+            setError(null)
+            const result = await loadClusters()
+            const clustersArray = Array.isArray(result) ? result : []
+            setClusters(clustersArray)
+        } catch (err: any) {
+            setError(err)
+            setClusters([])
+        } finally {
+            setLoading(false)
+        }
+    }, [loadClusters])
 
     useEffect(() => {
-        const fetchClusters = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const result = await loadClusters()
-                // Ensure result is always an array
-                const clustersArray = Array.isArray(result) ? result : []
-                setClusters(clustersArray)
-            } catch (err: any) {
-                setError(err)
-                setClusters([]) // Set empty array on error
-            } finally {
-                setLoading(false)
-            }
-        }
         fetchClusters()
-    }, [loadClusters])
+    }, [fetchClusters])
 
     const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null)
 
@@ -79,22 +88,6 @@ const ClusterList = () => {
 
     const handleDialogSave = () => {
         setDialogOpen(false)
-        // Refresh the list
-        const fetchClusters = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const result = await loadClusters()
-                // Ensure result is always an array
-                const clustersArray = Array.isArray(result) ? result : []
-                setClusters(clustersArray)
-            } catch (err: any) {
-                setError(err)
-                setClusters([]) // Set empty array on error
-            } finally {
-                setLoading(false)
-            }
-        }
         fetchClusters()
     }
 
@@ -113,27 +106,118 @@ const ClusterList = () => {
     }
 
     const filterClusters = (data: any) => {
-        return data.name.toLowerCase().includes(search.toLowerCase()) || (data.description && data.description.toLowerCase().includes(search.toLowerCase()))
+        const name = (data?.name || '').toLowerCase()
+        const description = (data?.description || '').toLowerCase()
+        const term = search.toLowerCase()
+        return name.includes(term) || description.includes(term)
     }
 
-    const updateFlowsApi = async () => {
-        const fetchClusters = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const result = await loadClusters()
-                // Ensure result is always an array
-                const clustersArray = Array.isArray(result) ? result : []
-                setClusters(clustersArray)
-            } catch (err: any) {
-                setError(err)
-                setClusters([]) // Set empty array on error
-            } finally {
-                setLoading(false)
+    const updateFlowsApi = fetchClusters
+
+    const clusterColumns = useMemo(
+        () => [
+            {
+                id: 'domains',
+                label: t('clusters.table.domains'),
+                width: '20%',
+                align: 'center',
+                render: (row: Cluster) => clusterStats[row.id]?.domains ?? '—'
+            },
+            {
+                id: 'resources',
+                label: t('clusters.table.resources'),
+                width: '20%',
+                align: 'center',
+                render: (row: Cluster) => clusterStats[row.id]?.resources ?? '—'
             }
+        ],
+        [clusterStats, t]
+    )
+
+    useEffect(() => {
+        if (!Array.isArray(clusters) || clusters.length === 0) {
+            setClusterStats({})
+            return
         }
-        await fetchClusters()
-    }
+
+        let cancelled = false
+
+        const loadCounts = async () => {
+            const results = await Promise.allSettled(
+                clusters.map(async (cluster) => {
+                    const [domainsRes, resourcesRes] = await Promise.all([
+                        clustersApi.getClusterDomains(cluster.id),
+                        clustersApi.getClusterResources(cluster.id)
+                    ])
+                    const domains = Array.isArray(domainsRes?.data) ? domainsRes.data.length : 0
+                    const resources = Array.isArray(resourcesRes?.data) ? resourcesRes.data.length : 0
+                    return { id: cluster.id, domains, resources }
+                })
+            )
+
+            if (cancelled) return
+
+            const next: Record<string, { domains: number; resources: number }> = {}
+            results.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    next[result.value.id] = {
+                        domains: result.value.domains,
+                        resources: result.value.resources
+                    }
+                }
+            })
+            setClusterStats(next)
+        }
+
+        loadCounts().catch((err) => {
+            if (!cancelled) {
+                console.error('Failed to load cluster counts', err)
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [clusters])
+
+    const createClusterContext = useCallback(
+        (baseContext: any) => ({
+            ...baseContext,
+            api: {
+                updateEntity: async (id: string, patch: any) => {
+                    try {
+                        await updateClusterApi.request(id, patch)
+                    } catch (err: any) {
+                        setError(err)
+                        throw err
+                    }
+                },
+                deleteEntity: async (id: string) => {
+                    try {
+                        await deleteClusterApi.request(id)
+                    } catch (err: any) {
+                        setError(err)
+                        throw err
+                    }
+                }
+            },
+            helpers: {
+                refreshList: async () => {
+                    await fetchClusters()
+                },
+                confirm: async (spec: any) => {
+                    const confirmed = await confirm({
+                        title: baseContext.t(spec.titleKey, spec.interpolate),
+                        description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : undefined,
+                        confirmButtonName: baseContext.t('confirm.delete.confirm'),
+                        cancelButtonName: baseContext.t('confirm.delete.cancel')
+                    })
+                    return confirmed
+                }
+            }
+        }),
+        [confirm, deleteClusterApi, fetchClusters, setError, updateClusterApi]
+    )
 
     return (
         <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto' }}>
@@ -189,7 +273,17 @@ const ClusterList = () => {
 
                     {isLoading && (!Array.isArray(clusters) || clusters.length === 0) ? (
                         view === 'card' ? (
-                            <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                            <Box
+                                sx={{
+                                    display: 'grid',
+                                    gap: gridSpacing,
+                                    gridTemplateColumns: {
+                                        xs: 'repeat(1, minmax(0, 1fr))',
+                                        sm: 'repeat(2, minmax(220px, 1fr))',
+                                        lg: 'repeat(auto-fit, minmax(260px, 1fr))'
+                                    }
+                                }}
+                            >
                                 <Skeleton variant='rounded' height={160} />
                                 <Skeleton variant='rounded' height={160} />
                                 <Skeleton variant='rounded' height={160} />
@@ -207,7 +301,17 @@ const ClusterList = () => {
                     ) : (
                         <>
                             {view === 'card' ? (
-                                <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                                <Box
+                                    sx={{
+                                        display: 'grid',
+                                        gap: gridSpacing,
+                                        gridTemplateColumns: {
+                                            xs: 'repeat(1, minmax(0, 1fr))',
+                                            sm: 'repeat(2, minmax(220px, 1fr))',
+                                            lg: 'repeat(auto-fit, minmax(260px, 1fr))'
+                                        }
+                                    }}
+                                >
                                     {Array.isArray(clusters) && clusters.filter(filterClusters).map((cluster) => (
                                         <ItemCard
                                             key={cluster.id}
@@ -219,12 +323,23 @@ const ClusterList = () => {
                                 </Box>
                             ) : (
                                 <FlowListTable
-                                    data={Array.isArray(clusters) ? clusters.filter(filterClusters) : []}
+                                    data={Array.isArray(clusters) ? clusters : []}
                                     images={images}
                                     isLoading={isLoading}
                                     filterFunction={filterClusters}
                                     updateFlowsApi={updateFlowsApi}
                                     setError={setError}
+                                    getRowLink={(row: Cluster) => (row?.id ? `/clusters/${row.id}` : undefined)}
+                                    customColumns={clusterColumns}
+                                    renderActions={(row: Cluster) => (
+                                        <BaseEntityMenu
+                                            entity={row}
+                                            entityKind='cluster'
+                                            descriptors={clusterActions}
+                                            namespace='flowList'
+                                            createContext={createClusterContext}
+                                        />
+                                    )}
                                 />
                             )}
                         </>
@@ -238,6 +353,7 @@ const ClusterList = () => {
                 onSave={handleDialogSave} 
                 cluster={selectedCluster}
             />
+            <ConfirmDialog />
         </Card>
     )
 }

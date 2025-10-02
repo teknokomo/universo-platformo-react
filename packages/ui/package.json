@@ -32,6 +32,7 @@
     "@universo/metaverses-frt": "workspace:*",
     "@universo/resources-frt": "workspace:*",
     "@universo/space-builder-frt": "workspace:*",
+    "@universo/template-mui": "workspace:*",
     "@universo/template-mmoomm": "workspace:*",
     "@universo/template-quiz": "workspace:*",
     "@universo/uniks-frt": "workspace:*",

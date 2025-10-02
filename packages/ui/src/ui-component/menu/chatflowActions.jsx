@@ -41,7 +41,7 @@ export const chatflowActions = [
     icon: <EditIcon />,
     order: 10,
     dialog: {
-      loader: () => import('@/ui-component/dialog/SaveChatflowDialog'),
+      loader: () => import('@/ui-component/dialog/SaveCanvasDialog'),
       buildProps: (ctx) => ({
         show: true,
         dialogProps: {

@@ -9,7 +9,7 @@ export const unikActions = [
     icon: <EditIcon />,
     order: 10,
     dialog: {
-      loader: async () => import('../../../../../../packages/ui/src/ui-component/dialog/SaveChatflowDialog.jsx'),
+      loader: async () => import('../../../../../../packages/ui/src/ui-component/dialog/SaveCanvasDialog.jsx'),
       buildProps: (ctx) => ({
         show: true,
         dialogProps: {

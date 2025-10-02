@@ -24,7 +24,7 @@
         "name": "Name",
         "description": "Description",
         "searchPlaceholder": "Search metaverses...",
-        "addNew": "Add Metaverse",
+        "addNew": "Add",
         "noMetaversesFound": "No metaverses found",
         "edit": "Edit",
         "delete": "Delete",
@@ -37,7 +37,7 @@
         "list": {
             "title": "Metaverses",
             "searchPlaceholder": "Search metaverses...",
-            "addNew": "Add Metaverse",
+            "addNew": "Add",
             "loading": "Loading metaverses...",
             "error": "Failed to load metaverses",
             "noMetaversesYet": "No metaverses yet",
@@ -60,6 +60,10 @@
             "cancel": "Cancel",
             "save": "Save",
             "required": "This field is required"
+        },
+        "table": {
+            "sections": "Sections",
+            "entities": "Entities"
         }
     },
     "sections": {

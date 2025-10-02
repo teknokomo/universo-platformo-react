@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Card, Button } from '@mui/material'
 import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
@@ -6,11 +6,14 @@ import { useTranslation } from 'react-i18next'
 import { useTheme } from '@mui/material/styles'
 
 // project imports
-import ItemCard from '@ui/ui-component/cards/ItemCard'
+// Use the new template-mui ItemCard (JS component) for consistency with Uniks
+import { ItemCard, FlowListTable } from '@universo/template-mui'
 import { gridSpacing } from '@ui/store/constant'
-import { FlowListTable } from '@ui/ui-component/table/FlowListTable'
 import ViewHeader from '@ui/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@ui/ErrorBoundary'
+import BaseEntityMenu from '@ui/ui-component/menu/BaseEntityMenu'
+import ConfirmDialog from '@ui/ui-component/dialog/ConfirmDialog'
+import useConfirm from '@ui/hooks/useConfirm'
 
 // assets
 import APIEmptySVG from '@ui/assets/images/api_empty.svg'
@@ -19,6 +22,7 @@ import { useApi } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
 import { Metaverse } from '../types'
 import MetaverseDialog from './MetaverseDialog'
+import metaverseActions from './metaverseActions'
 
 const MetaverseList = () => {
     const navigate = useNavigate()
@@ -32,27 +36,32 @@ const MetaverseList = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState<any>(null)
     const [metaverses, setMetaverses] = useState<Metaverse[]>([])
+    const [metaverseStats, setMetaverseStats] = useState<Record<string, { sections: number; entities: number }>>({})
+
+    const { confirm } = useConfirm()
 
     const { request: loadMetaverses } = useApi(metaversesApi.listMetaverses)
+    const updateMetaverseApi = useApi(metaversesApi.updateMetaverse)
+    const deleteMetaverseApi = useApi(metaversesApi.deleteMetaverse)
+
+    const fetchMetaverses = useCallback(async () => {
+        try {
+            setLoading(true)
+            setError(null)
+            const result = await loadMetaverses()
+            const metaversesArray = Array.isArray(result) ? result : []
+            setMetaverses(metaversesArray)
+        } catch (err: any) {
+            setError(err)
+            setMetaverses([])
+        } finally {
+            setLoading(false)
+        }
+    }, [loadMetaverses])
 
     useEffect(() => {
-        const fetchMetaverses = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const result = await loadMetaverses()
-                // Ensure result is always an array
-                const metaversesArray = Array.isArray(result) ? result : []
-                setMetaverses(metaversesArray)
-            } catch (err: any) {
-                setError(err)
-                setMetaverses([]) // Set empty array on error
-            } finally {
-                setLoading(false)
-            }
-        }
         fetchMetaverses()
-    }, [loadMetaverses])
+    }, [fetchMetaverses])
 
     const [selectedMetaverse, setSelectedMetaverse] = useState<Metaverse | null>(null)
 
@@ -77,22 +86,6 @@ const MetaverseList = () => {
 
     const handleDialogSave = () => {
         setDialogOpen(false)
-        // Refresh the list
-        const fetchMetaverses = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const result = await loadMetaverses()
-                // Ensure result is always an array
-                const metaversesArray = Array.isArray(result) ? result : []
-                setMetaverses(metaversesArray)
-            } catch (err: any) {
-                setError(err)
-                setMetaverses([]) // Set empty array on error
-            } finally {
-                setLoading(false)
-            }
-        }
         fetchMetaverses()
     }
 
@@ -111,30 +104,118 @@ const MetaverseList = () => {
     }
 
     const filterMetaverses = (data: any) => {
-        return (
-            data.name.toLowerCase().includes(search.toLowerCase()) ||
-            (data.description && data.description.toLowerCase().includes(search.toLowerCase()))
-        )
+        const name = (data?.name || '').toLowerCase()
+        const description = (data?.description || '').toLowerCase()
+        const term = search.toLowerCase()
+        return name.includes(term) || description.includes(term)
     }
 
-    const updateFlowsApi = async () => {
-        const fetchMetaverses = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const result = await loadMetaverses()
-                // Ensure result is always an array
-                const metaversesArray = Array.isArray(result) ? result : []
-                setMetaverses(metaversesArray)
-            } catch (err: any) {
-                setError(err)
-                setMetaverses([]) // Set empty array on error
-            } finally {
-                setLoading(false)
+    const updateFlowsApi = fetchMetaverses
+
+    const metaverseColumns = useMemo(
+        () => [
+            {
+                id: 'sections',
+                label: t('metaverses.table.sections'),
+                width: '20%',
+                align: 'center',
+                render: (row: Metaverse) => metaverseStats[row.id]?.sections ?? '—'
+            },
+            {
+                id: 'entities',
+                label: t('metaverses.table.entities'),
+                width: '20%',
+                align: 'center',
+                render: (row: Metaverse) => metaverseStats[row.id]?.entities ?? '—'
             }
+        ],
+        [metaverseStats, t]
+    )
+
+    useEffect(() => {
+        if (!Array.isArray(metaverses) || metaverses.length === 0) {
+            setMetaverseStats({})
+            return
         }
-        await fetchMetaverses()
-    }
+
+        let cancelled = false
+
+        const loadCounts = async () => {
+            const results = await Promise.allSettled(
+                metaverses.map(async (metaverse) => {
+                    const [sectionsRes, entitiesRes] = await Promise.all([
+                        metaversesApi.getMetaverseSections(metaverse.id),
+                        metaversesApi.getMetaverseEntities(metaverse.id)
+                    ])
+                    const sections = Array.isArray(sectionsRes?.data) ? sectionsRes.data.length : 0
+                    const entities = Array.isArray(entitiesRes?.data) ? entitiesRes.data.length : 0
+                    return { id: metaverse.id, sections, entities }
+                })
+            )
+
+            if (cancelled) return
+
+            const next: Record<string, { sections: number; entities: number }> = {}
+            results.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    next[result.value.id] = {
+                        sections: result.value.sections,
+                        entities: result.value.entities
+                    }
+                }
+            })
+            setMetaverseStats(next)
+        }
+
+        loadCounts().catch((err) => {
+            if (!cancelled) {
+                console.error('Failed to load metaverse counts', err)
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [metaverses])
+
+    const createMetaverseContext = useCallback(
+        (baseContext: any) => ({
+            ...baseContext,
+            api: {
+                updateEntity: async (id: string, patch: any) => {
+                    try {
+                        await updateMetaverseApi.request(id, patch)
+                    } catch (err: any) {
+                        setError(err)
+                        throw err
+                    }
+                },
+                deleteEntity: async (id: string) => {
+                    try {
+                        await deleteMetaverseApi.request(id)
+                    } catch (err: any) {
+                        setError(err)
+                        throw err
+                    }
+                }
+            },
+            helpers: {
+                refreshList: async () => {
+                    await fetchMetaverses()
+                },
+                confirm: async (spec: any) => {
+                    const confirmed = await confirm({
+                        title: baseContext.t(spec.titleKey, spec.interpolate),
+                        description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : undefined,
+                        confirmButtonName: baseContext.t('confirm.delete.confirm'),
+                        cancelButtonName: baseContext.t('confirm.delete.cancel')
+                    })
+                    return confirmed
+                }
+            }
+        }),
+        [confirm, deleteMetaverseApi, fetchMetaverses, setError, updateMetaverseApi]
+    )
 
     return (
         <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto' }}>
@@ -185,7 +266,17 @@ const MetaverseList = () => {
 
                     {isLoading && (!Array.isArray(metaverses) || metaverses.length === 0) ? (
                         view === 'card' ? (
-                            <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                            <Box
+                                sx={{
+                                    display: 'grid',
+                                    gap: gridSpacing,
+                                    gridTemplateColumns: {
+                                        xs: 'repeat(1, minmax(0, 1fr))',
+                                        sm: 'repeat(2, minmax(220px, 1fr))',
+                                        lg: 'repeat(auto-fit, minmax(260px, 1fr))'
+                                    }
+                                }}
+                            >
                                 <Skeleton variant='rounded' height={160} />
                                 <Skeleton variant='rounded' height={160} />
                                 <Skeleton variant='rounded' height={160} />
@@ -203,7 +294,17 @@ const MetaverseList = () => {
                     ) : (
                         <>
                             {view === 'card' ? (
-                                <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
+                                <Box
+                                    sx={{
+                                        display: 'grid',
+                                        gap: gridSpacing,
+                                        gridTemplateColumns: {
+                                            xs: 'repeat(1, minmax(0, 1fr))',
+                                            sm: 'repeat(2, minmax(220px, 1fr))',
+                                            lg: 'repeat(auto-fit, minmax(260px, 1fr))'
+                                        }
+                                    }}
+                                >
                                     {Array.isArray(metaverses) &&
                                         metaverses
                                             .filter(filterMetaverses)
@@ -218,12 +319,23 @@ const MetaverseList = () => {
                                 </Box>
                             ) : (
                                 <FlowListTable
-                                    data={Array.isArray(metaverses) ? metaverses.filter(filterMetaverses) : []}
+                                    data={Array.isArray(metaverses) ? metaverses : []}
                                     images={images}
                                     isLoading={isLoading}
                                     filterFunction={filterMetaverses}
                                     updateFlowsApi={updateFlowsApi}
                                     setError={setError}
+                                    getRowLink={(row: Metaverse) => (row?.id ? `/metaverses/${row.id}` : undefined)}
+                                    customColumns={metaverseColumns}
+                                    renderActions={(row: Metaverse) => (
+                                        <BaseEntityMenu
+                                            entity={row}
+                                            entityKind='metaverse'
+                                            descriptors={metaverseActions}
+                                            namespace='flowList'
+                                            createContext={createMetaverseContext}
+                                        />
+                                    )}
                                 />
                             )}
                         </>
@@ -232,6 +344,7 @@ const MetaverseList = () => {
             )}
 
             <MetaverseDialog open={isDialogOpen} onClose={handleDialogClose} onSave={handleDialogSave} metaverse={selectedMetaverse} />
+            <ConfirmDialog />
         </Card>
     )
 }

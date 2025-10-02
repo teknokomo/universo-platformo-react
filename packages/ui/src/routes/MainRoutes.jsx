@@ -13,10 +13,8 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
-const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseList }))))
 const MetaverseDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseDetail }))))
 const SectionDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.SectionDetail }))))
-const ClusterList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterList }))))
 const ClusterDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterDetail }))))
 const DomainDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.DomainDetail }))))
 const ResourceDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ResourceDetail }))))
@@ -86,15 +84,7 @@ const MainRoutes = {
     element: <MainLayout />,
     children: [
         {
-            index: true,
-            element: (
-                <AuthGuard>
-                    <UnikList />
-                </AuthGuard>
-            )
-        },
-        {
-            path: '/unik',
+            path: 'unik',
             children: [
                 {
                     index: true,
@@ -217,16 +207,8 @@ const MainRoutes = {
             ]
         },
         {
-            path: '/metaverses',
+            path: 'metaverses',
             children: [
-                {
-                    index: true,
-                    element: (
-                        <AuthGuard>
-                            <MetaverseList />
-                        </AuthGuard>
-                    )
-                },
                 {
                     path: ':metaverseId',
                     element: (
@@ -260,15 +242,7 @@ const MainRoutes = {
             ]
         },
         {
-            path: '/clusters',
-            element: (
-                <AuthGuard>
-                    <ClusterList />
-                </AuthGuard>
-            )
-        },
-        {
-            path: '/clusters/:clusterId',
+            path: 'clusters/:clusterId',
             element: (
                 <AuthGuard>
                     <ClustersContainer />
@@ -299,11 +273,11 @@ const MainRoutes = {
         },
 
         {
-            path: '/admin',
+            path: 'admin',
             element: <AdminPanel />
         },
         {
-            path: '/profile',
+            path: 'profile',
             element: (
                 <AuthGuard>
                     <Profile />

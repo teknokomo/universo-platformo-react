@@ -26,6 +26,51 @@
 - [x] Refactor services and utilities (including purge helpers and raw SQL) to reference `canvas_id` / `canvasId` consistently and update any serialized DTO payloads.
 - [x] Execute repository build and targeted server tests (`pnpm build`, `pnpm test --filter server`) verifying the migration compiles and runtime logic still works.
 
+## IMPLEMENT - Template MUI Uniks UI (2025-10-01)
+
+- [x] Integrate `MainLayoutMUI` routes and language switcher for the Uniks list view.
+- [x] Copy Flowise card components into the template package and restyle `ItemCard` for the new layout.
+- [x] Register template-specific `flowList` i18n resources and point `FlowListTable` at the shared i18next instance.
+- [x] Add localized root menu items to Template MUI and register EN/RU `menu` bundle with global i18next.
+- [x] Update the Uniks card grid to use responsive `auto-fit` columns and matching skeleton layout.
+- [x] Extend `MainCard` with flush layout props (`disableHeader`, `disableContentPadding`, `border`, `shadow`) and apply them to Uniks.
+- [ ] Audit remaining Flowise UI dependencies that should migrate into `@universo/template-mui`.
+
+### Incremental Migration (2025-10-02)
+- [x] Metaverses: Card view switched to `@universo/template-mui` `ItemCard` with responsive grid + skeleton.
+- [x] Clusters: Card view switched to `@universo/template-mui` `ItemCard` (resources-frt) keeping list/table variant untouched.
+- [x] Added workspace dependency and local stub types (`template-mui.d.ts`, `gulp.d.ts`) for `resources-frt` similar to metaverses pattern.
+- [ ] Next candidate: Evaluate `resources-frt` table view for potential consolidation after verifying no regressions in card interactions.
+
+## IMPLEMENT - Metaverse & Cluster Table Refresh (2025-10-02)
+
+- [x] Update template-mui FlowListTable to accept custom row links and date fallbacks for non-canvas entities.
+- [x] Adjust MetaverseList to use the shared FlowListTable with tailored row link and streamlined actions menu.
+- [x] Adjust ClusterList to use the shared FlowListTable with tailored row link and streamlined actions menu.
+- [x] Add minimal action descriptors for metaverse and cluster entities (rename/delete) and wire them through BaseEntityMenu.
+- [x] Extend template-mui flowList i18n with metaverse/cluster entity labels.
+- [x] Run targeted TypeScript builds (`pnpm --filter @universo/metaverses-frt build`, `pnpm --filter @universo/resources-frt build`) to confirm typings.
+
+## IMPLEMENT - Metaverse & Cluster Table Counts + Actions (2025-10-03)
+
+- [x] Extend template FlowListTable to support custom dynamic columns per consumer.
+- [x] For metaverses, load sections/entities counts and display them in the table columns.
+- [x] For clusters, load domains/resources counts and display them in the table columns.
+- [x] Fix Unik table to show real spaces count fetched from API.
+- [x] Replace window.confirm with shared ConfirmDialog and ensure rename/delete actions call real API routes for metaverse/cluster.
+- [x] Add i18n keys for the new columns and validate builds for template, metaverses, resources frontends.
+
+## IMPLEMENT - Template MUI Mobile polish (2025-10-03)
+
+- [x] Rename mobile header title to “Kiberplano” and insert language switcher icon between theme and menu actions.
+- [x] Comment out placeholder user name/card + promo/logout sections in the mobile side menu.
+- [x] Ensure Unik list table displays real spaces count and last modified date after data loads.
+
+## IMPLEMENT - Unik card layout pass (2025-10-03)
+
+- [x] Adjust Unik card grid so incomplete rows align to the right without breaking responsiveness.
+- [x] Shorten primary “Add” button labels for Uniks, Metaverses, and Clusters (EN/RU).
+
 ## IMPLEMENT - Localized Canvas Naming Fix (2025-09-23)
 
 - [x] Frontend: Replace temp canvas rename flow with local state in Canvas/CanvasTabs and ensure localized default propagates on save.
@@ -787,4 +832,3 @@ Enhance markerless AR experience with additional options.
 - [x] Migrate Flowise UI components (API layer, list views, dialogs, chat message) to the new canvases helper targeting `/spaces/:spaceId/canvases` and `/canvases/:canvasId` while preserving compatibility shims only where unavoidable.
 - [x] Update Flowise routing, menus, and i18n resources to use Canvas terminology and ensure legacy `/chatflows` paths redirect to the new routes.
 - [x] Run scoped and root builds (`pnpm --filter @universo/spaces-frt build`, `pnpm --filter @universo/ui build`, `pnpm build`) to confirm type safety after the refactor.
-
