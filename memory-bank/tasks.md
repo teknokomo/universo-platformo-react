@@ -1,3 +1,11 @@
+## IMPLEMENT - Canvas Version Metadata Editing (2025-10-05)
+
+- [x] Wire `PUT /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` route, DTO, and service logic to update version metadata with group guards and `updatedDate` refresh.
+- [x] Cover the new endpoint with controller and service tests for success, validation errors, and cross-group rejection.
+- [x] Extend `canvasVersionsApi` client with an update method and integrate it into `CanvasVersionsDialog` busy-state flow.
+- [x] Implement UI controls for editing version label/description, refresh lists/headers on save, and add EN/RU i18n plus snackbars.
+- [x] Run `pnpm build` (captured partial output due to workspace size) and ensure targeted builds/tests for touched packages succeed.
+
 ## IMPLEMENT - Canvas Controller & Flowise Alignment (2025-09-27)
 
 - [x] Update Flowise ExecuteFlow and ChatflowTool nodes to source Canvas records through the shared Canvas entity/service and display Canvas terminology in option labels.

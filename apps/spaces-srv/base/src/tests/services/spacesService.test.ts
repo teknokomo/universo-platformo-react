@@ -401,6 +401,84 @@ describe('SpacesService', () => {
       loadCanvasSpy.mockRestore()
     })
 
+    it('обновляет метаданные версии и синхронизирует дату обновления', async () => {
+      const { service, repositories } = createService()
+      const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123' })
+      const targetVersion = createCanvasFixture({
+        id: 'canvas-2',
+        versionGroupId: 'group-123',
+        versionIndex: 2,
+        versionLabel: 'Draft',
+        versionDescription: 'Initial snapshot'
+      })
+
+      const loadCanvasSpy = jest
+        .spyOn(service as unknown as { loadCanvasForSpace: jest.Mock }, 'loadCanvasForSpace')
+        .mockResolvedValueOnce(baseCanvas)
+        .mockResolvedValueOnce(targetVersion)
+
+      const saveSpy = repositories.canvasRepo.save.mockImplementation(async (entity?: Partial<Canvas>) => ({
+        ...targetVersion,
+        ...entity,
+        updatedDate: entity?.updatedDate ?? new Date()
+      }) as Canvas)
+
+      const result = await service.updateCanvasVersion('unik-1', 'space-1', 'canvas-1', 'canvas-2', {
+        label: '  Release ',
+        description: '  Updated snapshot  '
+      })
+
+      expect(loadCanvasSpy).toHaveBeenNthCalledWith(1, 'unik-1', 'space-1', 'canvas-1', expect.anything())
+      expect(loadCanvasSpy).toHaveBeenNthCalledWith(2, 'unik-1', 'space-1', 'canvas-2', expect.anything())
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          versionLabel: 'Release',
+          versionDescription: 'Updated snapshot',
+          updatedDate: expect.any(Date)
+        })
+      )
+      expect(result).toMatchObject({
+        id: 'canvas-2',
+        versionLabel: 'Release',
+        versionDescription: 'Updated snapshot',
+        versionIndex: 2
+      })
+
+      loadCanvasSpy.mockRestore()
+    })
+
+    it('бросает ошибку, если версия принадлежит другой группе', async () => {
+      const { service } = createService()
+      const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123' })
+      const foreignVersion = createCanvasFixture({ id: 'canvas-2', versionGroupId: 'group-456' })
+
+      const loadCanvasSpy = jest
+        .spyOn(service as unknown as { loadCanvasForSpace: jest.Mock }, 'loadCanvasForSpace')
+        .mockResolvedValueOnce(baseCanvas)
+        .mockResolvedValueOnce(foreignVersion)
+
+      await expect(
+        service.updateCanvasVersion('unik-1', 'space-1', 'canvas-1', 'canvas-2', { label: 'Release' })
+      ).rejects.toThrow('Requested version does not belong to the canvas group')
+
+      loadCanvasSpy.mockRestore()
+    })
+
+    it('возвращает null, если версия не найдена', async () => {
+      const { service } = createService()
+      const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123' })
+
+      const loadCanvasSpy = jest
+        .spyOn(service as unknown as { loadCanvasForSpace: jest.Mock }, 'loadCanvasForSpace')
+        .mockResolvedValueOnce(baseCanvas)
+        .mockResolvedValueOnce(null)
+
+      const result = await service.updateCanvasVersion('unik-1', 'space-1', 'canvas-1', 'canvas-2', { label: 'Release' })
+
+      expect(result).toBeNull()
+      loadCanvasSpy.mockRestore()
+    })
+
     it('не позволяет удалить активную версию и удаляет неактивную', async () => {
       const { service, repositories, manager } = createService()
       const baseCanvas = createCanvasFixture({ id: 'canvas-1', versionGroupId: 'group-123', isActive: true })

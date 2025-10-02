@@ -11,6 +11,13 @@
 
 ## Current Research Activities
 
+### Canvas Versions Dialog Editing (2025-10-05)
+- Verified that the Spaces frontend `CanvasVersionsDialog` currently supports create/activate/delete flows only; editing metadata is absent in both UI and API layers.
+- Confirmed backend routes under `apps/spaces-srv/base/src/routes/spacesRoutes.ts` expose GET/POST/DELETE without PUT/PATCH handlers; service methods (`spacesService.createCanvasVersion`, `activateCanvasVersion`, `deleteCanvasVersion`) mirror that limitation.
+- Observed frontend state management: the dialog keeps `referenceCanvasId` updated after activation, re-fetches versions via `canvasVersionsApi.list`, and renders version metadata inside a MUI `Table` without edit affordances.
+- Noted that creating a version accepts optional `label`/`description` trimmed via `safeTrim`, matches backend DTO validation (200/2000 char caps). These limits should be reused for update validation to avoid schema drift.
+- Highlighted dependencies needing updates for edit support: REST client (`canvasVersionsApi`) requires a new `update` call, Redux snackbar feedback patterns must include edit success/error to align with existing UX, and i18n bundles need new keys for edit actions and form labels.
+
 Короткое состояние: изучил имеющиеся roadmap-документы в `docs/en/roadmap/*` и текущую структуру `apps/`. Готов предложить цельную архитектуру и список приложений в `apps/` с назначением и границами сервисов, учитывая UPDL-узлы и интеграцию с PlayCanvas.
 
 ### Целевая архитектура (высокоуровнево)

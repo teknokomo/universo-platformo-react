@@ -16,6 +16,7 @@ import {
     CanvasResponse,
     CanvasVersionResponse,
     CreateCanvasVersionDto,
+    UpdateCanvasVersionDto,
     ChatflowType
 } from '../types'
 
@@ -598,6 +599,54 @@ export class SpacesService {
             }
 
             return toCanvasVersionResponse(savedCanvas)
+        })
+    }
+
+    /**
+     * Update metadata for a specific canvas version
+     */
+    async updateCanvasVersion(
+        unikId: string,
+        spaceId: string,
+        canvasId: string,
+        versionId: string,
+        data: UpdateCanvasVersionDto
+    ): Promise<CanvasVersionResponse | null> {
+        return this.dataSource.transaction(async (manager: EntityManager) => {
+            const reference = await this.loadCanvasForSpace(unikId, spaceId, canvasId, manager)
+            if (!reference) {
+                return null
+            }
+
+            const target = await this.loadCanvasForSpace(unikId, spaceId, versionId, manager)
+            if (!target) {
+                return null
+            }
+
+            if (reference.versionGroupId !== target.versionGroupId) {
+                throw new Error('Requested version does not belong to the canvas group')
+            }
+
+            const canvasRepo = manager.getRepository(Canvas)
+
+            if (data.label !== undefined) {
+                const trimmedLabel = data.label?.trim()
+                target.versionLabel = trimmedLabel && trimmedLabel.length > 0
+                    ? trimmedLabel
+                    : `v${target.versionIndex}`
+            }
+
+            if (data.description !== undefined) {
+                const trimmedDescription = data.description?.trim()
+                target.versionDescription = trimmedDescription && trimmedDescription.length > 0
+                    ? trimmedDescription
+                    : undefined
+            }
+
+            target.updatedDate = new Date()
+
+            const saved = await canvasRepo.save(target)
+            return toCanvasVersionResponse(saved)
         })
     }
 

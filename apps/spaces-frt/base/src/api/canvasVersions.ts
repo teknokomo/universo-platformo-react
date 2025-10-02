@@ -10,9 +10,21 @@ type CreatePayload = {
   activate?: boolean
 }
 
+type UpdatePayload = {
+  label: string
+  description?: string
+}
+
 type CanvasVersionsApi = {
   list: (unikId: EntityId, spaceId: EntityId, canvasId: EntityId) => AxiosPromise
   create: (unikId: EntityId, spaceId: EntityId, canvasId: EntityId, body: CreatePayload) => AxiosPromise
+  update: (
+    unikId: EntityId,
+    spaceId: EntityId,
+    canvasId: EntityId,
+    versionId: EntityId,
+    body: UpdatePayload
+  ) => AxiosPromise
   activate: (
     unikId: EntityId,
     spaceId: EntityId,
@@ -27,6 +39,11 @@ const canvasVersionsApi: CanvasVersionsApi = {
     client.get(`/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}/versions`),
   create: (unikId, spaceId, canvasId, body) =>
     client.post(`/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}/versions`, body),
+  update: (unikId, spaceId, canvasId, versionId, body) =>
+    client.put(
+      `/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}/versions/${versionId}`,
+      body
+    ),
   activate: (unikId, spaceId, canvasId, versionId) =>
     client.post(
       `/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}/versions/${versionId}/activate`

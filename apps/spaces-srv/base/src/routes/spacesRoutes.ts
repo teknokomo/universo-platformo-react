@@ -55,6 +55,9 @@ export function createSpacesRoutes(
     router.put('/spaces/:spaceId/canvases/reorder', (req, res) => spacesController.reorderCanvases(req, res))
     router.get('/spaces/:spaceId/canvases/:canvasId/versions', (req, res) => spacesController.getCanvasVersions(req, res))
     router.post('/spaces/:spaceId/canvases/:canvasId/versions', (req, res) => spacesController.createCanvasVersion(req, res))
+    router.put('/spaces/:spaceId/canvases/:canvasId/versions/:versionId', (req, res) =>
+        spacesController.updateCanvasVersion(req, res)
+    )
     router.post(
         '/spaces/:spaceId/canvases/:canvasId/versions/:versionId/activate',
         (req, res) => spacesController.activateCanvasVersion(req, res)
