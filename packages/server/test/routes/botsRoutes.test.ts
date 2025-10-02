@@ -16,11 +16,21 @@ jest.mock('../../src/controllers/bots/chat-streaming', () => {
 jest.mock('../../src/utils/getRunningExpressApp', () => ({
   getRunningExpressApp: jest.fn(() => ({
     AppDataSource: {
+      isInitialized: true,
       getRepository: jest.fn(() => ({
         findOneBy: jest.fn().mockResolvedValue({ id: 'bot-1', chatbotConfig: '{}' })
-      }))
+      })),
+      query: jest.fn().mockResolvedValue([])
     }
   }))
+}))
+
+jest.mock('../../src/services/access-control', () => ({
+  workspaceAccessService: {
+    getUnikIdForCanvas: jest.fn().mockResolvedValue(null),
+    hasUnikAccess: jest.fn()
+  },
+  resolveRequestUserId: jest.fn().mockReturnValue('user-1')
 }))
 
 const chatStreamingController = require('../../src/controllers/bots/chat-streaming').default as {

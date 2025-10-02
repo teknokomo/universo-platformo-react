@@ -23,7 +23,6 @@ import {
 } from '../utils'
 import { validateChatflowAPIKey } from './validateKey'
 import { IncomingInput, INodeDirectedGraph, IReactFlowObject, ChatType, IExecuteFlowParams, MODE } from '../Interface'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 import { UpsertHistory } from '../database/entities/UpsertHistory'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
@@ -33,6 +32,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../Interface.Metrics'
 import { Variable } from '../database/entities/Variable'
 import { OMIT_QUEUE_JOB_DATA } from './constants'
+import canvasService from '../services/spacesCanvas'
 
 export const executeUpsert = async ({
     componentNodes,
@@ -50,7 +50,7 @@ export const executeUpsert = async ({
     let stopNodeId = incomingInput?.stopNodeId ?? ''
     const chatHistory: IMessage[] = []
     const isUpsert = true
-    const chatflowid = chatflow.id
+    const canvasId = chatflow.id
     const apiMessageId = uuidv4()
 
     if (files?.length) {
@@ -60,7 +60,7 @@ export const executeUpsert = async ({
             const fileBuffer = await getFileFromUpload(file.path ?? file.key)
             // Address file name with special characters: https://github.com/expressjs/multer/issues/1104
             file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
-            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, chatflowid)
+            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId)
 
             const fileInputFieldFromMimeType = mapMimeTypeToInputField(file.mimetype)
 
@@ -162,7 +162,7 @@ export const executeUpsert = async ({
         chatHistory,
         chatId,
         sessionId,
-        chatflowid,
+        chatflowid: canvasId,
         appDataSource,
         overrideConfig,
         apiOverrideStatus,
@@ -179,7 +179,7 @@ export const executeUpsert = async ({
         const result = cloneDeep(upsertedResult)
         result['flowData'] = JSON.stringify(result['flowData'])
         result['result'] = JSON.stringify(omit(result['result'], ['totalKeys', 'addedDocs']))
-        result.chatflowid = chatflowid
+        result.canvasId = canvasId
         const newUpsertHistory = new UpsertHistory()
         Object.assign(newUpsertHistory, result)
         const upsertHistory = appDataSource.getRepository(UpsertHistory).create(newUpsertHistory)
@@ -188,7 +188,7 @@ export const executeUpsert = async ({
 
     await telemetry.sendTelemetry('vector_upserted', {
         version: await getAppVersion(),
-        chatlowId: chatflowid,
+        canvasId,
         type: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
         flowGraph: getTelemetryFlowObj(nodes, edges),
         stopNodeId
@@ -205,14 +205,17 @@ export const executeUpsert = async ({
 export const upsertVector = async (req: Request, isInternal: boolean = false) => {
     const appServer = getRunningExpressApp()
     try {
-        const chatflowid = req.params.id
+        const canvasId = req.params.id
 
         // Check if chatflow exists
-        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-            id: chatflowid
-        })
-        if (!chatflow) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+        let chatflow
+        try {
+            chatflow = await canvasService.getCanvasById(canvasId)
+        } catch (error: any) {
+            if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+                throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${canvasId} not found`)
+            }
+            throw error
         }
 
         const httpProtocol = req.get('x-forwarded-proto') || req.protocol

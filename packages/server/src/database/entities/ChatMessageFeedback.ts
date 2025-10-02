@@ -9,8 +9,8 @@ export class ChatMessageFeedback implements IChatMessageFeedback {
     id: string
 
     @Index()
-    @Column({ type: 'uuid' })
-    chatflowid: string // Now refers to canvasId (backward compatibility maintained)
+    @Column({ type: 'uuid', name: 'canvas_id' })
+    canvasId: string
 
     @Index()
     @Column({ type: 'varchar' })

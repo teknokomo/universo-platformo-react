@@ -105,7 +105,7 @@ describe('LegacyChatflowsService', () => {
         telemetry: undefined,
         metricsProvider: undefined,
         metricsConfig: {
-          chatflowCreatedCounter: 'chatflow_created',
+          canvasCreatedCounter: 'canvas_created',
           agentflowCreatedCounter: 'agentflow_created',
           successStatusLabel: 'success'
         },

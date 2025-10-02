@@ -2,7 +2,6 @@ import type { Request, Response, NextFunction } from 'express'
 import type { DataSource, Repository } from 'typeorm'
 import { UnikUser } from '@universo/uniks-srv'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import { ChatFlow } from '../../database/entities/ChatFlow'
 import { UnikRole, hasRequiredRole, isValidUnikRole } from './roles'
 
 const membershipCacheSymbol = Symbol('workspaceAccessMembershipCache')
@@ -108,9 +107,7 @@ export class WorkspaceAccessService {
             return unikIdFromSpace
         }
 
-        const chatflow = await this.dataSource.getRepository(ChatFlow).findOne({ where: { id: canvasId } })
-        const inferred = (chatflow as any)?.unik?.id ?? (chatflow as any)?.unik_id
-        return inferred ?? null
+        return null
     }
 
     async hasChatflowAccess(req: Request, userId: string, chatflowId: string): Promise<boolean> {

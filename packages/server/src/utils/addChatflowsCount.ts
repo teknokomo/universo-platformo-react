@@ -1,21 +1,26 @@
 import { StatusCodes } from 'http-status-codes'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
-import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 import { getErrorMessage } from '../errors/utils'
+import canvasService from '../services/spacesCanvas'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 
 export const addChatflowsCount = async (keys: any) => {
     try {
-        const appServer = getRunningExpressApp()
         let tmpResult = keys
         if (typeof keys !== 'undefined' && keys.length > 0) {
             const updatedKeys: any[] = []
             //iterate through keys and get chatflows
             for (const key of keys) {
-                const chatflows = await appServer.AppDataSource.getRepository(ChatFlow)
-                    .createQueryBuilder('cf')
-                    .where('cf.apikeyid = :apikeyid', { apikeyid: key.id })
-                    .getMany()
+                let chatflows: CanvasFlowResult[] = []
+                try {
+                    chatflows = await canvasService.getCanvasByApiKey(key.id)
+                } catch (error: any) {
+                    if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+                        chatflows = []
+                    } else {
+                        throw error
+                    }
+                }
                 const linkedChatFlows: any[] = []
                 chatflows.map((cf) => {
                     linkedChatFlows.push({

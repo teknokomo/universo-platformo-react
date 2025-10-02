@@ -6,7 +6,6 @@ import path from 'path'
 import fs from 'fs'
 import logger from './logger'
 import {
-    IChatFlow,
     IComponentCredentials,
     IComponentNodes,
     ICredentialDataDecrypted,
@@ -26,6 +25,8 @@ import {
     IVariableOverride,
     IncomingInput
 } from '../Interface'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
+import { Canvas } from '@universo/spaces-srv'
 import { cloneDeep, get, isEqual } from 'lodash'
 import {
     convertChatHistoryToText,
@@ -44,7 +45,6 @@ import { AES, enc } from 'crypto-js'
 import multer from 'multer'
 import multerS3 from 'multer-s3'
 import MulterGoogleCloudStorage from 'multer-cloud-storage'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { ChatMessage } from '../database/entities/ChatMessage'
 import { Credential } from '../database/entities/Credential'
 import { Tool } from '../database/entities/Tool'
@@ -90,7 +90,6 @@ if (USE_AWS_SECRETS_MANAGER) {
 }
 
 export const databaseEntities: IDatabaseEntity = {
-    ChatFlow: ChatFlow,
     ChatMessage: ChatMessage,
     Tool: Tool,
     Credential: Credential,
@@ -98,7 +97,8 @@ export const databaseEntities: IDatabaseEntity = {
     Assistant: Assistant,
     Variable: Variable,
     DocumentStore: DocumentStore,
-    DocumentStoreFileChunk: DocumentStoreFileChunk
+    DocumentStoreFileChunk: DocumentStoreFileChunk,
+    Canvas: Canvas
 }
 
 /**
@@ -1719,7 +1719,7 @@ export const aMonthAgo = () => {
     return date
 }
 
-export const getAPIOverrideConfig = (chatflow: IChatFlow) => {
+export const getAPIOverrideConfig = (chatflow: CanvasFlowResult) => {
     try {
         const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
         const nodeOverrides: INodeOverrides =

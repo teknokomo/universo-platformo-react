@@ -6,9 +6,9 @@ import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
-// get stats for showing in chatflow
+// get stats for showing in a canvas
 const getChatflowStats = async (
-    chatflowid: string,
+    canvasId: string,
     chatTypes: ChatType[] | undefined,
     startDate?: string,
     endDate?: string,
@@ -18,7 +18,7 @@ const getChatflowStats = async (
 ): Promise<any> => {
     try {
         const chatmessages = (await utilGetChatMessage({
-            chatflowid,
+            canvasId,
             chatTypes,
             startDate,
             endDate,

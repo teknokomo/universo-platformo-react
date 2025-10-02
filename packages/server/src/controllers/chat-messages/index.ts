@@ -178,7 +178,7 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
             const isFeedback = feedbackTypeFilters?.length ? true : false
             const hardDelete = req.query?.hardDelete as boolean | undefined
             const messages = await utilGetChatMessage({
-                chatflowid,
+                canvasId: chatflowid,
                 chatTypes,
                 sessionId,
                 startDate,
@@ -243,7 +243,7 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
                 return res.status(500).send('Error clearing chat messages')
             }
 
-            const deleteOptions: FindOptionsWhere<ChatMessage> = { chatflowid }
+            const deleteOptions: FindOptionsWhere<ChatMessage> = { canvasId: chatflowid }
             if (chatId) deleteOptions.chatId = chatId
             if (memoryType) deleteOptions.memoryType = memoryType
             if (sessionId) deleteOptions.sessionId = sessionId
@@ -265,13 +265,13 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
 
 const abortChatMessage = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.chatflowid || !req.params.chatid) {
+        if (typeof req.params === 'undefined' || !req.params.canvasId || !req.params.chatId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatMessagesController.abortChatMessage - chatflowid or chatid not provided!`
+                `Error: chatMessagesController.abortChatMessage - canvasId or chatId not provided!`
             )
         }
-        await chatMessagesService.abortChatMessage(req.params.chatid, req.params.chatflowid)
+        await chatMessagesService.abortChatMessage(req.params.chatId, req.params.canvasId)
         return res.json({ status: 200, message: 'Chat message aborted' })
     } catch (error) {
         next(error)

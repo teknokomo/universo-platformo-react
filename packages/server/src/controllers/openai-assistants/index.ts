@@ -47,14 +47,14 @@ const getSingleOpenaiAssistant = async (req: Request, res: Response, next: NextF
 // Download file from assistant
 const getFileFromAssistant = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.body.chatflowId || !req.body.chatId || !req.body.fileName) {
+        if (!req.body.canvasId || !req.body.chatId || !req.body.fileName) {
             return res.status(500).send(`Invalid file path`)
         }
-        const chatflowId = req.body.chatflowId as string
+        const canvasId = req.body.canvasId as string
         const chatId = req.body.chatId as string
         const fileName = req.body.fileName as string
         res.setHeader('Content-Disposition', contentDisposition(fileName))
-        const fileStream = await streamStorageFile(chatflowId, chatId, fileName)
+        const fileStream = await streamStorageFile(canvasId, chatId, fileName)
 
         if (!fileStream) throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: getFileFromAssistant`)
 

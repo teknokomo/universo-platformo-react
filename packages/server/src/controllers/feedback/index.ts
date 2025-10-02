@@ -12,12 +12,12 @@ const getAllChatMessageFeedback = async (req: Request, res: Response, next: Next
                 `Error: feedbackController.getAllChatMessageFeedback - id not provided!`
             )
         }
-        const chatflowid = req.params.id
+        const canvasId = req.params.id
         const chatId = req.query?.chatId as string | undefined
         const sortOrder = req.query?.order as string | undefined
         const startDate = req.query?.startDate as string | undefined
         const endDate = req.query?.endDate as string | undefined
-        const apiResponse = await feedbackService.getAllChatMessageFeedback(chatflowid, chatId, sortOrder, startDate, endDate)
+        const apiResponse = await feedbackService.getAllChatMessageFeedback(canvasId, chatId, sortOrder, startDate, endDate)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -32,8 +32,9 @@ const createChatMessageFeedbackForChatflow = async (req: Request, res: Response,
                 `Error: feedbackController.createChatMessageFeedbackForChatflow - body not provided!`
             )
         }
-        await validateFeedbackForCreation(req.body)
-        const apiResponse = await feedbackService.createChatMessageFeedbackForChatflow(req.body)
+        const payload = { ...req.body }
+        await validateFeedbackForCreation(payload)
+        const apiResponse = await feedbackService.createChatMessageFeedbackForChatflow(payload)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -54,8 +55,9 @@ const updateChatMessageFeedbackForChatflow = async (req: Request, res: Response,
                 `Error: feedbackController.updateChatMessageFeedbackForChatflow - id not provided!`
             )
         }
-        await validateFeedbackForUpdate(req.params.id, req.body)
-        const apiResponse = await feedbackService.updateChatMessageFeedbackForChatflow(req.params.id, req.body)
+        const payload = { ...req.body }
+        await validateFeedbackForUpdate(req.params.id, payload)
+        const apiResponse = await feedbackService.updateChatMessageFeedbackForChatflow(req.params.id, payload)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

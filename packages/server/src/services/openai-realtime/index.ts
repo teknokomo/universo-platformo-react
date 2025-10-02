@@ -11,23 +11,26 @@ import {
     resolveVariables
 } from '../../utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import { ChatFlow } from '../../database/entities/ChatFlow'
 import { IDepthQueue, IReactFlowNode } from '../../Interface'
 import { ICommonObject, INodeData } from 'flowise-components'
 import { convertToOpenAIFunction } from '@langchain/core/utils/function_calling'
 import { v4 as uuidv4 } from 'uuid'
 import { Variable } from '../../database/entities/Variable'
+import canvasService from '../spacesCanvas'
 
 const SOURCE_DOCUMENTS_PREFIX = '\n\n----FLOWISE_SOURCE_DOCUMENTS----\n\n'
 const ARTIFACTS_PREFIX = '\n\n----FLOWISE_ARTIFACTS----\n\n'
 
 const buildAndInitTool = async (chatflowid: string, _chatId?: string, _apiMessageId?: string) => {
     const appServer = getRunningExpressApp()
-    const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-        id: chatflowid
-    })
-    if (!chatflow) {
-        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+    let chatflow
+    try {
+        chatflow = await canvasService.getCanvasById(chatflowid)
+    } catch (error: any) {
+        if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+        }
+        throw error
     }
 
     const chatId = _chatId || uuidv4()

@@ -33,7 +33,7 @@ export class Prometheus implements IMetricsProvider {
         this.counters = new Map<string, promClient.Counter<string> | promClient.Gauge<string> | promClient.Histogram<string>>()
         const enumEntries = Object.entries(FLOWISE_METRIC_COUNTERS)
         enumEntries.forEach(([name, value]) => {
-            // derive proper counter name from the enum value (chatflow_created = Chatflow Created)
+            // derive proper counter name from the enum value (canvas_created = Canvas Created)
             const properCounterName: string = name.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
             try {
                 this.counters.set(

@@ -296,7 +296,7 @@ paths:
                 '500':
                     description: Internal error
 
-    /attachments/{chatflowId}/{chatId}:
+    /attachments/{canvasId}/{chatId}:
         post:
             tags:
                 - attachments
@@ -307,11 +307,11 @@ paths:
             description: Return contents of the files in plain string format
             parameters:
                 - in: path
-                  name: chatflowId
+                  name: canvasId
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
                 - in: path
                   name: chatId
                   required: true

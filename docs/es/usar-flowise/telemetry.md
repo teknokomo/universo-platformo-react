@@ -14,9 +14,9 @@ El repositorio de código abierto de Flowise tiene una telemetría incorporada q
 
 Puedes verificar estas afirmaciones encontrando todas las ubicaciones donde se llama a `telemetry.sendTelemetry` en el código fuente.
 
-<table><thead><tr><th width="238">Evento</th><th>Metadatos</th></tr></thead><tbody><tr><td>chatflow_created</td><td><pre class="language-json"><code class="lang-json">{
+<table><thead><tr><th width="238">Evento</th><th>Metadatos</th></tr></thead><tbody><tr><td>canvas_created</td><td><pre class="language-json"><code class="lang-json">{
     "version": &#x3C;versión-app>,
-    "chatlowId": &#x3C;id-chatflow>,
+    "canvasId": &#x3C;id-canvas>,
     "flowGraph": {
         "nodes": [&#x3C;nodoid-1>, &#x3C;nodoid-2>],
         "edges": [
@@ -38,7 +38,7 @@ Puedes verificar estas afirmaciones encontrando todas las ubicaciones donde se l
 }
 </code></pre></td></tr><tr><td>vector_upserted</td><td><pre class="language-json"><code class="lang-json">{
     "version": &#x3C;versión-app>,
-    "chatlowId": &#x3C;id-chatflow>,
+    "canvasId": &#x3C;id-canvas>,
     "type": "INTERNAL", // EXTERNAL
     "flowGraph": {
         "nodes": [&#x3C;nodoid-1>, &#x3C;nodoid-2>],
@@ -51,9 +51,9 @@ Puedes verificar estas afirmaciones encontrando todas las ubicaciones donde se l
     },
     "stopNodeId": &#x3C;nodoid-1>
 }
-</code></pre></td></tr><tr><td>prediction_sent</td><td><pre class="language-json"><code class="lang-json">{
+</code></pre></td></tr><tr><td>canvas_prediction_sent</td><td><pre class="language-json"><code class="lang-json">{
     "version": &#x3C;versión-app>,
-    "chatlowId": &#x3C;id-chatflow>,
+    "canvasId": &#x3C;id-canvas>,
     "chatId": &#x3C;id-chat>,
     "type": "INTERNAL", // EXTERNAL
     "flowGraph": {

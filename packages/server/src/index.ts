@@ -16,7 +16,8 @@ import { getNodeModulesPackagePath, getEncryptionKey } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { getDataSource } from './DataSource'
 import { NodesPool } from './NodesPool'
-import { ChatFlow } from './database/entities/ChatFlow'
+import { Canvas } from '@universo/spaces-srv'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 import { CachePool } from './CachePool'
 import { AbortControllerPool } from './AbortControllerPool'
 import { RateLimiterManager } from './utils/rateLimit'
@@ -105,11 +106,11 @@ export class App {
             // Initialize Rate Limit
             this.rateLimiterManager = RateLimiterManager.getInstance()
             // Load only required fields to avoid unnecessary column dependencies
-            const rlItems = await getDataSource()
-                .getRepository(ChatFlow)
-                .createQueryBuilder('cf')
-                .select(['cf.id', 'cf.apiConfig'])
-                .getMany()
+            const rlItems = (await getDataSource()
+                .getRepository(Canvas)
+                .createQueryBuilder('canvas')
+                .select(['canvas.id', 'canvas.apiConfig'])
+                .getMany()) as CanvasFlowResult[]
             await this.rateLimiterManager.initializeRateLimiters(rlItems)
 
             // Initialize cache pool

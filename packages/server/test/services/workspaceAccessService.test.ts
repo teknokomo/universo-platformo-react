@@ -1,8 +1,14 @@
 import type { Request } from 'express'
 import type { DataSource, Repository } from 'typeorm'
 import { WorkspaceAccessService } from '../../src/services/access-control'
-import { UnikUser } from '@universo/uniks-srv'
 import { UnikRole } from '../../src/services/access-control/roles'
+
+type MockUnikUser = {
+  id: string
+  user_id: string
+  unik_id: string
+  role: UnikRole
+}
 
 type MockRepo = {
   findOne: jest.MockedFunction<any>
@@ -46,8 +52,8 @@ const createMockRepository = (): MockRepo => ({
   queryRunner: undefined
 })
 
-const createMembership = (overrides: Partial<UnikUser> = {}): UnikUser => 
-  Object.assign(new UnikUser(), {
+const createMembership = (overrides: Partial<MockUnikUser> = {}): MockUnikUser =>
+  Object.assign({} as MockUnikUser, {
     id: 'membership-1',
     user_id: 'user-1',
     unik_id: 'unik-1',
@@ -62,7 +68,7 @@ describe('WorkspaceAccessService', () => {
     const dataSource = {
       isInitialized: true,
       getRepository: jest.fn((entity: any) => {
-        if (entity === UnikUser) return membershipRepo
+        if ((entity as any)?.name === 'UnikUser') return membershipRepo
         return createMockRepository()
       }),
       query: queryMock

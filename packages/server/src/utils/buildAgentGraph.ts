@@ -19,7 +19,8 @@ import { StatusCodes } from 'http-status-codes'
 import { v4 as uuidv4 } from 'uuid'
 import { StructuredTool } from '@langchain/core/tools'
 import { BaseMessage, HumanMessage, AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages'
-import { IChatFlow, IComponentNodes, IDepthQueue, IReactFlowNode, IReactFlowEdge, IMessage, IncomingInput, IFlowConfig } from '../Interface'
+import { IComponentNodes, IDepthQueue, IReactFlowNode, IReactFlowEdge, IMessage, IncomingInput, IFlowConfig } from '../Interface'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 import { databaseEntities, clearSessionMemory, getAPIOverrideConfig } from '../utils'
 import { replaceInputsWithConfig, resolveVariables } from '.'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
@@ -52,7 +53,7 @@ export const buildAgentGraph = async ({
     baseURL,
     signal
 }: {
-    agentflow: IChatFlow
+    agentflow: CanvasFlowResult
     flowConfig: IFlowConfig
     incomingInput: IncomingInput
     nodes: IReactFlowNode[]
@@ -401,7 +402,7 @@ export const buildAgentGraph = async ({
 }
 
 type MultiAgentsGraphParams = {
-    agentflow: IChatFlow
+    agentflow: CanvasFlowResult
     appDataSource: DataSource
     mapNameToLabel: Record<string, { label: string; nodeName: string }>
     reactFlowNodes: IReactFlowNode[]
@@ -610,7 +611,7 @@ const compileMultiAgentsGraph = async (params: MultiAgentsGraphParams) => {
 
 type SeqAgentsGraphParams = {
     depthQueue: IDepthQueue
-    agentflow: IChatFlow
+    agentflow: CanvasFlowResult
     appDataSource: DataSource
     reactFlowNodes: IReactFlowNode[]
     reactFlowEdges: IReactFlowEdge[]

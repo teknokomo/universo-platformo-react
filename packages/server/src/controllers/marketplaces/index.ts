@@ -92,10 +92,10 @@ const saveCustomTemplate = async (req: Request, res: Response, next: NextFunctio
             )
         }
         
-        if (!req.body.chatflowId && !req.body.tool) {
+        if (!req.body.canvasId && !req.body.tool) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: marketplacesService.saveCustomTemplate - either 'chatflowId' or 'tool' must be provided!`
+                `Error: marketplacesService.saveCustomTemplate - either 'canvasId' or 'tool' must be provided!`
             )
         }
         

@@ -669,7 +669,7 @@ export const ChatMessage = ({
     const updateLastMessageArtifacts = (artifacts) => {
         artifacts.forEach((artifact) => {
             if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${artifact.data.replace(
+                artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${canvasId}&chatId=${chatId}&fileName=${artifact.data.replace(
                     'FILE-STORAGE::',
                     ''
                 )}`
@@ -1115,7 +1115,7 @@ export const ChatMessage = ({
         try {
             const response = await client.post(
                 'openai-assistants-file/download',
-                { fileName: fileAnnotation.fileName, chatflowId: canvasId, chatId: chatId },
+                { fileName: fileAnnotation.fileName, canvasId: canvasId, chatId: chatId },
                 { responseType: 'blob' }
             )
             const blob = new Blob([response.data], { type: response.headers['content-type'] })
@@ -1162,7 +1162,7 @@ export const ChatMessage = ({
                     obj.artifacts = message.artifacts
                     obj.artifacts.forEach((artifact) => {
                         if (artifact.type === 'png' || artifact.type === 'jpeg') {
-                            artifact.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${artifact.data.replace(
+                            artifact.data = `${baseURL}/api/v1/get-upload-file?canvasId=${canvasId}&chatId=${chatId}&fileName=${artifact.data.replace(
                                 'FILE-STORAGE::',
                                 ''
                             )}`
@@ -1173,7 +1173,7 @@ export const ChatMessage = ({
                     obj.fileUploads = message.fileUploads
                     obj.fileUploads.forEach((file) => {
                         if (file.type === 'stored-file') {
-                            file.data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${file.name}`
+                            file.data = `${baseURL}/api/v1/get-upload-file?canvasId=${canvasId}&chatId=${chatId}&fileName=${file.name}`
                         }
                     })
                 }
@@ -1687,7 +1687,7 @@ export const ChatMessage = ({
             const artifact = newArtifacts[i]
             if (artifact && (artifact.type === 'png' || artifact.type === 'jpeg')) {
                 const data = artifact.data
-                newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?chatflowId=${canvasId}&chatId=${chatId}&fileName=${data.replace(
+                newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?canvasId=${canvasId}&chatId=${chatId}&fileName=${data.replace(
                     'FILE-STORAGE::',
                     ''
                 )}`

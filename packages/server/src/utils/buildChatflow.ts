@@ -37,7 +37,6 @@ import {
 } from '../Interface'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { databaseEntities } from '.'
-import { ChatFlow } from '../database/entities/ChatFlow'
 import { ChatMessage } from '../database/entities/ChatMessage'
 import { Variable } from '../database/entities/Variable'
 import { getRunningExpressApp } from '../utils/getRunningExpressApp'
@@ -63,6 +62,7 @@ import { buildAgentGraph } from './buildAgentGraph'
 import { getErrorMessage } from '../errors/utils'
 import { FLOWISE_METRIC_COUNTERS, FLOWISE_COUNTER_STATUS, IMetricsProvider } from '../Interface.Metrics'
 import { OMIT_QUEUE_JOB_DATA } from './constants'
+import canvasService from '../services/spacesCanvas'
 
 /*
  * Initialize the ending node to be executed
@@ -492,7 +492,7 @@ export const executeFlow = async ({
             const userMessage: Omit<IChatMessage, 'id'> = {
                 role: 'userMessage',
                 content: incomingInput.question,
-                chatflowid: agentflow.id,
+                canvasId: agentflow.id,
                 chatType: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
                 chatId,
                 memoryType,
@@ -507,7 +507,7 @@ export const executeFlow = async ({
                 id: apiMessageId,
                 role: 'apiMessage',
                 content: finalResult,
-                chatflowid: agentflow.id,
+                canvasId: agentflow.id,
                 chatType: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
                 chatId,
                 memoryType,
@@ -525,6 +525,7 @@ export const executeFlow = async ({
                 const generatedFollowUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
                     chatId,
                     chatflowid: agentflow.id,
+                    canvasId: agentflow.id,
                     appDataSource,
                     databaseEntities
                 })
@@ -623,6 +624,7 @@ export const executeFlow = async ({
         const runParams = {
             chatId,
             chatflowid,
+            canvasId: chatflowid,
             apiMessageId,
             logger,
             appDataSource,
@@ -646,7 +648,7 @@ export const executeFlow = async ({
         const userMessage: Omit<IChatMessage, 'id'> = {
             role: 'userMessage',
             content: question,
-            chatflowid,
+            canvasId: chatflowid,
             chatType: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
             chatId,
             memoryType,
@@ -702,7 +704,7 @@ export const executeFlow = async ({
             id: apiMessageId,
             role: 'apiMessage',
             content: resultText,
-            chatflowid,
+            canvasId: chatflowid,
             chatType: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
             chatId,
             memoryType,
@@ -717,6 +719,7 @@ export const executeFlow = async ({
             const followUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
                 chatId,
                 chatflowid,
+                canvasId: chatflowid,
                 appDataSource,
                 databaseEntities
             })
@@ -729,9 +732,9 @@ export const executeFlow = async ({
 
         logger.debug(`[server]: Finished running ${endingNodeData.label} (${endingNodeData.id})`)
 
-        await telemetry.sendTelemetry('prediction_sent', {
+        await telemetry.sendTelemetry('canvas_prediction_sent', {
             version: await getAppVersion(),
-            chatflowId: chatflowid,
+            canvasId: chatflowid,
             chatId,
             type: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
             flowGraph: getTelemetryFlowObj(nodes, edges)
@@ -811,11 +814,14 @@ export const utilBuildChatflow = async (req: Request, isInternal: boolean = fals
     const chatflowid = req.params.id
 
     // Check if chatflow exists
-    const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({
-        id: chatflowid
-    })
-    if (!chatflow) {
-        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+    let chatflow
+    try {
+        chatflow = await canvasService.getCanvasById(chatflowid)
+    } catch (error: any) {
+        if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+        }
+        throw error
     }
 
     const isAgentFlow = chatflow.type === 'MULTIAGENT'
@@ -901,7 +907,7 @@ const incrementSuccessMetricCounter = (metricsProvider: IMetricsProvider, isInte
         )
     } else {
         metricsProvider?.incrementCounter(
-            isInternal ? FLOWISE_METRIC_COUNTERS.CHATFLOW_PREDICTION_INTERNAL : FLOWISE_METRIC_COUNTERS.CHATFLOW_PREDICTION_EXTERNAL,
+            isInternal ? FLOWISE_METRIC_COUNTERS.CANVAS_PREDICTION_INTERNAL : FLOWISE_METRIC_COUNTERS.CANVAS_PREDICTION_EXTERNAL,
             { status: FLOWISE_COUNTER_STATUS.SUCCESS }
         )
     }
@@ -921,7 +927,7 @@ const incrementFailedMetricCounter = (metricsProvider: IMetricsProvider, isInter
         )
     } else {
         metricsProvider?.incrementCounter(
-            isInternal ? FLOWISE_METRIC_COUNTERS.CHATFLOW_PREDICTION_INTERNAL : FLOWISE_METRIC_COUNTERS.CHATFLOW_PREDICTION_EXTERNAL,
+            isInternal ? FLOWISE_METRIC_COUNTERS.CANVAS_PREDICTION_INTERNAL : FLOWISE_METRIC_COUNTERS.CANVAS_PREDICTION_EXTERNAL,
             { status: FLOWISE_COUNTER_STATUS.FAILURE }
         )
     }

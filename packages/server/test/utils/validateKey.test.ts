@@ -1,13 +1,22 @@
 import { Request } from 'express'
-import { ChatFlow } from '../../src/database/entities/ChatFlow'
 import { validateChatflowAPIKey } from '../../src/utils/validateKey'
-import { compareKeys, getAPIKeys } from '../../src/utils/apiKey'
+import { compareKeys } from '../../src/utils/apiKey'
+import apikeyService from '../../src/services/apikey'
+import type { CanvasFlowResult } from '@universo/spaces-srv'
 
 jest.mock('../../src/utils/apiKey')
+jest.mock('../../src/services/apikey', () => ({
+    __esModule: true,
+    default: {
+        getAllApiKeys: jest.fn()
+    }
+}))
 
 describe('validateChatflowAPIKey', () => {
-    let req: Partial<Request>
-    let chatflow: ChatFlow
+    let req: Partial<Request> & { headers: Record<string, string> }
+    let chatflow: CanvasFlowResult
+    const mockedApiKeyService = apikeyService as jest.Mocked<typeof apikeyService>
+    const mockedCompareKeys = compareKeys as jest.Mock
 
     beforeEach(() => {
         req = {
@@ -15,7 +24,8 @@ describe('validateChatflowAPIKey', () => {
         }
         chatflow = {
             apikeyid: null
-        } as ChatFlow
+        } as unknown as CanvasFlowResult
+        jest.clearAllMocks()
     })
 
     it('should return true if chatflow.apikeyid is not set', async () => {
@@ -32,10 +42,24 @@ describe('validateChatflowAPIKey', () => {
     it('should return false if supplied key does not match the expected key', async () => {
         chatflow.apikeyid = 'some-api-key-id'
         req.headers['authorization'] = 'Bearer invalid-key'
-        ;(getAPIKeys as jest.Mock).mockResolvedValue([{ id: 'some-api-key-id', apiSecret: 'expected-secret-key' }])
-        ;(compareKeys as jest.Mock).mockImplementation((expected, supplied) => expected === supplied)
+        mockedApiKeyService.getAllApiKeys.mockResolvedValue([
+            { id: 'some-api-key-id', apiSecret: 'expected-secret-key' } as any
+        ])
+        mockedCompareKeys.mockImplementation((expected, supplied) => expected === supplied)
 
         const result = await validateChatflowAPIKey(req as Request, chatflow)
         expect(result).toBe(false)
+    })
+
+    it('should return true if supplied key matches the expected key', async () => {
+        chatflow.apikeyid = 'some-api-key-id'
+        req.headers['authorization'] = 'Bearer expected-secret-key'
+        mockedApiKeyService.getAllApiKeys.mockResolvedValue([
+            { id: 'some-api-key-id', apiSecret: 'expected-secret-key' } as any
+        ])
+        mockedCompareKeys.mockImplementation((expected, supplied) => expected === supplied)
+
+        const result = await validateChatflowAPIKey(req as Request, chatflow)
+        expect(result).toBe(true)
     })
 })

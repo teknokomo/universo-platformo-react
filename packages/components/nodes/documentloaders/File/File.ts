@@ -143,14 +143,14 @@ class File_DocumentLoaders implements INode {
                 for (const file of files) {
                     if (!file) continue
                     const fileData = await getFileFromStorage(file, chatflowid, options.chatId)
-                    const blob = new Blob([fileData])
+                    const blob = new Blob([new Uint8Array(fileData)])
                     fileBlobs.push({ blob, ext: file.split('.').pop() || '' })
                 }
             } else {
                 for (const file of files) {
                     if (!file) continue
                     const fileData = await getFileFromStorage(file, chatflowid)
-                    const blob = new Blob([fileData])
+                    const blob = new Blob([new Uint8Array(fileData)])
                     fileBlobs.push({ blob, ext: file.split('.').pop() || '' })
                 }
             }
@@ -166,7 +166,7 @@ class File_DocumentLoaders implements INode {
                 const splitDataURI = file.split(',')
                 splitDataURI.pop()
                 const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
-                const blob = new Blob([bf])
+                const blob = new Blob([new Uint8Array(bf)])
 
                 let extension = ''
                 // eslint-disable-next-line no-useless-escape

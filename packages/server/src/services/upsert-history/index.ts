@@ -7,7 +7,7 @@ import { getErrorMessage } from '../../errors/utils'
 
 const getAllUpsertHistory = async (
     sortOrder: string | undefined,
-    chatflowid: string | undefined,
+    canvasId: string | undefined,
     startDate: string | undefined,
     endDate: string | undefined
 ) => {
@@ -26,7 +26,7 @@ const getAllUpsertHistory = async (
         }
         let upsertHistory = await appServer.AppDataSource.getRepository(UpsertHistory).find({
             where: {
-                chatflowid,
+                canvasId,
                 date: createdDateQuery
             },
             order: {
