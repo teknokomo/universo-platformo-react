@@ -38,7 +38,7 @@ This service is implemented as a **pnpm workspace package** that:
 -   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types for use across the platform.
 -   **Modular and Decoupled**: Fully independent from `packages/server` business logic. It no longer contains UPDL generation code.
 -   **PlayCanvas Ready**: The same raw data endpoints are used by the PlayCanvas builder and templates.
--   **Canvas Integration**: Fully supports the new Canvas structure while maintaining backward compatibility with Canvas.
+-   **Canvas Integration**: Fully supports the new Canvas structure while maintaining backward compatibility with ChatFlow.
 -   **Chatbot Publication**: Handles chatbot publication using Canvas-based configuration stored in `chatbotConfig` field.
 
 ## Integration with Main Flowise Server
