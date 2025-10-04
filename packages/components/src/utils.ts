@@ -758,7 +758,7 @@ export const mapChatMessageToBaseMessage = async (chatmessages: any[] = []): Pro
                             const fileLoaderNodeInstance = new fileLoaderNodeModule.nodeClass()
                             const options = {
                                 retrieveAttachmentChatId: true,
-                                canvasid: message.canvasid,
+                                canvasId: message.canvasId,
                                 chatId: message.chatId
                             }
                             let fileInputFieldFromMimeType = 'txtFile'
