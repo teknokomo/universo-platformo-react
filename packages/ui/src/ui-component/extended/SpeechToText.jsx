@@ -1,7 +1,7 @@
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import { useTranslation } from 'react-i18next'
 
 // material-ui
@@ -26,6 +26,7 @@ import useNotifier from '@/utils/useNotifier'
 
 // API
 import canvasesApi from '@/api/canvases'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 // If implementing a new provider, this must be updated in
 // components/src/speechToText.ts as well
@@ -240,11 +241,7 @@ const SpeechToText = ({ dialogProps }) => {
     const speechToTextProviders = getSpeechToTextProviders(t)
     const dispatch = useDispatch()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
 
@@ -252,18 +249,28 @@ const SpeechToText = ({ dialogProps }) => {
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
     const [speechToText, setSpeechToText] = useState({})
+    const [chatbotConfig, setChatbotConfig] = useState({})
     const [selectedProvider, setSelectedProvider] = useState('none')
 
     const onSave = async () => {
-        const speechToText = setValue(true, selectedProvider, 'status')
+        if (!canvasId || !unikId) {
+            enqueueSnackbar({
+                message: t('speechToText.missingCanvas'),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'error'
+                }
+            })
+            return
+        }
+        const updatedSpeechToText = selectedProvider !== 'none' ? setValue(true, selectedProvider, 'status') : speechToText
         try {
-            const chatbotConfig = { ...chatflow }
-            chatbotConfig.speechToText = speechToText
+            const nextConfig = { ...chatbotConfig, speechToText: updatedSpeechToText }
             const saveResp = await canvasesApi.updateCanvas(
                 unikId,
                 canvasId,
                 {
-                    chatbotConfig: JSON.stringify(chatbotConfig)
+                    chatbotConfig: JSON.stringify(nextConfig)
                 },
                 { spaceId }
             )
@@ -280,7 +287,8 @@ const SpeechToText = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
+                setChatbotConfig(nextConfig)
             }
         } catch (error) {
             const errorMessage =
@@ -331,19 +339,34 @@ const SpeechToText = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow && dialogProps.chatflow.speechToText) {
+        if (canvas) {
             try {
-                const speechToText = JSON.parse(dialogProps.chatflow.speechToText)
-                let selectedProvider = 'none'
-                Object.keys(speechToTextProviders).forEach((key) => {
-                    const providerConfig = speechToText[key]
-                    if (providerConfig && providerConfig.status) {
-                        selectedProvider = key
-                    }
-                })
-                setSelectedProvider(selectedProvider)
-                setSpeechToText(speechToText)
+                let config = {}
+                if (canvas.chatbotConfig) {
+                    config = JSON.parse(canvas.chatbotConfig) || {}
+                }
+                if (!config.speechToText && canvas.speechToText) {
+                    config.speechToText = JSON.parse(canvas.speechToText)
+                }
+                setChatbotConfig(config)
+
+                if (config.speechToText) {
+                    const nextSpeechToText = config.speechToText
+                    let provider = 'none'
+                    Object.keys(speechToTextProviders).forEach((key) => {
+                        const providerConfig = nextSpeechToText[key]
+                        if (providerConfig && providerConfig.status) {
+                            provider = key
+                        }
+                    })
+                    setSelectedProvider(provider)
+                    setSpeechToText(nextSpeechToText)
+                } else {
+                    setSelectedProvider('none')
+                    setSpeechToText({})
+                }
             } catch (e) {
+                setChatbotConfig({})
                 setSpeechToText({})
                 setSelectedProvider('none')
                 console.error(e)
@@ -354,7 +377,7 @@ const SpeechToText = ({ dialogProps }) => {
             setSpeechToText({})
             setSelectedProvider('none')
         }
-    }, [dialogProps])
+    }, [canvas, speechToTextProviders])
 
     return (
         <>

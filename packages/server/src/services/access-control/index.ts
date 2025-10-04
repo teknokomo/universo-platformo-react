@@ -110,9 +110,9 @@ export class WorkspaceAccessService {
         return null
     }
 
-    async hasChatflowAccess(req: Request, userId: string, chatflowId: string): Promise<boolean> {
-        if (!userId || !chatflowId) return false
-        const unikId = await this.getUnikIdForCanvas(chatflowId)
+    async hasCanvasAccess(req: Request, userId: string, canvasId: string): Promise<boolean> {
+        if (!userId || !canvasId) return false
+        const unikId = await this.getUnikIdForCanvas(canvasId)
         if (!unikId) return false
         return this.hasUnikAccess(req, userId, unikId)
     }

@@ -56,7 +56,7 @@ You can separate the conversations for multiple users by specifying a unique **`
 
 <figure><img src="../../../.gitbook/assets/Untitled (1) (1) (1) (1) (1) (1).png" alt="" width="563"><figcaption></figcaption></figure>
 
-2. In the `/api/v1/prediction/{your-chatflowid}` POST body request, specify the **`sessionId`** in **`overrideConfig`**
+2. In the `/api/v1/prediction/{your-canvasid}` POST body request, specify the **`sessionId`** in **`overrideConfig`**
 
 ```json
 {
@@ -69,8 +69,8 @@ You can separate the conversations for multiple users by specifying a unique **`
 
 ### Message API
 
-* GET `/api/v1/chatmessage/{your-chatflowid}`
-* DELETE `/api/v1/chatmessage/{your-chatflowid}`
+* GET `/api/v1/chatmessage/{your-canvasid}`
+* DELETE `/api/v1/chatmessage/{your-canvasid}`
 
 <table><thead><tr><th>Query Param</th><th width="192">Type</th><th>Value</th></tr></thead><tbody><tr><td>sessionId</td><td>string</td><td></td></tr><tr><td>sort</td><td>enum</td><td>ASC or DESC</td></tr><tr><td>startDate</td><td>string</td><td></td></tr><tr><td>endDate</td><td>string</td><td></td></tr></tbody></table>
 

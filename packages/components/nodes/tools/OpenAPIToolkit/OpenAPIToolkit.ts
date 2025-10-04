@@ -85,8 +85,8 @@ class OpenAPIToolkit_Tools implements INode {
         let data
         if (yamlFileBase64.startsWith('FILE-STORAGE::')) {
             const file = yamlFileBase64.replace('FILE-STORAGE::', '')
-            const chatflowid = options.chatflowid
-            const fileData = await getFileFromStorage(file, chatflowid)
+            const canvasId = options.canvasId
+            const fileData = await getFileFromStorage(file, canvasId)
             const utf8String = fileData.toString('utf-8')
 
             data = load(utf8String)
@@ -112,7 +112,7 @@ class OpenAPIToolkit_Tools implements INode {
         const databaseEntities = options.databaseEntities as IDatabaseEntity
         const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
-        const flow = { chatflowId: options.chatflowid }
+        const flow = { canvasId: options.canvasId }
 
         const tools = getTools(_data.paths, baseUrl, headers, variables, flow, toolReturnDirect, customCode, removeNulls)
         return tools

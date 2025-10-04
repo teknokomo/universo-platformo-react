@@ -78,7 +78,7 @@ class PostgresRecordManager_RecordManager implements INode {
                 label: 'Namespace',
                 name: 'namespace',
                 type: 'string',
-                description: 'If not specified, chatflowid will be used',
+                description: 'If not specified, canvasId will be used',
                 additionalParams: true,
                 optional: true
             },
@@ -138,7 +138,7 @@ class PostgresRecordManager_RecordManager implements INode {
         const tableName = getTableName(nodeData)
         const additionalConfig = nodeData.inputs?.additionalConfig as string
         const _namespace = nodeData.inputs?.namespace as string
-        const namespace = _namespace ? _namespace : options.chatflowid
+        const namespace = _namespace ? _namespace : options.canvasId
         const cleanup = nodeData.inputs?.cleanup as string
         const _sourceIdKey = nodeData.inputs?.sourceIdKey as string
         const sourceIdKey = _sourceIdKey ? _sourceIdKey : 'source'

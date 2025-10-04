@@ -20,7 +20,7 @@ Prediction API является основной конечной точкой �
 
 **Конечная точка**: `POST /api/v1/prediction/:id`
 
-**Аутентификация**: Обратитесь к [аутентификации для потоков](../configuration/authorization/chatflow-level.md)
+**Аутентификация**: Обратитесь к [аутентификации для потоков](../configuration/authorization/canvas-level.md)
 
 ## Формат запроса
 
@@ -67,7 +67,7 @@ Flowise предоставляет официальные SDK для Python и T
 # Python
 import requests
 
-url = "http://localhost:3000/api/v1/prediction/your-chatflow-id"
+url = "http://localhost:3000/api/v1/prediction/your-canvas-id"
 data = {
     "question": "Привет! Как дела?"
 }
@@ -79,7 +79,7 @@ print(result["text"])
 
 ```javascript
 // JavaScript
-const response = await fetch('http://localhost:3000/api/v1/prediction/your-chatflow-id', {
+const response = await fetch('http://localhost:3000/api/v1/prediction/your-canvas-id', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
@@ -100,7 +100,7 @@ console.log(result.text);
 import requests
 import json
 
-url = "http://localhost:3000/api/v1/prediction/your-chatflow-id"
+url = "http://localhost:3000/api/v1/prediction/your-canvas-id"
 data = {
     "question": "Расскажи длинную историю",
     "streaming": True
@@ -123,7 +123,7 @@ for line in response.iter_lines():
 
 ```javascript
 // JavaScript с потоковой передачей
-const response = await fetch('http://localhost:3000/api/v1/prediction/your-chatflow-id', {
+const response = await fetch('http://localhost:3000/api/v1/prediction/your-canvas-id', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
@@ -361,11 +361,11 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def logged_prediction(url, data, chatflow_id):
+def logged_prediction(url, data, canvas_id):
     start_time = time.time()
     request_id = f"req_{int(time.time())}_{random.randint(1000, 9999)}"
     
-    logger.info(f"[{request_id}] Начало запроса к {chatflow_id}")
+    logger.info(f"[{request_id}] Начало запроса к {canvas_id}")
     logger.debug(f"[{request_id}] Данные запроса: {data}")
     
     try:

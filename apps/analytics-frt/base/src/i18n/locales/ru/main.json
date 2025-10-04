@@ -17,10 +17,10 @@
         "table": {
             "name": "Имя",
             "email": "Email",
+            "phone": "Телефон",
             "points": "Баллы",
             "completionDate": "Дата прохождения",
-            "chatflowId": "ID холста",
-            "phone": "Телефон",
+            "canvasId": "ID холста",
             "notSpecified": "Не указано"
         },
         "loading": "Загрузка...",

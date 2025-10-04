@@ -6,8 +6,8 @@ import logger from '../utils/logger'
 import { FlowDataService } from '../services/FlowDataService'
 
 // Universo Platformo | Removed loadARJSSettings function - libraryConfig now comes directly from utilBuildUPDLflow
-// This simplifies the architecture by eliminating duplicate database queries and keeping all chatflow
-// data access centralized in utilBuildUPDLflow
+// This simplifies the architecture by eliminating duplicate database queries and keeping all canvas data
+// access centralized in utilBuildUPDLflow
 
 /**
  * Controller for AR.js publication via UPDL
@@ -24,22 +24,20 @@ export class PublishController {
     public async publishARJS(req: Request, res: Response): Promise<void> {
         logger.info(`[PublishController] publishARJS called with params: ${JSON.stringify(req.body)}`)
         try {
-            const { canvasId, chatflowId, generationMode = 'streaming', isPublic = true, projectName } = req.body
+            const { canvasId, generationMode = 'streaming', isPublic = true, projectName } = req.body
 
-            // Support both canvasId (new) and chatflowId (legacy) for backward compatibility
-            const targetId = canvasId || chatflowId
-            if (!targetId) {
+            if (!canvasId) {
                 // Explicitly set content type header
                 res.setHeader('Content-Type', 'application/json')
                 res.status(400).json({
                     success: false,
-                    error: 'Missing required parameter: canvasId or chatflowId'
+                    error: 'Missing required parameter: canvasId'
                 })
                 return
             }
 
             // In streaming generation mode, use canvasId itself for simplification
-            const publicationId = targetId
+            const publicationId = canvasId
             const createdAt = new Date().toISOString()
 
             logger.info(`[PublishController] Creating publication response with publicationId: ${publicationId}`)
@@ -50,9 +48,8 @@ export class PublishController {
             const responseData = {
                 success: true,
                 publicationId,
-                canvasId: targetId, // Primary ID (new structure)
-                chatflowId: targetId, // Backward compatibility
-                projectName: projectName || `AR.js for ${targetId}`,
+                canvasId,
+                projectName: projectName || `AR.js for ${canvasId}`,
                 generationMode,
                 isPublic,
                 createdAt
@@ -98,11 +95,9 @@ export class PublishController {
                 return
             }
 
-            // For streaming generation mode, redirect request to streamUPDL
-            // Since publicationId in streaming mode = canvasId (or chatflowId for legacy)
+            // For streaming generation mode, forward to streamUPDL with Canvas identifier
             req.params.canvasId = publicationId
-            req.params.chatflowId = publicationId // Backward compatibility
-            logger.info(`[PublishController] Using streamUPDL for AR.js public data retrieval with ID: ${publicationId}`)
+            logger.info(`[PublishController] Using streamUPDL for AR.js public data retrieval with canvas ID: ${publicationId}`)
             return await this.streamUPDL(req, res)
         } catch (error) {
             logger.error(`[PublishController] Error in getPublicARJSPublication:`, error)
@@ -125,7 +120,7 @@ export class PublishController {
      * @param res Response
      */
     public async streamUPDL(req: Request, res: Response): Promise<void> {
-        const id = req.params.canvasId || req.params.chatflowId || req.params.publicationId
+        const id = req.params.canvasId || req.params.publicationId
         logger.info(`[PublishController] streamUPDL called for ID: ${id}`)
         logger.info(`[PublishController] Request params: ${JSON.stringify(req.params)}`)
         logger.info(`[PublishController] Request URL: ${req.originalUrl}`)
@@ -160,14 +155,13 @@ export class PublishController {
             const responseData = {
                 success: true,
                 publicationId: id,
-                projectName: flowData.canvas?.name || flowData.chatflow?.name || `UPDL Canvas ${id}`,
+                projectName: flowData.canvas?.name || `UPDL Canvas ${id}`,
                 generationMode: 'streaming',
                 flowData: flowData.flowData, // Raw JSON string
                 libraryConfig: flowData.libraryConfig, // Extracted configuration
                 renderConfig: flowData.renderConfig, // AR display settings (wallpaper/marker)
                 playcanvasConfig: flowData.playcanvasConfig, // PlayCanvas settings (gameMode, colyseusSettings)
-                canvasId: id, // Primary ID (new structure)
-                chatflowId: id, // Backward compatibility
+                canvasId: id,
                 timestamp: new Date().toISOString()
             }
 

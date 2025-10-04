@@ -56,8 +56,6 @@ export const createFileAttachment = async (req: Request) => {
     const options = {
         retrieveAttachmentChatId: true,
         canvasId,
-        // Temporary bridge for nodes still expecting chatflowid option
-        chatflowid: canvasId,
         chatId
     }
     const files = (req.files as Express.Multer.File[]) || []

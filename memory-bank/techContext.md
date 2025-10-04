@@ -70,7 +70,7 @@ if (!userId) return // Response already sent
 
 -   **Location**: `apps/` directory (custom application layer)
 -   **Purpose**: Universal high-level logic nodes for AR.js and PlayCanvas scene generation
--   **Integration**: Custom nodes within Flowise chatflow system
+-   **Integration**: Custom nodes within Flowise canvas system
 -   **Components**: Publisher UI, Builder logic, API integration
 -   **Templates**: Quiz (AR.js), MMOOMM (PlayCanvas) with template-first architecture
 

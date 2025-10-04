@@ -51,7 +51,7 @@ Upsert относится к процессу загрузки и обработ
 
 **Конечная точка**: `POST /api/v1/vector/upsert/:id`
 
-**Аутентификация**: Обратитесь к [Аутентификации для потоков](../configuration/authorization/chatflow-level.md)
+**Аутентификация**: Обратитесь к [Аутентификации для потоков](../configuration/authorization/canvas-level.md)
 
 ## Методы запросов
 
@@ -104,19 +104,19 @@ API поддерживает два различных метода запрос
 import requests
 import os
 
-def upsert_document(chatflow_id, file_path, config=None):
+def upsert_document(canvas_id, file_path, config=None):
     """
     Загрузить один документ в векторное хранилище.
     
     Args:
-        chatflow_id (str): ID чат-потока, настроенного для векторного обновления
+        canvas_id (str): ID чат-потока, настроенного для векторного обновления
         file_path (str): Путь к файлу для загрузки
         config (dict): Опциональные переопределения конфигурации
     
     Returns:
         dict: Ответ API, содержащий результаты upsert
     """
-    url = f"http://localhost:3000/api/v1/vector/upsert/{chatflow_id}"
+    url = f"http://localhost:3000/api/v1/vector/upsert/{canvas_id}"
     
     # Подготовка данных файла
     files = {
@@ -145,7 +145,7 @@ def upsert_document(chatflow_id, file_path, config=None):
 
 # Пример использования
 result = upsert_document(
-    chatflow_id="your-chatflow-id",
+    canvas_id="your-canvas-id",
     file_path="documents/knowledge_base.pdf",
     config={
         "chunkSize": 1000,
@@ -169,10 +169,10 @@ class VectorUploader {
         this.baseUrl = baseUrl;
     }
     
-    async upsertDocument(chatflowId, file, config = {}) {
+    async upsertDocument(canvasId, file, config = {}) {
         /**
          * Загрузить файл в векторное хранилище из браузера
-         * @param {string} chatflowId - ID чат-потока
+         * @param {string} canvasId - ID чат-потока
          * @param {File} file - Объект файла из элемента input
          * @param {Object} config - Опциональная конфигурация
          */
@@ -185,7 +185,7 @@ class VectorUploader {
         }
         
         try {
-            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${chatflowId}`, {
+            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${canvasId}`, {
                 method: 'POST',
                 body: formData
             });
@@ -213,7 +213,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
     if (file) {
         try {
             const result = await uploader.upsertDocument(
-                'your-chatflow-id',
+                'your-canvas-id',
                 file,
                 {
                     overrideConfig: {

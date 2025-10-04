@@ -68,7 +68,7 @@ describe('ARJSPublisher', () => {
 
     expect(mockSaveSettings).toHaveBeenCalledWith('flow-123', expect.objectContaining({ isPublic: true }))
     expect(mockPublish).toHaveBeenCalledWith(
-      expect.objectContaining({ chatflowId: 'flow-123', isPublic: true, projectName: 'Demo Flow' }),
+      expect.objectContaining({ canvasId: 'flow-123', isPublic: true, projectName: 'Demo Flow' }),
     )
     expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ publicationId: 'pub-123' }))
     expect(onPublish.mock.calls[0][0].publishedUrl).toContain('/p/pub-123')

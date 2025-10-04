@@ -67,8 +67,8 @@ const exceptionsForAgentCanvas = {
     Utilities: ['getVariable', 'setVariable', 'stickyNote']
 }
 
-// Hide some nodes from the chatflow canvas
-const blacklistForChatflowCanvas = {
+// Hide some nodes from the standard canvas view
+const blacklistForCanvas = {
     Memory: agentMemoryNodes
 }
 
@@ -128,8 +128,8 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
         }
         let nodes = nodesData.filter((nd) => nd.category !== 'Multi Agents' && nd.category !== 'Sequential Agents')
 
-        for (const category in blacklistForChatflowCanvas) {
-            const nodeNames = blacklistForChatflowCanvas[category]
+        for (const category in blacklistForCanvas) {
+            const nodeNames = blacklistForCanvas[category]
             nodes = nodes.filter((nd) => !nodeNames.includes(nd.name))
         }
 
@@ -218,8 +218,8 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
                 if (category === 'Multi Agents' || category === 'Sequential Agents') {
                     continue
                 }
-                if (Object.keys(blacklistForChatflowCanvas).includes(category)) {
-                    const nodes = blacklistForChatflowCanvas[category]
+                if (Object.keys(blacklistForCanvas).includes(category)) {
+                    const nodes = blacklistForCanvas[category]
                     result[category] = result[category].filter((nd) => !nodes.includes(nd.name))
                 }
                 filteredResult[category] = result[category]

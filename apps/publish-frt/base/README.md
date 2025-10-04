@@ -368,7 +368,7 @@ Library preferences are stored in Supabase `chatbotConfig.arjs.libraryConfig`:
 
 -   **Solves CDN Blocking**: Users in restricted regions can use local libraries
 -   **User Choice**: Each user decides their preferred library source
--   **Persistent Settings**: Configuration saved per chatflow
+-   **Persistent Settings**: Configuration saved per canvas
 -   **Backward Compatibility**: Existing flows continue working with defaults
 -   **Future Extensibility**: Easy to add new library versions
 
@@ -408,7 +408,7 @@ This frontend application is closely integrated with the main bots publication s
 -   **Configuration Integration**: The AR.js publisher is accessible through the main publication interface in the bots system
 -   **Shared Publication State**: Publication settings are stored in Supabase using the same `chatbotConfig` structure as the main bots system
 -   **Technology-Specific Configuration**: AR.js and PlayCanvas settings are stored in their respective blocks (`arjs`, `playcanvas`) within `chatbotConfig`, maintaining separation from chatbot settings.
--   **API Route Consistency**: Uses the same Flowise API routes (`/api/v1/uniks/{unikId}/chatflows/{chatflowId}`) as the main system
+-   **API Route Consistency**: Uses the same Flowise API routes (`/api/v1/uniks/{unikId}/canvases/{canvasId}`) as the main system
 
 ### Supabase Integration
 
@@ -455,7 +455,7 @@ The application uses a modular API architecture organized into layers:
 #### Core API Utilities (`api/common.ts`)
 
 -   `getAuthHeaders()` - Authentication token management from localStorage
--   `getCurrentUrlIds()` - Extract unikId and chatflowId from URL
+-   `getCurrentUrlIds()` - Extract unikId and canvasId from URL
 -   `getApiBaseUrl()` - Dynamic API base URL resolution
 
 #### Publication API Layer (`api/publication/`)
@@ -469,7 +469,7 @@ The application uses a modular API architecture organized into layers:
 
 -   **Multi-Technology Support**: Publication API designed to support AR.js, PlayCanvas, Chatbot, and future technologies
 -   **Supabase Integration**: Persistent storage using `chatbotConfig` structure with technology-specific blocks
--   **Backward Compatibility**: Includes compatibility aliases (`ChatflowsApi`, `ARJSPublishApi`) for seamless migration
+-   **Backward Compatibility**: Includes compatibility aliases (`CanvasesApi`, `ARJSPublishApi`) for seamless migration
 -   **Proper Authentication**: Uses correct Flowise routes with `unikId` and `x-request-from: internal` headers
 -   **Circular Dependency Prevention**: Clean architecture with `common.ts` utilities to prevent import cycles
 
@@ -488,7 +488,7 @@ The implementation uses streaming generation for AR.js from UPDL nodes with pers
 1. Settings are automatically loaded from Supabase when component mounts
 2. User configures project parameters (title, marker, library sources) - settings auto-saved
 3. User toggles "Make Public" - triggers publication and saves state to Supabase
-4. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `chatflowId` and selected options
+4. The `ARJSPublisher` component sends a POST request to `/api/v1/publish/arjs` with the `canvasId` and selected options
 5. The backend `PublishController.publishARJS` handler returns a response with `publicationId` and publication metadata
 6. When accessing the public URL (`/p/{publicationId}`), the `PublicFlowView` component is rendered, which then determines the technology and renders the appropriate viewer (`ARViewPage` or `PlayCanvasViewPage`).
 7. The page component makes a GET request to `/api/v1/publish/arjs/public/:publicationId` (or similar for other techs), which returns flow data from the backend.

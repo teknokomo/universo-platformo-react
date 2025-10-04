@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Navigate, Outlet, useParams } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 
 // project imports
 import MainLayout from '@/layout/MainLayout'
@@ -74,11 +74,6 @@ const UniksContainer = () => <Outlet />
 const ClustersContainer = () => <Outlet />
 const MetaversesContainer = () => <Outlet />
 
-const LegacyPublishedChatflowRedirect = () => {
-    const { chatflowId } = useParams()
-    return <Navigate to={`/published/canvas/${chatflowId}`} replace />
-}
-
 const MainRoutes = {
     path: '/',
     element: <MainLayout />,
@@ -105,10 +100,6 @@ const MainRoutes = {
                         {
                             index: true,
                             element: <UnikDetail />
-                        },
-                        {
-                            path: 'chatflows',
-                            element: <Navigate to='../canvases' replace />
                         },
                         {
                             path: 'canvases',
@@ -323,11 +314,6 @@ const PublicCanvasRoutes = {
         {
             path: 'canvas/:canvasId',
             element: <PublicFlowView />
-        },
-        // Legacy redirect route
-        {
-            path: 'chatflow/:chatflowId',
-            element: <LegacyPublishedChatflowRedirect />
         }
     ]
 }

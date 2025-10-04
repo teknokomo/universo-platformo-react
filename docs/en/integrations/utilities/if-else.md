@@ -1,6 +1,6 @@
 # If Else
 
-Flowise allows you to split your chatflow into different branches depending on If/Else condition.
+Flowise allows you to split your canvas into different branches depending on If/Else condition.
 
 <figure><img src="../../.gitbook/assets/image (5) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (2).png" alt=""><figcaption></figcaption></figure>
 

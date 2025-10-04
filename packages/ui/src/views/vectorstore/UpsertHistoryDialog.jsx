@@ -48,6 +48,7 @@ import useApi from '@/hooks/useApi'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 import { baseURL } from '@/store/constant'
 import useNotifier from '@/utils/useNotifier'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 
 const DatePickerCustomInput = forwardRef(function DatePickerCustomInput({ value, onClick }, ref) {
@@ -188,6 +189,7 @@ UpsertHistoryRow.propTypes = {
 }
 
 const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
+    const { canvas, canvasId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
     const customization = useSelector((state) => state.customization)
@@ -199,14 +201,14 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
-    const [chatflowUpsertHistory, setChatflowUpsertHistory] = useState([])
+    const [canvasUpsertHistory, setCanvasUpsertHistory] = useState([])
     const [startDate, setStartDate] = useState(new Date(new Date().setMonth(new Date().getMonth() - 1)))
     const [endDate, setEndDate] = useState(new Date())
     const [selected, setSelected] = useState([])
 
     const onSelectAllClick = (event) => {
         if (event.target.checked) {
-            const newSelected = chatflowUpsertHistory.map((n) => n.id)
+            const newSelected = canvasUpsertHistory.map((n) => n.id)
             setSelected(newSelected)
             return
         }
@@ -217,7 +219,8 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
         const updatedDate = new Date(date)
         updatedDate.setHours(0, 0, 0, 0)
         setStartDate(updatedDate)
-        getUpsertHistoryApi.request(dialogProps.chatflow.id, {
+        if (!canvasId) return
+        getUpsertHistoryApi.request(canvasId, {
             startDate: updatedDate,
             endDate: endDate
         })
@@ -227,7 +230,8 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
         const updatedDate = new Date(date)
         updatedDate.setHours(23, 59, 59, 999)
         setEndDate(updatedDate)
-        getUpsertHistoryApi.request(dialogProps.chatflow.id, {
+        if (!canvasId) return
+        getUpsertHistoryApi.request(canvasId, {
             endDate: updatedDate,
             startDate: startDate
         })
@@ -264,7 +268,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                     )
                 }
             })
-            setChatflowUpsertHistory(chatflowUpsertHistory.filter((hist) => !selected.includes(hist.id)))
+            setCanvasUpsertHistory(canvasUpsertHistory.filter((hist) => !selected.includes(hist.id)))
             setSelected([])
         } catch (error) {
             enqueueSnackbar({
@@ -287,25 +291,25 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
 
     useEffect(() => {
         if (getUpsertHistoryApi.data) {
-            setChatflowUpsertHistory(getUpsertHistoryApi.data)
+            setCanvasUpsertHistory(getUpsertHistoryApi.data)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getUpsertHistoryApi.data])
 
     useEffect(() => {
-        if (dialogProps.chatflow) {
-            getUpsertHistoryApi.request(dialogProps.chatflow.id)
+        if (canvasId) {
+            getUpsertHistoryApi.request(canvasId)
         }
 
         return () => {
-            setChatflowUpsertHistory([])
+            setCanvasUpsertHistory([])
             setStartDate(new Date(new Date().setMonth(new Date().getMonth() - 1)))
             setEndDate(new Date())
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogProps])
+    }, [canvasId])
 
     useEffect(() => {
         if (show) dispatch({ type: SHOW_CANVAS_DIALOG })
@@ -364,7 +368,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                             {t('vectorStore.upsertHistory.delete')} {selected.length} {selected.length === 1 ? t('vectorStore.upsertHistory.row') : t('vectorStore.upsertHistory.rows')}
                         </Button>
                     )}
-                    {chatflowUpsertHistory.length <= 0 && (
+                    {canvasUpsertHistory.length <= 0 && (
                         <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                             <Box sx={{ p: 7, height: 'auto' }}>
                                 <img
@@ -376,7 +380,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                             <div>{t('vectorStore.upsertHistory.noHistory')}</div>
                         </Stack>
                     )}
-                    {chatflowUpsertHistory.length > 0 && (
+                    {canvasUpsertHistory.length > 0 && (
                         <TableContainer component={Paper}>
                             <Table sx={{ minWidth: 650 }} aria-label='simple table'>
                                 <TableHead>
@@ -384,7 +388,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                                         <TableCell padding='checkbox'>
                                             <Checkbox
                                                 color='primary'
-                                                checked={selected.length === chatflowUpsertHistory.length}
+                                                checked={selected.length === canvasUpsertHistory.length}
                                                 onChange={onSelectAllClick}
                                                 inputProps={{
                                                     'aria-label': 'select all'
@@ -424,7 +428,7 @@ const UpsertHistoryDialog = ({ show, dialogProps, onCancel }) => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {chatflowUpsertHistory.map((upsertHistory, index) => (
+                                    {canvasUpsertHistory.map((upsertHistory, index) => (
                                         <UpsertHistoryRow
                                             key={index}
                                             upsertHistory={upsertHistory}

@@ -24,6 +24,7 @@ import {
 } from '../../../src/Interface'
 import { ToolCallingAgentOutputParser, AgentExecutor, SOURCE_DOCUMENTS_PREFIX, ARTIFACTS_PREFIX } from '../../../src/agents'
 import {
+    FLOW_CONTEXT_REFERENCE,
     extractOutputFromArray,
     getInputVariables,
     getVars,
@@ -92,11 +93,7 @@ const howToUseCode = `
     \`\`\`
 
 3. You can also get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -138,11 +135,7 @@ const howToUse = `
     | user      | \`$flow.output.usedTools[0].toolOutput\`  |
 
 3. You can get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -418,8 +411,12 @@ class Agent_SeqAgents implements INode {
                                         value: '$flow.chatId'
                                     },
                                     {
-                                        label: 'Chatflow Id (string)',
-                                        value: '$flow.chatflowId'
+                                        label: 'Canvas Id (string)',
+                                        value: '$flow.canvasId'
+                                    },
+                                    {
+                                        label: 'Chatflow Id (legacy string)',
+                                        value: '$flow.canvasId'
                                     }
                                 ],
                                 editable: true,
@@ -880,7 +877,7 @@ const getReturnOutput = async (nodeData: INodeData, input: string, options: ICom
     const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
     const flow = {
-        chatflowId: options.chatflowid,
+        canvasId: options.canvasId,
         sessionId: options.sessionId,
         chatId: options.chatId,
         input,

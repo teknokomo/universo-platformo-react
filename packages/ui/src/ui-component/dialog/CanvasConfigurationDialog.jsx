@@ -14,7 +14,7 @@ import FollowUpPrompts from '@/ui-component/extended/FollowUpPrompts'
 import FileUpload from '@/ui-component/extended/FileUpload'
 import PostProcessing from '@/ui-component/extended/PostProcessing'
 
-const CHATFLOW_CONFIGURATION_TABS = [
+const CANVAS_CONFIGURATION_TABS = [
     {
         label: 'security',
         id: 'security'
@@ -60,8 +60,8 @@ function TabPanel(props) {
         <div
             role='tabpanel'
             hidden={value !== index}
-            id={`chatflow-config-tabpanel-${index}`}
-            aria-labelledby={`chatflow-config-tab-${index}`}
+            id={`canvas-config-tabpanel-${index}`}
+            aria-labelledby={`canvas-config-tab-${index}`}
             style={{ width: '100%', paddingTop: '1rem' }}
             {...other}
         >
@@ -78,17 +78,17 @@ TabPanel.propTypes = {
 
 function a11yProps(index) {
     return {
-        id: `chatflow-config-tab-${index}`,
-        'aria-controls': `chatflow-config-tabpanel-${index}`
+        id: `canvas-config-tab-${index}`,
+        'aria-controls': `canvas-config-tabpanel-${index}`
     }
 }
 
-const ChatflowConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel }) => {
+const CanvasConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const [tabValue, setTabValue] = useState(0)
     const { t } = useTranslation()
 
-    const filteredTabs = CHATFLOW_CONFIGURATION_TABS.filter((tab) => !isAgentCanvas || !tab.hideInAgentFlow)
+    const filteredTabs = CANVAS_CONFIGURATION_TABS.filter((tab) => !isAgentCanvas || !tab.hideInAgentFlow)
 
     const component = show ? (
         <Dialog
@@ -153,11 +153,11 @@ const ChatflowConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCance
     return createPortal(component, portalElement)
 }
 
-ChatflowConfigurationDialog.propTypes = {
+CanvasConfigurationDialog.propTypes = {
     show: PropTypes.bool,
     isAgentCanvas: PropTypes.bool,
     dialogProps: PropTypes.object,
     onCancel: PropTypes.func
 }
 
-export default ChatflowConfigurationDialog
+export default CanvasConfigurationDialog

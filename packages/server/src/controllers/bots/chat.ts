@@ -35,12 +35,12 @@ export class ChatBotController {
                 })
             }
 
-            let chatflow
+            let canvasRecord
             try {
-                chatflow = await canvasService.getCanvasById(id)
+                canvasRecord = await canvasService.getCanvasById(id)
             } catch (error: any) {
                 if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
-                    logger.error(`[CHAT CONTROLLER] Chatflow ${id} not found`)
+                    logger.error(`[CHAT CONTROLLER] Canvas ${id} not found`)
                     return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
                         error: 'Chat Bot config not found',
                         botType: 'chat'
@@ -49,8 +49,8 @@ export class ChatBotController {
                 throw error
             }
 
-            if (!chatflow) {
-                logger.error(`[CHAT CONTROLLER] Chatflow ${id} not found`)
+            if (!canvasRecord) {
+                logger.error(`[CHAT CONTROLLER] Canvas ${id} not found`)
                 return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
                     error: 'Chat Bot config not found',
                     botType: 'chat'
@@ -58,7 +58,7 @@ export class ChatBotController {
             }
 
             // Universo Platformo | Get config from chatbotConfig
-            const config = safeParseJSON(chatflow.chatbotConfig)
+            const config = safeParseJSON(canvasRecord.chatbotConfig)
             config.botType = 'chat' // Ensure type is set
 
             logger.debug(`[CHAT CONTROLLER] Rendering Chat Bot with config`)
@@ -98,9 +98,9 @@ export class ChatBotController {
                 })
             }
 
-            let chatflow
+            let canvasRecord
             try {
-                chatflow = await canvasService.getCanvasById(id)
+                canvasRecord = await canvasService.getCanvasById(id)
             } catch (error: any) {
                 if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
                     logger.error(`[CHAT CONTROLLER] Config not found for ${id}`)
@@ -112,7 +112,7 @@ export class ChatBotController {
                 throw error
             }
 
-            if (!chatflow) {
+            if (!canvasRecord) {
                 logger.error(`[CHAT CONTROLLER] Config not found for ${id}`)
                 return res.status(StatusCodes.NOT_FOUND).set('Content-Type', 'application/json').json({
                     error: 'Chat Bot config not found',
@@ -121,7 +121,7 @@ export class ChatBotController {
             }
 
             // Universo Platformo | Get config from chatbotConfig
-            const config = safeParseJSON(chatflow.chatbotConfig)
+            const config = safeParseJSON(canvasRecord.chatbotConfig)
             config.botType = 'chat' // Ensure type is set
 
             logger.debug(`[CHAT CONTROLLER] Successfully got config for ${id}, setting botType to 'chat'`)

@@ -107,24 +107,24 @@ const getFullPageThemeConfig = () => {
 }
 
 // Universo Platformo | Embed code generators
-const popupHtmlCode = (chatflowid) => {
+const popupHtmlCode = (canvasId) => {
     return `<script type="module">
     import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
     Chatbot.init({
-        chatflowid: "${chatflowid}",
+        canvasId: "${canvasId}",
         apiHost: "${baseURL}",
         mode: "chat"
     })
 </script>`
 }
 
-const popupReactCode = (chatflowid) => {
+const popupReactCode = (canvasId) => {
     return `import { BubbleChat } from 'flowise-embed-react'
 
 const App = () => {
     return (
         <BubbleChat
-            chatflowid="${chatflowid}"
+            canvasId="${canvasId}"
             apiHost="${baseURL}"
             mode="chat"
         />
@@ -132,25 +132,25 @@ const App = () => {
 };`
 }
 
-const fullpageHtmlCode = (chatflowid) => {
+const fullpageHtmlCode = (canvasId) => {
     return `<flowise-fullchatbot></flowise-fullchatbot>
 <script type="module">
     import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
     Chatbot.initFull({
-        chatflowid: "${chatflowid}",
+        canvasId: "${canvasId}",
         apiHost: "${baseURL}",
         mode: "chat"
     })
 </script>`
 }
 
-const fullpageReactCode = (chatflowid) => {
+const fullpageReactCode = (canvasId) => {
     return `import { FullPageChat } from "flowise-embed-react"
 
 const App = () => {
     return (
         <FullPageChat
-            chatflowid="${chatflowid}"
+            canvasId="${canvasId}"
             apiHost="${baseURL}"
             mode="chat"
         />
@@ -175,11 +175,11 @@ const customStringify = (obj) => {
 }
 
 // Universo Platformo | Embed code generators with customization
-const popupHtmlCodeCustomization = (chatflowid) => {
+const popupHtmlCodeCustomization = (canvasId) => {
     return `<script type="module">
     import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
     Chatbot.init({
-        chatflowid: "${chatflowid}",
+        canvasId: "${canvasId}",
         apiHost: "${baseURL}",
         mode: "chat",
         theme: ${customStringify(defaultThemeConfig)}
@@ -187,13 +187,13 @@ const popupHtmlCodeCustomization = (chatflowid) => {
 </script>`
 }
 
-const popupReactCodeCustomization = (chatflowid) => {
+const popupReactCodeCustomization = (canvasId) => {
     return `import { BubbleChat } from 'flowise-embed-react'
 
 const App = () => {
     return (
         <BubbleChat
-            chatflowid="${chatflowid}"
+            canvasId="${canvasId}"
             apiHost="${baseURL}"
             mode="chat"
             theme={{
@@ -204,12 +204,12 @@ ${customStringify(defaultThemeConfig)}
 };`
 }
 
-const fullpageHtmlCodeCustomization = (chatflowid) => {
+const fullpageHtmlCodeCustomization = (canvasId) => {
     return `<flowise-fullchatbot></flowise-fullchatbot>
 <script type="module">
     import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
     Chatbot.initFull({
-        chatflowid: "${chatflowid}",
+        canvasId: "${canvasId}",
         apiHost: "${baseURL}",
         mode: "chat",
         theme: ${customStringify(getFullPageThemeConfig())}
@@ -217,13 +217,13 @@ const fullpageHtmlCodeCustomization = (chatflowid) => {
 </script>`
 }
 
-const fullpageReactCodeCustomization = (chatflowid) => {
+const fullpageReactCodeCustomization = (canvasId) => {
     return `import { FullPageChat } from "flowise-embed-react"
 
 const App = () => {
     return (
         <FullPageChat
-            chatflowid="${chatflowid}"
+            canvasId="${canvasId}"
             apiHost="${baseURL}"
             mode="chat"
             theme={{
@@ -245,10 +245,10 @@ const codeGenerators = {
     fullpageReactCustomization: fullpageReactCodeCustomization
 }
 
-const ChatBotEmbed = ({ chatflowid }) => {
+const ChatBotEmbed = ({ canvasId }) => {
     return (
         <BaseBotEmbed
-            chatflowid={chatflowid}
+            canvasId={canvasId}
             title='Chat Bot Embed'
             codeGenerators={codeGenerators}
             defaultThemeConfig={defaultThemeConfig}

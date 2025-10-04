@@ -32,9 +32,8 @@ const defaultConfig = {
     displayMode: 'chat'
 }
 
-const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, chatflow, onSave }) => {
-    // For agents, chatflowid now represents canvasId
-    const canvasId = isAgentCanvas ? chatflowid : chatflowid
+const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, canvasId: propCanvasId, unikId, canvas, onSave }) => {
+    const canvasId = propCanvasId
     const [title, setTitle] = useState('')
     const [titleAvatarSrc, setTitleAvatarSrc] = useState('')
     const [titleBackgroundColor, setTitleBackgroundColor] = useState(defaultConfig.titleBackgroundColor)
@@ -65,10 +64,10 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
         try {
             // Universo Platformo | Parse existing chatbotConfig to preserve other technology settings
             let existingConfig = {}
-            if (chatflow?.chatbotConfig) {
+            if (canvas?.chatbotConfig) {
                 try {
                     existingConfig =
-                        typeof chatflow.chatbotConfig === 'string' ? JSON.parse(chatflow.chatbotConfig) : chatflow.chatbotConfig
+                        typeof canvas.chatbotConfig === 'string' ? JSON.parse(canvas.chatbotConfig) : canvas.chatbotConfig
                 } catch (parseError) {
                     console.warn('Failed to parse existing chatbotConfig, using empty object:', parseError)
                     existingConfig = {}
@@ -358,7 +357,7 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
 
     return (
         <BaseBotSettings
-            chatflowid={canvasId}
+            canvasId={canvasId}
             unikId={unikId}
             configKey='chatbotConfig'
             formatConfig={formatConfig}
@@ -391,9 +390,9 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, chatflowid, unikId, c
 ChatBotSettings.propTypes = {
     isSessionMemory: PropTypes.bool,
     isAgentCanvas: PropTypes.bool,
-    chatflowid: PropTypes.string,
+    canvasId: PropTypes.string,
     unikId: PropTypes.string,
-    chatflow: PropTypes.object,
+    canvas: PropTypes.object,
     onSave: PropTypes.func
 }
 

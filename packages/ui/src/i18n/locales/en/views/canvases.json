@@ -2,7 +2,7 @@
     "canvases": {
         "title": "Spaces",
         "searchPlaceholder": "Search by name or category",
-        "noChatflowsYet": "No spaces yet",
+        "noCanvasesYet": "No spaces yet",
         "noCanvasesYet": "No spaces yet",
         "agents": {
             "title": "Agent Flows",
@@ -48,7 +48,7 @@
             "share": "Share",
             "api": "API",
             "embed": "Embed",
-            "chatflowSettings": "Space Settings",
+            "canvasSettings": "Space Settings",
             "canvasSettings": "Space Settings",
             "dropFlowDescription": "Select a JSON file containing a space configuration",
             "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",

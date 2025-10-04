@@ -532,11 +532,11 @@ class UnstructuredFile_DocumentLoaders implements INode {
                 } else {
                     files = [fileName]
                 }
-                const chatflowid = options.chatflowid
+                const canvasId = options.canvasId
 
                 for (const file of files) {
                     if (!file) continue
-                    const fileData = await getFileFromStorage(file, chatflowid)
+                    const fileData = await getFileFromStorage(file, canvasId)
                     const loaderDocs = await loader.loadAndSplitBuffer(fileData, file)
                     docs.push(...loaderDocs)
                 }

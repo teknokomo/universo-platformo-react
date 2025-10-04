@@ -3,7 +3,7 @@ import express = require('express')
 import request = require('supertest')
 import { EntityManager } from 'typeorm'
 import { createSpacesRoutes } from '@/routes/spacesRoutes'
-import { CanvasLegacyController } from '@/controllers/canvasLegacyController'
+import { CanvasController } from '@/controllers/canvasController'
 import { createCanvasFixture, createSpaceFixture, createSpaceCanvasFixture } from '@/tests/fixtures/spaces'
 import { Canvas } from '@/database/entities/Canvas'
 import { Space } from '@/database/entities/Space'
@@ -219,7 +219,7 @@ describe('spacesRoutes', () => {
 
   it('проксирует GET /spaces/:spaceId/canvases/:canvasId в контроллер', async () => {
     const getSpy = jest
-      .spyOn(CanvasLegacyController.prototype, 'getCanvasById')
+      .spyOn(CanvasController.prototype, 'getCanvasById')
       .mockImplementation(async (_req, res) => {
         res.json({ ok: true })
       })
@@ -239,7 +239,7 @@ describe('spacesRoutes', () => {
 
   it('проксирует PUT /spaces/:spaceId/canvases/:canvasId в контроллер', async () => {
     const updateSpy = jest
-      .spyOn(CanvasLegacyController.prototype, 'updateCanvas')
+      .spyOn(CanvasController.prototype, 'updateCanvas')
       .mockImplementation(async (_req, res) => {
         res.json({ updated: true })
       })
@@ -259,7 +259,7 @@ describe('spacesRoutes', () => {
 
   it('проксирует DELETE /spaces/:spaceId/canvases/:canvasId в контроллер', async () => {
     const deleteSpy = jest
-      .spyOn(CanvasLegacyController.prototype, 'deleteCanvas')
+      .spyOn(CanvasController.prototype, 'deleteCanvas')
       .mockImplementation(async (_req, res) => {
         res.json({ removed: true })
       })
@@ -277,9 +277,9 @@ describe('spacesRoutes', () => {
     deleteSpy.mockRestore()
   })
 
-  it('проксирует GET /chatflows-streaming/:canvasId в контроллер', async () => {
+  it('проксирует GET /spaces/:spaceId/canvases/:canvasId/streaming в контроллер', async () => {
     const streamingSpy = jest
-      .spyOn(CanvasLegacyController.prototype, 'checkIfCanvasIsValidForStreaming')
+      .spyOn(CanvasController.prototype, 'checkIfCanvasIsValidForStreaming')
       .mockImplementation(async (_req, res) => {
         res.json({ isStreaming: true })
       })
@@ -287,7 +287,7 @@ describe('spacesRoutes', () => {
     const { app } = createTestServer()
 
     const response = await request(app).get(
-      '/api/v1/uniks/unik-1/chatflows-streaming/canvas-1'
+      '/api/v1/uniks/unik-1/spaces/space-1/canvases/canvas-1/streaming'
     )
 
     expect(response.status).toBe(200)

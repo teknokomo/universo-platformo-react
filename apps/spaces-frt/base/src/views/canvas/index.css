@@ -27,5 +27,5 @@
 }
 .reactflow-parent-wrapper { display: flex; flex-grow: 1; height: 100%; }
 .reactflow-parent-wrapper .reactflow-wrapper { flex-grow: 1; height: 100%; }
-.chatflow-canvas .react-flow__handle-connecting { cursor: not-allowed; background: #db4e4e !important; }
-.chatflow-canvas .react-flow__handle-valid { cursor: crosshair; background: #5dba62 !important; }
+.canvas-editor .react-flow__handle-connecting { cursor: not-allowed; background: #db4e4e !important; }
+.canvas-editor .react-flow__handle-valid { cursor: crosshair; background: #5dba62 !important; }

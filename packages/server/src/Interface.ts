@@ -294,7 +294,7 @@ export interface ICustomTemplate {
 }
 
 export interface IFlowConfig {
-    chatflowid: string // Keep as chatflowid for backward compatibility, but now refers to canvasId
+    canvasId: string
     chatId: string
     sessionId: string
     chatHistory: IMessage[]
@@ -312,7 +312,7 @@ export interface IPredictionQueueAppServer {
 
 export interface IExecuteFlowParams extends IPredictionQueueAppServer {
     incomingInput: IncomingInput
-    chatflow: CanvasFlowResult
+    canvas: CanvasFlowResult
     chatId: string
     baseURL: string
     isInternal: boolean

@@ -16,7 +16,7 @@ import { ARTIFACTS_PREFIX, SOURCE_DOCUMENTS_PREFIX } from '../../../src/agents'
 import { Document } from '@langchain/core/documents'
 import { DataSource } from 'typeorm'
 import { MessagesState, RunnableCallable, customGet, getVM } from '../commonUtils'
-import { getVars, prepareSandboxVars } from '../../../src/utils'
+import { FLOW_CONTEXT_REFERENCE, getVars, prepareSandboxVars } from '../../../src/utils'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 
 const defaultApprovalPrompt = `You are about to execute tool: {tools}. Ask if user want to proceed`
@@ -69,11 +69,7 @@ const howToUseCode = `
     \`\`\`
 
 3. You can also get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -112,11 +108,7 @@ const howToUse = `
     | sources      | \`$flow.output[0].toolOutput\`       |
 
 3. You can get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -279,8 +271,12 @@ class ToolNode_SeqAgents implements INode {
                                         value: '$flow.chatId'
                                     },
                                     {
-                                        label: 'Chatflow Id (string)',
-                                        value: '$flow.chatflowId'
+                                        label: 'Canvas Id (string)',
+                                        value: '$flow.canvasId'
+                                    },
+                                    {
+                                        label: 'Chatflow Id (legacy string)',
+                                        value: '$flow.canvasId'
                                     }
                                 ],
                                 editable: true,
@@ -511,7 +507,7 @@ const getReturnOutput = async (
     })
 
     const flow = {
-        chatflowId: options.chatflowid,
+        canvasId: options.canvasId,
         sessionId: options.sessionId,
         chatId: options.chatId,
         input,

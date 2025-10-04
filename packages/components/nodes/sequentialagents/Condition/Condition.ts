@@ -11,7 +11,7 @@ import {
     ISeqAgentsState
 } from '../../../src/Interface'
 import { checkCondition, customGet, getVM } from '../commonUtils'
-import { getVars, prepareSandboxVars } from '../../../src/utils'
+import { FLOW_CONTEXT_REFERENCE, getVars, prepareSandboxVars } from '../../../src/utils'
 
 const howToUseCode = `
 1. Must return a string value at the end of function. For example:
@@ -47,11 +47,7 @@ const howToUseCode = `
     \`\`\`
 
 3. You can get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 4. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -270,7 +266,7 @@ const runCondition = async (nodeData: INodeData, input: string, options: ICommon
     const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
     const flow = {
-        chatflowId: options.chatflowid,
+        canvasId: options.canvasId,
         sessionId: options.sessionId,
         chatId: options.chatId,
         input,

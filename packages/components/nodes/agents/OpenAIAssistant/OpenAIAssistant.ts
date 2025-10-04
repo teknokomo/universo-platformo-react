@@ -273,7 +273,7 @@ class OpenAIAssistant_Agents implements INode {
 
             const chatmessage = (await appDataSource.getRepository(databaseEntities['ChatMessage']).findOneBy({
                 chatId: options.chatId,
-                chatflowid: options.chatflowid
+                canvasId: options.canvasId
             })) as ISessionData | null
 
             let threadId = ''
@@ -406,7 +406,7 @@ class OpenAIAssistant_Agents implements INode {
                                                 openAIApiKey,
                                                 cited_file,
                                                 fileName,
-                                                options.chatflowid,
+                                                options.canvasId,
                                                 options.chatId
                                             )
                                             fileAnnotations.push({
@@ -425,7 +425,7 @@ class OpenAIAssistant_Agents implements INode {
                                                     openAIApiKey,
                                                     cited_file,
                                                     fileName,
-                                                    options.chatflowid,
+                                                    options.canvasId,
                                                     options.chatId
                                                 )
                                                 fileAnnotations.push({
@@ -493,7 +493,7 @@ class OpenAIAssistant_Agents implements INode {
                                 openai,
                                 fileId,
                                 `${fileObj.filename}.png`,
-                                options.chatflowid,
+                                options.canvasId,
                                 options.chatId
                             )
                             artifacts.push({ type: 'png', data: filePath })
@@ -798,7 +798,7 @@ class OpenAIAssistant_Agents implements INode {
                                 // eslint-disable-next-line no-useless-escape
                                 const fileName = cited_file.filename.split(/[\/\\]/).pop() ?? cited_file.filename
                                 if (!disableFileDownload) {
-                                    filePath = await downloadFile(openAIApiKey, cited_file, fileName, options.chatflowid, options.chatId)
+                                    filePath = await downloadFile(openAIApiKey, cited_file, fileName, options.canvasId, options.chatId)
                                     fileAnnotations.push({
                                         filePath,
                                         fileName
@@ -815,7 +815,7 @@ class OpenAIAssistant_Agents implements INode {
                                             openAIApiKey,
                                             cited_file,
                                             fileName,
-                                            options.chatflowid,
+                                            options.canvasId,
                                             options.chatId
                                         )
                                         fileAnnotations.push({
@@ -844,7 +844,7 @@ class OpenAIAssistant_Agents implements INode {
                     const fileId = content.image_file.file_id
                     const fileObj = await openai.files.retrieve(fileId)
 
-                    const filePath = await downloadImg(openai, fileId, `${fileObj.filename}.png`, options.chatflowid, options.chatId)
+                    const filePath = await downloadImg(openai, fileId, `${fileObj.filename}.png`, options.canvasId, options.chatId)
                     artifacts.push({ type: 'png', data: filePath })
                 }
             }

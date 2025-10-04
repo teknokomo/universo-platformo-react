@@ -136,8 +136,8 @@ WHERE table_schema = 'public'
 ORDER BY table_name, ordinal_position;
 
 -- Создайте скрипты миграции для изменений
-ALTER TABLE chatflow ADD COLUMN new_field VARCHAR(255);
-UPDATE chatflow SET new_field = 'default_value';
+ALTER TABLE canvas ADD COLUMN new_field VARCHAR(255);
+UPDATE canvas SET new_field = 'default_value';
 ```
 
 ### 2. Конфигурационные файлы
@@ -159,13 +159,13 @@ diff ~/.flowise/.env ~/.flowise.backup/.env
 // Протестируйте все чат-потоки после миграции
 
 const migrationChecks = {
-    checkNodeCompatibility: (chatflow) => {
+    checkNodeCompatibility: (canvas) => {
         // Проверка совместимости узлов
     },
-    updateDeprecatedNodes: (chatflow) => {
+    updateDeprecatedNodes: (canvas) => {
         // Обновление устаревших узлов
     },
-    validateChatflow: (chatflow) => {
+    validateCanvas: (canvas) => {
         // Валидация чат-потока
     }
 };
@@ -216,7 +216,7 @@ ps aux | grep flowise
 tail -f ~/.flowise/logs/server-error.log
 
 # Статус базы данных
-psql -c "SELECT COUNT(*) FROM chatflow;"
+psql -c "SELECT COUNT(*) FROM canvas;"
 ```
 
 ### 2. Функциональное тестирование
@@ -224,7 +224,7 @@ psql -c "SELECT COUNT(*) FROM chatflow;"
 ```javascript
 // Автоматизированные тесты после миграции
 const postMigrationTests = {
-    testChatflowExecution: async () => {
+    testCanvasExecution: async () => {
         // Тест выполнения чат-потоков
     },
     testAPIEndpoints: async () => {

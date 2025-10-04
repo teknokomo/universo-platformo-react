@@ -21,7 +21,7 @@ import {
     getStartingNodes,
     getAPIOverrideConfig
 } from '../utils'
-import { validateChatflowAPIKey } from './validateKey'
+import { validateCanvasApiKey } from './validateKey'
 import { IncomingInput, INodeDirectedGraph, IReactFlowObject, ChatType, IExecuteFlowParams, MODE } from '../Interface'
 import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 import { UpsertHistory } from '../database/entities/UpsertHistory'
@@ -37,7 +37,7 @@ import canvasService from '../services/spacesCanvas'
 export const executeUpsert = async ({
     componentNodes,
     incomingInput,
-    chatflow,
+    canvas,
     chatId,
     appDataSource,
     telemetry,
@@ -45,12 +45,16 @@ export const executeUpsert = async ({
     isInternal,
     files
 }: IExecuteFlowParams) => {
+    if (!canvas) {
+        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, 'Canvas record not provided')
+    }
+    const canvasRecord = canvas
     const question = incomingInput.question
     let overrideConfig = incomingInput.overrideConfig ?? {}
     let stopNodeId = incomingInput?.stopNodeId ?? ''
     const chatHistory: IMessage[] = []
     const isUpsert = true
-    const canvasId = chatflow.id
+    const canvasId = canvasRecord.id
     const apiMessageId = uuidv4()
 
     if (files?.length) {
@@ -104,8 +108,8 @@ export const executeUpsert = async ({
         }
     }
 
-    /*** Get chatflows and prepare data  ***/
-    const flowData = chatflow.flowData
+    /*** Prepare canvas flow data  ***/
+    const flowData = canvasRecord.flowData
     const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
     const nodes = parsedFlowData.nodes
     const edges = parsedFlowData.edges
@@ -148,7 +152,7 @@ export const executeUpsert = async ({
 
     /*** Get API Config ***/
     const availableVariables = await appDataSource.getRepository(Variable).find()
-    const { nodeOverrides, variableOverrides, apiOverrideStatus } = getAPIOverrideConfig(chatflow)
+    const { nodeOverrides, variableOverrides, apiOverrideStatus } = getAPIOverrideConfig(canvasRecord)
 
     const upsertedResult = await buildFlow({
         startingNodeIds,
@@ -162,7 +166,7 @@ export const executeUpsert = async ({
         chatHistory,
         chatId,
         sessionId,
-        chatflowid: canvasId,
+        canvasId,
         appDataSource,
         overrideConfig,
         apiOverrideStatus,
@@ -205,15 +209,23 @@ export const executeUpsert = async ({
 export const upsertVector = async (req: Request, isInternal: boolean = false) => {
     const appServer = getRunningExpressApp()
     try {
-        const canvasId = req.params.id
+        const canvasId = req.params?.canvasId ?? req.params?.id
 
-        // Check if chatflow exists
-        let chatflow
+        if (!canvasId) {
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Canvas identifier is required`)
+        }
+
+        if (!req.params.id) {
+            ;(req.params as any).id = canvasId
+        }
+
+        // Check if canvas exists
+        let canvasRecord
         try {
-            chatflow = await canvasService.getCanvasById(canvasId)
+            canvasRecord = await canvasService.getCanvasById(canvasId)
         } catch (error: any) {
             if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
-                throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${canvasId} not found`)
+                throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found`)
             }
             throw error
         }
@@ -225,7 +237,7 @@ export const upsertVector = async (req: Request, isInternal: boolean = false) =>
         const files = (req.files as Express.Multer.File[]) || []
 
         if (!isInternal) {
-            const isKeyValidated = await validateChatflowAPIKey(req, chatflow)
+            const isKeyValidated = await validateCanvasApiKey(req, canvasRecord)
             if (!isKeyValidated) {
                 throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Unauthorized`)
             }
@@ -234,7 +246,7 @@ export const upsertVector = async (req: Request, isInternal: boolean = false) =>
         const executeData: IExecuteFlowParams = {
             componentNodes: appServer.nodesPool.componentNodes,
             incomingInput,
-            chatflow,
+            canvas: canvasRecord,
             chatId,
             appDataSource: appServer.AppDataSource,
             telemetry: appServer.telemetry,

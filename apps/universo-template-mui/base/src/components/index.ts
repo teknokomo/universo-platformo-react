@@ -1,5 +1,4 @@
 export { default as ErrorBoundary } from './error/ErrorBoundary'
-export { FlowListTable } from './table/FlowListTable'
 export { MarketplaceTable } from './table/MarketplaceTable'
 export { TableViewOnly } from './table/Table'
 export { ToolsTable } from './table/ToolsListTable'

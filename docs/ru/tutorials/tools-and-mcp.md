@@ -52,7 +52,7 @@ try {
 * Вы можете получить конфигурацию потока по умолчанию:
   * `$flow.sessionId`
   * `$flow.chatId`
-  * `$flow.chatflowId`
+  * `$flow.canvasId`
   * `$flow.input`
   * `$flow.state`
 * Вы можете получить пользовательские переменные: `$vars.<variable-name>`

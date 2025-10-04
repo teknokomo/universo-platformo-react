@@ -6,7 +6,7 @@ description: Aprende cómo gestionar las API requests en Flowise
 
 ***
 
-Cuando compartes tu chatflow al público sin API authorization a través de API o embedded chat, cualquiera puede acceder al flow. Para prevenir el spamming, puedes establecer el rate limit en tu chatflow.
+Cuando compartes tu canvas al público sin API authorization a través de API o embedded chat, cualquiera puede acceder al flow. Para prevenir el spamming, puedes establecer el rate limit en tu canvas.
 
 <figure><img src="../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt="" width="462"><figcaption></figcaption></figure>
 

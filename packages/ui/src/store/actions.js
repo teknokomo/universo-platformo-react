@@ -10,7 +10,7 @@ export const SET_DARKMODE = '@customization/SET_DARKMODE'
 // action - canvas reducer
 export const SET_DIRTY = '@canvas/SET_DIRTY'
 export const REMOVE_DIRTY = '@canvas/REMOVE_DIRTY'
-export const SET_CHATFLOW = '@canvas/SET_CHATFLOW'
+export const SET_CANVAS = '@canvas/SET_CANVAS'
 export const SHOW_CANVAS_DIALOG = '@canvas/SHOW_CANVAS_DIALOG'
 export const HIDE_CANVAS_DIALOG = '@canvas/HIDE_CANVAS_DIALOG'
 export const SET_COMPONENT_NODES = '@canvas/SET_COMPONENT_NODES'

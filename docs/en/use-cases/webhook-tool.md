@@ -94,7 +94,7 @@ try {
 
    <figure><img src="../.gitbook/assets/image (51).png" alt="Tool added confirmation" width="279"><figcaption></figcaption></figure>
 
-### Step 3: Build a Chatflow with Webhook Integration
+### Step 3: Build a Canvas with Webhook Integration
 
 1. Create a new canvas and add the following nodes:
    - **Buffer Memory**
@@ -104,9 +104,9 @@ try {
 
 2. Connect them as shown:
 
-   <figure><img src="../.gitbook/assets/screely-1691758990676.png" alt="Chatflow setup"><figcaption></figcaption></figure>
+   <figure><img src="../.gitbook/assets/screely-1691758990676.png" alt="Canvas setup"><figcaption></figcaption></figure>
 
-3. Save the chatflow and start testing it.
+3. Save the canvas and start testing it.
 
 ### Step 4: Sending Messages via Webhook
 

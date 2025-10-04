@@ -70,7 +70,7 @@ class Pipe:
                 }
 
                 r = requests.get(
-                    f"{self.valves.flowise_url}/api/v1/chatflows?type=AGENTFLOW",
+                    f"{self.valves.flowise_url}/api/v1/canvases?type=AGENTFLOW",
                     headers=headers,
                 )
                 models = r.json()
@@ -197,9 +197,9 @@ class Pipe:
 
 5. Теперь, когда вы обновите страницу и нажмете "Новый чат", вы сможете увидеть список потоков. Вы можете изменить код, чтобы показать:
 
-* Только Agentflows V2: `f"{self.valves.flowise_url}/api/v1/chatflows?type=AGENTFLOW"`
-* Только Chatflows: `f"{self.valves.flowise_url}/api/v1/chatflows?type=CHATFLOW"`
-* Только Ассистентов: `f"{self.valves.flowise_url}/api/v1/chatflows?type=ASSISTANT"`
+* Только Agentflows V2: `f"{self.valves.flowise_url}/api/v1/canvases?type=AGENTFLOW"`
+* Только Canvases: `f"{self.valves.flowise_url}/api/v1/canvases?type=CHATFLOW"`
+* Только Ассистентов: `f"{self.valves.flowise_url}/api/v1/canvases?type=ASSISTANT"`
 
 <figure><img src="../../.gitbook/assets/image (4) (1).png" alt=""><figcaption></figcaption></figure>
 

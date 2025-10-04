@@ -301,10 +301,10 @@ export interface IUPDLFlowResult {
     // Additional fields for flow execution
     chatId?: string
     status?: string
-    chatflowid?: string
+    canvasId?: string
     sessionId?: string
     data?: any
-    chatflow?: any
+    canvas?: any
     message?: string | null
     success?: boolean
     error?: string

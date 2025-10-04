@@ -73,7 +73,7 @@ export const buildAgentGraph = async ({
     signal?: AbortController
 }): Promise<any> => {
     try {
-        const chatflowid = flowConfig.chatflowid
+        const canvasId = flowConfig.canvasId
         const chatId = flowConfig.chatId
         const sessionId = flowConfig.sessionId
         const analytic = agentflow.analytic
@@ -82,7 +82,7 @@ export const buildAgentGraph = async ({
         const options = {
             chatId,
             sessionId,
-            chatflowid,
+            canvasId,
             logger,
             analytic,
             appDataSource,

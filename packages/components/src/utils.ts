@@ -20,6 +20,15 @@ export const numberOrExpressionRegex = '^(\\d+\\.?\\d*|{{.*}})$' //return true i
 export const notEmptyRegex = '(.|\\s)*\\S(.|\\s)*' //return true if string is not empty or blank
 export const FLOWISE_CHATID = 'flowise_chatId'
 
+export const FLOW_CONTEXT_REFERENCE = [
+    "    - `$flow.canvasId` (preferred identifier for the current canvas)",
+    "    - `$flow.canvasId` (legacy alias kept for backward compatibility)",
+    "    - `$flow.sessionId`",
+    "    - `$flow.chatId`",
+    "    - `$flow.input`",
+    "    - `$flow.state`"
+].join('\n')
+
 let secretsManagerClient: SecretsManagerClient | null = null
 const USE_AWS_SECRETS_MANAGER = process.env.SECRETKEY_STORAGE_TYPE === 'aws'
 if (USE_AWS_SECRETS_MANAGER) {
@@ -726,7 +735,7 @@ export const mapChatMessageToBaseMessage = async (chatmessages: any[] = []): Pro
                     const imageContents: MessageContentImageUrl[] = []
                     for (const upload of uploads) {
                         if (upload.type === 'stored-file' && upload.mime.startsWith('image/')) {
-                            const fileData = await getFileFromStorage(upload.name, message.chatflowid, message.chatId)
+                            const fileData = await getFileFromStorage(upload.name, message.canvasId, message.chatId)
                             // as the image is stored in the server, read the file and convert it to base64
                             const bf = 'data:' + upload.mime + ';base64,' + fileData.toString('base64')
 
@@ -749,7 +758,7 @@ export const mapChatMessageToBaseMessage = async (chatmessages: any[] = []): Pro
                             const fileLoaderNodeInstance = new fileLoaderNodeModule.nodeClass()
                             const options = {
                                 retrieveAttachmentChatId: true,
-                                chatflowid: message.chatflowid,
+                                canvasId: message.canvasId,
                                 chatId: message.chatId
                             }
                             let fileInputFieldFromMimeType = 'txtFile'

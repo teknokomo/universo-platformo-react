@@ -195,25 +195,25 @@ describe('WorkspaceAccessService', () => {
     })
   })
 
-  describe('chatflow access resolution', () => {
-    it('returns false when chatflow link cannot resolve unik', async () => {
+  describe('canvas access resolution', () => {
+    it('returns false when canvas link cannot resolve unik', async () => {
       const { service, membershipRepo, queryMock } = setupService()
       membershipRepo.findOne.mockResolvedValue(null)
       queryMock.mockResolvedValue([]) // Empty SQL result
 
       const req = createRequest()
-      const hasAccess = await service.hasChatflowAccess(req, 'user-x', 'flow-x')
+      const hasAccess = await service.hasCanvasAccess(req, 'user-x', 'canvas-x')
       expect(hasAccess).toBe(false)
     })
 
-    it('returns true when chatflow resolves to accessible unik', async () => {
+    it('returns true when canvas resolves to accessible unik', async () => {
       const { service, membershipRepo, queryMock } = setupService()
       queryMock.mockResolvedValue([{ unikId: 'unik-1' }]) // SQL finds unik
       const membership = createMembership()
       membershipRepo.findOne.mockResolvedValueOnce(membership)
 
       const req = createRequest()
-      const hasAccess = await service.hasChatflowAccess(req, 'user-1', 'flow-1')
+      const hasAccess = await service.hasCanvasAccess(req, 'user-1', 'canvas-1')
       expect(hasAccess).toBe(true)
     })
   })

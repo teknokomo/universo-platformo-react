@@ -2,23 +2,23 @@
 
 ## Обзор
 
-Функционал публикации чатботов был обновлен для работы с новой структурой Canvas вместо устаревшей структуры ChatFlow. Этот документ описывает, как работает публикация чатботов с Canvas и миграция от ChatFlow.
+Функционал публикации чатботов был обновлен для работы с новой структурой Canvas вместо устаревшей структуры Canvas. Этот документ описывает, как работает публикация чатботов с Canvas и миграция от Canvas.
 
 ## Изменения в архитектуре
 
-### От ChatFlow к Canvas
+### От Canvas к Canvas
 
-- **Устаревшее**: Чатботы публиковались с использованием `chatflowId` из таблицы `chat_flow`
+- **Устаревшее**: Чатботы публиковались с использованием `canvasId` из таблицы `chat_flow`
 - **Текущее**: Чатботы публикуются с использованием `canvasId` из таблицы `canvases`
-- **Совместимость**: Система поддерживает как `canvasId`, так и `chatflowId` для обратной совместимости
+- **Совместимость**: Система поддерживает как `canvasId`, так и `canvasId` для обратной совместимости
 
 ### Сопоставление сущностей
 
-Сущность `ChatFlow` теперь ссылается на таблицу `canvases`:
+Сущность `Canvas` теперь ссылается на таблицу `canvases`:
 
 ```typescript
-@Entity('canvases') // Рефакторинг: ChatFlow теперь ссылается на таблицу canvases
-export class ChatFlow implements IChatFlow {
+@Entity('canvases') // Рефакторинг: Canvas теперь ссылается на таблицу canvases
+export class Canvas implements ICanvas {
     // ... поля сущности
     @Column({ nullable: true, type: 'text' })
     chatbotConfig?: string
@@ -82,7 +82,7 @@ GET /api/v1/bots/:canvasId/stream/:sessionId?
 
 ### Сервис публикации
 
-Сервис публикации (`apps/publish-srv`) поддерживает как Canvas, так и устаревшие ChatFlow ID:
+Сервис публикации (`apps/publish-srv`) поддерживает как Canvas, так и устаревшие Canvas ID:
 
 ```typescript
 // Новая публикация на основе Canvas
@@ -94,10 +94,10 @@ POST /publish/canvas
     "projectName": "Мой чатбот"
 }
 
-// Поддержка устаревшего ChatFlow (устарело)
+// Поддержка устаревшего Canvas (устарело)
 POST /publish/arjs
 {
-    "chatflowId": "uuid-of-canvas", // Фактически ссылается на canvas
+    "canvasId": "uuid-of-canvas", // Фактически ссылается на canvas
     "generationMode": "streaming",
     "isPublic": true,
     "projectName": "Мой чатбот"
@@ -117,16 +117,16 @@ POST /publish/arjs
 
 Система поддерживает обратную совместимость через:
 
-1. **Сопоставление сущностей**: Сущность `ChatFlow` ссылается на таблицу `canvases`
-2. **Совместимость ID**: Canvas ID используются там, где ранее использовались ChatFlow ID
-3. **Поддержка API**: Принимаются как параметры `canvasId`, так и `chatflowId`
+1. **Сопоставление сущностей**: Сущность `Canvas` ссылается на таблицу `canvases`
+2. **Совместимость ID**: Canvas ID используются там, где ранее использовались Canvas ID
+3. **Поддержка API**: Принимаются как параметры `canvasId`, так и `canvasId`
 4. **Перенаправления URL**: Устаревшие URL перенаправляются на новые URL на основе Canvas
 
 ### Миграция данных
 
-При миграции от ChatFlow к Canvas:
+При миграции от Canvas к Canvas:
 
-1. Каждый ChatFlow становится Canvas с тем же ID
+1. Каждый Canvas становится Canvas с тем же ID
 2. Поле `chatbotConfig` сохраняется как есть
 3. Все конфигурации ботов продолжают работать без изменений
 4. Существующие опубликованные боты остаются доступными
@@ -155,8 +155,8 @@ npm test -- chatbot-publication.test.ts
 Чатботы проверяют разрешенные источники из `chatbotConfig`:
 
 ```typescript
-if (chatflow.chatbotConfig) {
-    const parsedConfig = JSON.parse(chatflow.chatbotConfig)
+if (canvas.chatbotConfig) {
+    const parsedConfig = JSON.parse(canvas.chatbotConfig)
     const isValidAllowedOrigins = parsedConfig.allowedOrigins?.length && parsedConfig.allowedOrigins[0] !== ''
     // ... логика проверки источника
 }

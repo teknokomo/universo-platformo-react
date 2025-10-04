@@ -10,7 +10,7 @@ import {
     replaceAllAPIKeys as replaceAllAPIKeys_json,
     importKeys as importKeys_json
 } from '../../utils/apiKey'
-import { addChatflowsCount } from '../../utils/addChatflowsCount'
+import { addCanvasCount } from '../../utils/addCanvasCount'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
@@ -31,7 +31,7 @@ const getAllApiKeys = async (unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await getAPIKeys_json()
-            return await addChatflowsCount(keys)
+            return await addCanvasCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
@@ -52,7 +52,7 @@ const getAllApiKeys = async (unikId?: string) => {
                 keys = await queryBuilder.getMany()
             }
             
-            return await addChatflowsCount(keys)
+            return await addCanvasCount(keys)
         } else {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `UNKNOWN APIKEY_STORAGE_TYPE`)
         }
@@ -86,7 +86,7 @@ const createApiKey = async (keyName: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await addAPIKey_json(keyName)
-            return await addChatflowsCount(keys)
+            return await addCanvasCount(keys)
         } else if (_apikeysStoredInDb()) {
             const apiKey = generateAPIKey()
             const apiSecret = generateSecretHash(apiKey)
@@ -122,7 +122,7 @@ const updateApiKey = async (id: string, keyName: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await updateAPIKey_json(id, keyName)
-            return await addChatflowsCount(keys)
+            return await addCanvasCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
@@ -156,7 +156,7 @@ const deleteApiKey = async (id: string, unikId?: string) => {
     try {
         if (_apikeysStoredInJson()) {
             const keys = await deleteAPIKey_json(id)
-            return await addChatflowsCount(keys)
+            return await addCanvasCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             
@@ -198,7 +198,7 @@ const importKeys = async (body: any, unikId?: string) => {
             } else {
                 await importKeys_json(keys, body.importMode)
             }
-            return await addChatflowsCount(keys)
+            return await addCanvasCount(keys)
         } else if (_apikeysStoredInDb()) {
             const appServer = getRunningExpressApp()
             

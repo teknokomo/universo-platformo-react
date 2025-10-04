@@ -26,7 +26,7 @@ The following files have been enhanced for compatibility with newer TypeScript a
 ### Node Implementations
 
 -   `nodes/agents/AutoGPT/AutoGPT.ts` - Fixed LangChain ObjectTool type compatibility
--   `nodes/tools/ChatflowTool/ChatflowTool.ts` - Enhanced with safe chatflow property access
+-   `nodes/tools/CanvasTool/CanvasTool.ts` - Enhanced with safe canvas property access
 -   `nodes/tools/CustomTool/CustomTool.ts` - Added safe type casting and error handling
 -   `nodes/sequentialagents/ExecuteFlow/ExecuteFlow.ts` - Fixed unknown types in flow execution
 

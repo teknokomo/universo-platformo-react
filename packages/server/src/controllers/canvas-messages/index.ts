@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { ChatMessageRatingType, ChatType, IReactFlowObject } from '../../Interface'
 import canvasService from '../../services/spacesCanvas'
-import chatMessagesService from '../../services/chat-messages'
+import canvasMessagesService from '../../services/canvas-messages'
 import { aMonthAgo, clearSessionMemory } from '../../utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { Between, DeleteResult, FindOptionsWhere, In } from 'typeorm'
@@ -37,10 +37,10 @@ const createChatMessage = async (req: Request, res: Response, next: NextFunction
         if (!req.body) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                'Error: chatMessagesController.createChatMessage - request body not provided!'
+                'Error: canvasMessagesController.createChatMessage - request body not provided!'
             )
         }
-        const apiResponse = await chatMessagesService.createChatMessage(req.body)
+        const apiResponse = await canvasMessagesService.createChatMessage(req.body)
         return res.json(parseAPIResponse(apiResponse))
     } catch (error) {
         next(error)
@@ -80,7 +80,7 @@ const getAllChatMessages = async (req: Request, res: Response, next: NextFunctio
                 `Error: chatMessageController.getAllChatMessages - id not provided!`
             )
         }
-        const apiResponse = await chatMessagesService.getAllChatMessages(
+        const apiResponse = await canvasMessagesService.getAllChatMessages(
             req.params.id,
             chatTypes,
             sortOrder,
@@ -114,7 +114,7 @@ const getAllInternalChatMessages = async (req: Request, res: Response, next: Nex
         if (feedbackTypeFilters) {
             feedbackTypeFilters = getFeedbackTypeFilters(feedbackTypeFilters)
         }
-        const apiResponse = await chatMessagesService.getAllInternalChatMessages(
+        const apiResponse = await canvasMessagesService.getAllInternalChatMessages(
             req.params.id,
             [ChatType.INTERNAL],
             sortOrder,
@@ -139,15 +139,15 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                'Error: chatMessagesController.removeAllChatMessages - id not provided!'
+                'Error: canvasMessagesController.removeAllChatMessages - id not provided!'
             )
         }
-        const chatflowid = req.params.id
-        const chatflow = await canvasService.getCanvasById(req.params.id)
-        if (!chatflow) {
-            return res.status(404).send(`Chatflow ${req.params.id} not found`)
+        const canvasId = req.params.id
+        const canvas = await canvasService.getCanvasById(req.params.id)
+        if (!canvas) {
+            return res.status(404).send(`Canvas ${req.params.id} not found`)
         }
-        const flowData = chatflow.flowData
+        const flowData = canvas.flowData
         const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
         const nodes = parsedFlowData.nodes
         const chatId = req.query?.chatId as string
@@ -178,7 +178,7 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
             const isFeedback = feedbackTypeFilters?.length ? true : false
             const hardDelete = req.query?.hardDelete as boolean | undefined
             const messages = await utilGetChatMessage({
-                canvasId: chatflowid,
+                canvasId,
                 chatTypes,
                 sessionId,
                 startDate,
@@ -226,7 +226,11 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
                 }
             }
 
-            const apiResponse = await chatMessagesService.removeChatMessagesByMessageIds(chatflowid, chatIdMap, messageIds)
+            const apiResponse = await canvasMessagesService.removeChatMessagesByMessageIds(
+                canvasId,
+                chatIdMap,
+                messageIds
+            )
             return res.json(apiResponse)
         } else {
             try {
@@ -243,7 +247,7 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
                 return res.status(500).send('Error clearing chat messages')
             }
 
-            const deleteOptions: FindOptionsWhere<ChatMessage> = { canvasId: chatflowid }
+            const deleteOptions: FindOptionsWhere<ChatMessage> = { canvasId }
             if (chatId) deleteOptions.chatId = chatId
             if (memoryType) deleteOptions.memoryType = memoryType
             if (sessionId) deleteOptions.sessionId = sessionId
@@ -255,7 +259,7 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
                 const toDate = new Date(endDate)
                 deleteOptions.createdDate = Between(fromDate ?? aMonthAgo(), toDate ?? new Date())
             }
-            const apiResponse = await chatMessagesService.removeAllChatMessages(chatId, chatflowid, deleteOptions)
+            const apiResponse = await canvasMessagesService.removeAllChatMessages(chatId, canvasId, deleteOptions)
             return res.json(apiResponse)
         }
     } catch (error) {
@@ -268,10 +272,10 @@ const abortChatMessage = async (req: Request, res: Response, next: NextFunction)
         if (typeof req.params === 'undefined' || !req.params.canvasId || !req.params.chatId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: chatMessagesController.abortChatMessage - canvasId or chatId not provided!`
+                `Error: canvasMessagesController.abortChatMessage - canvasId or chatId not provided!`
             )
         }
-        await chatMessagesService.abortChatMessage(req.params.chatId, req.params.canvasId)
+        await canvasMessagesService.abortChatMessage(req.params.chatId, req.params.canvasId)
         return res.json({ status: 200, message: 'Chat message aborted' })
     } catch (error) {
         next(error)

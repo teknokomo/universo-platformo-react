@@ -32,7 +32,7 @@ const programmingLanguages = {
     css: '.css'
 }
 
-export const CodeBlock = memo(({ language, chatflowid, isDialog, value }) => {
+export const CodeBlock = memo(({ language, canvasId, isDialog, value }) => {
     const theme = useTheme()
     const [anchorEl, setAnchorEl] = useState(null)
     const openPopOver = Boolean(anchorEl)
@@ -55,7 +55,7 @@ export const CodeBlock = memo(({ language, chatflowid, isDialog, value }) => {
 
     const downloadAsFile = () => {
         const fileExtension = programmingLanguages[language] || '.file'
-        const suggestedFileName = `file-${chatflowid}${fileExtension}`
+        const suggestedFileName = `file-${canvasId ?? 'output'}${fileExtension}`
         const fileName = suggestedFileName
 
         if (!fileName) {
@@ -117,7 +117,7 @@ CodeBlock.displayName = 'CodeBlock'
 
 CodeBlock.propTypes = {
     language: PropTypes.string,
-    chatflowid: PropTypes.string,
+    canvasId: PropTypes.string,
     isDialog: PropTypes.bool,
     value: PropTypes.string
 }

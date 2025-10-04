@@ -2,23 +2,23 @@ import { DataSource } from 'typeorm'
 import { ChatflowType } from '../types'
 import { Canvas } from '../database/entities/Canvas'
 import {
-    LegacyChatflowsService,
-    LegacyChatflowDependencies,
-    LegacyChatflowEntities,
-    LegacyChatflowPublicCanvas,
+    CanvasService,
+    CanvasServiceDependencies,
+    CanvasServiceEntities,
+    PublicCanvasResponse,
     CanvasScope
-} from './legacyChatflowsService'
+} from './canvasService'
 
 export interface CanvasServiceFactoryOptions {
     getDataSource: () => DataSource
-    entities: LegacyChatflowEntities
-    dependencies: LegacyChatflowDependencies
+    entities: CanvasServiceEntities
+    dependencies: CanvasServiceDependencies
 }
 
 export type CanvasFlowResult = Canvas
 
-export interface CanvasService {
-    readonly legacyService: LegacyChatflowsService
+export interface CanvasServiceAdapter {
+    readonly legacyService: CanvasService
     checkIfCanvasIsValidForStreaming: (
         canvasId: string,
         scope?: CanvasScope
@@ -31,11 +31,11 @@ export interface CanvasService {
     saveCanvas: (canvasData: Partial<Canvas>, scope?: CanvasScope) => Promise<CanvasFlowResult>
     importCanvases: (canvases: Partial<Canvas>[], scope?: CanvasScope, queryRunner?: any) => Promise<any>
     updateCanvas: (canvasId: string, update: Partial<Canvas>, scope?: CanvasScope) => Promise<CanvasFlowResult>
-    getSinglePublicCanvas: (canvasId: string) => Promise<LegacyChatflowPublicCanvas>
+    getSinglePublicCanvas: (canvasId: string) => Promise<PublicCanvasResponse>
 }
 
-export const createCanvasService = (options: CanvasServiceFactoryOptions): CanvasService => {
-    const legacyService = new LegacyChatflowsService(
+export const createCanvasService = (options: CanvasServiceFactoryOptions): CanvasServiceAdapter => {
+    const legacyService = new CanvasService(
         options.getDataSource,
         options.entities,
         options.dependencies
@@ -44,38 +44,38 @@ export const createCanvasService = (options: CanvasServiceFactoryOptions): Canva
     return {
         legacyService,
         checkIfCanvasIsValidForStreaming: async (canvasId: string, scope?: CanvasScope) => {
-            return legacyService.checkIfChatflowIsValidForStreaming(canvasId, scope)
+            return legacyService.checkIfCanvasIsValidForStreaming(canvasId, scope)
         },
         checkIfCanvasIsValidForUploads: async (canvasId: string, scope?: CanvasScope) => {
-            return legacyService.checkIfChatflowIsValidForUploads(canvasId, scope)
+            return legacyService.checkIfCanvasIsValidForUploads(canvasId, scope)
         },
         deleteCanvas: async (canvasId: string, scope?: CanvasScope) => {
-            return legacyService.deleteChatflow(canvasId, scope)
+            return legacyService.deleteCanvas(canvasId, scope)
         },
         getAllCanvases: async ({ unikId, spaceId, type }: { unikId?: string; spaceId?: string; type?: ChatflowType }) => {
-            return legacyService.getAllChatflows(type, { unikId, spaceId })
+            return legacyService.getAllCanvases(type, { unikId, spaceId })
         },
         getCanvasByApiKey: async (apiKeyId: string, keyOnly?: string) => {
-            return legacyService.getChatflowByApiKey(apiKeyId, keyOnly)
+            return legacyService.getCanvasesByApiKey(apiKeyId, keyOnly)
         },
         getCanvasById: async (canvasId: string, scope?: CanvasScope) => {
-            return legacyService.getChatflowById(canvasId, scope)
+            return legacyService.getCanvasById(canvasId, scope)
         },
         saveCanvas: async (canvasData: Partial<Canvas>, scope?: CanvasScope) => {
-            return legacyService.saveChatflow(canvasData, scope)
+            return legacyService.saveCanvas(canvasData, scope)
         },
         importCanvases: async (canvases: Partial<Canvas>[], scope?: CanvasScope, queryRunner?: any) => {
-            return legacyService.importChatflows(canvases, scope, queryRunner)
+            return legacyService.importCanvases(canvases, scope, queryRunner)
         },
         updateCanvas: async (canvasId: string, update: Partial<Canvas>, scope?: CanvasScope) => {
-            const existing = await legacyService.getChatflowById(canvasId, scope)
+            const existing = await legacyService.getCanvasById(canvasId, scope)
             const updateEntity = new Canvas()
             Object.assign(updateEntity, update)
             updateEntity.id = canvasId
-            return legacyService.updateChatflow(existing as Canvas, updateEntity, scope)
+            return legacyService.updateCanvas(existing as Canvas, updateEntity, scope)
         },
         getSinglePublicCanvas: async (canvasId: string) => {
-            return legacyService.getSinglePublicChatflow(canvasId)
+            return legacyService.getSinglePublicCanvas(canvasId)
         }
     }
 }

@@ -1,7 +1,7 @@
 // Universo Platformo | Base Bot Settings component for all bot types
 import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import { SketchPicker } from 'react-color'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
@@ -29,7 +29,7 @@ import { baseURL } from '@/store/constant'
 // ==============================|| Base Bot Settings ||============================== //
 
 const BaseBotSettings = ({
-    chatflowid,
+    canvasId,
     unikId: propUnikId,
     configKey,
     formatConfig,
@@ -42,8 +42,8 @@ const BaseBotSettings = ({
 }) => {
     const dispatch = useDispatch()
     const theme = useTheme()
-    const chatflow = useSelector((state) => state.canvas.chatflow)
-    const botConfig = chatflow[configKey] ? JSON.parse(chatflow[configKey]) : defaultConfig
+    const canvas = useSelector((state) => state.canvas.currentCanvas)
+    const botConfig = canvas[configKey] ? JSON.parse(canvas[configKey]) : defaultConfig
     const { t } = useTranslation('canvases')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
@@ -56,8 +56,8 @@ const BaseBotSettings = ({
     // Universo Platformo | Determine public status from new structure
     const getChatbotPublicStatus = () => {
         try {
-            if (chatflow[configKey]) {
-                const config = typeof chatflow[configKey] === 'string' ? JSON.parse(chatflow[configKey]) : chatflow[configKey]
+            if (canvas[configKey]) {
+                const config = typeof canvas[configKey] === 'string' ? JSON.parse(canvas[configKey]) : canvas[configKey]
                 // Check if new structure with chatbot block exists
                 if (config.chatbot && typeof config.chatbot.isPublic === 'boolean') {
                     return config.chatbot.isPublic
@@ -75,16 +75,16 @@ const BaseBotSettings = ({
         }
     }
 
-    const [isPublicChatflow, setChatflowIsPublic] = useState(getChatbotPublicStatus())
+    const [isCanvasPublic, setCanvasIsPublic] = useState(getChatbotPublicStatus())
     const [colorAnchorEl, setColorAnchorEl] = useState(null)
     const [selectedColorConfig, setSelectedColorConfig] = useState('')
     const [sketchPickerColor, setSketchPickerColor] = useState('')
     const openColorPopOver = Boolean(colorAnchorEl)
 
-    // Universo Platformo | Update public status when chatflow changes
+    // Universo Platformo | Update public status when canvas changes
     useEffect(() => {
-        setChatflowIsPublic(getChatbotPublicStatus())
-    }, [chatflow])
+        setCanvasIsPublic(getChatbotPublicStatus())
+    }, [canvas])
 
     // Shared methods for all bot settings
     const onSave = async () => {
@@ -116,7 +116,7 @@ const BaseBotSettings = ({
 
             console.log('Сохраняем конфигурацию:', updateData)
 
-            const saveResp = await canvasesApi.updateCanvas(unikId, chatflowid, updateData)
+            const saveResp = await canvasesApi.updateCanvas(unikId, canvasId, updateData)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t(`canvases.${updateTranslationKey}.configSaved`),
@@ -130,7 +130,7 @@ const BaseBotSettings = ({
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             console.error('Ошибка при сохранении конфигурации:', error)
@@ -198,13 +198,13 @@ const BaseBotSettings = ({
             // Universo Platformo | Also determine if global isPublic should be set
             // Set global isPublic to true if any technology is public
             const needsGlobalPublic = checked || (await hasOtherPublicTechnologies(configKey, checked))
-            if (needsGlobalPublic !== chatflow.isPublic) {
+            if (needsGlobalPublic !== canvas.isPublic) {
                 updateData.isPublic = needsGlobalPublic
             }
 
             console.log('Данные для обновления:', updateData)
 
-            const saveResp = await canvasesApi.updateCanvas(unikId, chatflowid, updateData)
+            const saveResp = await canvasesApi.updateCanvas(unikId, canvasId, updateData)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t(`canvases.${updateTranslationKey}.configSaved`),
@@ -218,8 +218,8 @@ const BaseBotSettings = ({
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
-                setChatflowIsPublic(checked)
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
+                setCanvasIsPublic(checked)
             }
         } catch (error) {
             console.error('Ошибка при обновлении статуса публичности:', error)
@@ -247,8 +247,9 @@ const BaseBotSettings = ({
             for (const key of configKeys) {
                 if (key === currentConfigKey) continue // Skip current technology
 
-                if (chatflow[key]) {
-                    const config = typeof chatflow[key] === 'string' ? JSON.parse(chatflow[key]) : chatflow[key]
+                const rawConfig = canvas[key]
+                if (rawConfig) {
+                    const config = typeof rawConfig === 'string' ? JSON.parse(rawConfig) : rawConfig
 
                     // Check for new structure
                     if (key === 'chatbotConfig' && config.chatbot?.isPublic) return true
@@ -361,24 +362,24 @@ const BaseBotSettings = ({
                 <OutlinedInput
                     sx={{ display: 'none' }}
                     id='copy-bot-link'
-                    value={`${baseURL}/chatbot/${chatflowid}`}
+                    value={`${baseURL}/chatbot/${canvasId}`}
                     aria-describedby='helper-text-copy-bot-link'
                     readOnly={true}
                 />
                 <OutlinedInput
                     id='outlined-adornment-bot-link'
-                    value={`${baseURL}/chatbot/${chatflowid}`}
+                    value={`${baseURL}/chatbot/${canvasId}`}
                     aria-describedby='helper-text-bot-link'
                     readOnly={true}
-                    disabled={!isPublicChatflow}
+                    disabled={!isCanvasPublic}
                     sx={{ width: '100%' }}
                     endAdornment={
                         <IconButton
                             aria-label='Copy'
-                            disabled={!isPublicChatflow}
+                            disabled={!isCanvasPublic}
                             onClick={(e) => {
                                 try {
-                                    navigator.clipboard.writeText(`${baseURL}/chatbot/${chatflowid}`)
+                                    navigator.clipboard.writeText(`${baseURL}/chatbot/${canvasId}`)
                                     enqueueSnackbar({
                                         message: 'Ссылка скопирована',
                                         options: {
@@ -406,12 +407,12 @@ const BaseBotSettings = ({
                         </IconButton>
                     }
                 />
-                {isPublicChatflow && (
+                {isCanvasPublic && (
                     <IconButton
                         title='Открыть в новой вкладке'
                         color='primary'
                         onClick={() => {
-                            const url = `${baseURL}/chatbot/${chatflowid}`
+                            const url = `${baseURL}/chatbot/${canvasId}`
                             window.open(url, '_blank')
                         }}
                     >
@@ -428,7 +429,7 @@ const BaseBotSettings = ({
                             <Typography variant='subtitle1' sx={{ mr: 2 }}>
                                 Сделать публичным
                             </Typography>
-                            <Switch checked={isPublicChatflow} onChange={(e) => onSwitchChange(e.target.checked)} />
+                            <Switch checked={isCanvasPublic} onChange={(e) => onSwitchChange(e.target.checked)} />
                         </Box>
                     </Box>
 
@@ -472,7 +473,7 @@ const BaseBotSettings = ({
 }
 
 BaseBotSettings.propTypes = {
-    chatflowid: PropTypes.string,
+    canvasId: PropTypes.string,
     unikId: PropTypes.string,
     configKey: PropTypes.string.isRequired,
     formatConfig: PropTypes.func.isRequired,

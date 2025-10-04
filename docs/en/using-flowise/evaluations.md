@@ -4,11 +4,11 @@
 Evaluations are only available for Cloud and Enterprise plan
 {% endhint %}
 
-Evaluations help you monitor and understand the performance of your Chatflow/Agentflow application. On the high level, an evaluation is a process that takes a set of inputs and corresponding outputs from your Chatflow/Agentflow, and generates scores. These scores can be derived by comparing outputs to reference results, such as through string matching, numeric comparison, or even leveraging an LLM as a judge. These evaluations are conducted using Datasets and Evaluators.
+Evaluations help you monitor and understand the performance of your Canvas/Agentflow application. On the high level, an evaluation is a process that takes a set of inputs and corresponding outputs from your Canvas/Agentflow, and generates scores. These scores can be derived by comparing outputs to reference results, such as through string matching, numeric comparison, or even leveraging an LLM as a judge. These evaluations are conducted using Datasets and Evaluators.
 
 ## Datasets
 
-Datasets are the inputs that will be used to run your Chatflow/Agentflow, along with the corresponding outputs for comparison. User can add the input and anticipated output manually, or upload a CSV file with 2 columns: Input and Output.
+Datasets are the inputs that will be used to run your Canvas/Agentflow, along with the corresponding outputs for comparison. User can add the input and anticipated output manually, or upload a CSV file with 2 columns: Input and Output.
 
 <figure><img src="../.gitbook/assets/image (3) (3).png" alt=""><figcaption></figcaption></figure>
 
@@ -37,7 +37,7 @@ Evaluators are like unit tests. During an evaluation, the inputs from Datasets a
   * Completion Tokens
   * API Latency
   * LLM Latency
-  * Chatflow Latency
+  * Canvas Latency
   * Agentflow Latency (coming)
   * Output Characters Length
 
@@ -53,7 +53,7 @@ Evaluators are like unit tests. During an evaluation, the inputs from Datasets a
 
 Now that we have Datasets and Evaluators prepared, we can start running an evaluation.
 
-1.) Select dataset and chatflow to evaluate. You can select multiple datasets and chatflows. Using the example below, every inputs from Dataset1 will be ran against 2 chatflows. Since Dataset1 has 2 inputs, a total of 4 outputs will be produced and evaluated.
+1.) Select dataset and canvas to evaluate. You can select multiple datasets and canvases. Using the example below, every inputs from Dataset1 will be ran against 2 canvases. Since Dataset1 has 2 inputs, a total of 4 outputs will be produced and evaluated.
 
 <figure><img src="../.gitbook/assets/image (10) (2).png" alt=""><figcaption></figcaption></figure>
 

@@ -308,7 +308,7 @@ Provides a mechanism for executing custom server-side Javascript code within the
 
 * **Functionality:** This node allows to write and run arbitrary Javascript snippets, offering a efective way to implement complex data transformations, bespoke business logic, or interactions with resources not directly supported by other standard nodes. The executed code operates within a Node.js environment and has specific ways to access data:
   * **Input Variables:** Values passed via the `Input Variables` configuration are accessible within the function, typically prefixed with `$` — e.g., if an input variable `userid` is defined, it can be accessed as `$userid`.
-  * **Flow Context:** Default flow configuration variables are available, such as `$flow.sessionId`, `$flow.chatId`, `$flow.chatflowId`, `$flow.input` — the initial input that started the workflow — and the entire `$flow.state` object.
+  * **Flow Context:** Default flow configuration variables are available, such as `$flow.sessionId`, `$flow.chatId`, `$flow.canvasId`, `$flow.input` — the initial input that started the workflow — and the entire `$flow.state` object.
   * **Custom Variables:** Any custom variables set up in Flowise — e.g., `$vars.<variable-name>`.
   * **Libraries:** The function can utilize any libraries that have been imported and made available within the Flowise backend environment.**The function must return a string value at the end of its execution**.
 * **Configuration Parameters**
@@ -326,12 +326,12 @@ Provides a mechanism for executing custom server-side Javascript code within the
 
 ### **14. Execute Flow Node**
 
-Enables the invocation and execution of another complete Flowise Chatflow or AgentFlow from within the current workflow.
+Enables the invocation and execution of another complete Flowise Canvas or AgentFlow from within the current workflow.
 
 * **Functionality:** This node functions as a sub-workflow caller, promoting modular design and reusability of logic. It allows the current workflow to trigger a separate, pre-existing workflow — identified by its name or ID within the Flowise instance — pass an initial input to it, optionally override specific configurations of the target flow for that particular run, and then receive its final output back into the calling workflow to continue processing.
 * **Configuration Parameters**
-  * **Connect Credential**: Optionally provide Chatflow API credentials if the target flow being called requires specific authentication or permissions for execution.
-  * **Select Flow**: Specify the particular Chatflow or AgentFlow that this node will execute from the list of available flows in your Flowise instance.
+  * **Connect Credential**: Optionally provide Canvas API credentials if the target flow being called requires specific authentication or permissions for execution.
+  * **Select Flow**: Specify the particular Canvas or AgentFlow that this node will execute from the list of available flows in your Flowise instance.
   * **Input**: Define the data — static text or `{{ variable }}` — that will be passed as the primary input to the target workflow when it is invoked.
   * **Override Config**: Optionally provide a JSON object containing parameters that will override the default configuration of the target workflow specifically for this execution instance — e.g., temporarily changing a model or prompt used in the sub-flow.
   * **Base URL**: Optionally specify an alternative base URL for the Flowise instance that hosts the target flow. This is useful in distributed setups or when flows are accessed via different routes, defaulting to the current instance's URL if not set.

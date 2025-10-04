@@ -5,17 +5,17 @@ Upsert refers to the process of uploading and processing documents into vector s
 There are two fundamental ways to upsert data into vector store:
 
 * [Document Stores (Recommended)](document-stores.md)
-* Chatflow Upsert
+* Canvas Upsert
 
 We highly recommend using Document Stores as it provides a unified interface to help with the RAG pipelines - retrieveing data from different sources, chunking strategy, upserting to vector database, syncing with updated data.
 
-In this guide, we are going to cover another method - Chatflow Upsert. This is an older method prior to Document Stores.
+In this guide, we are going to cover another method - Canvas Upsert. This is an older method prior to Document Stores.
 
 For details, see the [Vector Upsert Endpoint API Reference](../api-reference/vector-upsert.md).
 
 ## Understanding the upserting process
 
-Chatflow allows you to create a flow that can do both upserting and RAG querying process, both can be run idenpendently.
+Canvas allows you to create a flow that can do both upserting and RAG querying process, both can be run idenpendently.
 
 <figure><img src="../.gitbook/assets/ud_01.png" alt=""><figcaption><p>Upsert vs. RAG</p></figcaption></figure>
 
@@ -47,19 +47,19 @@ The upsert process can also be carried out via API:
 
 **Endpoint**: `POST /api/v1/vector/upsert/:id`
 
-**Authentication**: Refer [Authentication for Flows](../configuration/authorization/chatflow-level.md)
+**Authentication**: Refer [Authentication for Flows](../configuration/authorization/canvas-level.md)
 
 ## Request Methods
 
-The API supports two different request methods depending on your chatflow configuration:
+The API supports two different request methods depending on your canvas configuration:
 
 #### 1. Form Data (File Upload)
 
-Used when your chatflow contains Document Loaders with file upload capability.
+Used when your canvas contains Document Loaders with file upload capability.
 
 #### 2. JSON Body (No File Upload)
 
-Used when your chatflow uses Document Loaders that don't require file uploads (e.g., web scrapers, database connectors).
+Used when your canvas uses Document Loaders that don't require file uploads (e.g., web scrapers, database connectors).
 
 {% hint style="warning" %}
 To override any node configurations such as files, metadata, etc., you must explicitly enable that option.
@@ -100,12 +100,12 @@ When uploading files, use `multipart/form-data` instead of JSON:
 import requests
 import os
 
-def upsert_document(chatflow_id, file_path, config=None):
+def upsert_document(canvas_id, file_path, config=None):
     """
     Upsert a single document to a vector store.
     
     Args:
-        chatflow_id (str): The chatflow ID configured for vector upserting
+        canvas_id (str): The canvas ID configured for vector upserting
         file_path (str): Path to the file to upload
         return_source_docs (bool): Whether to return source documents in response
         config (dict): Optional configuration overrides
@@ -113,7 +113,7 @@ def upsert_document(chatflow_id, file_path, config=None):
     Returns:
         dict: API response containing upsert results
     """
-    url = f"http://localhost:3000/api/v1/vector/upsert/{chatflow_id}"
+    url = f"http://localhost:3000/api/v1/vector/upsert/{canvas_id}"
     
     # Prepare file data
     files = {
@@ -142,7 +142,7 @@ def upsert_document(chatflow_id, file_path, config=None):
 
 # Example usage
 result = upsert_document(
-    chatflow_id="your-chatflow-id",
+    canvas_id="your-canvas-id",
     file_path="documents/knowledge_base.pdf",
     config={
         "chunkSize": 1000,
@@ -166,10 +166,10 @@ class VectorUploader {
         this.baseUrl = baseUrl;
     }
     
-    async upsertDocument(chatflowId, file, config = {}) {
+    async upsertDocument(canvasId, file, config = {}) {
         /**
          * Upload a file to vector store from browser
-         * @param {string} chatflowId - The chatflow ID
+         * @param {string} canvasId - The canvas ID
          * @param {File} file - File object from input element
          * @param {Object} config - Optional configuration
          */
@@ -182,7 +182,7 @@ class VectorUploader {
         }
         
         try {
-            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${chatflowId}`, {
+            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${canvasId}`, {
                 method: 'POST',
                 body: formData
             });
@@ -212,7 +212,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
     if (file) {
         try {
             const result = await uploader.upsertDocument(
-                'your-chatflow-id',
+                'your-canvas-id',
                 file,
                 {
                     overrideConfig: {
@@ -246,10 +246,10 @@ class NodeVectorUploader {
         this.baseUrl = baseUrl;
     }
     
-    async upsertDocument(chatflowId, filePath, config = {}) {
+    async upsertDocument(canvasId, filePath, config = {}) {
         /**
          * Upload a file to vector store from Node.js
-         * @param {string} chatflowId - The chatflow ID
+         * @param {string} canvasId - The canvas ID
          * @param {string} filePath - Path to the file
          * @param {Object} config - Optional configuration
          */
@@ -271,7 +271,7 @@ class NodeVectorUploader {
         }
         
         try {
-            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${chatflowId}`, {
+            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${canvasId}`, {
                 method: 'POST',
                 body: formData,
                 headers: formData.getHeaders()
@@ -310,7 +310,7 @@ async function main() {
     try {
         // Single file upload
         const result = await uploader.upsertDocument(
-            'your-chatflow-id',
+            'your-canvas-id',
             './documents/manual.pdf',
             {
                 overrideConfig: {
@@ -338,16 +338,16 @@ module.exports = { NodeVectorUploader };
 {% tab title="cURL" %}
 ```bash
 # Basic file upload with cURL
-curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-canvas-id" \
   -F "files=@documents/knowledge_base.pdf"
 
 # File upload with configuration override
-curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-canvas-id" \
   -F "files=@documents/manual.pdf" \
   -F 'overrideConfig={"chunkSize": 1000, "chunkOverlap": 200}'
 
 # Upload with custom headers for authentication (if configured)
-curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-canvas-id" \
   -H "Authorization: Bearer your-api-token" \
   -F "files=@documents/faq.txt" \
   -F 'overrideConfig={"chunkSize": 800, "chunkOverlap": 150}'
@@ -367,18 +367,18 @@ For Document Loaders that don't require file uploads (e.g., web scrapers, databa
 import requests
 from typing import Dict, Any, Optional
 
-def upsert(chatflow_id: str, config: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+def upsert(canvas_id: str, config: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """
-    Trigger vector upserting for chatflows that don't require file uploads.
+    Trigger vector upserting for canvases that don't require file uploads.
     
     Args:
-        chatflow_id: The chatflow ID configured for vector upserting
+        canvas_id: The canvas ID configured for vector upserting
         config: Optional configuration overrides
     
     Returns:
         API response containing upsert results
     """
-    url = f"http://localhost:3000/api/v1/vector/upsert/{chatflow_id}"
+    url = f"http://localhost:3000/api/v1/vector/upsert/{canvas_id}"
     
     payload = {
         "overrideConfig": config
@@ -399,7 +399,7 @@ def upsert(chatflow_id: str, config: Optional[Dict[str, Any]] = None) -> Optiona
         return None
 
 result = upsert(
-    chatflow_id="chatflow-id",
+    canvas_id="canvas-id",
     config={
         "chunkSize": 800,
         "chunkOverlap": 100,
@@ -418,10 +418,10 @@ class NoFileUploader {
         this.baseUrl = baseUrl;
     }
     
-    async upsertWithoutFiles(chatflowId, config = {}) {
+    async upsertWithoutFiles(canvasId, config = {}) {
         /**
          * Trigger vector upserting for flows that don't need file uploads
-         * @param {string} chatflowId - The chatflow ID
+         * @param {string} canvasId - The canvas ID
          * @param {Object} config - Configuration overrides
          */
         
@@ -430,7 +430,7 @@ class NoFileUploader {
         };
         
         try {
-            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${chatflowId}`, {
+            const response = await fetch(`${this.baseUrl}/api/v1/vector/upsert/${canvasId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -450,10 +450,10 @@ class NoFileUploader {
         }
     }
     
-    async scheduledUpsert(chatflowId, interval = 3600000) {
+    async scheduledUpsert(canvasId, interval = 3600000) {
         /**
          * Set up scheduled upserting for dynamic content sources
-         * @param {string} chatflowId - The chatflow ID
+         * @param {string} canvasId - The canvas ID
          * @param {number} interval - Interval in milliseconds (default: 1 hour)
          */
         
@@ -463,7 +463,7 @@ class NoFileUploader {
             try {
                 console.log('Performing scheduled upsert...');
                 
-                const result = await this.upsertWithoutFiles(chatflowId, {
+                const result = await this.upsertWithoutFiles(canvasId, {
                     addMetadata: {
                         scheduledUpdate: true,
                         timestamp: new Date().toISOString()
@@ -491,7 +491,7 @@ const uploader = new NoFileUploader();
 async function performUpsert() {
     try {
         const result = await uploader.upsertWithoutFiles(
-            'chatflow-id',
+            'canvas-id',
             {
                 chunkSize: 800,
                 chunkOverlap: 100
@@ -510,7 +510,7 @@ await performUpsert();
 
 // Set up scheduled updates (every 30 minutes)
 const schedulerHandle = await uploader.scheduledUpsert(
-    'dynamic-content-chatflow-id',
+    'dynamic-content-canvas-id',
     30 * 60 * 1000
 );
 
@@ -522,11 +522,11 @@ const schedulerHandle = await uploader.scheduledUpsert(
 {% tab title="cURL" %}
 ```bash
 # Basic upsert with cURL
-curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-canvas-id" \
   -H "Content-Type: application/json"
 
 # Upsert with configuration override
-curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-canvas-id" \
   -H "Content-Type: application/json" \
   -d '{
     "overrideConfig": {
@@ -535,7 +535,7 @@ curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
   }'
   
 # Upsert with custom headers for authentication (if configured)
-curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-canvas-id" \
   -H "Authorization: Bearer your-api-token" \
   -H "Content-Type: application/json"
 ```
@@ -556,7 +556,7 @@ curl -X POST "http://localhost:3000/api/v1/vector/upsert/your-chatflow-id" \
 ### 1. Batch Processing Strategies
 
 ```python
-def intelligent_batch_processing(files: List[str], chatflow_id: str) -> Dict[str, Any]:
+def intelligent_batch_processing(files: List[str], canvas_id: str) -> Dict[str, Any]:
     """Process files in optimized batches based on size and type."""
     
     # Group files by size and type
@@ -597,12 +597,12 @@ import os
 from datetime import datetime
 from typing import Dict, Any
 
-def upsert_with_optimized_metadata(chatflow_id: str, file_path: str, 
+def upsert_with_optimized_metadata(canvas_id: str, file_path: str, 
                                  department: str = None, category: str = None) -> Dict[str, Any]:
     """
     Upsert document with automatically optimized metadata.
     """
-    url = f"http://localhost:3000/api/v1/vector/upsert/{chatflow_id}"
+    url = f"http://localhost:3000/api/v1/vector/upsert/{canvas_id}"
     
     # Generate optimized metadata
     custom_metadata = {
@@ -634,7 +634,7 @@ results = []
 
 # Technical documentation
 tech_result = upsert_with_optimized_metadata(
-    chatflow_id="tech-docs-chatflow",
+    canvas_id="tech-docs-canvas",
     file_path="docs/api_reference.pdf",
     department="engineering",
     category="technical_docs"
@@ -643,7 +643,7 @@ results.append(tech_result)
 
 # HR policies
 hr_result = upsert_with_optimized_metadata(
-    chatflow_id="hr-docs-chatflow", 
+    canvas_id="hr-docs-canvas", 
     file_path="policies/employee_handbook.pdf",
     department="human_resources",
     category="policies"
@@ -652,7 +652,7 @@ results.append(hr_result)
 
 # Marketing materials
 marketing_result = upsert_with_optimized_metadata(
-    chatflow_id="marketing-chatflow",
+    canvas_id="marketing-canvas",
     file_path="marketing/product_brochure.pdf", 
     department="marketing",
     category="promotional"

@@ -14,7 +14,7 @@ Search up for any questions in [Q&A section](https://github.com/FlowiseAI/Flowis
 
 ## 🙌 Share Chatflow
 
-Yes! Sharing how you use Flowise is a way of contribution. Export your chatflow as JSON, attach a screenshot and share it in [Show and Tell section](https://github.com/FlowiseAI/Flowise/discussions/categories/show-and-tell).
+Yes! Sharing how you use Flowise is a way of contribution. Export your canvas as JSON, attach a screenshot and share it in [Show and Tell section](https://github.com/FlowiseAI/Flowise/discussions/categories/show-and-tell).
 
 ## 💡 Ideas
 
@@ -30,7 +30,7 @@ Not sure what to contribute? Some ideas:
 
 -   Create new components from `packages/components`
 -   Update existing components such as extending functionality, fixing bugs
--   Add new chatflow ideas
+-   Add new canvas ideas
 
 ### Developers
 

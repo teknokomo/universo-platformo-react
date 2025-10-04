@@ -80,7 +80,7 @@ class Code_Interpreter_Tools implements INode {
             schema: z.object({
                 input: z.string().describe('Python code to be executed in the sandbox environment')
             }),
-            chatflowid: options.chatflowid
+            canvasId: options.canvasId
         })
     }
 }
@@ -91,7 +91,7 @@ type E2BToolInput = {
     description: string
     apiKey: string
     schema: any
-    chatflowid: string
+    canvasId: string
     templateCodeInterpreterE2B?: string
     domainCodeInterpreterE2B?: string
 }
@@ -111,7 +111,7 @@ export class E2BTool extends StructuredTool {
 
     schema
 
-    chatflowid: string
+    canvasId: string
 
     flowObj: ICommonObject
 
@@ -124,7 +124,7 @@ export class E2BTool extends StructuredTool {
         this.name = options.name
         this.apiKey = options.apiKey
         this.schema = options.schema
-        this.chatflowid = options.chatflowid
+        this.canvasId = options.canvasId
         this.templateCodeInterpreterE2B = options.templateCodeInterpreterE2B
         this.domainCodeInterpreterE2B = options.domainCodeInterpreterE2B
     }
@@ -135,7 +135,7 @@ export class E2BTool extends StructuredTool {
             description: options.description,
             apiKey: options.apiKey,
             schema: options.schema,
-            chatflowid: options.chatflowid,
+            canvasId: options.canvasId,
             templateCodeInterpreterE2B: options.templateCodeInterpreterE2B,
             domainCodeInterpreterE2B: options.domainCodeInterpreterE2B
         })
@@ -216,7 +216,7 @@ export class E2BTool extends StructuredTool {
                                 'image/png',
                                 pngData,
                                 filename,
-                                this.chatflowid,
+                                this.canvasId,
                                 flowConfig!.chatId as string
                             )
                             artifacts.push({ type: 'png', data: res })
@@ -230,7 +230,7 @@ export class E2BTool extends StructuredTool {
                                 'image/jpg',
                                 jpegData,
                                 filename,
-                                this.chatflowid,
+                                this.canvasId,
                                 flowConfig!.chatId as string
                             )
                             artifacts.push({ type: 'jpeg', data: res })

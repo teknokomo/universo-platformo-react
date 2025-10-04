@@ -124,7 +124,7 @@
 - [x] `docs/ru/api-reference/assistants.md`
 - [x] `docs/ru/api-reference/attachments.md`
 - [x] `docs/ru/api-reference/chat-message.md`
-- [x] `docs/ru/api-reference/chatflows.md`
+- [x] `docs/ru/api-reference/canvases.md`
 - [x] `docs/ru/api-reference/document-store.md`
 - [x] `docs/ru/api-reference/feedback.md`
 - [x] `docs/ru/api-reference/leads.md`
@@ -341,7 +341,7 @@
 - [ ] `docs/ru/getting-started/docker.md`
 
 #### API Reference (оставшиеся файлы)
-- [ ] `docs/ru/api-reference/chatflows.md`
+- [ ] `docs/ru/api-reference/canvases.md`
 - [ ] `docs/ru/api-reference/prediction.md`
 - [ ] `docs/ru/api-reference/assistants.md`
 - [ ] `docs/ru/api-reference/tools.md`

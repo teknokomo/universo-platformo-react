@@ -170,7 +170,7 @@ const Spaces = () => {
               <Box sx={{ p: 2, height: 'auto' }}>
                 <img src={WorkflowEmptySVG} alt='WorkflowEmptySVG' width='85' />
               </Box>
-              <Box sx={{ color: theme.palette.grey[700] }}>{t('chatflows:noData', 'Нет данных')}</Box>
+              <Box sx={{ color: theme.palette.grey[700] }}>{t('canvases:canvases.noCanvasesYet', 'Нет данных')}</Box>
             </Stack>
           )}
           <ConfirmDialog

@@ -28,7 +28,7 @@ Name the corpus to be created and click **Create Corpus** then wait for the corp
 
 <figure><img src="../../../.gitbook/assets/vectara/4.png" alt=""><figcaption></figcaption></figure>
 
-5. Back to Flowise canvas, and create your chatflow. Click **Create New** from the Credentials dropdown ane enter your Vectara credentials.
+5. Back to Flowise canvas, and create your canvas. Click **Create New** from the Credentials dropdown ane enter your Vectara credentials.
 
 <figure><img src="../../../.gitbook/assets/vectara/5.png" alt="" width="500"><figcaption></figcaption></figure>
 

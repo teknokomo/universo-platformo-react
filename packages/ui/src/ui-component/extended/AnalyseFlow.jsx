@@ -1,7 +1,7 @@
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import { useTranslation } from 'react-i18next'
 
 // material-ui
@@ -35,6 +35,7 @@ import opikPNG from '@/assets/images/opik.png'
 
 // store
 import useNotifier from '@/utils/useNotifier'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 // API
 import canvasesApi from '@/api/canvases'
@@ -224,11 +225,7 @@ const AnalyseFlow = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
 
@@ -261,7 +258,7 @@ const AnalyseFlow = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorMessage =
@@ -301,9 +298,9 @@ const AnalyseFlow = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow && dialogProps.chatflow.analytic) {
+        if (canvas && canvas.analytic) {
             try {
-                setAnalytic(JSON.parse(dialogProps.chatflow.analytic))
+                setAnalytic(JSON.parse(canvas.analytic))
             } catch (e) {
                 setAnalytic({})
                 console.error(e)
@@ -314,7 +311,7 @@ const AnalyseFlow = ({ dialogProps }) => {
             setAnalytic({})
             setProviderExpanded({})
         }
-    }, [dialogProps])
+    }, [canvas])
 
     return (
         <>

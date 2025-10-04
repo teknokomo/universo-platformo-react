@@ -6,14 +6,14 @@ import canvasService from '../spacesCanvas'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
-const getSingleFlowConfig = async (chatflowId: string): Promise<any> => {
+const getSingleFlowConfig = async (canvasId: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()
-        const chatflow = await canvasService.getCanvasById(chatflowId)
-        if (!chatflow) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
+        const canvas = await canvasService.getCanvasById(canvasId)
+        if (!canvas) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found in the database!`)
         }
-        const flowData = chatflow.flowData
+        const flowData = canvas.flowData
         const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
         const nodes = parsedFlowData.nodes
         const dbResponse = findAvailableConfigs(nodes, appServer.nodesPool.componentCredentials)

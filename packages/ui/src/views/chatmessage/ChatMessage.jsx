@@ -65,7 +65,7 @@ import './audio-recording.css'
 import './ChatMessage.css'
 
 // api
-import chatmessageApi from '@/api/chatmessage'
+import canvasMessagesApi from '@/api/canvasMessages'
 import canvasesApi from '@/api/canvases'
 import predictionApi from '@/api/prediction'
 import vectorstoreApi from '@/api/vectorstore'
@@ -189,7 +189,7 @@ CardWithDeleteOverlay.propTypes = {
 
 export const ChatMessage = ({
     open,
-    chatflowid,
+    canvasId: propCanvasId,
     isAgentCanvas,
     isDialog,
     previews,
@@ -200,7 +200,7 @@ export const ChatMessage = ({
 }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
-    const activeCanvas = useSelector((state) => state.canvas?.chatflow)
+    const activeCanvas = useSelector((state) => state.canvas?.currentCanvas)
     const { t } = useTranslation('chatmessage')
     const { client } = useAuth()
 
@@ -213,8 +213,7 @@ export const ChatMessage = ({
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
-    // For agents, chatflowid now represents canvasId
-    const canvasId = isAgentCanvas ? chatflowid : chatflowid
+    const canvasId = propCanvasId
     const resolvedUnikId = useMemo(() => {
         const candidates = [
             unikId,
@@ -285,7 +284,7 @@ export const ChatMessage = ({
     const [inputHistory] = useState(new ChatInputHistory(10))
 
     const inputRef = useRef(null)
-    const getChatmessageApi = useApi(chatmessageApi.getInternalChatmessageFromChatflow)
+    const getCanvasMessagesApi = useApi(canvasMessagesApi.getInternalCanvasMessages)
     const getCanvasStreamingApi = useApi(canvasesApi.getCanvasStreaming)
     const getCanvasUploadsApi = useApi(canvasesApi.getCanvasUploads)
 
@@ -546,7 +545,7 @@ export const ChatMessage = ({
     const handleAbort = async () => {
         setIsMessageStopping(true)
         try {
-            await chatmessageApi.abortMessage(canvasId, chatId)
+            await canvasMessagesApi.abortCanvasMessage(canvasId, chatId)
         } catch (error) {
             setIsMessageStopping(false)
             enqueueSnackbar({
@@ -1143,10 +1142,10 @@ export const ChatMessage = ({
 
     // Get chatmessages successful
     useEffect(() => {
-        if (getChatmessageApi.data?.length) {
-            const chatId = getChatmessageApi.data[0]?.chatId
+        if (getCanvasMessagesApi.data?.length) {
+            const chatId = getCanvasMessagesApi.data[0]?.chatId
             setChatId(chatId)
-            const loadedMessages = getChatmessageApi.data.map((message) => {
+            const loadedMessages = getCanvasMessagesApi.data.map((message) => {
                 const obj = {
                     id: message.id,
                     message: message.content,
@@ -1185,9 +1184,9 @@ export const ChatMessage = ({
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getChatmessageApi.data])
+    }, [getCanvasMessagesApi.data])
 
-    // Get chatflow streaming capability
+    // Get canvas streaming capability
     useEffect(() => {
         if (getCanvasStreamingApi.data) {
             setIsChatFlowAvailableToStream(getCanvasStreamingApi.data?.isStreaming ?? false)
@@ -1195,7 +1194,7 @@ export const ChatMessage = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getCanvasStreamingApi.data])
 
-    // Get chatflow uploads capability
+    // Get canvas uploads capability
     useEffect(() => {
         if (getCanvasUploadsApi.data) {
             setIsChatFlowAvailableForImageUploads(getCanvasUploadsApi.data?.isImageUploadAllowed ?? false)
@@ -1331,7 +1330,7 @@ export const ChatMessage = ({
             resetCanvasCapabilities()
 
             // API request
-            getChatmessageApi.request(canvasId)
+            getCanvasMessagesApi.request(canvasId)
 
             const loadCanvasCapabilities = async () => {
                 const effectiveUnikId = resolvedUnikId
@@ -1464,7 +1463,7 @@ export const ChatMessage = ({
 
     const onThumbsUpClick = async (messageId) => {
         const body = {
-            chatflowid: canvasId,
+            canvasId: canvasId,
             chatId,
             messageId,
             rating: 'THUMBS_UP',
@@ -1493,7 +1492,7 @@ export const ChatMessage = ({
 
     const onThumbsDownClick = async (messageId) => {
         const body = {
-            chatflowid: canvasId,
+            canvasId: canvasId,
             chatId,
             messageId,
             rating: 'THUMBS_DOWN',
@@ -1536,7 +1535,7 @@ export const ChatMessage = ({
         setIsLeadSaving(true)
 
         const body = {
-            chatflowid: canvasId,
+            canvasId: canvasId,
             chatId,
             name: leadName,
             email: leadEmail,
@@ -1739,7 +1738,7 @@ export const ChatMessage = ({
                             return !inline ? (
                                 <CodeBlock
                                     key={Math.random()}
-                                    chatflowid={canvasId}
+                                    canvasId={canvasId}
                                     isDialog={isDialog}
                                     language={(match && match[1]) || ''}
                                     value={String(children).replace(/\n$/, '')}
@@ -2001,7 +2000,7 @@ export const ChatMessage = ({
                                                                                 return !inline ? (
                                                                                     <CodeBlock
                                                                                         key={Math.random()}
-                                                                                        chatflowid={canvasId}
+                                                                                        canvasId={canvasId}
                                                                                         isDialog={isDialog}
                                                                                         language={(match && match[1]) || ''}
                                                                                         value={String(children).replace(/\n$/, '')}
@@ -2197,7 +2196,7 @@ export const ChatMessage = ({
                                                                 return !inline ? (
                                                                     <CodeBlock
                                                                         key={Math.random()}
-                                                                        chatflowid={canvasId}
+                                                                        canvasId={canvasId}
                                                                         isDialog={isDialog}
                                                                         language={(match && match[1]) || ''}
                                                                         value={String(children).replace(/\n$/, '')}
@@ -2655,7 +2654,7 @@ export const ChatMessage = ({
 
 ChatMessage.propTypes = {
     open: PropTypes.bool,
-    chatflowid: PropTypes.string,
+    canvasId: PropTypes.string,
     isAgentCanvas: PropTypes.bool,
     isDialog: PropTypes.bool,
     previews: PropTypes.array,

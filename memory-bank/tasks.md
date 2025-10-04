@@ -1,3 +1,11 @@
+### 2025-10-03 — Canvas terminology inventory
+
+- Remaining legacy references compiled via `rg "canvas"` (236 files, 1003 lines). Primary buckets: documentation (`docs/*`), i18n bundles (`packages/ui/src/i18n` + app locales), marketplace JSON (`packages/server/marketplaces`), LangChain tool nodes (`packages/components/**`), and analytics/resources frontends. Backend runtime usage now limited to compatibility adapters (public chatbots, prediction endpoints).
+- Direct server routes still expose `canvasId` params for legacy clients; we must replace with canvas-focused handlers while keeping shims for `/public-chatbots/:id`.
+- Marketplace and node JSON rely on Flowise `canvas` schema; plan to add conversion helpers before swapping stored keys to canvas terminology.
+- Prediction endpoints now accept `/prediction/:canvasId` and internal helpers normalize the param while retaining `req.params.id` for existing consumers.
+- Sequential agent/tool node docs now draw from a shared `FLOW_CONTEXT_REFERENCE` snippet, making Canvas ID the primary reference and demoting `canvasId` to legacy alias.
+
 ## IMPLEMENT - Canvas Version Metadata Editing (2025-10-05)
 
 - [x] Wire `PUT /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` route, DTO, and service logic to update version metadata with group guards and `updatedDate` refresh.
@@ -9,27 +17,27 @@
 ## IMPLEMENT - Canvas Controller & Flowise Alignment (2025-09-27)
 
 - [x] Update Flowise ExecuteFlow and ChatflowTool nodes to source Canvas records through the shared Canvas entity/service and display Canvas terminology in option labels.
-- [x] Refactor server controllers and services (OpenAI assistants file download, general file download, marketplace templates) to accept `canvasId` payloads and remove residual `chatflowId` DTO fields.
+- [x] Refactor server controllers and services (OpenAI assistants file download, general file download, marketplace templates) to accept `canvasId` payloads and remove residual `canvasId` DTO fields.
 - [x] Run `pnpm build` and `pnpm --filter flowise test --runInBand` to verify the refactor compiles and passes targeted coverage.
 
 ## IMPLEMENT - Canvas Alias Decommission (2025-09-26)
 
-- [x] Remove the redundant chatflow-to-canvas migration and clean up registry references so fresh environments start directly with canvas identifiers.
+- [x] Remove the redundant canvas-to-canvas migration and clean up registry references so fresh environments start directly with canvas identifiers.
 - [x] Delete legacy alias helpers (`withCanvasAlias`, `withCanvasAliases`) and refactor server code to rely on native canvas DTOs without fallback keys.
 - [x] Drop the auto-provision bridge in `SpacesService.getCanvasesForSpace`, ensuring all consumers provide explicit `spaceId` and `canvasId` values.
-- [x] Rename metrics and telemetry constants from `chatflow_*` to `canvas_*`, updating dependent modules and cached payloads.
+- [x] Rename metrics and telemetry constants from `canvas_*` to `canvas_*`, updating dependent modules and cached payloads.
 - [x] Run `pnpm build` and `pnpm test --filter server` to validate the cleanup.
 
 ## IMPLEMENT - Chatflow Column Rename Alignment (2025-09-27)
 
-- [x] Generate forward migrations for Postgres, MySQL, MariaDB, and SQLite under `packages/server/src/database/migrations/<driver>/` that rename `chatflowid` columns, indexes, and constraints to `canvas_id` across chat persistence tables.
+- [x] Generate forward migrations for Postgres, MySQL, MariaDB, and SQLite under `packages/server/src/database/migrations/<driver>/` that rename `canvasid` columns, indexes, and constraints to `canvas_id` across chat persistence tables.
 - [x] Register the new migrations inside each driver-specific `index.ts` so TypeORM executes them automatically.
 - [x] Verify that migrations are idempotent by guarding against environments where the rename has already occurred.
 - [x] Run `pnpm build` and `pnpm test --filter server` to ensure schema bindings and runtime expectations remain valid.
 
 ## IMPLEMENT - Chatflow Column Rename (2025-09-25)
 
-- [x] Generate Postgres migration to rename `chatflowid` columns to `canvas_id` across chat messages, leads, feedback, and upsert history, updating indexes and foreign keys.
+- [x] Generate Postgres migration to rename `canvasid` columns to `canvas_id` across chat messages, leads, feedback, and upsert history, updating indexes and foreign keys.
 - [x] Mirror the column rename expectations in entities (`ChatMessage`, `ChatMessageFeedback`, `Lead`, `UpsertHistory`) so they expose `canvasId` mapped to the new database fields.
 - [x] Refactor services and utilities (including purge helpers and raw SQL) to reference `canvas_id` / `canvasId` consistently and update any serialized DTO payloads.
 - [x] Execute repository build and targeted server tests (`pnpm build`, `pnpm test --filter server`) verifying the migration compiles and runtime logic still works.
@@ -87,21 +95,21 @@
 
 ## IMPLEMENT - Spaces Canvas View canvasesApi Migration (2025-09-24)
 
-- [x] Audit `apps/spaces-frt/base/src/views/canvas/index.jsx` to list every remaining `chatflowsApi` dependency and understand how `useCanvases` currently behaves.
+- [x] Audit `apps/spaces-frt/base/src/views/canvas/index.jsx` to list every remaining `canvassApi` dependency and understand how `useCanvases` currently behaves.
 - [x] Replace legacy `useApi` wrappers with calls to `canvasesApi` (or hook helpers) for create/update/delete/duplicate/reorder/import/export/version flows, wiring required `{ unikId, spaceId, canvasId }` arguments.
-- [x] Update event handlers (`handleSaveFlow`, `handleDeleteFlow`, template duplication, upsert) to use the hook operations and keep Redux state (`SET_CHATFLOW`, dirty flags) synchronized.
-- [x] Remove lingering `chatflow` terminology/state within the component so it consistently treats the entity as a canvas within a space while preserving compatibility with `CanvasHeader` props.
+- [x] Update event handlers (`handleSaveFlow`, `handleDeleteFlow`, template duplication, upsert) to use the hook operations and keep Redux state (`SET_CANVAS`, dirty flags) synchronized.
+- [x] Remove lingering `canvas` terminology/state within the component so it consistently treats the entity as a canvas within a space while preserving compatibility with `CanvasHeader` props.
 
 ## IMPLEMENT - Flowise canvases API helper introduction (2025-09-24)
 
 - [x] Create a Flowise canvases API helper mirroring the Spaces implementation and targeting `/spaces/:spaceId/canvases` plus `/canvases/:canvasId` endpoints.
-- [x] Refactor `packages/ui/src/api/chatflows.js` to delegate CRUD calls to the canvases helper while emitting deprecation warnings for fallback paths.
+- [x] Refactor `packages/ui/src/api/canvass.js` to delegate CRUD calls to the canvases helper while emitting deprecation warnings for fallback paths.
 - [x] Expose the canvases helper through Flowise API barrel exports or documentation points so downstream modules can adopt it.
 
 ## PLAN - Canvas Versioning MVP (2025-09-23)
 
 ### Overview
-- Establish manual canvas versioning so each Space can store multiple saved snapshots per canvas while keeping backwards compatibility with existing Flowise chatflow storage.
+- Establish manual canvas versioning so each Space can store multiple saved snapshots per canvas while keeping backwards compatibility with existing Flowise canvas storage.
 - Prepare the data model for future publication links that can point either to the active version or to a specific saved version (planned `/b/{versionUuid}` URLs).
 
 ### Affected Areas
@@ -127,14 +135,14 @@
 - [x] Extend TypeORM entities (`Canvas`, `SpaceCanvas`, `ChatFlow`) and related repository helpers to surface the new columns with sensible defaults.
 - [x] Implement version lifecycle logic inside `SpacesService`, providing methods to list, create (clone), activate, and delete versions while keeping legacy canvas APIs functional.
 - [x] Update DTOs, controller handlers, and Express routes to expose REST endpoints for version management alongside existing canvas operations.
-- [x] Align Flowise `chatflows` service with version groups so auto-provisioned canvases/spaces use the correct metadata during creation and updates.
+- [x] Align Flowise `canvass` service with version groups so auto-provisioned canvases/spaces use the correct metadata during creation and updates.
 
 ### Implementation Checklist (2025-09-23)
 - [x] Update Postgres + SQLite migrations to add version metadata, defaults, indexes, and data backfill aligned with existing tables.
 - [x] Reflect version columns across TypeORM entities and shared interfaces to keep Flowise compatibility.
 - [x] Extend `SpacesService` with transactional version lifecycle helpers and reuse them in controllers/routes.
 - [x] Expose REST DTOs and handlers for listing/creating/activating/deleting versions.
-- [x] Synchronize Flowise `chatflows` service with version groups during create/update flows.
+- [x] Synchronize Flowise `canvass` service with version groups during create/update flows.
 
 ### Potential Challenges
 - Maintaining backward compatibility with Flowise components that expect a single `canvas.id` while we introduce version grouping.
@@ -160,44 +168,44 @@
 - Reduce confusion for future work by providing clear alias layers, updated documentation, and a phased removal plan for temporary Chatflow bridges.
 
 ### Affected Areas
-- **Backend core**: `packages/server/src/services/chatflows`, `packages/server/src/routes/{chatflows,chatflows-streaming,public-chatflows}`, shared interfaces in `packages/server/src/Interface.ts`, and TypeORM entities under `packages/server/src/database/entities`.
-- **Spaces service**: `apps/spaces-srv/base/src/{services,controllers,routes,types}`, migrations referencing `chatflows`, and export surface consumed by the server.
-- **Frontend**: `packages/ui/src/views/chatflows`, navigation under `packages/ui/src/routes/MainRoutes.jsx`, sidebar/menu configuration, and translations under `packages/ui/src/i18n/locales/*`.
+- **Backend core**: `packages/server/src/services/canvass`, `packages/server/src/routes/{canvass,canvass-streaming,public-canvass}`, shared interfaces in `packages/server/src/Interface.ts`, and TypeORM entities under `packages/server/src/database/entities`.
+- **Spaces service**: `apps/spaces-srv/base/src/{services,controllers,routes,types}`, migrations referencing `canvass`, and export surface consumed by the server.
+- **Frontend**: `packages/ui/src/views/canvass`, navigation under `packages/ui/src/routes/MainRoutes.jsx`, sidebar/menu configuration, and translations under `packages/ui/src/i18n/locales/*`.
 - **Documentation & tests**: READMEs in `docs/en|ru`, `memory-bank` notes, and jest/vitest specs under `packages/server/test` and `apps/spaces-frt/base/src`.
 
 ### Step Breakdown
 - [ ] **Inventory & Alias Layer**: Produce a mapping table of every `Chatflow` reference (services, entities, routes, i18n keys) and introduce typed aliases in `packages/server/src/Interface.ts` so downstream consumers can start using `Canvas` terminology without breaking imports.
-- [ ] **Backend Service Extraction**: Move the business logic in `packages/server/src/services/chatflows` into `apps/spaces-srv/base`, exposing thin adapters that the legacy router can delegate to during the transition. Ensure transactional helpers (e.g., `purgeUnikSpaces`) remain shared.
-- [ ] **API Restructuring**: Replace the `/chatflows` routers mounted under `/unik/:id` with `/spaces` endpoints implemented inside `apps/spaces-srv/base`, keeping compatibility middleware for existing clients and updating rate limiters and auth guards accordingly.
-- [ ] **Frontend Migration**: Relocate `packages/ui/src/views/chatflows` screens into `apps/spaces-frt/base` (or retire them if redundant), update navigation to highlight Spaces-first workflows, and adjust hooks/components to consume the new API clients.
-- [ ] **Terminology Cleanup**: Update i18n resources, documentation, and test snapshots to use Space/Canvas terminology, providing migration notes where public APIs still mention `chatflowId` parameters.
+- [ ] **Backend Service Extraction**: Move the business logic in `packages/server/src/services/canvass` into `apps/spaces-srv/base`, exposing thin adapters that the legacy router can delegate to during the transition. Ensure transactional helpers (e.g., `purgeUnikSpaces`) remain shared.
+- [ ] **API Restructuring**: Replace the `/canvass` routers mounted under `/unik/:id` with `/spaces` endpoints implemented inside `apps/spaces-srv/base`, keeping compatibility middleware for existing clients and updating rate limiters and auth guards accordingly.
+- [ ] **Frontend Migration**: Relocate `packages/ui/src/views/canvass` screens into `apps/spaces-frt/base` (or retire them if redundant), update navigation to highlight Spaces-first workflows, and adjust hooks/components to consume the new API clients.
+- [ ] **Terminology Cleanup**: Update i18n resources, documentation, and test snapshots to use Space/Canvas terminology, providing migration notes where public APIs still mention `canvasId` parameters.
 - [ ] **Bridge Removal**: Once new routes are validated, delete deprecated Chatflow entities/routers from `packages/server` and replace remaining references with re-exported types from `apps/spaces-srv/base`.
 
 ### Potential Challenges
-- Coordinating changes across multiple packages without breaking Supabase migrations or existing automation that still sends `chatflowId` payloads.
+- Coordinating changes across multiple packages without breaking Supabase migrations or existing automation that still sends `canvasId` payloads.
 - Maintaining compatibility for Marketplace templates and Flowise import/export tooling that expect `Chatflow` names.
 - Ensuring UI lazy imports resolve correctly once modules move under `apps/spaces-frt/base` (avoid circular workspace dependencies).
 
 ### Design Notes
-- Adopt a two-layer naming strategy: keep database columns like `chatflowid` for now, but expose new TypeScript interfaces (`CanvasId`) and helper mappers to prepare for eventual column rename migrations.
+- Adopt a two-layer naming strategy: keep database columns like `canvasid` for now, but expose new TypeScript interfaces (`CanvasId`) and helper mappers to prepare for eventual column rename migrations.
 - Favor dependency injection when moving services so that `packages/server` only wires Express routers while business logic lives in `apps/spaces-srv/base`.
 - Provide codemod-ready utility functions (e.g., `renameChatflowKeysToCanvas`) to normalize API responses before they reach the UI.
 
 ### Dependencies
 - Requires stabilized session/auth middleware from `apps/auth-srv/base` and Unik access control from `packages/server/src/services/access-control` to avoid regression while routes shift.
 - Dependent on canvas versioning work to prevent merge conflicts in `apps/spaces-srv/base/src/services/spacesService.ts`.
-- Coordinate with template marketplace updates to confirm no hardcoded `/chatflows` URLs remain in JSON fixtures under `packages/server/marketplaces`.
+- Coordinate with template marketplace updates to confirm no hardcoded `/canvass` URLs remain in JSON fixtures under `packages/server/marketplaces`.
 
 ### Follow-up Tasks (Detailed Prompts)
-- **Task 1 — Backend Chatflow Extraction**: "Refactor `packages/server/src/services/chatflows` by moving core CRUD logic into `apps/spaces-srv/base` services, expose compatibility adapters for existing routers, and update shared interfaces to introduce `Canvas` terminology while keeping database compatibility."
-- **Task 2 — Spaces API & Router Migration**: "Replace legacy `/chatflows` Express routers under `packages/server/src/routes` with routes imported from `apps/spaces-srv/base`, update middleware wiring to rely on `unikId` context, and adjust rate limiting/auth configuration so `/unik/:id/spaces` and `/unik/:id/canvases` are the primary entry points."
+- **Task 1 — Backend Chatflow Extraction**: "Refactor `packages/server/src/services/canvass` by moving core CRUD logic into `apps/spaces-srv/base` services, expose compatibility adapters for existing routers, and update shared interfaces to introduce `Canvas` terminology while keeping database compatibility."
+- **Task 2 — Spaces API & Router Migration**: "Replace legacy `/canvass` Express routers under `packages/server/src/routes` with routes imported from `apps/spaces-srv/base`, update middleware wiring to rely on `unikId` context, and adjust rate limiting/auth configuration so `/unik/:id/spaces` and `/unik/:id/canvases` are the primary entry points."
 - **Task 3 — Frontend & Docs Rename**: "Migrate remaining Chatflow UI screens into `apps/spaces-frt/base`, update navigation/i18n to prefer Space/Canvas naming, adapt API clients, and refresh documentation plus memory-bank notes to describe the consolidated architecture."
 
 ## IMPLEMENT - Chatflow Service Migration (2025-09-24)
 
 - [x] Establish transitional alias layer by cataloguing remaining `Chatflow` references and introducing Canvas-first types/utilities in `packages/server/src/Interface.ts`, updating key consumers to rely on the new names.
-- [x] Extract core CRUD/business logic from `packages/server/src/services/chatflows` into `apps/spaces-srv/base/src/services`, exposing adapter exports that keep legacy imports functional during rollout.
-- [x] Replace the Express router wiring under `packages/server/src/routes` to delegate `/unik/:id` chatflow endpoints to the new Spaces service/controller layer while keeping backwards-compatible request/response shapes.
+- [x] Extract core CRUD/business logic from `packages/server/src/services/canvass` into `apps/spaces-srv/base/src/services`, exposing adapter exports that keep legacy imports functional during rollout.
+- [x] Replace the Express router wiring under `packages/server/src/routes` to delegate `/unik/:id` canvas endpoints to the new Spaces service/controller layer while keeping backwards-compatible request/response shapes.
 
 ## IMPLEMENT - Space Builder Canvas Mode (2025-09-22)
 
@@ -516,7 +524,7 @@ Issue: Clicking the back (exit) icon in a Space canvas redirected to root `/` (U
 Root Cause: `CanvasHeader.jsx` still parsed legacy segment `'uniks'` to extract `unikId`. With new routes using `/unik/:unikId/...`, extraction failed and fallback navigated to `/`.
 
 Resolution:
-- Added helper `extractUnikId()` in `CanvasHeader.jsx` to support both new `unik` and legacy `uniks` path segments, plus fallbacks (chatflow.unik_id, localStorage `parentUnikId`).
+- Added helper `extractUnikId()` in `CanvasHeader.jsx` to support both new `unik` and legacy `uniks` path segments, plus fallbacks (canvas.unik_id, localStorage `parentUnikId`).
 - Updated back button handler and settings actions (delete space, export as template, duplicate) to use the helper.
 - Ensures proper navigation to `/unik/{unikId}/spaces` (or `/unik/{unikId}/agentflows` for agent canvases).
 
@@ -528,7 +536,7 @@ Follow-ups (optional):
 
 ### Notes
 - Reused cancel button key from confirm.delete.cancel to avoid duplicate generic button keys.
-- Entity dynamic label resolved via `entities.chatflow` / `entities.agent`.
+- Entity dynamic label resolved via `entities.canvas` / `entities.agent`.
 - Export filename uses localized entity suffix.
 
 
@@ -836,7 +844,7 @@ Enhance markerless AR experience with additional options.
 
 ## IMPLEMENT - Flowise Canvas Migration Cleanup (2025-09-25)
 
-- [x] Replace remaining `chatflowsApi` usage inside `apps/spaces-frt/base/src/views/canvas` with `canvasesApi` and hook helpers for CRUD/version actions.
+- [x] Replace remaining `canvassApi` usage inside `apps/spaces-frt/base/src/views/canvas` with `canvasesApi` and hook helpers for CRUD/version actions.
 - [x] Migrate Flowise UI components (API layer, list views, dialogs, chat message) to the new canvases helper targeting `/spaces/:spaceId/canvases` and `/canvases/:canvasId` while preserving compatibility shims only where unavoidable.
-- [x] Update Flowise routing, menus, and i18n resources to use Canvas terminology and ensure legacy `/chatflows` paths redirect to the new routes.
+- [x] Update Flowise routing, menus, and i18n resources to use Canvas terminology and ensure legacy `/canvass` paths redirect to the new routes.
 - [x] Run scoped and root builds (`pnpm --filter @universo/spaces-frt build`, `pnpm --filter @universo/ui build`, `pnpm build`) to confirm type safety after the refactor.

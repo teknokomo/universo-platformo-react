@@ -22,7 +22,7 @@ class CustomTool_Tools implements INode {
         this.type = 'CustomTool'
         this.icon = 'customtool.svg'
         this.category = 'Tools'
-        this.description = `Use custom tool you've created in Flowise within chatflow`
+        this.description = `Use custom tool you've created in Flowise within a canvas`
         this.inputs = [
             {
                 label: 'Select Tool',
@@ -131,7 +131,7 @@ class CustomTool_Tools implements INode {
 
             const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
-            const flow = { chatflowId: options.chatflowid }
+            const flow = { canvasId: options.canvasId }
 
             const dynamicStructuredTool = new DynamicStructuredTool(obj)
             dynamicStructuredTool.setVariables(variables)

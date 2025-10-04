@@ -9,12 +9,12 @@ import { baseURL } from '@/store/constant'
 
 // ==============================|| Chat Bot Viewer ||============================== //
 
-const ChatBotWithTheme = ({ chatflow, theme }) => {
-    return <FullPageChat chatflowid={chatflow.id} apiHost={baseURL} theme={theme} />
+const ChatBotWithTheme = ({ canvas, theme }) => {
+    return <FullPageChat canvasId={canvas.id} apiHost={baseURL} theme={theme} />
 }
 
 ChatBotWithTheme.propTypes = {
-    chatflow: PropTypes.object.isRequired,
+    canvas: PropTypes.object.isRequired,
     theme: PropTypes.object.isRequired
 }
 
@@ -29,11 +29,11 @@ const ChatBotViewer = () => {
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     })
 
-    const renderChatBot = (chatflow) => {
+    const renderChatBot = (canvas) => {
         // Universo Platformo | Process chatbot configuration
-        if (chatflow?.chatbotConfig) {
+        if (canvas?.chatbotConfig) {
             try {
-                const config = JSON.parse(chatflow.chatbotConfig)
+                const config = JSON.parse(canvas.chatbotConfig)
                 if (config.chatbot) {
                     const newTheme = {
                         ...theme,
@@ -46,14 +46,14 @@ const ChatBotViewer = () => {
                         boxShadow: config.chatbot.boxShadow || theme.boxShadow
                     }
 
-                    return <ChatBotWithTheme chatflow={chatflow} theme={newTheme} />
+                    return <ChatBotWithTheme canvas={canvas} theme={newTheme} />
                 }
             } catch (error) {
                 console.error('Error parsing chatbot config:', error)
             }
         }
 
-        return <ChatBotWithTheme chatflow={chatflow} theme={theme} />
+        return <ChatBotWithTheme canvas={canvas} theme={theme} />
     }
 
     return <BaseBot>{renderChatBot}</BaseBot>

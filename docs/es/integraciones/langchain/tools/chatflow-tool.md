@@ -1,8 +1,8 @@
 ---
-description: Ejecutar otro chatflow y obtener la respuesta.
+description: Ejecutar otro canvas y obtener la respuesta.
 ---
 
-# Chatflow Tool
+# Canvas Tool
 
 <figure><img src="../../../.gitbook/assets/image (26).png" alt="" width="248"><figcaption></figcaption></figure>
 

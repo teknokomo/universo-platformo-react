@@ -1,5 +1,5 @@
 ---
-description: Learn how to effectively use the Chatflow Tool and the Custom Tool
+description: Learn how to effectively use the Canvas Tool and the Custom Tool
 ---
 
 # Calling Children Flows
@@ -15,16 +15,16 @@ This offers a few benefits:
 
 You can achieve this by using the following tools:
 
-* Chatflow Tool
+* Canvas Tool
 * Custom Tool
 
-## Chatflow Tool
+## Canvas Tool
 
-1. Have a chatflow ready. In this case, we create a Chain of Thought chatflow that can go through multiple chainings.
+1. Have a canvas ready. In this case, we create a Chain of Thought canvas that can go through multiple chainings.
 
 <figure><img src="../.gitbook/assets/image (169).png" alt=""><figcaption></figcaption></figure>
 
-2. Create another chatflow with Tool Agent + Chatflow Tool. Select the chatflow you want to call from the tool. In this case, it was Chain of Thought chatflow. Give it a name, and an appropriate description to let LLM knows when to use this tool:
+2. Create another canvas with Tool Agent + Canvas Tool. Select the canvas you want to call from the tool. In this case, it was Chain of Thought canvas. Give it a name, and an appropriate description to let LLM knows when to use this tool:
 
 <figure><img src="../.gitbook/assets/image (35).png" alt="" width="245"><figcaption></figcaption></figure>
 
@@ -32,13 +32,13 @@ You can achieve this by using the following tools:
 
 <figure><img src="../.gitbook/assets/image (168).png" alt=""><figcaption></figcaption></figure>
 
-4. From the response, you can see the input and output from the Chatflow Tool:
+4. From the response, you can see the input and output from the Canvas Tool:
 
 <figure><img src="../.gitbook/assets/image (170).png" alt=""><figcaption></figcaption></figure>
 
 ## Custom Tool
 
-With the same example as above, we are going to create a custom tool that will calls the [Prediction API](broken-reference) of the Chain of Thought chatflow.
+With the same example as above, we are going to create a custom tool that will calls the [Prediction API](broken-reference) of the Chain of Thought canvas.
 
 1. Create a new tool:
 
@@ -54,7 +54,7 @@ Javascript Function of the tool:
 
 ```javascript
 const fetch = require('node-fetch');
-const url = 'http://localhost:3000/api/v1/prediction/<chatflow-id>'; // replace with specific chatflow id
+const url = 'http://localhost:3000/api/v1/prediction/<canvas-id>'; // replace with specific canvas id
 
 const body = {
 	"question": $input
@@ -88,4 +88,4 @@ try {
 
 ## Conclusion
 
-In this example, we have successfully demonstrate 2 ways of turning other chatflows into tools, via Chatflow Tool and Custom Tool. Both are using the same code logic under the hood.
+In this example, we have successfully demonstrate 2 ways of turning other canvases into tools, via Canvas Tool and Custom Tool. Both are using the same code logic under the hood.

@@ -71,7 +71,7 @@ Universo Platformo seamlessly integrates with existing Flowise functionality:
 
 - All original Flowise nodes remain available
 - UPDL nodes can be mixed with Flowise nodes in the same flow
-- Existing Flowise chatflows can be enhanced with Universo features
+- Existing Flowise canvases can be enhanced with Universo features
 - API compatibility is maintained for existing integrations
 
 ## Next Steps

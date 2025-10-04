@@ -3,12 +3,12 @@ import leadsService from '../../services/leads'
 import { StatusCodes } from 'http-status-codes'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 
-const getAllLeadsForChatflow = async (req: Request, res: Response, next: NextFunction) => {
+const getAllLeadsForCanvas = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params.id === 'undefined' || req.params.id === '') {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: leadsController.getAllLeadsForChatflow - id not provided!`
+                `Error: leadsController.getAllLeadsForCanvas - id not provided!`
             )
         }
         const canvasId = req.params.id
@@ -19,19 +19,19 @@ const getAllLeadsForChatflow = async (req: Request, res: Response, next: NextFun
     }
 }
 
-const createLeadInChatflow = async (req: Request, res: Response, next: NextFunction) => {
+const createLeadForCanvas = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.body === 'undefined' || req.body === '') {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: leadsController.createLeadInChatflow - body not provided!`
+                `Error: leadsController.createLeadForCanvas - body not provided!`
             )
         }
         const payload = { ...req.body }
         if (!payload.canvasId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: leadsController.createLeadInChatflow - canvasId not provided!`
+                `Error: leadsController.createLeadForCanvas - canvasId not provided!`
             )
         }
         const apiResponse = await leadsService.createLead(payload)
@@ -42,6 +42,6 @@ const createLeadInChatflow = async (req: Request, res: Response, next: NextFunct
 }
 
 export default {
-    createLeadInChatflow,
-    getAllLeadsForChatflow
+    createLeadForCanvas,
+    getAllLeadsForCanvas
 }

@@ -2,7 +2,6 @@
   "flowList": {
     "entities": {
       "canvas": "Холст",
-      "chatflow": "Холст",
       "agent": "Агент",
       "unik": "Уник"
     },

@@ -4,65 +4,38 @@
 
 import { DataSource } from 'typeorm'
 import logger from '../utils/logger'
-import { RawFlowData, CanvasMinimal, ChatFlowMinimal } from '../types/publication.types'
+import { RawFlowData, CanvasMinimal } from '../types/publication.types'
 import { serialization } from '@universo-platformo/utils'
 
 /**
  * Service for handling flow data extraction from Supabase
  * This service ONLY retrieves raw data without any UPDL processing
- *
- * ARCHITECTURE: Uses entity metadata access to work with ChatFlow
- * without requiring direct entity imports that cause path conflicts
+ * ARCHITECTURE: Uses entity metadata access to work with Canvas without
+ * requiring direct entity imports that cause path conflicts
  */
 export class FlowDataService {
     constructor(private dataSource: DataSource) { }
 
     /**
-     * Get raw flow data from Supabase by canvas ID (or chatflow ID for backward compatibility)
-     * @param canvasId The ID of the canvas to retrieve (or chatflowId for compatibility)
+     * Get raw flow data from Supabase by canvas ID
+     * @param canvasId The ID of the canvas to retrieve
      * @returns Object containing raw flowData, libraryConfig, and canvas metadata
      */
     async getFlowData(canvasId: string): Promise<RawFlowData> {
         try {
             logger.info(`[FlowDataService] Getting flow data for canvas ID: ${canvasId}`)
 
-            // Try Canvas entity first (new structure)
-            let canvas: CanvasMinimal | null = null
-            try {
-                const canvasMetadata = this.dataSource.getMetadata('Canvas')
-                const canvasRepository = this.dataSource.getRepository(canvasMetadata.target)
-                canvas = (await canvasRepository.findOne({
-                    where: { id: canvasId }
-                })) as CanvasMinimal | null
+            const canvasMetadata = this.dataSource.getMetadata('Canvas')
+            const canvasRepository = this.dataSource.getRepository(canvasMetadata.target)
+            const canvas = (await canvasRepository.findOne({
+                where: { id: canvasId }
+            })) as CanvasMinimal | null
 
-                if (canvas) {
-                    logger.info(`[FlowDataService] Found canvas: ${canvas.name} (ID: ${canvas.id})`)
-                }
-            } catch (canvasError) {
-                logger.info(`[FlowDataService] Canvas entity not found or not available, falling back to ChatFlow`)
-            }
-
-            // Fallback to ChatFlow entity (legacy structure) if Canvas not found
             if (!canvas) {
-                const chatFlowMetadata = this.dataSource.getMetadata('ChatFlow')
-                const chatFlowRepository = this.dataSource.getRepository(chatFlowMetadata.target)
-                const chatFlow = (await chatFlowRepository.findOne({
-                    where: { id: canvasId }
-                })) as ChatFlowMinimal | null
-
-                if (!chatFlow) {
-                    throw new Error(`Canvas/ChatFlow not found: ${canvasId}`)
-                }
-
-                // Convert ChatFlow to Canvas format for consistency
-                canvas = {
-                    id: chatFlow.id,
-                    name: chatFlow.name,
-                    flowData: chatFlow.flowData,
-                    chatbotConfig: chatFlow.chatbotConfig
-                }
-                logger.info(`[FlowDataService] Found chatflow (legacy): ${canvas.name} (ID: ${canvas.id})`)
+                throw new Error(`Canvas not found: ${canvasId}`)
             }
+
+            logger.info(`[FlowDataService] Found canvas: ${canvas.name} (ID: ${canvas.id})`)
 
             if (!canvas.flowData) {
                 throw new Error(`Canvas has no flowData: ${canvasId}`)
@@ -110,12 +83,6 @@ export class FlowDataService {
                 renderConfig: renderConfig || undefined,
                 playcanvasConfig: playcanvasConfig || undefined, // Extracted PlayCanvas configuration
                 canvas: {
-                    // Primary metadata (new structure)
-                    id: canvas.id,
-                    name: canvas.name
-                },
-                chatflow: {
-                    // Backward compatibility metadata
                     id: canvas.id,
                     name: canvas.name
                 }

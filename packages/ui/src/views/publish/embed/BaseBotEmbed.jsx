@@ -55,7 +55,7 @@ const customStringify = (obj) => {
 }
 
 const BaseBotEmbed = ({
-    chatflowid,
+    canvasId,
     title,
     codeGenerators,
     defaultThemeConfig
@@ -78,13 +78,13 @@ const BaseBotEmbed = ({
         
         switch (codeLang) {
             case 'Popup Html':
-                return codeGenerators.popupHtml(chatflowid)
+                return codeGenerators.popupHtml(canvasId)
             case 'Popup React':
-                return codeGenerators.popupReact(chatflowid)
+                return codeGenerators.popupReact(canvasId)
             case 'Fullpage Html':
-                return codeGenerators.fullpageHtml(chatflowid)
+                return codeGenerators.fullpageHtml(canvasId)
             case 'Fullpage React':
-                return codeGenerators.fullpageReact(chatflowid)
+                return codeGenerators.fullpageReact(canvasId)
             default:
                 return ''
         }
@@ -95,13 +95,13 @@ const BaseBotEmbed = ({
         
         switch (codeLang) {
             case 'Popup Html':
-                return codeGenerators.popupHtmlCustomization(chatflowid)
+                return codeGenerators.popupHtmlCustomization(canvasId)
             case 'Popup React':
-                return codeGenerators.popupReactCustomization(chatflowid)
+                return codeGenerators.popupReactCustomization(canvasId)
             case 'Fullpage Html':
-                return codeGenerators.fullpageHtmlCustomization(chatflowid)
+                return codeGenerators.fullpageHtmlCustomization(canvasId)
             case 'Fullpage React':
-                return codeGenerators.fullpageReactCustomization(chatflowid)
+                return codeGenerators.fullpageReactCustomization(canvasId)
             default:
                 return ''
         }
@@ -142,7 +142,7 @@ const BaseBotEmbed = ({
 }
 
 BaseBotEmbed.propTypes = {
-    chatflowid: PropTypes.string.isRequired,
+    canvasId: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired,
     codeGenerators: PropTypes.shape({
         popupHtml: PropTypes.func.isRequired,

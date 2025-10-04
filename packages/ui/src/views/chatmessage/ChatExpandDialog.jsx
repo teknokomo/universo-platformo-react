@@ -7,8 +7,10 @@ import { Dialog, DialogContent, DialogTitle, Button } from '@mui/material'
 import { ChatMessage } from './ChatMessage'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { IconEraser } from '@tabler/icons-react'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel, previews, setPreviews }) => {
+    const { canvasId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
     const customization = useSelector((state) => state.customization)
     const { t } = useTranslation('chatmessage')
@@ -53,7 +55,7 @@ const ChatExpandDialog = ({ show, dialogProps, isAgentCanvas, onClear, onCancel,
                     isDialog={true}
                     open={dialogProps.open}
                     isAgentCanvas={isAgentCanvas}
-                    chatflowid={dialogProps.chatflowid}
+                    canvasId={canvasId}
                     unikId={dialogProps.unikId}
                     spaceId={dialogProps.spaceId}
                     previews={previews}

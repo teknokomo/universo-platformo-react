@@ -7,7 +7,7 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 
 // get stats for showing in a canvas
-const getChatflowStats = async (
+const getCanvasStats = async (
     canvasId: string,
     chatTypes: ChatType[] | undefined,
     startDate?: string,
@@ -39,11 +39,11 @@ const getChatflowStats = async (
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: statsService.getChatflowStats - ${getErrorMessage(error)}`
+            `Error: statsService.getCanvasStats - ${getErrorMessage(error)}`
         )
     }
 }
 
 export default {
-    getChatflowStats
+    getCanvasStats
 }

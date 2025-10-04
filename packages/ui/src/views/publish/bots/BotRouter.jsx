@@ -6,8 +6,8 @@ import ChatBotViewer from './ChatBotViewer'
 const BotRouter = () => {
     const { id } = useParams()
 
-    const renderBot = (chatflow) => {
-        if (!chatflow) return null
+    const renderBot = (canvas) => {
+        if (!canvas) return null
 
         // Universo Platformo | Since AR.js is now handled via streaming publication
         // and served directly as HTML, we only need ChatBotViewer for configuration

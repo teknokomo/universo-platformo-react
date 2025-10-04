@@ -1,6 +1,13 @@
 import { NodeVM } from '@flowiseai/nodevm'
 import { DataSource } from 'typeorm'
-import { availableDependencies, defaultAllowBuiltInDep, getVars, handleEscapeCharacters, prepareSandboxVars } from '../../../src/utils'
+import {
+    FLOW_CONTEXT_REFERENCE,
+    availableDependencies,
+    defaultAllowBuiltInDep,
+    getVars,
+    handleEscapeCharacters,
+    prepareSandboxVars
+} from '../../../src/utils'
 import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeParams, ISeqAgentNode, ISeqAgentsState } from '../../../src/Interface'
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { customGet } from '../commonUtils'
@@ -9,11 +16,7 @@ const howToUseCode = `
 1. Must return a string value at the end of function.
 
 2. You can get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 3. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -104,7 +107,7 @@ class CustomFunction_SeqAgents implements INode {
         const executeFunc = async (state: ISeqAgentsState) => {
             const variables = await getVars(appDataSource, databaseEntities, nodeData)
             const flow = {
-                chatflowId: options.chatflowid,
+                canvasId: options.canvasId,
                 sessionId: options.sessionId,
                 chatId: options.chatId,
                 input,

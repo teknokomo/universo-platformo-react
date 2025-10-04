@@ -2,23 +2,23 @@
 
 ## Overview
 
-The chatbot publication functionality has been updated to work with the new Canvas structure instead of the legacy ChatFlow structure. This document describes how chatbot publication works with Canvas and the migration from ChatFlow.
+The chatbot publication functionality has been updated to work with the new Canvas structure instead of the legacy Canvas structure. This document describes how chatbot publication works with Canvas and the migration from Canvas.
 
 ## Architecture Changes
 
-### From ChatFlow to Canvas
+### From Canvas to Canvas
 
-- **Legacy**: Chatbots were published using `chatflowId` from the `chat_flow` table
+- **Legacy**: Chatbots were published using `canvasId` from the `chat_flow` table
 - **Current**: Chatbots are published using `canvasId` from the `canvases` table
-- **Compatibility**: The system supports both `canvasId` and `chatflowId` for backward compatibility
+- **Compatibility**: New endpoints expect `canvasId`; legacy `canvasId` parameters are deprecated
 
 ### Entity Mapping
 
-The `ChatFlow` entity now maps to the `canvases` table:
+The `Canvas` entity now maps to the `canvases` table:
 
 ```typescript
-@Entity('canvases') // Refactored: ChatFlow now maps to canvases table
-export class ChatFlow implements IChatFlow {
+@Entity('canvases') // Refactored: Canvas now maps to canvases table
+export class Canvas implements ICanvas {
     // ... entity fields
     @Column({ nullable: true, type: 'text' })
     chatbotConfig?: string
@@ -82,7 +82,7 @@ Provides streaming chat functionality for the specified canvas.
 
 ### Publish Service
 
-The publication service (`apps/publish-srv`) supports both Canvas and legacy ChatFlow IDs:
+The publication service (`apps/publish-srv`) supports both Canvas and legacy Canvas IDs:
 
 ```typescript
 // New Canvas-based publication
@@ -94,10 +94,10 @@ POST /publish/canvas
     "projectName": "My Chatbot"
 }
 
-// Legacy ChatFlow support (deprecated)
+// Legacy Canvas support (deprecated)
 POST /publish/arjs
 {
-    "chatflowId": "uuid-of-canvas", // Actually refers to canvas now
+    "canvasId": "uuid-of-canvas"
     "generationMode": "streaming",
     "isPublic": true,
     "projectName": "My Chatbot"
@@ -117,16 +117,16 @@ Published chatbots are accessible via:
 
 The system maintains backward compatibility by:
 
-1. **Entity Mapping**: `ChatFlow` entity maps to `canvases` table
-2. **ID Compatibility**: Canvas IDs are used where ChatFlow IDs were previously used
-3. **API Support**: Both `canvasId` and `chatflowId` parameters are accepted
+1. **Entity Mapping**: `Canvas` entity maps to `canvases` table
+2. **ID Compatibility**: Canvas IDs are used where Canvas IDs were previously used
+3. **API Support**: Public APIs now accept `canvasId` parameters
 4. **URL Redirects**: Legacy URLs redirect to new Canvas-based URLs
 
 ### Data Migration
 
-When migrating from ChatFlow to Canvas:
+When migrating from Canvas to Canvas:
 
-1. Each ChatFlow becomes a Canvas with the same ID
+1. Each Canvas becomes a Canvas with the same ID
 2. The `chatbotConfig` field is preserved as-is
 3. All bot configurations continue to work without changes
 4. Existing published bots remain accessible
@@ -155,8 +155,8 @@ npm test -- chatbot-publication.test.ts
 Chatbots validate allowed origins from the `chatbotConfig`:
 
 ```typescript
-if (chatflow.chatbotConfig) {
-    const parsedConfig = JSON.parse(chatflow.chatbotConfig)
+if (canvas.chatbotConfig) {
+    const parsedConfig = JSON.parse(canvas.chatbotConfig)
     const isValidAllowedOrigins = parsedConfig.allowedOrigins?.length && parsedConfig.allowedOrigins[0] !== ''
     // ... origin validation logic
 }

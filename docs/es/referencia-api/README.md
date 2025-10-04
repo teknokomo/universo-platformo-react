@@ -4,7 +4,7 @@ Usando la API pública de Flowise, puedes ejecutar programáticamente muchas de 
 
 * [Asistentes](assistants.md)
 * [Mensaje de Chat](chat-message.md)
-* [Flujos de Chat](chatflows.md)
+* [Flujos de Chat](canvases.md)
 * [Almacén de Documentos](document-store.md)
 * [Retroalimentación](feedback.md)
 * [Leads](leads.md)

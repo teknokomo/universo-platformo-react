@@ -107,7 +107,7 @@ class AgentMemory_Memory implements INode {
         const databaseFilePath = nodeData.inputs?.databaseFilePath as string
         const databaseType = nodeData.inputs?.databaseType as string
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const chatflowid = options.chatflowid as string
+        const canvasId = options.canvasId as string
         const appDataSource = options.appDataSource as DataSource
 
         let additionalConfiguration = {}
@@ -135,7 +135,7 @@ class AgentMemory_Memory implements INode {
                 threadId,
                 appDataSource,
                 databaseEntities,
-                chatflowid
+                canvasId
             }
             const recordManager = new SqliteSaver(args)
             return recordManager
@@ -159,7 +159,7 @@ class AgentMemory_Memory implements INode {
                 threadId,
                 appDataSource,
                 databaseEntities,
-                chatflowid
+                canvasId
             }
             const recordManager = new PostgresSaver(args)
             return recordManager
@@ -184,7 +184,7 @@ class AgentMemory_Memory implements INode {
                 threadId,
                 appDataSource,
                 databaseEntities,
-                chatflowid
+                canvasId
             }
             const recordManager = new MySQLSaver(args)
             return recordManager

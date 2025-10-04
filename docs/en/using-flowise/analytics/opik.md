@@ -1,5 +1,5 @@
 ---
-description: Learn how to setup Opik to analyze and troubleshoot your chatflows and agentflows
+description: Learn how to setup Opik to analyze and troubleshoot your canvases and agentflows
 ---
 
 # Opik
@@ -8,13 +8,13 @@ description: Learn how to setup Opik to analyze and troubleshoot your chatflows 
 
 ## Setup
 
-1. At the top right corner of your Chatflow or Agentflow, click **Settings** > **Configuration**
+1. At the top right corner of your Canvas or Agentflow, click **Settings** > **Configuration**
 
 <figure><img src="../../.gitbook/assets/analytic-1.webp" alt="Screenshot of user clicking in the configuration menu" width="375"><figcaption></figcaption></figure>
 
-2. Then go to the Analyse Chatflow section
+2. Then go to the Analyse Canvas section
 
-<figure><img src="../../.gitbook/assets/analytic-2.png" alt="Screenshot of the Analyse Chatflow section with the different Analytics providers"><figcaption></figcaption></figure>
+<figure><img src="../../.gitbook/assets/analytic-2.png" alt="Screenshot of the Analyse Canvas section with the different Analytics providers"><figcaption></figcaption></figure>
 
 3. You will see a list of providers, along with their configuration fields. Click on Opik.
 
@@ -29,6 +29,6 @@ description: Learn how to setup Opik to analyze and troubleshoot your chatflows 
 <figure><img src="../../.gitbook/assets/opik-3.png" alt="Screenshot of analytics providers enabled"><figcaption></figcaption></figure>
 
 
-Now you can analyze your chatflows and agentflows using Opik UI:
+Now you can analyze your canvases and agentflows using Opik UI:
 
 <figure><img src="../../.gitbook/assets/opik-4.png" alt="Screenshot of Opik UI"><figcaption></figcaption></figure>

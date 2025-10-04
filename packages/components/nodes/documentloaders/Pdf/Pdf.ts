@@ -122,11 +122,11 @@ class Pdf_DocumentLoaders implements INode {
             } else {
                 files = [fileName]
             }
-            const chatflowid = options.chatflowid
+            const canvasId = options.canvasId
 
             for (const file of files) {
                 if (!file) continue
-                const fileData = await getFileFromStorage(file, chatflowid)
+                const fileData = await getFileFromStorage(file, canvasId)
                 const bf = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData)
                 await this.extractDocs(usage, bf, legacyBuild, textSplitter, docs)
             }

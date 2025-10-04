@@ -38,7 +38,7 @@ Flowise позволяет загружать изображения, аудио
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -62,7 +62,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -110,7 +110,7 @@ query({
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -133,7 +133,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -220,7 +220,7 @@ query({
 ```python
 import requests
 
-API_URL = "http://localhost:3000/api/v1/vector/upsert/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/vector/upsert/<canvasid>"
 
 # Используйте form data для загрузки файлов
 form_data = {
@@ -250,7 +250,7 @@ formData.append("chatId", "some-session-id");
 
 async function query(formData) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/vector/upsert/<chatflowid>",
+        "http://localhost:3000/api/v1/vector/upsert/<canvasid>",
         {
             method: "POST",
             body: formData
@@ -273,7 +273,7 @@ query(formData).then((response) => {
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -298,7 +298,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -351,7 +351,7 @@ query({
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -376,7 +376,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {

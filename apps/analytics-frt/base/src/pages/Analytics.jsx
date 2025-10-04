@@ -40,7 +40,6 @@ import ErrorBoundary from '@/ErrorBoundary'
 
 // API
 import leadsApi from '@/api/lead'
-import chatflowsApi from '@/api/chatflows' // legacy (may be removed later)
 import { spacesApi } from '@universo/spaces-frt'
 
 // ==============================|| Internal Helpers (extracted for clarity & testability) ||============================== //
@@ -116,7 +115,7 @@ const Analytics = () => {
         totalPoints: 0
     })
 
-    // Universo Platformo | Space & Canvas selection state (replaces single chatflow selector)
+    // Universo Platformo | Space & Canvas selection state
     const [spaces, setSpaces] = useState([])
     const [selectedSpaceId, setSelectedSpaceId] = useState('')
     const [canvases, setCanvases] = useState([])
@@ -164,7 +163,7 @@ const Analytics = () => {
         }
     }
 
-    // Universo Platformo | Handle chatflow selection
+    // Universo Platformo | Handle canvas selection
     const resetAnalyticsState = () => {
         setLoading(true)
         setLeads([])
@@ -195,13 +194,13 @@ const Analytics = () => {
         setLoading(false)
     }
 
-    // Load chatflows on component mount
+    // Load spaces on component mount
     // Load spaces on mount
     useEffect(() => {
         getSpacesApi.request()
     }, [])
 
-    // Load leads when chatflow is selected
+    // Load canvases whenever space changes
     // Load canvases whenever space changes
     useEffect(() => {
         if (selectedSpaceId) {
@@ -240,7 +239,7 @@ const Analytics = () => {
         }
     }, [getAllLeadsApi.error])
 
-    // Handle chatflows loading
+    // Handle spaces loading
     // Spaces loaded
     useEffect(() => {
         if (getSpacesApi.data) {
@@ -457,7 +456,7 @@ const Analytics = () => {
                                                 <StyledTableCell>{t('table.phone')}</StyledTableCell>
                                                 <StyledTableCell>{t('table.points')}</StyledTableCell>
                                                 <StyledTableCell>{t('table.completionDate')}</StyledTableCell>
-                                                <StyledTableCell>{t('table.chatflowId')}</StyledTableCell>
+                                                <StyledTableCell>{t('table.canvasId')}</StyledTableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -492,7 +491,12 @@ const Analytics = () => {
                                                     </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Typography variant='body2' sx={{ fontFamily: 'monospace' }}>
-                                                            {row.chatflowid?.substring(0, 8)}...
+                                                            {(() => {
+                                                                const identifier = row.canvasId ?? row.canvasid ?? ''
+                                                                return identifier
+                                                                    ? `${identifier.substring(0, 8)}...`
+                                                                    : t('table.notSpecified')
+                                                            })()}
                                                         </Typography>
                                                     </StyledTableCell>
                                                 </StyledTableRow>

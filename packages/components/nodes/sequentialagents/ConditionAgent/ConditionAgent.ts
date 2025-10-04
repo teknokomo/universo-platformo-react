@@ -16,7 +16,14 @@ import {
     ISeqAgentNode,
     ISeqAgentsState
 } from '../../../src/Interface'
-import { getInputVariables, getVars, handleEscapeCharacters, prepareSandboxVars, transformBracesWithColon } from '../../../src/utils'
+import {
+    FLOW_CONTEXT_REFERENCE,
+    getInputVariables,
+    getVars,
+    handleEscapeCharacters,
+    prepareSandboxVars,
+    transformBracesWithColon
+} from '../../../src/utils'
 import {
     ExtractTool,
     checkCondition,
@@ -113,11 +120,7 @@ const howToUseCode = `
     \`\`\`
 
 4. You can get default flow config, including the current "state":
-    - \`$flow.sessionId\`
-    - \`$flow.chatId\`
-    - \`$flow.chatflowId\`
-    - \`$flow.input\`
-    - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 5. You can get custom variables: \`$vars.<variable-name>\`
 
@@ -543,7 +546,7 @@ const runCondition = async (
     const variables = await getVars(appDataSource, databaseEntities, nodeData)
 
     const flow = {
-        chatflowId: options.chatflowid,
+        canvasId: options.canvasId,
         sessionId: options.sessionId,
         chatId: options.chatId,
         input,

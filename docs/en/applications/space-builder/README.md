@@ -20,7 +20,7 @@ The UI can apply the generated graph in three modes (Creation mode):
 
 -   Append: merge with the current canvas (ID remap + safe vertical offset below the lowest nodes)
 -   Replace: clear current canvas and set the generated graph
--   Create a new space: if the current canvas has nodes, open a new tab for `.../chatflows/new` and pass the graph via `localStorage.duplicatedFlowData`; if the canvas is empty, behave like Replace
+-   Create a new space: if the current canvas has nodes, open a new tab for `.../canvases/new` and pass the graph via `localStorage.duplicatedFlowData`; if the canvas is empty, behave like Replace
 
 ## Deterministic builder
 

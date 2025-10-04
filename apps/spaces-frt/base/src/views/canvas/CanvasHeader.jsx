@@ -17,7 +17,7 @@ import SaveCanvasDialog from '@/ui-component/dialog/SaveCanvasDialog'
 import spacesApi from '../../api/spaces'
 import APICodeDialog from '@/views/canvases/APICodeDialog'
 import ViewMessagesDialog from '@/ui-component/dialog/ViewMessagesDialog'
-import ChatflowConfigurationDialog from '@/ui-component/dialog/ChatflowConfigurationDialog'
+import CanvasConfigurationDialog from '@/ui-component/dialog/CanvasConfigurationDialog'
 import UpsertHistoryDialog from '@/views/vectorstore/UpsertHistoryDialog'
 import ViewLeadsDialog from '@/ui-component/dialog/ViewLeadsDialog'
 import ExportAsTemplateDialog from '@/ui-component/dialog/ExportAsTemplateDialog'
@@ -32,12 +32,12 @@ import useConfirm from '@/hooks/useConfirm'
 // utils
 import { generateExportFlowData } from '@/utils/genericHelper'
 import { uiBaseURL } from '@/store/constant'
-import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CHATFLOW, REMOVE_DIRTY } from '@/store/actions'
+import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, REMOVE_DIRTY } from '@/store/actions'
 
 // ==============================|| CANVAS HEADER ||============================== //
 
 const CanvasHeader = ({
-    chatflow,
+    canvas,
     isAgentCanvas,
     handleSaveFlow,
     handleDeleteFlow,
@@ -83,7 +83,7 @@ const CanvasHeader = ({
     const titleLabel = isAgentCanvas ? t('agent', 'agent') : t('space', 'space')
 
     const deleteSpaceApi = useApi(spacesApi.deleteSpace)
-    const canvas = useSelector((state) => state.canvas)
+    const canvasState = useSelector((state) => state.canvas)
 
     // Helper: extract unikId from current location path (supports new singular '/unik/:unikId/...')
     const extractUnikId = () => {
@@ -93,13 +93,27 @@ const CanvasHeader = ({
         // Legacy fallback (older plural pattern) just in case something still links that way
         const legacyIndex = segments.indexOf('uniks')
         if (legacyIndex !== -1 && legacyIndex + 1 < segments.length) return segments[legacyIndex + 1]
-        // Fallback to chatflow unik id if available
-        if (chatflow?.unik_id) return chatflow.unik_id
+        // Fallback to canvas unik id if available
+        if (canvas?.unik_id) return canvas.unik_id
         // Or last stored parentUnikId
         const stored = localStorage.getItem('parentUnikId')
         return stored || ''
     }
     // TODO: Persist and restore last visited sub-view (e.g. filters/tabs) of Spaces or Agentflows list when navigating back.
+
+    const buildCanvasDialogContext = (overrides = {}) => {
+        const currentUnikId = overrides.unikId ?? extractUnikId()
+        const resolvedCanvasId = overrides.canvasId ?? canvas?.id ?? null
+        const resolvedSpaceId = overrides.spaceId ?? spaceId ?? canvas?.spaceId ?? canvas?.space_id ?? null
+
+        return {
+            canvas,
+            canvasId: resolvedCanvasId,
+            spaceId: resolvedSpaceId ? String(resolvedSpaceId) : undefined,
+            unikId: currentUnikId || canvas?.unik_id || canvas?.unikId || undefined,
+            canvasApiKeyId: canvas?.apikeyid || undefined
+        }
+    }
 
     const onSettingsItemClick = (setting) => {
         setSettingsOpen(false)
@@ -136,17 +150,17 @@ const CanvasHeader = ({
         } else if (setting === 'viewMessages') {
             setViewMessagesDialogProps({
                 title: 'View Messages',
-                chatflow: chatflow
+                ...buildCanvasDialogContext()
             })
             setViewMessagesDialogOpen(true)
         } else if (setting === 'viewLeads') {
             setViewLeadsDialogProps({
                 title: 'View Leads',
-                chatflow: chatflow
+                ...buildCanvasDialogContext()
             })
             setViewLeadsDialogOpen(true)
         } else if (setting === 'saveAsTemplate') {
-            if (canvas.isDirty) {
+            if (canvasState.isDirty) {
                 enqueueSnackbar({
                     message: t('messages.saveFirst'),
                     options: {
@@ -163,8 +177,8 @@ const CanvasHeader = ({
                 return
             }
 
-            // Check if chatflow has an ID
-            if (!chatflow || !chatflow.id) {
+            // Check if canvas has an ID
+            if (!canvas || !canvas.id) {
                 enqueueSnackbar({
                     message: t('messages.exportError') + ' ' + title + '!',
                     options: {
@@ -186,18 +200,17 @@ const CanvasHeader = ({
 
             setExportAsTemplateDialogProps({
                 title: 'Export As Template',
-                chatflow: chatflow,
-                unikId: currentUnikId
+                ...buildCanvasDialogContext({ unikId: currentUnikId })
             })
             setExportAsTemplateDialogOpen(true)
         } else if (setting === 'viewUpsertHistory') {
             setUpsertHistoryDialogProps({
                 title: 'View Upsert History',
-                chatflow: chatflow
+                ...buildCanvasDialogContext()
             })
             setUpsertHistoryDialogOpen(true)
         } else if (setting === 'canvasVersions') {
-            if (!spaceId || !chatflow?.id) {
+            if (!spaceId || !canvas?.id) {
                 enqueueSnackbar({
                     message: t('versionsDialog.saveSpaceFirst', 'Save the space before managing versions'),
                     options: { key: new Date().getTime() + Math.random(), variant: 'error' }
@@ -209,23 +222,21 @@ const CanvasHeader = ({
             setCanvasVersionsDialogProps({
                 unikId: currentUnikId,
                 spaceId: String(spaceId),
-                canvasId: chatflow.id,
-                canvasName: chatflow.name,
-                versionLabel: chatflow.versionLabel,
-                versionDescription: chatflow.versionDescription
+                canvasId: canvas.id,
+                canvasName: canvas.name,
+                versionLabel: canvas.versionLabel,
+                versionDescription: canvas.versionDescription
             })
             setCanvasVersionsDialogOpen(true)
         } else if (setting === 'canvasConfiguration') {
             // Pass explicit identifiers for downstream API calls
             setCanvasConfigurationDialogProps({
-                chatflow: chatflow,
-                unikId: chatflow?.unik_id,
-                canvasId: chatflow?.id
+                ...buildCanvasDialogContext()
             })
             setCanvasConfigurationDialogOpen(true)
         } else if (setting === 'duplicateCanvas') {
             try {
-                let flowData = chatflow.flowData
+                let flowData = canvas.flowData
                 const parsedFlowData = JSON.parse(flowData)
                 flowData = JSON.stringify(parsedFlowData)
                 localStorage.setItem('duplicatedFlowData', flowData)
@@ -237,7 +248,7 @@ const CanvasHeader = ({
             }
         } else if (setting === 'exportCanvas') {
             try {
-                const flowData = JSON.parse(chatflow.flowData)
+                const flowData = JSON.parse(canvas.flowData)
                 let dataStr = JSON.stringify(generateExportFlowData(flowData), null, 2)
                 //let dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
                 const blob = new Blob([dataStr], { type: 'application/json' })
@@ -245,7 +256,7 @@ const CanvasHeader = ({
 
                 // Define a clear and localized suffix for file name
                 const titleSuffix = isAgentCanvas ? t('agent', 'Agent') : t('space', 'Space')
-                let exportFileDefaultName = `${chatflow.name} ${titleSuffix}.json`
+                let exportFileDefaultName = `${canvas.name} ${titleSuffix}.json`
 
                 let linkElement = document.createElement('a')
                 linkElement.setAttribute('href', dataUri)
@@ -280,7 +291,7 @@ const CanvasHeader = ({
         // If file type is file, isFormDataRequired = true
         let isFormDataRequired = false
         try {
-            const flowData = JSON.parse(chatflow.flowData)
+            const flowData = JSON.parse(canvas.flowData)
             const nodes = flowData.nodes
             for (const node of nodes) {
                 if (node.data.inputParams.find((param) => param.type === 'file')) {
@@ -295,7 +306,7 @@ const CanvasHeader = ({
         // If sessionId memory, isSessionMemory = true
         let isSessionMemory = false
         try {
-            const flowData = JSON.parse(chatflow.flowData)
+            const flowData = JSON.parse(canvas.flowData)
             const nodes = flowData.nodes
             for (const node of nodes) {
                 if (node.data.inputParams.find((param) => param.name === 'sessionId')) {
@@ -309,8 +320,8 @@ const CanvasHeader = ({
 
         setAPIDialogProps({
             title: 'Embed in website or use as API',
-            chatflowid: chatflow.id,
-            chatflowApiKeyId: chatflow.apikeyid,
+            canvasId: canvas.id,
+            canvasApiKeyId: canvas.apikeyid,
             isFormDataRequired,
             isSessionMemory,
             isAgentCanvas
@@ -319,7 +330,7 @@ const CanvasHeader = ({
     }
 
     const onSaveChatflowClick = () => {
-        if (chatflow.id) handleSaveFlow(flowName)
+        if (canvas?.id) handleSaveFlow(flowName)
         else setFlowDialogOpen(true)
     }
 
@@ -331,13 +342,13 @@ const CanvasHeader = ({
 
     useEffect(() => {
         setEditingFlowName(false)
-    }, [chatflow?.name, spaceName])
+    }, [canvas?.name, spaceName])
 
     useEffect(() => {
         // Avoid showing "Untitled Space" while existing space name is still loading
         const fallback = isAgentCanvas ? t('untitledAgent', 'Untitled Agent') : t('untitledSpace', 'Untitled Space')
         if (isAgentCanvas) {
-            setFlowName(chatflow?.name || fallback)
+            setFlowName(canvas?.name || fallback)
         } else if (spaceId) {
             // Existing space: show actual name when available, otherwise empty to avoid confusion
             setFlowName(spaceName || '')
@@ -346,16 +357,10 @@ const CanvasHeader = ({
             setFlowName(fallback)
         }
 
-        // if configuration dialog is open, update its data
         if (canvasConfigurationDialogOpen) {
-            // Keep dialog props in sync with current chatflow
-            setCanvasConfigurationDialogProps({
-                chatflow,
-                unikId: chatflow?.unik_id,
-                canvasId: chatflow?.id
-            })
+            setCanvasConfigurationDialogProps(buildCanvasDialogContext())
         }
-    }, [chatflow, spaceName, spaceId, isAgentCanvas, canvasConfigurationDialogOpen, t])
+    }, [canvas, spaceName, spaceId, isAgentCanvas, canvasConfigurationDialogOpen])
 
     return (
         <>
@@ -408,21 +413,21 @@ const CanvasHeader = ({
                                             whiteSpace: 'nowrap'
                                         }}
                                     >
-                                        {canvas.isDirty && <strong style={{ color: theme.palette.orange.main }}>*</strong>}
+                                        {canvasState.isDirty && <strong style={{ color: theme.palette.orange.main }}>*</strong>}
                                         {spaceId && spaceName ? spaceName : flowName}
                                     </Typography>
-                                    {chatflow?.versionLabel && (
+                                    {canvas?.versionLabel && (
                                         <Chip
                                             size='small'
                                             variant='outlined'
                                             color='primary'
-                                            label={chatflow.versionLabel}
+                                            label={canvas.versionLabel}
                                             sx={{ mt: 0.5, alignSelf: 'flex-start' }}
                                         />
                                     )}
                                     {/* Do not show active canvas name under space title */}
                                 </Stack>
-                                {(spaceId || chatflow?.id) && (
+                                {(spaceId || canvas?.id) && (
                                     spaceId && !spaceName && spaceLoading ? (
                                         // Show spinner while space name is loading, on the same styled chip as the edit button
                                         <Avatar
@@ -530,7 +535,7 @@ const CanvasHeader = ({
                     </Box>
                 </Stack>
                 <Box>
-                    {chatflow?.id && (
+                    {canvas?.id && (
                         <ButtonBase title={t('publishAndExport', 'Publish and Export')} sx={{ borderRadius: '50%', mr: 2 }}>
                             <Avatar
                                 variant='rounded'
@@ -594,7 +599,7 @@ const CanvasHeader = ({
                 </Box>
             </Stack>
             <Settings
-                chatflow={chatflow}
+                canvas={canvas}
                 isSettingsOpen={isSettingsOpen}
                 anchorEl={settingsRef.current}
                 onClose={() => setSettingsOpen(false)}
@@ -632,7 +637,7 @@ const CanvasHeader = ({
                 dialogProps={upsertHistoryDialogProps}
                 onCancel={() => setUpsertHistoryDialogOpen(false)}
             />
-            <ChatflowConfigurationDialog
+            <CanvasConfigurationDialog
                 key='canvasConfiguration'
                 show={canvasConfigurationDialogOpen}
                 dialogProps={canvasConfigurationDialogProps}
@@ -656,7 +661,7 @@ const CanvasHeader = ({
 }
 
 CanvasHeader.propTypes = {
-    chatflow: PropTypes.object,
+    canvas: PropTypes.object,
     handleSaveFlow: PropTypes.func,
     handleDeleteFlow: PropTypes.func,
     handleLoadFlow: PropTypes.func,

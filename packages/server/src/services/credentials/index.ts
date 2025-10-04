@@ -34,7 +34,7 @@ const createCredential = async (requestBody: any) => {
     }
 }
 
-// Delete all credentials from chatflowid
+// Delete all credentials for a given canvas
 const deleteCredentials = async (credentialId: string, unikId?: string): Promise<any> => {
     try {
         const appServer = getRunningExpressApp()

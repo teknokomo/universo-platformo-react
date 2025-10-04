@@ -9,16 +9,16 @@ export { SpacesController } from './controllers/spacesController'
 export { SpacesService } from './services/spacesService'
 export { purgeSpacesForUnik, cleanupCanvasStorage } from './services/purgeUnikSpaces'
 export {
-    LegacyChatflowsService,
-    type LegacyChatflowDependencies,
-    type LegacyChatflowEntities,
-    type LegacyChatflowMetricsConfig,
-    type LegacyChatflowPublicCanvas
-} from './services/legacyChatflowsService'
+    CanvasService,
+    type CanvasServiceDependencies,
+    type CanvasServiceEntities,
+    type CanvasServiceMetricsConfig,
+    type PublicCanvasResponse
+} from './services/canvasService'
 export {
     createCanvasService,
-    type CanvasService,
     type CanvasServiceFactoryOptions,
+    type CanvasServiceAdapter,
     type CanvasFlowResult
 } from './services/canvasServiceFactory'
 

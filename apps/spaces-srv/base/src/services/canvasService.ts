@@ -6,24 +6,24 @@ import { Canvas, ChatflowType } from '../database/entities/Canvas'
 import { Space } from '../database/entities/Space'
 import { SpaceCanvas } from '../database/entities/SpaceCanvas'
 
-export interface LegacyChatflowEntities {
+export interface CanvasServiceEntities {
     chatMessage: EntityTarget<any>
     chatMessageFeedback: EntityTarget<any>
     upsertHistory: EntityTarget<any>
 }
 
-export interface LegacyChatflowMetricsConfig {
+export interface CanvasServiceMetricsConfig {
     canvasCreatedCounter: string
     agentflowCreatedCounter: string
     successStatusLabel: string
 }
 
-export interface LegacyChatflowDependencies {
+export interface CanvasServiceDependencies {
     errorFactory: (status: number, message: string) => Error
-    removeFolderFromStorage: (chatflowId: string) => Promise<void>
-    updateDocumentStoreUsage: (chatflowId: string, usage?: string) => Promise<void>
+    removeFolderFromStorage: (canvasId: string) => Promise<void>
+    updateDocumentStoreUsage: (canvasId: string, usage?: string) => Promise<void>
     containsBase64File: (payload: { flowData: string }) => boolean
-    updateFlowDataWithFilePaths: (chatflowId: string, flowData: string) => Promise<string>
+    updateFlowDataWithFilePaths: (canvasId: string, flowData: string) => Promise<string>
     constructGraphs: (nodes: any[], edges: any[]) => { graph: any; nodeDependencies: Record<string, number> }
     getEndingNodes: (nodeDependencies: Record<string, number>, graph: any, nodes: any[]) => any[]
     isFlowValidForStream: (nodes: any[], nodeData: any) => boolean
@@ -31,12 +31,12 @@ export interface LegacyChatflowDependencies {
     getTelemetryFlowObj: (nodes: any[], edges: any[]) => unknown
     telemetry?: { sendTelemetry: (eventName: string, payload: Record<string, unknown>) => Promise<void> }
     metricsProvider?: { incrementCounter: (metric: string, labels?: Record<string, unknown>) => void }
-    metricsConfig: LegacyChatflowMetricsConfig
+    metricsConfig: CanvasServiceMetricsConfig
     logger: { warn: (...args: any[]) => void; error: (...args: any[]) => void }
-    getUploadsConfig: (chatflowId: string) => Promise<any>
+    getUploadsConfig: (canvasId: string) => Promise<any>
 }
 
-export interface LegacyChatflowPublicCanvas {
+export interface PublicCanvasResponse {
     id: string
     name: string
     flowData: string
@@ -56,11 +56,11 @@ export interface CanvasScope {
     unikId?: string
 }
 
-export class LegacyChatflowsService {
+export class CanvasService {
     constructor(
         private readonly getDataSource: () => DataSource,
-        private readonly entities: LegacyChatflowEntities,
-        private readonly deps: LegacyChatflowDependencies
+        private readonly entities: CanvasServiceEntities,
+        private readonly deps: CanvasServiceDependencies
     ) {}
 
     private get dataSource(): DataSource {
@@ -285,38 +285,38 @@ export class LegacyChatflowsService {
     }
 
     private async loadCanvasOrThrow(
-        chatflowId: string,
+        canvasId: string,
         scope?: CanvasScope,
         queryRunner?: QueryRunner
     ): Promise<Canvas> {
         let query = this.getCanvasRepositoryForScope(queryRunner).createQueryBuilder('canvas')
-        query = query.where('canvas.id = :id', { id: chatflowId })
+        query = query.where('canvas.id = :id', { id: canvasId })
         query = this.applyScopeToQuery(query, scope)
 
-        const chatflow = await query.getOne()
+        const canvas = await query.getOne()
 
-        if (!chatflow) {
-            throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found in the database!`)
+        if (!canvas) {
+            throw this.createError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found in the database!`)
         }
 
-        return chatflow
+        return canvas
     }
 
-    private ensureVersioningFields(chatflow: Partial<Canvas>): void {
-        if (!chatflow.versionGroupId) {
-            chatflow.versionGroupId = randomUUID()
+    private ensureVersioningFields(canvas: Partial<Canvas>): void {
+        if (!canvas.versionGroupId) {
+            canvas.versionGroupId = randomUUID()
         }
-        if (!chatflow.versionUuid) {
-            chatflow.versionUuid = randomUUID()
+        if (!canvas.versionUuid) {
+            canvas.versionUuid = randomUUID()
         }
-        if (!chatflow.versionLabel) {
-            chatflow.versionLabel = 'v1'
+        if (!canvas.versionLabel) {
+            canvas.versionLabel = 'v1'
         }
-        if (typeof chatflow.versionIndex !== 'number' || Number.isNaN(chatflow.versionIndex)) {
-            chatflow.versionIndex = 1
+        if (typeof canvas.versionIndex !== 'number' || Number.isNaN(canvas.versionIndex)) {
+            canvas.versionIndex = 1
         }
-        if (typeof chatflow.isActive !== 'boolean') {
-            chatflow.isActive = true
+        if (typeof canvas.isActive !== 'boolean') {
+            canvas.isActive = true
         }
     }
 
@@ -324,22 +324,22 @@ export class LegacyChatflowsService {
         return this.deps.errorFactory(status, message)
     }
 
-    async checkIfChatflowIsValidForStreaming(
-        chatflowId: string,
+    async checkIfCanvasIsValidForStreaming(
+        canvasId: string,
         scope?: CanvasScope
     ): Promise<{ isStreaming: boolean }> {
         try {
-            const chatflow = await this.loadCanvasOrThrow(chatflowId, scope)
+            const canvas = await this.loadCanvasOrThrow(canvasId, scope)
 
-            let chatflowConfig: Record<string, any> = {}
-            if (chatflow.chatbotConfig) {
-                chatflowConfig = JSON.parse(chatflow.chatbotConfig)
-                if (chatflowConfig?.postProcessing?.enabled === true) {
+            let canvasConfig: Record<string, any> = {}
+            if (canvas.chatbotConfig) {
+                canvasConfig = JSON.parse(canvas.chatbotConfig)
+                if (canvasConfig?.postProcessing?.enabled === true) {
                     return { isStreaming: false }
                 }
             }
 
-            const parsedFlowData = JSON.parse(chatflow.flowData)
+            const parsedFlowData = JSON.parse(canvas.flowData)
             const nodes = parsedFlowData.nodes ?? []
             const edges = parsedFlowData.edges ?? []
             const { graph, nodeDependencies } = this.deps.constructGraphs(nodes, edges)
@@ -366,40 +366,40 @@ export class LegacyChatflowsService {
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.checkIfChatflowIsValidForStreaming - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.checkIfCanvasIsValidForStreaming - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async checkIfChatflowIsValidForUploads(chatflowId: string, scope?: CanvasScope): Promise<any> {
+    async checkIfCanvasIsValidForUploads(canvasId: string, scope?: CanvasScope): Promise<any> {
         try {
-            await this.loadCanvasOrThrow(chatflowId, scope)
-            return await this.deps.getUploadsConfig(chatflowId)
+            await this.loadCanvasOrThrow(canvasId, scope)
+            return await this.deps.getUploadsConfig(canvasId)
         } catch (error) {
             if (error && typeof error === 'object' && 'status' in error) {
                 throw error
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.checkIfChatflowIsValidForUploads - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.checkIfCanvasIsValidForUploads - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async deleteChatflow(chatflowId: string, scope?: CanvasScope): Promise<any> {
+    async deleteCanvas(canvasId: string, scope?: CanvasScope): Promise<any> {
         try {
-            const chatflow = await this.loadCanvasOrThrow(chatflowId, scope)
+            const canvas = await this.loadCanvasOrThrow(canvasId, scope)
 
-            const deleteResult = await this.canvasRepository.delete({ id: chatflowId })
+            const deleteResult = await this.canvasRepository.delete({ id: canvasId })
 
             try {
-                await this.deps.removeFolderFromStorage(chatflowId)
-                await this.deps.updateDocumentStoreUsage(chatflowId, undefined)
-                await this.chatMessageRepository.delete({ canvasId: chatflowId })
-                await this.chatMessageFeedbackRepository.delete({ canvasId: chatflowId })
-                await this.upsertHistoryRepository.delete({ canvasId: chatflowId })
+                await this.deps.removeFolderFromStorage(canvasId)
+                await this.deps.updateDocumentStoreUsage(canvasId, undefined)
+                await this.chatMessageRepository.delete({ canvasId: canvasId })
+                await this.chatMessageFeedbackRepository.delete({ canvasId: canvasId })
+                await this.upsertHistoryRepository.delete({ canvasId: canvasId })
             } catch (cleanupError) {
-                this.deps.logger.error(`[spaces-srv]: Error deleting file storage for chatflow ${chatflowId}: ${cleanupError}`)
+                this.deps.logger.error(`[spaces-srv]: Error deleting file storage for canvas ${canvasId}: ${cleanupError}`)
             }
 
             return deleteResult
@@ -409,12 +409,12 @@ export class LegacyChatflowsService {
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.deleteChatflow - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.deleteCanvas - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async getAllChatflows(type?: ChatflowType, scope?: CanvasScope): Promise<Canvas[]> {
+    async getAllCanvases(type?: ChatflowType, scope?: CanvasScope): Promise<Canvas[]> {
         try {
             let queryBuilder = this.canvasRepository.createQueryBuilder('canvas')
             queryBuilder = this.applyScopeToQuery(queryBuilder, scope)
@@ -438,12 +438,12 @@ export class LegacyChatflowsService {
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.getAllChatflows - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.getAllCanvases - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async getChatflowByApiKey(apiKeyId: string, keyonly?: string): Promise<Canvas[]> {
+    async getCanvasesByApiKey(apiKeyId: string, keyonly?: string): Promise<Canvas[]> {
         try {
             let query = this.canvasRepository
                 .createQueryBuilder('canvas')
@@ -455,47 +455,47 @@ export class LegacyChatflowsService {
 
             const results = await query.orderBy('canvas.name', 'ASC').getMany()
             if (results.length < 1) {
-                throw this.createError(StatusCodes.NOT_FOUND, 'Chatflow not found in the database!')
+                throw this.createError(StatusCodes.NOT_FOUND, 'Canvas not found in the database!')
             }
             return results
         } catch (error) {
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.getChatflowByApiKey - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.getCanvasesByApiKey - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async getChatflowById(chatflowId: string, scope?: CanvasScope): Promise<Canvas> {
+    async getCanvasById(canvasId: string, scope?: CanvasScope): Promise<Canvas> {
         try {
-            return await this.loadCanvasOrThrow(chatflowId, scope)
+            return await this.loadCanvasOrThrow(canvasId, scope)
         } catch (error) {
             if (error && typeof error === 'object' && 'status' in error) {
                 throw error
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.getChatflowById - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.getCanvasById - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    private async checkAndUpdateDocumentStoreUsage(chatflow: Canvas): Promise<void> {
-        const parsedFlowData = JSON.parse(chatflow.flowData ?? '{}') as { nodes?: any[] }
+    private async checkAndUpdateDocumentStoreUsage(canvas: Canvas): Promise<void> {
+        const parsedFlowData = JSON.parse(canvas.flowData ?? '{}') as { nodes?: any[] }
         const nodes = Array.isArray(parsedFlowData?.nodes) ? parsedFlowData.nodes : []
         const documentStoreNode =
             nodes.length > 0 && nodes.find((node: any) => node?.data?.name === 'documentStore')
         const selectedStore = documentStoreNode?.data?.inputs?.selectedStore
 
         if (typeof selectedStore !== 'string' || selectedStore.length === 0) {
-            await this.deps.updateDocumentStoreUsage(chatflow.id, undefined)
+            await this.deps.updateDocumentStoreUsage(canvas.id, undefined)
             return
         }
 
-        await this.deps.updateDocumentStoreUsage(chatflow.id, selectedStore)
+        await this.deps.updateDocumentStoreUsage(canvas.id, selectedStore)
     }
 
-    async saveChatflow(newChatFlow: Partial<Canvas>, scope?: CanvasScope): Promise<Canvas> {
+    async saveCanvas(newChatFlow: Partial<Canvas>, scope?: CanvasScope): Promise<Canvas> {
         try {
             const space = await this.resolveSpace(scope)
             this.ensureVersioningFields(newChatFlow)
@@ -550,21 +550,21 @@ export class LegacyChatflowsService {
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.saveChatflow - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.saveCanvas - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async importChatflows(
-        newChatflows: Partial<Canvas>[],
+    async importCanvases(
+        newCanvass: Partial<Canvas>[],
         scope?: CanvasScope,
         queryRunner?: QueryRunner
     ): Promise<any> {
         try {
             const space = await this.resolveSpace(scope, queryRunner)
-            for (const data of newChatflows) {
+            for (const data of newCanvass) {
                 if (data.id && !validateUuid(data.id)) {
-                    throw this.createError(StatusCodes.PRECONDITION_FAILED, 'Error: importChatflows - invalid id!')
+                    throw this.createError(StatusCodes.PRECONDITION_FAILED, 'Error: importCanvases - invalid id!')
                 }
             }
 
@@ -572,37 +572,37 @@ export class LegacyChatflowsService {
                 ? queryRunner.manager.getRepository(Canvas)
                 : this.canvasRepository
 
-            if (newChatflows.length === 0) return
+            if (newCanvass.length === 0) return
 
-            const chatflowIds = newChatflows
-                .map((newChatflow) => newChatflow.id)
+            const canvasIds = newCanvass
+                .map((newCanvas) => newCanvas.id)
                 .filter((id): id is string => Boolean(id))
 
             let foundIds: string[] = []
-            if (chatflowIds.length > 0) {
+            if (canvasIds.length > 0) {
                 const selectResponse = await repository
                     .createQueryBuilder('cf')
                     .select('cf.id')
-                    .where('cf.id IN (:...ids)', { ids: chatflowIds })
+                    .where('cf.id IN (:...ids)', { ids: canvasIds })
                     .getMany()
                 foundIds = selectResponse.map((response) => response.id)
             }
 
-            const prepChatflows: Partial<Canvas>[] = newChatflows.map((newChatflow) => {
+            const prepCanvass: Partial<Canvas>[] = newCanvass.map((newCanvas) => {
                 let id = ''
-                if (newChatflow.id) id = newChatflow.id
+                if (newCanvas.id) id = newCanvas.id
                 let flowData = ''
-                if (newChatflow.flowData) flowData = newChatflow.flowData
+                if (newCanvas.flowData) flowData = newCanvas.flowData
                 if (foundIds.includes(id)) {
-                    newChatflow.id = undefined
-                    newChatflow.name = `${newChatflow.name ?? 'Canvas'} (1)`
+                    newCanvas.id = undefined
+                    newCanvas.name = `${newCanvas.name ?? 'Canvas'} (1)`
                 }
-                newChatflow.flowData = JSON.stringify(JSON.parse(flowData))
-                this.ensureVersioningFields(newChatflow)
-                return newChatflow
+                newCanvas.flowData = JSON.stringify(JSON.parse(flowData))
+                this.ensureVersioningFields(newCanvas)
+                return newCanvas
             })
 
-            const insertResult = await repository.insert(prepChatflows)
+            const insertResult = await repository.insert(prepCanvass)
 
             const canvasRepo = this.getCanvasRepositoryForScope(queryRunner)
             const identifiers = insertResult.identifiers || []
@@ -610,7 +610,7 @@ export class LegacyChatflowsService {
             if (space) {
                 await Promise.all(
                     identifiers.map(async (identifier: any, index: number) => {
-                        const insertedId = identifier?.id ?? prepChatflows[index]?.id
+                        const insertedId = identifier?.id ?? prepCanvass[index]?.id
                         if (!insertedId) {
                             return
                         }
@@ -624,7 +624,7 @@ export class LegacyChatflowsService {
             } else {
                 await Promise.all(
                     identifiers.map(async (identifier: any, index: number) => {
-                        const insertedId = identifier?.id ?? prepChatflows[index]?.id
+                        const insertedId = identifier?.id ?? prepCanvass[index]?.id
                         if (!insertedId) {
                             return
                         }
@@ -635,7 +635,7 @@ export class LegacyChatflowsService {
                                 canvas,
                                 {
                                     unikId: scope?.unikId,
-                                    fallbackName: prepChatflows[index]?.name
+                                    fallbackName: prepCanvass[index]?.name
                                 },
                                 queryRunner
                             )
@@ -651,18 +651,18 @@ export class LegacyChatflowsService {
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.saveChatflows - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.saveCanvass - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async updateChatflow(chatflow: Canvas, updateChatFlow: Canvas, scope?: CanvasScope): Promise<Canvas> {
+    async updateCanvas(canvas: Canvas, updateChatFlow: Canvas, scope?: CanvasScope): Promise<Canvas> {
         try {
             if (updateChatFlow.flowData && this.deps.containsBase64File({ flowData: updateChatFlow.flowData })) {
-                updateChatFlow.flowData = await this.deps.updateFlowDataWithFilePaths(chatflow.id, updateChatFlow.flowData)
+                updateChatFlow.flowData = await this.deps.updateFlowDataWithFilePaths(canvas.id, updateChatFlow.flowData)
             }
 
-            const merged = this.canvasRepository.merge(chatflow, updateChatFlow)
+            const merged = this.canvasRepository.merge(canvas, updateChatFlow)
             await this.checkAndUpdateDocumentStoreUsage(merged)
             const saved = await this.canvasRepository.save(merged)
 
@@ -680,14 +680,14 @@ export class LegacyChatflowsService {
             }
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.updateChatflow - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.updateCanvas - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }
 
-    async getSinglePublicChatflow(chatflowId: string): Promise<LegacyChatflowPublicCanvas> {
+    async getSinglePublicCanvas(canvasId: string): Promise<PublicCanvasResponse> {
         try {
-            const chatflow = await this.canvasRepository
+            const canvas = await this.canvasRepository
                 .createQueryBuilder('canvas')
                 .leftJoin('spaces_canvases', 'sc', 'sc.canvas_id = canvas.id')
                 .leftJoin('spaces', 'space', 'space.id = sc.space_id')
@@ -706,19 +706,19 @@ export class LegacyChatflowsService {
                     'canvas.isActive',
                     'space.unik_id'
                 ])
-                .where('canvas.id = :id', { id: chatflowId })
+                .where('canvas.id = :id', { id: canvasId })
                 .getRawOne()
 
-            if (!chatflow) {
-                throw this.createError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowId} not found`)
+            if (!canvas) {
+                throw this.createError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found`)
             }
 
-            const isPublic = chatflow.canvas_isPublic === true
+            const isPublic = canvas.canvas_isPublic === true
             let hasPublicConfig = false
 
-            if (!isPublic && chatflow.canvas_chatbotConfig) {
+            if (!isPublic && canvas.canvas_chatbotConfig) {
                 try {
-                    const chatbotConfig = JSON.parse(chatflow.canvas_chatbotConfig)
+                    const chatbotConfig = JSON.parse(canvas.canvas_chatbotConfig)
                     if (chatbotConfig && typeof chatbotConfig === 'object') {
                         hasPublicConfig = Object.values(chatbotConfig as Record<string, any>).some(
                             (config: any) => config?.isPublic === true
@@ -734,23 +734,23 @@ export class LegacyChatflowsService {
             }
 
             return {
-                id: chatflow.canvas_id,
-                name: chatflow.canvas_name,
-                flowData: chatflow.canvas_flowData,
-                isPublic: chatflow.canvas_isPublic,
-                type: chatflow.canvas_type,
-                unikId: chatflow.space_unik_id ?? undefined,
-                versionGroupId: chatflow.canvas_version_group_id,
-                versionUuid: chatflow.canvas_version_uuid,
-                versionLabel: chatflow.canvas_version_label,
-                versionDescription: chatflow.canvas_version_description ?? undefined,
-                versionIndex: chatflow.canvas_version_index,
-                isActive: chatflow.canvas_is_active
+                id: canvas.canvas_id,
+                name: canvas.canvas_name,
+                flowData: canvas.canvas_flowData,
+                isPublic: canvas.canvas_isPublic,
+                type: canvas.canvas_type,
+                unikId: canvas.space_unik_id ?? undefined,
+                versionGroupId: canvas.canvas_version_group_id,
+                versionUuid: canvas.canvas_version_uuid,
+                versionLabel: canvas.canvas_version_label,
+                versionDescription: canvas.canvas_version_description ?? undefined,
+                versionIndex: canvas.canvas_version_index,
+                isActive: canvas.canvas_is_active
             }
         } catch (error) {
             throw this.createError(
                 StatusCodes.INTERNAL_SERVER_ERROR,
-                `Error: chatflowsService.getSinglePublicChatflow - ${error instanceof Error ? error.message : String(error)}`
+                `Error: canvasesService.getSinglePublicCanvas - ${error instanceof Error ? error.message : String(error)}`
             )
         }
     }

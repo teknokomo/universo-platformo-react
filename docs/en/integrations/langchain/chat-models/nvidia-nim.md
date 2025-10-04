@@ -50,7 +50,7 @@ _Note: If you already have a container running with the selected model, Flowise 
 
 <figure><img src="../../../.gitbook/assets/nvidia-nim-container-exists.png" alt=""><figcaption></figcaption></figure>
 
-8. **Save the chatflow**
+8. **Save the canvas**
 
 9. [🎉](https://emojipedia.org/party-popper/) **Voila!** Your **Chat NVIDIA NIM** node is now ready to use in Flowise!
 

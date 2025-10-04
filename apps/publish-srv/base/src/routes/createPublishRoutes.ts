@@ -36,7 +36,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
     /**
      * @route   POST /arjs
      * @desc    Создает новую публикацию AR.js (только метаданные)
-     * @body    { chatflowId: string, generationMode: string, isPublic: boolean, projectName: string }
+     * @body    { canvasId: string, generationMode: string, isPublic: boolean, projectName: string }
      */
     router.post('/arjs', async (req: Request, res: Response) => {
         try {
@@ -54,7 +54,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
     /**
      * @route   GET /arjs/public/:publicationId
      * @desc    Возвращает данные UPDL сцены для публичной AR.js публикации
-     * @param   publicationId - ID публикации (равен canvasId или chatflowId для совместимости)
+     * @param   publicationId - ID публикации (равен canvasId)
      */
     router.get('/arjs/public/:publicationId', async (req: Request, res: Response) => {
         try {
@@ -80,25 +80,6 @@ export function createPublishRoutes(dataSource: DataSource): Router {
             return await controller.streamUPDL(req, res)
         } catch (error) {
             logger.error('[createPublishRoutes] Error in GET /canvas/:canvasId:', error)
-            res.status(500).json({
-                success: false,
-                error: 'Internal server error during UPDL streaming'
-            })
-        }
-    })
-
-    /**
-     * @route   GET /arjs/stream/:chatflowId
-     * @desc    Прямой запрос к потоковой генерации UPDL сцены (legacy, для совместимости)
-     * @param   chatflowId - ID чатфлоу для генерации сцены
-     * @deprecated Use /canvas/:canvasId instead
-     */
-    router.get('/arjs/stream/:chatflowId', async (req: Request, res: Response) => {
-        try {
-            const controller = await getController()
-            return await controller.streamUPDL(req, res)
-        } catch (error) {
-            logger.error('[createPublishRoutes] Error in GET /arjs/stream/:chatflowId:', error)
             res.status(500).json({
                 success: false,
                 error: 'Internal server error during UPDL streaming'
@@ -151,18 +132,6 @@ export function createPublishRoutes(dataSource: DataSource): Router {
     // ========================================
     // REDIRECT ROUTES (Legacy to New)
     // ========================================
-
-    /**
-     * @route   GET /published/chatflow/:chatflowId
-     * @desc    Редирект со старого URL на новый формат Canvas
-     * @param   chatflowId - ID чатфлоу (будет использован как canvasId)
-     */
-    router.get('/published/chatflow/:chatflowId', (req: Request, res: Response) => {
-        const chatflowId = req.params.chatflowId
-        const newUrl = `/publish/canvas/public/${chatflowId}`
-        logger.info(`[createPublishRoutes] Redirecting legacy URL /published/chatflow/${chatflowId} to ${newUrl}`)
-        res.redirect(301, newUrl)
-    })
 
     /**
      * @route   GET /settings/global

@@ -13,7 +13,7 @@ Tools are functions that agents can use to interact with the world. These tools 
 * [BraveSearch API](bravesearch-api.md)
 * [Calculator](calculator.md)
 * [Chain Tool](chain-tool.md)
-* [Chatflow Tool](chatflow-tool.md)
+* [Canvas Tool](canvas-tool.md)
 * [Custom Tool](custom-tool.md)
 * [Exa Search](exa-search.md)
 * [Google Custom Search](google-custom-search.md)

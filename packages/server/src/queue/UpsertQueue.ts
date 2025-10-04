@@ -78,8 +78,8 @@ export class UpsertQueue extends BaseQueue {
             return await executeDocStoreUpsert(data as IExecuteDocStoreUpsert)
         }
 
-        // upsert-vector/:chatflowid
-        logger.info('Upserting to vector store via chatflow...')
+        // upsert-vector/:canvasId
+        logger.info('Upserting to vector store via canvas...')
         return await executeUpsert(data as IExecuteFlowParams)
     }
 }

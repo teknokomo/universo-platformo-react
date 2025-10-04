@@ -99,7 +99,7 @@ POST /api/v1/publish/arjs
 POST /api/v1/publish/playcanvas
 
 Body: {
-    "chatflowId": "uuid",
+    "canvasId": "uuid",
     "isPublic": true,
     "projectName": "My Experience",
     "libraryConfig": { ... }

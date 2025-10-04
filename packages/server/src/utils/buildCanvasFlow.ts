@@ -55,7 +55,7 @@ import {
     constructGraphs,
     getAPIOverrideConfig
 } from '../utils'
-import { validateChatflowAPIKey } from './validateKey'
+import { validateCanvasApiKey } from './validateKey'
 import logger from './logger'
 import { utilAddChatMessage } from './addChatMesage'
 import { buildAgentGraph } from './buildAgentGraph'
@@ -134,7 +134,7 @@ const initEndingNode = async ({
 const getChatHistory = async ({
     endingNodes,
     nodes,
-    chatflowid,
+    canvasId,
     appDataSource,
     componentNodes,
     incomingInput,
@@ -144,7 +144,7 @@ const getChatHistory = async ({
 }: {
     endingNodes: IReactFlowNode[]
     nodes: IReactFlowNode[]
-    chatflowid: string
+    canvasId: string
     appDataSource: DataSource
     componentNodes: IComponentNodes
     incomingInput: IncomingInput
@@ -164,7 +164,7 @@ const getChatHistory = async ({
 
         if (memoryNode) {
             chatHistory = await getSessionChatHistory(
-                chatflowid,
+                canvasId,
                 getMemorySessionId(memoryNode, incomingInput, chatId, isInternal),
                 memoryNode,
                 componentNodes,
@@ -190,7 +190,7 @@ const getChatHistory = async ({
         if (!memoryNode) continue
 
         chatHistory = await getSessionChatHistory(
-            chatflowid,
+            canvasId,
             getMemorySessionId(memoryNode, incomingInput, chatId, isInternal),
             memoryNode,
             componentNodes,
@@ -227,7 +227,7 @@ const getSetVariableNodesOutput = (reactFlowNodes: IReactFlowNode[]) => {
 export const executeFlow = async ({
     componentNodes,
     incomingInput,
-    chatflow,
+    canvas,
     chatId,
     appDataSource,
     telemetry,
@@ -238,6 +238,10 @@ export const executeFlow = async ({
     files,
     signal
 }: IExecuteFlowParams) => {
+    if (!canvas) {
+        throw new InternalFlowiseError(StatusCodes.NOT_FOUND, 'Canvas record not provided')
+    }
+    const canvasRecord = canvas
     // Ensure incomingInput has all required properties with default values
     incomingInput = {
         history: [],
@@ -251,7 +255,7 @@ export const executeFlow = async ({
     const prependMessages = incomingInput.history ?? []
     const streaming = incomingInput.streaming ?? false
     const userMessageDateTime = new Date()
-    const chatflowid = chatflow.id
+    const canvasId = canvasRecord.id
 
     /* Process file uploads from the chat
      * - Images
@@ -271,7 +275,7 @@ export const executeFlow = async ({
                 const splitDataURI = upload.data.split(',')
                 const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
                 const mime = splitDataURI[0].split(':')[1].split(';')[0]
-                await addSingleFileToStorage(mime, bf, filename, chatflowid, chatId)
+                await addSingleFileToStorage(mime, bf, filename, canvasId, chatId)
                 upload.type = 'stored-file'
                 // Omit upload.data since we don't store the content in database
                 fileUploads[i] = omit(upload, ['data'])
@@ -287,8 +291,8 @@ export const executeFlow = async ({
             if (upload.mime === 'audio/webm' || upload.mime === 'audio/mp4' || upload.mime === 'audio/ogg') {
                 logger.debug(`Attempting a speech to text conversion...`)
                 let speechToTextConfig: ICommonObject = {}
-                if (chatflow.speechToText) {
-                    const speechToTextProviders = JSON.parse(chatflow.speechToText)
+                if (canvasRecord.speechToText) {
+                    const speechToTextProviders = JSON.parse(canvasRecord.speechToText)
                     for (const provider in speechToTextProviders) {
                         const providerObj = speechToTextProviders[provider]
                         if (providerObj.status) {
@@ -301,7 +305,7 @@ export const executeFlow = async ({
                 if (speechToTextConfig) {
                     const options: ICommonObject = {
                         chatId,
-                        chatflowid,
+                        canvasId,
                         appDataSource,
                         databaseEntities: databaseEntities
                     }
@@ -331,7 +335,7 @@ export const executeFlow = async ({
             const fileBuffer = await getFileFromUpload(file.path ?? file.key)
             // Address file name with special characters: https://github.com/expressjs/multer/issues/1104
             file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
-            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, chatflowid)
+            const storagePath = await addArrayFilesToStorage(file.mimetype, fileBuffer, file.originalname, fileNames, canvasId)
 
             const fileInputFieldFromMimeType = mapMimeTypeToInputField(file.mimetype)
 
@@ -373,8 +377,8 @@ export const executeFlow = async ({
         }
     }
 
-    /*** Get chatflows and prepare data  ***/
-    const flowData = chatflow.flowData
+    /*** Prepare canvas flow data  ***/
+    const flowData = canvasRecord.flowData
     const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
     const nodes = parsedFlowData.nodes
     const edges = parsedFlowData.edges
@@ -411,7 +415,7 @@ export const executeFlow = async ({
     const chatHistory = await getChatHistory({
         endingNodes,
         nodes,
-        chatflowid,
+        canvasId,
         appDataSource,
         componentNodes,
         incomingInput,
@@ -422,10 +426,10 @@ export const executeFlow = async ({
 
     /*** Get API Config ***/
     const availableVariables = await appDataSource.getRepository(Variable).find()
-    const { nodeOverrides, variableOverrides, apiOverrideStatus } = getAPIOverrideConfig(chatflow)
+    const { nodeOverrides, variableOverrides, apiOverrideStatus } = getAPIOverrideConfig(canvasRecord)
 
     const flowConfig: IFlowConfig = {
-        chatflowid,
+        canvasId,
         chatId,
         sessionId,
         chatHistory,
@@ -433,7 +437,7 @@ export const executeFlow = async ({
         ...incomingInput.overrideConfig
     }
 
-    logger.debug(`[server]: Start building flow ${chatflowid}`)
+    logger.debug(`[server]: Start building flow ${canvasId}`)
 
     /*** BFS to traverse from Starting Nodes to Ending Node ***/
     const reactFlowNodes = await buildFlow({
@@ -449,7 +453,7 @@ export const executeFlow = async ({
         chatHistory,
         chatId,
         sessionId,
-        chatflowid,
+        canvasId,
         appDataSource,
         overrideConfig,
         apiOverrideStatus,
@@ -465,7 +469,7 @@ export const executeFlow = async ({
     const setVariableNodesOutput = getSetVariableNodesOutput(reactFlowNodes)
 
     if (isAgentFlow) {
-        const agentflow = chatflow
+        const agentflow = canvasRecord
         const streamResults = await buildAgentGraph({
             agentflow,
             flowConfig,
@@ -522,13 +526,12 @@ export const executeFlow = async ({
 
             if (agentflow.followUpPrompts) {
                 const followUpPromptsConfig = JSON.parse(agentflow.followUpPrompts)
-                const generatedFollowUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
-                    chatId,
-                    chatflowid: agentflow.id,
-                    canvasId: agentflow.id,
-                    appDataSource,
-                    databaseEntities
-                })
+            const generatedFollowUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
+                chatId,
+                canvasId: agentflow.id,
+                appDataSource,
+                databaseEntities
+            })
                 if (generatedFollowUpPrompts?.questions) {
                     apiMessage.followUpPrompts = JSON.stringify(generatedFollowUpPrompts.questions)
                 }
@@ -589,15 +592,15 @@ export const executeFlow = async ({
         }
         return undefined
     } else {
-        let chatflowConfig: ICommonObject = {}
-        if (chatflow.chatbotConfig) {
-            chatflowConfig = JSON.parse(chatflow.chatbotConfig)
+        let canvasConfig: ICommonObject = {}
+        if (canvasRecord.chatbotConfig) {
+            canvasConfig = JSON.parse(canvasRecord.chatbotConfig)
         }
 
         let isStreamValid = false
 
         /* Check for post-processing settings, if available isStreamValid is always false */
-        if (chatflowConfig?.postProcessing?.enabled === true) {
+        if (canvasConfig?.postProcessing?.enabled === true) {
             isStreamValid = false
         } else {
             isStreamValid = await checkIfStreamValid(endingNodes, nodes, streaming)
@@ -623,13 +626,12 @@ export const executeFlow = async ({
         /*** Prepare run params ***/
         const runParams = {
             chatId,
-            chatflowid,
-            canvasId: chatflowid,
+            canvasId,
             apiMessageId,
             logger,
             appDataSource,
             databaseEntities,
-            analytic: chatflow.analytic,
+            analytic: canvasRecord.analytic,
             uploads,
             prependMessages,
             ...(isStreamValid && { sseStreamer, shouldStreamResponse: isStreamValid })
@@ -648,7 +650,7 @@ export const executeFlow = async ({
         const userMessage: Omit<IChatMessage, 'id'> = {
             role: 'userMessage',
             content: question,
-            canvasId: chatflowid,
+            canvasId: canvasId,
             chatType: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
             chatId,
             memoryType,
@@ -663,9 +665,9 @@ export const executeFlow = async ({
         if (result.text) {
             resultText = result.text
             /* Check for post-processing settings */
-            if (chatflowConfig?.postProcessing?.enabled === true) {
+            if (canvasConfig?.postProcessing?.enabled === true) {
                 try {
-                    const postProcessingFunction = JSON.parse(chatflowConfig?.postProcessing?.customFunction)
+                    const postProcessingFunction = JSON.parse(canvasConfig?.postProcessing?.customFunction)
                     const nodeInstanceFilePath = componentNodes['customFunction'].filePath as string
                     const nodeModule = await import(nodeInstanceFilePath)
                     //set the outputs.output to EndingNode to prevent json escaping of content...
@@ -674,7 +676,7 @@ export const executeFlow = async ({
                         outputs: { output: 'output' }
                     }
                     const options: ICommonObject = {
-                        chatflowid: chatflow.id,
+                        canvasId: canvasRecord.id,
                         sessionId,
                         chatId,
                         input: question,
@@ -704,7 +706,7 @@ export const executeFlow = async ({
             id: apiMessageId,
             role: 'apiMessage',
             content: resultText,
-            canvasId: chatflowid,
+            canvasId: canvasId,
             chatType: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
             chatId,
             memoryType,
@@ -714,12 +716,11 @@ export const executeFlow = async ({
         if (result?.usedTools) apiMessage.usedTools = JSON.stringify(result.usedTools)
         if (result?.fileAnnotations) apiMessage.fileAnnotations = JSON.stringify(result.fileAnnotations)
         if (result?.artifacts) apiMessage.artifacts = JSON.stringify(result.artifacts)
-        if (chatflow.followUpPrompts) {
-            const followUpPromptsConfig = JSON.parse(chatflow.followUpPrompts)
+        if (canvasRecord.followUpPrompts) {
+            const followUpPromptsConfig = JSON.parse(canvasRecord.followUpPrompts)
             const followUpPrompts = await generateFollowUpPrompts(followUpPromptsConfig, apiMessage.content, {
                 chatId,
-                chatflowid,
-                canvasId: chatflowid,
+                canvasId,
                 appDataSource,
                 databaseEntities
             })
@@ -734,7 +735,7 @@ export const executeFlow = async ({
 
         await telemetry.sendTelemetry('canvas_prediction_sent', {
             version: await getAppVersion(),
-            canvasId: chatflowid,
+            canvasId: canvasId,
             chatId,
             type: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
             flowGraph: getTelemetryFlowObj(nodes, edges)
@@ -809,33 +810,41 @@ const checkIfStreamValid = async (
  * @param {Request} req
  * @param {boolean} isInternal
  */
-export const utilBuildChatflow = async (req: Request, isInternal: boolean = false): Promise<any> => {
+export const utilBuildCanvasFlow = async (req: Request, isInternal: boolean = false): Promise<any> => {
     const appServer = getRunningExpressApp()
-    const chatflowid = req.params.id
+    const canvasId = req.params?.canvasId ?? req.params?.id
 
-    // Check if chatflow exists
-    let chatflow
+    if (!canvasId) {
+        throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Canvas identifier is required`)
+    }
+
+    if (!req.params.id) {
+        ;(req.params as any).id = canvasId
+    }
+
+    // Check if canvas exists
+    let canvasRecord
     try {
-        chatflow = await canvasService.getCanvasById(chatflowid)
+        canvasRecord = await canvasService.getCanvasById(canvasId)
     } catch (error: any) {
         if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found`)
         }
         throw error
     }
 
-    const isAgentFlow = chatflow.type === 'MULTIAGENT'
+    const isAgentFlow = canvasRecord.type === 'MULTIAGENT'
     const httpProtocol = req.get('x-forwarded-proto') || req.protocol
     const baseURL = `${httpProtocol}://${req.get('host')}`
     const incomingInput: IncomingInput = req.body || {} // Ensure incomingInput is never undefined
     const chatId = incomingInput.chatId ?? incomingInput.overrideConfig?.sessionId ?? uuidv4()
     const files = (req.files as Express.Multer.File[]) || []
-    const abortControllerId = `${chatflow.id}_${chatId}`
+    const abortControllerId = `${canvasRecord.id}_${chatId}`
 
     try {
         // Validate API Key if its external API request
         if (!isInternal) {
-            const isKeyValidated = await validateChatflowAPIKey(req, chatflow)
+            const isKeyValidated = await validateCanvasApiKey(req, canvasRecord)
             if (!isKeyValidated) {
                 throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Unauthorized`)
             }
@@ -843,7 +852,7 @@ export const utilBuildChatflow = async (req: Request, isInternal: boolean = fals
 
         const executeData: IExecuteFlowParams = {
             incomingInput, // Use the defensively created incomingInput variable
-            chatflow,
+            canvas: canvasRecord,
             chatId,
             baseURL,
             isInternal,
@@ -883,7 +892,7 @@ export const utilBuildChatflow = async (req: Request, isInternal: boolean = fals
         }
     } catch (e) {
         logger.error('[server]: Error:', e)
-        appServer.abortControllerPool.remove(`${chatflow.id}_${chatId}`)
+        appServer.abortControllerPool.remove(`${canvasRecord.id}_${chatId}`)
         incrementFailedMetricCounter(appServer.metricsProvider, isInternal, isAgentFlow)
         if (e instanceof InternalFlowiseError && e.statusCode === StatusCodes.UNAUTHORIZED) {
             throw e

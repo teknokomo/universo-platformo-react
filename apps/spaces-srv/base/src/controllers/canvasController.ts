@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import { Canvas } from '../database/entities/Canvas'
-import { CanvasService } from '../services/canvasServiceFactory'
+import { CanvasServiceAdapter } from '../services/canvasServiceFactory'
 import { ChatflowType } from '../types'
 
 const DEFAULT_ACCESS_DENIED_MESSAGE = 'Access denied: You do not have permission to access this canvas'
@@ -10,7 +10,7 @@ export interface RateLimiterManagerLike {
     updateRateLimiter: (canvas: any) => Promise<void>
 }
 
-export interface CanvasLegacyControllerOptions {
+export interface CanvasControllerOptions {
     apiKeyService?: {
         getApiKey: (key: string) => Promise<{ id: string } | null | undefined>
     }
@@ -25,11 +25,11 @@ export interface CanvasLegacyControllerOptions {
     }
 }
 
-export class CanvasLegacyController {
+export class CanvasController {
     constructor(
-        private readonly canvasService: CanvasService,
+        private readonly canvasService: CanvasServiceAdapter,
         private readonly rateLimiterManager?: RateLimiterManagerLike,
-        private readonly options?: CanvasLegacyControllerOptions
+        private readonly options?: CanvasControllerOptions
     ) {}
 
     private async ensureUnikMembership(

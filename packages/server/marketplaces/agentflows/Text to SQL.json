@@ -579,7 +579,7 @@
                 "type": "CustomTool",
                 "baseClasses": ["CustomTool", "Tool", "StructuredTool", "Runnable"],
                 "category": "Tools",
-                "description": "Use custom tool you've created in Flowise within chatflow",
+                "description": "Use custom tool you've created in Flowise within canvas",
                 "inputParams": [
                     {
                         "label": "Select Tool",
@@ -598,7 +598,7 @@
                         "id": "customTool_0-output-customTool-CustomTool|Tool|StructuredTool|Runnable",
                         "name": "customTool",
                         "label": "CustomTool",
-                        "description": "Use custom tool you've created in Flowise within chatflow",
+                        "description": "Use custom tool you've created in Flowise within canvas",
                         "type": "CustomTool | Tool | StructuredTool | Runnable"
                     }
                 ],

@@ -12,9 +12,9 @@ description: Aprende cómo contribuir a este proyecto
 
 Dale una estrella y comparte el [Repositorio de Github](https://github.com/FlowiseAI/Flowise).
 
-## 🙌 Comparte tu Chatflow
+## 🙌 Comparte tu Canvas
 
-¡Sí! Compartir cómo usas Flowise es una forma de contribución. Exporta tu chatflow como JSON, adjunta una captura de pantalla y compártelo en la [sección Mostrar y Contar](https://github.com/FlowiseAI/Flowise/discussions/categories/show-and-tell).
+¡Sí! Compartir cómo usas Flowise es una forma de contribución. Exporta tu canvas como JSON, adjunta una captura de pantalla y compártelo en la [sección Mostrar y Contar](https://github.com/FlowiseAI/Flowise/discussions/categories/show-and-tell).
 
 ## 💡 Ideas
 

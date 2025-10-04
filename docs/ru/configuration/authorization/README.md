@@ -17,7 +17,7 @@ description: Узнайте, как защитить ваши экземпляр
 ## Поддерживаемые методы
 
 * [Уровень приложения](app-level.md)
-* [Уровень чат-потока](chatflow-level.md)
+* [Уровень чат-потока](canvas-level.md)
 
 ## Обзор безопасности
 
@@ -150,7 +150,7 @@ echo $SUPABASE_URL
 tail -f logs/server.log | grep "auth"
 
 # Тестирование API доступа
-curl -X GET "http://localhost:3000/api/v1/chatflows" \
+curl -X GET "http://localhost:3000/api/v1/canvases" \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 

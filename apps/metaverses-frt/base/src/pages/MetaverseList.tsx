@@ -7,7 +7,8 @@ import { useTheme } from '@mui/material/styles'
 
 // project imports
 // Use the new template-mui ItemCard (JS component) for consistency with Uniks
-import { ItemCard, FlowListTable } from '@universo/template-mui'
+import { ItemCard } from '@universo/template-mui'
+import { FlowListTable } from '@universo/template-mui/components/table/FlowListTable'
 import { gridSpacing } from '@ui/store/constant'
 import ViewHeader from '@ui/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@ui/ErrorBoundary'

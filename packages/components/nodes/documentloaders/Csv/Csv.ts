@@ -107,9 +107,9 @@ class Csv_DocumentLoaders implements INode {
         return { files, fromStorage }
     }
 
-    async getFileData(file: string, { chatflowid }: { chatflowid: string }, fromStorage?: boolean) {
+    async getFileData(file: string, { canvasId }: { canvasId: string }, fromStorage?: boolean) {
         if (fromStorage) {
-            return getFileFromStorage(file, chatflowid)
+            return getFileFromStorage(file, canvasId)
         } else {
             const splitDataURI = file.split(',')
             splitDataURI.pop()
@@ -126,14 +126,14 @@ class Csv_DocumentLoaders implements INode {
 
         let docs: IDocument[] = []
 
-        const chatflowid = options.chatflowid
+        const canvasId = options.canvasId
 
         const { files, fromStorage } = this.getFiles(nodeData)
 
         for (const file of files) {
             if (!file) continue
 
-            const fileData = await this.getFileData(file, { chatflowid }, fromStorage)
+            const fileData = await this.getFileData(file, { canvasId }, fromStorage)
             const blob = new Blob([new Uint8Array(fileData)])
             const loader = new CSVLoader(blob, columnName.trim().length === 0 ? undefined : columnName.trim())
 

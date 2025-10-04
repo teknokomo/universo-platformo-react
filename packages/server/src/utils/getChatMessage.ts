@@ -50,7 +50,7 @@ export const utilGetChatMessage = async ({
     if (feedback) {
         const query = await appServer.AppDataSource.getRepository(ChatMessage).createQueryBuilder('chat_message')
 
-        // do the join with chat message feedback based on messageId for each chat message in the chatflow
+        // join with chat message feedback based on messageId for each chat message in the canvas
         query
             .leftJoinAndMapOne('chat_message.feedback', ChatMessageFeedback, 'feedback', 'feedback.messageId = chat_message.id')
             .where('chat_message.canvas_id = :canvasId', { canvasId })

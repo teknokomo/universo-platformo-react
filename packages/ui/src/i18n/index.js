@@ -52,7 +52,7 @@ import ruTemplatesTranslation from './locales/ru/views/templates.json'
 
 // Canvas translations now come from spaces-frt module
 
-// Universo Platformo | Import canvases namespaces (legacy chatflows)
+// Universo Platformo | Import canvases namespaces
 import enCanvasesTranslation from './locales/en/views/canvases.json'
 import ruCanvasesTranslation from './locales/ru/views/canvases.json'
 
@@ -104,8 +104,6 @@ i18n.use(LanguageDetector)
                     templates: enTemplatesTranslation,
                     // canvas translations provided by spacesFrtTranslations below
                     canvases: enCanvasesTranslation?.canvases || enCanvasesTranslation,
-                    // Legacy namespace alias for backward compatibility
-                    chatflows: enCanvasesTranslation?.canvases || enCanvasesTranslation,
                     chatmessage: enChatmessageTranslation,
                     flowList: enFlowListTranslation.flowList || enFlowListTranslation,
                     publish: publishTranslations.en.publish,
@@ -136,7 +134,6 @@ i18n.use(LanguageDetector)
                     templates: ruTemplatesTranslation,
                     // canvas translations provided by spacesFrtTranslations below
                     canvases: ruCanvasesTranslation?.canvases || ruCanvasesTranslation,
-                    chatflows: ruCanvasesTranslation?.canvases || ruCanvasesTranslation,
                     chatmessage: ruChatmessageTranslation,
                     flowList: ruFlowListTranslation.flowList || ruFlowListTranslation,
                     publish: publishTranslations.ru.publish,
@@ -179,7 +176,6 @@ i18n.use(LanguageDetector)
                 'spaces',
                 'canvas',
                 'canvases',
-                'chatflows',
                 'chatmessage',
                 'flowList',
                 'publish',

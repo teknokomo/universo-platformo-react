@@ -117,11 +117,11 @@ class Epub_DocumentLoaders implements INode {
                 const fileName = epubFileBase64.replace('FILE-STORAGE::', '')
                 files = fileName.startsWith('[') && fileName.endsWith(']') ? JSON.parse(fileName) : [fileName]
 
-                const chatflowid = options.chatflowid
+                const canvasId = options.canvasId
 
                 for (const file of files) {
                     if (!file) continue
-                    const fileData = await getFileFromStorage(file, chatflowid)
+                    const fileData = await getFileFromStorage(file, canvasId)
                     const tempFilePath = path.join(tempDir, `${Date.now()}_${file}`)
                     const fileUint8Array = fileData instanceof Buffer ? bufferToUint8Array(fileData) : fileData
                     fs.writeFileSync(tempFilePath, fileUint8Array)

@@ -24,7 +24,7 @@ def test_streaming():
     # Prueba de predicción con streaming
     completion = client.create_prediction(
         PredictionData(
-            chatflowId="<chatflow-id>",
+            canvasId="<canvas-id>",
             question="¡Cuéntame un chiste!",
             streaming=True
         )
@@ -52,7 +52,7 @@ async function test_streaming() {
   try {
     // Para predicción con streaming
     const prediction = await client.createPrediction({
-      chatflowId: '<chatflow-id>',
+      canvasId: '<canvas-id>',
       question: '¿Cuál es la capital de Francia?',
       streaming: true,
     });
@@ -74,7 +74,7 @@ test_streaming()
 
 {% tab title="cURL" %}
 ```bash
-curl https://localhost:3000/api/v1/predictions/{chatflow-id} \
+curl https://localhost:3000/api/v1/predictions/{canvas-id} \
   -H "Content-Type: application/json" \
   -d '{
     "question": "¡Hola mundo!",

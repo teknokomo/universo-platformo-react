@@ -112,7 +112,7 @@ interface BuildOptions {
     includeStartCollectName?: boolean
     includeEndScore?: boolean
     generateAnswerGraphics?: boolean
-    chatflowId?: string
+    canvasId?: string
     arDisplayType?: 'marker' | 'wallpaper'
 }
 ```

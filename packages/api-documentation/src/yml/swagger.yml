@@ -2,7 +2,7 @@ tags:
     - name: assistants
     - name: attachments
     - name: chatmessage
-    - name: chatflows
+    - name: canvases
     - name: document-store
     - name: feedback
     - name: leads
@@ -22,14 +22,14 @@ paths:
                 - bearerAuth: []
             operationId: getAllChatMessages
             summary: List all chat messages
-            description: Retrieve all chat messages for a specific chatflow.
+            description: Retrieve all chat messages for a specific canvas.
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
                 - in: query
                   name: chatType
                   schema:
@@ -102,14 +102,14 @@ paths:
                 - bearerAuth: []
             operationId: removeAllChatMessages
             summary: Delete all chat messages
-            description: Delete all chat messages for a specific chatflow.
+            description: Delete all chat messages for a specific canvas.
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
                 - in: query
                   name: chatId
                   schema:
@@ -349,46 +349,46 @@ paths:
                 '400':
                     description: Invalid input provided
                 '404':
-                    description: Chatflow or ChatId not found
+                    description: Canvas or ChatId not found
                 '422':
                     description: Validation error
                 '500':
                     description: Internal server error
 
-    /chatflows:
+    /canvases:
         post:
             tags:
-                - chatflows
+                - canvases
             security:
                 - bearerAuth: []
-            operationId: createChatflow
-            summary: Create a new chatflow
-            description: Create a new chatflow with the provided details
+            operationId: createCanvas
+            summary: Create a new canvas
+            description: Create a new canvas with the provided details
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/Chatflow'
+                            $ref: '#/components/schemas/Canvas'
                 required: true
             responses:
                 '200':
-                    description: Chatflow created successfully
+                    description: Canvas created successfully
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Chatflow'
+                                $ref: '#/components/schemas/Canvas'
                 '400':
                     description: Invalid input provided
                 '422':
                     description: Validation exception
         get:
             tags:
-                - chatflows
+                - canvases
             security:
                 - bearerAuth: []
-            summary: List all chatflows
-            description: Retrieve a list of all chatflows
-            operationId: listChatflows
+            summary: List all canvases
+            description: Retrieve a list of all canvases
+            operationId: listCanvass
             responses:
                 '200':
                     description: Successful operation
@@ -397,122 +397,122 @@ paths:
                             schema:
                                 type: array
                                 items:
-                                    $ref: '#/components/schemas/Chatflow'
+                                    $ref: '#/components/schemas/Canvas'
                 '500':
                     description: Internal error
-    /chatflows/{id}:
+    /canvases/{id}:
         get:
             tags:
-                - chatflows
+                - canvases
             security:
                 - bearerAuth: []
-            summary: Get chatflow by ID
-            description: Retrieve a specific chatflow by ID
-            operationId: getChatflowById
+            summary: Get canvas by ID
+            description: Retrieve a specific canvas by ID
+            operationId: getCanvasById
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
             responses:
                 '200':
                     description: Successful operation
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Chatflow'
+                                $ref: '#/components/schemas/Canvas'
                 '400':
                     description: The specified ID is invalid
                 '404':
-                    description: Chatflow not found
+                    description: Canvas not found
                 '500':
                     description: Internal error
         put:
             tags:
-                - chatflows
+                - canvases
             security:
                 - bearerAuth: []
-            summary: Update chatflow details
-            description: Update the details of an existing chatflow
-            operationId: updateChatflow
+            summary: Update canvas details
+            description: Update the details of an existing canvas
+            operationId: updateCanvas
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/Chatflow'
+                            $ref: '#/components/schemas/Canvas'
             responses:
                 '200':
-                    description: Chatflow updated successfully
+                    description: Canvas updated successfully
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Chatflow'
+                                $ref: '#/components/schemas/Canvas'
                 '400':
                     description: The specified ID is invalid or body is missing
                 '404':
-                    description: Chatflow not found
+                    description: Canvas not found
                 '500':
                     description: Internal error
         delete:
             tags:
-                - chatflows
+                - canvases
             security:
                 - bearerAuth: []
-            summary: Delete a chatflow
-            description: Delete a chatflow by ID
-            operationId: deleteChatflow
+            summary: Delete a canvas
+            description: Delete a canvas by ID
+            operationId: deleteCanvas
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
             responses:
                 '200':
-                    description: Chatflow deleted successfully
+                    description: Canvas deleted successfully
                 '400':
                     description: The specified ID is invalid
                 '404':
-                    description: Chatflow not found
+                    description: Canvas not found
                 '500':
                     description: Internal error
-    /chatflows/apikey/{apikey}:
+    /canvases/apikey/{apikey}:
         get:
             tags:
-                - chatflows
+                - canvases
             security:
                 - bearerAuth: []
-            summary: Get chatflow by API key
-            description: Retrieve a chatflow using an API key
-            operationId: getChatflowByApiKey
+            summary: Get canvas by API key
+            description: Retrieve a canvas using an API key
+            operationId: getCanvasByApiKey
             parameters:
                 - in: path
                   name: apikey
                   required: true
                   schema:
                       type: string
-                  description: API key associated with the chatflow
+                  description: API key associated with the canvas
             responses:
                 '200':
                     description: Successful operation
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Chatflow'
+                                $ref: '#/components/schemas/Canvas'
                 '400':
                     description: The specified API key is invalid
                 '404':
-                    description: Chatflow not found
+                    description: Canvas not found
                 '500':
                     description: Internal error
 
@@ -1025,7 +1025,7 @@ paths:
                 - feedback
             security:
                 - bearerAuth: []
-            operationId: createChatMessageFeedbackForChatflow
+            operationId: createChatMessageFeedbackForCanvas
             summary: Create new chat message feedback
             description: Create new feedback for a specific chat flow.
             requestBody:
@@ -1051,8 +1051,8 @@ paths:
                 - feedback
             security:
                 - bearerAuth: []
-            summary: List all chat message feedbacks for a chatflow
-            description: Retrieve all feedbacks for a chatflow
+            summary: List all chat message feedbacks for a canvas
+            description: Retrieve all feedbacks for a canvas
             operationId: getAllChatMessageFeedback
             parameters:
                 - in: path
@@ -1060,7 +1060,7 @@ paths:
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
                 - in: query
                   name: chatId
                   schema:
@@ -1103,7 +1103,7 @@ paths:
                 - bearerAuth: []
             summary: Update chat message feedback
             description: Update a specific feedback
-            operationId: updateChatMessageFeedbackForChatflow
+            operationId: updateChatMessageFeedbackForCanvas
             parameters:
                 - in: path
                   name: id
@@ -1137,8 +1137,8 @@ paths:
             security:
                 - bearerAuth: []
             operationId: createLead
-            summary: Create a new lead in a chatflow
-            description: Create a new lead associated with a specific chatflow
+            summary: Create a new lead in a canvas
+            description: Create a new lead associated with a specific canvas
             requestBody:
                 content:
                     application/json:
@@ -1165,16 +1165,16 @@ paths:
                 - leads
             security:
                 - bearerAuth: []
-            summary: Get all leads for a specific chatflow
-            description: Retrieve all leads associated with a specific chatflow
-            operationId: getAllLeadsForChatflow
+            summary: Get all leads for a specific canvas
+            description: Retrieve all leads associated with a specific canvas
+            operationId: getAllLeadsForCanvas
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
             responses:
                 '200':
                     description: Successful operation
@@ -1224,7 +1224,7 @@ paths:
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
             requestBody:
                 content:
                     application/json:
@@ -1295,7 +1295,7 @@ paths:
                 '400':
                     description: Invalid input provided
                 '404':
-                    description: Chatflow not found
+                    description: Canvas not found
                 '422':
                     description: Validation error
                 '500':
@@ -1451,7 +1451,7 @@ paths:
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID to filter records by
+                  description: Canvas ID to filter records by
                 - in: query
                   name: order
                   required: false
@@ -1627,14 +1627,14 @@ paths:
                 - bearerAuth: []
             operationId: vectorUpsert
             summary: Upsert vector embeddings
-            description: Upsert vector embeddings of documents in a chatflow
+            description: Upsert vector embeddings of documents in a canvas
             parameters:
                 - in: path
                   name: id
                   required: true
                   schema:
                       type: string
-                  description: Chatflow ID
+                  description: Canvas ID
             requestBody:
                 content:
                     application/json:
@@ -1676,7 +1676,7 @@ paths:
                 '400':
                     description: Invalid input provided
                 '404':
-                    description: Chatflow not found
+                    description: Canvas not found
                 '422':
                     description: Validation error
                 '500':
@@ -1720,7 +1720,7 @@ components:
                     type: string
                     enum: [apiMessage, userMessage]
                     example: 'apiMessage'
-                chatflowid:
+                canvasId:
                     type: string
                     format: uuid
                     example: 'd290f1ee-6c54-4b01-90e6-d701748f0852'
@@ -1779,7 +1779,7 @@ components:
                     nullable: true
                     example: 'user@example.com'
 
-        Chatflow:
+        Canvas:
             type: object
             properties:
                 id:
@@ -2170,9 +2170,9 @@ components:
                     type: string
                     description: Phone number of the lead
                     example: '+1234567890'
-                chatflowid:
+                canvasId:
                     type: string
-                    description: ID of the chatflow the lead is associated with
+                    description: ID of the canvas the lead is associated with
                     example: '7c4e8b7a-7b9a-4b4d-9f3e-2d28f1ebea02'
                 chatId:
                     type: string
@@ -2191,9 +2191,9 @@ components:
                     format: uuid
                     description: Unique identifier for the upsert history record
                     example: 'cfd531e0-82fc-11e9-bc42-526af7764f64'
-                chatflowid:
+                canvasId:
                     type: string
-                    description: ID of the chatflow associated with the upsert history
+                    description: ID of the canvas associated with the upsert history
                     example: '7c4e8b7a-7b9a-4b4d-9f3e-2d28f1ebea02'
                 result:
                     type: string
@@ -2481,7 +2481,7 @@ components:
                     type: string
                     format: uuid
                     description: Unique identifier for the feedback
-                chatflowid:
+                canvasId:
                     type: string
                     format: uuid
                     description: Identifier for the chat flow

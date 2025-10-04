@@ -60,7 +60,7 @@ class BufferMemory_Memory implements INode {
 
         const appDataSource = options.appDataSource as DataSource
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const chatflowid = options.chatflowid as string
+        const canvasId = options.canvasId as string
 
         return new BufferMemoryExtended({
             returnMessages: true,
@@ -68,7 +68,7 @@ class BufferMemory_Memory implements INode {
             sessionId,
             appDataSource,
             databaseEntities,
-            chatflowid
+            canvasId
         })
     }
 }
@@ -77,13 +77,13 @@ interface BufferMemoryExtendedInput {
     sessionId: string
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    chatflowid: string
+    canvasId: string
 }
 
 class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    chatflowid: string
+    canvasId: string
     sessionId = ''
 
     constructor(fields: BufferMemoryInput & BufferMemoryExtendedInput) {
@@ -91,7 +91,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         this.sessionId = fields.sessionId
         this.appDataSource = fields.appDataSource
         this.databaseEntities = fields.databaseEntities
-        this.chatflowid = fields.chatflowid
+        this.canvasId = fields.canvasId
     }
 
     async getChatMessages(
@@ -105,7 +105,7 @@ class BufferMemoryExtended extends FlowiseMemory implements MemoryMethods {
         const chatMessage = await this.appDataSource.getRepository(this.databaseEntities['ChatMessage']).find({
             where: {
                 sessionId: id,
-                chatflowid: this.chatflowid
+                canvasId: this.canvasId
             },
             order: {
                 createdDate: 'ASC'

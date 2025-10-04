@@ -62,7 +62,7 @@ Si estás usando el firewall separado del panel de Digital Ocean, asegúrate de 
 
 <figure><img src="../../../.gitbook/assets/Untitled (5).png" alt=""><figcaption></figcaption></figure>
 
-3. Guarda el chatflow y pruébalo para ver si las conversaciones son recordadas.
+3. Guarda el canvas y pruébalo para ver si las conversaciones son recordadas.
 
 <figure><img src="../../../.gitbook/assets/image (27).png" alt=""><figcaption></figcaption></figure>
 

@@ -46,7 +46,7 @@ Analytics ← Monitoring ← Document Store ← Vector DB ← Processing
 
 ### Ключевые компоненты:
 
-1. **Chatflow Builder** - визуальный конструктор потоков
+1. **Canvas Builder** - визуальный конструктор потоков
 2. **Agent Engine** - движок выполнения агентов
 3. **Document Manager** - управление документами
 4. **Vector Store** - векторное хранилище
@@ -59,7 +59,7 @@ Analytics ← Monitoring ← Document Store ← Vector DB ← Processing
 
 ```yaml
 # Планирование чат-потока
-chatflow_design:
+canvas_design:
   purpose: "Определение цели и задач"
   user_stories: "Сценарии использования"
   data_sources: "Источники данных"
@@ -196,8 +196,8 @@ class FlowiseClient {
         this.apiKey = apiKey;
     }
     
-    async predict(chatflowId, question, options = {}) {
-        const response = await fetch(`${this.baseUrl}/api/v1/prediction/${chatflowId}`, {
+    async predict(canvasId, question, options = {}) {
+        const response = await fetch(`${this.baseUrl}/api/v1/prediction/${canvasId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -212,8 +212,8 @@ class FlowiseClient {
         return response.json();
     }
     
-    async streamPredict(chatflowId, question, onChunk) {
-        const response = await fetch(`${this.baseUrl}/api/v1/prediction/${chatflowId}`, {
+    async streamPredict(canvasId, question, onChunk) {
+        const response = await fetch(`${this.baseUrl}/api/v1/prediction/${canvasId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

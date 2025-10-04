@@ -158,7 +158,8 @@
                 "enable": "Enable chat feedback",
                 "save": "Save",
                 "settingsSaved": "Chat Feedback Settings Saved",
-                "failedToSave": "Failed to save Chat Feedback Settings"
+                "failedToSave": "Failed to save Chat Feedback Settings",
+                "missingCanvas": "Canvas context is missing"
             },
             "analyseChatflow": {
                 "save": "Save",
@@ -179,7 +180,8 @@
                 "formFields": "Form fields",
                 "name": "Name",
                 "email": "Email Address",
-                "phone": "Phone"
+                "phone": "Phone",
+                "missingCanvas": "Canvas context is missing"
             },
             "fileUpload": {
                 "enable": "Enable Full File Upload",
@@ -189,7 +191,8 @@
                 "moreDetails": "for more details.",
                 "save": "Save",
                 "configSaved": "File Upload Configuration Saved",
-                "failedToSave": "Failed to save File Upload Configuration"
+                "failedToSave": "Failed to save File Upload Configuration",
+                "missingCanvas": "Canvas context is missing"
             },
             "postProcessing": {
                 "enable": "Enable Post Processing",
@@ -272,7 +275,8 @@
         },
         "save": "Save",
         "configSaved": "Speech To Text Configuration Saved",
-        "failedToSave": "Failed to save Speech To Text Configuration"
+        "failedToSave": "Failed to save Speech To Text Configuration",
+        "missingCanvas": "Canvas context is missing"
     },
     "docstore": {
         "title": "Document Store",

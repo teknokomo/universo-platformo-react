@@ -47,7 +47,7 @@ class ExecuteFlow_SeqAgents implements INode {
             label: 'Connect Credential',
             name: 'credential',
             type: 'credential',
-            credentialNames: ['chatflowApi'],
+            credentialNames: ['canvasApi'],
             optional: true
         }
         this.inputs = [
@@ -179,14 +179,14 @@ class ExecuteFlow_SeqAgents implements INode {
         const returnValueAs = nodeData.inputs?.returnValueAs as string
 
         const credentialData = await getCredentialData(nodeData.credential ?? '', options)
-        const chatflowApiKey = getCredentialParam('chatflowApiKey', credentialData, nodeData)
+        const canvasApiKey = getCredentialParam('canvasApiKey', credentialData, nodeData)
 
-        if (selectedFlowId === options.chatflowid) throw new Error('Cannot call the same agentflow!')
+        if (selectedFlowId === options.canvasId) throw new Error('Cannot call the same agentflow!')
 
         let headers = {}
-        if (chatflowApiKey) headers = { Authorization: `Bearer ${chatflowApiKey}` }
+        if (canvasApiKey) headers = { Authorization: `Bearer ${canvasApiKey}` }
 
-        const chatflowId = options.chatflowid
+        const canvasId = options.canvasId
         const sessionId = options.sessionId
         const chatId = options.chatId
 
@@ -210,7 +210,7 @@ class ExecuteFlow_SeqAgents implements INode {
             }
 
             const flow = {
-                chatflowId,
+                canvasId,
                 sessionId,
                 chatId,
                 input: flowInput,

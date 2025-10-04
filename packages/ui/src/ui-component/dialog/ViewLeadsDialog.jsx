@@ -33,6 +33,7 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 // API
 import useApi from '@/hooks/useApi'
 import leadsApi from '@/api/lead'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 import '@/views/chatmessage/ChatMessage.css'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -51,6 +52,7 @@ DatePickerCustomInput.propTypes = {
 }
 
 const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
+    const { canvas, canvasId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
     const theme = useTheme()
@@ -58,7 +60,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
 
     const [leads, setLeads] = useState([])
     const [search, setSearch] = useState('')
-    const getLeadsApi = useApi(leadsApi.getLeads)
+    const getLeadsApi = useApi(leadsApi.getCanvasLeads)
 
     const onSearchChange = (event) => {
         setSearch(event.target.value)
@@ -81,7 +83,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
         const blob = new Blob([dataStr], { type: 'application/json' })
         const dataUri = URL.createObjectURL(blob)
 
-        const exportFileDefaultName = `${dialogProps.chatflow.id}-leads.json`
+        const exportFileDefaultName = `${canvasId || 'canvas'}-leads.json`
 
         let linkElement = document.createElement('a')
         linkElement.setAttribute('href', dataUri)
@@ -96,8 +98,8 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
     }, [getLeadsApi.data])
 
     useEffect(() => {
-        if (dialogProps.chatflow) {
-            getLeadsApi.request(dialogProps.chatflow.id)
+        if (canvasId) {
+            getLeadsApi.request(canvasId)
         }
 
         return () => {
@@ -105,7 +107,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogProps])
+    }, [canvasId])
 
     useEffect(() => {
         if (show) dispatch({ type: SHOW_CANVAS_DIALOG })

@@ -8,14 +8,14 @@ import { Box, Typography } from '@mui/material'
 import { baseURL } from '@/store/constant'
 
 // Universo Platformo | Component to display Python code based on the mode
-const PythonCode = ({ chatflowid, apiKey, mode = 'chat' }) => {
+const PythonCode = ({ canvasId, apiKey, mode = 'chat' }) => {
     const { t } = useTranslation('canvases')
 
     // Universo Platformo | Function to generate Python code for chat without authorization
-    const getPythonChatCode = (chatflowid) => {
+    const getPythonChatCode = (canvasIdentifier) => {
         return `import requests
 
-API_URL = "${baseURL}/api/v1/prediction/${chatflowid}"
+API_URL = "${baseURL}/api/v1/prediction/${canvasIdentifier}"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -33,10 +33,10 @@ print(result)
     }
 
     // Universo Platformo | Function to generate Python code for AR without authorization
-    const getPythonARCode = (chatflowid) => {
+    const getPythonARCode = (canvasIdentifier) => {
         return `import requests
 
-API_URL = "${baseURL}/api/v1/ar/${chatflowid}"
+API_URL = "${baseURL}/api/v1/ar/${canvasIdentifier}"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -54,10 +54,10 @@ print(result)
     }
 
     // Universo Platformo | Function to generate Python code for chat with authorization
-    const getPythonChatCodeWithAuth = (chatflowid, apiKey) => {
+    const getPythonChatCodeWithAuth = (canvasIdentifier, apiKey) => {
         return `import requests
 
-API_URL = "${baseURL}/api/v1/prediction/${chatflowid}"
+API_URL = "${baseURL}/api/v1/prediction/${canvasIdentifier}"
 API_KEY = "${apiKey ? apiKey.apiKey : 'your-api-key-here'}"
 
 def query(payload):
@@ -80,10 +80,10 @@ print(result)
     }
 
     // Universo Platformo | Function to generate Python code for AR with authorization
-    const getPythonARCodeWithAuth = (chatflowid, apiKey) => {
+    const getPythonARCodeWithAuth = (canvasIdentifier, apiKey) => {
         return `import requests
 
-API_URL = "${baseURL}/api/v1/ar/${chatflowid}"
+API_URL = "${baseURL}/api/v1/ar/${canvasIdentifier}"
 API_KEY = "${apiKey ? apiKey.apiKey : 'your-api-key-here'}"
 
 def query(payload):
@@ -108,9 +108,11 @@ print(result)
     // Universo Platformo | Determine which code to show based on mode and apiKey presence
     const generateCode = () => {
         if (apiKey) {
-            return mode === 'chat' ? getPythonChatCodeWithAuth(chatflowid, apiKey) : getPythonARCodeWithAuth(chatflowid, apiKey)
+            return mode === 'chat'
+                ? getPythonChatCodeWithAuth(canvasId, apiKey)
+                : getPythonARCodeWithAuth(canvasId, apiKey)
         } else {
-            return mode === 'chat' ? getPythonChatCode(chatflowid) : getPythonARCode(chatflowid)
+            return mode === 'chat' ? getPythonChatCode(canvasId) : getPythonARCode(canvasId)
         }
     }
 
@@ -139,7 +141,7 @@ print(result)
 }
 
 PythonCode.propTypes = {
-    chatflowid: PropTypes.string.isRequired,
+    canvasId: PropTypes.string.isRequired,
     apiKey: PropTypes.object,
     mode: PropTypes.oneOf(['chat', 'ar'])
 }
