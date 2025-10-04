@@ -148,7 +148,7 @@ Retrieves the raw `flowData` (as a JSON string) and configuration for a given `c
 
 ### `GET /api/v1/publish/arjs/public/:publicationId` (Legacy)
 
-Retrieves the raw `flowData` for a given `publicationId` (which can be either `canvasId` or legacy `canvasId`). Maintains backward compatibility.
+Retrieves the raw `flowData` for a given `publicationId` (which can be either `canvasId` or legacy `chatflowId`). Maintains backward compatibility.
 
 ### Chatbot Configuration
 
