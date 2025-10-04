@@ -9,10 +9,10 @@
 
 ## 2025-09-24 — Chatflow alias bridge & service extraction
 
-- Introduced `CanvasId` alias plus helper mappers in `packages/server/src/Interface.ts`, ensuring every chatflow response now carries both `id` and `canvasId` while consumers gradually migrate terminology.
-- Replaced the legacy in-repo chatflows service with `LegacyChatflowsService` under `@universo/spaces-srv`, injecting Flowise dependencies so backend logic executes from the Spaces package while preserving telemetry, metrics, and document store updates.
-- Updated the server adapter to delegate CRUD calls to the Spaces service, keeping `/chatflows` routes functional but emitting Canvas-first payloads for downstream routers/controllers.
-- Embedded the Spaces router inside `createUniksRouter`, forwarding `/unik/:id/spaces` and `/unik/:id/canvases` through `@universo/spaces-srv` with optional rate limiting while preserving legacy chatflows mounts.
+- Introduced `CanvasId` alias plus helper mappers in `packages/server/src/Interface.ts`, ensuring every canvas response now carries both `id` and `canvasId` while consumers gradually migrate terminology.
+- Replaced the legacy in-repo canvass service with the new `CanvasService` under `@universo/spaces-srv`, injecting Flowise dependencies so backend logic executes from the Spaces package while preserving telemetry, metrics, and document store updates.
+- Updated the server adapter to delegate CRUD calls to the Spaces service, keeping `/canvass` routes functional but emitting Canvas-first payloads for downstream routers/controllers.
+- Embedded the Spaces router inside `createUniksRouter`, forwarding `/unik/:id/spaces` and `/unik/:id/canvases` through `@universo/spaces-srv` with optional rate limiting while preserving legacy canvass mounts.
 
 ## 2025-09-23 — Localized default canvas handling
 
@@ -143,8 +143,8 @@ Next steps: Observe in-browser result; if transparency ordering issues appear, c
 
 ### i18n Normalization (2025-09-18)
 - Objective: Fix UI showing raw i18n keys by aligning `useTranslation` namespaces and using relative keys.
-- Completed today: normalized keys in `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, and `Configuration.jsx`.
-- Convention: For `chatflows` namespace, use relative keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, `common.*`. For `publish`, use relative keys like `arjs.*`.
+- Completed today: normalized keys in `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `canvass/index.jsx`, `agentflows/index.jsx`, and `Configuration.jsx`.
+- Convention: For `canvass` namespace, use relative keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, `common.*`. For `publish`, use relative keys like `arjs.*`.
 # Current Active Context
 
 **Status**: Alpha v0.30.0 (2025-01-17) - AR.js Camera Disable MVP Implemented
@@ -232,7 +232,7 @@ When user selects "Без камеры":
 **Implemented Changes:**
 - Replaced single Chatflow selector with hierarchical Space -> Canvas selectors (auto-select first Space and first Canvas by backend order)
 - Added consolidated `spacesApi` (frontend) using centralized `@universo/spaces-frt` package with `getSpaces` and `getCanvases` hitting existing server routes `/unik/:id/spaces` and `/unik/:id/spaces/:spaceId/canvases`
-- Updated Analytics UI to request leads by selected Canvas (still using existing leads endpoint with `chatflowid` mapped to Canvas ID)
+- Updated Analytics UI to request leads by selected Canvas (still using existing leads endpoint with `canvasid` mapped to Canvas ID)
 - Introduced dedicated phone column and refactored points column to use `lead.points` with legacy fallback to numeric `phone`
 - Updated i18n (EN/RU) with new keys: `selectSpace`, `selectCanvas`, `table.phone`, and renamed Chatflow ID label to Canvas ID / ID холста
 - Updated documentation (publish-frt README EN/RU) removing obsolete note about temporary storage of points in `lead.phone` and referencing new `lead.points`

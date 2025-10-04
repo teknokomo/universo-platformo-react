@@ -55,10 +55,10 @@ const getBotConfig = async (req: Request, res: Response, next: NextFunction): Pr
 
         logger.info(`[BOT CONFIG] Getting bot config for ID: ${botId}`)
 
-        // Universo Platformo | Retrieve chatflow to check its Unik ID
+        // Universo Platformo | Retrieve canvas to check its Unik ID
         const unikId = await workspaceAccessService.getUnikIdForCanvas(botId)
 
-        // Universo Platformo | If chatflow belongs to a Unik, verify user access
+        // Universo Platformo | If canvas belongs to a Unik, verify user access
         if (unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {
@@ -124,10 +124,10 @@ const renderBot = async (req: Request, res: Response, next: NextFunction): Promi
 
         logger.info(`[BOT RENDER] Rendering bot for ID: ${botId}`)
 
-        // Universo Platformo | Retrieve chatflow to check its Unik ID
+        // Universo Platformo | Retrieve canvas to check its Unik ID
         const unikId = await workspaceAccessService.getUnikIdForCanvas(botId)
 
-        // Universo Platformo | If chatflow belongs to a Unik, verify user access
+        // Universo Platformo | If canvas belongs to a Unik, verify user access
         if (unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {
@@ -196,10 +196,10 @@ const streamBot = async (req: Request, res: Response, next: NextFunction): Promi
 
         const botId = req.params.id
 
-        // Universo Platformo | Retrieve chatflow to check its Unik ID
+        // Universo Platformo | Retrieve canvas to check its Unik ID
         const unikId = await workspaceAccessService.getUnikIdForCanvas(botId)
 
-        // Universo Platformo | If chatflow belongs to a Unik, verify user access
+        // Universo Platformo | If canvas belongs to a Unik, verify user access
         if (unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {

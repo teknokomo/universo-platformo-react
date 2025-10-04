@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { useDispatch } from 'react-redux'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
 
@@ -19,17 +19,14 @@ import canvasesApi from '@/api/canvases'
 
 // utils
 import useNotifier from '@/utils/useNotifier'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 const RateLimit = ({ dialogProps }) => {
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const dispatch = useDispatch()
-    const chatflow = useSelector((state) => state.canvas.chatflow)
-    const canvasId = chatflow.id
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
     let apiConfig = {}
     try {
-        apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+        apiConfig = canvas.apiConfig ? JSON.parse(canvas.apiConfig) : {}
     } catch (e) {
         apiConfig = {}
     }
@@ -48,7 +45,7 @@ const RateLimit = ({ dialogProps }) => {
     const formatObj = () => {
         let apiConfig = {}
         try {
-            apiConfig = JSON.parse(dialogProps.chatflow.apiConfig || '{}')
+            apiConfig = JSON.parse(canvas.apiConfig || '{}')
             if (apiConfig === null || apiConfig === undefined) {
                 apiConfig = {}
             }
@@ -91,6 +88,16 @@ const RateLimit = ({ dialogProps }) => {
 
     const onSave = async () => {
         try {
+            if (!canvasId || !unikId) {
+                enqueueSnackbar({
+                    message: 'Missing canvas context',
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'error'
+                    }
+                })
+                return
+            }
             const saveResp = await canvasesApi.updateCanvas(
                 unikId,
                 canvasId,
@@ -112,7 +119,7 @@ const RateLimit = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorMessage =

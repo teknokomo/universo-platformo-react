@@ -17,10 +17,10 @@
         "table": {
             "name": "Name",
             "email": "Email",
+            "phone": "Phone",
             "points": "Points",
             "completionDate": "Completion Date",
-            "chatflowId": "Canvas ID",
-            "phone": "Phone",
+            "canvasId": "Canvas ID",
             "notSpecified": "Not specified"
         },
         "loading": "Loading...",

@@ -8,7 +8,7 @@ Universo Platformo introduces a two‑layer routing pattern for Unik entities wh
 
 * Collection endpoints (list & create) live under: `GET /api/v1/uniks`, `POST /api/v1/uniks`
 * Singular (one entity) endpoints use a singular base path: `GET /api/v1/unik/:unikId`, `PUT /api/v1/unik/:unikId`, `DELETE /api/v1/unik/:unikId`
-* Nested resources (chatflows, credentials, variables, apikeys, spaces, etc.) are mounted under the singular pattern: `/api/v1/unik/:unikId/<resource>`
+* Nested resources (canvases, credentials, variables, apikeys, spaces, etc.) are mounted under the singular pattern: `/api/v1/unik/:unikId/<resource>`
 * Legacy form `/api/v1/uniks/:unikId/<resource>` continues to function for backward compatibility but is considered deprecated for UI navigation.
 
 ### Unified Parameter Naming
@@ -30,7 +30,7 @@ If the unik identifier is missing, controllers now reliably respond with a valid
 * [Assistants](assistants.md)
 * [Attachments](attachments.md)
 * [Chat Message](chat-message.md)
-* [Chatflows](chatflows.md)
+* [Canvases](canvases.md)
 * [Document Store](document-store.md)
 * [Feedback](feedback.md)
 * [Leads](leads.md)

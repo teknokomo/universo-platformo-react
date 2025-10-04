@@ -13,7 +13,7 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import assistantService from '../assistants'
-import chatMessagesService from '../chat-messages'
+import canvasMessagesService from '../canvas-messages'
 import canvasService from '../spacesCanvas'
 import documenStoreService from '../documentstore'
 import marketplacesService from '../marketplaces'
@@ -26,7 +26,7 @@ type ExportInput = {
     assistantCustom: boolean
     assistantOpenAI: boolean
     assistantAzure: boolean
-    chatflow: boolean
+    canvas?: boolean
     chat_message: boolean
     chat_feedback: boolean
     custom_template: boolean
@@ -41,7 +41,7 @@ type ExportData = {
     AssistantFlow: CanvasFlowResult[]
     AssistantOpenAI: Assistant[]
     AssistantAzure: Assistant[]
-    ChatFlow: CanvasFlowResult[]
+    CanvasFlow: CanvasFlowResult[]
     ChatMessage: ChatMessage[]
     ChatMessageFeedback: ChatMessageFeedback[]
     CustomTemplate: CustomTemplate[]
@@ -61,7 +61,7 @@ const convertExportInput = (body: any): ExportInput => {
             throw new Error('Invalid assistantOpenAI property in ExportInput object')
         if (body.assistantAzure && typeof body.assistantAzure !== 'boolean')
             throw new Error('Invalid assistantAzure property in ExportInput object')
-        if (body.chatflow && typeof body.chatflow !== 'boolean') throw new Error('Invalid chatflow property in ExportInput object')
+        if (body.canvas && typeof body.canvas !== 'boolean') throw new Error('Invalid canvas property in ExportInput object')
         if (body.chat_message && typeof body.chat_message !== 'boolean')
             throw new Error('Invalid chat_message property in ExportInput object')
         if (body.chat_feedback && typeof body.chat_feedback !== 'boolean')
@@ -102,15 +102,17 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
         let AssistantAzure: Assistant[] =
             exportInput.assistantAzure === true ? await assistantService.getAllAssistants('AZURE', unikId) : []
 
-        let ChatFlow: CanvasFlowResult[] =
-            exportInput.chatflow === true
+        const exportCanvasEntities = exportInput.canvas === true
+
+        const CanvasFlow: CanvasFlowResult[] =
+            exportCanvasEntities
                 ? await canvasService.getAllCanvases({ unikId, type: 'CHATFLOW' })
                 : []
 
-        let ChatMessage: ChatMessage[] = exportInput.chat_message === true ? await chatMessagesService.getAllMessages() : []
+        let ChatMessage: ChatMessage[] = exportInput.chat_message === true ? await canvasMessagesService.getAllMessages() : []
 
         let ChatMessageFeedback: ChatMessageFeedback[] =
-            exportInput.chat_feedback === true ? await chatMessagesService.getAllMessagesFeedback() : []
+            exportInput.chat_feedback === true ? await canvasMessagesService.getAllMessagesFeedback() : []
 
         let CustomTemplate: CustomTemplate[] =
             exportInput.custom_template === true ? await marketplacesService.getAllCustomTemplates(unikId) : []
@@ -133,7 +135,7 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
             AssistantFlow,
             AssistantOpenAI,
             AssistantAzure,
-            ChatFlow,
+            CanvasFlow,
             ChatMessage,
             ChatMessageFeedback,
             CustomTemplate,
@@ -150,13 +152,13 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
     }
 }
 
-async function replaceDuplicateIdsForChatFlow(
+async function replaceDuplicateIdsForCanvasFlow(
     queryRunner: QueryRunner,
     originalData: ExportData,
-    chatflows: CanvasFlowResult[]
+    canvases: CanvasFlowResult[]
 ) {
     try {
-        const ids = chatflows.map((chatflow) => chatflow.id)
+        const ids = canvases.map((canvas) => canvas.id)
         const records = await queryRunner.manager.find(Canvas, {
             where: { id: In(ids) }
         })
@@ -170,7 +172,7 @@ async function replaceDuplicateIdsForChatFlow(
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: exportImportService.replaceDuplicateIdsForChatflow - ${getErrorMessage(error)}`
+            `Error: exportImportService.replaceDuplicateIdsForCanvasFlow - ${getErrorMessage(error)}`
         )
     }
 }
@@ -201,7 +203,7 @@ async function replaceDuplicateIdsForChatMessage(queryRunner: QueryRunner, origi
         const chatmessageCanvasIds = chatMessages.map((chatMessage) => {
             return { id: chatMessage.canvasId, qty: 0 }
         })
-        const originalDataCanvasIds = originalData.ChatFlow.map((chatflow) => chatflow.id)
+        const originalDataCanvasIds = (originalData.CanvasFlow ?? []).map((flow) => flow.id)
         chatmessageCanvasIds.forEach((item) => {
             if (originalDataCanvasIds.includes(item.id)) {
                 item.qty += 1
@@ -211,7 +213,7 @@ async function replaceDuplicateIdsForChatMessage(queryRunner: QueryRunner, origi
             await queryRunner.manager.find(Canvas, {
                 where: { id: In(chatmessageCanvasIds.map((chatmessageCanvasId) => chatmessageCanvasId.id)) }
             })
-        ).map((chatflow) => chatflow.id)
+        ).map((canvas) => canvas.id)
         chatmessageCanvasIds.forEach((item) => {
             if (databaseCanvasIds.includes(item.id)) {
                 item.qty += 1
@@ -252,7 +254,7 @@ async function replaceDuplicateIdsForChatMessageFeedback(
         const feedbackCanvasIds = chatMessageFeedbacks.map((feedback) => {
             return { id: feedback.canvasId, qty: 0 }
         })
-        const originalDataCanvasIds = originalData.ChatFlow.map((chatflow) => chatflow.id)
+        const originalDataCanvasIds = (originalData.CanvasFlow ?? []).map((flow) => flow.id)
         feedbackCanvasIds.forEach((item) => {
             if (originalDataCanvasIds.includes(item.id)) {
                 item.qty += 1
@@ -262,7 +264,7 @@ async function replaceDuplicateIdsForChatMessageFeedback(
             await queryRunner.manager.find(Canvas, {
                 where: { id: In(feedbackCanvasIds.map((feedbackCanvasId) => feedbackCanvasId.id)) }
             })
-        ).map((chatflow) => chatflow.id)
+        ).map((canvas) => canvas.id)
         feedbackCanvasIds.forEach((item) => {
             if (databaseCanvasIds.includes(item.id)) {
                 item.qty += 1
@@ -427,9 +429,9 @@ async function replaceDuplicateIdsForVariable(queryRunner: QueryRunner, original
     }
 }
 
-function reduceSpaceForChatflowFlowData(chatflows: CanvasFlowResult[]) {
-    return chatflows.map((chatflow) => {
-        return { ...chatflow, flowData: JSON.stringify(JSON.parse(chatflow.flowData)) }
+function reduceSpaceForCanvasFlowData(canvases: CanvasFlowResult[]) {
+    return canvases.map((canvas) => {
+        return { ...canvas, flowData: JSON.stringify(JSON.parse(canvas.flowData)) }
     })
 }
 
@@ -437,26 +439,28 @@ const importData = async (importData: ExportData) => {
     let queryRunner
     try {
         queryRunner = getRunningExpressApp().AppDataSource.createQueryRunner()
+        importData.CanvasFlow = importData.CanvasFlow ?? []
+
         await queryRunner.connect()
 
         try {
             if (importData.AgentFlow.length > 0) {
-                importData.AgentFlow = reduceSpaceForChatflowFlowData(importData.AgentFlow)
-                importData = await replaceDuplicateIdsForChatFlow(queryRunner, importData, importData.AgentFlow)
+                importData.AgentFlow = reduceSpaceForCanvasFlowData(importData.AgentFlow)
+                importData = await replaceDuplicateIdsForCanvasFlow(queryRunner, importData, importData.AgentFlow)
             }
             if (importData.AssistantCustom.length > 0)
                 importData = await replaceDuplicateIdsForAssistant(queryRunner, importData, importData.AssistantCustom)
             if (importData.AssistantFlow.length > 0) {
-                importData.AssistantFlow = reduceSpaceForChatflowFlowData(importData.AssistantFlow)
-                importData = await replaceDuplicateIdsForChatFlow(queryRunner, importData, importData.AssistantFlow)
+                importData.AssistantFlow = reduceSpaceForCanvasFlowData(importData.AssistantFlow)
+                importData = await replaceDuplicateIdsForCanvasFlow(queryRunner, importData, importData.AssistantFlow)
             }
             if (importData.AssistantOpenAI.length > 0)
                 importData = await replaceDuplicateIdsForAssistant(queryRunner, importData, importData.AssistantOpenAI)
             if (importData.AssistantAzure.length > 0)
                 importData = await replaceDuplicateIdsForAssistant(queryRunner, importData, importData.AssistantAzure)
-            if (importData.ChatFlow.length > 0) {
-                importData.ChatFlow = reduceSpaceForChatflowFlowData(importData.ChatFlow)
-                importData = await replaceDuplicateIdsForChatFlow(queryRunner, importData, importData.ChatFlow)
+            if (importData.CanvasFlow.length > 0) {
+                importData.CanvasFlow = reduceSpaceForCanvasFlowData(importData.CanvasFlow)
+                importData = await replaceDuplicateIdsForCanvasFlow(queryRunner, importData, importData.CanvasFlow)
             }
             if (importData.ChatMessage.length > 0)
                 importData = await replaceDuplicateIdsForChatMessage(queryRunner, importData, importData.ChatMessage)
@@ -479,7 +483,7 @@ const importData = async (importData: ExportData) => {
             if (importData.AssistantCustom.length > 0) await queryRunner.manager.save(Assistant, importData.AssistantCustom)
             if (importData.AssistantOpenAI.length > 0) await queryRunner.manager.save(Assistant, importData.AssistantOpenAI)
             if (importData.AssistantAzure.length > 0) await queryRunner.manager.save(Assistant, importData.AssistantAzure)
-            if (importData.ChatFlow.length > 0) await queryRunner.manager.save(Canvas, importData.ChatFlow)
+            if (importData.CanvasFlow.length > 0) await queryRunner.manager.save(Canvas, importData.CanvasFlow)
             if (importData.ChatMessage.length > 0) await queryRunner.manager.save(ChatMessage, importData.ChatMessage)
             if (importData.ChatMessageFeedback.length > 0)
                 await queryRunner.manager.save(ChatMessageFeedback, importData.ChatMessageFeedback)

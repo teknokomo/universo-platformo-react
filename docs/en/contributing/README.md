@@ -12,9 +12,9 @@ We appreciate all contributions! No matter your skill level or technical backgro
 
 Star and share the [Github Repo](https://github.com/FlowiseAI/Flowise).
 
-## 🙌 Share Chatflow
+## 🙌 Share Canvas
 
-Yes! Sharing how you use Flowise is a way of contribution. Export your chatflow as JSON, attach a screenshot and share it in [Show and Tell section](https://github.com/FlowiseAI/Flowise/discussions/categories/show-and-tell).
+Yes! Sharing how you use Flowise is a way of contribution. Export your canvas as JSON, attach a screenshot and share it in [Show and Tell section](https://github.com/FlowiseAI/Flowise/discussions/categories/show-and-tell).
 
 ## 💡 Ideas
 

@@ -19,7 +19,7 @@ Certain chat models allow you to input images. Always refer to the official docu
 * [Google Vertex AI](../integrations/langchain/llms/googlevertex-ai.md)
 
 {% hint style="warning" %}
-Image processing only works with certain chains/agents in Chatflow.
+Image processing only works with certain chains/agents in Canvas.
 
 [LLMChain](../integrations/langchain/chains/llm-chain.md), [Conversation Chain](../integrations/langchain/chains/conversation-chain.md), [ReAct Agent](../integrations/langchain/agents/react-agent-chat.md), [Conversational Agent](../integrations/langchain/agents/conversational-agent.md), [Tool Agent](../integrations/langchain/agents/tool-agent.md)
 {% endhint %}
@@ -34,7 +34,7 @@ To upload images with the API:
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -58,7 +58,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -90,7 +90,7 @@ query({
 
 ## Audio
 
-In the Chatflow Configuration, you can select a speech-to-text module. Supported integrations include:
+In the Canvas Configuration, you can select a speech-to-text module. Supported integrations include:
 
 * OpenAI
 * AssemblyAI
@@ -106,7 +106,7 @@ To upload audio with the API:
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -129,7 +129,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -171,13 +171,13 @@ When both options are on, full file uploads take precedence.
 
 You can upsert uploaded files on the fly to the vector store. To enable file uploads, make sure you meet these prerequisites:
 
-* You must include a vector store that supports file uploads in the chatflow.
+* You must include a vector store that supports file uploads in the canvas.
   * [Pinecone](../integrations/langchain/vector-stores/pinecone.md)
   * [Milvus](../integrations/langchain/vector-stores/milvus.md)
   * [Postgres](../integrations/langchain/vector-stores/postgres.md)
   * [Qdrant](../integrations/langchain/vector-stores/qdrant.md)
   * [Upstash](../integrations/langchain/vector-stores/upstash-vector.md)
-* If you have multiple vector stores in a chatflow, you can only turn on file upload for one vector store at a time.
+* If you have multiple vector stores in a canvas, you can only turn on file upload for one vector store at a time.
 * You must connect at least one document loader node to the vector store's document input.
 * Supported document loaders:
   * [CSV File](../integrations/langchain/document-loaders/csv-file.md)
@@ -216,7 +216,7 @@ To do this with the API, follow these two steps:
 ```python
 import requests
 
-API_URL = "http://localhost:3000/api/v1/vector/upsert/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/vector/upsert/<canvasid>"
 
 # Use form data to upload files
 form_data = {
@@ -246,7 +246,7 @@ formData.append("chatId", "some-session-id");
 
 async function query(formData) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/vector/upsert/<chatflowid>",
+        "http://localhost:3000/api/v1/vector/upsert/<canvasid>",
         {
             method: "POST",
             body: formData
@@ -269,7 +269,7 @@ query(formData).then((response) => {
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -294,7 +294,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -329,7 +329,7 @@ query({
 
 With RAG file uploads, you can't work with structured data like spreadsheets or tables, and you can't perform full summarization due to lack of full context. In some cases, you might want to include all the file content directly in the prompt for an LLM, especially with models like Gemini and Claude that have longer context windows. [This research paper](https://arxiv.org/html/2407.16833v1) is one of many that compare RAG with longer context windows.
 
-To enable full file uploads, go to **Chatflow Configuration**, open the **File Upload** tab, and click the switch:
+To enable full file uploads, go to **Canvas Configuration**, open the **File Upload** tab, and click the switch:
 
 <figure><img src="../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
@@ -337,7 +337,7 @@ You can see the **File Attachment** button in the chat, where you can upload one
 
 <figure><img src="../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (2).png" alt=""><figcaption></figcaption></figure>
 
-Note that if your chatflow uses a Chat Prompt Template node, an input must be created from **Format Prompt Values** to pass the file data. The specified input name (e.g. {file}) should be included in the **Human Message** field.
+Note that if your canvas uses a Chat Prompt Template node, an input must be created from **Format Prompt Values** to pass the file data. The specified input name (e.g. {file}) should be included in the **Human Message** field.
 
 <figure><img src="../.gitbook/assets/chat-prompt-template-file-attachment.jpg" alt=""><figcaption></figcaption></figure>
 
@@ -347,7 +347,7 @@ To upload files with the API:
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -372,7 +372,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {

@@ -532,7 +532,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             }
 
             const publishResult = await ARJSPublishApi.publishARJS({
-                chatflowId: flow.id,
+                canvasId: flow.id,
                 generationMode: 'streaming',
                 isPublic: true,
                 projectName: projectTitle,

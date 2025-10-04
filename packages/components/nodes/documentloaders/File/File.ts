@@ -135,21 +135,21 @@ class File_DocumentLoaders implements INode {
             } else {
                 files = [fileName]
             }
-            const chatflowid = options.chatflowid
+            const canvasId = options.canvasId
 
             // specific to createAttachment to get files from chatId
             const retrieveAttachmentChatId = options.retrieveAttachmentChatId
             if (retrieveAttachmentChatId) {
                 for (const file of files) {
                     if (!file) continue
-                    const fileData = await getFileFromStorage(file, chatflowid, options.chatId)
+                    const fileData = await getFileFromStorage(file, canvasId, options.chatId)
                     const blob = new Blob([new Uint8Array(fileData)])
                     fileBlobs.push({ blob, ext: file.split('.').pop() || '' })
                 }
             } else {
                 for (const file of files) {
                     if (!file) continue
-                    const fileData = await getFileFromStorage(file, chatflowid)
+                    const fileData = await getFileFromStorage(file, canvasId)
                     const blob = new Blob([new Uint8Array(fileData)])
                     fileBlobs.push({ blob, ext: file.split('.').pop() || '' })
                 }

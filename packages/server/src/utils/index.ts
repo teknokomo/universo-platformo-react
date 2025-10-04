@@ -467,7 +467,7 @@ type BuildFlowParams = {
     chatHistory: IMessage[]
     chatId: string
     sessionId: string
-    chatflowid: string
+    canvasId: string
     apiMessageId: string
     appDataSource: DataSource
     overrideConfig?: ICommonObject
@@ -500,7 +500,7 @@ export const buildFlow = async ({
     apiMessageId,
     chatId,
     sessionId,
-    chatflowid,
+    canvasId,
     appDataSource,
     overrideConfig,
     apiOverrideStatus = false,
@@ -513,6 +513,10 @@ export const buildFlow = async ({
     uploads,
     baseURL
 }: BuildFlowParams) => {
+    if (!canvasId) {
+        throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Canvas identifier is required to build flow')
+    }
+
     const flowNodes = cloneDeep(reactFlowNodes)
 
     let upsertHistory: Record<string, any> = {}
@@ -535,7 +539,7 @@ export const buildFlow = async ({
     const reversedGraph = constructGraphs(reactFlowNodes, reactFlowEdges, { isReversed: true }).graph
 
     const flowData: ICommonObject = {
-        chatflowid,
+        canvasId,
         chatId,
         sessionId,
         chatHistory,
@@ -578,7 +582,7 @@ export const buildFlow = async ({
                 const indexResult = await newNodeInstance.vectorStoreMethods!['upsert']!.call(newNodeInstance, reactFlowNodeData, {
                     chatId,
                     sessionId,
-                    chatflowid,
+                    canvasId,
                     chatHistory,
                     apiMessageId,
                     logger,
@@ -604,7 +608,7 @@ export const buildFlow = async ({
                 let outputResult = await newNodeInstance.init(reactFlowNodeData, finalQuestion, {
                     chatId,
                     sessionId,
-                    chatflowid,
+                    canvasId,
                     chatHistory,
                     logger,
                     appDataSource,
@@ -1142,7 +1146,7 @@ export const isStartNodeDependOnInput = (startingNodes: IReactFlowNode[], nodes:
             if (inputVariables.length > 0) return true
         }
     }
-    const whitelistNodeNames = ['vectorStoreToDocument', 'autoGPT', 'chatPromptTemplate', 'promptTemplate'] //If these nodes are found, chatflow cannot be reused
+    const whitelistNodeNames = ['vectorStoreToDocument', 'autoGPT', 'chatPromptTemplate', 'promptTemplate'] //If these nodes are found, canvas cannot be reused
     for (const node of nodes) {
         if (node.data.name === 'chatPromptTemplate' || node.data.name === 'promptTemplate') {
             let promptValues: ICommonObject = {}
@@ -1572,7 +1576,7 @@ export const getMemorySessionId = (
  * @returns {IMessage[]}
  */
 export const getSessionChatHistory = async (
-    chatflowid: string,
+    canvasId: string,
     sessionId: string,
     memoryNode: IReactFlowNode,
     componentNodes: IComponentNodes,
@@ -1591,7 +1595,7 @@ export const getSessionChatHistory = async (
     }
 
     const initializedInstance: FlowiseMemory = await newNodeInstance.init(memoryNode.data, '', {
-        chatflowid,
+        canvasId,
         appDataSource,
         databaseEntities,
         logger
@@ -1601,8 +1605,8 @@ export const getSessionChatHistory = async (
 }
 
 /**
- * Method that find memory that is connected within chatflow
- * In a chatflow, there should only be 1 memory node
+ * Method that finds memory connected within a canvas
+ * For each canvas flow, there should only be 1 memory node
  * @param {IReactFlowNode[]} nodes
  * @param {IReactFlowEdge[]} edges
  * @returns {IReactFlowNode | undefined}
@@ -1719,9 +1723,9 @@ export const aMonthAgo = () => {
     return date
 }
 
-export const getAPIOverrideConfig = (chatflow: CanvasFlowResult) => {
+export const getAPIOverrideConfig = (canvas: CanvasFlowResult) => {
     try {
-        const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+        const apiConfig = canvas.apiConfig ? JSON.parse(canvas.apiConfig) : {}
         const nodeOverrides: INodeOverrides =
             apiConfig.overrideConfig && apiConfig.overrideConfig.nodes ? apiConfig.overrideConfig.nodes : {}
         const variableOverrides: IVariableOverride[] =

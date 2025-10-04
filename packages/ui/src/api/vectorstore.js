@@ -1,11 +1,11 @@
 import client from './client'
 
-const upsertVectorStore = (id, input) => client.post(`/vector/internal-upsert/${id}`, input)
-const upsertVectorStoreWithFormData = (id, formData) =>
-    client.post(`/vector/internal-upsert/${id}`, formData, {
+const upsertVectorStore = (canvasId, input) => client.post(`/vector/internal-upsert/${canvasId}`, input)
+const upsertVectorStoreWithFormData = (canvasId, formData) =>
+    client.post(`/vector/internal-upsert/${canvasId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     })
-const getUpsertHistory = (id, params = {}) => client.get(`/upsert-history/${id}`, { params: { order: 'DESC', ...params } })
+const getUpsertHistory = (canvasId, params = {}) => client.get(`/upsert-history/${canvasId}`, { params: { order: 'DESC', ...params } })
 const deleteUpsertHistory = (ids) => client.patch(`/upsert-history`, { ids })
 
 export default {

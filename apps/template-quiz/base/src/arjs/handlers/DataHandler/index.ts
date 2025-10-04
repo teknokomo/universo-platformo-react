@@ -946,8 +946,7 @@ export class DataHandler {
                         console.log('[LeadCollection] Attempting save (origin=' + origin + ')');
                         
                         const leadPayload = {
-                            canvasid: window.canvasId || window.chatflowId || null,
-                            chatflowid: window.chatflowId || window.canvasId || null, // Backward compatibility
+                            canvasId: window.canvasId || null,
                             name: leadInfo.name || null,
                             email: leadInfo.email || null,
                             phone: leadInfo.phone || null,
@@ -956,8 +955,8 @@ export class DataHandler {
                         };
                         
                         dbg('[LeadCollection] payload', leadPayload);
-                        if (!leadPayload.chatflowid && !leadPayload.canvasid) {
-                            console.warn('[LeadCollection] WARNING: Both canvasid and chatflowid are null');
+                        if (!leadPayload.canvasId) {
+                            console.warn('[LeadCollection] WARNING: canvasId is not defined');
                         }
                         
                         const response = await fetch('/api/v1/leads', {

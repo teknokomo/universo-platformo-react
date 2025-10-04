@@ -2,7 +2,7 @@ import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 
 // material-ui
 import { Button, IconButton, OutlinedInput, Box, InputAdornment, Stack, Typography } from '@mui/material'
@@ -11,6 +11,7 @@ import { IconX, IconTrash, IconPlus } from '@tabler/icons-react'
 // Project import
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 // store
 import useNotifier from '@/utils/useNotifier'
@@ -22,11 +23,7 @@ const AllowedDomains = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
 
@@ -85,7 +82,7 @@ const AllowedDomains = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorMessage =
@@ -107,9 +104,9 @@ const AllowedDomains = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow && dialogProps.chatflow.chatbotConfig) {
+        if (canvas && canvas.chatbotConfig) {
             try {
-                let chatbotConfig = JSON.parse(dialogProps.chatflow.chatbotConfig)
+                let chatbotConfig = JSON.parse(canvas.chatbotConfig)
                 setChatbotConfig(chatbotConfig || {})
                 if (chatbotConfig.allowedOrigins) {
                     let inputFields = [...chatbotConfig.allowedOrigins]
@@ -129,7 +126,7 @@ const AllowedDomains = ({ dialogProps }) => {
         }
 
         return () => {}
-    }, [dialogProps])
+    }, [canvas])
 
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>

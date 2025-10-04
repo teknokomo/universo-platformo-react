@@ -2,7 +2,6 @@ import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
-import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 // material-ui
@@ -16,6 +15,7 @@ import {
     SHOW_CANVAS_DIALOG
 } from '@/store/actions'
 import useNotifier from '@/utils/useNotifier'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import Chip from '@mui/material/Chip'
 import { IconX } from '@tabler/icons-react'
@@ -27,6 +27,7 @@ import useApi from '@/hooks/useApi'
 // Project imports
 
 const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
     const { t } = useTranslation()
     const dispatch = useDispatch()
@@ -36,7 +37,6 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     const [badge, setBadge] = useState('')
     const [usecases, setUsecases] = useState([])
     const [usecaseInput, setUsecaseInput] = useState('')
-    const { unikId } = useParams()
 
     const saveCustomTemplateApi = useApi(marketplacesApi.saveAsCustomTemplate)
 
@@ -46,9 +46,9 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
     useNotifier()
 
     useEffect(() => {
-        if (dialogProps.chatflow) {
-            setName(dialogProps.chatflow.name)
-            setFlowType(dialogProps.chatflow.type === 'MULTIAGENT' ? 'Agentflow' : 'Chatflow')
+        if (canvas) {
+            setName(canvas.name)
+            setFlowType(canvas.type === 'MULTIAGENT' ? 'Agentflow' : 'Canvas')
         }
 
         if (dialogProps.tool) {
@@ -119,8 +119,8 @@ const ExportAsTemplateDialog = ({ show, dialogProps, onCancel }) => {
             type: flowType,
             unikId
         }
-        if (dialogProps.chatflow) {
-            template.canvasId = dialogProps.chatflow.id
+        if (canvasId) {
+            template.canvasId = canvasId
         }
         if (dialogProps.tool) {
             template.tool = {
@@ -285,4 +285,3 @@ ExportAsTemplateDialog.propTypes = {
 }
 
 export default ExportAsTemplateDialog
-

@@ -6,18 +6,18 @@ import useApi from '@/hooks/useApi'
 import canvasesApi from '@/api/canvases'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
 import BaseEntityMenu from '@/ui-component/menu/BaseEntityMenu'
-import { chatflowActions } from '@/ui-component/menu/chatflowActions'
+import { canvasActions } from '@/ui-component/menu/canvasActions'
 
 // Clean adapter version of FlowListMenu after legacy removal.
-export default function FlowListMenu({ chatflow, isAgentCanvas, setError, updateFlowsApi }) {
+export default function FlowListMenu({ canvas, isAgentCanvas, setError, updateFlowsApi }) {
     const dispatch = useDispatch()
     const { unikId: routeUnikId } = useParams()
     const { confirm } = useConfirm()
     const updateCanvasApi = useApi(canvasesApi.updateCanvas)
     const deleteCanvasApi = useApi(canvasesApi.deleteCanvas)
 
-    const resolvedUnikId = chatflow?.unikId || chatflow?.unik_id || routeUnikId
-    const resolvedSpaceId = chatflow?.spaceId || chatflow?.space_id || null
+    const resolvedUnikId = canvas?.unikId || canvas?.unik_id || routeUnikId
+    const resolvedSpaceId = canvas?.spaceId || canvas?.space_id || null
 
     const ensureUnikId = () => {
         if (!resolvedUnikId) {
@@ -58,25 +58,24 @@ export default function FlowListMenu({ chatflow, isAgentCanvas, setError, update
         meta: {
             unikId: resolvedUnikId,
             spaceId: resolvedSpaceId,
-            type: chatflow?.type
+            type: canvas?.type
         },
         runtime: { isDarkMode: false }
     })
 
     return (
         <BaseEntityMenu
-            entity={chatflow}
+            entity={canvas}
             entityKind={isAgentCanvas ? 'agent' : 'canvas'}
-            descriptors={chatflowActions}
+            descriptors={canvasActions}
             createContext={createContext}
         />
     )
 }
 
 FlowListMenu.propTypes = {
-    chatflow: PropTypes.object,
+    canvas: PropTypes.object,
     isAgentCanvas: PropTypes.bool,
     setError: PropTypes.func,
     updateFlowsApi: PropTypes.object
 }
-

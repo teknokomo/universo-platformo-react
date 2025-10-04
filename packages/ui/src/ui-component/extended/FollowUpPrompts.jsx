@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { SwitchInput } from '@/ui-component/switch/Switch'
 import canvasesApi from '@/api/canvases'
-import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
+import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CANVAS } from '@/store/actions'
 import useNotifier from '@/utils/useNotifier'
 import anthropicIcon from '@/assets/images/anthropic.svg'
 import azureOpenAiIcon from '@/assets/images/azure_openai.svg'
@@ -311,11 +312,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
 
@@ -407,7 +404,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorData =
@@ -429,9 +426,9 @@ const FollowUpPrompts = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow && dialogProps.chatflow.followUpPrompts) {
-            let chatbotConfig = JSON.parse(dialogProps.chatflow.chatbotConfig)
-            let followUpPromptsConfig = JSON.parse(dialogProps.chatflow.followUpPrompts)
+        if (canvas && canvas.followUpPrompts) {
+            let chatbotConfig = JSON.parse(canvas.chatbotConfig || '{}')
+            let followUpPromptsConfig = JSON.parse(canvas.followUpPrompts)
             setChatbotConfig(chatbotConfig || {})
             if (followUpPromptsConfig) {
                 setFollowUpPromptsConfig(followUpPromptsConfig)
@@ -440,7 +437,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
         }
 
         return () => {}
-    }, [dialogProps])
+    }, [canvas])
 
     const checkDisabled = () => {
         if (followUpPromptsConfig && followUpPromptsConfig.status) {

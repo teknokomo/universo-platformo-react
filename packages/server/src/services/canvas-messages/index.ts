@@ -11,7 +11,7 @@ import { utilGetChatMessage } from '../../utils/getChatMessage'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import logger from '../../utils/logger'
 
-// Add chatmessages for a canvas
+// Add canvas messages for a canvas
 const createChatMessage = async (chatMessage: Partial<IChatMessage>) => {
     try {
         const dbResponse = await utilAddChatMessage(chatMessage)
@@ -19,12 +19,12 @@ const createChatMessage = async (chatMessage: Partial<IChatMessage>) => {
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatMessagesService.createChatMessage - ${getErrorMessage(error)}`
+            `Error: canvasMessagesService.createChatMessage - ${getErrorMessage(error)}`
         )
     }
 }
 
-// Get all chatmessages for a canvas
+// Get all canvas messages for a canvas
 const getAllChatMessages = async (
     canvasId: string,
     chatTypes: ChatType[] | undefined,
@@ -56,12 +56,12 @@ const getAllChatMessages = async (
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatMessagesService.getAllChatMessages - ${getErrorMessage(error)}`
+            `Error: canvasMessagesService.getAllChatMessages - ${getErrorMessage(error)}`
         )
     }
 }
 
-// Get internal chatmessages for a canvas
+// Get internal canvas messages for a canvas
 const getAllInternalChatMessages = async (
     canvasId: string,
     chatTypes: ChatType[] | undefined,
@@ -93,7 +93,7 @@ const getAllInternalChatMessages = async (
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatMessagesService.getAllInternalChatMessages - ${getErrorMessage(error)}`
+            `Error: canvasMessagesService.getAllInternalChatMessages - ${getErrorMessage(error)}`
         )
     }
 }
@@ -123,7 +123,7 @@ const removeAllChatMessages = async (
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatMessagesService.removeAllChatMessages - ${getErrorMessage(error)}`
+            `Error: canvasMessagesService.removeAllChatMessages - ${getErrorMessage(error)}`
         )
     }
 }
@@ -143,7 +143,7 @@ const removeChatMessagesByMessageIds = async (
             const feedbackDeleteOptions: FindOptionsWhere<ChatMessageFeedback> = { chatId }
             await appServer.AppDataSource.getRepository(ChatMessageFeedback).delete(feedbackDeleteOptions)
 
-        // Delete all uploads corresponding to this canvas/chatId
+            // Delete all uploads corresponding to this canvas/chatId
             await removeFilesFromStorage(canvasId, chatId)
         }
 
@@ -152,7 +152,7 @@ const removeChatMessagesByMessageIds = async (
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatMessagesService.removeAllChatMessages - ${getErrorMessage(error)}`
+            `Error: canvasMessagesService.removeChatMessagesByMessageIds - ${getErrorMessage(error)}`
         )
     }
 }
@@ -173,7 +173,7 @@ const abortChatMessage = async (chatId: string, canvasId: string) => {
     } catch (error) {
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Error: chatMessagesService.abortChatMessage - ${getErrorMessage(error)}`
+            `Error: canvasMessagesService.abortChatMessage - ${getErrorMessage(error)}`
         )
     }
 }

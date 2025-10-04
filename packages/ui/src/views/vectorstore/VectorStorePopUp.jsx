@@ -9,7 +9,7 @@ import { StyledFab } from '@/ui-component/button/StyledFab'
 import VectorStoreDialog from './VectorStoreDialog'
 import UpsertResultDialog from './UpsertResultDialog'
 
-export const VectorStorePopUp = ({ chatflowid }) => {
+export const VectorStorePopUp = ({ canvasId }) => {
     const [open, setOpen] = useState(false)
     const [showExpandDialog, setShowExpandDialog] = useState(false)
     const [expandDialogProps, setExpandDialogProps] = useState({})
@@ -25,7 +25,7 @@ export const VectorStorePopUp = ({ chatflowid }) => {
         const props = {
             open: true,
             title: t('vectorStore.upsertTitle'),
-            chatflowid
+            canvasId
         }
         setExpandDialogProps(props)
         setShowExpandDialog(true)
@@ -38,7 +38,7 @@ export const VectorStorePopUp = ({ chatflowid }) => {
         prevOpen.current = open
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, chatflowid])
+    }, [open, canvasId])
 
     return (
         <>
@@ -78,4 +78,4 @@ export const VectorStorePopUp = ({ chatflowid }) => {
     )
 }
 
-VectorStorePopUp.propTypes = { chatflowid: PropTypes.string }
+VectorStorePopUp.propTypes = { canvasId: PropTypes.string }

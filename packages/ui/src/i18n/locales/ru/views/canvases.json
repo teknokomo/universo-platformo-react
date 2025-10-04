@@ -2,7 +2,7 @@
     "canvases": {
         "title": "Пространства",
         "searchPlaceholder": "Поиск по имени или категории",
-        "noChatflowsYet": "Пространств пока нет",
+        "noCanvasesYet": "Пространств пока нет",
         "noCanvasesYet": "Пространств пока нет",
         "noData": "Нет данных",
         "agents": {
@@ -49,7 +49,7 @@
             "share": "Поделиться",
             "api": "API",
             "embed": "Встроить",
-            "chatflowSettings": "Настройки пространства",
+            "canvasSettings": "Настройки пространства",
             "canvasSettings": "Настройки пространства",
             "dropFlowDescription": "Выберите JSON-файл, содержащий конфигурацию пространства",
             "unsavedChanges": "У вас есть несохраненные изменения. Вы уверены, что хотите уйти?",

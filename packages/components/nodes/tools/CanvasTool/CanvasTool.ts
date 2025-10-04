@@ -8,7 +8,7 @@ import { ICommonObject, IDatabaseEntity, INode, INodeData, INodeOptionsValue, IN
 import { availableDependencies, defaultAllowBuiltInDep, getCredentialData, getCredentialParam, safeGet } from '../../../src/utils'
 import { v4 as uuidv4 } from 'uuid'
 
-class ChatflowTool_Tools implements INode {
+class CanvasTool_Tools implements INode {
     label: string
     name: string
     version: number
@@ -22,10 +22,10 @@ class ChatflowTool_Tools implements INode {
 
     constructor() {
         this.label = 'Canvas Tool'
-        this.name = 'ChatflowTool'
+        this.name = 'CanvasTool'
         this.version = 5.0
-        this.type = 'ChatflowTool'
-        this.icon = 'chatflowTool.svg'
+        this.type = 'CanvasTool'
+        this.icon = 'CanvasTool.svg'
         this.category = 'Tools'
         this.description = 'Use as a tool to execute another canvas'
         this.baseClasses = [this.type, 'Tool']
@@ -33,15 +33,15 @@ class ChatflowTool_Tools implements INode {
             label: 'Connect Credential',
             name: 'credential',
             type: 'credential',
-            credentialNames: ['chatflowApi'],
+            credentialNames: ['CanvasApi'],
             optional: true
         }
         this.inputs = [
             {
                 label: 'Select Canvas',
-                name: 'selectedChatflow',
+                name: 'selectedCanvas',
                 type: 'asyncOptions',
-                loadMethod: 'listChatflows'
+                loadMethod: 'listCanvases'
             },
             {
                 label: 'Tool Name',
@@ -113,7 +113,7 @@ class ChatflowTool_Tools implements INode {
 
     //@ts-ignore
     loadMethods = {
-        async listChatflows(_: INodeData, options: ICommonObject): Promise<INodeOptionsValue[]> {
+        async listCanvases(_: INodeData, options: ICommonObject): Promise<INodeOptionsValue[]> {
             const returnData: INodeOptionsValue[] = []
 
             const appDataSource = options.appDataSource as DataSource
@@ -137,7 +137,7 @@ class ChatflowTool_Tools implements INode {
     }
 
     async init(nodeData: INodeData, input: string, options: ICommonObject): Promise<any> {
-        const selectedChatflowId = nodeData.inputs?.selectedChatflow as string
+        const selectedCanvasId = nodeData.inputs?.selectedCanvas as string
         const _name = nodeData.inputs?.name as string
         const description = nodeData.inputs?.description as string
         const useQuestionFromChat = nodeData.inputs?.useQuestionFromChat as boolean
@@ -155,12 +155,12 @@ class ChatflowTool_Tools implements INode {
         const baseURL = (nodeData.inputs?.baseURL as string) || (options.baseURL as string)
 
         const credentialData = await getCredentialData(nodeData.credential ?? '', options)
-        const chatflowApiKey = getCredentialParam('chatflowApiKey', credentialData, nodeData)
+        const canvasApiKey = getCredentialParam('CanvasApiKey', credentialData, nodeData)
 
-        if (selectedChatflowId === options.chatflowid) throw new Error('Cannot call the same canvas!')
+        if (selectedCanvasId === options.canvasId) throw new Error('Cannot call the same canvas!')
 
         let headers = {}
-        if (chatflowApiKey) headers = { Authorization: `Bearer ${chatflowApiKey}` }
+        if (canvasApiKey) headers = { Authorization: `Bearer ${canvasApiKey}` }
 
         let toolInput = ''
         if (useQuestionFromChat) {
@@ -169,14 +169,14 @@ class ChatflowTool_Tools implements INode {
             toolInput = customInput
         }
 
-        let name = _name || 'chatflow_tool'
+        let name = _name || 'Canvas_tool'
 
-        return new ChatflowTool({
+        return new CanvasTool({
             name,
             baseURL,
             description,
             returnDirect,
-            chatflowid: selectedChatflowId,
+            canvasId: selectedCanvasId,
             startNewSession,
             headers,
             input: toolInput,
@@ -185,18 +185,18 @@ class ChatflowTool_Tools implements INode {
     }
 }
 
-class ChatflowTool extends StructuredTool {
+class CanvasTool extends StructuredTool {
     static lc_name() {
-        return 'ChatflowTool'
+        return 'CanvasTool'
     }
 
-    name = 'chatflow_tool'
+    name = 'Canvas_tool'
 
     description = 'Execute another canvas'
 
     input = ''
 
-    chatflowid = ''
+    canvasId = ''
 
     startNewSession = false
 
@@ -216,7 +216,7 @@ class ChatflowTool extends StructuredTool {
         description,
         returnDirect,
         input,
-        chatflowid,
+        canvasId,
         startNewSession,
         baseURL,
         headers,
@@ -226,7 +226,7 @@ class ChatflowTool extends StructuredTool {
         description: string
         returnDirect: boolean
         input: string
-        chatflowid: string
+        canvasId: string
         startNewSession: boolean
         baseURL: string
         headers: ICommonObject
@@ -239,7 +239,7 @@ class ChatflowTool extends StructuredTool {
         this.baseURL = baseURL
         this.startNewSession = startNewSession
         this.headers = headers
-        this.chatflowid = chatflowid
+        this.canvasId = canvasId
         this.overrideConfig = overrideConfig
         this.returnDirect = returnDirect
     }
@@ -331,7 +331,7 @@ class ChatflowTool extends StructuredTool {
 
         const code = `
 const fetch = require('node-fetch');
-const url = "${this.baseURL}/api/v1/prediction/${this.chatflowid}";
+const url = "${this.baseURL}/api/v1/prediction/${this.canvasId}";
 
 const body = $callBody;
 
@@ -371,4 +371,4 @@ try {
     }
 }
 
-module.exports = { nodeClass: ChatflowTool_Tools }
+module.exports = { nodeClass: CanvasTool_Tools }

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { utilBuildChatflow } from '../../utils/buildChatflow'
+import { utilBuildCanvasFlow } from '../../utils/buildCanvasFlow'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { getErrorMessage } from '../../errors/utils'
 import { MODE } from '../../Interface'
@@ -7,11 +7,15 @@ import { MODE } from '../../Interface'
 // Send input message and get prediction result (Internal)
 const createInternalPrediction = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const canvasId = req.params?.canvasId ?? req.params?.id ?? req.body?.canvasId
+        if (canvasId && !req.params.id) {
+            ;(req.params as any).id = canvasId
+        }
         if (req.body.streaming || req.body.streaming === 'true') {
             createAndStreamInternalPrediction(req, res, next)
             return
         } else {
-            const apiResponse = await utilBuildChatflow(req, true)
+            const apiResponse = await utilBuildCanvasFlow(req, true)
             if (apiResponse) return res.json(apiResponse)
         }
     } catch (error) {
@@ -21,6 +25,10 @@ const createInternalPrediction = async (req: Request, res: Response, next: NextF
 
 // Send input message and stream prediction result using SSE (Internal)
 const createAndStreamInternalPrediction = async (req: Request, res: Response, next: NextFunction) => {
+    const canvasId = req.params?.canvasId ?? req.params?.id ?? req.body?.canvasId
+    if (canvasId && !req.params.id) {
+        ;(req.params as any).id = canvasId
+    }
     const chatId = req.body.chatId
     const sseStreamer = getRunningExpressApp().sseStreamer
 
@@ -36,7 +44,7 @@ const createAndStreamInternalPrediction = async (req: Request, res: Response, ne
             getRunningExpressApp().redisSubscriber.subscribe(chatId)
         }
 
-        const apiResponse = await utilBuildChatflow(req, true)
+        const apiResponse = await utilBuildCanvasFlow(req, true)
         sseStreamer.streamMetadataEvent(apiResponse.chatId, apiResponse)
     } catch (error) {
         if (chatId) {

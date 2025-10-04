@@ -95,7 +95,7 @@ Debería verse como abajo después de conectarlos:
 
 <figure><img src="../.gitbook/assets/screely-1691758990676.png" alt=""><figcaption></figcaption></figure>
 
-¡Guarda el chatflow y comienza a probarlo!
+¡Guarda el canvas y comienza a probarlo!
 
 Por ejemplo, podemos hacer preguntas como _"cómo cocinar un huevo"_
 

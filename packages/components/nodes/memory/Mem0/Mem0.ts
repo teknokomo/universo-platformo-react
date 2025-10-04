@@ -12,7 +12,7 @@ interface BufferMemoryExtendedInput {
     sessionId: string
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    chatflowid: string
+    canvasId: string
 }
 
 class Mem0_Memory implements INode {
@@ -196,7 +196,7 @@ const initializeMem0 = async (nodeData: INodeData, options: ICommonObject): Prom
             returnMessages: false,
             appDataSource: options.appDataSource as DataSource,
             databaseEntities: options.databaseEntities as IDatabaseEntity,
-            chatflowid: options.chatflowid as string,
+            canvasId: options.canvasId as string,
             searchOnly: (nodeData.inputs?.searchOnly as boolean) || false,
             useFlowiseChatId: useFlowiseChatId
         }
@@ -216,7 +216,7 @@ class Mem0MemoryExtended extends BaseMem0Memory implements MemoryMethods {
     inputKey: string
     appDataSource: DataSource
     databaseEntities: IDatabaseEntity
-    chatflowid: string
+    canvasId: string
     searchOnly: boolean
     useFlowiseChatId: boolean
 
@@ -230,7 +230,7 @@ class Mem0MemoryExtended extends BaseMem0Memory implements MemoryMethods {
         this.inputKey = fields.inputKey ?? 'input'
         this.appDataSource = fields.appDataSource
         this.databaseEntities = fields.databaseEntities
-        this.chatflowid = fields.chatflowid
+        this.canvasId = fields.canvasId
         this.searchOnly = fields.searchOnly
         this.useFlowiseChatId = fields.useFlowiseChatId
     }
@@ -301,7 +301,7 @@ class Mem0MemoryExtended extends BaseMem0Memory implements MemoryMethods {
         let chatMessage = await this.appDataSource.getRepository(this.databaseEntities['ChatMessage']).find({
             where: {
                 sessionId: flowiseSessionId,
-                chatflowid: this.chatflowid
+                canvasId: this.canvasId
             },
             order: {
                 createdDate: 'DESC'
@@ -365,7 +365,7 @@ class Mem0MemoryExtended extends BaseMem0Memory implements MemoryMethods {
         if (flowiseSessionId) {
             await this.appDataSource
                 .getRepository(this.databaseEntities['ChatMessage'])
-                .delete({ sessionId: flowiseSessionId, chatflowid: this.chatflowid })
+                .delete({ sessionId: flowiseSessionId, canvasId: this.canvasId })
         } else {
             console.warn('Mem0: clearChatMessages called without overrideUserId (Flowise Session ID). Cannot clear DB messages.')
         }

@@ -46,7 +46,7 @@ description: >-
 
 \- \*\*Embeddings\*\* can be connected with any node under \[\*\*Embeddings\*\* ]\(../embeddings/)category
 
-<figure><img src="../../../.gitbook/assets/pinecone_llama_chatflow.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../../../.gitbook/assets/pinecone_llama_canvas.png" alt=""><figcaption></figcaption></figure>
 
 <figure><img src="../../../.gitbook/assets/pinecone_llama_upsert.png" alt=""><figcaption></figcaption></figure>
 

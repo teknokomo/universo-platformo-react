@@ -192,7 +192,7 @@ class State_SeqAgents implements INode {
         } else if (selectedTab === 'stateMemoryCode' && stateMemoryCode) {
             const variables = await getVars(appDataSource, databaseEntities, nodeData)
             const flow = {
-                chatflowId: options.chatflowid,
+                canvasId: options.canvasId,
                 sessionId: options.sessionId,
                 chatId: options.chatId,
                 input

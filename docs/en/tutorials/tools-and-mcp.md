@@ -48,7 +48,7 @@ try {
 * You can get default flow config:
   * `$flow.sessionId`
   * `$flow.chatId`
-  * `$flow.chatflowId`
+  * `$flow.canvasId`
   * `$flow.input`
   * `$flow.state`
 * You can get custom variables: `$vars.<variable-name>`

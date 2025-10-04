@@ -1,9 +1,9 @@
 // Minimal baseline template config kept intentionally tiny during reset phase.
 export interface TemplateConfig {
-    name: string;
-    version: string;
-    description: string;
-    status?: 'baseline' | 'in-progress' | 'extended';
+    name: string
+    version: string
+    description: string
+    status?: 'baseline' | 'in-progress' | 'extended'
 }
 
 export const templateConfig: TemplateConfig = {
@@ -11,8 +11,8 @@ export const templateConfig: TemplateConfig = {
     version: '0.0.1-reset',
     description: 'Baseline MUI raw templates (not yet customized)',
     status: 'baseline'
-};
+}
 
 export function getTemplateInfo(): TemplateConfig {
-    return templateConfig;
+    return templateConfig
 }

@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS ${tableName} (
         const chatMessage = await this.config.appDataSource.getRepository(this.config.databaseEntities['ChatMessage']).find({
             where: {
                 sessionId: overrideSessionId,
-                chatflowid: this.config.chatflowid
+                canvasId: this.config.canvasId
             },
             order: {
                 createdDate: 'ASC'

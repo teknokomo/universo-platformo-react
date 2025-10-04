@@ -405,7 +405,6 @@ const deleteVectorStoreFromStore = async (storeId: string) => {
 
         const options: ICommonObject = {
             canvasId: storeId,
-            chatflowid: storeId,
             appDataSource: appServer.AppDataSource,
             databaseEntities,
             logger
@@ -552,7 +551,6 @@ const _splitIntoChunks = async (appDataSource: DataSource, componentNodes: IComp
         const tempCanvasId = uuidv4()
         const options: ICommonObject = {
             canvasId: tempCanvasId,
-            chatflowid: tempCanvasId,
             appDataSource,
             databaseEntities,
             logger
@@ -968,7 +966,7 @@ const getDocumentLoaders = async () => {
     }
 }
 
-const updateDocumentStoreUsage = async (chatId: string, storeId: string | undefined) => {
+const updateDocumentStoreUsage = async (canvasId: string, storeId: string | undefined) => {
     try {
         // find the document store
         const appServer = getRunningExpressApp()
@@ -976,11 +974,11 @@ const updateDocumentStoreUsage = async (chatId: string, storeId: string | undefi
         const entities = await appServer.AppDataSource.getRepository(DocumentStore).find()
         entities.map(async (entity: DocumentStore) => {
             const whereUsed = JSON.parse(entity.whereUsed)
-            const found = whereUsed.find((w: string) => w === chatId)
+            const found = whereUsed.find((w: string) => w === canvasId)
             if (found) {
                 if (!storeId) {
-                    // remove the chatId from the whereUsed, as the store is being deleted
-                    const index = whereUsed.indexOf(chatId)
+                    // remove the canvasId from the whereUsed, as the store is being deleted
+                    const index = whereUsed.indexOf(canvasId)
                     if (index > -1) {
                         whereUsed.splice(index, 1)
                         entity.whereUsed = JSON.stringify(whereUsed)
@@ -989,8 +987,8 @@ const updateDocumentStoreUsage = async (chatId: string, storeId: string | undefi
                 } else if (entity.id === storeId) {
                     // do nothing, already found and updated
                 } else if (entity.id !== storeId) {
-                    // remove the chatId from the whereUsed, as a new store is being used
-                    const index = whereUsed.indexOf(chatId)
+                    // remove the canvasId from the whereUsed, as a new store is being used
+                    const index = whereUsed.indexOf(canvasId)
                     if (index > -1) {
                         whereUsed.splice(index, 1)
                         entity.whereUsed = JSON.stringify(whereUsed)
@@ -999,8 +997,8 @@ const updateDocumentStoreUsage = async (chatId: string, storeId: string | undefi
                 }
             } else {
                 if (entity.id === storeId) {
-                    // add the chatId to the whereUsed
-                    whereUsed.push(chatId)
+                    // add the canvasId to the whereUsed
+                    whereUsed.push(canvasId)
                     entity.whereUsed = JSON.stringify(whereUsed)
                     await appServer.AppDataSource.getRepository(DocumentStore).save(entity)
                 }
@@ -1179,7 +1177,6 @@ const _insertIntoVectorStoreWorkerThread = async (
 
         const options: ICommonObject = {
             canvasId,
-            chatflowid: canvasId,
             appDataSource,
             databaseEntities,
             logger
@@ -1305,7 +1302,6 @@ const queryVectorStore = async (data: ICommonObject) => {
         const tempCanvasId = uuidv4()
         const options: ICommonObject = {
             canvasId: tempCanvasId,
-            chatflowid: tempCanvasId,
             appDataSource: appServer.AppDataSource,
             databaseEntities,
             logger

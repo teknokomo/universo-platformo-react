@@ -1,23 +1,23 @@
 import { INodeParams, INodeCredential } from '../src/Interface'
 
-class ChatflowApi implements INodeCredential {
+class CanvasApi implements INodeCredential {
     label: string
     name: string
     version: number
     inputs: INodeParams[]
 
     constructor() {
-        this.label = 'Chatflow API'
-        this.name = 'chatflowApi'
+        this.label = 'Canvas API'
+        this.name = 'canvasApi'
         this.version = 1.0
         this.inputs = [
             {
-                label: 'Chatflow Api Key',
-                name: 'chatflowApiKey',
+                label: 'Canvas API Key',
+                name: 'canvasApiKey',
                 type: 'password'
             }
         ]
     }
 }
 
-module.exports = { credClass: ChatflowApi }
+module.exports = { credClass: CanvasApi }

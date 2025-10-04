@@ -71,7 +71,7 @@ Universo Platformo se integra perfectamente con la funcionalidad existente de Fl
 
 - Todos los nodos originales de Flowise permanecen disponibles
 - Los nodos UPDL pueden mezclarse con nodos de Flowise en el mismo flujo
-- Los chatflows existentes de Flowise pueden mejorarse con características de Universo
+- Los canvases existentes de Flowise pueden mejorarse con características de Universo
 - Se mantiene la compatibilidad de API para integraciones existentes
 
 ## Universo Kiberplano

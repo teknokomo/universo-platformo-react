@@ -45,7 +45,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'https://your-flowise-instance.com',
   })
 </script>
@@ -61,7 +61,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
   document.addEventListener('DOMContentLoaded', function() {
     try {
       Chatbot.init({
-        chatflowid: 'your-chatflowid-here',
+        canvasid: 'your-canvasid-here',
         apiHost: 'https://your-flowise-instance.com',
       });
       console.log('Чат-виджет успешно инициализирован');
@@ -80,7 +80,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed@<some-version>/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
   })
 </script>
@@ -108,7 +108,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
   import(`https://cdn.jsdelivr.net/npm/flowise-embed@${FLOWISE_EMBED_VERSION}/dist/web.js`)
     .then(({ default: Chatbot }) => {
       Chatbot.init({
-        chatflowid: 'your-chatflowid-here',
+        canvasid: 'your-canvasid-here',
         apiHost: 'https://your-flowise-instance.com',
       });
     })
@@ -121,15 +121,15 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
 
 ## Конфигурация чат-потока
 
-Вы можете передать JSON объект `chatflowConfig` для переопределения существующей конфигурации. Это то же самое, что [Broken link](broken-reference "mention") в API.
+Вы можете передать JSON объект `canvasConfig` для переопределения существующей конфигурации. Это то же самое, что [Broken link](broken-reference "mention") в API.
 
 ```html
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
-    chatflowConfig: {
+    canvasConfig: {
       "sessionId": "123",
       "returnSourceDocuments": true
     }
@@ -144,9 +144,9 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'https://your-flowise-instance.com',
-    chatflowConfig: {
+    canvasConfig: {
       // Управление сессией
       "sessionId": `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       
@@ -181,7 +181,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
     observersConfig: {
       // Пользовательский ввод изменился
@@ -208,7 +208,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'https://your-flowise-instance.com',
     observersConfig: {
       // Отслеживание пользовательского ввода
@@ -356,7 +356,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
     theme: {
       button: {
@@ -385,7 +385,7 @@ HTML/CSS → JavaScript → HTTP → AI Model → UI Update
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
     theme: {
       // Настройки кнопки

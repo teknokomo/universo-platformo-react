@@ -12,7 +12,7 @@
 
 * Коллекция (список и создание): `GET /api/v1/uniks`, `POST /api/v1/uniks`
 * Операции над одной сущностью: `GET /api/v1/unik/:unikId`, `PUT /api/v1/unik/:unikId`, `DELETE /api/v1/unik/:unikId`
-* Вложенные ресурсы (chatflows, credentials, variables, apikeys, spaces и др.) монтируются под: `/api/v1/unik/:unikId/<resource>`
+* Вложенные ресурсы (canvases, credentials, variables, apikeys, spaces и др.) монтируются под: `/api/v1/unik/:unikId/<resource>`
 * Унаследованный вариант `/api/v1/uniks/:unikId/<resource>` продолжает работать (совместимость), но считается устаревающим для UI‑навигации.
 
 ### Единообразие именования параметров
@@ -34,7 +34,7 @@
 * [Ассистенты](assistants.md)
 * [Вложения](attachments.md)
 * [Сообщения чата](chat-message.md)
-* [Чат-потоки](chatflows.md)
+* [Чат-потоки](canvases.md)
 * [Хранилище документов](document-store.md)
 * [Обратная связь](feedback.md)
 * [Лиды](leads.md)

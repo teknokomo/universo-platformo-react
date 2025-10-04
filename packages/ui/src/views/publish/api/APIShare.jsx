@@ -40,10 +40,10 @@ function a11yProps(index) {
     }
 }
 
-const pythonCode = (chatflowid) => {
+const pythonCode = (canvasId) => {
     return `import requests
 
-API_URL = "${baseURL}/api/v1/prediction/${chatflowid}"
+API_URL = "${baseURL}/api/v1/prediction/${canvasId}"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -55,10 +55,10 @@ output = query({
 print(output)`
 }
 
-const javascriptCode = (chatflowid) => {
+const javascriptCode = (canvasId) => {
     return `async function query(data) {
     const response = await fetch(
-        "${baseURL}/api/v1/prediction/${chatflowid}",
+        "${baseURL}/api/v1/prediction/${canvasId}",
         {
             method: "POST",
             headers: {
@@ -78,14 +78,14 @@ query({
 });`
 }
 
-const curlCode = (chatflowid) => {
-    return `curl ${baseURL}/api/v1/prediction/${chatflowid} \\
+const curlCode = (canvasId) => {
+    return `curl ${baseURL}/api/v1/prediction/${canvasId} \\
      -X POST \\
      -H "Content-Type: application/json" \\
      -d '{"question":"Hey, how are you?"}'`
 }
 
-const APIShare = ({ chatflowid, unikId }) => {
+const APIShare = ({ canvasId, unikId }) => {
     const [value, setValue] = useState(0)
     const { t } = useTranslation('canvases')
 
@@ -96,13 +96,13 @@ const APIShare = ({ chatflowid, unikId }) => {
     const getCode = (codeLang) => {
         switch (codeLang) {
             case 'Python':
-                return pythonCode(chatflowid)
+                return pythonCode(canvasId)
             case 'JavaScript':
-                return javascriptCode(chatflowid)
+                return javascriptCode(canvasId)
             case 'cURL':
-                return curlCode(chatflowid)
+                return curlCode(canvasId)
             default:
-                return pythonCode(chatflowid)
+                return pythonCode(canvasId)
         }
     }
 
@@ -144,7 +144,7 @@ const APIShare = ({ chatflowid, unikId }) => {
 }
 
 APIShare.propTypes = {
-    chatflowid: PropTypes.string,
+    canvasId: PropTypes.string,
     unikId: PropTypes.string
 }
 

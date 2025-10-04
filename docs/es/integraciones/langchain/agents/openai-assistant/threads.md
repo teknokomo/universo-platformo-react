@@ -12,7 +12,7 @@ Por defecto, la UI y el Embedded Chat separarán automáticamente los threads pa
 
 ### Prediction API
 
-POST /`api/v1/prediction/{your-chatflowid}`, especifica el **`chatId`**. El mismo thread se usará para el mismo chatId.
+POST /`api/v1/prediction/{your-canvasid}`, especifica el **`chatId`**. El mismo thread se usará para el mismo chatId.
 
 ```json
 {
@@ -23,10 +23,10 @@ POST /`api/v1/prediction/{your-chatflowid}`, especifica el **`chatId`**. El mism
 
 ### Message API
 
-* GET `/api/v1/chatmessage/{your-chatflowid}`
-* DELETE `/api/v1/chatmessage/{your-chatflowid}`
+* GET `/api/v1/chatmessage/{your-canvasid}`
+* DELETE `/api/v1/chatmessage/{your-canvasid}`
 
-También puedes filtrar por **`chatId`** - `/api/v1/chatmessage/{your-chatflowid}?chatId={your-chatid}`
+También puedes filtrar por **`chatId`** - `/api/v1/chatmessage/{your-canvasid}?chatId={your-chatid}`
 
 Todas las conversaciones pueden ser visualizadas y gestionadas desde la UI también:
 

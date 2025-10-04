@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { LegacyChatflowsService } from '@/services/legacyChatflowsService'
+import { CanvasService } from '@/services/canvasService'
 import { Canvas } from '@/database/entities/Canvas'
 import { Space } from '@/database/entities/Space'
 import { SpaceCanvas } from '@/database/entities/SpaceCanvas'
@@ -9,7 +9,7 @@ import {
   createMockQueryBuilder
 } from '@testing/backend/typeormMocks'
 
-describe('LegacyChatflowsService', () => {
+describe('CanvasService', () => {
   const createService = () => {
     const spaceQueryBuilder = createMockQueryBuilder<Space>({
       getCount: jest.fn().mockResolvedValue(0)
@@ -80,7 +80,7 @@ describe('LegacyChatflowsService', () => {
       SpaceCanvas: spaceCanvasRepo
     })
 
-    const service = new LegacyChatflowsService(
+    const service = new CanvasService(
       () => dataSource as any,
       {
         chatMessage: class TestChatMessage {},

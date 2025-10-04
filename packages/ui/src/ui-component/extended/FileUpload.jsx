@@ -1,7 +1,7 @@
 import { useDispatch } from 'react-redux'
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import parser from 'html-react-parser'
 import { useTranslation } from 'react-i18next'
 
@@ -12,6 +12,7 @@ import { IconX, IconBulb } from '@tabler/icons-react'
 // Project import
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import { SwitchInput } from '@/ui-component/switch/Switch'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 // store
 import useNotifier from '@/utils/useNotifier'
@@ -35,11 +36,7 @@ const FileUpload = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
 
@@ -77,6 +74,16 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
             }
             chatbotConfig.fullFileUpload = value
             chatbotConfig.fileConfig = value.fileConfig
+            if (!canvasId || !unikId) {
+                enqueueSnackbar({
+                    message: t('canvas.configuration.fileUpload.missingCanvas'),
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'error'
+                    }
+                })
+                return
+            }
             const saveResp = await canvasesApi.updateCanvas(
                 unikId,
                 canvasId,
@@ -98,7 +105,7 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorMessage =
@@ -120,29 +127,25 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
     }
 
     useEffect(() => {
-        /* backward compatibility - by default, allow all */
-        const allowedFileTypes = availableFileTypes.map((fileType) => fileType.ext)
-        setAllowedFileTypes(allowedFileTypes)
-        if (dialogProps.chatflow) {
-            if (dialogProps.chatflow.chatbotConfig) {
-                try {
-                    let chatbotConfig = JSON.parse(dialogProps.chatflow.chatbotConfig)
-                    setChatbotConfig(chatbotConfig || {})
-                    if (chatbotConfig.fullFileUpload) {
-                        setFullFileUpload(chatbotConfig.fullFileUpload.status)
+        const defaults = availableFileTypes.map((fileType) => fileType.ext)
+        setAllowedFileTypes(defaults)
+        if (canvas && canvas.chatbotConfig) {
+            try {
+                const parsed = JSON.parse(canvas.chatbotConfig)
+                setChatbotConfig(parsed || {})
+                if (parsed?.fullFileUpload) {
+                    setFullFileUpload(parsed.fullFileUpload.status)
+                    if (parsed.fullFileUpload.allowedUploadFileTypes) {
+                        setAllowedFileTypes(parsed.fullFileUpload.allowedUploadFileTypes.split(','))
                     }
-                    if (chatbotConfig.fullFileUpload?.allowedUploadFileTypes) {
-                        const allowedFileTypes = chatbotConfig.fullFileUpload.allowedUploadFileTypes.split(',')
-                        setAllowedFileTypes(allowedFileTypes)
-                    }
-                } catch (e) {
-                    setChatbotConfig({})
                 }
+            } catch (e) {
+                setChatbotConfig({})
             }
         }
 
         return () => {}
-    }, [dialogProps])
+    }, [canvas])
 
     return (
         <>

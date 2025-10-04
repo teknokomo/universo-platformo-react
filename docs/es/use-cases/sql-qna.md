@@ -24,9 +24,9 @@ En este ejemplo, vamos a crear un chatbot QnA que pueda interactuar con una base
 
 ## TL;DR
 
-Puedes encontrar la plantilla del chatflow:
+Puedes encontrar la plantilla del canvas:
 
-{% file src="../.gitbook/assets/SQL Chatflow.json" %}
+{% file src="../.gitbook/assets/SQL Canvas.json" %}
 
 ## 1. Esquema de Base de Datos SQL + Filas de Ejemplo
 
@@ -330,6 +330,6 @@ I apologize, but I'm not able to answer your query at the moment.
 
 In this example, we have successfully created a SQL chatbot that can interact with your database, and is also able to handle questions that are irrelevant to database. Further improvement includes adding memory to provide conversation history.
 
-You can find the chatflow below:
+You can find the canvas below:
 
-{% file src="../.gitbook/assets/SQL Chatflow (1).json" %}
+{% file src="../.gitbook/assets/SQL Canvas (1).json" %}

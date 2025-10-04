@@ -36,14 +36,14 @@ export const getAuthHeaders = (): Record<string, string> => {
  * Extract IDs from the current URL
  * @returns an object with the extracted identifiers
  */
-export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; chatflowId?: string; spaceId?: string } => {
+export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; spaceId?: string } => {
     if (typeof window === 'undefined') {
         return {}
     }
 
     try {
         const pathname = window.location.pathname
-        const result: { unikId?: string; canvasId?: string; chatflowId?: string; spaceId?: string } = {}
+        const result: { unikId?: string; canvasId?: string; spaceId?: string } = {}
 
         // Extract the unikId - support both new singular '/unik/' and legacy '/uniks/' patterns
         const unikSingularMatch = pathname.match(/\/unik\/([^\/]+)/)
@@ -66,22 +66,10 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; chatfl
             result.spaceId = spaceMatch[1]
         }
 
-        // Extract the chatflowId (legacy structure)
-        const chatflowMatch = pathname.match(/\/chatflows\/([^\/]+)/)
-        if (chatflowMatch && chatflowMatch[1]) {
-            result.chatflowId = chatflowMatch[1]
-        }
-
         // For backward compatibility, if we have spaceId but no canvasId, 
         // we can assume the first canvas has the same ID as the space
         if (result.spaceId && !result.canvasId) {
             result.canvasId = result.spaceId
-        }
-
-        // For backward compatibility, if we have chatflowId but no canvasId,
-        // we can assume the canvas has the same ID as the chatflow
-        if (result.chatflowId && !result.canvasId) {
-            result.canvasId = result.chatflowId
         }
 
         return result

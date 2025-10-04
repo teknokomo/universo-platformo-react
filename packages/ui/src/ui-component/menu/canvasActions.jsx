@@ -34,7 +34,14 @@ const exportHandler = (ctx) => {
 // Build dialog props common patterns.
 const buildTitle = (ctx, key) => ctx.t(key, { name: ctx.entity.name })
 
-export const chatflowActions = [
+const buildCanvasDialogContext = (ctx) => ({
+  canvas: ctx.entity,
+  canvasId: ctx.entity?.id,
+  spaceId: ctx.entity?.spaceId ?? ctx.entity?.space_id,
+  unikId: ctx.meta?.unikId || ctx.entity?.unik_id || ctx.entity?.unikId || null
+})
+
+export const canvasActions = [
   {
     id: 'rename',
     labelKey: 'menu.rename',
@@ -45,13 +52,14 @@ export const chatflowActions = [
       buildProps: (ctx) => ({
         show: true,
         dialogProps: {
+          ...buildCanvasDialogContext(ctx),
           title: ctx.t('dialogs.rename.title', { entity: ctx.t(`entities.${ctx.entityKind}`) }),
           confirmButtonName: ctx.t('dialogs.rename.confirm'),
             cancelButtonName: ctx.t('confirm.delete.cancel')
         },
         onConfirm: async (newName) => {
           try {
-            await ctx.api.updateEntity?.(ctx.entity.id, { name: newName, chatflow: ctx.entity })
+            await ctx.api.updateEntity?.(ctx.entity.id, { name: newName, canvas: ctx.entity })
             await ctx.helpers.refreshList?.()
           } catch (error) {
             ctx.helpers.enqueueSnackbar?.({
@@ -99,7 +107,7 @@ export const chatflowActions = [
       loader: () => import('@/ui-component/dialog/ExportAsTemplateDialog'),
       buildProps: (ctx) => ({
         show: true,
-        dialogProps: { chatflow: ctx.entity },
+        dialogProps: { ...buildCanvasDialogContext(ctx) },
         onCancel: () => {},
         onClose: () => {}
       })
@@ -114,7 +122,7 @@ export const chatflowActions = [
       loader: () => import('@/ui-component/dialog/StarterPromptsDialog'),
       buildProps: (ctx) => ({
         show: true,
-        dialogProps: { title: buildTitle(ctx, 'dialogs.starterPrompts.title'), chatflow: ctx.entity },
+        dialogProps: { title: buildTitle(ctx, 'dialogs.starterPrompts.title'), ...buildCanvasDialogContext(ctx) },
         onCancel: () => {}
       })
     }
@@ -128,7 +136,7 @@ export const chatflowActions = [
       loader: () => import('@/ui-component/dialog/ChatFeedbackDialog'),
       buildProps: (ctx) => ({
         show: true,
-        dialogProps: { title: buildTitle(ctx, 'dialogs.chatFeedback.title'), chatflow: ctx.entity },
+        dialogProps: { title: buildTitle(ctx, 'dialogs.chatFeedback.title'), ...buildCanvasDialogContext(ctx) },
         onCancel: () => {}
       })
     }
@@ -142,7 +150,7 @@ export const chatflowActions = [
       loader: () => import('@/ui-component/dialog/AllowedDomainsDialog'),
       buildProps: (ctx) => ({
         show: true,
-        dialogProps: { title: buildTitle(ctx, 'dialogs.allowedDomains.title'), chatflow: ctx.entity },
+        dialogProps: { title: buildTitle(ctx, 'dialogs.allowedDomains.title'), ...buildCanvasDialogContext(ctx) },
         onCancel: () => {}
       })
     }
@@ -156,7 +164,7 @@ export const chatflowActions = [
       loader: () => import('@/ui-component/dialog/SpeechToTextDialog'),
       buildProps: (ctx) => ({
         show: true,
-        dialogProps: { title: buildTitle(ctx, 'dialogs.speechToText.title'), chatflow: ctx.entity },
+        dialogProps: { title: buildTitle(ctx, 'dialogs.speechToText.title'), ...buildCanvasDialogContext(ctx) },
         onCancel: () => {}
       })
     }
@@ -175,7 +183,7 @@ export const chatflowActions = [
         onSubmit: async (categories) => {
           try {
             const categoryTags = categories.join(';')
-            await ctx.api.updateEntity?.(ctx.entity.id, { category: categoryTags, chatflow: ctx.entity })
+            await ctx.api.updateEntity?.(ctx.entity.id, { category: categoryTags, canvas: ctx.entity })
             await ctx.helpers.refreshList?.()
           } catch (error) {
             ctx.helpers.enqueueSnackbar?.({
@@ -212,4 +220,4 @@ export const chatflowActions = [
   }
 ]
 
-export default chatflowActions
+export default canvasActions

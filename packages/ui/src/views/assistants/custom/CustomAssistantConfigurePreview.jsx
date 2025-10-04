@@ -35,7 +35,7 @@ import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 import { MultiDropdown } from '@/ui-component/dropdown/MultiDropdown'
 import APICodeDialog from '@/views/canvases/APICodeDialog'
 import ViewMessagesDialog from '@/ui-component/dialog/ViewMessagesDialog'
-import ChatflowConfigurationDialog from '@/ui-component/dialog/ChatflowConfigurationDialog'
+import CanvasConfigurationDialog from '@/ui-component/dialog/CanvasConfigurationDialog'
 import ViewLeadsDialog from '@/ui-component/dialog/ViewLeadsDialog'
 import Settings from '@/views/settings'
 import ConfirmDialog from '@/ui-component/dialog/ConfirmDialog'
@@ -50,7 +50,7 @@ import documentstoreApi from '@/api/documentstore'
 
 // Const
 import { baseURL } from '@/store/constant'
-import { SET_CHATFLOW, closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction } from '@/store/actions'
+import { SET_CANVAS, closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction } from '@/store/actions'
 
 // Utils
 import { initNode } from '@/utils/genericHelper'
@@ -70,13 +70,13 @@ const MemoizedFullPageChat = memo(
             <FullPageChat {...props}></FullPageChat>
         </div>
     ),
-    (prevProps, nextProps) => prevProps.chatflow === nextProps.chatflow
+    (prevProps, nextProps) => prevProps.canvas === nextProps.canvas
 )
 
 MemoizedFullPageChat.displayName = 'MemoizedFullPageChat'
 
 MemoizedFullPageChat.propTypes = {
-    chatflow: PropTypes.object
+    canvas: PropTypes.object
 }
 
 const CustomAssistantConfigurePreview = () => {
@@ -129,8 +129,8 @@ const CustomAssistantConfigurePreview = () => {
     const resolveSpaceId = () =>
         selectedCustomAssistant.spaceId ||
         selectedCustomAssistant.space_id ||
-        canvas.chatflow?.spaceId ||
-        canvas.chatflow?.space_id ||
+        canvas.currentCanvas?.spaceId ||
+        canvas.currentCanvas?.space_id ||
         null
 
     const dispatch = useDispatch()
@@ -244,7 +244,7 @@ const CustomAssistantConfigurePreview = () => {
 
                 if (saveResp.data) {
                     setCustomAssistantCanvasId(saveResp.data.id)
-                    dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                    dispatch({ type: SET_CANVAS, canvas: saveResp.data })
 
                     const assistantDetails = {
                         ...selectedCustomAssistant,
@@ -495,6 +495,26 @@ const CustomAssistantConfigurePreview = () => {
         }
     }
 
+    const buildCanvasDialogContext = (overrides = {}) => {
+        const resolvedCanvas = overrides.canvas ?? canvas.currentCanvas
+        const resolvedCanvasId =
+            overrides.canvasId ?? customAssistantCanvasId ?? resolvedCanvas?.id ?? null
+        return {
+            canvas: resolvedCanvas,
+            canvasId: resolvedCanvasId,
+            spaceId: overrides.spaceId ?? resolveSpaceId(),
+            unikId: overrides.unikId ?? unikId,
+            ...overrides
+        }
+    }
+
+    useEffect(() => {
+        if (canvasConfigurationDialogOpen) {
+            setCanvasConfigurationDialogProps((prev) => buildCanvasDialogContext(prev))
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canvas.currentCanvas, customAssistantCanvasId, canvasConfigurationDialogOpen])
+
     const onSettingsItemClick = (setting) => {
         setSettingsOpen(false)
 
@@ -503,22 +523,19 @@ const CustomAssistantConfigurePreview = () => {
         } else if (setting === 'viewMessages') {
             setViewMessagesDialogProps({
                 title: 'View Messages',
-                chatflow: canvas.chatflow
+                ...buildCanvasDialogContext()
             })
             setViewMessagesDialogOpen(true)
         } else if (setting === 'viewLeads') {
             setViewLeadsDialogProps({
                 title: 'View Leads',
-                chatflow: canvas.chatflow
+                ...buildCanvasDialogContext()
             })
             setViewLeadsDialogOpen(true)
         } else if (setting === 'canvasConfiguration') {
-            setCanvasConfigurationDialogProps({
-                title: `Assistant Configuration`,
-                chatflow: canvas.chatflow,
-                unikId: unikId,
-                canvasId: customAssistantCanvasId
-            })
+            setCanvasConfigurationDialogProps(
+                buildCanvasDialogContext({ title: 'Assistant Configuration' })
+            )
             setCanvasConfigurationDialogOpen(true)
         }
     }
@@ -651,8 +668,8 @@ const CustomAssistantConfigurePreview = () => {
     const onAPIDialogClick = () => {
         setAPIDialogProps({
             title: 'Embed in website or use as API',
-            chatflowid: customAssistantCanvasId,
-            chatflowApiKeyId: canvas.chatflow.apikeyid,
+            canvasId: customAssistantCanvasId,
+            canvasApiKeyId: canvas.currentCanvas.apikeyid,
             isSessionMemory: true
         })
         setAPIDialogOpen(true)
@@ -780,8 +797,8 @@ const CustomAssistantConfigurePreview = () => {
 
     useEffect(() => {
         if (getCanvasApi.data) {
-            const chatflow = getCanvasApi.data
-            dispatch({ type: SET_CHATFLOW, chatflow })
+            const fetchedCanvas = getCanvasApi.data
+            dispatch({ type: SET_CANVAS, canvas: fetchedCanvas })
         } else if (getCanvasApi.error) {
             const errorMessage =
                 getCanvasApi.error?.response?.data?.message || getCanvasApi.error?.message || 'Unknown error'
@@ -1284,10 +1301,10 @@ const CustomAssistantConfigurePreview = () => {
                                         <Box sx={{ mt: 2 }}>
                                             {customization.isDarkMode && (
                                                 <MemoizedFullPageChat
-                                                    chatflowid={customAssistantCanvasId}
-                                                    chatflow={canvas.chatflow}
+                                                    canvasId={customAssistantCanvasId}
+                                                    canvas={canvas.currentCanvas}
                                                     apiHost={baseURL}
-                                                    chatflowConfig={{}}
+                                                    canvasConfig={{}}
                                                     theme={{
                                                         button: {
                                                             backgroundColor: '#32353b',
@@ -1319,10 +1336,10 @@ const CustomAssistantConfigurePreview = () => {
                                             )}
                                             {!customization.isDarkMode && (
                                                 <MemoizedFullPageChat
-                                                    chatflowid={customAssistantCanvasId}
-                                                    chatflow={canvas.chatflow}
+                                                    canvasId={customAssistantCanvasId}
+                                                    canvas={canvas.currentCanvas}
                                                     apiHost={baseURL}
-                                                    chatflowConfig={{}}
+                                                    canvasConfig={{}}
                                                     theme={{
                                                         button: {
                                                             backgroundColor: '#eeeeee',
@@ -1364,7 +1381,7 @@ const CustomAssistantConfigurePreview = () => {
             {apiDialogOpen && <APICodeDialog show={apiDialogOpen} dialogProps={apiDialogProps} onCancel={() => setAPIDialogOpen(false)} />}
             {isSettingsOpen && (
                 <Settings
-                    chatflow={canvas.chatflow}
+                    canvas={canvas.currentCanvas}
                     isSettingsOpen={isSettingsOpen}
                     anchorEl={settingsRef.current}
                     onClose={() => setSettingsOpen(false)}
@@ -1378,7 +1395,7 @@ const CustomAssistantConfigurePreview = () => {
                 onCancel={() => setViewMessagesDialogOpen(false)}
             />
             <ViewLeadsDialog show={viewLeadsDialogOpen} dialogProps={viewLeadsDialogProps} onCancel={() => setViewLeadsDialogOpen(false)} />
-            <ChatflowConfigurationDialog
+            <CanvasConfigurationDialog
                 key='canvasConfiguration'
                 show={canvasConfigurationDialogOpen}
                 dialogProps={canvasConfigurationDialogProps}

@@ -4,7 +4,7 @@ import { NodeVM } from '@flowiseai/nodevm'
 import { RunnableConfig } from '@langchain/core/runnables'
 import { StructuredTool, ToolParams } from '@langchain/core/tools'
 import { CallbackManagerForToolRun, Callbacks, CallbackManager, parseCallbackConfigArg } from '@langchain/core/callbacks/manager'
-import { availableDependencies, defaultAllowBuiltInDep, prepareSandboxVars } from '../../../src/utils'
+import { FLOW_CONTEXT_REFERENCE, availableDependencies, defaultAllowBuiltInDep, prepareSandboxVars } from '../../../src/utils'
 import { ICommonObject } from '../../../src/Interface'
 
 const removeNulls = (obj: Record<string, any>) => {
@@ -56,11 +56,7 @@ export const howToUseCode = `- **Libraries:**
 
 - **Default Flow Config:**  
   You can access the default flow configuration using these variables:
-  - \`$flow.sessionId\`
-  - \`$flow.chatId\`
-  - \`$flow.chatflowId\`
-  - \`$flow.input\`
-  - \`$flow.state\`
+${FLOW_CONTEXT_REFERENCE}
 
 - **Custom Variables:**  
   You can get custom variables using the syntax:

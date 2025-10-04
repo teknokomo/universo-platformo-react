@@ -46,7 +46,11 @@ const StyledTableRow = styled(TableRow)(() => ({
 }))
 
 const getLocalStorageKeyName = (name, isAgentCanvas) => {
-    return (isAgentCanvas ? 'agentcanvas' : 'chatflowcanvas') + '_' + name
+    if (isAgentCanvas) {
+        return `agentcanvas_${name}`
+    }
+
+    return `canvaslist_${name}`
 }
 
 export const FlowListTable = ({
@@ -222,133 +226,135 @@ export const FlowListTable = ({
                                                 <Tooltip title={row.templateName || row.name}>
                                                     <Typography
                                                         sx={{
-                                                        display: '-webkit-box',
-                                                        fontSize: 14,
-                                                        fontWeight: 500,
-                                                        WebkitLineClamp: 2,
-                                                        WebkitBoxOrient: 'vertical',
-                                                        textOverflow: 'ellipsis',
-                                                        overflow: 'hidden'
-                                                }}
-                                            >
-                                                    {linkTarget ? (
-                                                        <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
-                                                            {displayName}
-                                                        </Link>
-                                                    ) : (
-                                                        displayName
-                                                    )}
+                                                            display: '-webkit-box',
+                                                            fontSize: 14,
+                                                            fontWeight: 500,
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            textOverflow: 'ellipsis',
+                                                            overflow: 'hidden'
+                                                        }}
+                                                    >
+                                                        {linkTarget ? (
+                                                            <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
+                                                                {displayName}
+                                                            </Link>
+                                                        ) : (
+                                                            displayName
+                                                        )}
                                                     </Typography>
                                                 </Tooltip>
                                             </StyledTableCell>
-                                        {isUnikTable ? (
-                                            <StyledTableCell key='1'>
-                                                <Typography sx={{ fontSize: 14 }}>
-                                                    {row.spacesCount != null ? row.spacesCount : 0}
-                                                </Typography>
-                                            </StyledTableCell>
-                                        ) : columnsToRender ? (
-                                            columnsToRender.map((column) => (
-                                                <StyledTableCell key={column.id} align={column.align || 'left'}>
-                                                    {column.render ? column.render(row, index) : null}
-                                                </StyledTableCell>
-                                            ))
-                                        ) : (
-                                            <>
+                                            {isUnikTable ? (
                                                 <StyledTableCell key='1'>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            flexDirection: 'row',
-                                                            flexWrap: 'wrap',
-                                                            marginTop: 5
-                                                        }}
-                                                    >
-                                                        &nbsp;
-                                                        {row.category &&
-                                                            row.category
-                                                                .split(';')
-                                                                .map((tag, tagIndex) => (
-                                                                    <Chip key={tagIndex} label={tag} style={{ marginRight: 5, marginBottom: 5 }} />
-                                                                ))}
-                                                    </div>
+                                                    <Typography sx={{ fontSize: 14 }}>
+                                                        {row.spacesCount != null ? row.spacesCount : 0}
+                                                    </Typography>
                                                 </StyledTableCell>
-                                                <StyledTableCell key='2'>
-                                                    {images[row.id] && (
-                                                        <Box
-                                                            sx={{
+                                            ) : columnsToRender ? (
+                                                columnsToRender.map((column) => (
+                                                    <StyledTableCell key={column.id} align={column.align || 'left'}>
+                                                        {column.render ? column.render(row, index) : null}
+                                                    </StyledTableCell>
+                                                ))
+                                            ) : (
+                                                <>
+                                                    <StyledTableCell key='1'>
+                                                        <div
+                                                            style={{
                                                                 display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'start',
-                                                                gap: 1
+                                                                flexDirection: 'row',
+                                                                flexWrap: 'wrap',
+                                                                marginTop: 5
                                                             }}
                                                         >
-                                                            {images[row.id]
-                                                                .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
-                                                                .map((img) => (
-                                                                    <Box
-                                                                        key={img}
+                                                            &nbsp;
+                                                            {row.category &&
+                                                                row.category
+                                                                    .split(';')
+                                                                    .map((tag, tagIndex) => (
+                                                                        <Chip
+                                                                            key={tagIndex}
+                                                                            label={tag}
+                                                                            style={{ marginRight: 5, marginBottom: 5 }}
+                                                                        />
+                                                                    ))}
+                                                        </div>
+                                                    </StyledTableCell>
+                                                    <StyledTableCell key='2'>
+                                                        {images[row.id] && (
+                                                            <Box
+                                                                sx={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'start',
+                                                                    gap: 1
+                                                                }}
+                                                            >
+                                                                {images[row.id]
+                                                                    .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
+                                                                    .map((img) => (
+                                                                        <Box
+                                                                            key={img}
+                                                                            sx={{
+                                                                                width: 30,
+                                                                                height: 30,
+                                                                                borderRadius: '50%',
+                                                                                backgroundColor: customization.isDarkMode
+                                                                                    ? theme.palette.common.white
+                                                                                    : theme.palette.grey[300] + 75
+                                                                            }}
+                                                                        >
+                                                                            <img
+                                                                                style={{
+                                                                                    width: '100%',
+                                                                                    height: '100%',
+                                                                                    padding: 5,
+                                                                                    objectFit: 'contain'
+                                                                                }}
+                                                                                alt=''
+                                                                                src={img}
+                                                                            />
+                                                                        </Box>
+                                                                    ))}
+                                                                {images[row.id].length > 5 && (
+                                                                    <Typography
                                                                         sx={{
-                                                                            width: 30,
-                                                                            height: 30,
-                                                                            borderRadius: '50%',
-                                                                            backgroundColor: customization.isDarkMode
-                                                                                ? theme.palette.common.white
-                                                                                : theme.palette.grey[300] + 75
+                                                                            alignItems: 'center',
+                                                                            display: 'flex',
+                                                                            fontSize: '.9rem',
+                                                                            fontWeight: 200
                                                                         }}
                                                                     >
-                                                                        <img
-                                                                            style={{
-                                                                                width: '100%',
-                                                                                height: '100%',
-                                                                                padding: 5,
-                                                                                objectFit: 'contain'
-                                                                            }}
-                                                                            alt=''
-                                                                            src={img}
-                                                                        />
-                                                                    </Box>
-                                                                ))}
-                                                            {images[row.id].length > 5 && (
-                                                                <Typography
-                                                                    sx={{
-                                                                        alignItems: 'center',
-                                                                        display: 'flex',
-                                                                        fontSize: '.9rem',
-                                                                        fontWeight: 200
-                                                                    }}
-                                                                >
-                                                                    {t('table.more', { count: images[row.id].length - 5 })}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
+                                                                        {t('table.more', { count: images[row.id].length - 5 })}
+                                                                    </Typography>
+                                                                )}
+                                                            </Box>
+                                                        )}
+                                                    </StyledTableCell>
+                                                </>
+                                            )}
+                                            <StyledTableCell key='3'>{formatDate(normalizedUpdatedDate, 'full')}</StyledTableCell>
+                                            <StyledTableCell key='4'>
+                                                <Stack
+                                                    direction={{ xs: 'column', sm: 'row' }}
+                                                    spacing={1}
+                                                    justifyContent='center'
+                                                    alignItems='center'
+                                                >
+                                                    {renderActions ? (
+                                                        renderActions(row)
+                                                    ) : (
+                                                        <FlowListMenu
+                                                            isAgentCanvas={isAgentCanvas}
+                                                            canvas={row}
+                                                            setError={setError}
+                                                            updateFlowsApi={updateFlowsApi}
+                                                        />
                                                     )}
-                                                </StyledTableCell>
-                                            </>
-                                        )}
-                                        <StyledTableCell key='3'>
-                                            {formatDate(normalizedUpdatedDate, 'full')}
-                                        </StyledTableCell>
-                                        <StyledTableCell key='4'>
-                                            <Stack
-                                                direction={{ xs: 'column', sm: 'row' }}
-                                                spacing={1}
-                                                justifyContent='center'
-                                                alignItems='center'
-                                            >
-                                                {renderActions ? (
-                                                    renderActions(row)
-                                                ) : (
-                                                    <FlowListMenu
-                                                        isAgentCanvas={isAgentCanvas}
-                                                        chatflow={row}
-                                                        setError={setError}
-                                                        updateFlowsApi={updateFlowsApi}
-                                                    />
-                                                )}
-                                            </Stack>
-                                        </StyledTableCell>
-                                    </StyledTableRow>
+                                                </Stack>
+                                            </StyledTableCell>
+                                        </StyledTableRow>
                                     )
                                 })}
                             </>

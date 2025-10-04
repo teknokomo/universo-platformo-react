@@ -66,7 +66,7 @@ class Pipe:
                 }
 
                 r = requests.get(
-                    f"{self.valves.flowise_url}/api/v1/chatflows?type=AGENTFLOW",
+                    f"{self.valves.flowise_url}/api/v1/canvases?type=AGENTFLOW",
                     headers=headers,
                 )
                 models = r.json()
@@ -193,9 +193,9 @@ class Pipe:
 
 5. Now when you refresh and click New Chat, you will be able to see the list of flows. You can modify the code to show:
 
-* Only Agentflows V2: `f"{self.valves.flowise_url}/api/v1/chatflows?type=AGENTFLOW"`
-* Only Chatflows: `f"{self.valves.flowise_url}/api/v1/chatflows?type=CHATFLOW"`
-* Only Assistants: `f"{self.valves.flowise_url}/api/v1/chatflows?type=ASSISTANT"`
+* Only Agentflows V2: `f"{self.valves.flowise_url}/api/v1/canvases?type=AGENTFLOW"`
+* Only Canvases: `f"{self.valves.flowise_url}/api/v1/canvases?type=CHATFLOW"`
+* Only Assistants: `f"{self.valves.flowise_url}/api/v1/canvases?type=ASSISTANT"`
 
 <figure><img src="../../.gitbook/assets/image (4) (1).png" alt=""><figcaption></figcaption></figure>
 

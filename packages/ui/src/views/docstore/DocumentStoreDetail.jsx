@@ -535,7 +535,7 @@ const DocumentStoreDetails = () => {
                                     <IconVectorBezier2 style={{ marginRight: 5 }} size={17} />
                                     {t('documentStore.detail.canvasesUsed')}
                                 </div>
-                                {getSpecificDocumentStore.data.whereUsed.map((chatflowUsed, index) => (
+                                {getSpecificDocumentStore.data.whereUsed.map((canvasUsed, index) => (
                                     <Chip
                                         key={index}
                                         clickable
@@ -546,8 +546,8 @@ const DocumentStoreDetails = () => {
                                                 ? '0 2px 14px 0 rgb(255 255 255 / 10%)'
                                                 : '0 2px 14px 0 rgb(32 40 45 / 10%)'
                                         }}
-                                        label={chatflowUsed.name}
-                                        onClick={() => navigate('/canvas/' + chatflowUsed.id)}
+                                        label={canvasUsed.name}
+                                        onClick={() => navigate('/canvas/' + canvasUsed.id)}
                                     ></Chip>
                                 ))}
                             </Stack>

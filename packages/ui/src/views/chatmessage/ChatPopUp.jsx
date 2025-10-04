@@ -15,7 +15,7 @@ import { ChatMessage } from './ChatMessage'
 import ChatExpandDialog from './ChatExpandDialog'
 
 // api
-import chatmessageApi from '@/api/chatmessage'
+import canvasMessagesApi from '@/api/canvasMessages'
 
 // Hooks
 import useConfirm from '@/hooks/useConfirm'
@@ -27,7 +27,7 @@ import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackba
 // Utils
 import { getLocalStorageChatflow, removeLocalStorageChatHistory } from '@/utils/genericHelper'
 
-export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
+export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, spaceId }) => {
     const theme = useTheme()
     const { confirm } = useConfirm()
     const dispatch = useDispatch()
@@ -45,8 +45,8 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
     const anchorRef = useRef(null)
     const prevOpen = useRef(open)
 
-    // For agents, chatflowid now represents canvasId
-    const canvasId = isAgentCanvas ? chatflowid : chatflowid
+    // Maintain hook for potential agent-specific handling
+    const canvasId = propCanvasId
 
     const handleClose = (event) => {
         if (anchorRef.current && anchorRef.current.contains(event.target)) {
@@ -62,7 +62,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
     const expandChat = () => {
         const props = {
             open: true,
-            chatflowid: canvasId,
+            canvasId: canvasId,
             unikId,
             spaceId
         }
@@ -98,7 +98,10 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
             try {
                 const objChatDetails = getLocalStorageChatflow(canvasId)
                 if (!objChatDetails.chatId) return
-                await chatmessageApi.deleteChatmessage(canvasId, { chatId: objChatDetails.chatId, chatType: 'INTERNAL' })
+                await canvasMessagesApi.deleteCanvasMessages(canvasId, {
+                    chatId: objChatDetails.chatId,
+                    chatType: 'INTERNAL'
+                })
                 removeLocalStorageChatHistory(canvasId)
                 resetChatDialog()
                 enqueueSnackbar({
@@ -210,7 +213,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
                                 >
                                     <ChatMessage
                                         isAgentCanvas={isAgentCanvas}
-                                        chatflowid={canvasId}
+                                        canvasId={canvasId}
                                         unikId={unikId}
                                         spaceId={spaceId}
                                         open={open}
@@ -237,7 +240,7 @@ export const ChatPopUp = ({ chatflowid, isAgentCanvas, unikId, spaceId }) => {
 }
 
 ChatPopUp.propTypes = {
-    chatflowid: PropTypes.string,
+    canvasId: PropTypes.string,
     isAgentCanvas: PropTypes.bool,
     unikId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     spaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])

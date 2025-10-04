@@ -33,7 +33,11 @@ const CardWrapper = styled(Card, {
 const ItemCard = ({ data, images, onClick, allowStretch = false }) => {
     const theme = useTheme()
     return (
-        <CardWrapper allowStretch={allowStretch} onClick={onClick} sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 2 }}>
+        <CardWrapper
+            allowStretch={allowStretch}
+            onClick={onClick}
+            sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 2 }}
+        >
             <Box sx={{ height: '100%', p: 2.25 }}>
                 <Grid container justifyContent='space-between' direction='column' sx={{ height: '100%', gap: 3 }}>
                     <Box display='flex' flexDirection='column' sx={{ width: '100%' }}>
@@ -121,9 +125,8 @@ const ItemCard = ({ data, images, onClick, allowStretch = false }) => {
                                         width: 30,
                                         height: 30,
                                         borderRadius: '50%',
-                                        backgroundColor: theme.palette.mode === 'dark'
-                                            ? theme.palette.common.white
-                                            : theme.palette.grey[300]
+                                        backgroundColor:
+                                            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[300]
                                     }}
                                 >
                                     <img style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }} alt='' src={img} />

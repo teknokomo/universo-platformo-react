@@ -270,7 +270,7 @@ _<mark style="color:orange;">Тикер акции: OSTK Движение цен
 ```json5
 $flow.sessionId 
 $flow.chatId
-$flow.chatflowId
+$flow.canvasId
 $flow.input
 ```
 
@@ -329,7 +329,7 @@ $vars.<имя-переменной>
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflow-id>",
+        "http://localhost:3000/api/v1/prediction/<canvas-id>",
         {
             method: "POST",
             headers: {
@@ -360,9 +360,9 @@ query({
 <script type="module">
     import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
     Chatbot.init({
-        chatflowid: 'chatflow-id',
+        canvasid: 'canvas-id',
         apiHost: 'http://localhost:3000',
-        chatflowConfig: {
+        canvasConfig: {
           vars: {
             apiKey: 'def'
           }
@@ -429,7 +429,7 @@ try {
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflow-id>",
+        "http://localhost:3000/api/v1/prediction/<canvas-id>",
         {
             method: "POST",
             headers: {

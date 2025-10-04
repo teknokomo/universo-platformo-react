@@ -12,14 +12,14 @@ const leadsFixture = [
     email: 'alice@example.com',
     points: 10,
     createdDate: '2024-01-01T00:00:00.000Z',
-    chatflowid: 'abcdefgh',
+    canvasId: 'abcdefgh',
   },
   {
     name: 'Bob',
     email: 'bob@example.com',
     phone: '200',
     createdDate: '2024-01-02T00:00:00.000Z',
-    chatflowid: 'ijklmnop',
+    canvasId: 'ijklmnop',
   },
 ]
 

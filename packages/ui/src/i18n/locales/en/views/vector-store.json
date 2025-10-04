@@ -146,6 +146,7 @@
     },
     "refer": "Refer",
     "here": "here",
-    "forMoreDetails": "for more details"
+    "forMoreDetails": "for more details",
+    "missingCanvas": "Canvas context is missing"
   }
 }

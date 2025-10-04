@@ -3,9 +3,9 @@ import leadsController from '../../controllers/leads'
 const router = express.Router()
 
 // CREATE
-router.post('/', leadsController.createLeadInChatflow)
+router.post('/', leadsController.createLeadForCanvas)
 
 // READ
-router.get(['/', '/:id'], leadsController.getAllLeadsForChatflow)
+router.get(['/', '/:id'], leadsController.getAllLeadsForCanvas)
 
 export default router

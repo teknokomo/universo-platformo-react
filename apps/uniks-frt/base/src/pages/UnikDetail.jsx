@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Button, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
@@ -30,16 +30,10 @@ const UnikDetail = () => {
                 {t('unikDetail.navigation')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <Button
-                    variant='outlined'
-                    onClick={() => navigate(`/unik/${unikId}/finance/accounts`)}
-                >
+                <Button variant='outlined' onClick={() => navigate(`/unik/${unikId}/finance/accounts`)}>
                     {t('unikDetail.manageAccounts')}
                 </Button>
-                <Button
-                    variant='outlined'
-                    onClick={() => navigate(`/unik/${unikId}/finance/currencies`)}
-                >
+                <Button variant='outlined' onClick={() => navigate(`/unik/${unikId}/finance/currencies`)}>
                     {t('unikDetail.manageCurrencies')}
                 </Button>
             </Box>

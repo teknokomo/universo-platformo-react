@@ -12,7 +12,7 @@ By default, UI and Embedded Chat will automatically separate threads for multipl
 
 ### Prediction API
 
-POST /`api/v1/prediction/{your-chatflowid}`, specify the **`chatId`** . Same thread will be used for the same chatId.
+POST /`api/v1/prediction/{your-canvasid}`, specify the **`chatId`** . Same thread will be used for the same chatId.
 
 ```json
 {
@@ -23,10 +23,10 @@ POST /`api/v1/prediction/{your-chatflowid}`, specify the **`chatId`** . Same thr
 
 ### Message API
 
-* GET `/api/v1/chatmessage/{your-chatflowid}`
-* DELETE `/api/v1/chatmessage/{your-chatflowid}`
+* GET `/api/v1/chatmessage/{your-canvasid}`
+* DELETE `/api/v1/chatmessage/{your-canvasid}`
 
-You can also filter via **`chatId` -** `/api/v1/chatmessage/{your-chatflowid}?chatId={your-chatid}`
+You can also filter via **`chatId` -** `/api/v1/chatmessage/{your-canvasid}?chatId={your-chatid}`
 
 All conversations can be visualized and managed from UI as well:
 

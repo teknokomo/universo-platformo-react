@@ -76,7 +76,7 @@ return "Processed text content"
 - **$input**: Input value passed to the function
 - **$vars**: Access to flow variables
 - **$flow**: Flow context object containing:
-  - chatflowId
+  - canvasId
   - sessionId
   - chatId
   - input

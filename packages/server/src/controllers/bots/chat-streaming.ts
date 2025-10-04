@@ -45,15 +45,15 @@ export class ChatStreamingController {
             const sessionid = req.params.sessionid || uuidv4()
             logger.info(`Streaming request for chat bot (canvas: ${canvasId}, session: ${sessionid})`)
 
-            // Universo Platformo | Check that the chatflow exists and supports streaming
+            // Universo Platformo | Check that the canvas exists and supports streaming
             const streamable = await canvasService.checkIfCanvasIsValidForStreaming(canvasId)
             if (!streamable || !streamable.isStreaming) {
                 return res.status(400).json({ error: 'Canvas not configured for streaming' })
             }
 
-            let chatflow
+            let canvasRecord
             try {
-                chatflow = await canvasService.getCanvasById(canvasId)
+                canvasRecord = await canvasService.getCanvasById(canvasId)
             } catch (error: any) {
                 if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
                     logger.error(`Canvas ${canvasId} not found`)
@@ -64,14 +64,14 @@ export class ChatStreamingController {
                 throw error
             }
 
-            if (!chatflow) {
+            if (!canvasRecord) {
                 logger.error(`Canvas ${canvasId} not found`)
                 return res.status(StatusCodes.NOT_FOUND).json({
                     error: 'Chat Bot not found or not public'
                 })
             }
 
-            // Universo Platformo | Check user access to the Unik this chatflow belongs to
+            // Universo Platformo | Check user access to the Unik this canvas belongs to
             const unikId = await workspaceAccessService.getUnikIdForCanvas(canvasId)
             if (unikId) {
                 const userId = resolveRequestUserId(req)
@@ -85,7 +85,7 @@ export class ChatStreamingController {
                 }
             }
 
-            const config = safeParseJSON(chatflow.chatbotConfig)
+            const config = safeParseJSON(canvasRecord.chatbotConfig)
 
             // Universo Platformo | Verify that this is a chat bot
             if (config.botType !== 'chat' && config.botType !== undefined) {
@@ -121,8 +121,8 @@ export class ChatStreamingController {
                     streaming: true
                 }
 
-                // Universo Platformo | Process request using predictionsServices.buildChatflow
-                const apiResponse = await predictionsServices.buildChatflow(req)
+                // Universo Platformo | Process request using predictionsServices.buildCanvasFlow
+                const apiResponse = await predictionsServices.buildCanvasFlow(req)
                 sseStreamer.streamMetadataEvent(apiResponse.chatId, apiResponse)
             } catch (error) {
                 logger.error(`Error in chat-streaming: ${getErrorMessage(error)}`)

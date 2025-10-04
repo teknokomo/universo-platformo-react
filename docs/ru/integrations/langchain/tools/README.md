@@ -288,7 +288,7 @@ class SecureTool(BaseTool):
 * [BraveSearch API](bravesearch-api.md)
 * [Калькулятор](calculator.md)
 * [Инструмент цепочки](chain-tool.md)
-* [Инструмент чат-потока](chatflow-tool.md)
+* [Инструмент чат-потока](canvas-tool.md)
 * [Пользовательский инструмент](custom-tool.md)
 * [Exa Search](exa-search.md)
 * [Gmail](gmail.md)

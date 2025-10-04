@@ -24,7 +24,7 @@ You can specify the version of flowise-embed's `web.js` to use. For full list of
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed@<some-version>/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
   })
 </script>
@@ -42,17 +42,17 @@ For instance:
 `https://cdn.jsdelivr.net/npm/flowise-embed@1.3.14/dist/web.js`
 {% endhint %}
 
-## Chatflow Config
+## Canvas Config
 
-You can pass `chatflowConfig` JSON object to override existing configuration. This is the same as [Broken link](broken-reference "mention") in API.
+You can pass `canvasConfig` JSON object to override existing configuration. This is the same as [Broken link](broken-reference "mention") in API.
 
 ```html
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
-    chatflowConfig: {
+    canvasConfig: {
       "sessionId": "123",
       "returnSourceDocuments": true
     }
@@ -68,7 +68,7 @@ This allows you to execute code in parent based upon signal observations within 
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
     observersConfig: {
       // User input has changed
@@ -102,7 +102,7 @@ You can change the full appearance of the embedded chatbot and enable functional
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
     theme: {
       button: {
@@ -216,7 +216,7 @@ Replace `username` to your Github username, and `forked-repo` to your forked rep
 <pre class="language-html"><code class="lang-html"><strong>&#x3C;script type="module">
 </strong>      import Chatbot from "https://cdn.jsdelivr.net/gh/username/forked-repo/dist/web.js"
       Chatbot.init({
-          chatflowid: "your-chatflowid-here",
+          canvasid: "your-canvasid-here",
           apiHost: "your-apihost-here",
       })
 &#x3C;/script>
@@ -228,7 +228,7 @@ Replace `username` to your Github username, and `forked-repo` to your forked rep
 <script type="module">
       import Chatbot from "https://cdn.jsdelivr.net/gh/HenryHengZJ/FlowiseChatEmbed-Test/dist/web.js"
       Chatbot.init({
-          chatflowid: "your-chatflowid-here",
+          canvasid: "your-canvasid-here",
           apiHost: "your-apihost-here",
       })
 </script>
@@ -255,7 +255,7 @@ Here's how to use it:
 <script src="https://cdn.jsdelivr.net/gh/FlowiseAI/FlowiseChatEmbed@main/dist/web.js"></script>
 <script>
   Chatbot.init({
-    chatflowid: "your-chatflowid-here",
+    canvasid: "your-canvasid-here",
     apiHost: "your-apihost-here",
     theme: {
       // ... other theme settings

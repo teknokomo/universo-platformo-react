@@ -14,9 +14,10 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 import { SwitchInput } from '@/ui-component/switch/Switch'
 import { CodeEditor } from '@/ui-component/editor/CodeEditor'
 import ExpandTextDialog from '@/ui-component/dialog/ExpandTextDialog'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 // store
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import useNotifier from '@/utils/useNotifier'
 
 // API
@@ -28,11 +29,7 @@ const PostProcessing = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
     const theme = useTheme()
@@ -99,7 +96,7 @@ const PostProcessing = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorMessage =
@@ -121,8 +118,8 @@ const PostProcessing = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow && dialogProps.chatflow.chatbotConfig) {
-            let chatbotConfig = JSON.parse(dialogProps.chatflow.chatbotConfig)
+        if (canvas && canvas.chatbotConfig) {
+            let chatbotConfig = JSON.parse(canvas.chatbotConfig)
             setChatbotConfig(chatbotConfig || {})
             if (chatbotConfig.postProcessing) {
                 setPostProcessingEnabled(chatbotConfig.postProcessing.enabled)
@@ -133,7 +130,7 @@ const PostProcessing = ({ dialogProps }) => {
         }
 
         return () => { }
-    }, [dialogProps])
+    }, [canvas])
 
     return (
         <>

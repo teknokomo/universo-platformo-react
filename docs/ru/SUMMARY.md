@@ -74,7 +74,7 @@
     -   [Assistants](api-reference/assistants.md)
     -   [Attachments](api-reference/attachments.md)
     -   [Chat Message](api-reference/chat-message.md)
-    -   [Chatflows](api-reference/chatflows.md)
+    -   [Canvases](api-reference/canvases.md)
     -   [Document Store](api-reference/document-store.md)
     -   [Feedback](api-reference/feedback.md)
     -   [Leads](api-reference/leads.md)

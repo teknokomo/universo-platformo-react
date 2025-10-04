@@ -17,9 +17,10 @@ export interface AnalyticsTranslations {
         table: {
             name: string
             email: string
+            phone: string
             points: string
             completionDate: string
-            chatflowId: string
+            canvasId: string
             notSpecified: string
         }
         loading: string

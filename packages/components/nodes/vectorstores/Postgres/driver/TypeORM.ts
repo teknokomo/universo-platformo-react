@@ -133,23 +133,23 @@ export class TypeORMDriver extends VectorStoreDriver {
         distanceOperator: string = '<=>'
     ) => {
         const embeddingString = `[${query.join(',')}]`
-        let chatflowOr = ''
+        let canvasFilterClause = ''
         const { [FLOWISE_CHATID]: chatId, ...restFilters } = filter || {}
 
         const _filter = JSON.stringify(restFilters || {})
         const parameters: any[] = [embeddingString, _filter, k]
 
-        // Match chatflow uploaded file and keep filtering on other files:
+        // Ensure we only fetch documents associated with the current canvas when metadata contains FLOWISE_CHATID
         // https://github.com/FlowiseAI/Flowise/pull/3367#discussion_r1804229295
         if (chatId) {
             parameters.push({ [FLOWISE_CHATID]: chatId })
-            chatflowOr = `OR metadata @> $${parameters.length}`
+            canvasFilterClause = `OR metadata @> $${parameters.length}`
         }
 
         const queryString = `
             SELECT *, embedding ${distanceOperator} $1 as "_distance"
             FROM ${tableName}
-            WHERE ((metadata @> $2) AND NOT (metadata ? '${FLOWISE_CHATID}')) ${chatflowOr}
+            WHERE ((metadata @> $2) AND NOT (metadata ? '${FLOWISE_CHATID}')) ${canvasFilterClause}
             ORDER BY "_distance" ASC
             LIMIT $3;`
 

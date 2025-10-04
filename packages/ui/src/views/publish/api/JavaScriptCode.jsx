@@ -7,10 +7,10 @@ import { CopyBlock, atomOneDark } from 'react-code-blocks'
 import { baseURL } from '@/store/constant'
 
 // Universo Platformo | Plain JavaScript code for chat
-const getJavaScriptChatCode = (chatflowid) => {
+const getJavaScriptChatCode = (canvasId) => {
     return `async function query(data) {
     const response = await fetch(
-        "${baseURL}/api/v1/prediction/${chatflowid}",
+        "${baseURL}/api/v1/prediction/${canvasId}",
         {
             method: "POST",
             headers: {
@@ -31,10 +31,10 @@ query({
 }
 
 // Universo Platformo | Plain JavaScript code for AR
-const getJavaScriptARCode = (chatflowid) => {
+const getJavaScriptARCode = (canvasId) => {
     return `async function query(data) {
     const response = await fetch(
-        "${baseURL}/api/v1/ar/${chatflowid}",
+        "${baseURL}/api/v1/ar/${canvasId}",
         {
             method: "POST",
             headers: {
@@ -59,10 +59,10 @@ query({
 }
 
 // Universo Platformo | JavaScript code with authorization for chat
-const getJavaScriptChatCodeWithAuth = (chatflowid, apiKey) => {
+const getJavaScriptChatCodeWithAuth = (canvasId, apiKey) => {
     return `async function query(data) {
     const response = await fetch(
-        "${baseURL}/api/v1/prediction/${chatflowid}",
+        "${baseURL}/api/v1/prediction/${canvasId}",
         {
             method: "POST",
             headers: {
@@ -84,10 +84,10 @@ query({
 }
 
 // Universo Platformo | JavaScript code with authorization for AR
-const getJavaScriptARCodeWithAuth = (chatflowid, apiKey) => {
+const getJavaScriptARCodeWithAuth = (canvasId, apiKey) => {
     return `async function query(data) {
     const response = await fetch(
-        "${baseURL}/api/v1/ar/${chatflowid}",
+        "${baseURL}/api/v1/ar/${canvasId}",
         {
             method: "POST",
             headers: {
@@ -113,14 +113,14 @@ query({
 }
 
 // Universo Platformo | Component to display JavaScript code
-const JavaScriptCode = ({ chatflowid, apiKey, mode = 'chat' }) => {
+const JavaScriptCode = ({ canvasId, apiKey, mode = 'chat' }) => {
     const { t } = useTranslation()
 
     const getCode = () => {
         if (mode === 'chat') {
-            return apiKey ? getJavaScriptChatCodeWithAuth(chatflowid, apiKey) : getJavaScriptChatCode(chatflowid)
+            return apiKey ? getJavaScriptChatCodeWithAuth(canvasId, apiKey) : getJavaScriptChatCode(canvasId)
         } else {
-            return apiKey ? getJavaScriptARCodeWithAuth(chatflowid, apiKey) : getJavaScriptARCode(chatflowid)
+            return apiKey ? getJavaScriptARCodeWithAuth(canvasId, apiKey) : getJavaScriptARCode(canvasId)
         }
     }
 
@@ -128,7 +128,7 @@ const JavaScriptCode = ({ chatflowid, apiKey, mode = 'chat' }) => {
 }
 
 JavaScriptCode.propTypes = {
-    chatflowid: PropTypes.string.isRequired,
+    canvasId: PropTypes.string.isRequired,
     apiKey: PropTypes.object,
     mode: PropTypes.oneOf(['chat', 'ar'])
 }

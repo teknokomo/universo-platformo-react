@@ -2,8 +2,8 @@ import { IReactFlowObject } from '../Interface'
 import { addBase64FilesToStorage } from 'flowise-components'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
 
-export const containsBase64File = (chatflow: CanvasFlowResult) => {
-    const parsedFlowData: IReactFlowObject = JSON.parse(chatflow.flowData)
+export const containsBase64File = (canvas: CanvasFlowResult) => {
+    const parsedFlowData: IReactFlowObject = JSON.parse(canvas.flowData)
     const re = new RegExp('^data.*;base64', 'i')
     let found = false
     const nodes = parsedFlowData.nodes
@@ -46,7 +46,7 @@ export const containsBase64File = (chatflow: CanvasFlowResult) => {
     return found
 }
 
-export const updateFlowDataWithFilePaths = async (chatflowid: string, flowData: string) => {
+export const updateFlowDataWithFilePaths = async (canvasId: string, flowData: string) => {
     try {
         const parsedFlowData: IReactFlowObject = JSON.parse(flowData)
         const re = new RegExp('^data.*;base64', 'i')
@@ -75,14 +75,14 @@ export const updateFlowDataWithFilePaths = async (chatflowid: string, flowData: 
                             for (let j = 0; j < files.length; j++) {
                                 const file = files[j]
                                 if (re.test(file)) {
-                                    node.data.inputs[key] = await addBase64FilesToStorage(file, chatflowid, fileNames)
+                                    node.data.inputs[key] = await addBase64FilesToStorage(file, canvasId, fileNames)
                                 }
                             }
                         } catch (e) {
                             continue
                         }
                     } else if (re.test(input)) {
-                        node.data.inputs[key] = await addBase64FilesToStorage(input, chatflowid, fileNames)
+                        node.data.inputs[key] = await addBase64FilesToStorage(input, canvasId, fileNames)
                     }
                 }
             }

@@ -9,7 +9,7 @@ import LaunchIcon from '@mui/icons-material/Launch'
 import { baseURL } from '@/store/constant'
 
 // Universo Platformo | Component to display API links
-const LinksCode = ({ chatflowid }) => {
+const LinksCode = ({ canvasId }) => {
     const { t } = useTranslation('canvases')
 
     // Universo Platformo | Common styles for links
@@ -47,8 +47,8 @@ const LinksCode = ({ chatflowid }) => {
                 </Typography>
 
                 <>
-                    <Link href={`${baseURL}/api/v1/prediction/${chatflowid}`} target='_blank' sx={linkStyle}>
-                        POST {baseURL}/api/v1/prediction/{chatflowid}
+                    <Link href={`${baseURL}/api/v1/prediction/${canvasId}`} target='_blank' sx={linkStyle}>
+                        POST {baseURL}/api/v1/prediction/{canvasId}
                         <LaunchIcon fontSize='small' />
                     </Link>
                     <Typography variant='body2' sx={{ mb: 2 }}>
@@ -72,7 +72,7 @@ const LinksCode = ({ chatflowid }) => {
 }
 
 LinksCode.propTypes = {
-    chatflowid: PropTypes.string.isRequired
+    canvasId: PropTypes.string.isRequired
 }
 
 export default LinksCode

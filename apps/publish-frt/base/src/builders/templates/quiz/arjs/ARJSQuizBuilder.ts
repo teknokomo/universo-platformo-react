@@ -133,7 +133,7 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
             markerType: options.markerType || 'preset',
             markerValue: options.markerValue || 'hiro',
             projectName: options.projectName,
-            chatflowId: options.chatflowId,
+            canvasId: options.canvasId,
             ...options
         }
     }
@@ -197,7 +197,7 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
     </a-scene>
 
     <script>
-        window.chatflowId = '${options?.chatflowId || ''}';
+        window.canvasId = '${options?.canvasId || ''}';
         
         document.addEventListener('DOMContentLoaded', function() {
             const scene = document.querySelector('a-scene');

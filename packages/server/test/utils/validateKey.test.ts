@@ -1,5 +1,5 @@
 import { Request } from 'express'
-import { validateChatflowAPIKey } from '../../src/utils/validateKey'
+import { validateCanvasApiKey } from '../../src/utils/validateKey'
 import { compareKeys } from '../../src/utils/apiKey'
 import apikeyService from '../../src/services/apikey'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
@@ -12,9 +12,9 @@ jest.mock('../../src/services/apikey', () => ({
     }
 }))
 
-describe('validateChatflowAPIKey', () => {
+describe('validateCanvasApiKey', () => {
     let req: Partial<Request> & { headers: Record<string, string> }
-    let chatflow: CanvasFlowResult
+    let canvas: CanvasFlowResult
     const mockedApiKeyService = apikeyService as jest.Mocked<typeof apikeyService>
     const mockedCompareKeys = compareKeys as jest.Mock
 
@@ -22,44 +22,44 @@ describe('validateChatflowAPIKey', () => {
         req = {
             headers: {}
         }
-        chatflow = {
+        canvas = {
             apikeyid: null
         } as unknown as CanvasFlowResult
         jest.clearAllMocks()
     })
 
-    it('should return true if chatflow.apikeyid is not set', async () => {
-        const result = await validateChatflowAPIKey(req as Request, chatflow)
+    it('should return true if canvas.apikeyid is not set', async () => {
+        const result = await validateCanvasApiKey(req as Request, canvas)
         expect(result).toBe(true)
     })
 
-    it('should return false if chatflow.apikeyid is set but authorization header is missing', async () => {
-        chatflow.apikeyid = 'some-api-key-id'
-        const result = await validateChatflowAPIKey(req as Request, chatflow)
+    it('should return false if canvas.apikeyid is set but authorization header is missing', async () => {
+        canvas.apikeyid = 'some-api-key-id'
+        const result = await validateCanvasApiKey(req as Request, canvas)
         expect(result).toBe(false)
     })
 
     it('should return false if supplied key does not match the expected key', async () => {
-        chatflow.apikeyid = 'some-api-key-id'
+        canvas.apikeyid = 'some-api-key-id'
         req.headers['authorization'] = 'Bearer invalid-key'
         mockedApiKeyService.getAllApiKeys.mockResolvedValue([
             { id: 'some-api-key-id', apiSecret: 'expected-secret-key' } as any
         ])
         mockedCompareKeys.mockImplementation((expected, supplied) => expected === supplied)
 
-        const result = await validateChatflowAPIKey(req as Request, chatflow)
+        const result = await validateCanvasApiKey(req as Request, canvas)
         expect(result).toBe(false)
     })
 
     it('should return true if supplied key matches the expected key', async () => {
-        chatflow.apikeyid = 'some-api-key-id'
+        canvas.apikeyid = 'some-api-key-id'
         req.headers['authorization'] = 'Bearer expected-secret-key'
         mockedApiKeyService.getAllApiKeys.mockResolvedValue([
             { id: 'some-api-key-id', apiSecret: 'expected-secret-key' } as any
         ])
         mockedCompareKeys.mockImplementation((expected, supplied) => expected === supplied)
 
-        const result = await validateChatflowAPIKey(req as Request, chatflow)
+        const result = await validateCanvasApiKey(req as Request, canvas)
         expect(result).toBe(true)
     })
 })

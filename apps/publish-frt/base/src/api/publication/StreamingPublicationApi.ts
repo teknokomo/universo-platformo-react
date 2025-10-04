@@ -34,7 +34,7 @@ export class StreamingPublicationApi {
     static async publishARJS(request: IARJSPublishRequest): Promise<IARJSPublishResponse> {
         try {
             const apiUrl = `${API_BASE_URL}/api/v1/publish/arjs`
-            console.log('🚀 [StreamingPublicationApi] Publishing AR.js project:', request.chatflowId)
+            console.log('🚀 [StreamingPublicationApi] Publishing AR.js project:', request.canvasId ?? 'unknown')
 
             const response = await axios.post<IARJSPublishResponse>(apiUrl, request, {
                 headers: this.getHeaders()

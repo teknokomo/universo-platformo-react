@@ -13,7 +13,7 @@ import { Readable } from 'node:stream'
 import { getUserHome, bufferToUint8Array } from './utils'
 import sanitize from 'sanitize-filename'
 
-export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: string, fileNames: string[]) => {
+export const addBase64FilesToStorage = async (fileBase64: string, canvasId: string, fileNames: string[]) => {
     const storageType = getStorageType()
     if (storageType === 's3') {
         const { s3Client, Bucket } = getS3Config()
@@ -25,7 +25,7 @@ export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: st
 
         const sanitizedFilename = _sanitizeFilename(filename)
 
-        const Key = chatflowid + '/' + sanitizedFilename
+        const Key = canvasId + '/' + sanitizedFilename
         const putObjCmd = new PutObjectCommand({
             Bucket,
             Key,
@@ -44,7 +44,7 @@ export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: st
         const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
         const mime = splitDataURI[0].split(':')[1].split(';')[0]
         const sanitizedFilename = _sanitizeFilename(filename)
-        const normalizedChatflowid = chatflowid.replace(/\\/g, '/')
+        const normalizedChatflowid = canvasId.replace(/\\/g, '/')
         const normalizedFilename = sanitizedFilename.replace(/\\/g, '/')
         const filePath = `${normalizedChatflowid}/${normalizedFilename}`
         const file = bucket.file(filePath)
@@ -57,7 +57,7 @@ export const addBase64FilesToStorage = async (fileBase64: string, chatflowid: st
         fileNames.push(sanitizedFilename)
         return 'FILE-STORAGE::' + JSON.stringify(fileNames)
     } else {
-        const dir = path.join(getStoragePath(), chatflowid)
+        const dir = path.join(getStoragePath(), canvasId)
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true })
         }
@@ -415,7 +415,7 @@ const _deleteS3Folder = async (location: string) => {
 }
 
 export const streamStorageFile = async (
-    chatflowId: string,
+    canvasId: string,
     chatId: string,
     fileName: string
 ): Promise<fs.ReadStream | Buffer | undefined> => {
@@ -424,7 +424,7 @@ export const streamStorageFile = async (
     if (storageType === 's3') {
         const { s3Client, Bucket } = getS3Config()
 
-        const Key = chatflowId + '/' + chatId + '/' + sanitizedFilename
+        const Key = canvasId + '/' + chatId + '/' + sanitizedFilename
         const getParams = {
             Bucket,
             Key
@@ -437,14 +437,14 @@ export const streamStorageFile = async (
         }
     } else if (storageType === 'gcs') {
         const { bucket } = getGcsClient()
-        const normalizedChatflowId = chatflowId.replace(/\\/g, '/')
+        const normalizedChatflowId = canvasId.replace(/\\/g, '/')
         const normalizedChatId = chatId.replace(/\\/g, '/')
         const normalizedFilename = sanitizedFilename.replace(/\\/g, '/')
         const filePath = `${normalizedChatflowId}/${normalizedChatId}/${normalizedFilename}`
         const [buffer] = await bucket.file(filePath).download()
         return buffer
     } else {
-        const filePath = path.join(getStoragePath(), chatflowId, chatId, sanitizedFilename)
+        const filePath = path.join(getStoragePath(), canvasId, chatId, sanitizedFilename)
         //raise error if file path is not absolute
         if (!path.isAbsolute(filePath)) throw new Error(`Invalid file path`)
         //raise error if file path contains '..'

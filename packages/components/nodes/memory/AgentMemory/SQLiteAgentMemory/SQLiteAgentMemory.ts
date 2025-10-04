@@ -49,7 +49,7 @@ class SQLiteAgentMemory_Memory implements INode {
     async init(nodeData: INodeData, _: string, options: ICommonObject): Promise<any> {
         const additionalConfig = nodeData.inputs?.additionalConfig as string
         const databaseEntities = options.databaseEntities as IDatabaseEntity
-        const chatflowid = options.chatflowid as string
+        const canvasId = options.canvasId as string
         const appDataSource = options.appDataSource as DataSource
 
         let additionalConfiguration = {}
@@ -76,7 +76,7 @@ class SQLiteAgentMemory_Memory implements INode {
             threadId,
             appDataSource,
             databaseEntities,
-            chatflowid
+            canvasId
         }
 
         const recordManager = new SqliteSaver(args)

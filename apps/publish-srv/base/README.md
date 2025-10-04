@@ -38,7 +38,7 @@ This service is implemented as a **pnpm workspace package** that:
 -   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types for use across the platform.
 -   **Modular and Decoupled**: Fully independent from `packages/server` business logic. It no longer contains UPDL generation code.
 -   **PlayCanvas Ready**: The same raw data endpoints are used by the PlayCanvas builder and templates.
--   **Canvas Integration**: Fully supports the new Canvas structure while maintaining backward compatibility with ChatFlow.
+-   **Canvas Integration**: Fully supports the new Canvas structure while maintaining backward compatibility with Canvas.
 -   **Chatbot Publication**: Handles chatbot publication using Canvas-based configuration stored in `chatbotConfig` field.
 
 ## Integration with Main Flowise Server
@@ -78,9 +78,9 @@ The API is now streamlined to handle publication records and serve raw flow data
 -   `GET /api/v1/publish/canvas/:canvasId` - Direct access to Canvas flow data for streaming.
 
 #### Legacy Endpoints (Backward Compatibility)
--   `POST /api/v1/publish/arjs` - Creates or updates a publication record (supports both canvasId and chatflowId).
+-   `POST /api/v1/publish/arjs` - Creates or updates a publication record. Provide `canvasId` (legacy `canvasId` is still accepted for compatibility).
 -   `GET /api/v1/publish/arjs/public/:publicationId` - Gets the raw `flowData` for a given publication.
--   `GET /api/v1/publish/arjs/stream/:chatflowId` - Legacy streaming endpoint (deprecated, use Canvas endpoints).
+-   `GET /api/v1/publish/arjs/stream/:canvasId` - Legacy streaming endpoint (deprecated, use Canvas endpoints).
 
 #### Chatbot Endpoints
 -   `GET /api/v1/bots/:canvasId/config` - Gets chatbot configuration from Canvas.
@@ -107,14 +107,14 @@ Creates a publication record associated with a `canvasId`. The body should conta
 
 ### `POST /api/v1/publish/arjs` (Legacy)
 
-Creates a publication record associated with a `chatflowId` or `canvasId`. Supports both for backward compatibility.
+Legacy alias for backwards compatibility. Accepts the same payload as the new endpoint but proxies `canvasId` when present. `canvasId` is maintained only for legacy clients and should be removed from new integrations.
 
-**Example Request:**
+**Example Request (legacy client):**
 
 ```json
 {
     "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3",
-    "chatflowId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3", // Deprecated, use canvasId
+    "canvasId": "778d565f-e9cc-4dd8-b8ef-7a097ecb18f3", // Optional legacy field
     "isPublic": true,
     "projectName": "My AR Experience"
 }
@@ -148,7 +148,7 @@ Retrieves the raw `flowData` (as a JSON string) and configuration for a given `c
 
 ### `GET /api/v1/publish/arjs/public/:publicationId` (Legacy)
 
-Retrieves the raw `flowData` for a given `publicationId` (which can be either `canvasId` or legacy `chatflowId`). Maintains backward compatibility.
+Retrieves the raw `flowData` for a given `publicationId` (which can be either `canvasId` or legacy `canvasId`). Maintains backward compatibility.
 
 ### Chatbot Configuration
 
@@ -187,7 +187,7 @@ The AR.js public endpoint now returns optional `renderConfig` derived from `chat
 
 ### Source of Values
 
--   Extracted by `FlowDataService` from `chatflow.chatbotConfig.arjs` if present.
+-   Extracted by `FlowDataService` from `canvas.chatbotConfig.arjs` if present.
 -   Absent for legacy records; the frontend falls back to marker mode.
 
 ## Architectural Changes Summary

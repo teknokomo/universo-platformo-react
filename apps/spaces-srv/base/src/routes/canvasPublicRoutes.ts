@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { Router as ExpressRouter } from 'express'
 import { DataSource } from 'typeorm'
-import { CanvasLegacyController } from '../controllers/canvasLegacyController'
+import { CanvasController } from '../controllers/canvasController'
 import { createCanvasService, CanvasServiceFactoryOptions } from '../services/canvasServiceFactory'
 
 export function createCanvasPublicRoutes(
@@ -14,7 +14,7 @@ export function createCanvasPublicRoutes(
         entities: options.entities,
         dependencies: options.dependencies
     })
-    const canvasController = new CanvasLegacyController(canvasService)
+    const canvasController = new CanvasController(canvasService)
 
     router.get('/canvases/:canvasId', (req, res, next) => canvasController.getSinglePublicCanvas(req, res, next))
 

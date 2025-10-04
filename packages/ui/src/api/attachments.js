@@ -1,7 +1,7 @@
 import client from './client'
 
-const createAttachment = (chatflowid, chatid, formData) =>
-    client.post(`/attachments/${chatflowid}/${chatid}`, formData, {
+const createAttachment = (canvasId, chatId, formData) =>
+    client.post(`/attachments/${canvasId}/${chatId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     })
 

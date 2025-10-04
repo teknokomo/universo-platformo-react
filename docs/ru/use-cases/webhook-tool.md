@@ -98,7 +98,7 @@ try {
 
    <figure><img src="../.gitbook/assets/image (51).png" alt="Подтверждение добавления инструмента" width="279"><figcaption></figcaption></figure>
 
-### Шаг 3: Создать Chatflow с интеграцией Webhook
+### Шаг 3: Создать Canvas с интеграцией Webhook
 
 1. Создайте новый холст и добавьте следующие узлы:
    - **Buffer Memory**
@@ -108,9 +108,9 @@ try {
 
 2. Соедините их как показано:
 
-   <figure><img src="../.gitbook/assets/screely-1691758990676.png" alt="Настройка Chatflow"><figcaption></figcaption></figure>
+   <figure><img src="../.gitbook/assets/screely-1691758990676.png" alt="Настройка Canvas"><figcaption></figcaption></figure>
 
-3. Сохраните chatflow и начните его тестирование.
+3. Сохраните canvas и начните его тестирование.
 
 ### Шаг 4: Отправка сообщений через Webhook
 

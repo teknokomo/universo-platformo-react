@@ -14,22 +14,22 @@ type IUploadConfig = {
 }
 
 /**
- * Method that checks if uploads are enabled in the chatflow
+ * Method that checks if uploads are enabled for a given canvas definition
  * @param {string} canvasId
  */
 export const utilGetUploadsConfig = async (canvasId: string): Promise<IUploadConfig> => {
     const appServer = getRunningExpressApp()
-    let chatflow
+    let canvas
     try {
-        chatflow = await canvasService.getCanvasById(canvasId)
+        canvas = await canvasService.getCanvasById(canvasId)
     } catch (error: any) {
         if (typeof error?.status === 'number' && error.status === StatusCodes.NOT_FOUND) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${canvasId} not found`)
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found`)
         }
         throw error
     }
 
-    const flowObj = JSON.parse(chatflow.flowData)
+    const flowObj = JSON.parse(canvas.flowData)
     const nodes: IReactFlowNode[] = flowObj.nodes
     const edges: IReactFlowEdge[] = flowObj.edges
 
@@ -40,8 +40,8 @@ export const utilGetUploadsConfig = async (canvasId: string): Promise<IUploadCon
     /*
      * Check for STT
      */
-    if (chatflow.speechToText) {
-        const speechToTextProviders = JSON.parse(chatflow.speechToText)
+    if (canvas.speechToText) {
+        const speechToTextProviders = JSON.parse(canvas.speechToText)
         for (const provider in speechToTextProviders) {
             if (provider !== 'none') {
                 const providerObj = speechToTextProviders[provider]

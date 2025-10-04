@@ -4,10 +4,10 @@ import statsService from '../../services/stats'
 import { ChatMessageRatingType, ChatType } from '../../Interface'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 
-const getChatflowStats = async (req: Request, res: Response, next: NextFunction) => {
+const getCanvasStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
-            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: statsController.getChatflowStats - id not provided!`)
+            throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: statsController.getCanvasStats - id not provided!`)
         }
         const canvasId = req.params.id
         const _chatTypes = req.query?.chatType as string | undefined
@@ -45,7 +45,7 @@ const getChatflowStats = async (req: Request, res: Response, next: NextFunction)
                 return res.status(500).send(e)
             }
         }
-        const apiResponse = await statsService.getChatflowStats(canvasId, chatTypes, startDate, endDate, '', true, feedbackTypeFilters)
+        const apiResponse = await statsService.getCanvasStats(canvasId, chatTypes, startDate, endDate, '', true, feedbackTypeFilters)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -53,5 +53,5 @@ const getChatflowStats = async (req: Request, res: Response, next: NextFunction)
 }
 
 export default {
-    getChatflowStats
+    getCanvasStats
 }

@@ -24,7 +24,7 @@ def test_streaming():
     # Test streaming prediction
     completion = client.create_prediction(
         PredictionData(
-            chatflowId="<flow-id>",
+            canvasId="<flow-id>",
             question="Tell me a joke!",
             streaming=True
         )
@@ -52,7 +52,7 @@ async function test_streaming() {
   try {
     // For streaming prediction
     const prediction = await client.createPrediction({
-      chatflowId: '<flow-id>',
+      canvasId: '<flow-id>',
       question: 'What is the capital of France?',
       streaming: true,
     });

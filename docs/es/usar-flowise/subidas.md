@@ -19,7 +19,7 @@ Ciertos modelos de chat permiten ingresar imágenes. Siempre consulta la documen
 * [Google Vertex AI](../integrations/langchain/llms/googlevertex-ai.md)
 
 {% hint style="warning" %}
-El procesamiento de imágenes solo funciona con ciertas cadenas/agentes en Chatflow.
+El procesamiento de imágenes solo funciona con ciertas cadenas/agentes en Canvas.
 
 [LLMChain](../integrations/langchain/chains/llm-chain.md), [Conversation Chain](../integrations/langchain/chains/conversation-chain.md), [ReAct Agent](../integrations/langchain/agents/react-agent-chat.md), [Conversational Agent](../integrations/langchain/agents/conversational-agent.md), [Tool Agent](../integrations/langchain/agents/tool-agent.md)
 {% endhint %}
@@ -34,7 +34,7 @@ Para subir imágenes con la API:
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -58,7 +58,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -90,7 +90,7 @@ query({
 
 ## Audio
 
-En la Configuración del Chatflow, puedes seleccionar un módulo de speech-to-text. Las integraciones soportadas incluyen:
+En la Configuración del Canvas, puedes seleccionar un módulo de speech-to-text. Las integraciones soportadas incluyen:
 
 * OpenAI
 * AssemblyAI
@@ -106,7 +106,7 @@ Para subir audio con la API:
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -129,7 +129,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -171,13 +171,13 @@ Cuando ambas opciones están activadas, la carga completa de archivos tiene prio
 
 Puedes hacer upsert de los archivos subidos al vector store sobre la marcha. Para habilitar la carga de archivos, asegúrate de cumplir con estos requisitos previos:
 
-* Debes incluir un vector store que admita la carga de archivos en el chatflow.
+* Debes incluir un vector store que admita la carga de archivos en el canvas.
   * [Pinecone](../integrations/langchain/vector-stores/pinecone.md)
   * [Milvus](../integrations/langchain/vector-stores/milvus.md)
   * [Postgres](../integrations/langchain/vector-stores/postgres.md)
   * [Qdrant](../integrations/langchain/vector-stores/qdrant.md)
   * [Upstash](../integrations/langchain/vector-stores/upstash-vector.md)
-* Si tienes múltiples vector stores en un chatflow, solo puedes activar la carga de archivos para un vector store a la vez.
+* Si tienes múltiples vector stores en un canvas, solo puedes activar la carga de archivos para un vector store a la vez.
 * Debes conectar al menos un nodo document loader a la entrada de documentos del vector store.
 * Document loaders soportados:
   * [CSV File](../integrations/langchain/document-loaders/csv-file.md)
@@ -216,7 +216,7 @@ Para hacer esto con la API, sigue estos dos pasos:
 ```python
 import requests
 
-API_URL = "http://localhost:3000/api/v1/vector/upsert/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/vector/upsert/<canvasid>"
 
 # Usa form data para subir archivos
 form_data = {
@@ -246,7 +246,7 @@ formData.append("chatId", "some-session-id");
 
 async function query(formData) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/vector/upsert/<chatflowid>",
+        "http://localhost:3000/api/v1/vector/upsert/<canvasid>",
         {
             method: "POST",
             body: formData
@@ -269,7 +269,7 @@ query(formData).then((response) => {
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -294,7 +294,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {
@@ -329,7 +329,7 @@ query({
 
 Con las cargas de archivos RAG, no puedes trabajar con datos estructurados como hojas de cálculo o tablas, y no puedes realizar resúmenes completos debido a la falta de contexto completo. En algunos casos, es posible que desees incluir todo el contenido del archivo directamente en el prompt para un LLM, especialmente con modelos como Gemini y Claude que tienen ventanas de contexto más largas. [Este artículo de investigación](https://arxiv.org/html/2407.16833v1) es uno de muchos que comparan RAG con ventanas de contexto más largas.
 
-Para habilitar la carga completa de archivos, ve a **Chatflow Configuration**, abre la pestaña **File Upload**, y activa el interruptor:
+Para habilitar la carga completa de archivos, ve a **Canvas Configuration**, abre la pestaña **File Upload**, y activa el interruptor:
 
 <figure><img src="../.gitbook/assets/image (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
@@ -343,7 +343,7 @@ Para subir archivos con la API:
 {% tab title="Python" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowid>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasid>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -368,7 +368,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowid>",
+        "http://localhost:3000/api/v1/prediction/<canvasid>",
         {
             method: "POST",
             headers: {

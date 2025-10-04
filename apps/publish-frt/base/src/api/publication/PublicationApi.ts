@@ -24,16 +24,8 @@ export class PublicationApi {
                 'x-request-from': 'internal'
             }
 
-            // Try new Canvas API first, fallback to legacy Chatflow API
-            try {
-                const response = await axios.get(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, { headers })
-                return response
-            } catch (canvasError) {
-                // Fallback to legacy chatflows API for backward compatibility
-                console.warn('[PublicationApi] Canvas API not available, falling back to legacy chatflows API')
-                const response = await axios.get(`${API_BASE}/unik/${unikId}/chatflows/${canvasId}`, { headers })
-                return response
-            }
+            const response = await axios.get(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, { headers })
+            return response
         } catch (error) {
             console.error('[PublicationApi] Error getting canvas:', error)
             throw error
@@ -55,38 +47,12 @@ export class PublicationApi {
                 'Content-Type': 'application/json'
             }
 
-            // Try new Canvas API first, fallback to legacy Chatflow API
-            try {
-                const response = await axios.put(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, body, { headers })
-                return response
-            } catch (canvasError) {
-                // Fallback to legacy chatflows API for backward compatibility
-                console.warn('[PublicationApi] Canvas API not available, falling back to legacy chatflows API')
-                const response = await axios.put(`${API_BASE}/unik/${unikId}/chatflows/${canvasId}`, body, { headers })
-                return response
-            }
+            const response = await axios.put(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, body, { headers })
+            return response
         } catch (error) {
             console.error('[PublicationApi] Error updating canvas:', error)
             throw error
         }
-    }
-
-    /**
-     * @deprecated Use getCanvasById instead
-     * Get space by ID (formerly chatflow) - kept for backward compatibility
-     */
-    static async getSpaceById(unikId: string, spaceId: string) {
-        console.warn('[PublicationApi] getSpaceById is deprecated, use getCanvasById instead')
-        return this.getCanvasById(unikId, spaceId)
-    }
-
-    /**
-     * @deprecated Use updateCanvas instead
-     * Update space (formerly chatflow) - kept for backward compatibility
-     */
-    static async updateSpace(unikId: string, spaceId: string, body: any) {
-        console.warn('[PublicationApi] updateSpace is deprecated, use updateCanvas instead')
-        return this.updateCanvas(unikId, spaceId, body)
     }
 
     /**

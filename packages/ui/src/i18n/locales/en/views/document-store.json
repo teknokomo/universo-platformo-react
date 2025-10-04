@@ -44,7 +44,6 @@
     },
     "detail": {
       "description": "Description",
-      "chatflowsUsed": "Canvases Used:",
       "canvasesUsed": "Canvases Used:",
       "someFilesPendingProcessing": "Some files are pending processing. Please Refresh to get the latest status."
     },

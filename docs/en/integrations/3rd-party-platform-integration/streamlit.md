@@ -10,7 +10,7 @@ import json
 # Flowise app base url
 base_url = st.secrets["APP_URL"] or "https://your-flowise-url.com"
 
-# Chatflow/Agentflow ID
+# Canvas/Agentflow ID
 flow_id = st.secrets["FLOW_ID"] or "abc"
 
 # Show title and description.
@@ -36,7 +36,7 @@ def generate_response(prompt: str):
     print('generating response')
     completion = client.create_prediction(
         PredictionData(
-            chatflowId=flow_id,
+            canvasId=flow_id,
             question=prompt,
             overrideConfig={
                 "sessionId": "session1234"

@@ -34,68 +34,68 @@ export class CachePool {
 
     /**
      * Add to the llm cache pool
-     * @param {string} chatflowid
+     * @param {string} canvasId
      * @param {Map<any, any>} value
      */
-    async addLLMCache(chatflowid: string, value: Map<any, any>) {
+    async addLLMCache(canvasId: string, value: Map<any, any>) {
         if (process.env.MODE === MODE.QUEUE) {
             if (this.redisClient) {
                 const serializedValue = JSON.stringify(Array.from(value.entries()))
-                await this.redisClient.set(`llmCache:${chatflowid}`, serializedValue)
+                await this.redisClient.set(`llmCache:${canvasId}`, serializedValue)
             }
         } else {
-            this.activeLLMCache[chatflowid] = value
+            this.activeLLMCache[canvasId] = value
         }
     }
 
     /**
      * Add to the embedding cache pool
-     * @param {string} chatflowid
+     * @param {string} canvasId
      * @param {Map<any, any>} value
      */
-    async addEmbeddingCache(chatflowid: string, value: Map<any, any>) {
+    async addEmbeddingCache(canvasId: string, value: Map<any, any>) {
         if (process.env.MODE === MODE.QUEUE) {
             if (this.redisClient) {
                 const serializedValue = JSON.stringify(Array.from(value.entries()))
-                await this.redisClient.set(`embeddingCache:${chatflowid}`, serializedValue)
+                await this.redisClient.set(`embeddingCache:${canvasId}`, serializedValue)
             }
         } else {
-            this.activeEmbeddingCache[chatflowid] = value
+            this.activeEmbeddingCache[canvasId] = value
         }
     }
 
     /**
      * Get item from llm cache pool
-     * @param {string} chatflowid
+     * @param {string} canvasId
      */
-    async getLLMCache(chatflowid: string): Promise<Map<any, any> | undefined> {
+    async getLLMCache(canvasId: string): Promise<Map<any, any> | undefined> {
         if (process.env.MODE === MODE.QUEUE) {
             if (this.redisClient) {
-                const serializedValue = await this.redisClient.get(`llmCache:${chatflowid}`)
+                const serializedValue = await this.redisClient.get(`llmCache:${canvasId}`)
                 if (serializedValue) {
                     return new Map(JSON.parse(serializedValue))
                 }
             }
         } else {
-            return this.activeLLMCache[chatflowid]
+            return this.activeLLMCache[canvasId]
         }
         return undefined
     }
 
     /**
      * Get item from embedding cache pool
-     * @param {string} chatflowid
+     * @param {string} canvasId
      */
-    async getEmbeddingCache(chatflowid: string): Promise<Map<any, any> | undefined> {
+    async getEmbeddingCache(canvasId: string): Promise<Map<any, any> | undefined> {
         if (process.env.MODE === MODE.QUEUE) {
             if (this.redisClient) {
-                const serializedValue = await this.redisClient.get(`embeddingCache:${chatflowid}`)
+                const serializedValue = await this.redisClient.get(`embeddingCache:${canvasId}`)
                 if (serializedValue) {
                     return new Map(JSON.parse(serializedValue))
                 }
             }
         } else {
-            return this.activeEmbeddingCache[chatflowid]
+            return this.activeEmbeddingCache[canvasId]
         }
         return undefined
     }

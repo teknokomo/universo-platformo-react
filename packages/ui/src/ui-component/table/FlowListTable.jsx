@@ -49,21 +49,7 @@ const getLocalStorageKeyName = (name, isAgentCanvas) => {
         return `agentcanvas_${name}`
     }
 
-    const legacyKey = `chatflowcanvas_${name}`
-    const newKey = `canvaslist_${name}`
-
-    try {
-        const legacyValue = localStorage.getItem(legacyKey)
-        if (legacyValue !== null && localStorage.getItem(newKey) === null) {
-            localStorage.setItem(newKey, legacyValue)
-            localStorage.removeItem(legacyKey)
-        }
-    } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('[FlowListTable] Unable to migrate legacy chatflow localStorage keys', error)
-    }
-
-    return newKey
+    return `canvaslist_${name}`
 }
 
 export const FlowListTable = ({
@@ -332,7 +318,7 @@ export const FlowListTable = ({
                                                 ) : (
                                                     <FlowListMenu
                                                         isAgentCanvas={isAgentCanvas}
-                                                        chatflow={row}
+                                                        canvas={row}
                                                         setError={setError}
                                                         updateFlowsApi={updateFlowsApi}
                                                     />

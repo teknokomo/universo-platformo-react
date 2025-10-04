@@ -7,7 +7,8 @@ import { useTheme } from '@mui/material/styles'
 
 // project imports
 // Migrated to shared template-mui ItemCard (incremental step)
-import { ItemCard, FlowListTable } from '@universo/template-mui'
+import { ItemCard } from '@universo/template-mui'
+import { FlowListTable } from '@universo/template-mui/components/table/FlowListTable'
 import { gridSpacing } from '@ui/store/constant'
 import ViewHeader from '@ui/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@ui/ErrorBoundary'

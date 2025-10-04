@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm'
-import { executeFlow } from '../utils/buildChatflow'
+import { executeFlow } from '../utils/buildCanvasFlow'
 import { IComponentNodes, IExecuteFlowParams } from '../Interface'
 import { Telemetry } from '../utils/telemetry'
 import { CachePool } from '../CachePool'
@@ -52,8 +52,8 @@ export class PredictionQueue extends BaseQueue {
         if (this.componentNodes) data.componentNodes = this.componentNodes
         if (this.redisPublisher) data.sseStreamer = this.redisPublisher
 
-        if (this.abortControllerPool) {
-            const abortControllerId = `${data.chatflow.id}_${data.chatId}`
+        if (this.abortControllerPool && data.canvas) {
+            const abortControllerId = `${data.canvas.id}_${data.chatId}`
             const signal = new AbortController()
             this.abortControllerPool.add(abortControllerId, signal)
             data.signal = signal

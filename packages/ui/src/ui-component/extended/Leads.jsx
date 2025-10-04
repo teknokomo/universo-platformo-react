@@ -12,11 +12,12 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 import { SwitchInput } from '@/ui-component/switch/Switch'
 
 // store
-import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@/store/actions'
 import useNotifier from '@/utils/useNotifier'
 
 // API
 import canvasesApi from '@/api/canvases'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 
 const formTitle = `Hey 👋 thanks for your interest!
 Let us know where we can reach you`
@@ -28,11 +29,7 @@ const Leads = ({ dialogProps }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const chatflow = dialogProps?.chatflow || {}
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
-    const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const canvasId = chatflow.id || dialogProps?.chatflowid
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
     useNotifier()
 
@@ -55,6 +52,16 @@ const Leads = ({ dialogProps }) => {
                 leads: leadsConfig
             }
             chatbotConfig.leads = value.leads
+            if (!canvasId || !unikId) {
+                enqueueSnackbar({
+                    message: t('canvas.configuration.leads.missingCanvas'),
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'error'
+                    }
+                })
+                return
+            }
             const saveResp = await canvasesApi.updateCanvas(
                 unikId,
                 canvasId,
@@ -76,7 +83,7 @@ const Leads = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorData =
@@ -98,8 +105,8 @@ const Leads = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps.chatflow && dialogProps.chatflow.chatbotConfig) {
-            let chatbotConfig = JSON.parse(dialogProps.chatflow.chatbotConfig)
+        if (canvas && canvas.chatbotConfig) {
+            let chatbotConfig = JSON.parse(canvas.chatbotConfig)
             setChatbotConfig(chatbotConfig || {})
             if (chatbotConfig.leads) {
                 setLeadsConfig(chatbotConfig.leads)
@@ -107,7 +114,7 @@ const Leads = ({ dialogProps }) => {
         }
 
         return () => {}
-    }, [dialogProps])
+    }, [canvas])
 
     return (
         <>

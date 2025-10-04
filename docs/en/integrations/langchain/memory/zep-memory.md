@@ -62,7 +62,7 @@ If using Digital ocean separate firewall from dashboard, make sure port 8000 is 
 
 <figure><img src="../../../.gitbook/assets/Untitled (5).png" alt=""><figcaption></figcaption></figure>
 
-3. Save the chatflow and test it out to see if conversations are remembered.
+3. Save the canvas and test it out to see if conversations are remembered.
 
 <figure><img src="../../../.gitbook/assets/image (27).png" alt=""><figcaption></figcaption></figure>
 

@@ -1,1 +1,1 @@
-export { default as ChatflowCardSkeleton } from './ChatflowCard';
+export { default as ChatflowCardSkeleton } from './ChatflowCard'

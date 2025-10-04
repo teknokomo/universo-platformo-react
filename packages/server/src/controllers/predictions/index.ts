@@ -13,10 +13,11 @@ import { MODE } from '../../Interface'
 // Send input message and get prediction result (External)
 const createPrediction = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        if (typeof req.params === 'undefined' || !req.params.id) {
+        const canvasId = req.params?.canvasId ?? req.params?.id
+        if (!canvasId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
-                `Error: predictionsController.createPrediction - id not provided!`
+                `Error: predictionsController.createPrediction - canvasId not provided!`
             )
         }
         if (!req.body) {
@@ -25,15 +26,20 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
                 `Error: predictionsController.createPrediction - body not provided!`
             )
         }
-        const chatflow = await canvasService.getCanvasById(req.params.id)
-        if (!chatflow) {
-            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${req.params.id} not found`)
+        // Preserve legacy consumers expecting req.params.id
+        if (!req.params.id) {
+            ;(req.params as any).id = canvasId
+        }
+
+        const canvas = await canvasService.getCanvasById(canvasId)
+        if (!canvas) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Canvas ${canvasId} not found`)
         }
         let isDomainAllowed = true
         let unauthorizedOriginError = 'This site is not allowed to access this chatbot'
         logger.info(`[server]: Request originated from ${req.headers.origin || 'UNKNOWN ORIGIN'}`)
-        if (chatflow.chatbotConfig) {
-            const parsedConfig = JSON.parse(chatflow.chatbotConfig)
+        if (canvas.chatbotConfig) {
+            const parsedConfig = JSON.parse(canvas.chatbotConfig)
             // check whether the first one is not empty. if it is empty that means the user set a value and then removed it.
             const isValidAllowedOrigins = parsedConfig.allowedOrigins?.length && parsedConfig.allowedOrigins[0] !== ''
             unauthorizedOriginError = parsedConfig.allowedOriginsError || 'This site is not allowed to access this chatbot'
@@ -52,7 +58,7 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
             }
         }
         if (isDomainAllowed) {
-            const streamable = await canvasService.checkIfCanvasIsValidForStreaming(req.params.id)
+            const streamable = await canvasService.checkIfCanvasIsValidForStreaming(canvasId)
             const isStreamingRequested = req.body.streaming === 'true' || req.body.streaming === true
             if (streamable?.isStreaming && isStreamingRequested) {
                 const sseStreamer = getRunningExpressApp().sseStreamer
@@ -74,7 +80,7 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
                         getRunningExpressApp().redisSubscriber.subscribe(chatId)
                     }
 
-                    const apiResponse = await predictionsServices.buildChatflow(req)
+                    const apiResponse = await predictionsServices.buildCanvasFlow(req)
                     sseStreamer.streamMetadataEvent(apiResponse.chatId, apiResponse)
                 } catch (error) {
                     if (chatId) {
@@ -85,7 +91,7 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
                     sseStreamer.removeClient(chatId)
                 }
             } else {
-                const apiResponse = await predictionsServices.buildChatflow(req)
+                const apiResponse = await predictionsServices.buildCanvasFlow(req)
                 return res.json(apiResponse)
             }
         } else {

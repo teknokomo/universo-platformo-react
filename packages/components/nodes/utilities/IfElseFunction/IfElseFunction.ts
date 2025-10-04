@@ -87,7 +87,7 @@ class IfElseFunction_Utilities implements INode {
 
         const variables = await getVars(appDataSource, databaseEntities, nodeData)
         const flow = {
-            chatflowId: options.chatflowid,
+            canvasId: options.canvasId,
             sessionId: options.sessionId,
             chatId: options.chatId,
             input

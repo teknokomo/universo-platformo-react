@@ -6,7 +6,7 @@ description: Aprende cómo configurar las environment variables para Flowise
 
 Flowise soporta diferentes environment variables para configurar tu instancia. Puedes especificar las siguientes variables en el archivo `.env` dentro de la carpeta `packages/server`. Consulta el archivo [.env.example](https://github.com/FlowiseAI/Flowise/blob/main/packages/server/.env.example).
 
-<table><thead><tr><th width="233">Variable</th><th width="219">Descripción</th><th width="104">Type</th><th>Default</th></tr></thead><tbody><tr><td>PORT</td><td>El puerto HTTP en el que se ejecuta Flowise</td><td>Number</td><td>3000</td></tr><tr><td>FLOWISE_FILE_SIZE_LIMIT</td><td>Tamaño máximo de archivo al subir</td><td>String</td><td><code>50mb</code></td></tr><tr><td>NUMBER_OF_PROXIES</td><td>Rate Limit Proxy</td><td>Number</td><td></td></tr><tr><td>CORS_ORIGINS</td><td>Los orígenes permitidos para todas las llamadas HTTP cross-origin</td><td>String</td><td></td></tr><tr><td>IFRAME_ORIGINS</td><td>Los orígenes permitidos para incrustar en iframe src</td><td>String</td><td></td></tr><tr><td>DISABLE_CHATFLOW_REUSE</td><td>Deshabilita el cacheo del flow, permitiendo que cada interacción del chatflow se ejecute desde cero</td><td>Boolean: <code>true</code> o <code>false</code></td><td></td></tr><tr><td>SHOW_COMMUNITY_NODES</td><td>Muestra los nodes creados por la comunidad</td><td>Boolean: <code>true</code> o <code>false</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th width="233">Variable</th><th width="219">Descripción</th><th width="104">Type</th><th>Default</th></tr></thead><tbody><tr><td>PORT</td><td>El puerto HTTP en el que se ejecuta Flowise</td><td>Number</td><td>3000</td></tr><tr><td>FLOWISE_FILE_SIZE_LIMIT</td><td>Tamaño máximo de archivo al subir</td><td>String</td><td><code>50mb</code></td></tr><tr><td>NUMBER_OF_PROXIES</td><td>Rate Limit Proxy</td><td>Number</td><td></td></tr><tr><td>CORS_ORIGINS</td><td>Los orígenes permitidos para todas las llamadas HTTP cross-origin</td><td>String</td><td></td></tr><tr><td>IFRAME_ORIGINS</td><td>Los orígenes permitidos para incrustar en iframe src</td><td>String</td><td></td></tr><tr><td>DISABLE_CHATFLOW_REUSE</td><td>Deshabilita el cacheo del flow, permitiendo que cada interacción del canvas se ejecute desde cero</td><td>Boolean: <code>true</code> o <code>false</code></td><td></td></tr><tr><td>SHOW_COMMUNITY_NODES</td><td>Muestra los nodes creados por la comunidad</td><td>Boolean: <code>true</code> o <code>false</code></td><td></td></tr></tbody></table>
 
 ## Para Database
 
@@ -80,7 +80,7 @@ TOOL_FUNCTION_EXTERNAL_DEP=axios,moment
 
 Flowise almacena tus API keys de terceros como credentials encriptadas usando una encryption key.
 
-Por defecto, se generará una random encryption key al iniciar la aplicación y se almacenará en una ruta de archivo. Esta encryption key se recupera cada vez para descifrar las credentials utilizadas dentro de un chatflow. Por ejemplo, tu OpenAI API key, Pinecone API key, etc.
+Por defecto, se generará una random encryption key al iniciar la aplicación y se almacenará en una ruta de archivo. Esta encryption key se recupera cada vez para descifrar las credentials utilizadas dentro de un canvas. Por ejemplo, tu OpenAI API key, Pinecone API key, etc.
 
 | Variable                      | Descripción                                                                  | Type   |                           |
 | ----------------------------- | ---------------------------------------------------------------------------- | ------ | ------------------------- |
@@ -94,7 +94,7 @@ Para evitar esto, puedes establecer tu propia encryption key como `FLOWISE_SECRE
 <figure><img src="../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
 {% hint style="info" %}
-La Credential API Key devuelta desde la UI no tiene la misma longitud que tu Api Key original que has establecido. Este es un prefijo de cadena falso que previene el spoofing de red, por eso no devolvemos la Api Key a la UI. Sin embargo, la Api Key correcta será recuperada y usada durante tu interacción con el chatflow.
+La Credential API Key devuelta desde la UI no tiene la misma longitud que tu Api Key original que has establecido. Este es un prefijo de cadena falso que previene el spoofing de red, por eso no devolvemos la Api Key a la UI. Sin embargo, la Api Key correcta será recuperada y usada durante tu interacción con el canvas.
 {% endhint %}
 
 ## Para Models

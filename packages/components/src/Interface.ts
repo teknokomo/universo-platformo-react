@@ -478,7 +478,7 @@ export interface ICredentialData {
 export interface ISessionData {
     sessionId: string
     userId?: string
-    chatflowId?: string
+    canvasId?: string
     [key: string]: any
 }
 

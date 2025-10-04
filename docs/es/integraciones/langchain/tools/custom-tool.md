@@ -221,7 +221,7 @@ Deberías ver 3 tools creadas:
 
 <figure><img src="../../../.gitbook/assets/image (3) (3) (1).png" alt=""><figcaption></figcaption></figure>
 
-### Crear Chatflow
+### Crear Canvas
 
 Puedes usar la plantilla **OpenAI Function** **Agent** del marketplace, y reemplazar las tools con **Custom Tool**. Selecciona la tool que has creado.
 
@@ -229,7 +229,7 @@ Nota: OpenAI Function Agent solo soporta modelos 0613 actualmente.
 
 <figure><img src="../../../.gitbook/assets/image (15) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-Guarda el chatflow y comienza a probarlo. Para empezar, puedes intentar preguntar:
+Guarda el canvas y comienza a probarlo. Para empezar, puedes intentar preguntar:
 
 _<mark style="color:blue;">¿Qué acción tiene el mayor movimiento de precio hoy?</mark>_
 
@@ -265,7 +265,7 @@ Por defecto, la Function en custom tool tiene acceso a las siguientes configurac
 ```json5
 $flow.sessionId 
 $flow.chatId
-$flow.chatflowId
+$flow.canvasId
 $flow.input
 ```
 
@@ -324,7 +324,7 @@ Ejemplo de cómo pasar variables en Flowise usando API y Embedded:
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflow-id>",
+        "http://localhost:3000/api/v1/prediction/<canvas-id>",
         {
             method: "POST",
             headers: {
@@ -355,9 +355,9 @@ query({
 <script type="module">
     import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
     Chatbot.init({
-        chatflowid: 'chatflow-id',
+        canvasid: 'canvas-id',
         apiHost: 'http://localhost:3000',
-        chatflowConfig: {
+        canvasConfig: {
           vars: {
             apiKey: 'def'
           }
@@ -424,7 +424,7 @@ Ejemplo de una llamada API para sobrescribir parámetros de custom tool:
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflow-id>",
+        "http://localhost:3000/api/v1/prediction/<canvas-id>",
         {
             method: "POST",
             headers: {

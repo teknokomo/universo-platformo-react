@@ -104,7 +104,7 @@ The loader supports two file source modes:
 1. **Direct Upload**: Files uploaded directly through the interface
 2. **Storage Integration**: Files accessed through the storage system
    - Format: `FILE-STORAGE::filename.txt`
-   - Supports organization and chatflow-specific storage
+   - Supports organization and canvas-specific storage
 
 ## Notes
 - Handles both single and multiple file processing

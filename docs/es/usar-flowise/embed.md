@@ -24,7 +24,7 @@ You can specify the version of flowise-embed's `web.js` to use. For full list of
 <script type="module">
   import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed@<some-version>/dist/web.js';
   Chatbot.init({
-    chatflowid: 'your-chatflowid-here',
+    canvasid: 'your-canvasid-here',
     apiHost: 'your-apihost-here',
   })
 </script>
@@ -36,9 +36,9 @@ You can customize the widget with the following options:
 
 ```javascript
 Chatbot.init({
-    chatflowid: "your-chatflowid-here",
+    canvasid: "your-canvasid-here",
     apiHost: "http://localhost:3000",
-    chatflowConfig: {
+    canvasConfig: {
         // Sobrescribe la configuración del flujo de chat
         systemMessagePrompt: "You are a helpful AI assistant",
         temperature: 0,

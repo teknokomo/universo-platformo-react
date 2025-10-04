@@ -5,6 +5,16 @@
     "main": "dist/index.js",
     "module": "dist/esm/index.js",
     "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/index.js"
+        },
+        "./components/table/FlowListTable": {
+            "import": "./dist/esm/components/table/FlowListTable.js",
+            "require": "./dist/components/table/FlowListTable.js"
+        }
+    },
     "scripts": {
         "clean": "rimraf dist",
         "build": "pnpm run clean && tsc -p tsconfig.json && tsc -p tsconfig.esm.json && gulp",

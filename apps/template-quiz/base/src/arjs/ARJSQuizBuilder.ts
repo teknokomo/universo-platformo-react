@@ -313,8 +313,7 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
     </div>
     
     <script>
-        window.canvasId = '${options.canvasId || options.chatflowId || ''}';
-        window.chatflowId = '${options.chatflowId || options.canvasId || ''}';
+        window.canvasId = '${options.canvasId || ''}';
         console.log('[ARJSQuizBuilder] Simple background mode - no AR, backgroundColor: ${backgroundColor}');
     </script>
 </body>
@@ -374,8 +373,7 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
 </a-scene>
 
 <script>
-    window.canvasId = '${options.canvasId || options.chatflowId || ''}';
-    window.chatflowId = '${options.chatflowId || options.canvasId || ''}';
+    window.canvasId = '${options.canvasId || ''}';
     document.addEventListener('DOMContentLoaded', function() {
         const scene = document.querySelector('a-scene');
         if (scene && !scene.hasLoaded) {
@@ -429,9 +427,8 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
 </a-scene>
 
 <script>
-    // Universo Platformo | Set global canvasId and chatflowId for lead data saving
-    window.canvasId = '${options.canvasId || options.chatflowId || ''}';
-    window.chatflowId = '${options.chatflowId || options.canvasId || ''}';
+    // Universo Platformo | Set global canvasId for lead data saving
+    window.canvasId = '${options.canvasId || ''}';
     
     // Hide loading screen when A-Frame scene loads
     document.addEventListener('DOMContentLoaded', function() {

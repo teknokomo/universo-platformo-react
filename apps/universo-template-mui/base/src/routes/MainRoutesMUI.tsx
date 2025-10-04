@@ -1,30 +1,30 @@
-import React, { lazy } from 'react';
-import { Outlet } from 'react-router-dom';
-import MainLayoutMUI from '../layout/MainLayoutMUI';
-import Dashboard from '../views/dashboard/Dashboard';
-import { ErrorBoundary } from '../components';
+import { lazy } from 'react'
+import { Outlet } from 'react-router-dom'
+import MainLayoutMUI from '../layout/MainLayoutMUI'
+import Dashboard from '../views/dashboard/Dashboard'
+import { ErrorBoundary } from '../components'
 
 // Import AuthGuard from main UI package
 // @ts-ignore - JS file imported in TS
-import AuthGuard from '@ui/routes/AuthGuard';
+import AuthGuard from '@ui/routes/AuthGuard'
 
-// Import Loadable utility from main UI package  
+// Import Loadable utility from main UI package
 // @ts-ignore - JS file imported in TS
-import Loadable from '@ui/ui-component/loading/Loadable';
+import Loadable from '@ui/ui-component/loading/Loadable'
 
 // Use existing list components from monorepo apps
 // @ts-ignore - JS file imported in TS
-const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList')));
+const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList')))
 
 // @ts-ignore
-const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseList }))));
+const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseList }))))
 // @ts-ignore
-const ClusterList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterList }))));
+const ClusterList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterList }))))
 // @ts-ignore
-const ProfilePage = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Profile.jsx')));
+const ProfilePage = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Profile.jsx')))
 
 // Container component for nested routes
-const UniksContainer = () => <Outlet />;
+const UniksContainer = () => <Outlet />
 
 // Main routes configuration object (matching MainRoutes.jsx structure)
 const MainRoutesMUI = {
@@ -93,6 +93,6 @@ const MainRoutesMUI = {
             )
         }
     ]
-};
+}
 
-export default MainRoutesMUI;
+export default MainRoutesMUI

@@ -74,7 +74,7 @@ const ARViewPage: React.FC = () => {
                 const buildOptions = {
                     projectName: publicationData.projectName || 'AR.js Experience',
                     libraryConfig: publicationData.libraryConfig,
-                    chatflowId: publicationId,
+                    canvasId: publicationData.canvasId || publicationId,
                     cameraUsage: renderConfig.cameraUsage || 'standard', // Default to standard for backward compatibility
                     backgroundColor: renderConfig.backgroundColor, // Add backgroundColor from renderConfig
                     ...(displayType === 'wallpaper'

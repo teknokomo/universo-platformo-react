@@ -7,22 +7,27 @@ import { getErrorMessage } from '../../errors/utils'
 
 const router = express.Router()
 
-router.get(['/', '/:id'], async (req, res, next) => {
+router.get(['/', '/:canvasId', '/:id'], async (req, res, next) => {
     try {
-        const chatflowId = req.params.id
-        if (!chatflowId) {
+        const canvasId = req.params.canvasId ?? req.params.id
+        if (!canvasId) {
             return res.status(412).json({ error: 'canvasId param is required' })
         }
 
-        const chatflow = await canvasService.getSinglePublicCanvas(chatflowId)
+        const canvas = await canvasService.getSinglePublicCanvas(canvasId)
 
-        if (chatflow && chatflow.unikId) {
+        // Maintain compatibility for downstream controllers expecting legacy param name
+        if (!req.params.id) {
+            ;(req.params as any).id = canvasId
+        }
+
+        if (canvas && canvas.unikId) {
             const userId = resolveRequestUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'Unauthorized: User not authenticated' })
             }
 
-            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, chatflow.unikId)
+            const hasAccess = await workspaceAccessService.hasUnikAccess(req, userId, canvas.unikId)
             if (!hasAccess) {
                 return res.status(403).json({ error: 'Access denied: You do not have permission to access this bot' })
             }

@@ -28,7 +28,7 @@ export interface PlayCanvasPublicationSettings {
 export class PlayCanvasPublicationApi extends PublicationApi {
     /**
      * Save PlayCanvas publication settings to Supabase
-     * @param spaceId Space ID (formerly chatflowId)
+     * @param spaceId Space ID
      * @param settings PlayCanvas publication settings to save
      */
     static async savePlayCanvasSettings(spaceId: string, settings: PlayCanvasPublicationSettings): Promise<void> {
@@ -37,7 +37,7 @@ export class PlayCanvasPublicationApi extends PublicationApi {
 
     /**
      * Load PlayCanvas publication settings from Supabase
-     * @param spaceId Space ID (formerly chatflowId)
+     * @param spaceId Space ID
      * @returns PlayCanvas publication settings or null if not found
      */
     static async loadPlayCanvasSettings(spaceId: string): Promise<PlayCanvasPublicationSettings | null> {

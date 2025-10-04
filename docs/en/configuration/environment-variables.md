@@ -79,7 +79,7 @@ When `STORAGE_TYPE` env variable is set to `gcs` , logs will be automatically st
 
 Flowise store your third party API keys as encrypted credentials using an encryption key.
 
-By default, a random encryption key will be generated when starting up the application and stored under a file path. This encryption key is then retrieved everytime to decrypt the credentials used within a chatflow. For example, your OpenAI API key, Pinecone API key, etc.
+By default, a random encryption key will be generated when starting up the application and stored under a file path. This encryption key is then retrieved everytime to decrypt the credentials used within a canvas. For example, your OpenAI API key, Pinecone API key, etc.
 
 You can configure to use AWS Secret Manager to store the encryption key instead.
 
@@ -99,7 +99,7 @@ To avoid this, you can set your own encryption key as `FLOWISE_SECRETKEY_OVERWRI
 <figure><img src="../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
 {% hint style="info" %}
-Credential API Key returned from the UI is not the same length as your original Api Key that you have set. This is a fake prefix string that prevents network spoofing, that's why we are not returning the Api Key back to UI. However, the correct Api Key will be retrieved and used during your interaction with the chatflow.
+Credential API Key returned from the UI is not the same length as your original Api Key that you have set. This is a fake prefix string that prevents network spoofing, that's why we are not returning the Api Key back to UI. However, the correct Api Key will be retrieved and used during your interaction with the canvas.
 {% endhint %}
 
 ## For Models

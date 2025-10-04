@@ -20,7 +20,7 @@ scenarios:
     - flow:
           - loop:
                 - post:
-                      url: '/api/v1/prediction/chatflow-id' # replace with your chatflowid
+                      url: '/api/v1/prediction/canvas-id' # replace with your canvasId
                       json:
                           question: 'hello' # replace with your question
             count: 1 # how many request each user make

@@ -39,7 +39,7 @@ def test_streaming():
     # Тест потоковой передачи предсказания
     completion = client.create_prediction(
         PredictionData(
-            chatflowId="<flow-id>",
+            canvasId="<flow-id>",
             question="Расскажи анекдот!",
             streaming=True
         )
@@ -66,7 +66,7 @@ async function test_streaming() {
   try {
     // Для потокового предсказания
     const prediction = await client.createPrediction({
-      chatflowId: '<flow-id>',
+      canvasId: '<flow-id>',
       question: 'Какая столица Франции?',
       streaming: true,
     });
@@ -92,7 +92,7 @@ test_streaming();
 ```javascript
 // JavaScript/Node.js
 async function streamingRequest() {
-    const response = await fetch('http://localhost:3000/api/v1/prediction/your-chatflow-id', {
+    const response = await fetch('http://localhost:3000/api/v1/prediction/your-canvas-id', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ import json
 import time
 
 def streaming_request_with_error_handling():
-    url = "http://localhost:3000/api/v1/prediction/your-chatflow-id"
+    url = "http://localhost:3000/api/v1/prediction/your-canvas-id"
     data = {
         "question": "Объясни квантовую механику простыми словами",
         "streaming": True
@@ -244,7 +244,7 @@ def process_streaming_response():
 
 ```python
 def enhanced_streaming():
-    url = "http://localhost:3000/api/v1/prediction/your-chatflow-id"
+    url = "http://localhost:3000/api/v1/prediction/your-canvas-id"
     data = {
         "question": "Создай подробный план проекта",
         "streaming": True,
@@ -306,7 +306,7 @@ def streaming_to_file():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"streaming_output_{timestamp}.txt"
     
-    url = "http://localhost:3000/api/v1/prediction/your-chatflow-id"
+    url = "http://localhost:3000/api/v1/prediction/your-canvas-id"
     data = {
         "question": "Напиши подробную статью о машинном обучении",
         "streaming": True
@@ -441,8 +441,8 @@ class OptimizedStreamingClient:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
     
-    def stream_prediction(self, chatflow_id, question, **kwargs):
-        url = f"{self.base_url}/api/v1/prediction/{chatflow_id}"
+    def stream_prediction(self, canvas_id, question, **kwargs):
+        url = f"{self.base_url}/api/v1/prediction/{canvas_id}"
         data = {
             "question": question,
             "streaming": True,
@@ -470,7 +470,7 @@ class OptimizedStreamingClient:
 # Использование
 client = OptimizedStreamingClient("http://localhost:3000")
 
-for event in client.stream_prediction("your-chatflow-id", "Расскажи о Python"):
+for event in client.stream_prediction("your-canvas-id", "Расскажи о Python"):
     if event.get('text'):
         print(event['text'], end='', flush=True)
 ```
@@ -483,7 +483,7 @@ import aiohttp
 import json
 
 async def async_streaming_request():
-    url = "http://localhost:3000/api/v1/prediction/your-chatflow-id"
+    url = "http://localhost:3000/api/v1/prediction/your-canvas-id"
     data = {
         "question": "Объясни асинхронное программирование",
         "streaming": True

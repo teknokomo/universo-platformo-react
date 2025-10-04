@@ -101,7 +101,7 @@ CREATE DATABASE flowise;
 
 **Симптомы:**
 ```
-error: relation "chatflow" does not exist
+error: relation "canvas" does not exist
 ```
 
 **Решение:**

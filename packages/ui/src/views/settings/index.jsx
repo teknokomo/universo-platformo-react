@@ -20,7 +20,7 @@ import customAssistantSettings from '@/menu-items/customassistant'
 
 // ==============================|| SETTINGS ||============================== //
 
-const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAgentCanvas, onSettingsItemClick, onUploadFile, onClose }) => {
+const Settings = ({ canvas, isSettingsOpen, isCustomAssistant, anchorEl, isAgentCanvas, onSettingsItemClick, onUploadFile, onClose }) => {
     const theme = useTheme()
     const [settingsMenu, setSettingsMenu] = useState([])
     const customization = useSelector((state) => state.customization)
@@ -44,11 +44,11 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
     }
 
     useEffect(() => {
-        if (chatflow && !chatflow.id) {
+        if (canvas && !canvas.id) {
             const menus = isAgentCanvas ? agentsettings : settings
             const base = menus.children.filter((menu) => menu.id === 'loadCanvas')
             setSettingsMenu(base)
-        } else if (chatflow && chatflow.id) {
+        } else if (canvas && canvas.id) {
             if (isCustomAssistant) {
                 const menus = customAssistantSettings
                 setSettingsMenu(menus.children)
@@ -66,7 +66,7 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
                 setSettingsMenu(items)
             }
         }
-    }, [chatflow, isAgentCanvas, isCustomAssistant])
+    }, [canvas, isAgentCanvas, isCustomAssistant])
 
     useEffect(() => {
         setOpen(isSettingsOpen)
@@ -160,7 +160,7 @@ const Settings = ({ chatflow, isSettingsOpen, isCustomAssistant, anchorEl, isAge
 }
 
 Settings.propTypes = {
-    chatflow: PropTypes.object,
+    canvas: PropTypes.object,
     isSettingsOpen: PropTypes.bool,
     isCustomAssistant: PropTypes.bool,
     anchorEl: PropTypes.any,

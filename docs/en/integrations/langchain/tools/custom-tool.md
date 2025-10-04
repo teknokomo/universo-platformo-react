@@ -221,7 +221,7 @@ You should see 3 tools created:
 
 <figure><img src="../../../.gitbook/assets/image (3) (3) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-### Create Chatflow
+### Create Canvas
 
 You can use the template **OpenAI Function** **Agent** from marketplace, and replace the tools with **Custom Tool**. Select the tool you have created.
 
@@ -229,7 +229,7 @@ Note: OpenAI Function Agent only supports 0613 models currently.
 
 <figure><img src="../../../.gitbook/assets/image (15) (1) (1) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-Save the chatflow and start testing it. For starter, you can try asking:
+Save the canvas and start testing it. For starter, you can try asking:
 
 _<mark style="color:blue;">What is the stock that has the biggest price movement today?</mark>_
 
@@ -265,7 +265,7 @@ By default, Function in custom tool has access to the following flow configurati
 ```json5
 $flow.sessionId 
 $flow.chatId
-$flow.chatflowId
+$flow.canvasId
 $flow.input
 ```
 
@@ -324,7 +324,7 @@ Example of how to pass variables in Flowise using API and Embedded:
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflow-id>",
+        "http://localhost:3000/api/v1/prediction/<canvas-id>",
         {
             method: "POST",
             headers: {
@@ -355,9 +355,9 @@ query({
 <script type="module">
     import Chatbot from 'https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js';
     Chatbot.init({
-        chatflowid: 'chatflow-id',
+        canvasid: 'canvas-id',
         apiHost: 'http://localhost:3000',
-        chatflowConfig: {
+        canvasConfig: {
           vars: {
             apiKey: 'def'
           }
@@ -424,7 +424,7 @@ Example of an API call to override custom tool parameters:
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflow-id>",
+        "http://localhost:3000/api/v1/prediction/<canvas-id>",
         {
             method: "POST",
             headers: {

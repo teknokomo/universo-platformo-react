@@ -44,7 +44,7 @@ description: >-
      {% endhint %}
    - **Embeddings** puede conectarse con cualquier nodo bajo la categoría [**Embeddings**](../embeddings/)
 
-<figure><img src="../../../.gitbook/assets/pinecone_llama_chatflow.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../../../.gitbook/assets/pinecone_llama_canvas.png" alt=""><figcaption></figcaption></figure>
 
 <figure><img src="../../../.gitbook/assets/pinecone_llama_upsert.png" alt=""><figcaption></figcaption></figure>
 

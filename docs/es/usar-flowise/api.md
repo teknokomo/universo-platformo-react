@@ -32,7 +32,7 @@ def test_non_streaming():
     # Test de predicción sin streaming
     completion = client.create_prediction(
         PredictionData(
-            chatflowId="<chatflow-id>",
+            canvasId="<canvas-id>",
             question="¿Cuál es la capital de Francia?",
             streaming=False
         )
@@ -48,7 +48,7 @@ def test_streaming():
     # Test de predicción con streaming
     completion = client.create_prediction(
         PredictionData(
-            chatflowId="<chatflow-id>",
+            canvasId="<canvas-id>",
             question="¡Cuéntame un chiste!",
             streaming=True
         )
@@ -79,7 +79,7 @@ async function test_streaming() {
   try {
     // Para predicción con streaming
     const prediction = await client.createPrediction({
-      chatflowId: 'fe1145fa-1b2b-45b7-b2ba-bcc5aaeb5ffd',
+      canvasId: 'fe1145fa-1b2b-45b7-b2ba-bcc5aaeb5ffd',
       question: '¿Cuál es el ingreso de Apple?',
       streaming: true,
     });
@@ -99,7 +99,7 @@ async function test_non_streaming() {
     try {
       // Para predicción sin streaming
       const prediction = await client.createPrediction({
-        chatflowId: 'fe1145fa-1b2b-45b7-b2ba-bcc5aaeb5ffd',
+        canvasId: 'fe1145fa-1b2b-45b7-b2ba-bcc5aaeb5ffd',
         question: '¿Cuál es el ingreso de Apple?',
       });
   
@@ -121,9 +121,9 @@ test_streaming()
 
 #### Override Config
 
-Sobrescribe la configuración de entrada existente del chatflow con la propiedad **overrideConfig**.
+Sobrescribe la configuración de entrada existente del canvas con la propiedad **overrideConfig**.
 
-Por razones de seguridad, la sobrescritura de configuración está deshabilitada por defecto. El usuario debe habilitarla yendo a **Chatflow Configuration** -> pestaña **Security**. Luego seleccionar la propiedad que puede ser sobrescrita.
+Por razones de seguridad, la sobrescritura de configuración está deshabilitada por defecto. El usuario debe habilitarla yendo a **Canvas Configuration** -> pestaña **Security**. Luego seleccionar la propiedad que puede ser sobrescrita.
 
 <figure><img src="../.gitbook/assets/image (188).png" alt=""><figcaption></figcaption></figure>
 
@@ -133,7 +133,7 @@ Por razones de seguridad, la sobrescritura de configuración está deshabilitada
 {% tab title="Python API" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -153,7 +153,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowId>",
+        "http://localhost:3000/api/v1/prediction/<canvasId>",
         {
             method: "POST",
             headers: {
@@ -187,7 +187,7 @@ Puedes anteponer mensajes del historial para dar contexto al LLM. Por ejemplo, s
 {% tab title="Python API" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -217,7 +217,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowId>",
+        "http://localhost:3000/api/v1/prediction/<canvasId>",
         {
             method: "POST",
             headers: {
@@ -261,7 +261,7 @@ Puedes pasar un `sessionId` para persistir el estado de la conversación, de mod
 {% tab title="Python API" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -280,7 +280,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowId>",
+        "http://localhost:3000/api/v1/prediction/<canvasId>",
         {
             method: "POST",
             headers: {
@@ -313,7 +313,7 @@ Pasa variables en la API para ser utilizadas por los nodos en el flujo. Ver más
 {% tab title="Python API" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -334,7 +334,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowId>",
+        "http://localhost:3000/api/v1/prediction/<canvasId>",
         {
             method: "POST",
             headers: {
@@ -371,7 +371,7 @@ Cuando **Allow Image Upload** está habilitado, las imágenes pueden ser cargada
 {% tab title="Python API" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -395,7 +395,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowId>",
+        "http://localhost:3000/api/v1/prediction/<canvasId>",
         {
             method: "POST",
             headers: {
@@ -435,7 +435,7 @@ Cuando **Speech to Text** está habilitado, los usuarios pueden hablar directame
 {% tab title="Python API" %}
 ```python
 import requests
-API_URL = "http://localhost:3000/api/v1/prediction/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/prediction/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -458,7 +458,7 @@ output = query({
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/<chatflowId>",
+        "http://localhost:3000/api/v1/prediction/<canvasId>",
         {
             method: "POST",
             headers: {
@@ -520,7 +520,7 @@ To avoid having separate loaders for different file types, we recommend to use [
 ```python
 import requests
 
-API_URL = "http://localhost:3000/api/v1/vector/upsert/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/vector/upsert/<canvasId>"
 
 # use form data to upload files
 form_data = {
@@ -550,7 +550,7 @@ formData.append("returnSourceDocuments", true);
 
 async function query(formData) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/vector/upsert/<chatflowId>",
+        "http://localhost:3000/api/v1/vector/upsert/<canvasId>",
         {
             method: "POST",
             body: formData
@@ -576,7 +576,7 @@ For other [Document Loaders](../integrations/langchain/document-loaders/) nodes 
 ```python
 import requests
 
-API_URL = "http://localhost:3000/api/v1/vector/upsert/<chatflowId>"
+API_URL = "http://localhost:3000/api/v1/vector/upsert/<canvasId>"
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
@@ -596,7 +596,7 @@ print(output)
 ```javascript
 async function query(data) {
     const response = await fetch(
-        "http://localhost:3000/api/v1/vector/upsert/<chatflowId>",
+        "http://localhost:3000/api/v1/vector/upsert/<canvasId>",
         {
             method: "POST",
             headers: {

@@ -4,30 +4,33 @@ import apikeyService from '../services/apikey'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
 
 /**
- * Validate Chatflow API Key
+ * Validate Canvas API Key
  * If req.user already has a user, return true immediately.
  * @param {Request} req
- * @param {CanvasFlowResult} chatflow
+ * @param {CanvasFlowResult} canvas
  */
-export const validateChatflowAPIKey = async (req: Request, chatflow: CanvasFlowResult): Promise<boolean> => {
+export const validateCanvasApiKey = async (req: Request, canvas: CanvasFlowResult): Promise<boolean> => {
     if ((req as any).user) return true // Universo Platformo | If JWT authorization has already passed, skip the check
 
-    const chatFlowApiKeyId = chatflow?.apikeyid
-    if (!chatFlowApiKeyId) return true
+    const canvasApiKeyId = canvas?.apikeyid
+    if (!canvasApiKeyId) return true
 
     const authorizationHeader = (req.headers['Authorization'] as string) ?? (req.headers['authorization'] as string) ?? ''
-    if (chatFlowApiKeyId && !authorizationHeader) return false
+    if (canvasApiKeyId && !authorizationHeader) return false
 
     const suppliedKey = authorizationHeader.split(`Bearer `).pop()
     if (suppliedKey) {
         const keys = await apikeyService.getAllApiKeys()
-        const apiSecret = keys.find((key: any) => key.id === chatFlowApiKeyId)?.apiSecret
+        const apiSecret = keys.find((key: any) => key.id === canvasApiKeyId)?.apiSecret
         if (!apiSecret) return false
         if (!compareKeys(apiSecret, suppliedKey)) return false
         return true
     }
     return false
 }
+
+// Legacy alias for backward compatibility
+export const validateChatflowAPIKey = validateCanvasApiKey
 
 /**
  * Validate API Key

@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import type { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import { CanvasLegacyController } from '@/controllers/canvasLegacyController'
+import { CanvasController } from '@/controllers/canvasController'
 
 const createResponse = () => {
   const res: Partial<Response> = {}
@@ -26,10 +26,10 @@ const createService = () => ({
   updateCanvas: jest.fn().mockResolvedValue({ id: 'canvas-1' })
 })
 
-describe('CanvasLegacyController', () => {
+describe('CanvasController', () => {
   it('передаёт spaceId и unikId при получении списка канвасов', async () => {
     const service = createService()
-    const controller = new CanvasLegacyController(service as any)
+    const controller = new CanvasController(service as any)
     const req = {
       params: { unikId: 'unik-1', spaceId: 'space-1' },
       query: {}
@@ -48,7 +48,7 @@ describe('CanvasLegacyController', () => {
 
   it('возвращает 412 если spaceId не указан для маршрута spaces', async () => {
     const service = createService()
-    const controller = new CanvasLegacyController(service as any)
+    const controller = new CanvasController(service as any)
     const req = {
       params: { unikId: 'unik-1', spaceId: undefined, canvasId: 'canvas-1' }
     } as unknown as Request
@@ -63,7 +63,7 @@ describe('CanvasLegacyController', () => {
 
   it('удаляет канвас с передачей scope', async () => {
     const service = createService()
-    const controller = new CanvasLegacyController(service as any)
+    const controller = new CanvasController(service as any)
     const req = {
       params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1' }
     } as unknown as Request
@@ -80,7 +80,7 @@ describe('CanvasLegacyController', () => {
 
   it('возвращает канвас с ограничением по spaceId', async () => {
     const service = createService()
-    const controller = new CanvasLegacyController(service as any)
+    const controller = new CanvasController(service as any)
     const req = {
       params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1' }
     } as unknown as Request
@@ -97,7 +97,7 @@ describe('CanvasLegacyController', () => {
 
   it('обновляет канвас с передачей scope, включая spaceId', async () => {
     const service = createService()
-    const controller = new CanvasLegacyController(service as any)
+    const controller = new CanvasController(service as any)
     const req = {
       params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1' },
       body: { name: 'Updated Canvas' }

@@ -54,7 +54,7 @@ import Feedback from '@/ui-component/extended/Feedback'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@/store/actions'
 
 // API
-import chatmessageApi from '@/api/chatmessage'
+import canvasMessagesApi from '@/api/canvasMessages'
 import feedbackApi from '@/api/feedback'
 import useApi from '@/hooks/useApi'
 import useConfirm from '@/hooks/useConfirm'
@@ -62,6 +62,7 @@ import useConfirm from '@/hooks/useConfirm'
 // Utils
 import { getOS, isValidURL, removeDuplicateURL } from '@/utils/genericHelper'
 import useNotifier from '@/utils/useNotifier'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
 import { baseURL } from '@/store/constant'
 
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@/store/actions'
@@ -89,6 +90,7 @@ const messageImageStyle = {
 }
 
 const ConfirmDeleteMessageDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
     const [hardDelete, setHardDelete] = useState(false)
     const { t } = useTranslation()
@@ -143,6 +145,8 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     const { confirm } = useConfirm()
     const { t } = useTranslation()
 
+    const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
+
     useNotifier()
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
@@ -163,23 +167,24 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     const [endDate, setEndDate] = useState(new Date())
     const [leadEmail, setLeadEmail] = useState('')
 
-    const getChatmessageApi = useApi(chatmessageApi.getAllChatmessageFromChatflow)
-    const getChatmessageFromPKApi = useApi(chatmessageApi.getChatmessageFromPK)
-    const getStatsApi = useApi(feedbackApi.getStatsFromChatflow)
-    const getStoragePathFromServer = useApi(chatmessageApi.getStoragePath)
+    const getCanvasMessagesApi = useApi(canvasMessagesApi.getCanvasMessages)
+    const getCanvasMessagesAscendingApi = useApi(canvasMessagesApi.getCanvasMessagesAscending)
+    const getStatsApi = useApi(feedbackApi.getStatsFromCanvas)
+    const getStoragePathFromServer = useApi(canvasMessagesApi.getStoragePath)
     let storagePath = ''
 
     const onStartDateSelected = (date) => {
         const updatedDate = new Date(date)
         updatedDate.setHours(0, 0, 0, 0)
         setStartDate(updatedDate)
-        getChatmessageApi.request(dialogProps.chatflow.id, {
+        if (!canvasId) return
+        getCanvasMessagesApi.request(canvasId, {
             startDate: updatedDate,
             endDate: endDate,
             chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
             feedbackType: feedbackTypeFilter.length ? feedbackTypeFilter : undefined
         })
-        getStatsApi.request(dialogProps.chatflow.id, {
+        getStatsApi.request(canvasId, {
             startDate: updatedDate,
             endDate: endDate,
             chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
@@ -191,13 +196,14 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         const updatedDate = new Date(date)
         updatedDate.setHours(23, 59, 59, 999)
         setEndDate(updatedDate)
-        getChatmessageApi.request(dialogProps.chatflow.id, {
+        if (!canvasId) return
+        getCanvasMessagesApi.request(canvasId, {
             endDate: updatedDate,
             startDate: startDate,
             chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
             feedbackType: feedbackTypeFilter.length ? feedbackTypeFilter : undefined
         })
-        getStatsApi.request(dialogProps.chatflow.id, {
+        getStatsApi.request(canvasId, {
             endDate: updatedDate,
             startDate: startDate,
             chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
@@ -207,13 +213,14 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
 
     const onChatTypeSelected = (chatTypes) => {
         setChatTypeFilter(chatTypes)
-        getChatmessageApi.request(dialogProps.chatflow.id, {
+        if (!canvasId) return
+        getCanvasMessagesApi.request(canvasId, {
             chatType: chatTypes.length ? chatTypes : undefined,
             startDate: startDate,
             endDate: endDate,
             feedbackType: feedbackTypeFilter.length ? feedbackTypeFilter : undefined
         })
-        getStatsApi.request(dialogProps.chatflow.id, {
+        getStatsApi.request(canvasId, {
             chatType: chatTypes.length ? chatTypes : undefined,
             startDate: startDate,
             endDate: endDate,
@@ -223,15 +230,15 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
 
     const onFeedbackTypeSelected = (feedbackTypes) => {
         setFeedbackTypeFilter(feedbackTypes)
-
-        getChatmessageApi.request(dialogProps.chatflow.id, {
+        if (!canvasId) return
+        getCanvasMessagesApi.request(canvasId, {
             chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
             feedbackType: feedbackTypes.length ? feedbackTypes : undefined,
             startDate: startDate,
             endDate: endDate,
             order: 'ASC'
         })
-        getStatsApi.request(dialogProps.chatflow.id, {
+        getStatsApi.request(canvasId, {
             chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
             feedbackType: feedbackTypes.length ? feedbackTypes : undefined,
             startDate: startDate,
@@ -251,9 +258,10 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
 
     const deleteMessages = async (hardDelete) => {
         setHardDeleteDialogOpen(false)
-        const chatflowid = dialogProps.chatflow.id
+        const targetCanvasId = canvasId
+        if (!targetCanvasId) return
         try {
-            const obj = { chatflowid, isClearFromViewMessageDialog: true }
+            const obj = { canvasId: targetCanvasId, isClearFromViewMessageDialog: true }
 
             let _chatTypeFilter = chatTypeFilter
             if (typeof chatTypeFilter === 'string' && chatTypeFilter.startsWith('[') && chatTypeFilter.endsWith(']')) {
@@ -275,7 +283,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
             if (endDate) obj.endDate = endDate
             if (hardDelete) obj.hardDelete = true
 
-            await chatmessageApi.deleteChatmessage(chatflowid, obj)
+                await canvasMessagesApi.deleteCanvasMessages(targetCanvasId, obj)
             enqueueSnackbar({
                 message: 'Succesfully deleted messages',
                 options: {
@@ -288,13 +296,13 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                     )
                 }
             })
-            getChatmessageApi.request(chatflowid, {
+            getCanvasMessagesApi.request(targetCanvasId, {
                 chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
                 startDate: startDate,
                 endDate: endDate,
                 feedbackType: feedbackTypeFilter.length ? feedbackTypeFilter : undefined
             })
-            getStatsApi.request(chatflowid, {
+            getStatsApi.request(targetCanvasId, {
                 chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
                 startDate: startDate,
                 endDate: endDate,
@@ -391,7 +399,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         const blob = new Blob([dataStr], { type: 'application/json' })
         const dataUri = URL.createObjectURL(blob)
 
-        const exportFileDefaultName = `${dialogProps.chatflow.id}-Message.json`
+        const exportFileDefaultName = `${canvasId}-Message.json`
 
         let linkElement = document.createElement('a')
         linkElement.setAttribute('href', dataUri)
@@ -400,6 +408,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     }
 
     const clearChat = async (chatmsg) => {
+        if (!canvasId) return
         const description =
             chatmsg.sessionId && chatmsg.memoryType
                 ? `Are you sure you want to clear session id: ${chatmsg.sessionId} from ${chatmsg.memoryType}?`
@@ -412,16 +421,16 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         }
         const isConfirmed = await confirm(confirmPayload)
 
-        const chatflowid = dialogProps.chatflow.id
+        const canvasId = canvasId
         if (isConfirmed) {
             try {
-                const obj = { chatflowid, isClearFromViewMessageDialog: true }
+                const obj = { canvasId, isClearFromViewMessageDialog: true }
                 if (chatmsg.chatId) obj.chatId = chatmsg.chatId
                 if (chatmsg.chatType) obj.chatType = chatmsg.chatType
                 if (chatmsg.memoryType) obj.memoryType = chatmsg.memoryType
                 if (chatmsg.sessionId) obj.sessionId = chatmsg.sessionId
 
-                await chatmessageApi.deleteChatmessage(chatflowid, obj)
+                await canvasMessagesApi.deleteCanvasMessages(canvasId, obj)
                 const description =
                     chatmsg.sessionId && chatmsg.memoryType
                         ? `Succesfully cleared session id: ${chatmsg.sessionId} from ${chatmsg.memoryType}`
@@ -438,13 +447,13 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                         )
                     }
                 })
-                getChatmessageApi.request(chatflowid, {
+                getCanvasMessagesApi.request(canvasId, {
                     startDate: startDate,
                     endDate: endDate,
                     chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
                     feedbackType: feedbackTypeFilter.length ? feedbackTypeFilter : undefined
                 })
-                getStatsApi.request(chatflowid, {
+                getStatsApi.request(canvasId, {
                     startDate: startDate,
                     endDate: endDate,
                     chatType: chatTypeFilter.length ? chatTypeFilter : undefined,
@@ -468,11 +477,11 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         }
     }
 
-    const getChatMessages = (chatmessages) => {
+    const populateCanvasMessages = (canvasMessages) => {
         let prevDate = ''
         const loadedMessages = []
-        for (let i = 0; i < chatmessages.length; i += 1) {
-            const chatmsg = chatmessages[i]
+        for (let i = 0; i < canvasMessages.length; i += 1) {
+            const chatmsg = canvasMessages[i]
             setSelectedChatId(chatmsg.chatId)
             if (!prevDate) {
                 prevDate = chatmsg.createdDate.split('T')[0]
@@ -574,12 +583,12 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     const handleItemClick = (idx, chatmsg) => {
         setSelectedMessageIndex(idx)
         if (feedbackTypeFilter.length > 0) {
-            getChatmessageFromPKApi.request(dialogProps.chatflow.id, {
+            getCanvasMessagesAscendingApi.request(canvasId, {
                 ...transformChatPKToParams(getChatPK(chatmsg)),
                 feedbackType: feedbackTypeFilter
             })
         } else {
-            getChatmessageFromPKApi.request(dialogProps.chatflow.id, transformChatPKToParams(getChatPK(chatmsg)))
+            getCanvasMessagesAscendingApi.request(canvasId, transformChatPKToParams(getChatPK(chatmsg)))
         }
     }
 
@@ -591,7 +600,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         try {
             const response = await axios.post(
                 `${baseURL}/api/v1/openai-assistants-file/download`,
-                { fileName: fileAnnotation.fileName, canvasId: dialogProps.chatflow.id, chatId: selectedChatId },
+                { fileName: fileAnnotation.fileName, canvasId: canvasId, chatId: selectedChatId },
                 { responseType: 'blob' }
             )
             const blob = new Blob([response.data], { type: response.headers['content-type'] })
@@ -673,34 +682,35 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     }, [chatMessages, selectedMessageIndex])
 
     useEffect(() => {
-        if (getChatmessageFromPKApi.data) {
-            getChatMessages(getChatmessageFromPKApi.data)
+        if (getCanvasMessagesAscendingApi.data) {
+            populateCanvasMessages(getCanvasMessagesAscendingApi.data)
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getChatmessageFromPKApi.data])
+    }, [getCanvasMessagesAscendingApi.data])
 
     useEffect(() => {
-        if (getChatmessageApi.data) {
+        if (getCanvasMessagesApi.data) {
+            if (!canvasId) return
             getStoragePathFromServer.request()
 
-            setAllChatLogs(getChatmessageApi.data)
-            const chatPK = processChatLogs(getChatmessageApi.data)
+            setAllChatLogs(getCanvasMessagesApi.data)
+            const chatPK = processChatLogs(getCanvasMessagesApi.data)
             setSelectedMessageIndex(0)
             if (chatPK) {
                 if (feedbackTypeFilter.length > 0) {
-                    getChatmessageFromPKApi.request(dialogProps.chatflow.id, {
+                    getCanvasMessagesAscendingApi.request(canvasId, {
                         ...transformChatPKToParams(chatPK),
                         feedbackType: feedbackTypeFilter
                     })
                 } else {
-                    getChatmessageFromPKApi.request(dialogProps.chatflow.id, transformChatPKToParams(chatPK))
+                    getCanvasMessagesAscendingApi.request(canvasId, transformChatPKToParams(chatPK))
                 }
             }
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getChatmessageApi.data])
+    }, [getCanvasMessagesApi.data])
 
     useEffect(() => {
         if (getStatsApi.data) {
@@ -709,12 +719,12 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     }, [getStatsApi.data])
 
     useEffect(() => {
-        if (dialogProps.chatflow) {
-            getChatmessageApi.request(dialogProps.chatflow.id, {
+        if (canvasId) {
+            getCanvasMessagesApi.request(canvasId, {
                 startDate: startDate,
                 endDate: endDate
             })
-            getStatsApi.request(dialogProps.chatflow.id, {
+            getStatsApi.request(canvasId, {
                 startDate: startDate,
                 endDate: endDate
             })
@@ -735,7 +745,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogProps])
+    }, [canvasId])
 
     useEffect(() => {
         if (show) dispatch({ type: SHOW_CANVAS_DIALOG })
@@ -744,15 +754,15 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     }, [show, dispatch])
 
     useEffect(() => {
-        if (dialogProps.chatflow) {
+        if (canvasId) {
             // when the filter is cleared fetch all messages
             if (feedbackTypeFilter.length === 0) {
-                getChatmessageApi.request(dialogProps.chatflow.id, {
+                getCanvasMessagesApi.request(canvasId, {
                     startDate: startDate,
                     endDate: endDate,
                     chatType: chatTypeFilter.length ? chatTypeFilter : undefined
                 })
-                getStatsApi.request(dialogProps.chatflow.id, {
+                getStatsApi.request(canvasId, {
                     startDate: startDate,
                     endDate: endDate,
                     chatType: chatTypeFilter.length ? chatTypeFilter : undefined
@@ -760,7 +770,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [feedbackTypeFilter])
+    }, [feedbackTypeFilter, canvasId])
 
     const agentReasoningArtifacts = (artifacts) => {
         const newArtifacts = cloneDeep(artifacts)
@@ -769,7 +779,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
             if (artifact && (artifact.type === 'png' || artifact.type === 'jpeg')) {
                 const data = artifact.data
                 newArtifacts[i].data = `${baseURL}/api/v1/get-upload-file?canvasId=${
-                    dialogProps.chatflow.id
+                    canvasId
                 }&chatId=${selectedChatId}&fileName=${data.replace('FILE-STORAGE::', '')}`
             }
         }
@@ -819,7 +829,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                             return !inline ? (
                                 <CodeBlock
                                     key={Math.random()}
-                                    chatflowid={dialogProps.chatflow.id}
+                                    canvasId={canvasId}
                                     isDialog={true}
                                     language={(match && match[1]) || ''}
                                     value={String(children).replace(/\n$/, '')}
@@ -1322,8 +1332,8 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                                                                         return !inline ? (
                                                                                                             <CodeBlock
                                                                                                                 key={Math.random()}
-                                                                                                                chatflowid={
-                                                                                                                    dialogProps.chatflow.id
+                                                                                                                canvasId={
+                                                                                                                    canvasId
                                                                                                                 }
                                                                                                                 isDialog={true}
                                                                                                                 language={
@@ -1475,7 +1485,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                                                 return !inline ? (
                                                                                     <CodeBlock
                                                                                         key={Math.random()}
-                                                                                        chatflowid={dialogProps.chatflow.id}
+                                                                                        canvasId={canvasId}
                                                                                         isDialog={true}
                                                                                         language={(match && match[1]) || ''}
                                                                                         value={String(children).replace(/\n$/, '')}

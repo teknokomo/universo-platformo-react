@@ -19,16 +19,16 @@ export const utilUpdateChatMessageFeedback = async (id: string, chatMessageFeedb
     // Fetch the updated entity
     const updatedFeedback = await appServer.AppDataSource.getRepository(ChatMessageFeedback).findOne({ where: { id } })
 
-    let chatflowAnalytic = '{}'
+    let canvasAnalytic = '{}'
     if (updatedFeedback?.canvasId) {
         try {
-            const chatflow = await canvasService.getCanvasById(updatedFeedback.canvasId)
-            chatflowAnalytic = chatflow?.analytic ?? '{}'
+            const canvas = await canvasService.getCanvasById(updatedFeedback.canvasId)
+            canvasAnalytic = canvas?.analytic ?? '{}'
         } catch (error) {
-            chatflowAnalytic = '{}'
+            canvasAnalytic = '{}'
         }
     }
-    const analytic = JSON.parse(chatflowAnalytic)
+    const analytic = JSON.parse(canvasAnalytic)
 
     if (analytic?.lunary?.status === true && updatedFeedback?.rating) {
         lunary.trackFeedback(updatedFeedback.messageId, {

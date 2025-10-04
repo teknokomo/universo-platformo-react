@@ -25,7 +25,8 @@ import { StyledButton } from '@/ui-component/button/StyledButton'
 import { TooltipWithParser } from '@/ui-component/tooltip/TooltipWithParser'
 import { SwitchInput } from '@/ui-component/switch/Switch'
 import useNotifier from '@/utils/useNotifier'
-import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CHATFLOW } from '@/store/actions'
+import resolveCanvasContext from '@/utils/resolveCanvasContext'
+import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction, SET_CANVAS } from '@/store/actions'
 
 // Icons
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -87,12 +88,19 @@ OverrideConfigTable.propTypes = {
 
 const OverrideConfig = ({ dialogProps }) => {
     const dispatch = useDispatch()
-    const chatflow = useSelector((state) => state.canvas.chatflow)
-    const canvasId = chatflow.id
-    const unikId = chatflow.unik_id || chatflow.unikId || dialogProps?.unikId || null
+    const selectedCanvas = useSelector((state) => state.canvas.currentCanvas)
+    const {
+        canvas: dialogCanvas,
+        canvasId: dialogCanvasId,
+        spaceId: dialogSpaceId,
+        unikId: dialogUnikId
+    } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
+    const canvas = dialogCanvas || selectedCanvas || {}
+    const canvasId = dialogCanvasId || selectedCanvas?.id
+    const unikId = dialogUnikId || dialogProps?.unikId || canvas?.unik_id || canvas?.unikId || null
     const spaceId =
-        dialogProps?.spaceId !== undefined ? dialogProps.spaceId : chatflow.spaceId || chatflow.space_id || null
-    const apiConfig = chatflow.apiConfig ? JSON.parse(chatflow.apiConfig) : {}
+        dialogSpaceId ?? (dialogProps?.spaceId !== undefined ? dialogProps.spaceId : canvas?.spaceId || canvas?.space_id || null)
+    const apiConfig = canvas?.apiConfig ? JSON.parse(canvas.apiConfig) : {}
     const { t } = useTranslation()
 
     useNotifier()
@@ -123,7 +131,7 @@ const OverrideConfig = ({ dialogProps }) => {
     const formatObj = () => {
         let apiConfig = {}
         try {
-            apiConfig = JSON.parse(dialogProps.chatflow.apiConfig || '{}')
+            apiConfig = JSON.parse(canvas?.apiConfig || '{}')
             if (apiConfig === null || apiConfig === undefined) {
                 apiConfig = {}
             }
@@ -295,7 +303,7 @@ const OverrideConfig = ({ dialogProps }) => {
                         )
                     }
                 })
-                dispatch({ type: SET_CHATFLOW, chatflow: saveResp.data })
+                dispatch({ type: SET_CANVAS, canvas: saveResp.data })
             }
         } catch (error) {
             const errorMessage =
@@ -317,10 +325,10 @@ const OverrideConfig = ({ dialogProps }) => {
     }
 
     useEffect(() => {
-        if (dialogProps?.chatflow) {
-            // Derive IDs from dialogProps or fallback to Redux chatflow fields
-            const resolvedUnikId = dialogProps.unikId || dialogProps.chatflow?.unik_id || dialogProps.chatflow?.unikId || unikId
-            const resolvedCanvasId = dialogProps.canvasId || dialogProps.chatflow?.id || canvasId
+        if (dialogCanvas) {
+            // Derive IDs from dialog props or fallback to Redux canvas fields
+            const resolvedUnikId = dialogProps.unikId || dialogCanvas?.unik_id || dialogCanvas?.unikId || unikId
+            const resolvedCanvasId = dialogProps.canvasId || dialogCanvas?.id || canvasId
 
             if (resolvedUnikId && resolvedCanvasId) {
                 getConfigApi.request(resolvedUnikId, resolvedCanvasId)
@@ -333,7 +341,7 @@ const OverrideConfig = ({ dialogProps }) => {
 
         return () => {}
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogProps])
+    }, [dialogProps, dialogCanvas])
 
     useEffect(() => {
         if (getConfigApi.data) {

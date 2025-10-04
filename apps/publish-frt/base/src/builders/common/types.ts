@@ -37,6 +37,7 @@ export interface BuildMetadata {
  */
 export interface BuildOptions {
     projectName?: string
+    canvasId?: string
     libraryConfig?: ILibraryConfig
     markerType?: string
     markerValue?: string

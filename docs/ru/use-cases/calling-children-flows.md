@@ -58,7 +58,7 @@ JavaScript-функция инструмента:
 
 ```javascript
 const fetch = require('node-fetch');
-const url = 'http://localhost:3000/api/v1/prediction/<chatflow-id>'; // замените на конкретный id чат-потока
+const url = 'http://localhost:3000/api/v1/prediction/<canvas-id>'; // замените на конкретный id чат-потока
 
 const body = {
 	"question": $input

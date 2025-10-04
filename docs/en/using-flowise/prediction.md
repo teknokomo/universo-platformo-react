@@ -6,7 +6,7 @@ Prediction API is the primary endpoint for interacting with your Flowise flows a
 * **Streaming Responses**: Get real-time streaming responses for better user experience
 * **Conversation Memory**: Maintain context across multiple messages within a session
 * **File Processing**: Upload and process images, audio, and other files as part of your queries
-* **Dynamic Configuration**: Override chatflow settings and pass variables at runtime
+* **Dynamic Configuration**: Override canvas settings and pass variables at runtime
 
 For details, see the [Prediction Endpoint API Reference](../api-reference/prediction.md).
 
@@ -16,7 +16,7 @@ For details, see the [Prediction Endpoint API Reference](../api-reference/predic
 
 **Endpoint**: `POST /api/v1/prediction/:id`
 
-**Authentication**: Refer [Authentication for Flows](../configuration/authorization/chatflow-level.md)
+**Authentication**: Refer [Authentication for Flows](../configuration/authorization/canvas-level.md)
 
 ## Request Format
 
@@ -69,7 +69,7 @@ client = Flowise(base_url="http://localhost:3000")
 try:
     response = client.create_prediction(
         PredictionData(
-            chatflowId="your-chatflow-id",
+            canvasId="your-canvas-id",
             question="What is machine learning?",
             streaming=False
         )
@@ -94,7 +94,7 @@ client = Flowise(base_url="http://localhost:3000")
 try:
     response = client.create_prediction(
         PredictionData(
-            chatflowId="your-chatflow-id",
+            canvasId="your-canvas-id",
             question="Tell me a long story about AI",
             streaming=True
         )
@@ -120,7 +120,7 @@ client = Flowise(base_url="http://localhost:3000")
 try:
     response = client.create_prediction(
         PredictionData(
-            chatflowId="your-chatflow-id",
+            canvasId="your-canvas-id",
             question="Analyze this data",
             streaming=False,
             overrideConfig={
@@ -157,7 +157,7 @@ const client = new FlowiseClient({
 async function chatWithFlow() {
     try {
         const response = await client.createPrediction({
-            chatflowId: 'your-chatflow-id',
+            canvasId: 'your-canvas-id',
             question: 'What is machine learning?',
             streaming: false
         });
@@ -185,7 +185,7 @@ const client = new FlowiseClient({
 async function streamingChat() {
     try {
         const stream = await client.createPrediction({
-            chatflowId: 'your-chatflow-id',
+            canvasId: 'your-canvas-id',
             question: 'Tell me a long story about AI',
             streaming: true
         });
@@ -216,7 +216,7 @@ const client = new FlowiseClient({
 async function advancedChat() {
     try {
         const response = await client.createPrediction({
-            chatflowId: 'your-chatflow-id',
+            canvasId: 'your-canvas-id',
             question: 'Analyze this data',
             streaming: false,
             overrideConfig: {
@@ -251,8 +251,8 @@ If you prefer to use the REST API directly without SDKs:
 import requests
 import json
 
-def send_message(chatflow_id, question, streaming=False):
-    url = f"http://localhost:3000/api/v1/prediction/{chatflow_id}"
+def send_message(canvas_id, question, streaming=False):
+    url = f"http://localhost:3000/api/v1/prediction/{canvas_id}"
     
     payload = {
         "question": question,
@@ -275,7 +275,7 @@ def send_message(chatflow_id, question, streaming=False):
 
 # Usage
 result = send_message(
-    chatflow_id="your-chatflow-id",
+    canvas_id="your-canvas-id",
     question="What is artificial intelligence?",
     streaming=False
 )
@@ -287,8 +287,8 @@ if result:
 
 {% tab title="JavaScript (fetch)" %}
 ```javascript
-async function sendMessage(chatflowId, question, streaming = false) {
-    const url = `http://localhost:3000/api/v1/prediction/${chatflowId}`;
+async function sendMessage(canvasId, question, streaming = false) {
+    const url = `http://localhost:3000/api/v1/prediction/${canvasId}`;
     
     const payload = {
         question: question,
@@ -319,7 +319,7 @@ async function sendMessage(chatflowId, question, streaming = false) {
 
 // Usage
 sendMessage(
-    'your-chatflow-id',
+    'your-canvas-id',
     'What is artificial intelligence?',
     false
 ).then(result => {
@@ -332,7 +332,7 @@ sendMessage(
 
 {% tab title="cURL" %}
 ```bash
-curl -X POST "http://localhost:3000/api/v1/prediction/your-chatflow-id" \
+curl -X POST "http://localhost:3000/api/v1/prediction/your-canvas-id" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "What is artificial intelligence?",
@@ -439,7 +439,7 @@ prediction(
 
 ### Configuration Override
 
-Override chatflow settings dynamically.
+Override canvas settings dynamically.
 
 Override config is **disabled** by default for security reasons. Enable it from the top right: **Settings** → **Configuration** → **Security** tab:
 
@@ -1049,7 +1049,7 @@ print(result)
 
 # Example with direct URL (no custom name)
 result2 = upload_image_url(
-    chatflow_id="your-chatflow-id",
+    canvas_id="your-canvas-id",
     question="Describe this screenshot",
     image_url="https://i.imgur.com/sample.png"
 )

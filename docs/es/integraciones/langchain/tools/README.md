@@ -13,7 +13,7 @@ Las Tools (herramientas) son funciones que los agents pueden utilizar para inter
 * [BraveSearch API](bravesearch-api.md)
 * [Calculator](calculator.md)
 * [Chain Tool](chain-tool.md)
-* [Chatflow Tool](chatflow-tool.md)
+* [Canvas Tool](canvas-tool.md)
 * [Custom Tool](custom-tool.md)
 * [Exa Search](exa-search.md)
 * [Google Custom Search](google-custom-search.md)

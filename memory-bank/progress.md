@@ -29,6 +29,21 @@
 - Swapped metaverse and cluster list pages to the template table, wiring entity-specific action menus (`rename`, `delete`) that use lightweight confirm prompts and API adapters while keeping card view logic untouched.
 - Added dedicated action descriptor files plus EN/RU i18n entity labels to reuse existing dialog/confirm strings, and verified builds via `pnpm --filter @universo/template-mui build`, `pnpm --filter @universo/metaverses-frt build`, and `pnpm --filter @universo/resources-frt build`.
 
+### 2025-10-03 — Canvas streaming & vector utilities cleanup
+
+- Renamed the core execution helper to `buildCanvasFlow`, updated predictions queue/controller wiring, and introduced optional `canvas` payloads in `IExecuteFlowParams` so SSE streaming and queue jobs no longer rely on legacy canvas aliases.
+- Updated `executeUpsert` to consume the same `canvas` payload, refreshed queue logging, and tightened API key validation paths; `upsertVector` now throws precise 404s for missing canvases instead of defaulting to canvas terminology.
+- Converted marketplace templates from `marketplaces/canvass` to `marketplaces/canvases`, added fallback loading for legacy directories, and expanded export/import services with `CanvasFlow` collections plus compatibility shims for old `ChatFlow` dumps.
+- Added deprecation notes to API docs (EN/RU/ES) highlighting the `/api/v1/unik/:unikId/canvases` routes, aligning publication clients and vector-store APIs with explicit `canvasId` semantics.
+
+### 2025-10-05 — Chatflow aliases removed
+
+- Dropped the temporary `canvas` property from `IExecuteFlowParams` and downstream helpers; queue workers and upsert utilities now require explicit `canvas` payloads with stricter null checks.
+- Removed `/api/v1/canvass-streaming` and `/unik/:id/canvass*` Express mounts, leaving only Canvas-first routes in `spacesRoutes` and main server router.
+- Updated Spaces router tests to cover the canonical streaming endpoint and re-ran Jest suite plus `pnpm --filter flowise build` to ensure the refactor compiles.
+- Cleaned frontend publication clients: removed legacy `getChatflowById`/`updateSpace` fallbacks, switched AR.js builders to pass `canvasId`, and refreshed publish READMEs/docs to reflect the Canvas-first API.
+- Eliminated `LegacyChatflowsService`: renamed it to `CanvasService`, replaced the factory/controller pipeline, and refactored routes/tests to use the new Canvas-first service APIs without canvas terminology.
+
 ### 2025-10-03 — Table counts & actions hardening
 
 - Implemented configurable column support in `FlowListTable`, enabling metaverse and cluster lists to show live counts (sections/entities, domains/resources) while preserving default card/table behaviour.
@@ -54,7 +69,7 @@
 ### 2025-09-26 — Flowise canvases API helper migration
 
 - Added a dedicated `packages/ui/src/api/canvases.js` module mirroring the Spaces canvases client so Flowise views can call `/spaces/:spaceId/canvases` and `/canvases/:canvasId` endpoints directly.
-- Refactored the legacy `chatflows` API wrapper to delegate CRUD calls to the canvases helper when provided a `spaceId`, while logging one-time deprecation warnings when callers fall back to `/chatflows` endpoints.
+- Refactored the legacy `canvass` API wrapper to delegate CRUD calls to the canvases helper when provided a `spaceId`, while logging one-time deprecation warnings when callers fall back to `/canvass` endpoints.
 - Introduced `packages/ui/src/api/index.js` to re-export both helpers, guiding downstream modules toward the new canvases client for future migrations.
 
 ### 2025-09-26 — Canvas versions UI and orchestration
@@ -67,8 +82,8 @@
 ### 2025-09-25 — Canvas versioning backend groundwork
 
 - Extended Supabase migrations (Postgres + SQLite) with canvas version metadata, unique active-version constraints, and data backfill so existing canvases become their own active groups.
-- Updated TypeORM entities (`Canvas`, `SpaceCanvas`, `ChatFlow`) plus Flowise interfaces to expose version fields, ensuring chatflow creation seeds version identifiers consistently.
-- Implemented version lifecycle helpers in `SpacesService` (list/create/activate/delete) with REST endpoints, DTOs, and Flowise `chatflows` synchronization, accompanied by Jest coverage for version flows and upgraded TypeORM test mocks.
+- Updated TypeORM entities (`Canvas`, `SpaceCanvas`, `ChatFlow`) plus Flowise interfaces to expose version fields, ensuring canvas creation seeds version identifiers consistently.
+- Implemented version lifecycle helpers in `SpacesService` (list/create/activate/delete) with REST endpoints, DTOs, and Flowise `canvass` synchronization, accompanied by Jest coverage for version flows and upgraded TypeORM test mocks.
 
 ### 2025-09-25 — QA review for localized default canvas flow
 
@@ -80,7 +95,7 @@
 ### 2025-09-24 — Spaces router embedded into Uniks
 
 - Mounted `createSpacesRoutes` directly inside the Uniks router so `/unik/:id/spaces` and `/unik/:id/canvases` reuse the Spaces service without an extra express mount layer.
-- Preserved the existing `ensureAuth` guard and wrapped a conditional rate limiter that only fires for `/spaces` and `/canvases` paths to avoid throttling unrelated legacy chatflow routes.
+- Preserved the existing `ensureAuth` guard and wrapped a conditional rate limiter that only fires for `/spaces` and `/canvases` paths to avoid throttling unrelated legacy canvas routes.
 - Extended Jest route tests to stub the Spaces router, verify bootstrapping, and ensure cleanup helpers continue to be mocked, keeping regression coverage for the new wiring.
 
 ### 2025-09-23 — Localized default canvas flow for new spaces
@@ -205,9 +220,9 @@ Follow-ups:
   - Complete data flow: UI → Supabase → Backend → Frontend → Template works correctly
 
 - AR.js wallpaper mode (cameraUsage: none) fixed:
-\- **i18n Normalization across chatflows/publish UIs**:
+\- **i18n Normalization across canvass/publish UIs**:
   - Fixed namespace/key mismatches causing raw keys to render in UI.
-  - Updated `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `chatflows/index.jsx`, `agentflows/index.jsx`, `publish/api/PythonCode.jsx`, `publish/api/LinksCode.jsx`, and `chatflows/Configuration.jsx` to use relative keys within the correct namespaces.
+  - Updated `APICodeDialog.jsx`, `EmbedChat.jsx`, `ShareChatbot.jsx`, `canvass/index.jsx`, `agentflows/index.jsx`, `publish/api/PythonCode.jsx`, `publish/api/LinksCode.jsx`, and `canvass/Configuration.jsx` to use relative keys within the correct namespaces.
   - Verified no compile errors; keys like `apiCodeDialog.*`, `embedChat.*`, `shareChatbot.*`, and `common.version` now resolve properly.
   - Scene no longer includes `arjs` attribute; AR.js libs are skipped.
   - Wallpaper background implemented as rotating wireframe `a-sphere` with `shader: flat` and as optional `<a-sky>`.
@@ -1434,8 +1449,27 @@ Validation:
 - Replaced the legacy `SaveChatflowDialog` implementation with a Canvas-specific dialog that mirrors the previous UX while defaulting translations to `dialog.saveCanvas.*`.
 - Updated `apps/spaces-frt` and Unik action loaders to consume the new dialog entry point, leaving a thin re-export for backwards compatibility.
 - Synced EN/RU locale bundles to include the `dialog.saveCanvas.placeholder` key and executed `pnpm --filter flowise-ui build` to verify Vite now resolves the module without Rollup default-export errors.
+
+### 2025-10-02 — Canvas store terminology refresh
+
+- Renamed the Redux action constant to `SET_CANVAS` and updated the canvas reducer state to store `currentCanvas` instead of `canvas`.
+- Refreshed all dispatch sites in Flowise UI and `spaces-frt` to pass `canvas` payloads plus rewired selectors to use `state.canvas.currentCanvas`.
+- Ran `pnpm --filter flowise-ui build`; build succeeds with existing template chunk warnings only.
+
+### 2025-10-02 — Canvas dialog props cleanup
+
+- Updated Flowise dialog/extended components to prefer `dialogProps.canvas`, keeping `dialogProps.canvas` as a backward-compatible fallback.
+- Normalized helper dialogs (`ViewMessages`, `ViewLeads`, `ExportAsTemplate`, VectorStore utilities, speech/feedback/lead tools) to compute IDs via the new `canvas` object before invoking APIs.
+- Verified the UI bundle with `pnpm --filter flowise-ui build`; only pre-existing Vite/Sass and FlowListTable chunk warnings remain.
+- Hardened runtime guards so canvas-dependent dialogs bail before firing API calls with `undefined`, eliminating the `canvas is not defined` runtime and 500s from `/leads/undefined` and `/upsert-history/undefined`.
+
+### 2025-10-02 — FlowListTable import cycle fixed
+
+- Added package exports for `@universo/template-mui` (`./components/table/FlowListTable`) and widened tsconfig include to emit `.jsx` sources so the dist bundle ships the table component.
+- Updated Uniks/Resources/Metaverses fronts to import `FlowListTable` via the new subpath, refreshed local type stubs, and rebuilt dependent packages to regenerate `dist` outputs.
+- `pnpm --filter flowise-ui build` now passes with only baseline Sass warnings; circular dependency alert is gone.
 ### 2025-09-23 — Canvas versioning backend groundwork
 
 - Updated the Spaces Supabase migration (Postgres/SQLite) to add canvas version metadata, enforce one active version per group via indexes, and seed existing rows with group ids.
 - Extended TypeORM entities plus Flowise `ChatFlow` model with version fields, added REST endpoints for listing/creating/activating/deleting versions, and introduced a stub declaration for `flowise-components` in the spaces service.
-- Enhanced `SpacesService` logic and Flowise chatflow auto-provisioning to respect version groups; Jest suite `pnpm --filter @universo/spaces-srv test` passes with updated fixtures and expectations.
+- Enhanced `SpacesService` logic and Flowise canvas auto-provisioning to respect version groups; Jest suite `pnpm --filter @universo/spaces-srv test` passes with updated fixtures and expectations.

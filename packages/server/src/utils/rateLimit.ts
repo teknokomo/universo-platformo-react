@@ -113,16 +113,19 @@ export class RateLimiterManager {
 
     public getRateLimiter(): (req: Request, res: Response, next: NextFunction) => void {
         return (req: Request, res: Response, next: NextFunction) => {
-            const id = req.params.id
+            const id = req.params?.canvasId ?? req.params?.id
+            if (!req.params.id && id) {
+                ;(req.params as any).id = id
+            }
             if (!this.rateLimiters[id]) return next()
             const idRateLimiter = this.rateLimiters[id]
             return idRateLimiter(req, res, next)
         }
     }
 
-    public async updateRateLimiter(chatFlow: CanvasFlowResult, isInitialized?: boolean): Promise<void> {
-        if (!chatFlow.apiConfig) return
-        const apiConfig = JSON.parse(chatFlow.apiConfig)
+    public async updateRateLimiter(canvas: CanvasFlowResult, isInitialized?: boolean): Promise<void> {
+        if (!canvas.apiConfig) return
+        const apiConfig = JSON.parse(canvas.apiConfig)
 
         const rateLimit: { limitDuration: number; limitMax: number; limitMsg: string; status?: boolean } = apiConfig.rateLimit
         if (!rateLimit) return
@@ -135,21 +138,21 @@ export class RateLimiterManager {
                 limitDuration,
                 limitMax,
                 limitMsg,
-                id: chatFlow.id
+                id: canvas.id
             })
         } else {
             if (status === false) {
-                this.removeRateLimiter(chatFlow.id)
+                this.removeRateLimiter(canvas.id)
             } else if (limitMax && limitDuration && limitMsg) {
-                await this.addRateLimiter(chatFlow.id, limitDuration, limitMax, limitMsg)
+                await this.addRateLimiter(canvas.id, limitDuration, limitMax, limitMsg)
             }
         }
     }
 
-    public async initializeRateLimiters(chatflows: CanvasFlowResult[]): Promise<void> {
+    public async initializeRateLimiters(canvases: CanvasFlowResult[]): Promise<void> {
         await Promise.all(
-            chatflows.map(async (chatFlow) => {
-                await this.updateRateLimiter(chatFlow, true)
+            canvases.map(async (canvas) => {
+                await this.updateRateLimiter(canvas, true)
             })
         )
 
