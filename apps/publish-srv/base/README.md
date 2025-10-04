@@ -78,7 +78,7 @@ The API is now streamlined to handle publication records and serve raw flow data
 -   `GET /api/v1/publish/canvas/:canvasId` - Direct access to Canvas flow data for streaming.
 
 #### Legacy Endpoints (Backward Compatibility)
--   `POST /api/v1/publish/arjs` - Creates or updates a publication record. Provide `canvasId` (legacy `canvasId` is still accepted for compatibility).
+-   `POST /api/v1/publish/arjs` - Creates or updates a publication record. Provide `canvasId` (legacy `chatflowId` is still accepted for compatibility).
 -   `GET /api/v1/publish/arjs/public/:publicationId` - Gets the raw `flowData` for a given publication.
 -   `GET /api/v1/publish/arjs/stream/:canvasId` - Legacy streaming endpoint (deprecated, use Canvas endpoints).
 
