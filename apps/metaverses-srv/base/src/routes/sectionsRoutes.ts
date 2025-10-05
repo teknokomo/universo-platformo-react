@@ -47,17 +47,6 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
         return userMetaverse !== null
     }
 
-    // Helper function to check if user has access to section (through its metaverse)
-    const checkSectionAccess = async (sectionId: string, userId: string) => {
-        const { sectionMetaverseRepo } = repos()
-        const sectionMetaverse = await sectionMetaverseRepo.findOne({
-            where: { section: { id: sectionId } },
-            relations: ['metaverse']
-        })
-        if (!sectionMetaverse) return false
-        return await checkMetaverseAccess(sectionMetaverse.metaverse.id, userId)
-    }
-
     // GET /sections
     router.get(
         '/',
@@ -170,6 +159,73 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     )
 
     // DELETE /sections/:sectionId
+    router.delete(
+        '/:sectionId',
+        asyncHandler(async (req, res) => {
+            const { sectionId } = req.params
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            const { sectionRepo } = repos()
+
+            const section = await sectionRepo.findOne({ where: { id: sectionId } })
+            if (!section) return res.status(404).json({ error: 'Section not found' })
+
+            await sectionRepo.remove(section)
+            res.status(204).send()
+        })
+    )
+
+    // GET /sections/:sectionId (Get a single section)
+    router.get(
+        '/:sectionId',
+        asyncHandler(async (req, res) => {
+            const { sectionId } = req.params
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            const { sectionRepo } = repos()
+            const section = await sectionRepo.findOne({ where: { id: sectionId } })
+            if (!section) return res.status(404).json({ error: 'Section not found' })
+            res.json(section)
+        })
+    )
+
+    // PUT /sections/:sectionId (Update a section)
+    router.put(
+        '/:sectionId',
+        asyncHandler(async (req, res) => {
+            const { sectionId } = req.params
+            const { name, description } = req.body || {}
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            const { sectionRepo } = repos()
+
+            const section = await sectionRepo.findOne({ where: { id: sectionId } })
+            if (!section) return res.status(404).json({ error: 'Section not found' })
+
+            // Validate name if provided
+            if (name !== undefined) {
+                if (typeof name !== 'string' || !name.trim()) {
+                    return res.status(400).json({ error: 'name must be a non-empty string' })
+                }
+                section.name = name
+            }
+            // Validate description if provided
+            if (description !== undefined) {
+                if (typeof description !== 'string') {
+                    return res.status(400).json({ error: 'description must be a string' })
+                }
+                section.description = description
+            }
+
+            const updated = await sectionRepo.save(section)
+            res.json(updated)
+        })
+    )
+
+    // DELETE /sections/:sectionId (Delete a section)
     router.delete(
         '/:sectionId',
         asyncHandler(async (req, res) => {
