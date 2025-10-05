@@ -5,6 +5,7 @@ import { getAppVersion } from '.'
 export class Telemetry {
     private postHog?: PostHog
     private cachedVersion?: string
+    private anonymousId?: string
 
     constructor() {
         const disabled = process.env.DISABLE_FLOWISE_TELEMETRY === 'true'
@@ -12,6 +13,7 @@ export class Telemetry {
 
         if (!disabled && apiKey) {
             this.postHog = new PostHog(apiKey)
+            this.anonymousId = uuidv4()
         }
     }
 
@@ -37,9 +39,14 @@ export class Telemetry {
             version: await this.getVersion()
         }
 
+        const distinctId =
+            typeof orgId === 'string' && orgId.trim().length > 0
+                ? orgId
+                : this.anonymousId || (this.anonymousId = uuidv4())
+
         this.postHog.capture({
             event,
-            distinctId: orgId || uuidv4(),
+            distinctId,
             properties: payload
         })
     }
