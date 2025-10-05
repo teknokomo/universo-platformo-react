@@ -1,52 +1,57 @@
-import { v4 as uuidv4 } from 'uuid'
 import { PostHog } from 'posthog-node'
-import path from 'path'
-import fs from 'fs'
-import { getUserHome, getUserSettingsFilePath } from '.'
+import { v4 as uuidv4 } from 'uuid'
+import { getAppVersion } from '.'
 
 export class Telemetry {
-    postHog?: PostHog
+    private postHog?: PostHog
+    private cachedVersion?: string
+    private anonymousId?: string
 
     constructor() {
-        if (process.env.DISABLE_FLOWISE_TELEMETRY !== 'true') {
-            this.postHog = new PostHog('phc_jEDuFYnOnuXsws986TLWzuisbRjwFqTl9JL8tDMgqme')
-        } else {
-            this.postHog = undefined
+        const disabled = process.env.DISABLE_FLOWISE_TELEMETRY === 'true'
+        const apiKey = process.env.POSTHOG_PUBLIC_API_KEY
+
+        if (!disabled && apiKey) {
+            this.postHog = new PostHog(apiKey)
+            this.anonymousId = uuidv4()
         }
     }
 
-    async id(): Promise<string> {
-        try {
-            const settingsContent = await fs.promises.readFile(getUserSettingsFilePath(), 'utf8')
-            const settings = JSON.parse(settingsContent)
-            return settings.instanceId
-        } catch (error) {
-            const instanceId = uuidv4()
-            const settings = {
-                instanceId
-            }
-            const defaultLocation = process.env.SECRETKEY_PATH
-                ? path.join(process.env.SECRETKEY_PATH, 'settings.json')
-                : path.join(getUserHome(), '.flowise', 'settings.json')
-            await fs.promises.writeFile(defaultLocation, JSON.stringify(settings, null, 2))
-            return instanceId
+    private async getVersion(): Promise<string> {
+        if (!this.cachedVersion) {
+            this.cachedVersion = await getAppVersion()
         }
+
+        return this.cachedVersion || ''
     }
 
-    async sendTelemetry(event: string, properties = {}): Promise<void> {
-        if (this.postHog) {
-            const distinctId = await this.id()
-            this.postHog.capture({
-                event,
-                distinctId,
-                properties
-            })
+    async sendTelemetry(
+        event: string,
+        properties: Record<string, unknown> = {},
+        orgId?: string
+    ): Promise<void> {
+        if (!this.postHog) {
+            return
         }
+
+        const payload = {
+            ...properties,
+            version: await this.getVersion()
+        }
+
+        const distinctId =
+            typeof orgId === 'string' && orgId.trim().length > 0
+                ? orgId
+                : this.anonymousId || (this.anonymousId = uuidv4())
+
+        this.postHog.capture({
+            event,
+            distinctId,
+            properties: payload
+        })
     }
 
     async flush(): Promise<void> {
-        if (this.postHog) {
-            await this.postHog.shutdownAsync()
-        }
+        await this.postHog?.shutdownAsync()
     }
 }

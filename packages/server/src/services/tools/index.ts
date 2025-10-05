@@ -2,7 +2,6 @@ import { StatusCodes } from 'http-status-codes'
 import { Tool } from '../../database/entities/Tool'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
-import { getAppVersion } from '../../utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { FLOWISE_METRIC_COUNTERS, FLOWISE_COUNTER_STATUS } from '../../Interface.Metrics'
 import { QueryRunner } from 'typeorm'
@@ -29,7 +28,6 @@ const createTool = async (requestBody: any): Promise<any> => {
         const tool = await appServer.AppDataSource.getRepository(Tool).create(newTool)
         const dbResponse = await appServer.AppDataSource.getRepository(Tool).save(tool)
         await appServer.telemetry.sendTelemetry('tool_created', {
-            version: await getAppVersion(),
             toolId: dbResponse.id,
             toolName: dbResponse.name
         })

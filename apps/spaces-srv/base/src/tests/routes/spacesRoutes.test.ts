@@ -100,7 +100,6 @@ describe('spacesRoutes', () => {
         constructGraphs: () => ({ graph: {}, nodeDependencies: {} }),
         getEndingNodes: () => [],
         isFlowValidForStream: () => true,
-        getAppVersion: async () => 'test-version',
         getTelemetryFlowObj: () => ({}),
         telemetry: undefined,
         metricsProvider: undefined,

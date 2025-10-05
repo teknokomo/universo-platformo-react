@@ -6,6 +6,13 @@
 - Prediction endpoints now accept `/prediction/:canvasId` and internal helpers normalize the param while retaining `req.params.id` for existing consumers.
 - Sequential agent/tool node docs now draw from a shared `FLOW_CONTEXT_REFERENCE` snippet, making Canvas ID the primary reference and demoting `canvasId` to legacy alias.
 
+## IMPLEMENT - Telemetry Opt-in Migration (2025-10-05)
+
+- [x] Refactor `packages/server/src/utils/telemetry.ts` to adopt opt-in PostHog initialization with cached app version and optional `orgId` parameter while behaving as a no-op without a key.
+- [x] Remove legacy `settings.json` usage by deleting `getUserSettingsFilePath`/`getOrgId` helpers and replacing storage key generation with UUIDs across affected utilities.
+- [x] Update telemetry wiring in server bootstraps, queues, and services (including Spaces services) plus configuration docs to align with the new interface and opt-in environment variables.
+- [x] Refresh telemetry mocks/tests if needed and run `pnpm build` at the root to validate the workspace after refactor.
+
 ## IMPLEMENT - Canvas Version Metadata Editing (2025-10-05)
 
 - [x] Wire `PUT /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` route, DTO, and service logic to update version metadata with group guards and `updatedDate` refresh.

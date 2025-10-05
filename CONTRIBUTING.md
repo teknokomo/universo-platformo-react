@@ -151,6 +151,7 @@ Flowise support different environment variables to configure your instance. You 
 | DATABASE_SSL                       | Database connection overssl (When DATABASE_TYPE is postgre)                      | Boolean                                          | false                               |
 | SECRETKEY_PATH                     | Location where encryption key (used to encrypt/decrypt credentials) is saved     | String                                           | `your-path/Flowise/packages/server` |
 | FLOWISE_SECRETKEY_OVERWRITE        | Encryption key to be used instead of the key stored in SECRETKEY_PATH            | String                                           |                                     |
+| POSTHOG_PUBLIC_API_KEY             | PostHog public key to opt-in telemetry                                           | String                                           |                                     |
 | DISABLE_FLOWISE_TELEMETRY          | Turn off telemetry                                                               | Boolean                                          |                                     |
 | MODEL_LIST_CONFIG_JSON             | File path to load list of models from your local config file                     | String                                           | `/your_model_list_config_file_path` |
 | STORAGE_TYPE                       | Type of storage for uploaded files. default is `local`                           | Enum String: `s3`, `local`, `gcs`                | `local`                             |

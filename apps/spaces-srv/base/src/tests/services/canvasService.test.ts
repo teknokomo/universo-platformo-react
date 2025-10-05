@@ -100,7 +100,6 @@ describe('CanvasService', () => {
         constructGraphs: jest.fn(() => ({ graph: {}, nodeDependencies: {} })),
         getEndingNodes: jest.fn(() => []),
         isFlowValidForStream: jest.fn(() => true),
-        getAppVersion: jest.fn(async () => 'test'),
         getTelemetryFlowObj: jest.fn(() => ({})),
         telemetry: undefined,
         metricsProvider: undefined,

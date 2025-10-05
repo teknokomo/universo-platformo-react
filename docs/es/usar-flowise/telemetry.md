@@ -70,4 +70,6 @@ Puedes verificar estas afirmaciones encontrando todas las ubicaciones donde se l
 
 ## Deshabilitar Telemetría
 
-Los usuarios pueden deshabilitar la telemetría configurando `DISABLE_FLOWISE_TELEMETRY` como `true` en el archivo `.env`.
+La telemetría está desactivada por defecto: si no configuras `POSTHOG_PUBLIC_API_KEY`, Flowise no enviará ningún evento.
+
+Si necesitas deshabilitarla explícitamente incluso cuando el proyecto tenga una clave PostHog, define `DISABLE_FLOWISE_TELEMETRY=true` en tu archivo `.env`.

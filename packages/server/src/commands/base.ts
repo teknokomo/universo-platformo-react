@@ -46,6 +46,7 @@ export abstract class BaseCommand extends Command {
         LANGCHAIN_ENDPOINT: Flags.string(),
         LANGCHAIN_API_KEY: Flags.string(),
         LANGCHAIN_PROJECT: Flags.string(),
+        POSTHOG_PUBLIC_API_KEY: Flags.string(),
         DISABLE_FLOWISE_TELEMETRY: Flags.string(),
         MODEL_LIST_CONFIG_JSON: Flags.string(),
         STORAGE_TYPE: Flags.string(),
@@ -186,6 +187,8 @@ export abstract class BaseCommand extends Command {
         if (flags.LANGCHAIN_PROJECT) process.env.LANGCHAIN_PROJECT = flags.LANGCHAIN_PROJECT
 
         // Telemetry
+        if (flags.POSTHOG_PUBLIC_API_KEY)
+            process.env.POSTHOG_PUBLIC_API_KEY = flags.POSTHOG_PUBLIC_API_KEY
         if (flags.DISABLE_FLOWISE_TELEMETRY) process.env.DISABLE_FLOWISE_TELEMETRY = flags.DISABLE_FLOWISE_TELEMETRY
 
         // Model list config
