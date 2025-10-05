@@ -294,29 +294,21 @@ const AuthRoutes = {
     ]
 }
 
-// Universo Platformo | Universal Public Flow Routes
+// Universo Platformo | Universal Public Flow Routes (slug-based)
 const PublicFlowRoutes = {
-    path: '/p',
+    path: '/',
     element: <MinimalLayout />,
     children: [
         {
-            path: ':flowId',
+            path: 'p/:slug',
+            element: <PublicFlowView />
+        },
+        {
+            path: 'b/:slug',
             element: <PublicFlowView />
         }
     ]
 }
 
-// Universo Platformo | Canvas Public Routes (New Structure)
-const PublicCanvasRoutes = {
-    path: '/published',
-    element: <MinimalLayout />,
-    children: [
-        {
-            path: 'canvas/:canvasId',
-            element: <PublicFlowView />
-        }
-    ]
-}
-
-export { AuthRoutes, PublicFlowRoutes, PublicCanvasRoutes }
+export { AuthRoutes, PublicFlowRoutes }
 export default MainRoutes

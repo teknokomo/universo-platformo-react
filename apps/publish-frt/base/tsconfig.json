@@ -17,6 +17,8 @@
         "allowJs": true,
         "jsx": "react",
         "baseUrl": ".",
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         "paths": {
             "*": [
                 "*"

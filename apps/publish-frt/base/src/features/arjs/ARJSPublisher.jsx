@@ -1,9 +1,9 @@
 // Universo Platformo | AR.js Publisher
 // React component for publishing AR.js experiences using streaming mode
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCurrentUrlIds, ARJSPublishApi, ChatflowsApi, PublicationApi } from '../../api'
+import { ARJSPublishApi, ChatflowsApi, PublicationApi, PublishLinksApi } from '../../api'
 
 // Universo Platformo | Simple demo mode toggle - set to true to enable demo features
 const DEMO_MODE = false
@@ -108,6 +108,86 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [settingsInitialized, setSettingsInitialized] = useState(false)
     // State for tracking legacy scenarios to avoid showing standard message
     const [isLegacyScenario, setIsLegacyScenario] = useState(false)
+    const [publishLinkRecords, setPublishLinkRecords] = useState([])
+
+    const publishLinkItems = useMemo(() => {
+        if (!publishLinkRecords?.length) {
+            return []
+        }
+
+        const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+        return publishLinkRecords.flatMap((link) => {
+            const segment = link?.targetType === 'version' ? 'b' : 'p'
+            const baseUrl = origin ? `${origin}/${segment}/${link.baseSlug}` : `/${segment}/${link.baseSlug}`
+
+            const items = [
+                {
+                    id: `${link.id}-base`,
+                    labelKey: link?.targetType === 'version' ? 'links.versionBase' : 'links.liveBase',
+                    url: baseUrl
+                }
+            ]
+
+            if (link?.customSlug) {
+                const customUrl = origin
+                    ? `${origin}/${segment}/${link.customSlug}`
+                    : `/${segment}/${link.customSlug}`
+
+                items.push({
+                    id: `${link.id}-custom`,
+                    labelKey: link?.targetType === 'version' ? 'links.versionCustom' : 'links.liveCustom',
+                    url: customUrl
+                })
+            }
+
+            return items
+        })
+    }, [publishLinkRecords])
+
+    const loadPublishLinks = useCallback(async () => {
+        if (!flow?.id && !flow?.versionGroupId) {
+            return []
+        }
+
+        try {
+            const links = await PublishLinksApi.listLinks({
+                technology: 'arjs',
+                versionGroupId: flow?.versionGroupId ?? null
+            })
+
+            const filtered = links.filter((link) => {
+                if (flow?.versionGroupId && link.versionGroupId === flow.versionGroupId) {
+                    return true
+                }
+
+                if (flow?.id && link.targetCanvasId === flow.id) {
+                    return true
+                }
+
+                return !flow?.versionGroupId && !flow?.id
+            })
+
+            setPublishLinkRecords(filtered)
+            return filtered
+        } catch (loadError) {
+            console.error('ARJSPublisher: Failed to load publish links', loadError)
+            setPublishLinkRecords([])
+            return []
+        }
+    }, [flow?.id, flow?.versionGroupId])
+
+    useEffect(() => {
+        loadPublishLinks()
+    }, [loadPublishLinks])
+
+    useEffect(() => {
+        if (isPublic && publishLinkItems.length > 0) {
+            setPublishedUrl(publishLinkItems[0].url)
+        } else {
+            setPublishedUrl('')
+        }
+    }, [isPublic, publishLinkItems])
 
     // Load global settings on component mount
     useEffect(() => {
@@ -301,11 +381,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         setAframeSource('official')
                     }
 
-                    // If settings indicate it's public, generate URL
                     if (savedSettings.isPublic && savedSettings.generationMode === 'streaming') {
-                        // For streaming mode, generate URL immediately since content is generated on-demand
-                        const fullPublicUrl = `${window.location.origin}/p/${flow.id}`
-                        setPublishedUrl(fullPublicUrl)
+                        await loadPublishLinks()
                     }
                 } else {
                     console.log('ARJSPublisher: No saved settings found, using defaults') // Simple console.log
@@ -338,7 +415,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         }
 
         loadSavedSettings()
-    }, [flow?.id, globalSettingsLoaded])
+    }, [flow?.id, globalSettingsLoaded, loadPublishLinks])
 
     // Initialize with flow data when component mounts
     useEffect(() => {
@@ -445,12 +522,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setIsPublic(value)
 
         // If public toggle is off, reset the URL and save settings
-                    if (!value) {
-                setPublishedUrl('')
+        if (!value) {
+            setPublishedUrl('')
 
-                // Universo Platformo | Save settings with isPublic: false
-                if (!DEMO_MODE && flow?.id) {
-                    try {
+            // Universo Platformo | Save settings with isPublic: false
+            if (!DEMO_MODE && flow?.id) {
+                try {
                         await ChatflowsApi.saveSettings(flow.id, {
                             isPublic: false,
                             projectTitle: projectTitle,
@@ -471,6 +548,13 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                             }
                         })
                         console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
+                        await ARJSPublishApi.publishARJS({
+                            canvasId: flow.id,
+                            generationMode: generationMode,
+                            projectName: projectTitle,
+                            isPublic: false
+                        })
+                        await loadPublishLinks()
                     } catch (error) {
                         console.error('📱 [ARJSPublisher] Error saving settings:', error)
                         setError('Failed to save settings')
@@ -566,6 +650,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${publishResult.publicationId}`
             setPublishedUrl(fullPublicUrl)
             setSnackbar({ open: true, message: t('success.published') })
+
+            await loadPublishLinks()
 
             if (onPublish) {
                 onPublish({ ...publishResult, publishedUrl: fullPublicUrl })
@@ -961,19 +1047,29 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 </Box>
 
                                 {/* Public link display */}
-                                {publishedUrl && (
+                                {isPublic && publishLinkItems.length > 0 && (
                                     <Box sx={{ my: 3 }}>
                                         <Typography variant='subtitle1' gutterBottom>
                                             {t('arjs.publishedUrl')}:
                                         </Typography>
-                                        <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
+                                        {publishLinkItems.map((item, index) => (
+                                            <PublicationLink
+                                                key={item.id}
+                                                url={item.url}
+                                                onCopy={handleCopyUrl}
+                                                labelKey={item.labelKey}
+                                                helpTextKey={index === 0 ? 'arjs.showMarker' : null}
+                                            />
+                                        ))}
 
                                         {/* QR Code Section */}
-                                        <QRCodeSection 
-                                            publishedUrl={publishedUrl}
-                                            disabled={isPublishing}
-                                            onDownloadSuccess={(message) => setSnackbar({ open: true, message })}
-                                        />
+                                        {publishedUrl && (
+                                            <QRCodeSection
+                                                publishedUrl={publishedUrl}
+                                                disabled={isPublishing}
+                                                onDownloadSuccess={(message) => setSnackbar({ open: true, message })}
+                                            />
+                                        )}
 
                                         <Box sx={{ mt: 3 }}>
                                             <Typography variant='body2' gutterBottom>

@@ -428,4 +428,6 @@ export interface CanvasMinimal {
     name: string
     flowData: string
     chatbotConfig?: string
+    versionGroupId?: string
+    versionUuid?: string
 }

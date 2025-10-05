@@ -152,6 +152,12 @@
             "copied": "Link copied to clipboard",
             "exported": "HTML file downloaded successfully"
         },
+        "links": {
+            "liveBase": "Base link (live version)",
+            "liveCustom": "Custom link (live version)",
+            "versionBase": "Base link (specific version)",
+            "versionCustom": "Custom link (specific version)"
+        },
         "errors": {
             "failed": "Failed to publish",
             "noUPDL": "No UPDL nodes found in this flow",

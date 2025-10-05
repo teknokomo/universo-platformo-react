@@ -25,6 +25,7 @@
         "express": "^4.18.2",
         "typeorm": "^0.3.6",
         "typescript": "^5.4.5",
+        "@universo/publish-srv": "workspace:*",
         "@supabase/supabase-js": "^2.39.0",
         "zod": "3.25.76",
         "flowise-components": "workspace:^"

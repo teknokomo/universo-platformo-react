@@ -1,3 +1,9 @@
+## IMPLEMENT - Publish slug-only public routes (2025-10-05)
+
+- [x] Remove legacy UUID fallbacks from public publish views (PublicFlowView, ARViewPage, PlayCanvasViewPage).
+- [x] Clean up router exports to expose only `/p/:slug` and `/b/:slug` public routes.
+- [ ] Run `pnpm build` after code changes to verify the workspace.
+
 ## IMPLEMENT - Metaverses endpoint cleanup and pagination (2025-10-05) ✅
 
 - [x] Clean up debug logs in GET `/metaverses` route (remove temporary console.log statements added during troubleshooting)
