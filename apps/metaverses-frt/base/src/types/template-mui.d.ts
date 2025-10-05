@@ -2,9 +2,9 @@
 // We only need ItemCard for the current migration step. Expand later if required.
 
 declare module '@universo/template-mui' {
-  export const ItemCard: any
+    export const ItemCard: any
 }
 
 declare module '@universo/template-mui/components/table/FlowListTable' {
-  export const FlowListTable: any
+    export const FlowListTable: any
 }

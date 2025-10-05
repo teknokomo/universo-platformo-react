@@ -6,19 +6,19 @@ import { Unik } from './Unik'
 @Unique('UQ_uniks_users_user_unik', ['user_id', 'unik_id'])
 @Entity({ name: 'uniks_users', schema: 'uniks' })
 export class UnikUser {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string
+    @PrimaryGeneratedColumn('uuid')
+    id!: string
 
-  @Column('uuid')
-  user_id!: string
+    @Column('uuid')
+    user_id!: string
 
-  @Column('uuid')
-  unik_id!: string
+    @Column('uuid')
+    unik_id!: string
 
-  @Column({ default: 'member' })
-  role!: string
+    @Column({ default: 'member' })
+    role!: string
 
-  @ManyToOne(() => Unik, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'unik_id' })
-  unik!: Unik
+    @ManyToOne(() => Unik, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'unik_id' })
+    unik!: Unik
 }

@@ -1,3 +1,33 @@
+## IMPLEMENT - Metaverses endpoint cleanup and pagination (2025-10-05) ✅
+
+- [x] Clean up debug logs in GET `/metaverses` route (remove temporary console.log statements added during troubleshooting)
+- [x] Implement basic pagination pattern (limit/offset/sortBy/sortOrder) as foundation for project-wide usage  
+- [x] Add integration tests following existing patterns in `/tests/routes/` directory
+- [x] Update progress documentation with pagination implementation details
+
+### 2025-10-05 — Merge conflict resolution in uniksRoutes.test.ts
+
+- [x] Analyze merge conflict in uniksRoutes.test.ts - examined conflict markers and understood the differences between upstream and local changes
+- [x] Resolve merge conflict by keeping both changes - merged the test cases from both branches properly 
+- [x] Fix any syntax or import issues - added missing TypeORM decorators (CreateDateColumn, UpdateDateColumn) to mock
+- [x] Run tests to verify resolution - confirmed conflict resolved, 7/9 tests pass (2 failures unrelated to conflict)
+
+### 2025-10-04 — Uniks list: spaces count and updated date
+
+- [ ] Update tasks.md with focused action plan for Uniks list fix (spacesCount + updatedAt) and keep it synced during work
+- [ ] Fix ESLint/Prettier issues in modified files under `apps/uniks-srv/base` (keep scope minimal)
+- [ ] Build `@universo/uniks-srv` and then run full workspace build to propagate changes
+- [ ] Smoke-test GET `/uniks` payload shape (ensure spacesCount and updatedAt are present and correctly typed)
+- [ ] Update `activeContext.md` and `progress.md` with brief notes (no new migrations; backend aggregation implemented)
+
+### 2025-10-04 — Metaverses list: aggregated counts MVP
+
+- [x] Backend: Extend GET `/metaverses` to return `sectionsCount` and `entitiesCount` using a single JOIN+COUNT query filtered by current user membership. Also expose `created_at/updated_at` and camelCase `createdAt/updatedAt` for UI.
+- [x] Frontend: Update `MetaverseList.tsx` to consume `sectionsCount`/`entitiesCount` from the list response and remove the N+1 effect that fetches sections/entities per metaverse.
+- [x] Types & API: Extend `Metaverse` type (frontend) to include optional `sectionsCount` and `entitiesCount`; keep API clients compatible (no breaking changes).
+- [x] Lint & Build: Run targeted builds for `@universo/metaverses-srv` and `@universo/metaverses-frt`; fix any ESLint/Prettier issues encountered.
+- [x] Docs/Memory: Update `activeContext.md` and `progress.md` with the outcome and minimal notes; avoid new migrations.
+
 ### 2025-10-03 — Canvas terminology inventory
 
 - Remaining legacy references compiled via `rg "canvas"` (236 files, 1003 lines). Primary buckets: documentation (`docs/*`), i18n bundles (`packages/ui/src/i18n` + app locales), marketplace JSON (`packages/server/marketplaces`), LangChain tool nodes (`packages/components/**`), and analytics/resources frontends. Backend runtime usage now limited to compatibility adapters (public chatbots, prediction endpoints).

@@ -53,16 +53,86 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
-            const { metaverseUserRepo } = repos()
+            try {
+                // Parse pagination parameters with validation
+                const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
+                    const parsed = parseInt(String(value || ''), 10)
+                    if (!Number.isFinite(parsed)) return defaultValue
+                    return Math.max(min, Math.min(max, parsed))
+                }
 
-            // Get only metaverses where the user is a member (through metaverses_users table)
-            const userMetaverses = await metaverseUserRepo.find({
-                where: { user_id: userId },
-                relations: ['metaverse']
-            })
+                const limit = parseIntSafe(req.query.limit, 20, 1, 100)
+                const offset = parseIntSafe(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER)
 
-            const metaverses = userMetaverses.map((uc) => uc.metaverse)
-            res.json(metaverses)
+                // Safe sorting with whitelist
+                const ALLOWED_SORT_FIELDS = {
+                    name: 'm.name',
+                    created: 'm.createdAt',
+                    updated: 'm.updatedAt'
+                } as const
+
+                const sortBy =
+                    typeof req.query.sortBy === 'string' && req.query.sortBy in ALLOWED_SORT_FIELDS
+                        ? ALLOWED_SORT_FIELDS[req.query.sortBy as keyof typeof ALLOWED_SORT_FIELDS]
+                        : 'm.updatedAt'
+
+                const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+                // Aggregate counts per metaverse in a single query filtered by current user membership
+                const { metaverseRepo } = repos()
+                const qb = metaverseRepo
+                    .createQueryBuilder('m')
+                    // Join using entity classes to respect schema mapping and avoid alias parsing issues
+                    .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = m.id')
+                    .leftJoin(SectionMetaverse, 'sm', 'sm.metaverse_id = m.id')
+                    .leftJoin(EntityMetaverse, 'em', 'em.metaverse_id = m.id')
+                    .where('mu.user_id = :userId', { userId })
+                    .select([
+                        'm.id as id',
+                        'm.name as name',
+                        'm.description as description',
+                        // Use entity property names; TypeORM will map to actual column names
+                        'm.createdAt as created_at',
+                        'm.updatedAt as updated_at'
+                    ])
+                    .addSelect('COUNT(DISTINCT sm.id)', 'sectionsCount')
+                    .addSelect('COUNT(DISTINCT em.id)', 'entitiesCount')
+                    .groupBy('m.id')
+                    .addGroupBy('m.name')
+                    .addGroupBy('m.description')
+                    .addGroupBy('m.createdAt')
+                    .addGroupBy('m.updatedAt')
+                    .orderBy(sortBy, sortOrder)
+                    .limit(limit)
+                    .offset(offset)
+
+                const raw = await qb.getRawMany<{
+                    id: string
+                    name: string
+                    description: string | null
+                    created_at: Date
+                    updated_at: Date
+                    sectionsCount: string
+                    entitiesCount: string
+                }>()
+
+                const response = raw.map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    description: row.description ?? undefined,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    sectionsCount: parseInt(row.sectionsCount || '0', 10) || 0,
+                    entitiesCount: parseInt(row.entitiesCount || '0', 10) || 0
+                }))
+
+                res.json(response)
+            } catch (error) {
+                console.error('[ERROR] GET /metaverses failed:', error)
+                res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) })
+            }
         })
     )
 
@@ -95,7 +165,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                     user_id: userId,
                     role: 'owner'
                 })
-                const savedMetaverseUser = await metaverseUserRepo.save(metaverseUser)
+                const _savedMetaverseUser = await metaverseUserRepo.save(metaverseUser)
 
                 res.status(201).json(saved)
             } catch (error) {

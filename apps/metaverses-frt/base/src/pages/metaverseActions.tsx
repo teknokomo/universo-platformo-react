@@ -9,8 +9,7 @@ export const metaverseActions = [
         icon: <EditIcon />,
         order: 10,
         dialog: {
-            loader: async () =>
-                import('../../../../../../packages/ui/src/ui-component/dialog/SaveCanvasDialog.jsx'),
+            loader: async () => import('../../../../../../packages/ui/src/ui-component/dialog/SaveCanvasDialog.jsx'),
             buildProps: (ctx: any) => ({
                 show: true,
                 dialogProps: {
@@ -54,9 +53,7 @@ export const metaverseActions = [
             } catch (error: any) {
                 ctx.helpers.enqueueSnackbar?.({
                     message:
-                        typeof error?.response?.data === 'object'
-                            ? error.response.data.message
-                            : error?.response?.data || error?.message,
+                        typeof error?.response?.data === 'object' ? error.response.data.message : error?.response?.data || error?.message,
                     options: { variant: 'error' }
                 })
             }

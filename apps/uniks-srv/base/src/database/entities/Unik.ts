@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
 
 @Entity({ name: 'uniks', schema: 'uniks' })
 export class Unik {
@@ -8,6 +8,9 @@ export class Unik {
     @Column()
     name!: string
 
-    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-    created_at!: Date
+    @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+    createdAt!: Date
+
+    @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+    updatedAt!: Date
 }
