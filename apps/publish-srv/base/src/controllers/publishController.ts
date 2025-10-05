@@ -157,6 +157,7 @@ export class PublishController {
                 libraryConfig: flowData.libraryConfig,
                 renderConfig: flowData.renderConfig,
                 playcanvasConfig: flowData.playcanvasConfig,
+                technology: flowData.technology,
                 canvasId: flowData.canvas?.id,
                 timestamp: new Date().toISOString()
             })
@@ -230,6 +231,7 @@ export class PublishController {
                 libraryConfig: flowData.libraryConfig,
                 renderConfig: flowData.renderConfig,
                 playcanvasConfig: flowData.playcanvasConfig,
+                technology: flowData.technology,
                 canvasId: flowData.canvas?.id,
                 projectName: flowData.canvas?.name || `UPDL Canvas ${identifier}`
             })
@@ -267,6 +269,7 @@ export class PublishController {
                 libraryConfig: flowData.libraryConfig,
                 renderConfig: flowData.renderConfig,
                 playcanvasConfig: flowData.playcanvasConfig,
+                technology: flowData.technology,
                 canvasId: flowData.canvas?.id,
                 timestamp: new Date().toISOString()
             })

@@ -7,6 +7,7 @@ import ARViewPage from './ARViewPage'
 import PlayCanvasViewPage from './PlayCanvasViewPage'
 
 type PublishTechnology = 'arjs' | 'playcanvas'
+type PublicationTechnology = PublishTechnology | 'generic'
 
 type PublicationPayload = {
     flowData: any
@@ -15,6 +16,7 @@ type PublicationPayload = {
     libraryConfig?: ILibraryConfig | null
     projectName?: string
     canvasId?: string
+    technology?: PublicationTechnology | null
 }
 
 const PublicFlowView: React.FC = () => {
@@ -54,15 +56,16 @@ const PublicFlowView: React.FC = () => {
                     playcanvasConfig: payload.playcanvasConfig,
                     libraryConfig: (payload.libraryConfig ?? null) as ILibraryConfig | null,
                     projectName: payload.projectName,
-                    canvasId: payload.canvasId
+                    canvasId: payload.canvasId,
+                    technology: (payload.technology ?? null) as PublicationTechnology | null
                 }
 
                 const technologies: PublishTechnology[] = []
-                if (payload.renderConfig || payload.libraryConfig) {
-                    technologies.push('arjs')
-                }
-                if (payload.playcanvasConfig) {
+                if (nextPublication.playcanvasConfig) {
                     technologies.push('playcanvas')
+                }
+                if (nextPublication.renderConfig) {
+                    technologies.push('arjs')
                 }
 
                 if (technologies.length === 0) {
@@ -71,7 +74,14 @@ const PublicFlowView: React.FC = () => {
                     )
                 }
 
-                const preferredTech = technologies[0]
+                const normalizedTechnology =
+                    nextPublication.technology === 'arjs' || nextPublication.technology === 'playcanvas'
+                        ? nextPublication.technology
+                        : null
+
+                const preferredTech = normalizedTechnology && technologies.includes(normalizedTechnology)
+                    ? normalizedTechnology
+                    : technologies[0]
 
                 setPublication(nextPublication)
                 setActiveTechnology(preferredTech)

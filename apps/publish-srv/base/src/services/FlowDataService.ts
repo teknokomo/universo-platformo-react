@@ -127,6 +127,7 @@ export class FlowDataService {
                 libraryConfig: libraryConfig, // Extracted library configuration
                 renderConfig: renderConfig || undefined,
                 playcanvasConfig: playcanvasConfig || undefined, // Extracted PlayCanvas configuration
+                technology: undefined,
                 canvas: {
                     id: canvas.id,
                     name: canvas.name
@@ -156,7 +157,11 @@ export class FlowDataService {
             }
 
             const canvasId = await this.resolveCanvasIdByLink(link)
-            return this.getFlowData(canvasId)
+            const data = await this.getFlowData(canvasId)
+            return {
+                ...data,
+                technology: link.technology
+            }
         } catch (error) {
             logger.error(`[FlowDataService] Error getting flow data by slug ${slug}:`, error)
             throw error
