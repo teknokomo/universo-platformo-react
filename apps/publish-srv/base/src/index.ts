@@ -5,5 +5,6 @@ export { createPublishRoutes } from './routes/createPublishRoutes'
 export * from './types/publication.types'
 export { FlowDataService } from './services/FlowDataService'
 export { PublishController } from './controllers/publishController'
-
-// Legacy exports removed - old publishRoutes.ts deleted
+export { PublishLinkService, sanitizeCustomSlug } from './services/PublishLinkService'
+export * from './database/entities'
+export { publishMigrations } from './database/migrations/postgres'

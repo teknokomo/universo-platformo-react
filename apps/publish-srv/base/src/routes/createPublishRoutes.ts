@@ -6,6 +6,7 @@ import express, { Router, Request, Response } from 'express'
 import { DataSource } from 'typeorm'
 import { PublishController } from '../controllers/publishController'
 import { FlowDataService } from '../services/FlowDataService'
+import { PublishLinkService } from '../services/PublishLinkService'
 import logger from '../utils/logger'
 
 /**
@@ -30,8 +31,59 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
         // Create services with initialized DataSource
         const flowDataService = new FlowDataService(dataSource)
-        return new PublishController(flowDataService)
+        const publishLinkService = new PublishLinkService(dataSource)
+        return new PublishController(flowDataService, publishLinkService)
     }
+
+    router.post('/links', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.createPublishLink(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in POST /links:', error)
+            res.status(500).json({ success: false, error: 'Failed to create publish link' })
+        }
+    })
+
+    router.get('/links', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.listPublishLinks(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in GET /links:', error)
+            res.status(500).json({ success: false, error: 'Failed to load publish links' })
+        }
+    })
+
+    router.patch('/links/:id', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.updatePublishLink(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in PATCH /links/:id:', error)
+            res.status(500).json({ success: false, error: 'Failed to update publish link' })
+        }
+    })
+
+    router.delete('/links/:id', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.deletePublishLink(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in DELETE /links/:id:', error)
+            res.status(500).json({ success: false, error: 'Failed to delete publish link' })
+        }
+    })
+
+    router.get('/public/:slug', async (req: Request, res: Response) => {
+        try {
+            const controller = await getController()
+            return await controller.getPublicPublicationBySlug(req, res)
+        } catch (error) {
+            logger.error('[createPublishRoutes] Error in GET /public/:slug:', error)
+            res.status(500).json({ success: false, error: 'Failed to load publication' })
+        }
+    })
 
     /**
      * @route   POST /arjs

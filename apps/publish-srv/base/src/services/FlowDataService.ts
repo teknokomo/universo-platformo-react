@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm'
 import logger from '../utils/logger'
 import { RawFlowData, CanvasMinimal } from '../types/publication.types'
 import { serialization } from '@universo-platformo/utils'
+import { PublishCanvas } from '../database/entities'
 
 /**
  * Service for handling flow data extraction from Supabase
@@ -15,6 +16,50 @@ import { serialization } from '@universo-platformo/utils'
  */
 export class FlowDataService {
     constructor(private dataSource: DataSource) { }
+
+    private get publishRepository() {
+        return this.dataSource.getRepository(PublishCanvas)
+    }
+
+    private async resolveCanvasIdByLink(link: PublishCanvas): Promise<string> {
+        const canvasMetadata = this.dataSource.getMetadata('Canvas')
+        const canvasRepository = this.dataSource.getRepository(canvasMetadata.target)
+
+        if (link.targetType === 'version') {
+            if (link.targetCanvasId) {
+                return link.targetCanvasId
+            }
+
+            if (link.targetVersionUuid) {
+                const canvas = await canvasRepository.findOne({
+                    where: { versionUuid: link.targetVersionUuid }
+                }) as CanvasMinimal | null
+                if (canvas?.id) {
+                    return canvas.id
+                }
+            }
+            throw new Error('Published version is missing canvas reference')
+        }
+
+        if (link.versionGroupId) {
+            const activeCanvas = await canvasRepository.findOne({
+                where: {
+                    versionGroupId: link.versionGroupId,
+                    isActive: true
+                }
+            }) as CanvasMinimal | null
+
+            if (activeCanvas?.id) {
+                return activeCanvas.id
+            }
+        }
+
+        if (link.targetCanvasId) {
+            return link.targetCanvasId
+        }
+
+        throw new Error('Active canvas for publication could not be resolved')
+    }
 
     /**
      * Get raw flow data from Supabase by canvas ID
@@ -82,6 +127,7 @@ export class FlowDataService {
                 libraryConfig: libraryConfig, // Extracted library configuration
                 renderConfig: renderConfig || undefined,
                 playcanvasConfig: playcanvasConfig || undefined, // Extracted PlayCanvas configuration
+                technology: undefined,
                 canvas: {
                     id: canvas.id,
                     name: canvas.name
@@ -89,6 +135,35 @@ export class FlowDataService {
             }
         } catch (error) {
             logger.error(`[FlowDataService] Error getting flow data for ${canvasId}:`, error)
+            throw error
+        }
+    }
+
+    async getFlowDataBySlug(slug: string): Promise<RawFlowData> {
+        try {
+            logger.info(`[FlowDataService] Resolving slug: ${slug}`)
+
+            const link = await this.publishRepository
+                .createQueryBuilder('publish')
+                .where('publish.baseSlug = :slug OR publish.customSlug = :slug', { slug })
+                .getOne()
+
+            if (!link) {
+                throw new Error(`Publication link not found for slug: ${slug}`)
+            }
+
+            if (!link.isPublic) {
+                throw new Error(`Publication is not public: ${slug}`)
+            }
+
+            const canvasId = await this.resolveCanvasIdByLink(link)
+            const data = await this.getFlowData(canvasId)
+            return {
+                ...data,
+                technology: link.technology
+            }
+        } catch (error) {
+            logger.error(`[FlowDataService] Error getting flow data by slug ${slug}:`, error)
             throw error
         }
     }

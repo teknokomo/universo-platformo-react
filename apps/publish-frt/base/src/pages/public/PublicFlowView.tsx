@@ -2,105 +2,103 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { ILibraryConfig } from '@universo-platformo/types'
 import ARViewPage from './ARViewPage'
 import PlayCanvasViewPage from './PlayCanvasViewPage'
 
-/**
- * Universal dispatcher component for public flow viewing
- * Determines which technology (AR.js, PlayCanvas, etc.) to display
- * based on the chatbotConfig.isPublic flags
- */
+type PublishTechnology = 'arjs' | 'playcanvas'
+type PublicationTechnology = PublishTechnology | 'generic'
+
+type PublicationPayload = {
+    flowData: any
+    renderConfig?: Record<string, any> | null
+    playcanvasConfig?: Record<string, any> | null
+    libraryConfig?: ILibraryConfig | null
+    projectName?: string
+    canvasId?: string
+    technology?: PublicationTechnology | null
+}
+
 const PublicFlowView: React.FC = () => {
-    const { flowId, canvasId } = useParams<{ flowId?: string; canvasId?: string }>()
+    const { slug } = useParams<{ slug?: string }>()
     const { t } = useTranslation('publish')
 
-    const [activeTechnology, setActiveTechnology] = useState<string>('')
-    const [flowConfig, setFlowConfig] = useState<any>(null)
-    const [flowData, setFlowData] = useState<string>('')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string>('')
+    const [publication, setPublication] = useState<PublicationPayload | null>(null)
+    const [activeTechnology, setActiveTechnology] = useState<PublishTechnology | ''>('')
 
     useEffect(() => {
-        const loadPublicFlow = async () => {
+        const loadPublication = async () => {
+            if (!slug) {
+                setError(t('publish.publicFlow.errors.missingSlug', 'Slug is missing'))
+                setLoading(false)
+                return
+            }
+
+            setLoading(true)
+            setError('')
+
             try {
-                setLoading(true)
-                setError('')
-
-                // Determine the ID to use (priority: canvasId > flowId)
-                const targetId = canvasId || flowId
-                if (!targetId) {
-                    throw new Error('Canvas/Flow ID not provided')
-                }
-
-                console.log('🔍 [PublicFlowView] Loading public flow for ID:', targetId, {
-                    canvasId,
-                    flowId,
-                    targetId
-                })
-
-                const response = await fetch(`/api/v1/publish/canvas/public/${targetId}`)
+                const response = await fetch(`/api/v1/publish/public/${slug}`)
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch canvas data: ${response.status}`)
-                }
-                const canvas = await response.json()
-                console.log('📡 [PublicFlowView] Canvas data received from publication API:', {
-                    id: canvas.canvasId || canvas.currentCanvasId,
-                    projectName: canvas.projectName,
-                    hasFlowData: !!canvas.flowData
-                })
-
-                // Handle different response formats
-                let chatbotConfig: Record<string, any> = {}
-                let flowDataContent = ''
-
-                if (canvas.flowData) {
-                    // New Canvas API format
-                    flowDataContent = canvas.flowData
-                    // For new API, we might need to parse config from flowData or use separate config
-                    if (canvas.libraryConfig || canvas.renderConfig || canvas.playcanvasConfig) {
-                        // Reconstruct chatbotConfig from separate configs
-                        if (canvas.renderConfig || canvas.libraryConfig) {
-                            chatbotConfig.arjs = {
-                                ...canvas.renderConfig,
-                                libraryConfig: canvas.libraryConfig,
-                                isPublic: true // Assume public if we got the data
-                            }
-                        }
-                        if (canvas.playcanvasConfig) {
-                            chatbotConfig.playcanvas = {
-                                ...canvas.playcanvasConfig,
-                                isPublic: true // Assume public if we got the data
-                            }
-                        }
-                    }
+                    throw new Error(`Failed to fetch publication: ${response.status}`)
                 }
 
-                console.log('🔧 [PublicFlowView] Parsed chatbotConfig:', chatbotConfig)
-
-                // Find which technology is published
-                const activeTech = Object.keys(chatbotConfig).find((tech) => chatbotConfig[tech]?.isPublic === true)
-
-                console.log('🎯 [PublicFlowView] Active technology found:', activeTech)
-
-                if (!activeTech) {
-                    throw new Error('Application is not published or not found')
-                } else {
-                    setActiveTechnology(activeTech)
-                    setFlowConfig(chatbotConfig[activeTech])
-                    setFlowData(flowDataContent)
+                const payload = await response.json()
+                if (!payload?.success || !payload?.flowData) {
+                    throw new Error(payload?.error || 'Publication data not found')
                 }
-            } catch (err: any) {
-                console.error('💥 [PublicFlowView] Error loading public flow:', err)
-                setError(err.message || 'Failed to load application')
+
+                const nextPublication: PublicationPayload = {
+                    flowData: payload.flowData,
+                    renderConfig: payload.renderConfig,
+                    playcanvasConfig: payload.playcanvasConfig,
+                    libraryConfig: (payload.libraryConfig ?? null) as ILibraryConfig | null,
+                    projectName: payload.projectName,
+                    canvasId: payload.canvasId,
+                    technology: (payload.technology ?? null) as PublicationTechnology | null
+                }
+
+                const technologies: PublishTechnology[] = []
+                if (nextPublication.playcanvasConfig) {
+                    technologies.push('playcanvas')
+                }
+                if (nextPublication.renderConfig) {
+                    technologies.push('arjs')
+                }
+
+                if (technologies.length === 0) {
+                    throw new Error(
+                        t('publish.publicFlow.errors.noPublicTech', 'No published technologies are available')
+                    )
+                }
+
+                const normalizedTechnology =
+                    nextPublication.technology === 'arjs' || nextPublication.technology === 'playcanvas'
+                        ? nextPublication.technology
+                        : null
+
+                const preferredTech = normalizedTechnology && technologies.includes(normalizedTechnology)
+                    ? normalizedTechnology
+                    : technologies[0]
+
+                setPublication(nextPublication)
+                setActiveTechnology(preferredTech)
+            } catch (loadError) {
+                const message =
+                    loadError instanceof Error && loadError.message
+                        ? loadError.message
+                        : t('publish.publicFlow.errors.loadFailed', 'Failed to load publication')
+                setError(message)
             } finally {
                 setLoading(false)
             }
         }
 
-        loadPublicFlow()
-    }, [flowId, canvasId])
+        loadPublication()
+    }, [slug, t])
 
-    // Loading state
     if (loading) {
         return (
             <Box
@@ -116,13 +114,12 @@ const PublicFlowView: React.FC = () => {
             >
                 <CircularProgress size={60} />
                 <Typography variant='h6' sx={{ mt: 2, color: '#666' }}>
-                    {t('general.loading', 'Загрузка приложения...')}
+                    {t('general.loading', 'Loading application...')}
                 </Typography>
             </Box>
         )
     }
 
-    // Error state
     if (error) {
         return (
             <Box
@@ -138,7 +135,7 @@ const PublicFlowView: React.FC = () => {
             >
                 <Alert severity='error' sx={{ maxWidth: 600 }}>
                     <Typography variant='h6' gutterBottom>
-                        {t('general.applicationNotAvailable', 'Приложение недоступно')}
+                        {t('general.applicationNotAvailable', 'Application is unavailable')}
                     </Typography>
                     <Typography variant='body1'>{error}</Typography>
                 </Alert>
@@ -146,14 +143,29 @@ const PublicFlowView: React.FC = () => {
         )
     }
 
-    // Technology dispatcher
-    console.log('🚀 [PublicFlowView] Rendering technology:', activeTechnology)
+    if (!publication) {
+        return null
+    }
 
     switch (activeTechnology) {
         case 'arjs':
-            return <ARViewPage />
+            return (
+                <ARViewPage
+                    flowData={publication.flowData}
+                    renderConfig={publication.renderConfig}
+                    libraryConfig={publication.libraryConfig}
+                    projectName={publication.projectName}
+                    canvasId={publication.canvasId}
+                />
+            )
         case 'playcanvas':
-            return <PlayCanvasViewPage flowData={flowData} config={flowConfig} />
+            return (
+                <PlayCanvasViewPage
+                    flowData={publication.flowData}
+                    config={publication.playcanvasConfig}
+                    projectName={publication.projectName}
+                />
+            )
         default:
             return (
                 <Box
@@ -169,9 +181,14 @@ const PublicFlowView: React.FC = () => {
                 >
                     <Alert severity='warning' sx={{ maxWidth: 600 }}>
                         <Typography variant='h6' gutterBottom>
-                            Unsupported Technology
+                            {t('publish.publicFlow.errors.unsupportedTechnology', 'Technology is not supported')}
                         </Typography>
-                        <Typography variant='body1'>Technology &quot;{activeTechnology}&quot; is not supported yet.</Typography>
+                        <Typography variant='body1'>
+                            {t(
+                                'publish.publicFlow.errors.noRenderer',
+                                'No compatible viewer is available for this publication.'
+                            )}
+                        </Typography>
                     </Alert>
                 </Box>
             )

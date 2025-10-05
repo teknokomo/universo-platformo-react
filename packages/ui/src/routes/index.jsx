@@ -1,7 +1,7 @@
 import { useRoutes } from 'react-router-dom'
 
 // routes
-import MainRoutes, { AuthRoutes, PublicFlowRoutes, PublicCanvasRoutes } from './MainRoutes'
+import MainRoutes, { AuthRoutes, PublicFlowRoutes } from './MainRoutes'
 import CanvasRoutes from '@apps/spaces-frt/base/src/entry/CanvasRoutes'
 import ChatbotRoutes from './ChatbotRoutes'
 import config from '@/config'
@@ -12,5 +12,5 @@ import { MainRoutesMUI } from '@universo/template-mui'
 // ==============================|| ROUTING RENDER ||============================== //
 
 export default function ThemeRoutes() {
-    return useRoutes([AuthRoutes, MainRoutesMUI, MainRoutes, CanvasRoutes, ChatbotRoutes, PublicFlowRoutes, PublicCanvasRoutes], config.basename)
+    return useRoutes([AuthRoutes, MainRoutesMUI, MainRoutes, CanvasRoutes, ChatbotRoutes, PublicFlowRoutes], config.basename)
 }

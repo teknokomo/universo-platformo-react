@@ -2,6 +2,8 @@
 // REFACTORED: Moved from packages/server/src/Interface.UPDL.ts
 // This module contains only types needed for publication functionality
 
+import type { PublishTechnology } from '../database/entities'
+
 /**
  * 3D position coordinates
  */
@@ -397,10 +399,6 @@ export interface RenderConfig {
     backgroundColor?: string // Add background color field
 }
 
-/**
- * Raw flow data extracted from database for processing
- * Used internally by FlowDataService
- */
 export interface RawFlowData {
     flowData: string
     libraryConfig: any
@@ -413,6 +411,7 @@ export interface RawFlowData {
             roomName?: string
         }
     }
+    technology?: PublishTechnology
     canvas: {
         id: string
         name: string
@@ -428,4 +427,6 @@ export interface CanvasMinimal {
     name: string
     flowData: string
     chatbotConfig?: string
+    versionGroupId?: string
+    versionUuid?: string
 }

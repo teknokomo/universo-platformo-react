@@ -16,6 +16,7 @@ import { Profile } from '@universo/profile-srv'
 import { metaversesEntities } from '@universo/metaverses-srv'
 import { resourcesEntities } from '@universo/resources-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
+import { PublishCanvas } from '@universo/publish-srv'
 
 // TypeORM entities here are constructor functions/classes; we only need their names and references
 const financeEntitiesObject = Object.fromEntries(
@@ -55,5 +56,6 @@ export const entities = {
   // Spaces entities
   Space,
   Canvas,
-  SpaceCanvas
+  SpaceCanvas,
+  PublishCanvas
 }

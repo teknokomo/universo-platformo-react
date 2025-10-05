@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
     Box,
@@ -21,7 +21,7 @@ import GenerationModeSelect from '../../components/GenerationModeSelect'
 import GameModeSelector from '../../components/GameModeSelector'
 import ColyseusSettings from '../../components/ColyseusSettings'
 import PublicationLink from '../../components/PublicationLink'
-import { PlayCanvasPublicationApi } from '../../api'
+import { PlayCanvasPublicationApi, PublishLinksApi } from '../../api'
 import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
 
 const DEFAULT_VERSION = '2.9.0'
@@ -49,6 +49,86 @@ const PlayCanvasPublisher = ({ flow }) => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [publishedUrl, setPublishedUrl] = useState('')
+    const [publishLinkRecords, setPublishLinkRecords] = useState([])
+
+    const publishLinkItems = useMemo(() => {
+        if (!publishLinkRecords?.length) {
+            return []
+        }
+
+        const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+        return publishLinkRecords.flatMap((link) => {
+            const segment = link?.targetType === 'version' ? 'b' : 'p'
+            const baseUrl = origin ? `${origin}/${segment}/${link.baseSlug}` : `/${segment}/${link.baseSlug}`
+
+            const items = [
+                {
+                    id: `${link.id}-base`,
+                    labelKey: link?.targetType === 'version' ? 'links.versionBase' : 'links.liveBase',
+                    url: baseUrl
+                }
+            ]
+
+            if (link?.customSlug) {
+                const customUrl = origin
+                    ? `${origin}/${segment}/${link.customSlug}`
+                    : `/${segment}/${link.customSlug}`
+
+                items.push({
+                    id: `${link.id}-custom`,
+                    labelKey: link?.targetType === 'version' ? 'links.versionCustom' : 'links.liveCustom',
+                    url: customUrl
+                })
+            }
+
+            return items
+        })
+    }, [publishLinkRecords])
+
+    const loadPublishLinks = useCallback(async () => {
+        if (!flow?.id && !flow?.versionGroupId) {
+            return []
+        }
+
+        try {
+            const links = await PublishLinksApi.listLinks({
+                technology: 'playcanvas',
+                versionGroupId: flow?.versionGroupId ?? null
+            })
+
+            const filtered = links.filter((link) => {
+                if (flow?.versionGroupId && link.versionGroupId === flow.versionGroupId) {
+                    return true
+                }
+
+                if (flow?.id && link.targetCanvasId === flow.id) {
+                    return true
+                }
+
+                return false
+            })
+
+            setPublishLinkRecords(filtered)
+            return filtered
+        } catch (apiError) {
+            console.error('PlayCanvasPublisher: failed to load publish links', apiError)
+            setPublishLinkRecords([])
+            return []
+        }
+    }, [flow?.id, flow?.versionGroupId])
+
+    useEffect(() => {
+        loadPublishLinks()
+    }, [loadPublishLinks])
+
+    useEffect(() => {
+        if (isPublic && publishLinkItems.length > 0) {
+            setPublishedUrl(publishLinkItems[0].url)
+        } else {
+            setPublishedUrl('')
+        }
+    }, [isPublic, publishLinkItems])
 
     useEffect(() => {
         const load = async () => {
@@ -85,10 +165,8 @@ const PlayCanvasPublisher = ({ flow }) => {
                     const libVer = settings.libraryConfig?.playcanvas?.version
                     setLibraryVersion(libVer || DEFAULT_VERSION)
 
-                    // Generate published URL if public
                     if (settings.isPublic) {
-                        const fullPublicUrl = `${window.location.origin}/p/${flow.id}`
-                        setPublishedUrl(fullPublicUrl)
+                        await loadPublishLinks()
                     }
                 }
             } catch (e) {
@@ -99,7 +177,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             }
         }
         load()
-    }, [flow?.id])
+    }, [flow?.id, loadPublishLinks])
 
     const saveSettings = async () => {
         // Universo Platformo | always use the latest flow.id
@@ -121,24 +199,23 @@ const PlayCanvasPublisher = ({ flow }) => {
         }
     }
 
+    const handlePublicToggle = async (event) => {
+        const nextValue = event.target.checked
+        setIsPublic(nextValue)
+
+        if (!nextValue) {
+            setPublishedUrl('')
+        }
+
+        await loadPublishLinks()
+    }
+
     useEffect(() => {
         if (!loading) {
             const tId = setTimeout(saveSettings, 500)
             return () => clearTimeout(tId)
         }
     }, [projectTitle, isPublic, templateId, libraryVersion, generationMode, demoMode, gameMode, colyseusSettings, loading, flow?.id]) // Add gameMode and colyseusSettings to dependencies
-
-    // Update published URL when isPublic changes
-    useEffect(() => {
-        if (!loading && flow?.id) {
-            if (isPublic) {
-                const fullPublicUrl = `${window.location.origin}/p/${flow.id}`
-                setPublishedUrl(fullPublicUrl)
-            } else {
-                setPublishedUrl('')
-            }
-        }
-    }, [isPublic, flow?.id, loading])
 
     if (loading)
         return (
@@ -219,7 +296,7 @@ const PlayCanvasPublisher = ({ flow }) => {
                     <Box sx={{ my: 3, width: '100%' }}>
                         <FormControl fullWidth variant='outlined'>
                             <FormControlLabel
-                                control={<Switch checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />}
+                                control={<Switch checked={isPublic} onChange={handlePublicToggle} />}
                                 label={t('configuration.makePublic')}
                                 sx={{
                                     width: '100%',
@@ -238,14 +315,16 @@ const PlayCanvasPublisher = ({ flow }) => {
                     </Box>
 
                     {/* Publication Link - moved to bottom after toggle */}
-                    {isPublic && publishedUrl && (
-                        <PublicationLink
-                            url={publishedUrl}
-                            labelKey='playcanvas.publishedUrl'
-                            helpTextKey='playcanvas.openInBrowser'
-                            viewTooltipKey='playcanvas.viewApp'
-                        />
-                    )}
+                    {isPublic && publishLinkItems.length > 0 &&
+                        publishLinkItems.map((item, index) => (
+                            <PublicationLink
+                                key={item.id}
+                                url={item.url}
+                                labelKey={item.labelKey}
+                                helpTextKey={index === 0 ? 'playcanvas.openInBrowser' : null}
+                                viewTooltipKey='playcanvas.viewApp'
+                            />
+                        ))}
                 </CardContent>
             </Card>
         </Box>

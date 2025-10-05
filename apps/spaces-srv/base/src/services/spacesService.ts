@@ -19,6 +19,7 @@ import {
     UpdateCanvasVersionDto,
     ChatflowType
 } from '../types'
+import { PublishLinkService } from '@universo/publish-srv'
 
 function toCanvasVersionResponse(canvas: Canvas): CanvasVersionResponse {
     return {
@@ -66,6 +67,7 @@ export class SpacesService {
     private _canvasRepository?: Repository<Canvas>
     private _spaceCanvasRepository?: Repository<SpaceCanvas>
     private _getDataSourceFn: () => DataSource
+    private _publishLinkService?: PublishLinkService
 
     constructor(getDataSourceFn: () => DataSource) {
         console.log('[SpacesService] Constructor with DataSource function')
@@ -105,6 +107,13 @@ export class SpacesService {
             this._spaceCanvasRepository = this.dataSource.getRepository(SpaceCanvas)
         }
         return this._spaceCanvasRepository
+    }
+
+    private get publishLinkService(): PublishLinkService {
+        if (!this._publishLinkService) {
+            this._publishLinkService = new PublishLinkService(this.dataSource)
+        }
+        return this._publishLinkService
     }
 
     private async loadCanvasForSpace(
@@ -698,6 +707,8 @@ export class SpacesService {
                 .where('space_id = :spaceId', { spaceId })
                 .andWhere('version_group_id = :versionGroupId', { versionGroupId: reference.versionGroupId })
                 .execute()
+
+            await this.publishLinkService.updateGroupTarget(reference.versionGroupId, versionId, manager)
 
             const active = await canvasRepo.findOne({ where: { id: versionId } })
             if (!active) {
