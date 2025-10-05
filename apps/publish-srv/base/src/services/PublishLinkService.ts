@@ -1,5 +1,6 @@
 import { DataSource, EntityManager, Repository } from 'typeorm'
 import { randomBytes } from 'crypto'
+import bs58 from 'bs58'
 import { PublishCanvas } from '../database/entities'
 import {
     CreatePublishLinkDto,
@@ -11,26 +12,8 @@ import { CanvasMinimal } from '../types/publication.types'
 
 type PublishLinkRepository = Repository<PublishCanvas>
 
-const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 const BASE_SLUG_LENGTH = 12
-
-function encodeBase58(bytes: Buffer): string {
-    const base = BigInt(BASE58_ALPHABET.length)
-    let value = BigInt('0x' + bytes.toString('hex'))
-    let output = ''
-
-    if (value === BigInt(0)) {
-        return BASE58_ALPHABET[0]
-    }
-
-    while (value > 0) {
-        const mod = Number(value % base)
-        output = BASE58_ALPHABET[mod] + output
-        value = value / base
-    }
-
-    return output
-}
+const MAX_SLUG_GENERATION_ATTEMPTS = 10
 
 function sanitizeCustomSlug(slug: string | null | undefined): string | null {
     if (!slug) {
@@ -96,7 +79,7 @@ export class PublishLinkService {
 
     private async generateUniqueBaseSlug(manager: EntityManager): Promise<string> {
         const repo = this.getRepository(manager)
-        for (let attempt = 0; attempt < 10; attempt += 1) {
+        for (let attempt = 0; attempt < MAX_SLUG_GENERATION_ATTEMPTS; attempt += 1) {
             const candidate = this.generateBaseSlug()
             const existing = await repo.count({ where: [{ baseSlug: candidate }, { customSlug: candidate }] })
             if (existing === 0) {
@@ -108,7 +91,7 @@ export class PublishLinkService {
 
     private generateBaseSlug(): string {
         const bytes = randomBytes(Math.ceil(BASE_SLUG_LENGTH * 0.8))
-        const encoded = encodeBase58(bytes)
+        const encoded = bs58.encode(bytes)
         return encoded.slice(0, BASE_SLUG_LENGTH)
     }
 
