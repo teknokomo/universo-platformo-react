@@ -6,22 +6,6 @@ import { Resource } from './Resource'
 import { ResourceCluster } from './ResourceCluster'
 import { ResourceDomain } from './ResourceDomain'
 
-export const resourcesEntities = [
-  Cluster,
-  ClusterUser,
-  Domain,
-  DomainCluster,
-  Resource,
-  ResourceCluster,
-  ResourceDomain
-]
+export const resourcesEntities = [Cluster, ClusterUser, Domain, DomainCluster, Resource, ResourceCluster, ResourceDomain]
 
-export {
-  Cluster,
-  ClusterUser,
-  Domain,
-  DomainCluster,
-  Resource,
-  ResourceCluster,
-  ResourceDomain
-}
+export { Cluster, ClusterUser, Domain, DomainCluster, Resource, ResourceCluster, ResourceDomain }

@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Button,
-    Box,
-    Typography
-} from '@mui/material'
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useApi } from '../hooks/useApi'
 import * as domainsApi from '../api/domains'
@@ -63,7 +54,11 @@ const DomainDialog: React.FC<DomainDialogProps> = ({ open, onClose, onSave, doma
                 await updateDomain(domain.id, { name: (name || '').trim(), description: (description || '').trim() || undefined })
             } else {
                 // Domain-cluster link is now created atomically on backend
-                await createDomain({ name: (name || '').trim(), description: (description || '').trim() || undefined, clusterId: clusterId! })
+                await createDomain({
+                    name: (name || '').trim(),
+                    description: (description || '').trim() || undefined,
+                    clusterId: clusterId!
+                })
             }
 
             onSave()
@@ -82,10 +77,8 @@ const DomainDialog: React.FC<DomainDialogProps> = ({ open, onClose, onSave, doma
     }
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-            <DialogTitle>
-                {domain ? t('domains.editDomain', 'Edit Domain') : t('domains.createDomain', 'Create Domain')}
-            </DialogTitle>
+        <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth>
+            <DialogTitle>{domain ? t('domains.editDomain', 'Edit Domain') : t('domains.createDomain', 'Create Domain')}</DialogTitle>
             <DialogContent>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                     <TextField
@@ -106,7 +99,7 @@ const DomainDialog: React.FC<DomainDialogProps> = ({ open, onClose, onSave, doma
                         rows={3}
                     />
                     {error && (name || '').trim() && (
-                        <Typography color="error" variant="body2">
+                        <Typography color='error' variant='body2'>
                             {error}
                         </Typography>
                     )}
@@ -116,11 +109,7 @@ const DomainDialog: React.FC<DomainDialogProps> = ({ open, onClose, onSave, doma
                 <Button onClick={handleClose} disabled={isLoading}>
                     {t('common.cancel', 'Cancel')}
                 </Button>
-                <Button 
-                    onClick={handleSave} 
-                    variant="contained" 
-                    disabled={isLoading || !(name || '').trim()}
-                >
+                <Button onClick={handleSave} variant='contained' disabled={isLoading || !(name || '').trim()}>
                     {isLoading ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
                 </Button>
             </DialogActions>

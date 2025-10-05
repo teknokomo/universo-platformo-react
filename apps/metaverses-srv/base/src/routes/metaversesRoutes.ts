@@ -134,7 +134,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                 res.setHeader('X-Pagination-Offset', offset.toString())
                 res.setHeader('X-Pagination-Count', raw.length.toString())
                 res.setHeader('X-Pagination-Has-More', hasMore.toString())
-                
+
                 res.json(response)
             } catch (error) {
                 console.error('[ERROR] GET /metaverses failed:', error)

@@ -17,9 +17,7 @@ const useSearchShortcut = ({ inputRef, onFocus, enabled = true }: UseSearchShort
         if (!component) return
 
         const handleKeyDown = (event: KeyboardEvent) => {
-            const isSearchShortcut = isMac
-                ? event.metaKey && event.key === 'f'
-                : event.ctrlKey && event.key === 'f'
+            const isSearchShortcut = isMac ? event.metaKey && event.key === 'f' : event.ctrlKey && event.key === 'f'
 
             if (isSearchShortcut) {
                 event.preventDefault()

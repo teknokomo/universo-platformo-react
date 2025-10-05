@@ -4,6 +4,17 @@
 - [x] Clean up router exports to expose only `/p/:slug` and `/b/:slug` public routes.
 - [ ] Run `pnpm build` after code changes to verify the workspace.
 
+## IMPLEMENT - Metaverses Individual Routes Implementation (2025-10-05) ✅
+
+- [x] Analyze existing individual routes patterns in clusters (GET/PUT/DELETE /:resourceId, /:domainId) to understand authorization flow
+- [x] Implement GET /sections/:sectionId endpoint using ensureSectionAccess authorization  
+- [x] Implement PUT /sections/:sectionId endpoint with validation and authorization
+- [x] Implement DELETE /sections/:sectionId endpoint with cascade considerations
+- [x] Implement GET /entities/:entityId endpoint using section-based authorization chain - already existed
+- [x] Implement PUT /entities/:entityId endpoint with validation and authorization - already existed
+- [x] Implement DELETE /entities/:entityId endpoint with cascade considerations - already existed  
+- [x] Test all new endpoints to ensure authorization functions are properly utilized and lint warnings are resolved
+
 ## IMPLEMENT - Metaverses endpoint cleanup and pagination (2025-10-05) ✅
 
 - [x] Clean up debug logs in GET `/metaverses` route (remove temporary console.log statements added during troubleshooting)

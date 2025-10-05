@@ -54,7 +54,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
     }
 
     // Helper function to check if user has access to domain (through its cluster)
-    const checkDomainAccess = async (domainId: string, userId: string) => {
+    const _checkDomainAccess = async (domainId: string, userId: string) => {
         const { domainClusterRepo } = getRepositories(getDataSource)
         const domainCluster = await domainClusterRepo.findOne({
             where: { domain: { id: domainId } },
@@ -74,41 +74,39 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             const { clusterUserRepo, domainClusterRepo, resourceDomainRepo } = getRepositories(getDataSource)
-            
+
             // Get clusters accessible to user
-            const userClusters = await clusterUserRepo.find({ 
-                where: { user_id: userId } 
+            const userClusters = await clusterUserRepo.find({
+                where: { user_id: userId }
             })
-            const clusterIds = userClusters.map(uc => uc.cluster_id)
-            
+            const clusterIds = userClusters.map((uc) => uc.cluster_id)
+
             if (clusterIds.length === 0) {
                 return res.json([])
             }
-            
+
             // Get domains from user's clusters
             const domainClusters = await domainClusterRepo.find({
-                where: clusterIds.map(clusterId => ({ cluster: { id: clusterId } })),
+                where: clusterIds.map((clusterId) => ({ cluster: { id: clusterId } })),
                 relations: ['domain']
             })
-            const domainIds = domainClusters.map(dc => dc.domain.id)
-            
+            const domainIds = domainClusters.map((dc) => dc.domain.id)
+
             if (domainIds.length === 0) {
                 return res.json([])
             }
-            
+
             // Get resources from user's domains
             const resourceDomains = await resourceDomainRepo.find({
-                where: domainIds.map(domainId => ({ domain: { id: domainId } })),
+                where: domainIds.map((domainId) => ({ domain: { id: domainId } })),
                 relations: ['resource']
             })
-            
-            const resources = resourceDomains.map(rd => rd.resource)
-            
+
+            const resources = resourceDomains.map((rd) => rd.resource)
+
             // Remove duplicates
-            const uniqueResources = resources.filter((resource, index, self) => 
-                index === self.findIndex(r => r.id === resource.id)
-            )
-            
+            const uniqueResources = resources.filter((resource, index, self) => index === self.findIndex((r) => r.id === resource.id))
+
             res.json(uniqueResources)
         })
     )
@@ -149,7 +147,7 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
             if (clusterId) {
                 // Verify access to the cluster
                 await ensureClusterAccess(getDataSource(), userId, clusterId)
-                
+
                 const cluster = await clusterRepo.findOne({ where: { id: clusterId } })
                 if (!cluster) return res.status(400).json({ error: 'Invalid clusterId' })
                 const exists = await resourceClusterRepo.findOne({ where: { cluster: { id: clusterId }, resource: { id: resource.id } } })

@@ -1,3 +1,27 @@
+## 2025-01-16 — Metaverses Individual Routes Implementation
+
+Successfully implemented missing individual CRUD endpoints for metaverses architecture to achieve full parity with clusters/resources pattern:
+
+**Individual Sections Endpoints Added:**
+- `GET /sections/:sectionId` - Retrieve individual section using `ensureSectionAccess` authorization
+- `PUT /sections/:sectionId` - Update section with name/description validation and authorization  
+- `DELETE /sections/:sectionId` - Delete section with proper cascade handling
+
+**Individual Entities Analysis:**
+- Discovered that `GET/PUT/DELETE /entities/:entityId` endpoints already existed and were properly implemented
+- All individual entity routes correctly use `ensureEntityAccess` authorization with entity→section→metaverse access chain
+
+**Code Quality Improvements:**
+- Removed unused `checkSectionAccess` helper functions from both `sectionsRoutes.ts` and `entitiesRoutes.ts`
+- Removed unused `checkMetaverseAccess` helper function from `entitiesRoutes.ts`
+- All ESLint warnings resolved (unused variables eliminated)
+- Full workspace build successful with no compilation errors
+
+**Architecture Achievement:**
+- Metaverses now have complete individual endpoint coverage identical to clusters/resources pattern
+- Authorization functions (`ensureSectionAccess`, `ensureEntityAccess`) are fully utilized
+- Individual routes follow same patterns as domain/resource routes for consistency
+
 ## 2025-10-05 — Merge conflict resolution
 
 Successfully resolved merge conflict in `apps/uniks-srv/base/src/tests/routes/uniksRoutes.test.ts`. The conflict involved two different sets of test cases:

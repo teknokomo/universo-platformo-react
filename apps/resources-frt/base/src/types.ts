@@ -4,6 +4,9 @@ export interface Cluster {
     description?: string
     createdAt: string
     updatedAt: string
+    // Optional aggregated counters provided by backend list endpoint
+    domainsCount?: number
+    resourcesCount?: number
 }
 
 export interface Domain {

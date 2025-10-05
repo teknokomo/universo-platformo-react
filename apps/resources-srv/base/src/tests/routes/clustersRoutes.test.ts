@@ -23,39 +23,39 @@ import type { Request, Response, NextFunction } from 'express'
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createMockDataSource, createMockRepository } from '../utils/typeormMocks'
-import { createMetaversesRoutes } from '../../routes/metaversesRoutes'
+import { createClustersRoutes } from '../../routes/clustersRoutes'
 
-describe('Metaverses Routes', () => {
+describe('Clusters Routes', () => {
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as any).user = { id: 'test-user-id' }
         next()
     }
 
     const buildDataSource = () => {
-        const metaverseRepo = createMockRepository<any>()
-        const metaverseUserRepo = createMockRepository<any>()
-        const entityRepo = createMockRepository<any>()
+        const clusterRepo = createMockRepository<any>()
+        const clusterUserRepo = createMockRepository<any>()
+        const resourceRepo = createMockRepository<any>()
         const linkRepo = createMockRepository<any>()
-        const sectionRepo = createMockRepository<any>()
-        const sectionLinkRepo = createMockRepository<any>()
+        const domainRepo = createMockRepository<any>()
+        const domainLinkRepo = createMockRepository<any>()
 
         const dataSource = createMockDataSource({
-            Metaverse: metaverseRepo,
-            MetaverseUser: metaverseUserRepo,
-            Entity: entityRepo,
-            EntityMetaverse: linkRepo,
-            Section: sectionRepo,
-            SectionMetaverse: sectionLinkRepo
+            Cluster: clusterRepo,
+            ClusterUser: clusterUserRepo,
+            Resource: resourceRepo,
+            ResourceCluster: linkRepo,
+            Domain: domainRepo,
+            DomainCluster: domainLinkRepo
         })
 
         return {
             dataSource,
-            metaverseRepo,
-            metaverseUserRepo,
-            entityRepo,
+            clusterRepo,
+            clusterUserRepo,
+            resourceRepo,
             linkRepo,
-            sectionRepo,
-            sectionLinkRepo
+            domainRepo,
+            domainLinkRepo
         }
     }
 
@@ -63,195 +63,199 @@ describe('Metaverses Routes', () => {
         jest.clearAllMocks()
     })
 
-    describe('GET /metaverses', () => {
-        it('should return empty array for user with no metaverses', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+    describe('GET /clusters', () => {
+        it('should return empty array for user with no clusters', async () => {
+            const { dataSource, clusterRepo } = buildDataSource()
 
             // Mock QueryBuilder to return empty array
-            const mockQB = metaverseRepo.createQueryBuilder()
+            const mockQB = clusterRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
-            const response = await request(app).get('/metaverses').expect(200)
+            const response = await request(app).get('/clusters').expect(200)
 
             expect(Array.isArray(response.body)).toBe(true)
             expect(response.body).toHaveLength(0)
         })
 
-        it('should return metaverses with counts for authenticated user', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+        it('should return clusters with counts for authenticated user', async () => {
+            const { dataSource, clusterRepo } = buildDataSource()
 
-            const mockMetaverses = [
+            const mockClusters = [
                 {
-                    id: 'metaverse-1',
-                    name: 'Test Metaverse',
+                    id: 'cluster-1',
+                    name: 'Test Cluster',
                     description: 'Test Description',
                     created_at: new Date('2025-01-01'),
                     updated_at: new Date('2025-01-02'),
-                    sectionsCount: '2',
-                    entitiesCount: '5'
+                    domainsCount: '2',
+                    resourcesCount: '5'
                 }
             ]
 
-            const mockQB = metaverseRepo.createQueryBuilder()
-            mockQB.getRawMany.mockResolvedValue(mockMetaverses)
+            const mockQB = clusterRepo.createQueryBuilder()
+            mockQB.getRawMany.mockResolvedValue(mockClusters)
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
-            const response = await request(app).get('/metaverses').expect(200)
+            const response = await request(app).get('/clusters').expect(200)
 
             expect(response.body).toHaveLength(1)
             expect(response.body[0]).toMatchObject({
-                id: 'metaverse-1',
-                name: 'Test Metaverse',
+                id: 'cluster-1',
+                name: 'Test Cluster',
                 description: 'Test Description',
-                sectionsCount: 2,
-                entitiesCount: 5
+                domainsCount: 2,
+                resourcesCount: 5
             })
             expect(response.body[0]).toHaveProperty('createdAt')
             expect(response.body[0]).toHaveProperty('updatedAt')
         })
 
         it('should handle pagination parameters correctly', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+            const { dataSource, clusterRepo } = buildDataSource()
 
-            const mockQB = metaverseRepo.createQueryBuilder()
+            const mockQB = clusterRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
-            await request(app).get('/metaverses?limit=5&offset=10&sortBy=name&sortOrder=asc').expect(200)
+            await request(app).get('/clusters?limit=5&offset=10&sortBy=name&sortOrder=asc').expect(200)
 
             expect(mockQB.limit).toHaveBeenCalledWith(5)
             expect(mockQB.offset).toHaveBeenCalledWith(10)
-            expect(mockQB.orderBy).toHaveBeenCalledWith('m.name', 'ASC')
+            expect(mockQB.orderBy).toHaveBeenCalledWith('c.name', 'ASC')
         })
 
         it('should validate and clamp pagination parameters', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+            const { dataSource, clusterRepo } = buildDataSource()
 
-            const mockQB = metaverseRepo.createQueryBuilder()
+            const mockQB = clusterRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
-            await request(app).get('/metaverses?limit=2000&offset=-5&sortBy=invalid&sortOrder=invalid').expect(200)
+            await request(app).get('/clusters?limit=2000&offset=-5&sortBy=invalid&sortOrder=invalid').expect(200)
 
             // Should clamp limit to max 1000 and offset to min 0
             expect(mockQB.limit).toHaveBeenCalledWith(1000)
             expect(mockQB.offset).toHaveBeenCalledWith(0)
             // Should default to updated desc for invalid sortBy/sortOrder
-            expect(mockQB.orderBy).toHaveBeenCalledWith('m.updatedAt', 'DESC')
+            expect(mockQB.orderBy).toHaveBeenCalledWith('c.updatedAt', 'DESC')
         })
 
         it('should use default pagination when no parameters provided', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+            const { dataSource, clusterRepo } = buildDataSource()
 
-            const mockQB = metaverseRepo.createQueryBuilder()
+            const mockQB = clusterRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
-            await request(app).get('/metaverses').expect(200)
+            await request(app).get('/clusters').expect(200)
 
-            // Should use defaults: limit=100, offset=0, orderBy updatedAt DESC
             expect(mockQB.limit).toHaveBeenCalledWith(100)
             expect(mockQB.offset).toHaveBeenCalledWith(0)
-            expect(mockQB.orderBy).toHaveBeenCalledWith('m.updatedAt', 'DESC')
+            expect(mockQB.orderBy).toHaveBeenCalledWith('c.updatedAt', 'DESC')
         })
 
         it('should return 401 when user is not authenticated', async () => {
             const { dataSource } = buildDataSource()
-
-            const noAuthMiddleware = (_req: Request, _res: Response, next: NextFunction) => {
-                // No user set in request
+            const noAuth = (_req: Request, _res: Response, next: NextFunction) => {
+                // Don't set req.user to simulate unauthenticated request
                 next()
             }
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(noAuthMiddleware, () => dataSource)
+                '/clusters',
+                createClustersRoutes(noAuth, () => dataSource)
             )
 
-            await request(app).get('/metaverses').expect(401)
+            await request(app)
+                .get('/clusters')
+                .expect(401)
+                .expect((res) => {
+                    expect(res.body.error).toBe('User not authenticated')
+                })
         })
 
         it('should handle database errors gracefully', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+            const { dataSource, clusterRepo } = buildDataSource()
 
-            const mockQB = metaverseRepo.createQueryBuilder()
+            const mockQB = clusterRepo.createQueryBuilder()
             mockQB.getRawMany.mockRejectedValue(new Error('Database connection failed'))
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
-            const response = await request(app).get('/metaverses').expect(500)
-
-            expect(response.body).toMatchObject({
-                error: 'Internal server error',
-                details: 'Database connection failed'
-            })
+            await request(app)
+                .get('/clusters')
+                .expect(500)
+                .expect((res) => {
+                    expect(res.body.error).toBe('Internal server error')
+                    expect(res.body.details).toBe('Database connection failed')
+                })
         })
 
         it('should set correct pagination headers', async () => {
-            const { dataSource, metaverseRepo } = buildDataSource()
+            const { dataSource, clusterRepo } = buildDataSource()
 
-            const mockMetaverses = [
+            const mockClusters = [
                 {
-                    id: 'metaverse-1',
-                    name: 'Test Metaverse',
+                    id: 'cluster-1',
+                    name: 'Test Cluster',
                     description: 'Test Description',
                     created_at: new Date('2025-01-01'),
                     updated_at: new Date('2025-01-02'),
-                    sectionsCount: '2',
-                    entitiesCount: '5'
+                    domainsCount: '2',
+                    resourcesCount: '5'
                 }
             ]
 
-            const mockQB = metaverseRepo.createQueryBuilder()
-            mockQB.getRawMany.mockResolvedValue(mockMetaverses)
+            const mockQB = clusterRepo.createQueryBuilder()
+            mockQB.getRawMany.mockResolvedValue(mockClusters)
 
             const app = express()
             app.use(express.json())
             app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource)
+                '/clusters',
+                createClustersRoutes(ensureAuth, () => dataSource)
             )
 
             await request(app)
-                .get('/metaverses?limit=50&offset=25')
+                .get('/clusters?limit=50&offset=25')
                 .expect(200)
                 .expect((res) => {
                     expect(res.headers['x-pagination-limit']).toBe('50')

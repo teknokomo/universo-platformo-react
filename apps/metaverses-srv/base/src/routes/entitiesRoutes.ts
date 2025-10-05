@@ -44,26 +44,6 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
         }
     }
 
-    // Helper function to check if user has access to metaverse
-    const checkMetaverseAccess = async (metaverseId: string, userId: string) => {
-        const { metaverseUserRepo } = getRepositories(getDataSource)
-        const userMetaverse = await metaverseUserRepo.findOne({
-            where: { metaverse_id: metaverseId, user_id: userId }
-        })
-        return userMetaverse !== null
-    }
-
-    // Helper function to check if user has access to section (through its metaverse)
-    const checkSectionAccess = async (sectionId: string, userId: string) => {
-        const { sectionMetaverseRepo } = getRepositories(getDataSource)
-        const sectionMetaverse = await sectionMetaverseRepo.findOne({
-            where: { section: { id: sectionId } },
-            relations: ['metaverse']
-        })
-        if (!sectionMetaverse) return false
-        return await checkMetaverseAccess(sectionMetaverse.metaverse.id, userId)
-    }
-
     // --- Entity CRUD (flat, no categories) ---
 
     // GET / (List all entities)

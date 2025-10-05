@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom'
 import {
     Box,
@@ -34,8 +34,6 @@ import { Cluster, Resource, Domain } from '../types'
 import ResourceDialog from './ResourceDialog'
 import DomainDialog from './DomainDialog'
 
-
-
 const ClusterDetail = () => {
     const { clusterId } = useParams<{ clusterId: string }>()
     const navigate = useNavigate()
@@ -49,7 +47,6 @@ const ClusterDetail = () => {
     const [domainsSearch, setDomainsSearch] = useState('')
     const [domainsView, setDomainsView] = useState<string>(localStorage.getItem('resourcesClusterDomainsDisplayStyle') || 'card')
 
-
     const [cluster, setCluster] = useState<Cluster | null>(null)
     const [resources, setResources] = useState<Resource[]>([])
     const [domains, setDomains] = useState<Domain[]>([])
@@ -57,25 +54,22 @@ const ClusterDetail = () => {
     const [error, setError] = useState<any>(null)
     const location = useLocation()
     const pathname = location.pathname
-    const section: 'board' | 'resources' | 'domains' = pathname.endsWith('/resources') ? 'resources' : pathname.endsWith('/domains') ? 'domains' : 'board'
+    const section: 'board' | 'resources' | 'domains' = pathname.endsWith('/resources')
+        ? 'resources'
+        : pathname.endsWith('/domains')
+        ? 'domains'
+        : 'board'
 
     const [isResourceDialogOpen, setResourceDialogOpen] = useState(false)
     const [isDomainDialogOpen, setDomainDialogOpen] = useState(false)
     const [selectedResource, setSelectedResource] = useState<Resource | null>(null)
     const [selectedDomain] = useState<Domain | null>(null)
 
-
     const { request: getCluster } = useApi(clustersApi.getCluster)
     const { request: getClusterResources } = useApi(clustersApi.getClusterResources)
     const { request: getClusterDomains } = useApi(clustersApi.getClusterDomains)
 
-    useEffect(() => {
-        if (clusterId) {
-            fetchClusterData()
-        }
-    }, [clusterId])
-
-    const fetchClusterData = async () => {
+    const fetchClusterData = useCallback(async () => {
         if (!clusterId) return
 
         try {
@@ -96,17 +90,18 @@ const ClusterDetail = () => {
         } finally {
             setLoading(false)
         }
-    }
+    }, [clusterId, getCluster, getClusterResources, getClusterDomains])
 
-
+    useEffect(() => {
+        if (clusterId) {
+            fetchClusterData()
+        }
+    }, [clusterId, fetchClusterData])
 
     const handleAddResource = () => {
         setSelectedResource(null)
         setResourceDialogOpen(true)
     }
-
-
-
 
     const handleResourceDialogSave = () => {
         setResourceDialogOpen(false)
@@ -173,7 +168,6 @@ const ClusterDetail = () => {
     const updateResourcesApi = async () => fetchClusterData()
     const updateDomainsApi = async () => fetchClusterData()
 
-
     if (isLoading) {
         return (
             <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto' }}>
@@ -202,43 +196,36 @@ const ClusterDetail = () => {
     return (
         <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto', p: 1.25 }}>
             <Stack spacing={2}>
-                <Breadcrumbs aria-label="breadcrumb">
-                    <Link
-                        component={RouterLink}
-                        to="/clusters"
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                    >
+                <Breadcrumbs aria-label='breadcrumb'>
+                    <Link component={RouterLink} to='/clusters' sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <IconArrowLeft size={16} />
                         {t('clusters.title')}
                     </Link>
-                    <Typography color="text.primary">{cluster?.name || t('clusters.detail.info')}</Typography>
+                    <Typography color='text.primary'>{cluster?.name || t('clusters.detail.info')}</Typography>
                 </Breadcrumbs>
 
                 {isLoading ? (
-                    <Stack direction="row" alignItems="center" justifyContent="center" sx={{ py: 6 }}>
+                    <Stack direction='row' alignItems='center' justifyContent='center' sx={{ py: 6 }}>
                         <CircularProgress size={24} />
                     </Stack>
                 ) : (
                     <>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="h4" gutterBottom>
+                        <Stack direction='row' justifyContent='space-between' alignItems='center'>
+                            <Typography variant='h4' gutterBottom>
                                 {cluster?.name}
                             </Typography>
                         </Stack>
 
                         {cluster?.description && (
-                            <Typography variant="body1" color="text.secondary">
+                            <Typography variant='body1' color='text.secondary'>
                                 {cluster.description}
                             </Typography>
                         )}
 
                         {section === 'board' && (
                             <Stack spacing={2}>
-                                <ViewHeader
-                                    search={false}
-                                    title={t('clusters.detail.clusterboard')}
-                                />
-                                <Typography variant="body2" color="text.secondary">
+                                <ViewHeader search={false} title={t('clusters.detail.clusterboard')} />
+                                <Typography variant='body2' color='text.secondary'>
                                     Здесь будет аналитика и статистика кластера (в разработке)
                                 </Typography>
                             </Stack>
@@ -274,22 +261,36 @@ const ClusterDetail = () => {
                                             <IconList />
                                         </ToggleButton>
                                     </ToggleButtonGroup>
-                                    <Button variant='contained' startIcon={<IconPlus size={16} />} onClick={handleAddResource} sx={{ borderRadius: 2, height: 40 }}>
+                                    <Button
+                                        variant='contained'
+                                        startIcon={<IconPlus size={16} />}
+                                        onClick={handleAddResource}
+                                        sx={{ borderRadius: 2, height: 40 }}
+                                    >
                                         {t('resources.list.addNew')}
                                     </Button>
                                 </ViewHeader>
 
-                                {(!Array.isArray(resources) || resources.length === 0) ? (
+                                {!Array.isArray(resources) || resources.length === 0 ? (
                                     <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                                         <Box sx={{ p: 2, height: 'auto' }}>
-                                            <img style={{ objectFit: 'cover', height: '25vh', width: 'auto' }} src={APIEmptySVG} alt='No Resources' />
+                                            <img
+                                                style={{ objectFit: 'cover', height: '25vh', width: 'auto' }}
+                                                src={APIEmptySVG}
+                                                alt='No Resources'
+                                            />
                                         </Box>
                                         <div>{t('resources.list.noResourcesYet', 'No resources found in this cluster')}</div>
                                     </Stack>
                                 ) : resourcesView === 'card' ? (
                                     <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                         {resources.filter(filterResources).map((resource) => (
-                                            <ItemCard key={resource.id} data={resource} images={images[resource.id] || []} onClick={() => goToResource(resource)} />
+                                            <ItemCard
+                                                key={resource.id}
+                                                data={resource}
+                                                images={images[resource.id] || []}
+                                                onClick={() => goToResource(resource)}
+                                            />
                                         ))}
                                     </Box>
                                 ) : (
@@ -335,22 +336,36 @@ const ClusterDetail = () => {
                                             <IconList />
                                         </ToggleButton>
                                     </ToggleButtonGroup>
-                                    <Button variant='contained' startIcon={<IconPlus size={16} />} onClick={() => setDomainDialogOpen(true)} sx={{ borderRadius: 2, height: 40 }}>
+                                    <Button
+                                        variant='contained'
+                                        startIcon={<IconPlus size={16} />}
+                                        onClick={() => setDomainDialogOpen(true)}
+                                        sx={{ borderRadius: 2, height: 40 }}
+                                    >
                                         {t('domains.list.addNew')}
                                     </Button>
                                 </ViewHeader>
 
-                                {(!Array.isArray(domains) || domains.length === 0) ? (
+                                {!Array.isArray(domains) || domains.length === 0 ? (
                                     <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                                         <Box sx={{ p: 2, height: 'auto' }}>
-                                            <img style={{ objectFit: 'cover', height: '25vh', width: 'auto' }} src={APIEmptySVG} alt='No Domains' />
+                                            <img
+                                                style={{ objectFit: 'cover', height: '25vh', width: 'auto' }}
+                                                src={APIEmptySVG}
+                                                alt='No Domains'
+                                            />
                                         </Box>
                                         <div>{t('domains.list.noDomainsYet', 'No domains found')}</div>
                                     </Stack>
                                 ) : domainsView === 'card' ? (
                                     <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                         {domains.filter(filterDomains).map((domain) => (
-                                            <ItemCard key={domain.id} data={domain} images={domainImages[domain.id] || []} onClick={() => navigate(`/clusters/${clusterId}/domains/${domain.id}`)} />
+                                            <ItemCard
+                                                key={domain.id}
+                                                data={domain}
+                                                images={domainImages[domain.id] || []}
+                                                onClick={() => navigate(`/clusters/${clusterId}/domains/${domain.id}`)}
+                                            />
                                         ))}
                                     </Box>
                                 ) : (
@@ -368,16 +383,12 @@ const ClusterDetail = () => {
                     </>
                 )}
 
-                <Stack direction="row" spacing={1}>
-                    <Button
-                        variant="outlined"
-                        onClick={() => navigate('/clusters')}
-                    >
+                <Stack direction='row' spacing={1}>
+                    <Button variant='outlined' onClick={() => navigate('/clusters')}>
                         {t('resources.common.back')}
                     </Button>
                 </Stack>
             </Stack>
-
 
             {isResourceDialogOpen && (
                 <ResourceDialog

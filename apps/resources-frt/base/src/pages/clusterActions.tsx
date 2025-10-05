@@ -52,9 +52,7 @@ export const clusterActions = [
             } catch (error: any) {
                 ctx.helpers.enqueueSnackbar?.({
                     message:
-                        typeof error?.response?.data === 'object'
-                            ? error.response.data.message
-                            : error?.response?.data || error?.message,
+                        typeof error?.response?.data === 'object' ? error.response.data.message : error?.response?.data || error?.message,
                     options: { variant: 'error' }
                 })
             }
