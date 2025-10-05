@@ -64,6 +64,7 @@ COOKIE_DOMAIN=your_domain
 
 # Authentication Settings
 AUTH_ENABLED=true
+# POSTHOG_PUBLIC_API_KEY=
 DISABLE_FLOWISE_TELEMETRY=true
 ```
 
@@ -81,6 +82,7 @@ COOKIE_DOMAIN=ваш_домен
 
 # Настройки аутентификации
 AUTH_ENABLED=true
+# POSTHOG_PUBLIC_API_KEY=
 DISABLE_FLOWISE_TELEMETRY=true
 ```
 

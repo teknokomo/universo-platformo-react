@@ -5,6 +5,7 @@
 import path from 'path'
 import fs from 'fs'
 import logger from './logger'
+import type { Express, Request } from 'express'
 import {
     IComponentCredentials,
     IComponentNodes,
@@ -40,7 +41,7 @@ import {
     IFileUpload,
     getS3Config
 } from 'flowise-components'
-import { randomBytes } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 import { AES, enc } from 'crypto-js'
 import multer from 'multer'
 import multerS3 from 'multer-s3'
@@ -1665,21 +1666,6 @@ export const getTelemetryFlowObj = (nodes: IReactFlowNode[], edges: IReactFlowEd
 }
 
 /**
- * Get user settings file
- * TODO: move env variables to settings json file, easier configuration
- */
-export const getUserSettingsFilePath = () => {
-    if (process.env.SECRETKEY_PATH) return path.join(process.env.SECRETKEY_PATH, 'settings.json')
-    const checkPaths = [path.join(getUserHome(), '.flowise', 'settings.json')]
-    for (const checkPath of checkPaths) {
-        if (fs.existsSync(checkPath)) {
-            return checkPath
-        }
-    }
-    return ''
-}
-
-/**
  * Get app current version
  */
 export const getAppVersion = async () => {
@@ -1745,16 +1731,6 @@ export const getUploadPath = (): string => {
         : path.join(getUserHome(), '.flowise', 'uploads')
 }
 
-const getOrgId = () => {
-    const settingsContent = fs.readFileSync(getUserSettingsFilePath(), 'utf8')
-    try {
-        const settings = JSON.parse(settingsContent)
-        return settings.instanceId
-    } catch (error) {
-        return ''
-    }
-}
-
 export const getMulterStorage = () => {
     const storageType = process.env.STORAGE_TYPE ? process.env.STORAGE_TYPE : 'local'
 
@@ -1766,11 +1742,20 @@ export const getMulterStorage = () => {
             storage: multerS3({
                 s3: s3Client,
                 bucket: Bucket,
-                metadata: function (req, file, cb) {
-                    cb(null, { fieldName: file.fieldname, originalName: file.originalname, orgId: getOrgId() })
+                metadata: function (
+                    req: Request,
+                    file: Express.Multer.File,
+                    cb: (error: Error | null, metadata?: Record<string, unknown>) => void
+                ) {
+                    cb(null, { fieldName: file.fieldname, originalName: file.originalname })
                 },
-                key: function (req, file, cb) {
-                    cb(null, `${getOrgId()}/${Date.now().toString()}`)
+                key: function (
+                    req: Request,
+                    file: Express.Multer.File,
+                    cb: (error: Error | null, key?: string) => void
+                ) {
+                    const extension = path.extname(file.originalname)
+                    cb(null, `${randomUUID()}${extension}`)
                 }
             })
         })
@@ -1782,7 +1767,15 @@ export const getMulterStorage = () => {
                 bucket: process.env.GOOGLE_CLOUD_STORAGE_BUCKET_NAME,
                 keyFilename: process.env.GOOGLE_CLOUD_STORAGE_CREDENTIAL,
                 uniformBucketLevelAccess: Boolean(process.env.GOOGLE_CLOUD_UNIFORM_BUCKET_ACCESS) ?? true,
-                destination: `uploads/${getOrgId()}`
+                destination: 'uploads',
+                filename: (
+                    req: Request,
+                    file: Express.Multer.File,
+                    cb: (error: Error | null, filename: string) => void
+                ) => {
+                    const extension = path.extname(file.originalname)
+                    cb(null, `${randomUUID()}${extension}`)
+                }
             })
         })
     } else {

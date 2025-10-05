@@ -4,7 +4,7 @@ import { uniqWith, isEqual, cloneDeep } from 'lodash'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { Assistant } from '../../database/entities/Assistant'
 import { Credential } from '../../database/entities/Credential'
-import { databaseEntities, decryptCredentialData, getAppVersion } from '../../utils'
+import { databaseEntities, decryptCredentialData } from '../../utils'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { DeleteResult, QueryRunner } from 'typeorm'
@@ -42,7 +42,6 @@ const createAssistant = async (requestBody: any): Promise<Assistant> => {
             const dbResponse = await appServer.AppDataSource.getRepository(Assistant).save(assistant)
 
             await appServer.telemetry.sendTelemetry('assistant_created', {
-                version: await getAppVersion(),
                 assistantId: dbResponse.id
             })
             appServer.metricsProvider?.incrementCounter(FLOWISE_METRIC_COUNTERS.ASSISTANT_CREATED, {
@@ -143,7 +142,6 @@ const createAssistant = async (requestBody: any): Promise<Assistant> => {
         const dbResponse = await appServer.AppDataSource.getRepository(Assistant).save(assistant)
 
         await appServer.telemetry.sendTelemetry('assistant_created', {
-            version: await getAppVersion(),
             assistantId: dbResponse.id
         })
         appServer.metricsProvider?.incrementCounter(FLOWISE_METRIC_COUNTERS.ASSISTANT_CREATED, { status: FLOWISE_COUNTER_STATUS.SUCCESS })

@@ -5,13 +5,7 @@ import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback
 import { UpsertHistory } from '../../database/entities/UpsertHistory'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import documentStoreService from '../documentstore'
-import {
-    constructGraphs,
-    getAppVersion,
-    getEndingNodes,
-    getTelemetryFlowObj,
-    isFlowValidForStream
-} from '../../utils'
+import { constructGraphs, getEndingNodes, getTelemetryFlowObj, isFlowValidForStream } from '../../utils'
 import { containsBase64File, updateFlowDataWithFilePaths } from '../../utils/fileRepository'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { utilGetUploadsConfig } from '../../utils/getUploadsConfig'
@@ -34,13 +28,12 @@ export const canvasServiceConfig = {
         constructGraphs,
         getEndingNodes,
         isFlowValidForStream,
-        getAppVersion,
         getTelemetryFlowObj,
         telemetry: {
-            sendTelemetry: async (eventName: string, payload: Record<string, unknown>) => {
+            sendTelemetry: async (eventName: string, payload: Record<string, unknown>, orgId?: string) => {
                 const telemetry = getRunningExpressApp().telemetry
                 if (telemetry) {
-                    await telemetry.sendTelemetry(eventName, payload)
+                    await telemetry.sendTelemetry(eventName, payload, orgId)
                 }
             }
         },

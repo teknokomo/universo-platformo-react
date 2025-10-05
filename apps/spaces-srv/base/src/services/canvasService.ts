@@ -27,9 +27,14 @@ export interface CanvasServiceDependencies {
     constructGraphs: (nodes: any[], edges: any[]) => { graph: any; nodeDependencies: Record<string, number> }
     getEndingNodes: (nodeDependencies: Record<string, number>, graph: any, nodes: any[]) => any[]
     isFlowValidForStream: (nodes: any[], nodeData: any) => boolean
-    getAppVersion: () => Promise<string>
     getTelemetryFlowObj: (nodes: any[], edges: any[]) => unknown
-    telemetry?: { sendTelemetry: (eventName: string, payload: Record<string, unknown>) => Promise<void> }
+    telemetry?: {
+        sendTelemetry: (
+            eventName: string,
+            payload: Record<string, unknown>,
+            orgId?: string
+        ) => Promise<void>
+    }
     metricsProvider?: { incrementCounter: (metric: string, labels?: Record<string, unknown>) => void }
     metricsConfig: CanvasServiceMetricsConfig
     logger: { warn: (...args: any[]) => void; error: (...args: any[]) => void }
@@ -527,7 +532,6 @@ export class CanvasService {
 
             if (this.deps.telemetry) {
                 await this.deps.telemetry.sendTelemetry('canvas_created', {
-                    version: await this.deps.getAppVersion(),
                     canvasId: saved.id,
                     flowGraph: this.deps.getTelemetryFlowObj(
                         JSON.parse(saved.flowData)?.nodes,

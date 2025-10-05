@@ -37,7 +37,7 @@ import {
 } from '../../Interface'
 import { DocumentStoreFileChunk } from '../../database/entities/DocumentStoreFileChunk'
 import { v4 as uuidv4 } from 'uuid'
-import { databaseEntities, getAppVersion, saveUpsertFlowData } from '../../utils'
+import { databaseEntities, saveUpsertFlowData } from '../../utils'
 import logger from '../../utils/logger'
 import nodesService from '../nodes'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
@@ -1230,7 +1230,6 @@ const _insertIntoVectorStoreWorkerThread = async (
         }
 
         await telemetry.sendTelemetry('vector_upserted', {
-            version: await getAppVersion(),
             canvasId,
             type: ChatType.INTERNAL,
             flowGraph: omit(indexResult['result'], ['totalKeys', 'addedDocs'])

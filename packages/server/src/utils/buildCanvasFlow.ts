@@ -44,7 +44,6 @@ import {
     isFlowValidForStream,
     buildFlow,
     getTelemetryFlowObj,
-    getAppVersion,
     resolveVariables,
     getSessionChatHistory,
     findMemoryNode,
@@ -539,7 +538,6 @@ export const executeFlow = async ({
             const chatMessage = await utilAddChatMessage(apiMessage, appDataSource)
 
             await telemetry.sendTelemetry('agentflow_prediction_sent', {
-                version: await getAppVersion(),
                 agentflowId: agentflow.id,
                 chatId,
                 type: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
@@ -734,7 +732,6 @@ export const executeFlow = async ({
         logger.debug(`[server]: Finished running ${endingNodeData.label} (${endingNodeData.id})`)
 
         await telemetry.sendTelemetry('canvas_prediction_sent', {
-            version: await getAppVersion(),
             canvasId: canvasId,
             chatId,
             type: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,

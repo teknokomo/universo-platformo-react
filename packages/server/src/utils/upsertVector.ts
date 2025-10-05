@@ -16,7 +16,6 @@ import {
     getAllConnectedNodes,
     findMemoryNode,
     getMemorySessionId,
-    getAppVersion,
     getTelemetryFlowObj,
     getStartingNodes,
     getAPIOverrideConfig
@@ -191,7 +190,6 @@ export const executeUpsert = async ({
     }
 
     await telemetry.sendTelemetry('vector_upserted', {
-        version: await getAppVersion(),
         canvasId,
         type: isInternal ? ChatType.INTERNAL : ChatType.EXTERNAL,
         flowGraph: getTelemetryFlowObj(nodes, edges),
