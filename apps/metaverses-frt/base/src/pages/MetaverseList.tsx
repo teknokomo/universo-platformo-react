@@ -37,7 +37,7 @@ const MetaverseList = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState<any>(null)
     const [metaverses, setMetaverses] = useState<Metaverse[]>([])
-    const [metaverseStats, setMetaverseStats] = useState<Record<string, { sections: number; entities: number }>>({})
+    // Aggregated counts come directly from backend list response now
 
     const { confirm } = useConfirm()
 
@@ -120,64 +120,20 @@ const MetaverseList = () => {
                 label: t('metaverses.table.sections'),
                 width: '20%',
                 align: 'center',
-                render: (row: Metaverse) => metaverseStats[row.id]?.sections ?? '—'
+                render: (row: Metaverse) => (typeof row.sectionsCount === 'number' ? row.sectionsCount : '—')
             },
             {
                 id: 'entities',
                 label: t('metaverses.table.entities'),
                 width: '20%',
                 align: 'center',
-                render: (row: Metaverse) => metaverseStats[row.id]?.entities ?? '—'
+                render: (row: Metaverse) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
             }
         ],
-        [metaverseStats, t]
+        [t]
     )
 
-    useEffect(() => {
-        if (!Array.isArray(metaverses) || metaverses.length === 0) {
-            setMetaverseStats({})
-            return
-        }
-
-        let cancelled = false
-
-        const loadCounts = async () => {
-            const results = await Promise.allSettled(
-                metaverses.map(async (metaverse) => {
-                    const [sectionsRes, entitiesRes] = await Promise.all([
-                        metaversesApi.getMetaverseSections(metaverse.id),
-                        metaversesApi.getMetaverseEntities(metaverse.id)
-                    ])
-                    const sections = Array.isArray(sectionsRes?.data) ? sectionsRes.data.length : 0
-                    const entities = Array.isArray(entitiesRes?.data) ? entitiesRes.data.length : 0
-                    return { id: metaverse.id, sections, entities }
-                })
-            )
-
-            if (cancelled) return
-
-            const next: Record<string, { sections: number; entities: number }> = {}
-            results.forEach((result) => {
-                if (result.status === 'fulfilled') {
-                    next[result.value.id] = {
-                        sections: result.value.sections,
-                        entities: result.value.entities
-                    }
-                }
-            })
-            setMetaverseStats(next)
-        }
-
-        loadCounts().catch((err) => {
-            if (!cancelled) {
-                console.error('Failed to load metaverse counts', err)
-            }
-        })
-
-        return () => {
-            cancelled = true
-        }
-    }, [metaverses])
+    // Removed N+1 counts loading; counts are provided by backend list response
 
     const createMetaverseContext = useCallback(
         (baseContext: any) => ({

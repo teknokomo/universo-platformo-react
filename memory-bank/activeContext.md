@@ -1,4 +1,28 @@
+## 2025-10-05 — Merge conflict resolution
+
+Successfully resolved merge conflict in `apps/uniks-srv/base/src/tests/routes/uniksRoutes.test.ts`. The conflict involved two different sets of test cases:
+- Updated upstream: Complex setup for spaces router integration tests  
+- Stashed changes: Additional test cases for various Unik operations (member permissions, edit/delete with cascading cleanup)
+
+Resolution preserved all test functionality from both branches. Added missing TypeORM decorators (`CreateDateColumn`, `UpdateDateColumn`) to mocks and translated all Russian test descriptions to English for code consistency. Applied ESLint --fix to resolve formatting issues. Final result: 7/9 tests pass; 2 failures are unrelated to the merge conflict and concern missing middleware/routing logic.
+
 ## 2025-10-01 — Uniks UI migration to Template MUI
+## 2025-10-04 — Uniks list aggregation (spacesCount + updatedAt)
+
+- Implemented backend aggregation for Uniks list: the collection route now returns `spacesCount` (LEFT JOIN public.spaces with COUNT) and exposes both `created_at/updated_at` and camelCase `createdAt/updatedAt` for UI sorting/formatting.
+- Updated existing Uniks migration (idempotent) to include `updated_at` in `uniks.uniks`; no new migration file was created per project policy. Guarded with a DO $$ block to add the column if missing.
+- Aligned `Unik` entity to use `CreateDateColumn`/`UpdateDateColumn` mapped to `created_at`/`updated_at`.
+- Kept changes minimal and localized to `apps/uniks-srv/base`. Lint and TS build are green for the package. Next: smoke test the `/uniks` response shape in UI.
+
+## 2025-10-04 — Metaverses list aggregated counts (MVP)
+
+- 2025-10-05: Fixed a TypeORM alias error in `GET /metaverses` by switching to entity-class joins (`MetaverseUser`, `SectionMetaverse`, `EntityMetaverse`) and aligning selects/groupBy with entity property names (`createdAt`/`updatedAt`). Kept snake_case fields in the response via aliases. Targeted server build is green; pending live validation after restart.
+
+- Objective: Mirror the Uniks backend aggregation approach for Metaverses. Return `sectionsCount` and `entitiesCount` directly from `GET /metaverses` using a single query (JOIN + COUNT), filtered by the authenticated user's membership in `metaverses.metaverses_users`.
+- Backend: No new migrations. Use existing schema (`metaverses.*` tables and indexes). Expose both snake_case (`created_at`, `updated_at`) and camelCase (`createdAt`, `updatedAt`) for UI flexibility.
+- Frontend: Update `MetaverseList.tsx` to consume the new counts and remove the N+1 effect that calls `/sections` and `/entities` per metaverse.
+- Quality gates: Keep changes minimal, respect ESLint/Prettier, and validate targeted builds for `@universo/metaverses-srv` and `@universo/metaverses-frt`.
+
 
 - Began routing Uniks front-end through the new `@universo/template-mui` stack: `MainLayoutMUI` now supplies the header, toolbar, language switcher, and theme controls while card/list views render inside the template container.
 - Replicated Flowise legacy card components into the template package and refactored `ItemCard` for neutral styling (no legacy MainCard dependency) plus responsive width constraints.

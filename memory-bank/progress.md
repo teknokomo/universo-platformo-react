@@ -1,4 +1,23 @@
+## 2025-10-04 — Metaverses list aggregated counts (MVP)
+
+- Implemented backend aggregation for `GET /metaverses`: returns `sectionsCount`, `entitiesCount`, and timestamps (`created_at/updated_at` plus camelCase). Achieved with a single QueryBuilder (JOIN+COUNT) over `metaverses.metaverses_users` filtered by the authenticated user. No new migrations were introduced.
+- Updated `MetaverseList.tsx` to consume aggregated counts, removing the previous N+1 pattern that fetched sections/entities per metaverse. Kept UI behavior intact while reducing requests and improving latency.
+- Extended the frontend `Metaverse` type with optional `sectionsCount`/`entitiesCount`. Ran targeted lint and builds for both `@universo/metaverses-srv` and `@universo/metaverses-frt`; fixed minor Prettier issues. Current state: builds succeed; linters show only a benign hooks-deps warning in `MetaverseDetail.tsx` unrelated to this change.
 ### 2025-10-05 — Canvas version metadata editing
+### 2025-10-05 — Metaverses endpoint cleanup and pagination
+
+- Removed temporary debug logs added during TypeORM troubleshooting (console.log statements for SQL debugging).
+- Implemented comprehensive pagination pattern for GET `/metaverses`: limit (1-100, default 20), offset (≥0, default 0), sortBy (name/created/updated, default updated), sortOrder (asc/desc, default desc).
+- Added input validation with safe parsing and parameter clamping to prevent abuse. Uses whitelisted sort fields to prevent SQL injection.
+- Created full integration test suite following project patterns: covers empty results, data mapping, pagination validation, parameter clamping, authentication, and error handling.
+- Set up Jest configuration and testing infrastructure for `@universo/metaverses-srv` package. This establishes the first pagination pattern in the project for potential reuse across other endpoints.
+### 2025-10-04 — Uniks list backend aggregation
+
+- Implemented aggregated Uniks list endpoint returning `spacesCount` and both `created_at/updated_at` and camelCase timestamps for UI. The query uses a LEFT JOIN to `public.spaces` with COUNT and groups by membership and unik IDs.
+- Updated the existing Uniks migration to include `updated_at` in `uniks.uniks` with an idempotent DO $$ guard; no new migration files were created in accordance with project policies.
+- Refreshed the `Unik` entity to use `CreateDateColumn`/`UpdateDateColumn` mapped to `created_at`/`updated_at`.
+- Lint and build for `@universo/uniks-srv` pass locally; next step is UI smoke test to confirm table shows non-zero space counts and last modified date.
+
 
 - Added a scoped `PUT /unik/:unikId/spaces/:spaceId/canvases/:canvasId/versions/:versionId` endpoint that trims inputs, guards version groups, and refreshes `updatedDate` without touching snapshot payloads.
 - Expanded controller and service Jest suites to cover successful edits, missing versions, and cross-group rejection cases for the new route.

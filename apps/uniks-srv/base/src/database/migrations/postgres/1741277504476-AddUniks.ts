@@ -12,9 +12,22 @@ export class AddUniks1741277504476 implements MigrationInterface {
         CREATE TABLE IF NOT EXISTS uniks.uniks (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           name varchar NOT NULL,
-          created_at TIMESTAMP NOT NULL DEFAULT now()
+          created_at TIMESTAMP NOT NULL DEFAULT now(),
+          updated_at TIMESTAMP NOT NULL DEFAULT now()
         );
-      `)
+  `)
+        // Ensure updated_at column exists for dev idempotency (in case table was created earlier without it)
+        await queryRunner.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema='uniks' AND table_name='uniks' AND column_name='updated_at'
+            ) THEN
+              ALTER TABLE uniks.uniks ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT now();
+            END IF;
+          END$$;
+        `)
 
         // 3. Create membership table (renamed to uniks.uniks_users)
         await queryRunner.query(`
@@ -197,12 +210,18 @@ export class AddUniks1741277504476 implements MigrationInterface {
 
         // Drop policies (new names)
         const policyDrops = [
-            'uniks_select_members','uniks_insert_owner','uniks_update_admin','uniks_delete_admin',
-            'uniks_users_select_members','uniks_users_insert','uniks_users_update','uniks_users_delete'
+            'uniks_select_members',
+            'uniks_insert_owner',
+            'uniks_update_admin',
+            'uniks_delete_admin',
+            'uniks_users_select_members',
+            'uniks_users_insert',
+            'uniks_users_update',
+            'uniks_users_delete'
         ]
         for (const p of policyDrops) {
-            await queryRunner.query(`DROP POLICY IF EXISTS ${p} ON uniks.uniks;`).catch(()=>{})
-            await queryRunner.query(`DROP POLICY IF EXISTS ${p} ON uniks.uniks_users;`).catch(()=>{})
+            await queryRunner.query(`DROP POLICY IF EXISTS ${p} ON uniks.uniks;`).catch(() => {})
+            await queryRunner.query(`DROP POLICY IF EXISTS ${p} ON uniks.uniks_users;`).catch(() => {})
         }
 
         for (const tbl of tables) {

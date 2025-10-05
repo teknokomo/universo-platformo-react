@@ -4,6 +4,9 @@ export interface Metaverse {
     description?: string
     createdAt: string
     updatedAt: string
+    // Optional aggregated counters provided by backend list endpoint
+    sectionsCount?: number
+    entitiesCount?: number
 }
 
 export interface Section {
