@@ -156,10 +156,10 @@ describe('Metaverses Routes', () => {
                 createMetaversesRoutes(ensureAuth, () => dataSource)
             )
 
-            await request(app).get('/metaverses?limit=200&offset=-5&sortBy=invalid&sortOrder=invalid').expect(200)
+            await request(app).get('/metaverses?limit=2000&offset=-5&sortBy=invalid&sortOrder=invalid').expect(200)
 
-            // Should clamp limit to max 100 and offset to min 0
-            expect(mockQB.limit).toHaveBeenCalledWith(100)
+            // Should clamp limit to max 1000 and offset to min 0
+            expect(mockQB.limit).toHaveBeenCalledWith(1000)
             expect(mockQB.offset).toHaveBeenCalledWith(0)
             // Should default to updated desc for invalid sortBy/sortOrder
             expect(mockQB.orderBy).toHaveBeenCalledWith('m.updatedAt', 'DESC')
@@ -180,8 +180,8 @@ describe('Metaverses Routes', () => {
 
             await request(app).get('/metaverses').expect(200)
 
-            // Should use defaults: limit=20, offset=0, orderBy updatedAt DESC
-            expect(mockQB.limit).toHaveBeenCalledWith(20)
+            // Should use defaults: limit=100, offset=0, orderBy updatedAt DESC
+            expect(mockQB.limit).toHaveBeenCalledWith(100)
             expect(mockQB.offset).toHaveBeenCalledWith(0)
             expect(mockQB.orderBy).toHaveBeenCalledWith('m.updatedAt', 'DESC')
         })

@@ -89,9 +89,26 @@ describe('uniks routes (TypeORM)', () => {
     it('returns list of current user uniks', async () => {
         const unikRepo = createMockRepository<any>()
         const membershipRepo = createMockRepository<any>()
-        membershipRepo.find.mockResolvedValue([
-            { unik_id: 'unik-1', role: 'owner', unik: { id: 'unik-1', name: 'Main', created_at: '2025-01-01' } },
-            { unik_id: 'unik-2', role: 'editor', unik: { id: 'unik-2', name: 'Side', created_at: '2025-01-02' } }
+        
+        // Mock QueryBuilder to return raw data matching the new implementation
+        const mockQB = membershipRepo.createQueryBuilder()
+        mockQB.getRawMany.mockResolvedValue([
+            {
+                role: 'owner',
+                id: 'unik-1',
+                name: 'Main',
+                created_at: new Date('2025-01-01'),
+                updated_at: new Date('2025-01-01'),
+                spacesCount: '3'
+            },
+            {
+                role: 'editor',
+                id: 'unik-2',
+                name: 'Side',
+                created_at: new Date('2025-01-02'),
+                updated_at: new Date('2025-01-02'),
+                spacesCount: '1'
+            }
         ])
 
         const { app } = buildCollectionApp('user-1', { unikRepo, membershipRepo })
@@ -99,14 +116,34 @@ describe('uniks routes (TypeORM)', () => {
 
         expect(response.status).toBe(200)
         expect(response.body).toEqual([
-            { id: 'unik-1', name: 'Main', created_at: '2025-01-01', role: 'owner' },
-            { id: 'unik-2', name: 'Side', created_at: '2025-01-02', role: 'editor' }
+            { 
+                id: 'unik-1', 
+                name: 'Main', 
+                created_at: '2025-01-01T00:00:00.000Z', 
+                updated_at: '2025-01-01T00:00:00.000Z',
+                createdAt: '2025-01-01T00:00:00.000Z',
+                updatedAt: '2025-01-01T00:00:00.000Z',
+                role: 'owner',
+                spacesCount: 3
+            },
+            { 
+                id: 'unik-2', 
+                name: 'Side', 
+                created_at: '2025-01-02T00:00:00.000Z', 
+                updated_at: '2025-01-02T00:00:00.000Z',
+                createdAt: '2025-01-02T00:00:00.000Z',
+                updatedAt: '2025-01-02T00:00:00.000Z',
+                role: 'editor',
+                spacesCount: 1
+            }
         ])
-        expect(membershipRepo.find).toHaveBeenCalledWith({
-            where: { user_id: 'user-1' },
-            relations: ['unik'],
-            order: { role: 'ASC' }
-        })
+        
+        // Verify createQueryBuilder chain was called correctly
+        expect(membershipRepo.createQueryBuilder).toHaveBeenCalledWith('m')
+        expect(mockQB.leftJoin).toHaveBeenCalledWith('m.unik', 'u')
+        expect(mockQB.leftJoin).toHaveBeenCalledWith('spaces', 's', 's.unik_id = u.id')
+        expect(mockQB.where).toHaveBeenCalledWith('m.user_id = :userId', { userId: 'user-1' })
+        expect(mockQB.getRawMany).toHaveBeenCalled()
     })
 
     it('creates unik and links owner', async () => {

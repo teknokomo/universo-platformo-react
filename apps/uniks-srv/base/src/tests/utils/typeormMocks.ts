@@ -3,13 +3,6 @@ export type MockRepository<_T = any> = {
     findOne: jest.Mock
     findOneBy: jest.Mock
     createQueryBuilder: jest.Mock
-    queryBuilder: {
-        update: jest.Mock
-        set: jest.Mock
-        where: jest.Mock
-        returning: jest.Mock
-        execute: jest.Mock
-    }
     create: jest.Mock
     save: jest.Mock
     delete: jest.Mock
@@ -17,11 +10,23 @@ export type MockRepository<_T = any> = {
 
 export const createMockRepository = <T extends object>(): MockRepository<T> => {
     const queryBuilder = {
+        // Basic query methods
         update: jest.fn().mockReturnThis(),
         set: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         returning: jest.fn().mockReturnThis(),
-        execute: jest.fn()
+        execute: jest.fn(),
+        // Query builder methods for uniksRoutes
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+        getMany: jest.fn().mockResolvedValue([]),
+        getOne: jest.fn().mockResolvedValue(null)
     }
 
     return {
@@ -29,7 +34,6 @@ export const createMockRepository = <T extends object>(): MockRepository<T> => {
         findOne: jest.fn(),
         findOneBy: jest.fn(),
         createQueryBuilder: jest.fn(() => queryBuilder),
-        queryBuilder,
         create: jest.fn(),
         save: jest.fn(),
         delete: jest.fn()

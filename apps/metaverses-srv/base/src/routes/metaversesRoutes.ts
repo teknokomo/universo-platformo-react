@@ -14,6 +14,13 @@ const resolveUserId = (req: Request): string | undefined => {
     return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
+// Parse pagination parameters with validation
+const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
+    const parsed = parseInt(String(value || ''), 10)
+    if (!Number.isFinite(parsed)) return defaultValue
+    return Math.max(min, Math.min(max, parsed))
+}
+
 // Comments in English only
 export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
     const router = Router({ mergeParams: true })
@@ -54,14 +61,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             try {
-                // Parse pagination parameters with validation
-                const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
-                    const parsed = parseInt(String(value || ''), 10)
-                    if (!Number.isFinite(parsed)) return defaultValue
-                    return Math.max(min, Math.min(max, parsed))
-                }
-
-                const limit = parseIntSafe(req.query.limit, 20, 1, 100)
+                const limit = parseIntSafe(req.query.limit, 100, 1, 1000)
                 const offset = parseIntSafe(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER)
 
                 // Safe sorting with whitelist
@@ -128,6 +128,13 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                     entitiesCount: parseInt(row.entitiesCount || '0', 10) || 0
                 }))
 
+                // Add pagination metadata headers for client awareness
+                const hasMore = raw.length === limit
+                res.setHeader('X-Pagination-Limit', limit.toString())
+                res.setHeader('X-Pagination-Offset', offset.toString())
+                res.setHeader('X-Pagination-Count', raw.length.toString())
+                res.setHeader('X-Pagination-Has-More', hasMore.toString())
+                
                 res.json(response)
             } catch (error) {
                 console.error('[ERROR] GET /metaverses failed:', error)

@@ -61,7 +61,7 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
             // Use QueryBuilder to aggregate spaces count per unik in a single query
             const qb = membershipRepo
                 .createQueryBuilder('m')
-                .leftJoinAndSelect('m.unik', 'u')
+                .leftJoin('m.unik', 'u')
                 // spaces lives in public schema; join by FK unik_id
                 .leftJoin('spaces', 's', 's.unik_id = u.id')
                 .where('m.user_id = :userId', { userId })
