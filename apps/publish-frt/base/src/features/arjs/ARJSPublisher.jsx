@@ -165,7 +165,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     return true
                 }
 
-                return !flow?.versionGroupId && !flow?.id
+                return false
             })
 
             setPublishLinkRecords(filtered)

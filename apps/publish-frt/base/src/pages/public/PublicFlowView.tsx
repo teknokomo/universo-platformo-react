@@ -29,7 +29,7 @@ const PublicFlowView: React.FC = () => {
     useEffect(() => {
         const loadPublication = async () => {
             if (!slug) {
-                setError(t('publish.publicFlow.errors.missingSlug', 'Slug не указан'))
+                setError(t('publish.publicFlow.errors.missingSlug', 'Slug is missing'))
                 setLoading(false)
                 return
             }
@@ -66,7 +66,9 @@ const PublicFlowView: React.FC = () => {
                 }
 
                 if (technologies.length === 0) {
-                    throw new Error(t('publish.publicFlow.errors.noPublicTech', 'Нет опубликованных технологий'))
+                    throw new Error(
+                        t('publish.publicFlow.errors.noPublicTech', 'No published technologies are available')
+                    )
                 }
 
                 const preferredTech = technologies[0]
@@ -77,7 +79,7 @@ const PublicFlowView: React.FC = () => {
                 const message =
                     loadError instanceof Error && loadError.message
                         ? loadError.message
-                        : t('publish.publicFlow.errors.loadFailed', 'Не удалось загрузить публикацию')
+                        : t('publish.publicFlow.errors.loadFailed', 'Failed to load publication')
                 setError(message)
             } finally {
                 setLoading(false)
@@ -102,7 +104,7 @@ const PublicFlowView: React.FC = () => {
             >
                 <CircularProgress size={60} />
                 <Typography variant='h6' sx={{ mt: 2, color: '#666' }}>
-                    {t('general.loading', 'Загрузка приложения...')}
+                    {t('general.loading', 'Loading application...')}
                 </Typography>
             </Box>
         )
@@ -123,7 +125,7 @@ const PublicFlowView: React.FC = () => {
             >
                 <Alert severity='error' sx={{ maxWidth: 600 }}>
                     <Typography variant='h6' gutterBottom>
-                        {t('general.applicationNotAvailable', 'Приложение недоступно')}
+                        {t('general.applicationNotAvailable', 'Application is unavailable')}
                     </Typography>
                     <Typography variant='body1'>{error}</Typography>
                 </Alert>
@@ -169,9 +171,14 @@ const PublicFlowView: React.FC = () => {
                 >
                     <Alert severity='warning' sx={{ maxWidth: 600 }}>
                         <Typography variant='h6' gutterBottom>
-                            {t('publish.publicFlow.errors.unsupportedTechnology', 'Технология не поддерживается')}
+                            {t('publish.publicFlow.errors.unsupportedTechnology', 'Technology is not supported')}
                         </Typography>
-                        <Typography variant='body1'>{t('publish.publicFlow.errors.noRenderer', 'Нет подходящего просмотрщика для этой публикации.')}</Typography>
+                        <Typography variant='body1'>
+                            {t(
+                                'publish.publicFlow.errors.noRenderer',
+                                'No compatible viewer is available for this publication.'
+                            )}
+                        </Typography>
                     </Alert>
                 </Box>
             )

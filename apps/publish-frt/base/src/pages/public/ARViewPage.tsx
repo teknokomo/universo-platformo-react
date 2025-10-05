@@ -28,7 +28,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({
     useEffect(() => {
         const renderARExperience = async () => {
             if (!flowData) {
-                setError(t('publish.publicFlow.errors.missingFlow', 'Данные публикации отсутствуют'))
+                setError(t('publish.publicFlow.errors.missingFlow', 'Publication data is missing'))
                 setLoading(false)
                 return
             }
@@ -83,7 +83,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({
                 const message =
                     renderError instanceof Error && renderError.message
                         ? renderError.message
-                        : t('publish.publicFlow.errors.renderFailed', 'Не удалось отобразить AR.js публикацию')
+                        : t('publish.publicFlow.errors.renderFailed', 'Failed to render the AR.js publication')
                 setError(message)
             } finally {
                 setLoading(false)
@@ -121,7 +121,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({
                 >
                     <CircularProgress color='primary' size={60} />
                     <Typography variant='h6' sx={{ mt: 2 }}>
-                        {t('arjs.loading', 'Загрузка AR сцены...')}
+                        {t('arjs.loading', 'Loading AR scene...')}
                     </Typography>
                 </Box>
             )}

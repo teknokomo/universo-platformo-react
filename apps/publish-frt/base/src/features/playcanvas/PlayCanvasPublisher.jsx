@@ -106,7 +106,7 @@ const PlayCanvasPublisher = ({ flow }) => {
                     return true
                 }
 
-                return !flow?.versionGroupId && !flow?.id
+                return false
             })
 
             setPublishLinkRecords(filtered)
@@ -203,12 +203,11 @@ const PlayCanvasPublisher = ({ flow }) => {
         const nextValue = event.target.checked
         setIsPublic(nextValue)
 
-        if (nextValue) {
-            await loadPublishLinks()
-        } else {
+        if (!nextValue) {
             setPublishedUrl('')
-            await loadPublishLinks()
         }
+
+        await loadPublishLinks()
     }
 
     useEffect(() => {

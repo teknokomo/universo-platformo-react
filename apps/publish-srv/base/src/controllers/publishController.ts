@@ -215,7 +215,14 @@ export class PublishController {
         }
 
         try {
-            const flowData = await this.flowDataService.getFlowDataBySlug(identifier)
+            let flowData
+            try {
+                flowData = await this.flowDataService.getFlowDataBySlug(identifier)
+            } catch (slugError) {
+                logger.warn('[PublishController] getPublicARJSPublication slug lookup failed, trying canvas fallback', slugError)
+                flowData = await this.flowDataService.getFlowData(identifier)
+            }
+
             res.status(200).json({
                 success: true,
                 publicationId: identifier,
@@ -227,29 +234,11 @@ export class PublishController {
                 projectName: flowData.canvas?.name || `UPDL Canvas ${identifier}`
             })
         } catch (error) {
-            logger.warn('[PublishController] getPublicARJSPublication slug lookup failed, trying canvas fallback', error)
-            try {
-                const fallback = await this.flowDataService.getFlowData(identifier)
-                res.status(200).json({
-                    success: true,
-                    publicationId: identifier,
-                    flowData: fallback.flowData,
-                    libraryConfig: fallback.libraryConfig,
-                    renderConfig: fallback.renderConfig,
-                    playcanvasConfig: fallback.playcanvasConfig,
-                    canvasId: fallback.canvas?.id,
-                    projectName: fallback.canvas?.name || `UPDL Canvas ${identifier}`
-                })
-            } catch (fallbackError) {
-                logger.error('[PublishController] getPublicARJSPublication error:', fallbackError)
-                res.status(500).json({
-                    success: false,
-                    error:
-                        fallbackError instanceof Error
-                            ? fallbackError.message
-                            : 'Failed to load publication'
-                })
-            }
+            logger.error('[PublishController] getPublicARJSPublication error:', error)
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to load publication'
+            })
         }
     }
 
@@ -261,7 +250,14 @@ export class PublishController {
         }
 
         try {
-            const flowData = await this.flowDataService.getFlowDataBySlug(slug)
+            let flowData
+            try {
+                flowData = await this.flowDataService.getFlowDataBySlug(slug)
+            } catch (slugError) {
+                logger.warn('[PublishController] streamUPDL slug lookup failed, trying canvas fallback', slugError)
+                flowData = await this.flowDataService.getFlowData(slug)
+            }
+
             res.status(200).json({
                 success: true,
                 publicationId: slug,
@@ -275,28 +271,11 @@ export class PublishController {
                 timestamp: new Date().toISOString()
             })
         } catch (error) {
-            logger.warn('[PublishController] streamUPDL slug lookup failed, trying canvas fallback', error)
-            try {
-                const fallback = await this.flowDataService.getFlowData(slug)
-                res.status(200).json({
-                    success: true,
-                    publicationId: slug,
-                    projectName: fallback.canvas?.name || `UPDL Canvas ${slug}`,
-                    generationMode: 'streaming',
-                    flowData: fallback.flowData,
-                    libraryConfig: fallback.libraryConfig,
-                    renderConfig: fallback.renderConfig,
-                    playcanvasConfig: fallback.playcanvasConfig,
-                    canvasId: fallback.canvas?.id,
-                    timestamp: new Date().toISOString()
-                })
-            } catch (fallbackError) {
-                logger.error('[PublishController] streamUPDL error:', fallbackError)
-                res.status(500).json({
-                    success: false,
-                    error: fallbackError instanceof Error ? fallbackError.message : 'Failed to retrieve flow data'
-                })
-            }
+            logger.error('[PublishController] streamUPDL error:', error)
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to retrieve flow data'
+            })
         }
     }
 

@@ -25,7 +25,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
     useEffect(() => {
         const renderPlayCanvasExperience = async () => {
             if (!flowData || !config) {
-                setError(t('publish.publicFlow.errors.missingFlow', 'Данные публикации отсутствуют'))
+                setError(t('publish.publicFlow.errors.missingFlow', 'Publication data is missing'))
                 setLoading(false)
                 return
             }
@@ -65,7 +65,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
                 const message =
                     renderError instanceof Error && renderError.message
                         ? renderError.message
-                        : t('publish.publicFlow.errors.renderFailed', 'Не удалось отобразить публикацию')
+                        : t('publish.publicFlow.errors.renderFailed', 'Failed to render the publication')
                 setError(message)
             } finally {
                 setLoading(false)
@@ -82,7 +82,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
 
         const container = document.getElementById('playcanvas-container')
         if (!container) {
-            setError(t('publish.publicFlow.errors.renderFailed', 'Не удалось отобразить публикацию'))
+            setError(t('publish.publicFlow.errors.renderFailed', 'Failed to render the publication'))
             return
         }
 
@@ -125,7 +125,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
                 >
                     <CircularProgress color='primary' size={60} />
                     <Typography variant='h6' sx={{ mt: 2 }}>
-                        {t('publish.playcanvas.loading', 'Загрузка PlayCanvas приложения...')}
+                        {t('publish.playcanvas.loading', 'Loading PlayCanvas application...')}
                     </Typography>
                 </Box>
             )}
@@ -136,7 +136,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
                 </Alert>
             )}
 
-            <div id='playcanvas-container' style={{ width: '100%', height: '100%' }} />
+            <div id='playcanvas-container' style={{ width: '100%', height: '100%', backgroundColor: '#000' }} />
         </Box>
     )
 }
