@@ -145,7 +145,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
                     name: z.string().min(1).optional(),
                     description: z.string().optional()
                 })
-                .refine((data) => Object.keys(data).length > 0, {
+                .refine((data) => data.name !== undefined || data.description !== undefined, {
                     message: 'At least one field (name or description) must be provided'
                 })
 
