@@ -37,7 +37,7 @@ const ClusterList = () => {
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState<any>(null)
     const [clusters, setClusters] = useState<Cluster[]>([])
-    const [clusterStats, setClusterStats] = useState<Record<string, { domains: number; resources: number }>>({})
+    // Aggregated counts come directly from backend list response now
 
     const { request: loadClusters } = useApi(clustersApi.listClusters)
     const updateClusterApi = useApi(clustersApi.updateCluster)
@@ -81,8 +81,6 @@ const ClusterList = () => {
         setDialogOpen(true)
     }
 
-
-
     const handleDialogClose = () => {
         setDialogOpen(false)
     }
@@ -122,64 +120,20 @@ const ClusterList = () => {
                 label: t('clusters.table.domains'),
                 width: '20%',
                 align: 'center',
-                render: (row: Cluster) => clusterStats[row.id]?.domains ?? '—'
+                render: (row: Cluster) => (typeof row.domainsCount === 'number' ? row.domainsCount : '—')
             },
             {
                 id: 'resources',
                 label: t('clusters.table.resources'),
                 width: '20%',
                 align: 'center',
-                render: (row: Cluster) => clusterStats[row.id]?.resources ?? '—'
+                render: (row: Cluster) => (typeof row.resourcesCount === 'number' ? row.resourcesCount : '—')
             }
         ],
-        [clusterStats, t]
+        [t]
     )
 
-    useEffect(() => {
-        if (!Array.isArray(clusters) || clusters.length === 0) {
-            setClusterStats({})
-            return
-        }
-
-        let cancelled = false
-
-        const loadCounts = async () => {
-            const results = await Promise.allSettled(
-                clusters.map(async (cluster) => {
-                    const [domainsRes, resourcesRes] = await Promise.all([
-                        clustersApi.getClusterDomains(cluster.id),
-                        clustersApi.getClusterResources(cluster.id)
-                    ])
-                    const domains = Array.isArray(domainsRes?.data) ? domainsRes.data.length : 0
-                    const resources = Array.isArray(resourcesRes?.data) ? resourcesRes.data.length : 0
-                    return { id: cluster.id, domains, resources }
-                })
-            )
-
-            if (cancelled) return
-
-            const next: Record<string, { domains: number; resources: number }> = {}
-            results.forEach((result) => {
-                if (result.status === 'fulfilled') {
-                    next[result.value.id] = {
-                        domains: result.value.domains,
-                        resources: result.value.resources
-                    }
-                }
-            })
-            setClusterStats(next)
-        }
-
-        loadCounts().catch((err) => {
-            if (!cancelled) {
-                console.error('Failed to load cluster counts', err)
-            }
-        })
-
-        return () => {
-            cancelled = true
-        }
-    }, [clusters])
+    // Removed N+1 counts loading; counts are provided by backend list response
 
     const createClusterContext = useCallback(
         (baseContext: any) => ({
@@ -262,12 +216,7 @@ const ClusterList = () => {
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
-                        <Button
-                            variant='contained'
-                            onClick={handleAddNew}
-                            startIcon={<IconPlus />}
-                            sx={{ borderRadius: 2, height: 40 }}
-                        >
+                        <Button variant='contained' onClick={handleAddNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
                             {t('clusters.addNew')}
                         </Button>
                     </ViewHeader>
@@ -313,14 +262,17 @@ const ClusterList = () => {
                                         }
                                     }}
                                 >
-                                    {Array.isArray(clusters) && clusters.filter(filterClusters).map((cluster) => (
-                                        <ItemCard
-                                            key={cluster.id}
-                                            data={cluster}
-                                            images={images[cluster.id] || []}
-                                            onClick={() => goToCluster(cluster)}
-                                        />
-                                    ))}
+                                    {Array.isArray(clusters) &&
+                                        clusters
+                                            .filter(filterClusters)
+                                            .map((cluster) => (
+                                                <ItemCard
+                                                    key={cluster.id}
+                                                    data={cluster}
+                                                    images={images[cluster.id] || []}
+                                                    onClick={() => goToCluster(cluster)}
+                                                />
+                                            ))}
                                 </Box>
                             ) : (
                                 <FlowListTable
@@ -348,12 +300,7 @@ const ClusterList = () => {
                 </Stack>
             )}
 
-            <ClusterDialog 
-                open={isDialogOpen} 
-                onClose={handleDialogClose} 
-                onSave={handleDialogSave} 
-                cluster={selectedCluster}
-            />
+            <ClusterDialog open={isDialogOpen} onClose={handleDialogClose} onSave={handleDialogSave} cluster={selectedCluster} />
             <ConfirmDialog />
         </Card>
     )

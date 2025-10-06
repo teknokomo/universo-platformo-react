@@ -9,7 +9,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
 
         // 1) Core tables: clusters, domains, resources
         await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS resources;`)
-    
+
         // Core tables in resources schema
         await queryRunner.query(`
             CREATE TABLE resources.clusters (
@@ -94,9 +94,12 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
                 ADD CONSTRAINT fk_cu_auth_user FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
             `)
         } catch (error) {
-            console.warn('Warning: Unable to add FK constraint on clusters_users.user_id referencing auth.users. Continuing without it.', error)
+            console.warn(
+                'Warning: Unable to add FK constraint on clusters_users.user_id referencing auth.users. Continuing without it.',
+                error
+            )
         }
-        
+
         await queryRunner.query(`
             ALTER TABLE resources.clusters_users
                 ADD CONSTRAINT fk_cu_cluster FOREIGN KEY (cluster_id) REFERENCES resources.clusters(id) ON DELETE CASCADE
@@ -276,9 +279,15 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage their own clusters" ON resources.clusters;`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage domains in their clusters" ON resources.domains;`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage resources in their clusters" ON resources.resources;`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage resources_domains in their clusters" ON resources.resources_domains;`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage resources_clusters in their clusters" ON resources.resources_clusters;`)
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage domains_clusters in their clusters" ON resources.domains_clusters;`)
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage resources_domains in their clusters" ON resources.resources_domains;`
+        )
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage resources_clusters in their clusters" ON resources.resources_clusters;`
+        )
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "Allow users to manage domains_clusters in their clusters" ON resources.domains_clusters;`
+        )
 
         // Disable RLS
         await queryRunner.query(`ALTER TABLE resources.clusters DISABLE ROW LEVEL SECURITY;`)

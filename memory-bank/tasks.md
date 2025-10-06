@@ -1,8 +1,37 @@
+## IMPLEMENT - Git Push Mode Enhancement (2025-10-06) ✅
+
+- [x] Add repository detection and push permissions checking (Step 2: fork/upstream detection, capability check, decision matrix)
+- [x] Update analysis step to include repository context and push destinations (Step 3: expanded analysis)
+- [x] Implement flexible push logic with destination selection (Step 7: upstream vs fork push based on permissions and user override)
+- [x] Update PR creation for correct source repository (Step 8: adaptive source based on push destination with fallback)
+- [x] Add comprehensive error handling and guardrails (enhanced error recovery, FlowiseAI guards, fallback strategies)
+- [x] Update mode documentation with override options and usage examples (description, user interface, scenarios)
+
+## IMPLEMENT - Git Pull Mode (2025-10-06) ✅
+
+- [x] Create `.github/chatmodes/git-pull.chatmode.md` with safe pull workflow
+- [x] Default policy: do NOT auto-stage resolved files (manual review first)
+- [x] Default policy: merge-only (try `--ff-only`, fallback to regular merge; rebase only on explicit request)
+- [x] Stash-first protection for dirty working tree (`git stash push -u -m "<auto> pre-pull ..."`)
+- [x] Conflict resolution prompt and rules integrated (TypeScript/React/MUI, TypeORM patterns, pnpm-lock derived)
+- [x] Reporting section (path taken, conflicts, risk, stash status); no commits/pushes in this mode
+
 ## IMPLEMENT - Publish slug-only public routes (2025-10-05)
 
 - [x] Remove legacy UUID fallbacks from public publish views (PublicFlowView, ARViewPage, PlayCanvasViewPage).
 - [x] Clean up router exports to expose only `/p/:slug` and `/b/:slug` public routes.
 - [ ] Run `pnpm build` after code changes to verify the workspace.
+
+## IMPLEMENT - Metaverses Individual Routes Implementation (2025-10-05) ✅
+
+- [x] Analyze existing individual routes patterns in clusters (GET/PUT/DELETE /:resourceId, /:domainId) to understand authorization flow
+- [x] Implement GET /sections/:sectionId endpoint using ensureSectionAccess authorization  
+- [x] Implement PUT /sections/:sectionId endpoint with validation and authorization
+- [x] Implement DELETE /sections/:sectionId endpoint with cascade considerations
+- [x] Implement GET /entities/:entityId endpoint using section-based authorization chain - already existed
+- [x] Implement PUT /entities/:entityId endpoint with validation and authorization - already existed
+- [x] Implement DELETE /entities/:entityId endpoint with cascade considerations - already existed  
+- [x] Test all new endpoints to ensure authorization functions are properly utilized and lint warnings are resolved
 
 ## IMPLEMENT - Metaverses endpoint cleanup and pagination (2025-10-05) ✅
 

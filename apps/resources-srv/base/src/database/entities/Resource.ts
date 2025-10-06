@@ -3,18 +3,18 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 // Comments in English only
 @Entity({ name: 'resources', schema: 'resources' })
 export class Resource {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string
+    @PrimaryGeneratedColumn('uuid')
+    id!: string
 
-  @Column()
-  name!: string
+    @Column()
+    name!: string
 
-  @Column({ type: 'text', nullable: true })
-  description?: string
+    @Column({ type: 'text', nullable: true })
+    description?: string
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt!: Date
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt!: Date
 }

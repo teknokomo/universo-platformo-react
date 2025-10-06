@@ -47,17 +47,6 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
         return userMetaverse !== null
     }
 
-    // Helper function to check if user has access to section (through its metaverse)
-    const checkSectionAccess = async (sectionId: string, userId: string) => {
-        const { sectionMetaverseRepo } = repos()
-        const sectionMetaverse = await sectionMetaverseRepo.findOne({
-            where: { section: { id: sectionId } },
-            relations: ['metaverse']
-        })
-        if (!sectionMetaverse) return false
-        return await checkMetaverseAccess(sectionMetaverse.metaverse.id, userId)
-    }
-
     // GET /sections
     router.get(
         '/',
@@ -151,8 +140,22 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     router.put(
         '/:sectionId',
         asyncHandler(async (req, res) => {
+            const schema = z
+                .object({
+                    name: z.string().min(1).optional(),
+                    description: z.string().optional()
+                })
+                .refine((data) => data.name !== undefined || data.description !== undefined, {
+                    message: 'At least one field (name or description) must be provided'
+                })
+
+            const parsed = schema.safeParse(req.body || {})
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
+            }
+
             const { sectionId } = req.params
-            const { name, description } = req.body || {}
+            const { name, description } = parsed.data
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)

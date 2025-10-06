@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
+} from '@mui/material'
 import { useTranslation } from 'react-i18next'
 
 import { useApi } from '../hooks/useApi'
@@ -27,7 +38,9 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, 
     const { request: updateResource, loading: updating } = useApi(resourcesApi.updateResource)
     const { data: globalDomainsData, request: listDomains, loading: loadingGlobalDomains } = useApi(domainsApi.listDomains)
     const { data: clusterDomainsData, request: getClusterDomains, loading: loadingClusterDomains } = useApi(clustersApi.getClusterDomains)
-    const { request: assignResourceToDomain } = useApi(domainsApi.assignResourceToDomain as unknown as (resourceId: string, domainId: string) => Promise<any>)
+    const { request: assignResourceToDomain } = useApi(
+        domainsApi.assignResourceToDomain as unknown as (resourceId: string, domainId: string) => Promise<any>
+    )
 
     // Use cluster domains if in cluster context, otherwise global domains
     const domainsData = clusterId ? clusterDomainsData : globalDomainsData
@@ -66,7 +79,12 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, 
         try {
             const savedResource = resource
                 ? await updateResource(resource.id, { name: (name || '').trim(), description: (description || '').trim() || undefined })
-                : await createResource({ name: (name || '').trim(), description: (description || '').trim() || undefined, clusterId: clusterId, domainId: selectedDomainId })
+                : await createResource({
+                      name: (name || '').trim(),
+                      description: (description || '').trim() || undefined,
+                      clusterId: clusterId,
+                      domainId: selectedDomainId
+                  })
 
             if (savedResource) {
                 const resId = (savedResource as Resource).id
@@ -94,7 +112,6 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, 
             <DialogTitle>{resource ? t('resources.dialog.editTitle') : t('resources.dialog.createTitle')}</DialogTitle>
             <DialogContent>
                 <TextField
-                    autoFocus
                     margin='dense'
                     label={t('resources.name')}
                     type='text'
@@ -117,7 +134,9 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, 
                         error={!selectedDomainId}
                     >
                         {(domainsData as Domain[] | null)?.map((d) => (
-                            <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                            <MenuItem key={d.id} value={d.id}>
+                                {d.name}
+                            </MenuItem>
                         ))}
                     </Select>
                 </FormControl>
@@ -136,7 +155,11 @@ const ResourceDialog: React.FC<ResourceDialogProps> = ({ open, onClose, onSave, 
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>{t('common.cancel')}</Button>
-                <Button onClick={handleSave} variant='contained' disabled={creating || updating || !(name || '').trim() || !selectedDomainId}>
+                <Button
+                    onClick={handleSave}
+                    variant='contained'
+                    disabled={creating || updating || !(name || '').trim() || !selectedDomainId}
+                >
                     {t('common.save')}
                 </Button>
             </DialogActions>

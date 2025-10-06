@@ -1,3 +1,11 @@
+## 2025-01-16 — Metaverses Individual Routes Implementation
+
+- **Individual Endpoints Completed**: Added missing GET/PUT/DELETE `/sections/:sectionId` endpoints to achieve architectural parity with clusters/domains pattern. All routes use `ensureSectionAccess` authorization and follow identical validation/response patterns.
+- **Existing Entity Routes Validated**: Confirmed that GET/PUT/DELETE `/entities/:entityId` endpoints were already properly implemented with `ensureEntityAccess` authorization and section-based access chain (entity→section→metaverse).
+- **Code Quality Improvements**: Removed unused helper functions (`checkSectionAccess`, `checkMetaverseAccess`) from both route files, eliminating all ESLint warnings about unused variables. Authorization now properly flows through `guards.ts` functions.
+- **Architecture Achievement**: Metaverses service now has complete individual endpoint coverage matching clusters/resources pattern. All authorization functions are actively utilized, resolving lint warnings and completing the intended architecture.
+- **Quality Validation**: Full workspace build successful (`pnpm build`), all ESLint issues resolved, existing tests continue passing (8/8 in metaversesRoutes.test.ts).
+
 ## 2025-10-04 — Metaverses list aggregated counts (MVP)
 
 - Implemented backend aggregation for `GET /metaverses`: returns `sectionsCount`, `entitiesCount`, and timestamps (`created_at/updated_at` plus camelCase). Achieved with a single QueryBuilder (JOIN+COUNT) over `metaverses.metaverses_users` filtered by the authenticated user. No new migrations were introduced.

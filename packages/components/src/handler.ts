@@ -180,9 +180,33 @@ function tryJsonStringify(obj: unknown, fallback: string) {
     }
 }
 
+function normalizeTimestamp(value: number | string | undefined): number | undefined {
+    if (typeof value === 'number') {
+        return value
+    }
+    if (typeof value === 'string') {
+        const numericValue = Number(value)
+        if (Number.isFinite(numericValue)) {
+            return numericValue
+        }
+        const parsedDate = Date.parse(value)
+        if (!Number.isNaN(parsedDate)) {
+            return parsedDate
+        }
+    }
+    return undefined
+}
+
 function elapsed(run: Run): string {
-    if (!run.end_time) return ''
-    const elapsed = run.end_time - run.start_time
+    const end = normalizeTimestamp(run.end_time)
+    const start = normalizeTimestamp(run.start_time)
+    if (end === undefined || start === undefined) return ''
+
+    const elapsed = end - start
+    if (!Number.isFinite(elapsed)) {
+        return ''
+    }
+
     if (elapsed < 1000) {
         return `${elapsed}ms`
     }

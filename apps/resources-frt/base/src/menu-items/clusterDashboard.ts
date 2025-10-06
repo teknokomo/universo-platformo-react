@@ -48,4 +48,3 @@ const clusterDashboard: MenuItem = {
 }
 
 export default clusterDashboard
-
