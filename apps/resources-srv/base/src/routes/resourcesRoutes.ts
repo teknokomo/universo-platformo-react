@@ -53,17 +53,6 @@ export function createResourcesRouter(ensureAuth: RequestHandler, getDataSource:
         return userCluster !== null
     }
 
-    // Helper function to check if user has access to domain (through its cluster)
-    const _checkDomainAccess = async (domainId: string, userId: string) => {
-        const { domainClusterRepo } = getRepositories(getDataSource)
-        const domainCluster = await domainClusterRepo.findOne({
-            where: { domain: { id: domainId } },
-            relations: ['cluster']
-        })
-        if (!domainCluster) return false
-        return await checkClusterAccess(domainCluster.cluster.id, userId)
-    }
-
     // --- Resource CRUD (flat, no categories) ---
 
     // GET / (List all resources)

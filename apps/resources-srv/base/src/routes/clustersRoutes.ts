@@ -103,7 +103,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
                     .addGroupBy('c.createdAt')
                     .addGroupBy('c.updatedAt')
                     .orderBy(sortBy, sortOrder)
-                    .limit(limit)
+                    .limit(limit + 1)
                     .offset(offset)
 
                 const raw = await qb.getRawMany<{
@@ -116,7 +116,10 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
                     resourcesCount: string
                 }>()
 
-                const response = raw.map((row) => ({
+                const hasMore = raw.length > limit
+                const rows = hasMore ? raw.slice(0, limit) : raw
+
+                const response = rows.map((row) => ({
                     id: row.id,
                     name: row.name,
                     description: row.description ?? undefined,
@@ -129,10 +132,9 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
                 }))
 
                 // Add pagination metadata headers for client awareness
-                const hasMore = raw.length === limit
                 res.setHeader('X-Pagination-Limit', limit.toString())
                 res.setHeader('X-Pagination-Offset', offset.toString())
-                res.setHeader('X-Pagination-Count', raw.length.toString())
+                res.setHeader('X-Pagination-Count', rows.length.toString())
                 res.setHeader('X-Pagination-Has-More', hasMore.toString())
 
                 res.json(response)
@@ -172,7 +174,7 @@ export function createClustersRoutes(ensureAuth: RequestHandler, getDataSource: 
                     user_id: userId,
                     role: 'owner'
                 })
-                const _savedClusterUser = await clusterUserRepo.save(clusterUser)
+                await clusterUserRepo.save(clusterUser)
 
                 res.status(201).json(saved)
             } catch (error) {

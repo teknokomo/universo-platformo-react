@@ -47,17 +47,6 @@ export function createDomainsRoutes(ensureAuth: RequestHandler, getDataSource: (
         return userCluster !== null
     }
 
-    // Helper function to check if user has access to domain (through its cluster)
-    const _checkDomainAccess = async (domainId: string, userId: string) => {
-        const { domainClusterRepo } = repos()
-        const domainCluster = await domainClusterRepo.findOne({
-            where: { domain: { id: domainId } },
-            relations: ['cluster']
-        })
-        if (!domainCluster) return false
-        return await checkClusterAccess(domainCluster.cluster.id, userId)
-    }
-
     // GET /domains
     router.get(
         '/',
