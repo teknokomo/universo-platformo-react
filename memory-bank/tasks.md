@@ -1,3 +1,21 @@
+## IMPLEMENT - Git Push Mode Enhancement (2025-10-06) ✅
+
+- [x] Add repository detection and push permissions checking (Step 2: fork/upstream detection, capability check, decision matrix)
+- [x] Update analysis step to include repository context and push destinations (Step 3: expanded analysis)
+- [x] Implement flexible push logic with destination selection (Step 7: upstream vs fork push based on permissions and user override)
+- [x] Update PR creation for correct source repository (Step 8: adaptive source based on push destination with fallback)
+- [x] Add comprehensive error handling and guardrails (enhanced error recovery, FlowiseAI guards, fallback strategies)
+- [x] Update mode documentation with override options and usage examples (description, user interface, scenarios)
+
+## IMPLEMENT - Git Pull Mode (2025-10-06) ✅
+
+- [x] Create `.github/chatmodes/git-pull.chatmode.md` with safe pull workflow
+- [x] Default policy: do NOT auto-stage resolved files (manual review first)
+- [x] Default policy: merge-only (try `--ff-only`, fallback to regular merge; rebase only on explicit request)
+- [x] Stash-first protection for dirty working tree (`git stash push -u -m "<auto> pre-pull ..."`)
+- [x] Conflict resolution prompt and rules integrated (TypeScript/React/MUI, TypeORM patterns, pnpm-lock derived)
+- [x] Reporting section (path taken, conflicts, risk, stash status); no commits/pushes in this mode
+
 ## IMPLEMENT - Publish slug-only public routes (2025-10-05)
 
 - [x] Remove legacy UUID fallbacks from public publish views (PublicFlowView, ARViewPage, PlayCanvasViewPage).
