@@ -126,7 +126,6 @@ class Astra_VectorStores implements INode {
             const astraConfig: ExtendedAstraLibArgs = {
                 ...clientConfig,
                 namespace: keyspace,
-                keyspace,
                 collection: astraCollection ?? credentialData.collectionName ?? 'flowise_test',
                 collectionOptions: {
                     vector: {
