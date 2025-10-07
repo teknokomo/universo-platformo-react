@@ -27,5 +27,4 @@ export * from './types'
 
 // Database
 export { spacesMigrations } from './database/migrations/postgres'
-export { spacesSqliteMigrations } from './database/migrations/sqlite'
 export * from './database/entities'

@@ -6,6 +6,8 @@ import { ICommonObject, INode, INodeData, INodeOutputsValue, INodeParams, Indexi
 import { getBaseClasses, getCredentialData } from '../../../src/utils'
 import { addMMRInputParams, resolveVectorStoreOrRetriever } from '../VectorStoreUtils'
 
+type ExtendedAstraLibArgs = AstraLibArgs & { keyspace?: string }
+
 class Astra_VectorStores implements INode {
     label: string
     name: string
@@ -120,9 +122,11 @@ class Astra_VectorStores implements INode {
                 endpoint: credentialData?.dbEndPoint
             }
 
-            const astraConfig: AstraLibArgs = {
+            const keyspace = astraNamespace ?? 'default_keyspace'
+            const astraConfig: ExtendedAstraLibArgs = {
                 ...clientConfig,
-                keyspace: astraNamespace ?? 'default_keyspace',
+                namespace: keyspace,
+                keyspace,
                 collection: astraCollection ?? credentialData.collectionName ?? 'flowise_test',
                 collectionOptions: {
                     vector: {
@@ -167,9 +171,11 @@ class Astra_VectorStores implements INode {
             endpoint: credentialData?.dbEndPoint
         }
 
-        const astraConfig: AstraLibArgs = {
+        const keyspace = astraNamespace ?? 'default_keyspace'
+        const astraConfig: ExtendedAstraLibArgs = {
             ...clientConfig,
-            keyspace: astraNamespace ?? 'default_keyspace',
+            namespace: keyspace,
+            keyspace,
             collection: astraCollection ?? credentialData.collectionName ?? 'flowise_test',
             collectionOptions: {
                 vector: {
