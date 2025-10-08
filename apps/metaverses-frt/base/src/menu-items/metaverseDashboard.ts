@@ -1,4 +1,4 @@
-import { IconBuildingStore, IconHierarchy, IconFolder } from '@tabler/icons-react'
+import { IconBuildingStore, IconHierarchy, IconFolder, IconUsersGroup } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
 export interface MenuItem {
@@ -11,7 +11,7 @@ export interface MenuItem {
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconFolder }
+const icons = { IconBuildingStore, IconHierarchy, IconFolder, IconUsersGroup }
 
 // ==============================|| METAVERSE DASHBOARD MENU ITEMS ||============================== //
 
@@ -42,6 +42,14 @@ const metaverseDashboard: MenuItem = {
             type: 'item',
             url: '/sections',
             icon: icons.IconHierarchy,
+            breadcrumbs: true
+        },
+        {
+            id: 'access',
+            title: 'menu.access',
+            type: 'item',
+            url: '/access',
+            icon: icons.IconUsersGroup,
             breadcrumbs: true
         }
     ]

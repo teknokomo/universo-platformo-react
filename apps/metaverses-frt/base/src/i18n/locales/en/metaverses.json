@@ -13,7 +13,8 @@
     "menu": {
         "metaverseboard": "Metaverseboard",
         "entities": "Entities",
-        "sections": "Sections"
+        "sections": "Sections",
+        "access": "Access"
     },
 
     "metaverses": {
@@ -63,7 +64,38 @@
         },
         "table": {
             "sections": "Sections",
-            "entities": "Entities"
+            "entities": "Entities",
+            "role": "Role"
+        }
+    },
+    "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "editor": "Editor",
+        "member": "Member"
+    },
+    "access": {
+        "title": "Access management",
+        "subtitle": "Manage member roles for \"{{name}}\"",
+        "emailLabel": "Member email",
+        "emailPlaceholder": "user@example.com",
+        "roleLabel": "Role",
+        "inviteButton": "Invite",
+        "refresh": "Refresh",
+        "empty": "No members yet",
+        "notAllowed": "You do not have permission to manage members in this metaverse.",
+        "errors": {
+            "loadFailed": "Failed to load members",
+            "inviteFailed": "Failed to invite member",
+            "updateFailed": "Failed to update member",
+            "removeFailed": "Failed to remove member"
+        },
+        "table": {
+            "email": "Email",
+            "role": "Role",
+            "added": "Added",
+            "actions": "Actions",
+            "remove": "Remove"
         }
     },
     "sections": {

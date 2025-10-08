@@ -110,7 +110,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             // Verify access to the section
-            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            await ensureSectionAccess(getDataSource(), userId, sectionId, 'createContent')
 
             // Validate section exists
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
@@ -126,7 +126,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             // Optional metaverse link for atomic create-in-metaverse flow
             if (metaverseId) {
                 // Verify access to the metaverse
-                await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
+                await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
 
                 const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
                 if (!metaverse) return res.status(400).json({ error: 'Invalid metaverseId' })
@@ -163,7 +163,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
-            await ensureEntityAccess(getDataSource(), userId, req.params.entityId)
+            await ensureEntityAccess(getDataSource(), userId, req.params.entityId, 'editContent')
             const { entityRepo } = getRepositories(getDataSource)
             const entity = await entityRepo.findOneBy({ id: req.params.entityId })
             if (!entity) {
@@ -182,7 +182,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
-            await ensureEntityAccess(getDataSource(), userId, req.params.entityId)
+            await ensureEntityAccess(getDataSource(), userId, req.params.entityId, 'deleteContent')
             const { entityRepo } = getRepositories(getDataSource)
             const result = await entityRepo.delete({ id: req.params.entityId })
             if (result.affected === 0) {
@@ -202,8 +202,8 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             if (!sectionId) return res.status(400).json({ error: 'sectionId is required' })
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
-            await ensureEntityAccess(getDataSource(), userId, entityId)
-            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            await ensureEntityAccess(getDataSource(), userId, entityId, 'editContent')
+            await ensureSectionAccess(getDataSource(), userId, sectionId, 'editContent')
 
             const entity = await entityRepo.findOneBy({ id: entityId })
             if (!entity) return res.status(404).json({ error: 'Entity not found' })
@@ -228,7 +228,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
             const entityId = req.params.entityId
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
-            await ensureEntityAccess(getDataSource(), userId, entityId)
+            await ensureEntityAccess(getDataSource(), userId, entityId, 'deleteContent')
             const entity = await entityRepo.findOneBy({ id: entityId })
             if (!entity) return res.status(404).json({ error: 'Entity not found' })
 

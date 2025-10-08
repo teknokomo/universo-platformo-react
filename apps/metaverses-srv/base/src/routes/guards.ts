@@ -6,25 +6,92 @@ import { EntityMetaverse } from '../database/entities/EntityMetaverse'
 
 // Comments in English only
 
-/**
- * Ensures the user has membership to the given metaverse.
- * Throws 403 error when access is denied.
- */
-export async function ensureMetaverseAccess(ds: DataSource, userId: string, metaverseId: string): Promise<void> {
-    const metaverseUserRepo = ds.getRepository(MetaverseUser)
-    const found = await metaverseUserRepo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
-    if (!found) {
-        const err: any = new Error('Access denied to this metaverse')
+export const ROLE_PERMISSIONS = {
+    owner: {
+        manageMembers: true,
+        manageMetaverse: true,
+        createContent: true,
+        editContent: true,
+        deleteContent: true
+    },
+    admin: {
+        manageMembers: true,
+        manageMetaverse: true,
+        createContent: true,
+        editContent: true,
+        deleteContent: true
+    },
+    editor: {
+        manageMembers: false,
+        manageMetaverse: false,
+        createContent: false,
+        editContent: true,
+        deleteContent: false
+    },
+    member: {
+        manageMembers: false,
+        manageMetaverse: false,
+        createContent: false,
+        editContent: false,
+        deleteContent: false
+    }
+} as const
+
+export type MetaverseRole = keyof typeof ROLE_PERMISSIONS
+export type RolePermission = keyof (typeof ROLE_PERMISSIONS)['owner']
+
+export interface MetaverseMembershipContext {
+    membership: MetaverseUser
+    metaverseId: string
+}
+
+export async function getMetaverseMembership(
+    ds: DataSource,
+    userId: string,
+    metaverseId: string
+): Promise<MetaverseUser | null> {
+    const repo = ds.getRepository(MetaverseUser)
+    return repo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
+}
+
+export function assertPermission(membership: MetaverseUser, permission: RolePermission): void {
+    const role = (membership.role || 'member') as MetaverseRole
+    const allowed = ROLE_PERMISSIONS[role]?.[permission]
+    if (!allowed) {
+        const err: any = new Error('Forbidden for this role')
         err.status = 403
         throw err
     }
 }
 
-/**
- * Ensures the user can access the given section through its metaverse membership.
- * Throws 404 when the section link is missing, or 403 when membership is absent.
- */
-export async function ensureSectionAccess(ds: DataSource, userId: string, sectionId: string): Promise<void> {
+export async function ensureMetaverseAccess(
+    ds: DataSource,
+    userId: string,
+    metaverseId: string,
+    permission?: RolePermission
+): Promise<MetaverseMembershipContext> {
+    const membership = await getMetaverseMembership(ds, userId, metaverseId)
+    if (!membership) {
+        const err: any = new Error('Access denied to this metaverse')
+        err.status = 403
+        throw err
+    }
+    if (permission) {
+        assertPermission(membership, permission)
+    }
+    return { membership, metaverseId }
+}
+
+export interface SectionAccessContext extends MetaverseMembershipContext {
+    sectionLink: SectionMetaverse
+}
+
+export async function ensureSectionAccess(
+    ds: DataSource,
+    userId: string,
+    sectionId: string,
+    permission?: RolePermission
+): Promise<SectionAccessContext> {
     const sectionMetaverseRepo = ds.getRepository(SectionMetaverse)
     const sectionMetaverse = await sectionMetaverseRepo.findOne({ where: { section: { id: sectionId } }, relations: ['metaverse'] })
     if (!sectionMetaverse) {
@@ -32,52 +99,77 @@ export async function ensureSectionAccess(ds: DataSource, userId: string, sectio
         err.status = 404
         throw err
     }
-    await ensureMetaverseAccess(ds, userId, sectionMetaverse.metaverse.id)
+
+    const context = await ensureMetaverseAccess(ds, userId, sectionMetaverse.metaverse.id, permission)
+    return { ...context, sectionLink: sectionMetaverse }
 }
 
-/**
- * Ensures the user can access the given entity through any of its sections or metaverses.
- * Throws 404 when no links are found, or 403 when membership is absent.
- */
-export async function ensureEntityAccess(ds: DataSource, userId: string, entityId: string): Promise<void> {
-    const rdRepo = ds.getRepository(EntitySection)
-    const rcRepo = ds.getRepository(EntityMetaverse)
+export interface EntityAccessContext extends MetaverseMembershipContext {
+    viaMetaverseIds: string[]
+}
 
-    // Try via section links first
-    const sectionLinks = await rdRepo.find({ where: { entity: { id: entityId } }, relations: ['section'] })
-    if (sectionLinks.length > 0) {
-        const dcRepo = ds.getRepository(SectionMetaverse)
-        const sectionIds = sectionLinks.map((l) => l.section.id)
-        const sectionMetaverseLinks = await dcRepo.find({ where: sectionIds.map((id) => ({ section: { id } })), relations: ['metaverse'] })
-        const metaverseIds = Array.from(new Set(sectionMetaverseLinks.map((l) => l.metaverse.id)))
-        if (metaverseIds.length === 0) {
-            const err: any = new Error('Access denied to this entity')
-            err.status = 403
-            throw err
-        }
-        const cuRepo = ds.getRepository(MetaverseUser)
-        const membership = await cuRepo.findOne({ where: metaverseIds.map((cid) => ({ metaverse_id: cid, user_id: userId })) as any })
-        if (!membership) {
-            const err: any = new Error('Access denied to this entity')
-            err.status = 403
-            throw err
-        }
-        return
+export async function ensureEntityAccess(
+    ds: DataSource,
+    userId: string,
+    entityId: string,
+    permission?: RolePermission
+): Promise<EntityAccessContext> {
+    const sectionLinkRepo = ds.getRepository(EntitySection)
+    const metaverseLinkRepo = ds.getRepository(EntityMetaverse)
+
+    const sectionLinks = await sectionLinkRepo.find({ where: { entity: { id: entityId } }, relations: ['section'] })
+    const sectionIds = sectionLinks.map((link) => link.section.id)
+
+    let metaverseIds: string[] = []
+    if (sectionIds.length > 0) {
+        const sectionMetaverseRepo = ds.getRepository(SectionMetaverse)
+        const sectionMetaverseLinks = await sectionMetaverseRepo.find({
+            where: sectionIds.map((id) => ({ section: { id } })),
+            relations: ['metaverse']
+        })
+        metaverseIds = sectionMetaverseLinks.map((link) => link.metaverse.id)
     }
 
-    // Fallback: check explicit entity-metaverse links
-    const rc = await rcRepo.find({ where: { entity: { id: entityId } }, relations: ['metaverse'] })
-    if (rc.length === 0) {
-        const err: any = new Error('Entity not found')
-        err.status = 404
-        throw err
+    if (metaverseIds.length === 0) {
+        const explicitLinks = await metaverseLinkRepo.find({ where: { entity: { id: entityId } }, relations: ['metaverse'] })
+        if (explicitLinks.length === 0) {
+            const err: any = new Error('Entity not found')
+            err.status = 404
+            throw err
+        }
+        metaverseIds = explicitLinks.map((link) => link.metaverse.id)
     }
-    const metaverseIds = rc.map((l) => l.metaverse.id)
-    const cuRepo = ds.getRepository(MetaverseUser)
-    const membership = await cuRepo.findOne({ where: metaverseIds.map((cid) => ({ metaverse_id: cid, user_id: userId })) as any })
-    if (!membership) {
+
+    const uniqueMetaverseIds = Array.from(new Set(metaverseIds))
+    if (uniqueMetaverseIds.length === 0) {
         const err: any = new Error('Access denied to this entity')
         err.status = 403
         throw err
     }
+
+    const membershipRepo = ds.getRepository(MetaverseUser)
+    const memberships = await membershipRepo.find({
+        // TypeORM does not yet expose precise typings for an array of OR conditions.
+        // The `as any` cast avoids false positives until the upstream types are improved.
+        where: uniqueMetaverseIds.map((id) => ({ metaverse_id: id, user_id: userId })) as any
+    })
+
+    if (memberships.length === 0) {
+        const err: any = new Error('Access denied to this entity')
+        err.status = 403
+        throw err
+    }
+
+    if (!permission) {
+        return { membership: memberships[0], metaverseId: memberships[0].metaverse_id, viaMetaverseIds: uniqueMetaverseIds }
+    }
+
+    const allowedMembership = memberships.find((membership) => ROLE_PERMISSIONS[(membership.role || 'member') as MetaverseRole]?.[permission])
+    if (!allowedMembership) {
+        const err: any = new Error('Forbidden for this role')
+        err.status = 403
+        throw err
+    }
+
+    return { membership: allowedMembership, metaverseId: allowedMembership.metaverse_id, viaMetaverseIds: uniqueMetaverseIds }
 }

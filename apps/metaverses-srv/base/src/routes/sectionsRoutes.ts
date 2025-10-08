@@ -6,7 +6,7 @@ import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { Entity } from '../database/entities/Entity'
 import { EntitySection } from '../database/entities/EntitySection'
-import { ensureSectionAccess } from './guards'
+import { ensureSectionAccess, ensureMetaverseAccess } from './guards'
 import { z } from 'zod'
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -36,15 +36,6 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             entityRepo: ds.getRepository(Entity),
             entitySectionRepo: ds.getRepository(EntitySection)
         }
-    }
-
-    // Helper function to check if user has access to metaverse
-    const checkMetaverseAccess = async (metaverseId: string, userId: string) => {
-        const { metaverseUserRepo } = repos()
-        const userMetaverse = await metaverseUserRepo.findOne({
-            where: { metaverse_id: metaverseId, user_id: userId }
-        })
-        return userMetaverse !== null
     }
 
     // GET /sections
@@ -98,11 +89,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             if (!metaverseId)
                 return res.status(400).json({ error: 'metaverseId is required - sections must be associated with a metaverse' })
 
-            // Check if user has access to the metaverse
-            const hasAccess = await checkMetaverseAccess(metaverseId, userId)
-            if (!hasAccess) {
-                return res.status(403).json({ error: 'Access denied to this metaverse' })
-            }
+            await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
 
             const { sectionRepo, metaverseRepo, sectionMetaverseRepo } = repos()
 
@@ -158,7 +145,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const { name, description } = parsed.data
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
-            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            await ensureSectionAccess(getDataSource(), userId, sectionId, 'editContent')
             const { sectionRepo } = repos()
 
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
@@ -179,7 +166,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const { sectionId } = req.params
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
-            await ensureSectionAccess(getDataSource(), userId, sectionId)
+            await ensureSectionAccess(getDataSource(), userId, sectionId, 'deleteContent')
             const { sectionRepo } = repos()
 
             const section = await sectionRepo.findOne({ where: { id: sectionId } })

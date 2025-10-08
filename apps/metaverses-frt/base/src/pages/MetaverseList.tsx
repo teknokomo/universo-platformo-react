@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Card, Button } from '@mui/material'
+import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Card, Button, Chip } from '@mui/material'
 import { IconPlus, IconLayoutGrid, IconList } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '@mui/material/styles'
@@ -21,7 +21,7 @@ import APIEmptySVG from '@ui/assets/images/api_empty.svg'
 
 import { useApi } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
-import { Metaverse } from '../types'
+import { Metaverse, MetaverseRole } from '../types'
 import MetaverseDialog from './MetaverseDialog'
 import metaverseActions from './metaverseActions'
 
@@ -113,8 +113,20 @@ const MetaverseList = () => {
 
     const updateFlowsApi = fetchMetaverses
 
+    const roleLabel = useCallback(
+        (role?: MetaverseRole) => (role ? t(`metaverses.roles.${role}`) : '—'),
+        [t]
+    )
+
     const metaverseColumns = useMemo(
         () => [
+            {
+                id: 'role',
+                label: t('metaverses.table.role'),
+                width: '20%',
+                align: 'center',
+                render: (row: Metaverse) => roleLabel(row.role)
+            },
             {
                 id: 'sections',
                 label: t('metaverses.table.sections'),
@@ -130,7 +142,7 @@ const MetaverseList = () => {
                 render: (row: Metaverse) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
             }
         ],
-        [t]
+        [roleLabel, t]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -266,12 +278,22 @@ const MetaverseList = () => {
                                         metaverses
                                             .filter(filterMetaverses)
                                             .map((metaverse) => (
-                                                <ItemCard
-                                                    key={metaverse.id}
-                                                    data={metaverse}
-                                                    images={images[metaverse.id] || []}
-                                                    onClick={() => goToMetaverse(metaverse)}
-                                                />
+                                                <Stack key={metaverse.id} spacing={1}>
+                                                    <ItemCard
+                                                        data={metaverse}
+                                                        images={images[metaverse.id] || []}
+                                                        onClick={() => goToMetaverse(metaverse)}
+                                                    />
+                                                    {metaverse.role && (
+                                                        <Chip
+                                                            size='small'
+                                                            variant='outlined'
+                                                            color='primary'
+                                                            label={roleLabel(metaverse.role)}
+                                                            sx={{ alignSelf: 'flex-start' }}
+                                                        />
+                                                    )}
+                                                </Stack>
                                             ))}
                                 </Box>
                             ) : (
@@ -284,15 +306,26 @@ const MetaverseList = () => {
                                     setError={setError}
                                     getRowLink={(row: Metaverse) => (row?.id ? `/metaverses/${row.id}` : undefined)}
                                     customColumns={metaverseColumns}
-                                    renderActions={(row: Metaverse) => (
-                                        <BaseEntityMenu
-                                            entity={row}
-                                            entityKind='metaverse'
-                                            descriptors={metaverseActions}
-                                            namespace='flowList'
-                                            createContext={createMetaverseContext}
-                                        />
-                                    )}
+                                    renderActions={(row: Metaverse) => {
+                                        const descriptors = metaverseActions.filter((descriptor) => {
+                                            if (descriptor.id === 'rename' || descriptor.id === 'delete') {
+                                                return row.permissions?.manageMetaverse
+                                            }
+                                            return true
+                                        })
+
+                                        if (!descriptors.length) return null
+
+                                        return (
+                                            <BaseEntityMenu
+                                                entity={row}
+                                                entityKind='metaverse'
+                                                descriptors={descriptors}
+                                                namespace='flowList'
+                                                createContext={createMetaverseContext}
+                                            />
+                                        )
+                                    }}
                                 />
                             )}
                         </>

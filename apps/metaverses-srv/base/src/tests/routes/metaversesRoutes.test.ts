@@ -13,7 +13,8 @@ jest.mock(
             ManyToOne: decorator,
             OneToMany: decorator,
             JoinColumn: decorator,
-            Index: decorator
+            Index: decorator,
+            In: jest.fn((value) => value)
         }
     },
     { virtual: true }
@@ -38,6 +39,7 @@ describe('Metaverses Routes', () => {
         const linkRepo = createMockRepository<any>()
         const sectionRepo = createMockRepository<any>()
         const sectionLinkRepo = createMockRepository<any>()
+        const authUserRepo = createMockRepository<any>()
 
         const dataSource = createMockDataSource({
             Metaverse: metaverseRepo,
@@ -45,7 +47,8 @@ describe('Metaverses Routes', () => {
             Entity: entityRepo,
             EntityMetaverse: linkRepo,
             Section: sectionRepo,
-            SectionMetaverse: sectionLinkRepo
+            SectionMetaverse: sectionLinkRepo,
+            AuthUser: authUserRepo
         })
 
         return {
@@ -55,7 +58,8 @@ describe('Metaverses Routes', () => {
             entityRepo,
             linkRepo,
             sectionRepo,
-            sectionLinkRepo
+            sectionLinkRepo,
+            authUserRepo
         }
     }
 
@@ -259,6 +263,224 @@ describe('Metaverses Routes', () => {
                     expect(res.headers['x-pagination-count']).toBe('1')
                     expect(res.headers['x-pagination-has-more']).toBe('false')
                 })
+        })
+    })
+
+    describe('Members management endpoints', () => {
+        const buildApp = () => {
+            const context = buildDataSource()
+            const app = express()
+            app.use(express.json())
+            app.use('/metaverses', createMetaversesRoutes(ensureAuth, () => context.dataSource))
+            return { app, ...context }
+        }
+
+        it('should return members when user has manageMembers permission', async () => {
+            const { app, metaverseUserRepo, authUserRepo } = buildApp()
+
+            const now = new Date('2024-01-01T00:00:00.000Z')
+
+            metaverseUserRepo.findOne.mockResolvedValueOnce({
+                id: 'membership-admin',
+                metaverse_id: 'metaverse-1',
+                user_id: 'test-user-id',
+                role: 'admin'
+            })
+
+            metaverseUserRepo.find.mockResolvedValue([
+                {
+                    id: 'membership-owner',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'owner-id',
+                    role: 'owner',
+                    created_at: now
+                },
+                {
+                    id: 'membership-editor',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'editor-id',
+                    role: 'editor',
+                    created_at: now
+                }
+            ])
+
+            authUserRepo.find.mockResolvedValue([
+                { id: 'owner-id', email: 'owner@example.com' },
+                { id: 'editor-id', email: 'editor@example.com' }
+            ])
+
+            const response = await request(app).get('/metaverses/metaverse-1/members').expect(200)
+
+            expect(response.body.role).toBe('admin')
+            expect(response.body.permissions).toEqual({
+                manageMembers: true,
+                manageMetaverse: true,
+                createContent: true,
+                editContent: true,
+                deleteContent: true
+            })
+            expect(response.body.members).toEqual([
+                expect.objectContaining({
+                    id: 'membership-owner',
+                    userId: 'owner-id',
+                    email: 'owner@example.com',
+                    role: 'owner'
+                }),
+                expect.objectContaining({
+                    id: 'membership-editor',
+                    userId: 'editor-id',
+                    email: 'editor@example.com',
+                    role: 'editor'
+                })
+            ])
+        })
+
+        it('should reject listing members without manageMembers permission', async () => {
+            const { app, metaverseUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne.mockResolvedValueOnce({
+                id: 'membership-basic',
+                metaverse_id: 'metaverse-1',
+                user_id: 'test-user-id',
+                role: 'member'
+            })
+
+            await request(app).get('/metaverses/metaverse-1/members').expect(403)
+            expect(metaverseUserRepo.find).not.toHaveBeenCalled()
+        })
+
+        it('should create member when requester can manage members', async () => {
+            const { app, metaverseUserRepo, authUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+                .mockResolvedValueOnce(null)
+
+            const qb = authUserRepo.createQueryBuilder()
+            qb.getOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
+
+            const response = await request(app)
+                .post('/metaverses/metaverse-1/members')
+                .send({ email: 'target@example.com', role: 'editor' })
+                .expect(201)
+
+            expect(response.body).toMatchObject({
+                userId: 'target-user',
+                email: 'target@example.com',
+                role: 'editor'
+            })
+            expect(metaverseUserRepo.save).toHaveBeenCalled()
+        })
+
+        it('should reject creating member without permission', async () => {
+            const { app, metaverseUserRepo, authUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne.mockResolvedValueOnce({
+                id: 'membership-editor',
+                metaverse_id: 'metaverse-1',
+                user_id: 'test-user-id',
+                role: 'editor'
+            })
+
+            await request(app)
+                .post('/metaverses/metaverse-1/members')
+                .send({ email: 'target@example.com', role: 'member' })
+                .expect(403)
+
+            expect(authUserRepo.createQueryBuilder).not.toHaveBeenCalled()
+        })
+
+        it('should update member role when authorized', async () => {
+            const { app, metaverseUserRepo, authUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+                .mockResolvedValueOnce({
+                    id: 'membership-target',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'target-user',
+                    role: 'member'
+                })
+
+            authUserRepo.findOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
+
+            const response = await request(app)
+                .patch('/metaverses/metaverse-1/members/membership-target')
+                .send({ role: 'editor' })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                id: 'membership-target',
+                role: 'editor',
+                email: 'target@example.com'
+            })
+            expect(metaverseUserRepo.save).toHaveBeenCalledWith(
+                expect.objectContaining({ id: 'membership-target', role: 'editor' })
+            )
+        })
+
+        it('should forbid updating member without permission', async () => {
+            const { app, metaverseUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne.mockResolvedValueOnce({
+                id: 'membership-member',
+                metaverse_id: 'metaverse-1',
+                user_id: 'test-user-id',
+                role: 'member'
+            })
+
+            await request(app)
+                .patch('/metaverses/metaverse-1/members/membership-target')
+                .send({ role: 'editor' })
+                .expect(403)
+        })
+
+        it('should delete member when authorized', async () => {
+            const { app, metaverseUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne
+                .mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+                .mockResolvedValueOnce({
+                    id: 'membership-target',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'target-user',
+                    role: 'member'
+                })
+
+            await request(app).delete('/metaverses/metaverse-1/members/membership-target').expect(204)
+            expect(metaverseUserRepo.remove).toHaveBeenCalledWith(
+                expect.objectContaining({ id: 'membership-target' })
+            )
+        })
+
+        it('should reject deleting member without permission', async () => {
+            const { app, metaverseUserRepo } = buildApp()
+
+            metaverseUserRepo.findOne.mockResolvedValueOnce({
+                id: 'membership-member',
+                metaverse_id: 'metaverse-1',
+                user_id: 'test-user-id',
+                role: 'member'
+            })
+
+            await request(app)
+                .delete('/metaverses/metaverse-1/members/membership-target')
+                .expect(403)
         })
     })
 })

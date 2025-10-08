@@ -11,7 +11,8 @@ import {
     Link,
     CircularProgress,
     ToggleButton,
-    ToggleButtonGroup
+    ToggleButtonGroup,
+    Chip
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { IconPlus, IconArrowLeft, IconLayoutGrid, IconList } from '@tabler/icons-react'
@@ -33,6 +34,7 @@ import * as metaversesApi from '../api/metaverses'
 import { Metaverse, Entity, Section } from '../types'
 import EntityDialog from './EntityDialog'
 import SectionDialog from './SectionDialog'
+import MetaverseAccess from './MetaverseAccess'
 
 const MetaverseDetail = () => {
     const { metaverseId } = useParams<{ metaverseId: string }>()
@@ -54,10 +56,12 @@ const MetaverseDetail = () => {
     const [error, setError] = useState<any>(null)
     const location = useLocation()
     const pathname = location.pathname
-    const section: 'board' | 'entities' | 'sections' = pathname.endsWith('/entities')
+    const section: 'board' | 'entities' | 'sections' | 'access' = pathname.endsWith('/entities')
         ? 'entities'
         : pathname.endsWith('/sections')
         ? 'sections'
+        : pathname.endsWith('/access')
+        ? 'access'
         : 'board'
 
     const [isEntityDialogOpen, setEntityDialogOpen] = useState(false)
@@ -99,6 +103,7 @@ const MetaverseDetail = () => {
     }
 
     const handleAddEntity = () => {
+        if (!canCreateContent) return
         setSelectedEntity(null)
         setEntityDialogOpen(true)
     }
@@ -168,6 +173,8 @@ const MetaverseDetail = () => {
     const updateEntitiesApi = async () => fetchMetaverseData()
     const updateSectionsApi = async () => fetchMetaverseData()
 
+    const canCreateContent = metaverse?.permissions?.createContent ?? false
+
     if (isLoading) {
         return (
             <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto' }}>
@@ -211,9 +218,19 @@ const MetaverseDetail = () => {
                 ) : (
                     <>
                         <Stack direction='row' justifyContent='space-between' alignItems='center'>
-                            <Typography variant='h4' gutterBottom>
-                                {metaverse?.name}
-                            </Typography>
+                            <Stack direction='row' spacing={1} alignItems='center'>
+                                <Typography variant='h4' gutterBottom>
+                                    {metaverse?.name}
+                                </Typography>
+                                {metaverse?.role && (
+                                    <Chip
+                                        size='small'
+                                        color='primary'
+                                        variant='outlined'
+                                        label={t(`metaverses.roles.${metaverse.role}`)}
+                                    />
+                                )}
+                            </Stack>
                         </Stack>
 
                         {metaverse?.description && (
@@ -266,6 +283,7 @@ const MetaverseDetail = () => {
                                         startIcon={<IconPlus size={16} />}
                                         onClick={handleAddEntity}
                                         sx={{ borderRadius: 2, height: 40 }}
+                                        disabled={!canCreateContent}
                                     >
                                         {t('entities.list.addNew')}
                                     </Button>
@@ -341,6 +359,7 @@ const MetaverseDetail = () => {
                                         startIcon={<IconPlus size={16} />}
                                         onClick={() => setSectionDialogOpen(true)}
                                         sx={{ borderRadius: 2, height: 40 }}
+                                        disabled={!canCreateContent}
                                     >
                                         {t('sections.list.addNew')}
                                     </Button>
@@ -378,6 +397,12 @@ const MetaverseDetail = () => {
                                         setError={setError}
                                     />
                                 )}
+                            </Stack>
+                        )}
+
+                        {section === 'access' && (
+                            <Stack spacing={2}>
+                                <MetaverseAccess metaverse={metaverse} />
                             </Stack>
                         )}
                     </>
