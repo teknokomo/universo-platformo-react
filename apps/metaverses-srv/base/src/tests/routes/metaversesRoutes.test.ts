@@ -13,7 +13,8 @@ jest.mock(
             ManyToOne: decorator,
             OneToMany: decorator,
             JoinColumn: decorator,
-            Index: decorator
+            Index: decorator,
+            In: jest.fn((value) => value)
         }
     },
     { virtual: true }
