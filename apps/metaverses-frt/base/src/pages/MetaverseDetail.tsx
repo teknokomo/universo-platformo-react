@@ -357,10 +357,7 @@ const MetaverseDetail = () => {
                                     <Button
                                         variant='contained'
                                         startIcon={<IconPlus size={16} />}
-                                        onClick={() => {
-                                            if (!canCreateContent) return
-                                            setSectionDialogOpen(true)
-                                        }}
+                                        onClick={() => setSectionDialogOpen(true)}
                                         sx={{ borderRadius: 2, height: 40 }}
                                         disabled={!canCreateContent}
                                     >

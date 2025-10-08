@@ -91,7 +91,9 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
             setErrorMessage(null)
             return
         }
-        loadMembers().catch((err) => console.error('Failed to load members', err))
+        loadMembers().catch((err) =>
+            console.error('Failed to load members', { metaverseId, error: err })
+        )
     }, [loadMembers, shouldLoadMembers])
 
     const roleLabels = useMemo(

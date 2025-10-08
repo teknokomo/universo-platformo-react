@@ -149,6 +149,8 @@ export async function ensureEntityAccess(
 
     const membershipRepo = ds.getRepository(MetaverseUser)
     const memberships = await membershipRepo.find({
+        // TypeORM does not yet expose precise typings for an array of OR conditions.
+        // The `as any` cast avoids false positives until the upstream types are improved.
         where: uniqueMetaverseIds.map((id) => ({ metaverse_id: id, user_id: userId })) as any
     })
 

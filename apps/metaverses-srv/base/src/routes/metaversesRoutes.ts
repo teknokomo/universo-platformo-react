@@ -72,6 +72,22 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         return members.map((member) => mapMember(member, usersMap.get(member.user_id) ?? null))
     }
 
+    type MembersList = Awaited<ReturnType<typeof loadMembers>>
+    type RolePermissions = (typeof ROLE_PERMISSIONS)[MetaverseRole]
+
+    interface MetaverseDetailsResponse {
+        id: string
+        name: string
+        description?: string
+        createdAt: Date
+        updatedAt: Date
+        sectionsCount: number
+        entitiesCount: number
+        role: MetaverseRole
+        permissions: RolePermissions
+        members?: MembersList
+    }
+
     const memberRoleSchema = z.enum(['admin', 'editor', 'member'])
 
     // GET /metaverses
@@ -241,7 +257,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             const membersPayload = permissions.manageMembers ? await loadMembers(metaverseId) : undefined
 
-            const response: any = {
+            const response: MetaverseDetailsResponse = {
                 id: metaverse.id,
                 name: metaverse.name,
                 description: metaverse.description ?? undefined,
@@ -307,6 +323,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             const targetUser = await authUserRepo
                 .createQueryBuilder('user')
+                // TODO: Add a functional index on LOWER(email) to keep this lookup performant.
                 .where('LOWER(user.email) = LOWER(:email)', { email })
                 .getOne()
 
