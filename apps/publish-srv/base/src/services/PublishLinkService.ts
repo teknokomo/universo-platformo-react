@@ -2,12 +2,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm'
 import { randomBytes } from 'crypto'
 import bs58 from 'bs58'
 import { PublishCanvas } from '../database/entities'
-import {
-    CreatePublishLinkDto,
-    PublishLinkQuery,
-    PublishLinkResponse,
-    UpdatePublishLinkDto
-} from '../types/publishLink.types'
+import { CreatePublishLinkDto, PublishLinkQuery, PublishLinkResponse, UpdatePublishLinkDto } from '../types/publishLink.types'
 import { CanvasMinimal } from '../types/publication.types'
 
 type PublishLinkRepository = Repository<PublishCanvas>
@@ -20,7 +15,10 @@ function sanitizeCustomSlug(slug: string | null | undefined): string | null {
         return null
     }
 
-    const normalized = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-')
+    const normalized = slug
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
     const collapsed = normalized.replace(/-+/g, '-').replace(/^-|-$/g, '')
     return collapsed.length ? collapsed : null
 }
@@ -91,17 +89,14 @@ export class PublishLinkService {
 
     private generateBaseSlug(): string {
         const bytes = randomBytes(Math.ceil(BASE_SLUG_LENGTH * 0.8))
-        const encoded = bs58.encode(bytes)
+        const encoded = bs58.encode(new Uint8Array(bytes))
         return encoded.slice(0, BASE_SLUG_LENGTH)
     }
 
     private async ensureCustomSlugAvailable(slug: string, manager: EntityManager, excludeId?: string): Promise<void> {
         const repo = this.getRepository(manager)
         const existing = await repo.findOne({
-            where: [
-                { baseSlug: slug },
-                { customSlug: slug }
-            ]
+            where: [{ baseSlug: slug }, { customSlug: slug }]
         })
 
         if (existing && existing.id !== excludeId) {
@@ -119,11 +114,25 @@ export class PublishLinkService {
                 await this.ensureCustomSlugAvailable(customSlug, manager)
             }
 
+            // Server-side fallback: if creating a group link and versionGroupId is missing,
+            // but targetCanvasId is provided, resolve versionGroupId from the canvas record.
+            let resolvedVersionGroupId = payload.versionGroupId ?? null
+            if (!payload.targetVersionUuid && !resolvedVersionGroupId && payload.targetCanvasId) {
+                const canvasRepo = this.getCanvasRepository(manager)
+                const canvas = (await canvasRepo.findOne({ where: { id: payload.targetCanvasId } })) as CanvasMinimal | null
+                if (canvas) {
+                    const vg = (canvas as any).versionGroupId as string | undefined
+                    if (vg) {
+                        resolvedVersionGroupId = vg
+                    }
+                }
+            }
+
             const link = repo.create({
                 unikId: payload.unikId,
                 spaceId: payload.spaceId ?? null,
                 technology: payload.technology,
-                versionGroupId: payload.versionGroupId ?? null,
+                versionGroupId: resolvedVersionGroupId,
                 targetCanvasId: payload.targetCanvasId ?? null,
                 targetVersionUuid: payload.targetVersionUuid ?? null,
                 targetType: payload.targetVersionUuid ? 'version' : 'group',
@@ -162,7 +171,8 @@ export class PublishLinkService {
 
             if (payload.targetVersionUuid !== undefined) {
                 existing.targetVersionUuid = payload.targetVersionUuid ?? null
-                existing.targetType = existing.targetVersionUuid ? 'version' : existing.targetType
+                // Update targetType based on presence of targetVersionUuid
+                existing.targetType = existing.targetVersionUuid ? 'version' : 'group'
             }
 
             return repo.save(existing)
@@ -177,10 +187,7 @@ export class PublishLinkService {
 
     async findBySlug(slug: string): Promise<PublishLinkResponse | null> {
         const repo = this.getRepository()
-        return repo
-            .createQueryBuilder('link')
-            .where('link.baseSlug = :slug OR link.customSlug = :slug', { slug })
-            .getOne()
+        return repo.createQueryBuilder('link').where('link.baseSlug = :slug OR link.customSlug = :slug', { slug }).getOne()
     }
 
     async listLinks(query: PublishLinkQuery): Promise<PublishLinkResponse[]> {
@@ -256,6 +263,57 @@ export class PublishLinkService {
                 targetCanvasId: canvasId,
                 targetVersionUuid: null,
                 targetType: 'group',
+                baseSlug,
+                customSlug: null,
+                isPublic: true
+            })
+
+            return repo.save(link)
+        })
+    }
+
+    /**
+     * Create a version-specific publication link
+     * @param versionGroupId Version group ID
+     * @param versionUuid Specific version UUID to publish
+     * @param technology Publication technology
+     * @returns Created publication link
+     */
+    async createVersionLink(
+        versionGroupId: string,
+        versionUuid: string,
+        technology: PublishCanvas['technology']
+    ): Promise<PublishLinkResponse> {
+        return this.dataSource.transaction(async (manager) => {
+            const canvasRepo = this.getCanvasRepository(manager)
+
+            // Find canvas by versionUuid
+            const canvas = (await canvasRepo.findOne({
+                where: { versionUuid }
+            })) as CanvasMinimal | null
+
+            if (!canvas) {
+                throw new Error('Version not found')
+            }
+
+            // Verify version belongs to the group
+            const canvasVersionGroupId = (canvas as any).versionGroupId as string | undefined
+            if (canvasVersionGroupId !== versionGroupId) {
+                throw new Error('Version does not belong to the specified group')
+            }
+
+            const context = await this.resolveSpaceContext(canvas.id, versionGroupId, manager)
+            const baseSlug = await this.generateUniqueBaseSlug(manager)
+
+            const repo = this.getRepository(manager)
+            const link = repo.create({
+                unikId: context.unikId,
+                spaceId: context.spaceId,
+                technology,
+                versionGroupId,
+                targetCanvasId: canvas.id,
+                targetVersionUuid: versionUuid,
+                targetType: 'version',
                 baseSlug,
                 customSlug: null,
                 isPublic: true

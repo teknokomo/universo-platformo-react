@@ -13,22 +13,33 @@ import {
     CircularProgress,
     Card,
     CardContent,
-    FormHelperText
+    FormHelperText,
+    Snackbar
 } from '@mui/material'
 
 import TemplateSelect from '../../components/TemplateSelect'
 import GenerationModeSelect from '../../components/GenerationModeSelect'
 import GameModeSelector from '../../components/GameModeSelector'
 import ColyseusSettings from '../../components/ColyseusSettings'
-import PublicationLink from '../../components/PublicationLink'
-import { PlayCanvasPublicationApi, PublishLinksApi } from '../../api'
+import { PublicationLinks } from '../../components/PublicationLinks'
+import { PublishVersionSection } from '../../components/PublishVersionSection'
+import { PlayCanvasPublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
 import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
+import { isValidBase58 } from '../../utils/base58Validator'
 
 const DEFAULT_VERSION = '2.9.0'
 const DEFAULT_TEMPLATE = 'mmoomm-playcanvas'
 
 const PlayCanvasPublisher = ({ flow }) => {
     const { t } = useTranslation('publish')
+
+    // Debug: log flow object to see what fields are available
+    useEffect(() => {
+        console.log('[PlayCanvasPublisher] flow object:', flow)
+        console.log('[PlayCanvasPublisher] versionGroupId:', flow?.versionGroupId)
+        console.log('[PlayCanvasPublisher] version_group_id:', flow?.version_group_id)
+    }, [flow])
+
     // Universo Platformo | keep latest flow.id for delayed saves
     const flowIdRef = useRef(flow?.id)
     useEffect(() => {
@@ -48,8 +59,8 @@ const PlayCanvasPublisher = ({ flow }) => {
     }) // New state for Colyseus settings
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [publishedUrl, setPublishedUrl] = useState('')
     const [publishLinkRecords, setPublishLinkRecords] = useState([])
+    const [snackbar, setSnackbar] = useState({ open: false, message: '' })
 
     const publishLinkItems = useMemo(() => {
         if (!publishLinkRecords?.length) {
@@ -71,9 +82,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             ]
 
             if (link?.customSlug) {
-                const customUrl = origin
-                    ? `${origin}/${segment}/${link.customSlug}`
-                    : `/${segment}/${link.customSlug}`
+                const customUrl = origin ? `${origin}/${segment}/${link.customSlug}` : `/${segment}/${link.customSlug}`
 
                 items.push({
                     id: `${link.id}-custom`,
@@ -86,49 +95,64 @@ const PlayCanvasPublisher = ({ flow }) => {
         })
     }, [publishLinkRecords])
 
-    const loadPublishLinks = useCallback(async () => {
-        if (!flow?.id && !flow?.versionGroupId) {
-            return []
-        }
+    const loadPublishLinks = useCallback(
+        async (retryCount = 0) => {
+            if (!flow?.id && !flow?.versionGroupId) {
+                return []
+            }
 
-        try {
-            const links = await PublishLinksApi.listLinks({
-                technology: 'playcanvas',
-                versionGroupId: flow?.versionGroupId ?? null
-            })
+            try {
+                const links = await PublishLinksApi.listLinks({
+                    technology: 'playcanvas',
+                    versionGroupId: flow?.versionGroupId ?? null
+                })
 
-            const filtered = links.filter((link) => {
-                if (flow?.versionGroupId && link.versionGroupId === flow.versionGroupId) {
-                    return true
+                const filtered = links.filter((link) => {
+                    if (flow?.versionGroupId && link.versionGroupId === flow.versionGroupId) {
+                        return true
+                    }
+
+                    if (flow?.id && link.targetCanvasId === flow.id) {
+                        return true
+                    }
+
+                    return false
+                })
+
+                // Validate Base58 slugs and retry if invalid data found
+                const isValidData = (links) => {
+                    return links.every(link => 
+                        link.baseSlug && 
+                        isValidBase58(link.baseSlug)
+                    )
                 }
 
-                if (flow?.id && link.targetCanvasId === flow.id) {
-                    return true
+                // Retry on empty results or invalid data, but only on first attempt
+                if ((filtered.length === 0 || !isValidData(filtered)) && retryCount === 0) {
+                    console.log('[PlayCanvasPublisher] Invalid or empty links, retrying in 500ms...')
+                    await new Promise((resolve) => setTimeout(resolve, 500))
+                    return loadPublishLinks(1)
                 }
 
-                return false
-            })
+                setPublishLinkRecords(filtered)
 
-            setPublishLinkRecords(filtered)
-            return filtered
-        } catch (apiError) {
-            console.error('PlayCanvasPublisher: failed to load publish links', apiError)
-            setPublishLinkRecords([])
-            return []
-        }
-    }, [flow?.id, flow?.versionGroupId])
+                // Update public state based on actual links
+                const hasGroupLink = filtered.some(link => link.targetType === 'group')
+                setIsPublic(hasGroupLink)
+
+                return filtered
+            } catch (apiError) {
+                console.error('PlayCanvasPublisher: failed to load publish links', apiError)
+                setPublishLinkRecords([])
+                return []
+            }
+        },
+        [flow?.id, flow?.versionGroupId]
+    )
 
     useEffect(() => {
         loadPublishLinks()
     }, [loadPublishLinks])
-
-    useEffect(() => {
-        if (isPublic && publishLinkItems.length > 0) {
-            setPublishedUrl(publishLinkItems[0].url)
-        } else {
-            setPublishedUrl('')
-        }
-    }, [isPublic, publishLinkItems])
 
     useEffect(() => {
         const load = async () => {
@@ -204,10 +228,49 @@ const PlayCanvasPublisher = ({ flow }) => {
         setIsPublic(nextValue)
 
         if (!nextValue) {
-            setPublishedUrl('')
+            // Remove all group links for this technology
+            try {
+                const links = await PublishLinksApi.listLinks({ technology: 'playcanvas' })
+                const groupLinks = links.filter(link => link.targetType === 'group')
+                await Promise.all(groupLinks.map(link => PublishLinksApi.deleteLink(link.id)))
+                await loadPublishLinks()
+                setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
+            } catch (error) {
+                console.error('[PlayCanvasPublisher] Error removing publication:', error)
+                setSnackbar({ open: true, message: t('notifications.publicationError') })
+                setIsPublic(true) // Revert toggle on error
+            }
+            return
         }
 
-        await loadPublishLinks()
+        // Create publication link when enabling public access
+        try {
+            if (!flow?.id) {
+                console.error('[PlayCanvasPublisher] Cannot create publication: flow.id is missing')
+                return
+            }
+
+            // Extract versionGroupId from flow (supports both camelCase and snake_case)
+            const versionGroupId = flow?.versionGroupId || flow?.version_group_id
+
+            // Create group link using unified API with versionGroupId
+            await PublishLinksApi.createGroupLink(flow.id, 'playcanvas', versionGroupId)
+
+            // Reload links to display the new publication
+            await loadPublishLinks()
+
+            // Show success notification
+            setSnackbar({ open: true, message: t('notifications.publicationCreated') })
+        } catch (error) {
+            console.error('[PlayCanvasPublisher] Error creating publication:', error)
+            setError(error.message || 'Failed to create publication')
+            setSnackbar({ open: true, message: t('notifications.publicationError') })
+            setIsPublic(false) // Revert toggle on error
+        }
+    }
+
+    const handleSnackbarClose = () => {
+        setSnackbar({ ...snackbar, open: false })
     }
 
     useEffect(() => {
@@ -279,18 +342,10 @@ const PlayCanvasPublisher = ({ flow }) => {
                     </FormControl>
 
                     {/* Game Mode Selector */}
-                    <GameModeSelector
-                        value={gameMode}
-                        onChange={setGameMode}
-                        disabled={false}
-                    />
+                    <GameModeSelector value={gameMode} onChange={setGameMode} disabled={false} />
 
                     {/* Colyseus Settings Panel - only visible when multiplayer mode is selected */}
-                    <ColyseusSettings
-                        settings={colyseusSettings}
-                        onChange={setColyseusSettings}
-                        visible={gameMode === 'multiplayer'}
-                    />
+                    <ColyseusSettings settings={colyseusSettings} onChange={setColyseusSettings} visible={gameMode === 'multiplayer'} />
 
                     {/* Make Public Toggle - moved to bottom like in ARJSPublisher */}
                     <Box sx={{ my: 3, width: '100%' }}>
@@ -314,19 +369,83 @@ const PlayCanvasPublisher = ({ flow }) => {
                         </Typography>
                     </Box>
 
-                    {/* Publication Link - moved to bottom after toggle */}
-                    {isPublic && publishLinkItems.length > 0 &&
-                        publishLinkItems.map((item, index) => (
-                            <PublicationLink
-                                key={item.id}
-                                url={item.url}
-                                labelKey={item.labelKey}
-                                helpTextKey={index === 0 ? 'playcanvas.openInBrowser' : null}
-                                viewTooltipKey='playcanvas.viewApp'
-                            />
-                        ))}
+                    {/* Publication Links - New Component */}
+                    {isPublic && publishLinkRecords.length > 0 && <PublicationLinks links={publishLinkRecords} technology='playcanvas' />}
                 </CardContent>
             </Card>
+
+            {/* Publish Version Section */}
+            {(() => {
+                const { unikId, spaceId } = getCurrentUrlIds()
+                const versionGroupId = flow?.versionGroupId || flow?.version_group_id
+
+                // Debug: show what we have
+                console.log('[PlayCanvasPublisher] Render check:', {
+                    hasFlow: !!flow,
+                    flowId: flow?.id,
+                    versionGroupId,
+                    unikId,
+                    spaceId,
+                    flowKeys: flow ? Object.keys(flow) : []
+                })
+
+                // Check if we have all required data
+                const isActiveVersion = flow?.isActive ?? flow?.is_active
+
+                // Check if this is an inactive version
+                if (isActiveVersion === false) {
+                    return (
+                        <Box
+                            sx={{
+                                mt: 3,
+                                p: 2,
+                                border: '1px solid',
+                                borderColor: 'info.main',
+                                borderRadius: 1,
+                                bgcolor: 'info.light'
+                            }}
+                        >
+                            <Typography variant='body2' color='info.dark'>
+                                ℹ️ Version publishing is only available for active canvas versions. This appears to be an inactive version. 
+                                Please switch to the active version to enable version publishing features.
+                            </Typography>
+                        </Box>
+                    )
+                }
+
+                if (!unikId || !spaceId) {
+                    return (
+                        <Box
+                            sx={{
+                                mt: 3,
+                                p: 2,
+                                border: '1px solid',
+                                borderColor: 'info.main',
+                                borderRadius: 1,
+                                bgcolor: 'info.light'
+                            }}
+                        >
+                            <Typography variant='body2' color='info.dark'>
+                                ℹ️ Version publishing is only available when working within a Unik workspace. Please open this canvas from a
+                                Unik to enable version publishing.
+                            </Typography>
+                        </Box>
+                    )
+                }
+
+                return (
+                    <PublishVersionSection
+                        unikId={unikId}
+                        spaceId={spaceId}
+                        canvasId={flow.id}
+                        versionGroupId={versionGroupId}
+                        technology='playcanvas'
+                    />
+                )
+            })()}
+
+            {/* Snackbar for notifications */}
+            <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={handleSnackbarClose} message={snackbar.message} />
         </Box>
     )
 }

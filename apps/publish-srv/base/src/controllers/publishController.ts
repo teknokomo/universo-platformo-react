@@ -2,11 +2,9 @@ import { Request, Response } from 'express'
 import logger from '../utils/logger'
 import { FlowDataService } from '../services/FlowDataService'
 import { PublishLinkService } from '../services/PublishLinkService'
-import {
-    CreatePublishLinkDto,
-    PublishLinkQuery,
-    UpdatePublishLinkDto
-} from '../types/publishLink.types'
+import { CreatePublishLinkDto, PublishLinkQuery, UpdatePublishLinkDto } from '../types/publishLink.types'
+import { validateCreateLinkDto, validateUpdateLinkDto } from '../utils/validators'
+import { sanitizeError } from '../utils/errorSanitizer'
 import { PublishCanvas } from '../database/entities'
 
 function resolveTechnology(value: unknown): PublishCanvas['technology'] {
@@ -18,21 +16,20 @@ function resolveTechnology(value: unknown): PublishCanvas['technology'] {
 }
 
 export class PublishController {
-    constructor(
-        private readonly flowDataService: FlowDataService,
-        private readonly publishLinkService: PublishLinkService
-    ) {}
+    constructor(private readonly flowDataService: FlowDataService, private readonly publishLinkService: PublishLinkService) {}
 
     async createPublishLink(req: Request, res: Response): Promise<void> {
         try {
             const body = req.body as Partial<CreatePublishLinkDto>
-            if (!body?.unikId) {
-                res.status(400).json({ success: false, error: 'unikId is required' })
+            const createErrors = validateCreateLinkDto(body)
+            if (createErrors) {
+                res.status(400).json({ success: false, error: 'Validation failed', details: createErrors })
                 return
             }
 
+            // After validation, unikId is guaranteed to be a string
             const payload: CreatePublishLinkDto = {
-                unikId: body.unikId,
+                unikId: String(body.unikId),
                 spaceId: body.spaceId ?? null,
                 technology: resolveTechnology(body.technology),
                 versionGroupId: body.versionGroupId ?? null,
@@ -46,10 +43,7 @@ export class PublishController {
             res.status(201).json({ success: true, data: link })
         } catch (error) {
             logger.error('[PublishController] createPublishLink error:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to create publish link'
-            })
+            res.status(500).json({ success: false, error: sanitizeError(error) })
         }
     }
 
@@ -64,23 +58,16 @@ export class PublishController {
             const query: PublishLinkQuery = {
                 unikId,
                 spaceId: req.query.spaceId ? String(req.query.spaceId) : undefined,
-                technology: req.query.technology
-                    ? resolveTechnology(req.query.technology)
-                    : undefined,
+                technology: req.query.technology ? resolveTechnology(req.query.technology) : undefined,
                 versionGroupId: req.query.versionGroupId ? String(req.query.versionGroupId) : undefined,
-                targetVersionUuid: req.query.targetVersionUuid
-                    ? String(req.query.targetVersionUuid)
-                    : undefined
+                targetVersionUuid: req.query.targetVersionUuid ? String(req.query.targetVersionUuid) : undefined
             }
 
             const links = await this.publishLinkService.listLinks(query)
             res.status(200).json({ success: true, data: links })
         } catch (error) {
             logger.error('[PublishController] listPublishLinks error:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch publish links'
-            })
+            res.status(500).json({ success: false, error: sanitizeError(error) })
         }
     }
 
@@ -99,6 +86,12 @@ export class PublishController {
                 targetVersionUuid: req.body?.targetVersionUuid ?? undefined
             }
 
+            const updateErrors = validateUpdateLinkDto(payload)
+            if (updateErrors) {
+                res.status(400).json({ success: false, error: 'Validation failed', details: updateErrors })
+                return
+            }
+
             const updated = await this.publishLinkService.updateLink(id, payload)
             if (!updated) {
                 res.status(404).json({ success: false, error: 'Publish link not found' })
@@ -108,10 +101,7 @@ export class PublishController {
             res.status(200).json({ success: true, data: updated })
         } catch (error) {
             logger.error('[PublishController] updatePublishLink error:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to update publish link'
-            })
+            res.status(500).json({ success: false, error: sanitizeError(error) })
         }
     }
 
@@ -132,10 +122,7 @@ export class PublishController {
             res.status(200).json({ success: true })
         } catch (error) {
             logger.error('[PublishController] deletePublishLink error:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to delete publish link'
-            })
+            res.status(500).json({ success: false, error: sanitizeError(error) })
         }
     }
 
@@ -163,10 +150,7 @@ export class PublishController {
             })
         } catch (error) {
             logger.error('[PublishController] getPublicPublicationBySlug error:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to load publication'
-            })
+            res.status(500).json({ success: false, error: sanitizeError(error) })
         }
     }
 
@@ -178,6 +162,8 @@ export class PublishController {
         const generationMode = req.body?.generationMode || 'streaming'
         const projectName = req.body?.projectName || `AR.js for ${canvasId}`
         const isPublic = req.body?.isPublic !== false
+        const technology = resolveTechnology(req.body?.technology || 'arjs')
+        const versionUuid = req.body?.versionUuid
 
         if (!canvasId) {
             res.status(400).json({ success: false, error: 'Missing required parameter: canvasId' })
@@ -185,9 +171,28 @@ export class PublishController {
         }
 
         try {
-            const link = await this.publishLinkService.ensureGroupLinkForCanvas(canvasId, 'arjs')
-            if (!isPublic && link.id) {
-                await this.publishLinkService.updateLink(link.id, { isPublic: false })
+            let link
+
+            if (versionUuid) {
+                // Create version-specific link
+                // First get versionGroupId from canvas
+                const canvasMetadata = this.publishLinkService['dataSource'].getMetadata('Canvas')
+                const canvasRepo = this.publishLinkService['dataSource'].getRepository(canvasMetadata.target)
+                const canvas = await canvasRepo.findOne({ where: { id: canvasId } })
+
+                if (!canvas) {
+                    res.status(404).json({ success: false, error: 'Canvas not found' })
+                    return
+                }
+
+                const versionGroupId = (canvas as any).versionGroupId
+                link = await this.publishLinkService.createVersionLink(versionGroupId, versionUuid, technology)
+            } else {
+                // Create/update group link
+                link = await this.publishLinkService.ensureGroupLinkForCanvas(canvasId, technology)
+                if (!isPublic && link.id) {
+                    await this.publishLinkService.updateLink(link.id, { isPublic: false })
+                }
             }
 
             res.status(200).json({
@@ -197,49 +202,42 @@ export class PublishController {
                 projectName,
                 generationMode,
                 isPublic: isPublic && link.isPublic,
+                targetType: link.targetType,
                 createdAt: link.createdAt.toISOString()
             })
         } catch (error) {
             logger.error('[PublishController] publishARJS error:', error)
-            res.status(500).json({
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to publish AR.js project'
-            })
+            res.status(500).json({ success: false, error: sanitizeError(error) })
         }
     }
 
     public async getPublicARJSPublication(req: Request, res: Response): Promise<void> {
-        const identifier = req.params.publicationId
-        if (!identifier) {
-            res.status(400).json({ success: false, error: 'publicationId is required' })
+        const slug = req.params.publicationId
+        if (!slug) {
+            res.status(400).json({ success: false, error: 'Publication slug is required' })
             return
         }
 
         try {
-            let flowData
-            try {
-                flowData = await this.flowDataService.getFlowDataBySlug(identifier)
-            } catch (slugError) {
-                logger.warn('[PublishController] getPublicARJSPublication slug lookup failed, trying canvas fallback', slugError)
-                flowData = await this.flowDataService.getFlowData(identifier)
-            }
+            const flowData = await this.flowDataService.getFlowDataBySlug(slug)
 
             res.status(200).json({
                 success: true,
-                publicationId: identifier,
+                publicationId: slug,
                 flowData: flowData.flowData,
                 libraryConfig: flowData.libraryConfig,
                 renderConfig: flowData.renderConfig,
                 playcanvasConfig: flowData.playcanvasConfig,
                 technology: flowData.technology,
                 canvasId: flowData.canvas?.id,
-                projectName: flowData.canvas?.name || `UPDL Canvas ${identifier}`
+                projectName: flowData.canvas?.name || `UPDL Canvas ${slug}`
             })
         } catch (error) {
             logger.error('[PublishController] getPublicARJSPublication error:', error)
-            res.status(500).json({
+            res.status(404).json({
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to load publication'
+                error: sanitizeError(error),
+                hint: 'Please use the publication link from the Publisher interface (e.g., /p/abc123xyz)'
             })
         }
     }
@@ -247,18 +245,12 @@ export class PublishController {
     public async streamUPDL(req: Request, res: Response): Promise<void> {
         const slug = req.params.slug || req.params.canvasId || req.params.publicationId
         if (!slug) {
-            res.status(400).json({ success: false, error: 'Missing identifier' })
+            res.status(400).json({ success: false, error: 'Publication slug is required' })
             return
         }
 
         try {
-            let flowData
-            try {
-                flowData = await this.flowDataService.getFlowDataBySlug(slug)
-            } catch (slugError) {
-                logger.warn('[PublishController] streamUPDL slug lookup failed, trying canvas fallback', slugError)
-                flowData = await this.flowDataService.getFlowData(slug)
-            }
+            const flowData = await this.flowDataService.getFlowDataBySlug(slug)
 
             res.status(200).json({
                 success: true,
@@ -275,9 +267,11 @@ export class PublishController {
             })
         } catch (error) {
             logger.error('[PublishController] streamUPDL error:', error)
-            res.status(500).json({
+            const errorMessage = error instanceof Error ? error.message : 'Failed to retrieve flow data'
+            res.status(404).json({
                 success: false,
-                error: error instanceof Error ? error.message : 'Failed to retrieve flow data'
+                error: errorMessage,
+                hint: 'Please use the publication link from the Publisher interface (e.g., /p/abc123xyz)'
             })
         }
     }

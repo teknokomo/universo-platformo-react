@@ -74,6 +74,47 @@ apps/publish-frt/base/
 
 **Type System**: UPDL types are imported from `@universo/publish-srv` package, ensuring centralized type definitions and consistency across frontend and backend components.
 
+## Publication Links: Workflow and Data Model
+
+The publication system supports two link types and Base58 short slugs:
+
+- Group link: points to the "active" version within a version group. Public URL prefix: `/p/{slug}`.
+- Version link: points to a specific immutable version UUID. Public URL prefix: `/b/{slug}`.
+
+Key fields:
+
+- `versionGroupId`: required for group links (server can fallback from flow data when absent).
+- `targetType`: `group` or `version`.
+- `slug`: Base58-encoded short id (generated on the server).
+
+Client API: use the unified `PublishLinksApi` to list/create/update links. When creating a group link, pass the normalized `versionGroupId`.
+
+## Normalizing versionGroupId on the client
+
+Backend may return either `versionGroupId` or legacy `version_group_id`. To avoid scattered fallbacks, the frontend uses a tiny utility:
+
+- `src/utils/fieldNormalizer.ts` exports `FieldNormalizer.normalizeVersionGroupId(flow)` returning a string or undefined.
+
+In AR.js/PlayCanvas publishers, use it before creating or listing links so that `PublishLinksApi` receives a consistent value.
+
+Notes:
+
+- This is a non-breaking addition; consumers using old fields continue to work.
+- Prefer using `PublishLinksApi` over any legacy per-tech API imports.
+
+## Security/Robustness notes (MVP)
+
+Server-side improvements were added without changing public contracts:
+
+- Rate limiting for publish routes (write/read tiers)
+- Minimal DTO validation for create/update link payloads
+- Sanitized error messages in production
+
+Frontend implications:
+
+- Pass only the required fields (`unikId`, `canvasId`/`spaceId` if applicable, `versionGroupId` for group links).
+- Handle 400 responses by showing a concise validation error to the user.
+
 ## Critical Architecture: Iframe-Based AR.js Rendering
 
 **IMPORTANT**: AR.js content must be rendered using iframe approach for proper library loading and script execution.

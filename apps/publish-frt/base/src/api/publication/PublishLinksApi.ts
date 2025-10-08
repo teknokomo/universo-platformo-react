@@ -70,6 +70,84 @@ export class PublishLinksApi {
 
         return []
     }
+
+    static async createGroupLink(
+        canvasId: string,
+        technology: 'arjs' | 'playcanvas',
+        versionGroupId?: string
+    ): Promise<PublishLinkRecord> {
+        const { unikId, spaceId } = getCurrentUrlIds()
+        if (!unikId) {
+            throw new Error('unikId not found in URL')
+        }
+
+        const response = await axios.post(
+            `${API_BASE_URL}/api/v1/publish/links`,
+            {
+                unikId,
+                spaceId: spaceId || null,
+                technology,
+                targetCanvasId: canvasId,
+                versionGroupId: versionGroupId || null,
+                targetType: 'group',
+                isPublic: true
+            },
+            {
+                headers: {
+                    ...getAuthHeaders(),
+                    'x-request-from': 'internal'
+                }
+            }
+        )
+
+        return response.data.data
+    }
+
+    static async createVersionLink(canvasId: string, versionUuid: string, technology: 'arjs' | 'playcanvas'): Promise<PublishLinkRecord> {
+        const { unikId, spaceId } = getCurrentUrlIds()
+        if (!unikId) {
+            throw new Error('unikId not found in URL')
+        }
+
+        const response = await axios.post(`${API_BASE_URL}/api/v1/publish/links`, {
+            unikId,
+            spaceId: spaceId || null,
+            technology,
+            targetCanvasId: canvasId,
+            targetVersionUuid: versionUuid,
+            targetType: 'version',
+            isPublic: true
+        }, {
+            headers: {
+                ...getAuthHeaders(),
+                'x-request-from': 'internal'
+            }
+        })
+
+        return response.data.data
+    }
+
+    static async deleteLink(linkId: string): Promise<void> {
+        await axios.delete(`${API_BASE_URL}/api/v1/publish/links/${linkId}`, {
+            headers: {
+                ...getAuthHeaders(),
+                'x-request-from': 'internal'
+            }
+        })
+    }
+
+    static async updateCustomSlug(linkId: string, customSlug: string): Promise<PublishLinkRecord> {
+        const response = await axios.patch(`${API_BASE_URL}/api/v1/publish/links/${linkId}`, {
+            customSlug
+        }, {
+            headers: {
+                ...getAuthHeaders(),
+                'x-request-from': 'internal'
+            }
+        })
+
+        return response.data.data
+    }
 }
 
 export default PublishLinksApi

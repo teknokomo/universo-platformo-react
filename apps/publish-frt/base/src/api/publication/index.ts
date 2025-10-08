@@ -10,6 +10,10 @@ export { PublishLinksApi, type PublishLinkRecord } from './PublishLinksApi'
 // Export centralized types
 export type { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult, IPublicationDataResult } from '@universo/publish-srv'
 
+// Export new API clients
+export { publishLinksApi, type PublishLinkResponse } from '../publishLinks'
+export { canvasVersionsApi, type CanvasVersion } from '../canvasVersions'
+
 // Re-export for compatibility during migration
 export { ARJSPublicationApi as ChatflowsApi } from './ARJSPublicationApi'
 export { type ARJSPublicationSettings as ARJSSettings } from './ARJSPublicationApi'

@@ -3,6 +3,7 @@
 // REFACTORED: Using lazy initialization pattern like profile-srv
 
 import express, { Router, Request, Response } from 'express'
+import rateLimit from 'express-rate-limit'
 import { DataSource } from 'typeorm'
 import { PublishController } from '../controllers/publishController'
 import { FlowDataService } from '../services/FlowDataService'
@@ -20,6 +21,24 @@ import logger from '../utils/logger'
 export function createPublishRoutes(dataSource: DataSource): Router {
     const router: Router = express.Router()
 
+        // Rate limiting (MVP, conservative defaults)
+        // Note: ensure app.set('trust proxy', 1) at the server entry if behind a proxy
+        const writeLimiter = rateLimit({
+            windowMs: 60 * 1000, // 1 minute
+            max: 60, // 60 write requests per IP per minute
+            standardHeaders: true,
+            legacyHeaders: false,
+            message: { success: false, error: 'Too many requests, please try again later.' }
+        })
+
+        const readLimiter = rateLimit({
+            windowMs: 60 * 1000,
+            max: 200, // 200 read requests per IP per minute
+            standardHeaders: true,
+            legacyHeaders: false,
+            message: { success: false, error: 'Too many requests, please try again later.' }
+        })
+
     // Helper to create controller lazily after DataSource is ready
     const getController = async (): Promise<PublishController> => {
         // Ensure DataSource is initialized before creating repository
@@ -35,7 +54,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
         return new PublishController(flowDataService, publishLinkService)
     }
 
-    router.post('/links', async (req: Request, res: Response) => {
+    router.post('/links', writeLimiter, async (req: Request, res: Response) => {
         try {
             const controller = await getController()
             return await controller.createPublishLink(req, res)
@@ -45,7 +64,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
         }
     })
 
-    router.get('/links', async (req: Request, res: Response) => {
+    router.get('/links', readLimiter, async (req: Request, res: Response) => {
         try {
             const controller = await getController()
             return await controller.listPublishLinks(req, res)
@@ -55,7 +74,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
         }
     })
 
-    router.patch('/links/:id', async (req: Request, res: Response) => {
+    router.patch('/links/:id', writeLimiter, async (req: Request, res: Response) => {
         try {
             const controller = await getController()
             return await controller.updatePublishLink(req, res)
@@ -65,7 +84,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
         }
     })
 
-    router.delete('/links/:id', async (req: Request, res: Response) => {
+    router.delete('/links/:id', writeLimiter, async (req: Request, res: Response) => {
         try {
             const controller = await getController()
             return await controller.deletePublishLink(req, res)
@@ -75,7 +94,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
         }
     })
 
-    router.get('/public/:slug', async (req: Request, res: Response) => {
+    router.get('/public/:slug', readLimiter, async (req: Request, res: Response) => {
         try {
             const controller = await getController()
             return await controller.getPublicPublicationBySlug(req, res)

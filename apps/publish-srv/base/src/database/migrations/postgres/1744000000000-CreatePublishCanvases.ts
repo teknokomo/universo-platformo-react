@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class CreatePublishCanvases1742000000000 implements MigrationInterface {
-    name = 'CreatePublishCanvases1742000000000'
+export class CreatePublishCanvases1744000000000 implements MigrationInterface {
+    name = 'CreatePublishCanvases1744000000000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
@@ -40,6 +40,23 @@ export class CreatePublishCanvases1742000000000 implements MigrationInterface {
                 ON uniks.publish_canvases(target_canvas_id)
         `)
 
+        // Unique index: only ONE group link per (version_group_id, technology)
+        await queryRunner.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS publish_canvases_group_unique
+                ON uniks.publish_canvases(version_group_id, technology)
+                WHERE target_type = 'group'
+        `)
+
+        // CHECK constraint: version links must have target_version_uuid
+        await queryRunner.query(`
+            ALTER TABLE uniks.publish_canvases
+                ADD CONSTRAINT check_version_has_uuid
+                CHECK (
+                    (target_type = 'version' AND target_version_uuid IS NOT NULL) OR
+                    (target_type = 'group')
+                )
+        `)
+
         await queryRunner.query(`
             ALTER TABLE uniks.publish_canvases
                 ADD CONSTRAINT publish_canvases_unik_fk
@@ -66,6 +83,13 @@ export class CreatePublishCanvases1742000000000 implements MigrationInterface {
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`
+            ALTER TABLE IF EXISTS uniks.publish_canvases
+                DROP CONSTRAINT IF EXISTS check_version_has_uuid
+        `)
+        await queryRunner.query(`
+            DROP INDEX IF EXISTS uniks.publish_canvases_group_unique
+        `)
         await queryRunner.query(`
             ALTER TABLE IF EXISTS uniks.publish_canvases
                 DROP CONSTRAINT IF EXISTS publish_canvases_canvas_fk

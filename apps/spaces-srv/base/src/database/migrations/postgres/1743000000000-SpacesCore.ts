@@ -143,7 +143,7 @@ export class SpacesCore1743000000000 implements MigrationInterface {
         `)
         await queryRunner.query(`
             ALTER TABLE "public"."canvases"
-                ALTER COLUMN "is_active" SET DEFAULT false
+                ALTER COLUMN "is_active" SET DEFAULT true
         `)
         await queryRunner.query(`
             ALTER TABLE "public"."canvases"

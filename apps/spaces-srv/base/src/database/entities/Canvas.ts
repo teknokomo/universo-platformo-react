@@ -59,7 +59,7 @@ export class Canvas {
     @Column({ name: 'version_index', type: 'int', default: 1 })
     versionIndex!: number
 
-    @Column({ name: 'is_active', default: false })
+    @Column({ name: 'is_active', default: true })
     isActive!: boolean
 
     // Align with DB column created_date (snake_case)

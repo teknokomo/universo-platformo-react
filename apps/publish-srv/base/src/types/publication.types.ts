@@ -345,6 +345,7 @@ export interface IARJSPublishRequest {
     generationMode?: string
     isPublic?: boolean
     projectName?: string
+    technology?: 'arjs' | 'playcanvas' | 'generic'
     flowData?: {
         flowId: string
         projectTitle: string

@@ -71,19 +71,16 @@ class ChatFireworks_ChatModels implements INode {
         const credentialData = await getCredentialData(nodeData.credential ?? '', options)
         const fireworksApiKey = getCredentialParam('fireworksApiKey', credentialData, nodeData)
 
-        const modelOptions: ConstructorParameters<typeof ChatFireworks>[0] = {
+        const obj: Partial<ChatFireworks> = {
             fireworksApiKey,
             model: modelName,
             modelName,
             temperature: temperature ? parseFloat(temperature) : undefined,
             streaming: streaming ?? true
         }
+        if (cache) obj.cache = cache
 
-        if (cache) {
-            modelOptions.cache = cache
-        }
-
-        const model = new ChatFireworks(modelOptions)
+        const model = new ChatFireworks(obj)
         return model
     }
 }
