@@ -13,7 +13,8 @@
     "menu": {
         "metaverseboard": "Метаверсборд",
         "entities": "Сущности",
-        "sections": "Секции"
+        "sections": "Секции",
+        "access": "Доступ"
     },
 
     "metaverses": {
@@ -63,7 +64,38 @@
         },
         "table": {
             "sections": "Секции",
-            "entities": "Сущности"
+            "entities": "Сущности",
+            "role": "Роль"
+        }
+    },
+    "roles": {
+        "owner": "Владелец",
+        "admin": "Администратор",
+        "editor": "Редактор",
+        "member": "Участник"
+    },
+    "access": {
+        "title": "Управление доступом",
+        "subtitle": "Управление ролями участников для \"{{name}}\"",
+        "emailLabel": "Email участника",
+        "emailPlaceholder": "user@example.com",
+        "roleLabel": "Роль",
+        "inviteButton": "Пригласить",
+        "refresh": "Обновить",
+        "empty": "Пока нет участников",
+        "notAllowed": "У вас нет прав управлять участниками этой метавселенной.",
+        "errors": {
+            "loadFailed": "Не удалось загрузить список участников",
+            "inviteFailed": "Не удалось пригласить участника",
+            "updateFailed": "Не удалось обновить роль участника",
+            "removeFailed": "Не удалось удалить участника"
+        },
+        "table": {
+            "email": "Email",
+            "role": "Роль",
+            "added": "Добавлен",
+            "actions": "Действия",
+            "remove": "Удалить"
         }
     },
     "sections": {

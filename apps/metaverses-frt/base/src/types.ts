@@ -1,3 +1,29 @@
+export type MetaverseRole = 'owner' | 'admin' | 'editor' | 'member'
+
+export type MetaverseAssignableRole = Exclude<MetaverseRole, 'owner'>
+
+export interface MetaversePermissions {
+    manageMembers: boolean
+    manageMetaverse: boolean
+    createContent: boolean
+    editContent: boolean
+    deleteContent: boolean
+}
+
+export interface MetaverseMember {
+    id: string
+    userId: string
+    email: string | null
+    role: MetaverseRole
+    createdAt: string
+}
+
+export interface MetaverseMembersResponse {
+    members: MetaverseMember[]
+    role: MetaverseRole
+    permissions: MetaversePermissions
+}
+
 export interface Metaverse {
     id: string
     name: string
@@ -7,6 +33,8 @@ export interface Metaverse {
     // Optional aggregated counters provided by backend list endpoint
     sectionsCount?: number
     entitiesCount?: number
+    role?: MetaverseRole
+    permissions?: MetaversePermissions
 }
 
 export interface Section {
