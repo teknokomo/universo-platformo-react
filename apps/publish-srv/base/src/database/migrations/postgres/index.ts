@@ -1,3 +1,3 @@
-import { CreatePublishCanvases1742000000000 } from './1742000000000-CreatePublishCanvases'
+import { CreatePublishCanvases1744000000000 } from './1744000000000-CreatePublishCanvases'
 
-export const publishMigrations = [CreatePublishCanvases1742000000000]
+export const publishMigrations = [CreatePublishCanvases1744000000000]

@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ARJSPublishApi, ChatflowsApi, PublicationApi, PublishLinksApi } from '../../api'
+import { ChatflowsApi, PublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
+import { FieldNormalizer } from '../../utils/fieldNormalizer'
 
 // Universo Platformo | Simple demo mode toggle - set to true to enable demo features
 const DEMO_MODE = false
@@ -35,8 +36,11 @@ import { IconCopy, IconDownload, IconQrcode } from '@tabler/icons-react'
 import GenerationModeSelect from '../../components/GenerationModeSelect'
 // CRITICAL: This component is responsible for displaying the publication link
 import PublicationLink from '../../components/PublicationLink'
+import { PublicationLinks } from '../../components/PublicationLinks'
+import { PublishVersionSection } from '../../components/PublishVersionSection'
 import TemplateSelect from '../../components/TemplateSelect'
 import QRCodeSection from '../../components/QRCodeSection'
+import { isValidBase58 } from '../../utils/base58Validator'
 
 /**
  * AR.js Publisher Component
@@ -130,9 +134,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             ]
 
             if (link?.customSlug) {
-                const customUrl = origin
-                    ? `${origin}/${segment}/${link.customSlug}`
-                    : `/${segment}/${link.customSlug}`
+                const customUrl = origin ? `${origin}/${segment}/${link.customSlug}` : `/${segment}/${link.customSlug}`
 
                 items.push({
                     id: `${link.id}-custom`,
@@ -145,37 +147,61 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         })
     }, [publishLinkRecords])
 
-    const loadPublishLinks = useCallback(async () => {
-        if (!flow?.id && !flow?.versionGroupId) {
-            return []
-        }
+    const loadPublishLinks = useCallback(
+        async (retryCount = 0) => {
+            const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+            if (!flow?.id && !versionGroupId) {
+                return []
+            }
 
-        try {
-            const links = await PublishLinksApi.listLinks({
-                technology: 'arjs',
-                versionGroupId: flow?.versionGroupId ?? null
-            })
+            try {
+                const links = await PublishLinksApi.listLinks({
+                    technology: 'arjs',
+                    versionGroupId: versionGroupId ?? null
+                })
 
-            const filtered = links.filter((link) => {
-                if (flow?.versionGroupId && link.versionGroupId === flow.versionGroupId) {
-                    return true
+                const filtered = links.filter((link) => {
+                    if (versionGroupId && link.versionGroupId === versionGroupId) {
+                        return true
+                    }
+
+                    if (flow?.id && link.targetCanvasId === flow.id) {
+                        return true
+                    }
+
+                    return false
+                })
+
+                // Validate Base58 slugs and retry if invalid data found
+                const isValidData = (links) => {
+                    return links.every(link => 
+                        link.baseSlug && 
+                        isValidBase58(link.baseSlug)
+                    )
                 }
 
-                if (flow?.id && link.targetCanvasId === flow.id) {
-                    return true
+                // Retry on empty results or invalid data, but only on first attempt
+                if ((filtered.length === 0 || !isValidData(filtered)) && retryCount === 0) {
+                    console.log('[ARJSPublisher] Invalid or empty links, retrying in 500ms...')
+                    await new Promise((resolve) => setTimeout(resolve, 500))
+                    return loadPublishLinks(1)
                 }
 
-                return false
-            })
+                setPublishLinkRecords(filtered)
 
-            setPublishLinkRecords(filtered)
-            return filtered
-        } catch (loadError) {
-            console.error('ARJSPublisher: Failed to load publish links', loadError)
-            setPublishLinkRecords([])
-            return []
-        }
-    }, [flow?.id, flow?.versionGroupId])
+                // Update public state based on actual links
+                const hasGroupLink = filtered.some(link => link.targetType === 'group')
+                setIsPublic(hasGroupLink)
+
+                return filtered
+            } catch (loadError) {
+                console.error('ARJSPublisher: Failed to load publish links', loadError)
+                setPublishLinkRecords([])
+                return []
+            }
+        },
+        [flow?.id, flow?.versionGroupId]
+    )
 
     useEffect(() => {
         loadPublishLinks()
@@ -309,14 +335,15 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     // NEW: Load library configuration with legacy detection and auto-correction
                     if (globalSettings?.enforceGlobalLibraryManagement) {
                         // LEVEL 2: Enforcement mode - detect legacy and handle accordingly
-                        const hasLegacyConfig = savedSettings.libraryConfig && 
+                        const hasLegacyConfig =
+                            savedSettings.libraryConfig &&
                             (savedSettings.libraryConfig.arjs?.source !== globalSettings.defaultLibrarySource ||
-                             savedSettings.libraryConfig.aframe?.source !== globalSettings.defaultLibrarySource)
-                        
+                                savedSettings.libraryConfig.aframe?.source !== globalSettings.defaultLibrarySource)
+
                         if (hasLegacyConfig) {
                             // This is a legacy space with conflicting settings
                             setIsLegacyScenario(true) // Mark as legacy scenario
-                            
+
                             if (globalSettings.autoCorrectLegacySettings) {
                                 // Auto-correct legacy settings
                                 console.log('ARJSPublisher: Auto-correcting legacy library configuration')
@@ -324,14 +351,15 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 setAframeSource(globalSettings.defaultLibrarySource)
                                 setArjsVersion('3.4.7')
                                 setAframeVersion('1.7.1')
-                                
+
                                 // Show correction message to user
                                 setAlert({
                                     type: 'info',
                                     message: t('arjs.globalLibraryManagement.legacyCorrectedMessage', {
-                                        source: globalSettings.defaultLibrarySource === 'official' 
-                                            ? t('arjs.globalLibraryManagement.officialSource')
-                                            : t('arjs.globalLibraryManagement.kiberplanoSource')
+                                        source:
+                                            globalSettings.defaultLibrarySource === 'official'
+                                                ? t('arjs.globalLibraryManagement.officialSource')
+                                                : t('arjs.globalLibraryManagement.kiberplanoSource')
                                     })
                                 })
                             } else {
@@ -341,14 +369,15 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
                                 setAframeVersion(savedSettings.libraryConfig.aframe?.version || '1.7.1')
                                 setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
-                                
+
                                 // Show recommendation message to user
                                 setAlert({
                                     type: 'warning',
                                     message: t('arjs.globalLibraryManagement.legacyRecommendationMessage', {
-                                        source: globalSettings.defaultLibrarySource === 'official' 
-                                            ? t('arjs.globalLibraryManagement.officialSource')
-                                            : t('arjs.globalLibraryManagement.kiberplanoSource')
+                                        source:
+                                            globalSettings.defaultLibrarySource === 'official'
+                                                ? t('arjs.globalLibraryManagement.officialSource')
+                                                : t('arjs.globalLibraryManagement.kiberplanoSource')
                                     })
                                 })
                             }
@@ -386,7 +415,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     }
                 } else {
                     console.log('ARJSPublisher: No saved settings found, using defaults') // Simple console.log
-                    
+
                     // Apply global settings with two-level logic
                     if (globalSettings?.enforceGlobalLibraryManagement) {
                         // LEVEL 2: Enforcement mode - force global settings
@@ -461,14 +490,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.log('ARJSPublisher: Source change blocked by global library management')
             return
         }
-        
+
         setArjsSource(event.target.value)
-        
+
         // Clear legacy alert and scenario when user changes source in recommendation mode
         if (isLegacyScenario && !globalSettings?.autoCorrectLegacySettings) {
             const newSourceMatchesGlobal = event.target.value === globalSettings.defaultLibrarySource
             const aframeSourceMatchesGlobal = aframeSource === globalSettings.defaultLibrarySource
-            
+
             if (newSourceMatchesGlobal && aframeSourceMatchesGlobal) {
                 setAlert(null)
                 setIsLegacyScenario(false)
@@ -492,14 +521,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.log('ARJSPublisher: Source change blocked by global library management')
             return
         }
-        
+
         setAframeSource(event.target.value)
-        
+
         // Clear legacy alert and scenario when user changes source in recommendation mode
         if (isLegacyScenario && !globalSettings?.autoCorrectLegacySettings) {
             const arjsSourceMatchesGlobal = arjsSource === globalSettings.defaultLibrarySource
             const newSourceMatchesGlobal = event.target.value === globalSettings.defaultLibrarySource
-            
+
             if (arjsSourceMatchesGlobal && newSourceMatchesGlobal) {
                 setAlert(null)
                 setIsLegacyScenario(false)
@@ -521,54 +550,67 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
         setIsPublic(value)
 
-        // If public toggle is off, reset the URL and save settings
+        // If public toggle is off, remove group links
         if (!value) {
             setPublishedUrl('')
+            try {
+                const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+                const links = await PublishLinksApi.listLinks({
+                    technology: 'arjs',
+                    ...(versionGroupId ? { versionGroupId } : {})
+                })
 
-            // Universo Platformo | Save settings with isPublic: false
-            if (!DEMO_MODE && flow?.id) {
-                try {
-                        await ChatflowsApi.saveSettings(flow.id, {
-                            isPublic: false,
-                            projectTitle: projectTitle,
-                            markerType: markerType,
-                            markerValue: markerValue,
-                            templateId: templateType,
-                            generationMode: generationMode,
-                            templateType: templateType,
-                            // New: AR display config
-                            arDisplayType: arDisplayType,
-                            wallpaperType: wallpaperType,
-                            cameraUsage: cameraUsage,
-                            backgroundColor: backgroundColor, // Add background color here too
-                            // NEW: Include library configuration
-                            libraryConfig: {
-                                arjs: { version: arjsVersion, source: arjsSource },
-                                aframe: { version: aframeVersion, source: aframeSource }
-                            }
-                        })
-                        console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
-                        await ARJSPublishApi.publishARJS({
-                            canvasId: flow.id,
-                            generationMode: generationMode,
-                            projectName: projectTitle,
-                            isPublic: false
-                        })
-                        await loadPublishLinks()
-                    } catch (error) {
-                        console.error('📱 [ARJSPublisher] Error saving settings:', error)
-                        setError('Failed to save settings')
+                const groupLinks = links.filter((link) => {
+                    if (link.targetType !== 'group') {
+                        return false
                     }
-                }
-                return
-            }
 
-        // Universo Platformo | Special handling for demo mode
+                    if (versionGroupId && link.versionGroupId === versionGroupId) {
+                        return true
+                    }
+
+                    return link.targetCanvasId === flow.id
+                })
+
+                await Promise.all(groupLinks.map(link => PublishLinksApi.deleteLink(link.id)))
+                
+                // Save settings with isPublic: false
+                if (!DEMO_MODE && flow?.id) {
+                    await ChatflowsApi.saveSettings(flow.id, {
+                        isPublic: false,
+                        projectTitle: projectTitle,
+                        markerType: markerType,
+                        markerValue: markerValue,
+                        templateId: templateType,
+                        generationMode: generationMode,
+                        templateType: templateType,
+                        arDisplayType: arDisplayType,
+                        wallpaperType: wallpaperType,
+                        cameraUsage: cameraUsage,
+                        backgroundColor: backgroundColor,
+                        libraryConfig: {
+                            arjs: { version: arjsVersion, source: arjsSource },
+                            aframe: { version: aframeVersion, source: aframeSource }
+                        }
+                    })
+                }
+                
+                await loadPublishLinks()
+                setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
+            } catch (error) {
+                console.error('📱 [ARJSPublisher] Error removing publication:', error)
+                setError('Failed to remove publication')
+                setSnackbar({ open: true, message: t('notifications.publicationError') })
+                setIsPublic(true) // Revert toggle on error
+            }
+            return
+        }
+
+        // Special handling for demo mode
         if (DEMO_MODE) {
             setLoading(true)
-            // Simulate request delay in demo mode
             setTimeout(() => {
-                setPublishedUrl('https://plano.universo.pro/') // Demo URL for demo mode
+                setPublishedUrl('https://plano.universo.pro/')
                 setSnackbar({ open: true, message: t('success.published') })
                 setLoading(false)
             }, 1000)
@@ -581,13 +623,11 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             return
         }
 
-        console.log('ARJSPublisher.handlePublicChange: Publishing in STREAMING mode for flow', flow.id) // Simple console.log instead of debugLog
-
         setIsPublishing(true)
         setError(null)
 
         try {
-            // Universo Platformo | First save AR.js settings with isPublic: true
+            // Save AR.js settings with isPublic: true
             await ChatflowsApi.saveSettings(flow.id, {
                 isPublic: true,
                 projectTitle: projectTitle,
@@ -596,69 +636,39 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 templateId: templateType,
                 generationMode: generationMode,
                 templateType: templateType,
-                // Ensure AR display config is persisted when publishing
                 arDisplayType: arDisplayType,
                 wallpaperType: wallpaperType,
                 cameraUsage: cameraUsage,
-                backgroundColor: backgroundColor, // Add background color here as well
-                // NEW: Include library configuration
+                backgroundColor: backgroundColor,
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
                     aframe: { version: aframeVersion, source: aframeSource }
                 }
             })
-            console.log('ARJSPublisher: Settings saved with isPublic: true') // Simple console.log instead of debugLog
 
-            // Use API client for AR.js publication
-            // Additional safety check before API call
-            if (!flow.id) {
-                throw new Error('Идентификатор потока отсутствует')
-            }
+            // Extract versionGroupId from flow (supports both camelCase and snake_case)
+            const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
 
-            const publishResult = await ARJSPublishApi.publishARJS({
-                canvasId: flow.id,
-                generationMode: 'streaming',
-                isPublic: true,
-                projectName: projectTitle,
-                flowData: {
-                    flowId: flow.id,
-                    projectTitle: projectTitle,
-                    templateId: templateType,
-                    // New: pass render config for client-side build
-                    renderConfig: {
-                        arDisplayType,
-                        wallpaperType,
-                        markerType,
-                        markerValue,
-                        cameraUsage,
-                        backgroundColor // Add background color to render config
-                    },
-                    // NEW: Include library configuration
-                    libraryConfig: {
-                        arjs: { version: arjsVersion, source: arjsSource },
-                        aframe: { version: aframeVersion, source: aframeSource }
-                    }
-                }
-            })
+            // Create group link using unified API with versionGroupId
+            const createdLink = await PublishLinksApi.createGroupLink(flow.id, 'arjs', versionGroupId)
 
-            // Validate publicationId before forming URL
-            if (!publishResult?.publicationId) {
-                throw new Error('Не получен идентификатор публикации от сервера')
-            }
-
-            // Form local link with consideration for demo mode
-            const fullPublicUrl = DEMO_MODE ? 'https://plano.universo.pro/' : `${window.location.origin}/p/${publishResult.publicationId}`
+            // Form public URL from created link
+            const fullPublicUrl = `${window.location.origin}/p/${createdLink.baseSlug}`
             setPublishedUrl(fullPublicUrl)
-            setSnackbar({ open: true, message: t('success.published') })
+            setSnackbar({ open: true, message: t('notifications.publicationCreated') })
 
             await loadPublishLinks()
 
             if (onPublish) {
-                onPublish({ ...publishResult, publishedUrl: fullPublicUrl })
+                onPublish({ 
+                    publicationId: createdLink.baseSlug, 
+                    publishedUrl: fullPublicUrl 
+                })
             }
         } catch (error) {
             console.error('📱 [ARJSPublisher.handlePublicChange] Error during publication:', error)
             setError(error instanceof Error ? error.message : 'Unknown error occurred during publication')
+            setSnackbar({ open: true, message: t('notifications.publicationError') })
             setIsPublic(false) // Reset toggle in case of error
         } finally {
             setIsPublishing(false)
@@ -859,7 +869,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     <FormControl fullWidth variant='outlined' margin='normal'>
                                         <TextField
                                             label={t('arjs.backgroundColor.label')}
-                                            type="color"
+                                            type='color'
                                             value={backgroundColor}
                                             onChange={(e) => setBackgroundColor(e.target.value)}
                                             disabled={!!publishedUrl}
@@ -884,22 +894,19 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                                     {/* Global settings warning - only for enforcement mode and non-legacy scenarios */}
                                     {globalSettings?.enforceGlobalLibraryManagement && !isLegacyScenario && (
-                                        <Alert severity="info" sx={{ mb: 2 }}>
+                                        <Alert severity='info' sx={{ mb: 2 }}>
                                             {t('arjs.globalLibraryManagement.enforcedMessage', {
-                                                source: globalSettings.defaultLibrarySource === 'official' 
-                                                    ? t('arjs.globalLibraryManagement.officialSource')
-                                                    : t('arjs.globalLibraryManagement.kiberplanoSource')
+                                                source:
+                                                    globalSettings.defaultLibrarySource === 'official'
+                                                        ? t('arjs.globalLibraryManagement.officialSource')
+                                                        : t('arjs.globalLibraryManagement.kiberplanoSource')
                                             })}
                                         </Alert>
                                     )}
 
                                     {/* Legacy Configuration Alert - shown in place of standard message */}
                                     {alert && isLegacyScenario && (
-                                        <Alert 
-                                            severity={alert.type} 
-                                            sx={{ mb: 2 }}
-                                            onClose={() => setAlert(null)}
-                                        >
+                                        <Alert severity={alert.type} sx={{ mb: 2 }} onClose={() => setAlert(null)}>
                                             {alert.message}
                                         </Alert>
                                     )}
@@ -930,16 +937,19 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                                         value={arjsSource}
                                                         onChange={handleArjsSourceChange}
                                                         label='Сервер'
-                                                        disabled={!!publishedUrl || (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))}
+                                                        disabled={
+                                                            !!publishedUrl ||
+                                                            (globalSettings?.enforceGlobalLibraryManagement &&
+                                                                (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))
+                                                        }
                                                     >
                                                         <MenuItem value='official'>Официальный сервер</MenuItem>
                                                         <MenuItem value='kiberplano'>Сервер Kiberplano</MenuItem>
                                                     </Select>
-                                                    {globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings) && (
-                                                        <FormHelperText>
-                                                            Источник управляется глобально
-                                                        </FormHelperText>
-                                                    )}
+                                                    {globalSettings?.enforceGlobalLibraryManagement &&
+                                                        (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings) && (
+                                                            <FormHelperText>Источник управляется глобально</FormHelperText>
+                                                        )}
                                                 </FormControl>
                                             </Grid>
                                         </Grid>
@@ -971,16 +981,19 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                                         value={aframeSource}
                                                         onChange={handleAframeSourceChange}
                                                         label='Сервер'
-                                                        disabled={!!publishedUrl || (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))}
+                                                        disabled={
+                                                            !!publishedUrl ||
+                                                            (globalSettings?.enforceGlobalLibraryManagement &&
+                                                                (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings))
+                                                        }
                                                     >
                                                         <MenuItem value='official'>Официальный сервер</MenuItem>
                                                         <MenuItem value='kiberplano'>Сервер Kiberplano</MenuItem>
                                                     </Select>
-                                                    {globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings) && (
-                                                        <FormHelperText>
-                                                            Источник управляется глобально
-                                                        </FormHelperText>
-                                                    )}
+                                                    {globalSettings?.enforceGlobalLibraryManagement &&
+                                                        (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings) && (
+                                                            <FormHelperText>Источник управляется глобально</FormHelperText>
+                                                        )}
                                                 </FormControl>
                                             </Grid>
                                         </Grid>
@@ -1047,20 +1060,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 </Box>
 
                                 {/* Public link display */}
-                                {isPublic && publishLinkItems.length > 0 && (
-                                    <Box sx={{ my: 3 }}>
-                                        <Typography variant='subtitle1' gutterBottom>
-                                            {t('arjs.publishedUrl')}:
-                                        </Typography>
-                                        {publishLinkItems.map((item, index) => (
-                                            <PublicationLink
-                                                key={item.id}
-                                                url={item.url}
-                                                onCopy={handleCopyUrl}
-                                                labelKey={item.labelKey}
-                                                helpTextKey={index === 0 ? 'arjs.showMarker' : null}
-                                            />
-                                        ))}
+                                {isPublic && publishLinkRecords.length > 0 && (
+                                    <>
+                                        {/* New Publication Links Component */}
+                                        <PublicationLinks links={publishLinkRecords} technology='arjs' />
 
                                         {/* QR Code Section */}
                                         {publishedUrl && (
@@ -1075,29 +1078,30 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                             <Typography variant='body2' gutterBottom>
                                                 Инструкция по использованию:
                                             </Typography>
-                                                                                    <Box sx={{ textAlign: 'left', pl: 2 }}>
-                                            <Typography variant='body2' component='div'>
-                                                {arDisplayType === 'wallpaper' ? (
-                                                    <ol>
-                                                        <li>Откройте URL на устройстве с камерой</li>
-                                                        <li>Разрешите доступ к камере</li>
-                                                        <li>Маркер не требуется — фон появится автоматически</li>
-                                                        <li>Проходите квиз</li>
-                                                    </ol>
-                                                ) : (
-                                                    <ol>
-                                                        <li>Откройте URL на устройстве с камерой</li>
-                                                        <li>Разрешите доступ к камере</li>
-                                                        <li>
-                                                            Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}
-                                                        </li>
-                                                        <li>Дождитесь появления 3D объекта</li>
-                                                    </ol>
-                                                )}
-                                            </Typography>
+                                            <Box sx={{ textAlign: 'left', pl: 2 }}>
+                                                <Typography variant='body2' component='div'>
+                                                    {arDisplayType === 'wallpaper' ? (
+                                                        <ol>
+                                                            <li>Откройте URL на устройстве с камерой</li>
+                                                            <li>Разрешите доступ к камере</li>
+                                                            <li>Маркер не требуется — фон появится автоматически</li>
+                                                            <li>Проходите квиз</li>
+                                                        </ol>
+                                                    ) : (
+                                                        <ol>
+                                                            <li>Откройте URL на устройстве с камерой</li>
+                                                            <li>Разрешите доступ к камере</li>
+                                                            <li>
+                                                                Наведите камеру на маркер{' '}
+                                                                {markerType === 'preset' ? `"${markerValue}"` : ''}
+                                                            </li>
+                                                            <li>Дождитесь появления 3D объекта</li>
+                                                        </ol>
+                                                    )}
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                        </Box>
-                                    </Box>
+                                    </>
                                 )}
 
                                 {/* Error display */}
@@ -1111,6 +1115,65 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     </Box>
                 </CardContent>
             </Card>
+
+            {/* Publish Version Section */}
+            {(() => {
+                const { unikId: urlUnikId, spaceId } = getCurrentUrlIds()
+                const effectiveUnikId = unikId || urlUnikId
+                const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+
+                // Check if this is an inactive version
+                const isActiveVersion = flow?.isActive ?? flow?.is_active
+                if (isActiveVersion === false) {
+                    return (
+                        <Box
+                            sx={{
+                                mt: 3,
+                                p: 2,
+                                border: '1px solid',
+                                borderColor: 'info.main',
+                                borderRadius: 1,
+                                bgcolor: 'info.light'
+                            }}
+                        >
+                            <Typography variant='body2' color='info.dark'>
+                                ℹ️ Version publishing is only available for active canvas versions. This appears to be an inactive version. 
+                                Please switch to the active version to enable version publishing features.
+                            </Typography>
+                        </Box>
+                    )
+                }
+
+                if (!effectiveUnikId || !spaceId) {
+                    return (
+                        <Box
+                            sx={{
+                                mt: 3,
+                                p: 2,
+                                border: '1px solid',
+                                borderColor: 'info.main',
+                                borderRadius: 1,
+                                bgcolor: 'info.light'
+                            }}
+                        >
+                            <Typography variant='body2' color='info.dark'>
+                                ℹ️ Version publishing is only available when working within a Unik workspace. Please open this canvas from a
+                                Unik to enable version publishing.
+                            </Typography>
+                        </Box>
+                    )
+                }
+
+                return (
+                    <PublishVersionSection
+                        unikId={effectiveUnikId}
+                        spaceId={spaceId}
+                        canvasId={flow.id}
+                        versionGroupId={versionGroupId}
+                        technology='arjs'
+                    />
+                )
+            })()}
 
             {/* Snackbar for notifications */}
             <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleSnackbarClose} message={snackbar.message} />

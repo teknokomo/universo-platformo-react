@@ -29,11 +29,7 @@ export interface CanvasServiceDependencies {
     isFlowValidForStream: (nodes: any[], nodeData: any) => boolean
     getTelemetryFlowObj: (nodes: any[], edges: any[]) => unknown
     telemetry?: {
-        sendTelemetry: (
-            eventName: string,
-            payload: Record<string, unknown>,
-            orgId?: string
-        ) => Promise<void>
+        sendTelemetry: (eventName: string, payload: Record<string, unknown>, orgId?: string) => Promise<void>
     }
     metricsProvider?: { incrementCounter: (metric: string, labels?: Record<string, unknown>) => void }
     metricsConfig: CanvasServiceMetricsConfig
@@ -108,10 +104,7 @@ export class CanvasService {
         return queryRunner ? queryRunner.manager.getRepository(Canvas) : this.canvasRepository
     }
 
-    private applyScopeToQuery(
-        query: SelectQueryBuilder<Canvas>,
-        scope?: CanvasScope
-    ): SelectQueryBuilder<Canvas> {
+    private applyScopeToQuery(query: SelectQueryBuilder<Canvas>, scope?: CanvasScope): SelectQueryBuilder<Canvas> {
         if (!scope?.spaceId && !scope?.unikId) {
             return query
         }
@@ -149,11 +142,7 @@ export class CanvasService {
         return space
     }
 
-    private async attachCanvasToSpace(
-        canvas: Canvas,
-        space: Space,
-        queryRunner?: QueryRunner
-    ): Promise<void> {
+    private async attachCanvasToSpace(canvas: Canvas, space: Space, queryRunner?: QueryRunner): Promise<void> {
         const repo = this.getSpaceCanvasRepositoryForScope(queryRunner)
 
         const existing = await repo
@@ -175,8 +164,8 @@ export class CanvasService {
         const nextSortOrder = Number(maxOrderResult?.maxOrder ?? 0) + 1
 
         const relation = repo.create({
-            space: ({ id: space.id } as Space),
-            canvas: ({ id: canvas.id } as Canvas),
+            space: { id: space.id } as Space,
+            canvas: { id: canvas.id } as Canvas,
             versionGroupId: canvas.versionGroupId,
             sortOrder: nextSortOrder
         })
@@ -192,9 +181,7 @@ export class CanvasService {
         const { unikId, fallbackName } = options
 
         if (!unikId) {
-            this.deps.logger.warn(
-                `[spaces-srv]: Unable to ensure default Space relation for ${canvas.id}: unikId not provided`
-            )
+            this.deps.logger.warn(`[spaces-srv]: Unable to ensure default Space relation for ${canvas.id}: unikId not provided`)
             return
         }
 
@@ -261,8 +248,8 @@ export class CanvasService {
             if (!existsJunction) {
                 const spaceCanvas = scRepo.create({
                     sortOrder: 1,
-                    space: ({ id: existingSpace.id } as Space),
-                    canvas: ({ id: canvas.id } as Canvas),
+                    space: { id: existingSpace.id } as Space,
+                    canvas: { id: canvas.id } as Canvas,
                     versionGroupId: canvas.versionGroupId
                 })
                 await scRepo.save(spaceCanvas)
@@ -271,7 +258,7 @@ export class CanvasService {
                     .createQueryBuilder()
                     .update(SpaceCanvas)
                     .set({
-                        canvas: ({ id: canvas.id } as Canvas),
+                        canvas: { id: canvas.id } as Canvas,
                         versionGroupId: canvas.versionGroupId
                     })
                     .where('space_id = :sid AND version_group_id = :vgid', {
@@ -289,14 +276,35 @@ export class CanvasService {
         }
     }
 
-    private async loadCanvasOrThrow(
-        canvasId: string,
-        scope?: CanvasScope,
-        queryRunner?: QueryRunner
-    ): Promise<Canvas> {
+    private async loadCanvasOrThrow(canvasId: string, scope?: CanvasScope, queryRunner?: QueryRunner): Promise<Canvas> {
         let query = this.getCanvasRepositoryForScope(queryRunner).createQueryBuilder('canvas')
         query = query.where('canvas.id = :id', { id: canvasId })
         query = this.applyScopeToQuery(query, scope)
+
+        // Explicitly select all fields including versioning fields
+        query = query.select([
+            'canvas.id',
+            'canvas.name',
+            'canvas.flowData',
+            'canvas.deployed',
+            'canvas.isPublic',
+            'canvas.apikeyid',
+            'canvas.chatbotConfig',
+            'canvas.apiConfig',
+            'canvas.analytic',
+            'canvas.speechToText',
+            'canvas.followUpPrompts',
+            'canvas.category',
+            'canvas.type',
+            'canvas.versionGroupId',
+            'canvas.versionUuid',
+            'canvas.versionLabel',
+            'canvas.versionDescription',
+            'canvas.versionIndex',
+            'canvas.isActive',
+            'canvas.createdDate',
+            'canvas.updatedDate'
+        ])
 
         const canvas = await query.getOne()
 
@@ -329,10 +337,7 @@ export class CanvasService {
         return this.deps.errorFactory(status, message)
     }
 
-    async checkIfCanvasIsValidForStreaming(
-        canvasId: string,
-        scope?: CanvasScope
-    ): Promise<{ isStreaming: boolean }> {
+    async checkIfCanvasIsValidForStreaming(canvasId: string, scope?: CanvasScope): Promise<{ isStreaming: boolean }> {
         try {
             const canvas = await this.loadCanvasOrThrow(canvasId, scope)
 
@@ -360,7 +365,10 @@ export class CanvasService {
                 isStreaming = this.deps.isFlowValidForStream(nodes, endingNodeData)
             }
 
-            if (endingNodes.filter((node: any) => node.data.category === 'Multi Agents' || node.data.category === 'Sequential Agents').length > 0) {
+            if (
+                endingNodes.filter((node: any) => node.data.category === 'Multi Agents' || node.data.category === 'Sequential Agents')
+                    .length > 0
+            ) {
                 return { isStreaming: true }
             }
 
@@ -450,9 +458,7 @@ export class CanvasService {
 
     async getCanvasesByApiKey(apiKeyId: string, keyonly?: string): Promise<Canvas[]> {
         try {
-            let query = this.canvasRepository
-                .createQueryBuilder('canvas')
-                .where('canvas.apikeyid = :apikeyid', { apikeyid: apiKeyId })
+            let query = this.canvasRepository.createQueryBuilder('canvas').where('canvas.apikeyid = :apikeyid', { apikeyid: apiKeyId })
 
             if (keyonly === undefined) {
                 query = query.orWhere('canvas.apikeyid IS NULL').orWhere("canvas.apikeyid = ''")
@@ -488,8 +494,7 @@ export class CanvasService {
     private async checkAndUpdateDocumentStoreUsage(canvas: Canvas): Promise<void> {
         const parsedFlowData = JSON.parse(canvas.flowData ?? '{}') as { nodes?: any[] }
         const nodes = Array.isArray(parsedFlowData?.nodes) ? parsedFlowData.nodes : []
-        const documentStoreNode =
-            nodes.length > 0 && nodes.find((node: any) => node?.data?.name === 'documentStore')
+        const documentStoreNode = nodes.length > 0 && nodes.find((node: any) => node?.data?.name === 'documentStore')
         const selectedStore = documentStoreNode?.data?.inputs?.selectedStore
 
         if (typeof selectedStore !== 'string' || selectedStore.length === 0) {
@@ -533,10 +538,7 @@ export class CanvasService {
             if (this.deps.telemetry) {
                 await this.deps.telemetry.sendTelemetry('canvas_created', {
                     canvasId: saved.id,
-                    flowGraph: this.deps.getTelemetryFlowObj(
-                        JSON.parse(saved.flowData)?.nodes,
-                        JSON.parse(saved.flowData)?.edges
-                    )
+                    flowGraph: this.deps.getTelemetryFlowObj(JSON.parse(saved.flowData)?.nodes, JSON.parse(saved.flowData)?.edges)
                 })
             }
 
@@ -559,11 +561,7 @@ export class CanvasService {
         }
     }
 
-    async importCanvases(
-        newCanvass: Partial<Canvas>[],
-        scope?: CanvasScope,
-        queryRunner?: QueryRunner
-    ): Promise<any> {
+    async importCanvases(newCanvass: Partial<Canvas>[], scope?: CanvasScope, queryRunner?: QueryRunner): Promise<any> {
         try {
             const space = await this.resolveSpace(scope, queryRunner)
             for (const data of newCanvass) {
@@ -572,15 +570,11 @@ export class CanvasService {
                 }
             }
 
-            const repository = queryRunner
-                ? queryRunner.manager.getRepository(Canvas)
-                : this.canvasRepository
+            const repository = queryRunner ? queryRunner.manager.getRepository(Canvas) : this.canvasRepository
 
             if (newCanvass.length === 0) return
 
-            const canvasIds = newCanvass
-                .map((newCanvas) => newCanvas.id)
-                .filter((id): id is string => Boolean(id))
+            const canvasIds = newCanvass.map((newCanvas) => newCanvas.id).filter((id): id is string => Boolean(id))
 
             let foundIds: string[] = []
             if (canvasIds.length > 0) {

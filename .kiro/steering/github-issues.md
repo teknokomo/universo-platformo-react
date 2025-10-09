@@ -6,8 +6,12 @@ Create the text for Issues using this template, the text of the Issue should be 
 
 **IMPORTANT:** 
 1. **Always include Russian translation** - Every Issue must have both English and Russian versions of the content
-2. **Use exact spoiler tag** - Always use exactly `<summary>In Russian</summary>` for the spoiler tag. Do not use variations like "На русском языке", "Russian version", or any other text. The summary tag must be exactly: `In Russian`
+2. **Use exact spoiler tag** - Always use exactly `<summary>In Russian</summary>` for the spoiler tag. 
+   - ✅ **CORRECT**: `<summary>In Russian</summary>`
+   - ❌ **INCORRECT**: `<summary>🇷🇺 Описание на русском</summary>`
+   - Do not use variations like "На русском языке", "Russian version", "🇷🇺 Описание на русском", or any other text
 3. **Complete translation required** - The Russian version inside the spoiler must be a complete translation of the English content, not just a summary
+4. **Identical structure** - The Russian version must have exactly the same number of lines and sections as the English version. Both texts must be completely identical in structure and meaning
 
 ```
 # Update menu items Documentation, Chat Flows, Agent Flows

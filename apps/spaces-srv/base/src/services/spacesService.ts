@@ -605,6 +605,9 @@ export class SpacesService {
                     .where('space_id = :spaceId', { spaceId })
                     .andWhere('version_group_id = :versionGroupId', { versionGroupId: baseCanvas.versionGroupId })
                     .execute()
+
+                // Keep group publication links pointing to the newly activated version
+                await this.publishLinkService.updateGroupTarget(baseCanvas.versionGroupId, savedCanvas.id, manager)
             }
 
             return toCanvasVersionResponse(savedCanvas)

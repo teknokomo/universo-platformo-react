@@ -32,11 +32,7 @@ export class CanvasController {
         private readonly options?: CanvasControllerOptions
     ) {}
 
-    private async ensureUnikMembership(
-        req: Request,
-        res: Response,
-        unikId: string
-    ): Promise<string | undefined> {
+    private async ensureUnikMembership(req: Request, res: Response, unikId: string): Promise<string | undefined> {
         if (!this.options?.membership?.ensureUnikMembershipResponse) {
             return undefined
         }
@@ -141,9 +137,7 @@ export class CanvasController {
 
             if (!canvasId || !unikId || (expectsSpace && !spaceId)) {
                 res.status(StatusCodes.PRECONDITION_FAILED).json({
-                    error: expectsSpace
-                        ? 'canvasId, spaceId, and unikId params are required'
-                        : 'canvasId and unikId params are required'
+                    error: expectsSpace ? 'canvasId, spaceId, and unikId params are required' : 'canvasId and unikId params are required'
                 })
                 return
             }
@@ -230,9 +224,7 @@ export class CanvasController {
             const spaceId = this.resolveSpaceId(req)
             if (!canvasId || !unikId || (expectsSpace && !spaceId)) {
                 res.status(StatusCodes.PRECONDITION_FAILED).json({
-                    error: expectsSpace
-                        ? 'canvasId, spaceId, and unikId params are required'
-                        : 'canvasId and unikId params are required'
+                    error: expectsSpace ? 'canvasId, spaceId, and unikId params are required' : 'canvasId and unikId params are required'
                 })
                 return
             }
@@ -244,6 +236,7 @@ export class CanvasController {
 
             const scope = this.resolveScope(req)
             const canvas = await this.canvasService.getCanvasById(canvasId, scope)
+
             res.json(canvas)
         } catch (error) {
             next(error)
@@ -327,9 +320,7 @@ export class CanvasController {
             const spaceId = this.resolveSpaceId(req)
             if (!canvasId || !unikId || (expectsSpace && !spaceId)) {
                 res.status(StatusCodes.PRECONDITION_FAILED).json({
-                    error: expectsSpace
-                        ? 'canvasId, spaceId, and unikId params are required'
-                        : 'canvasId and unikId params are required'
+                    error: expectsSpace ? 'canvasId, spaceId, and unikId params are required' : 'canvasId and unikId params are required'
                 })
                 return
             }

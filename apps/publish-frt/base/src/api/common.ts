@@ -85,21 +85,27 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; spaceI
  * For production or explicit specification, use the VITE_API_HOST environment variable.
  */
 export const getApiBaseUrl = (): string => {
+    const isBrowser = typeof window !== 'undefined'
+
     try {
-        // @ts-ignore - ignore error for import.meta.env
-        if (import.meta.env && import.meta.env.DEV) {
+        // @ts-ignore - ignore error for import.meta.env in CJS build
+        if (import.meta.env && import.meta.env.DEV && isBrowser) {
             return window.location.origin
         }
 
-        // @ts-ignore
+        // @ts-ignore - ignore error for import.meta.env in CJS build
         const configuredHost = import.meta.env && import.meta.env.VITE_API_HOST
         if (configuredHost) {
             return configuredHost
         }
 
-        return window.location.origin
+        if (isBrowser) {
+            return window.location.origin
+        }
+
+        return ''
     } catch (error) {
         console.warn('Error determining API base URL, falling back to origin:', error)
-        return window.location.origin
+        return isBrowser ? window.location.origin : ''
     }
 }

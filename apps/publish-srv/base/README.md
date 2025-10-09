@@ -213,6 +213,23 @@ pnpm --filter @universo/publish-srv dev
 
 _Universo Platformo | Publication Service_
 
+## Security Improvements (MVP)
+
+Small, safe changes were added to improve API robustness without breaking clients:
+
+- Rate limiting with `express-rate-limit`:
+    - 60 req/min for write routes (POST/PATCH/DELETE /links)
+    - 200 req/min for read routes (GET /links, GET /public/:slug)
+    - Uses `standardHeaders: true`, `legacyHeaders: false`.
+- Minimal runtime input validation:
+    - `src/utils/validators.ts` checks required fields (e.g., `unikId`) and basic types.
+    - Applied in `PublishController.createPublishLink` and `updatePublishLink`.
+- Error sanitization:
+    - `src/utils/errorSanitizer.ts` hides internal error details in production;
+        logs still contain full context for debugging.
+
+No public API shapes were changed; existing clients continue to work.
+
 ## Testing
 
 Run Jest tests for services and routes:
@@ -222,3 +239,9 @@ pnpm --filter @universo/publish-srv test
 ```
 
 The Flow data scenarios use the shared TypeORM factories and `createFlowDataServiceMock`/`createSupabaseClientMock` helpers from `@testing/backend/mocks`.
+
+## Deployment note: trust proxy
+
+If the main server runs behind a reverse proxy (Nginx, Traefik, Kubernetes ingress), ensure Express is configured with `app.set('trust proxy', 1)` (or a stricter value suitable for your topology). This allows rate limiting and IP-dependent features to read the real client IP from `X-Forwarded-For`.
+
+The main server is responsible for this setting; this package only provides route-level middlewares.
