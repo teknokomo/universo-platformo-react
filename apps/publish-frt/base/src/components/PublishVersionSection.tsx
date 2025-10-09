@@ -54,6 +54,16 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
         }
     }, [unikId, spaceId, canvasId, t])
 
+    const versionIds = useMemo(
+        () => new Set(allVersions.map((version) => version.id).filter((id): id is string => Boolean(id))),
+        [allVersions]
+    )
+
+    const publishedVersionUuids = useMemo(
+        () => new Set(allVersions.map((version) => version.versionUuid).filter((uuid): uuid is string => Boolean(uuid))),
+        [allVersions]
+    )
+
     const loadPublishedLinks = useCallback(async () => {
         if (!versionsLoaded) {
             return
@@ -65,7 +75,6 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
         }
 
         try {
-            const versionIds = new Set(allVersions.map((version) => version.id))
             const links = await PublishLinksApi.listLinks(
                 versionGroupId
                     ? { versionGroupId, technology }
@@ -86,7 +95,7 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
                 }
 
                 if (link.targetVersionUuid) {
-                    return allVersions.some((version) => version.versionUuid === link.targetVersionUuid)
+                    return publishedVersionUuids.has(link.targetVersionUuid)
                 }
 
                 return false
@@ -96,7 +105,7 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
         } catch (error) {
             console.error('Failed to load published links:', error)
         }
-    }, [allVersions, technology, versionGroupId, versionsLoaded])
+    }, [technology, versionGroupId, versionsLoaded, versionIds, publishedVersionUuids])
 
     useEffect(() => {
         loadVersions()

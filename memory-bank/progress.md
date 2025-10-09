@@ -34,7 +34,7 @@
 
 ## 2025-01-17 — Version Publication Feature MVP
 
--   **API Client Extension**: Created `canvasVersionsApi` for fetching canvas versions and extended `publishLinksApi` with version-specific methods (`listVersionLinks`, `createVersionLink`, `deleteLink`). Added TypeScript types and exported through publication/index.ts.
+-   **API Client Extension**: Created `canvasVersionsApi` for fetching canvas versions and extended the unified `PublishLinksApi` with version-specific methods (`listVersionLinks`, `createVersionLink`, `deleteLink`). Added TypeScript types and exported through publication/index.ts.
 -   **PublishVersionSection Component**: Built reusable component with version selection dropdown, publish/unpublish functionality, and published versions list with copy/open/delete actions. Includes loading states and snackbar notifications.
 -   **Publisher Integration**: Integrated `PublishVersionSection` into both PlayCanvasPublisher and ARJSPublisher. Uses `getCurrentUrlIds()` to extract unikId/spaceId from URL. Component renders only when `flow.versionGroupId` exists.
 -   **i18n Translations**: Added complete English and Russian translations for version publishing UI (`versions.*` keys in publish namespace).

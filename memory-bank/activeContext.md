@@ -79,7 +79,7 @@ Successfully implemented MVP for publishing specific canvas versions with UI in 
 **Phase 1: API Client Extension** ✅
 
 -   Created `canvasVersionsApi` for fetching canvas versions list
--   Extended `publishLinksApi` with methods:
+-   Extended `PublishLinksApi` with methods:
     -   `listVersionLinks(versionGroupId, technology)` - list version publications
     -   `createVersionLink(canvasId, versionUuid, technology)` - create version publication
     -   `deleteLink(linkId)` - remove publication

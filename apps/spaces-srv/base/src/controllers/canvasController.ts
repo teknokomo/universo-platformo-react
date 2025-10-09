@@ -237,14 +237,6 @@ export class CanvasController {
             const scope = this.resolveScope(req)
             const canvas = await this.canvasService.getCanvasById(canvasId, scope)
 
-            // Debug: log version fields
-            console.log('[CanvasController.getCanvasById] Canvas version fields:', {
-                versionGroupId: canvas.versionGroupId,
-                version_group_id: (canvas as any).version_group_id,
-                versionUuid: canvas.versionUuid,
-                isActive: canvas.isActive
-            })
-
             res.json(canvas)
         } catch (error) {
             next(error)

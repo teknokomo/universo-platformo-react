@@ -26,19 +26,13 @@ import { PublishVersionSection } from '../../components/PublishVersionSection'
 import { PlayCanvasPublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
 import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
 import { isValidBase58 } from '../../utils/base58Validator'
+import { FieldNormalizer } from '../../utils/fieldNormalizer'
 
 const DEFAULT_VERSION = '2.9.0'
 const DEFAULT_TEMPLATE = 'mmoomm-playcanvas'
 
 const PlayCanvasPublisher = ({ flow }) => {
     const { t } = useTranslation('publish')
-
-    // Debug: log flow object to see what fields are available
-    useEffect(() => {
-        console.log('[PlayCanvasPublisher] flow object:', flow)
-        console.log('[PlayCanvasPublisher] versionGroupId:', flow?.versionGroupId)
-        console.log('[PlayCanvasPublisher] version_group_id:', flow?.version_group_id)
-    }, [flow])
 
     // Universo Platformo | keep latest flow.id for delayed saves
     const flowIdRef = useRef(flow?.id)
@@ -95,20 +89,25 @@ const PlayCanvasPublisher = ({ flow }) => {
         })
     }, [publishLinkRecords])
 
+    const normalizedVersionGroupId = useMemo(
+        () => FieldNormalizer.normalizeVersionGroupId(flow),
+        [flow]
+    )
+
     const loadPublishLinks = useCallback(
         async (retryCount = 0) => {
-            if (!flow?.id && !flow?.versionGroupId) {
+            if (!flow?.id && !normalizedVersionGroupId) {
                 return []
             }
 
             try {
                 const links = await PublishLinksApi.listLinks({
                     technology: 'playcanvas',
-                    versionGroupId: flow?.versionGroupId ?? null
+                    versionGroupId: normalizedVersionGroupId ?? null
                 })
 
                 const filtered = links.filter((link) => {
-                    if (flow?.versionGroupId && link.versionGroupId === flow.versionGroupId) {
+                    if (normalizedVersionGroupId && link.versionGroupId === normalizedVersionGroupId) {
                         return true
                     }
 
@@ -129,7 +128,9 @@ const PlayCanvasPublisher = ({ flow }) => {
 
                 // Retry on empty results or invalid data, but only on first attempt
                 if ((filtered.length === 0 || !isValidData(filtered)) && retryCount === 0) {
-                    console.log('[PlayCanvasPublisher] Invalid or empty links, retrying in 500ms...')
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.warn('[PlayCanvasPublisher] Invalid or empty links, retrying in 500ms...')
+                    }
                     await new Promise((resolve) => setTimeout(resolve, 500))
                     return loadPublishLinks(1)
                 }
@@ -147,7 +148,7 @@ const PlayCanvasPublisher = ({ flow }) => {
                 return []
             }
         },
-        [flow?.id, flow?.versionGroupId]
+        [flow?.id, normalizedVersionGroupId]
     )
 
     useEffect(() => {
@@ -250,11 +251,8 @@ const PlayCanvasPublisher = ({ flow }) => {
                 return
             }
 
-            // Extract versionGroupId from flow (supports both camelCase and snake_case)
-            const versionGroupId = flow?.versionGroupId || flow?.version_group_id
-
-            // Create group link using unified API with versionGroupId
-            await PublishLinksApi.createGroupLink(flow.id, 'playcanvas', versionGroupId)
+            // Create group link using unified API with normalized version group id
+            await PublishLinksApi.createGroupLink(flow.id, 'playcanvas', normalizedVersionGroupId ?? undefined)
 
             // Reload links to display the new publication
             await loadPublishLinks()
@@ -377,22 +375,10 @@ const PlayCanvasPublisher = ({ flow }) => {
             {/* Publish Version Section */}
             {(() => {
                 const { unikId, spaceId } = getCurrentUrlIds()
-                const versionGroupId = flow?.versionGroupId || flow?.version_group_id
+                const versionGroupId = normalizedVersionGroupId
 
-                // Debug: show what we have
-                console.log('[PlayCanvasPublisher] Render check:', {
-                    hasFlow: !!flow,
-                    flowId: flow?.id,
-                    versionGroupId,
-                    unikId,
-                    spaceId,
-                    flowKeys: flow ? Object.keys(flow) : []
-                })
-
-                // Check if we have all required data
                 const isActiveVersion = flow?.isActive ?? flow?.is_active
 
-                // Check if this is an inactive version
                 if (isActiveVersion === false) {
                     return (
                         <Box
@@ -428,6 +414,26 @@ const PlayCanvasPublisher = ({ flow }) => {
                             <Typography variant='body2' color='info.dark'>
                                 ℹ️ Version publishing is only available when working within a Unik workspace. Please open this canvas from a
                                 Unik to enable version publishing.
+                            </Typography>
+                        </Box>
+                    )
+                }
+
+                if (!versionGroupId) {
+                    return (
+                        <Box
+                            sx={{
+                                mt: 3,
+                                p: 2,
+                                border: '1px solid',
+                                borderColor: 'warning.main',
+                                borderRadius: 1,
+                                bgcolor: 'warning.light'
+                            }}
+                        >
+                            <Typography variant='body2' color='warning.dark'>
+                                ℹ️ Version group information is missing for this canvas. Publish Version actions are disabled until the canvas
+                                metadata is refreshed.
                             </Typography>
                         </Box>
                     )

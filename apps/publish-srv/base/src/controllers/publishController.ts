@@ -29,7 +29,7 @@ export class PublishController {
 
             // After validation, unikId is guaranteed to be a string
             const payload: CreatePublishLinkDto = {
-                unikId: String(body.unikId),
+                unikId: body.unikId as string,
                 spaceId: body.spaceId ?? null,
                 technology: resolveTechnology(body.technology),
                 versionGroupId: body.versionGroupId ?? null,
@@ -174,19 +174,16 @@ export class PublishController {
             let link
 
             if (versionUuid) {
-                // Create version-specific link
-                // First get versionGroupId from canvas
-                const canvasMetadata = this.publishLinkService['dataSource'].getMetadata('Canvas')
-                const canvasRepo = this.publishLinkService['dataSource'].getRepository(canvasMetadata.target)
-                const canvas = await canvasRepo.findOne({ where: { id: canvasId } })
+                try {
+                    link = await this.publishLinkService.createVersionLinkFromCanvasId(canvasId, versionUuid, technology)
+                } catch (serviceError) {
+                    if ((serviceError as Error).message === 'Canvas not found for publication link') {
+                        res.status(404).json({ success: false, error: 'Canvas not found' })
+                        return
+                    }
 
-                if (!canvas) {
-                    res.status(404).json({ success: false, error: 'Canvas not found' })
-                    return
+                    throw serviceError
                 }
-
-                const versionGroupId = (canvas as any).versionGroupId
-                link = await this.publishLinkService.createVersionLink(versionGroupId, versionUuid, technology)
             } else {
                 // Create/update group link
                 link = await this.publishLinkService.ensureGroupLinkForCanvas(canvasId, technology)

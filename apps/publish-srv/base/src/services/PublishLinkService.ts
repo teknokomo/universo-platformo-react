@@ -33,9 +33,12 @@ export class PublishLinkService {
         return this.dataSource.getRepository(PublishCanvas)
     }
 
-    private getCanvasRepository(manager: EntityManager) {
+    private getCanvasRepository(manager?: EntityManager) {
         const canvasMetadata = this.dataSource.getMetadata('Canvas')
-        return manager.getRepository(canvasMetadata.target)
+        if (manager) {
+            return manager.getRepository(canvasMetadata.target)
+        }
+        return this.dataSource.getRepository(canvasMetadata.target)
     }
 
     private async resolveSpaceContext(
@@ -270,6 +273,26 @@ export class PublishLinkService {
 
             return repo.save(link)
         })
+    }
+
+    async createVersionLinkFromCanvasId(
+        canvasId: string,
+        versionUuid: string,
+        technology: PublishCanvas['technology']
+    ): Promise<PublishLinkResponse> {
+        const canvasRepo = this.getCanvasRepository()
+        const canvas = (await canvasRepo.findOne({ where: { id: canvasId } })) as CanvasMinimal | null
+
+        if (!canvas) {
+            throw new Error('Canvas not found for publication link')
+        }
+
+        const versionGroupId = (canvas as any).versionGroupId as string | undefined
+        if (!versionGroupId) {
+            throw new Error('Canvas is missing version group information')
+        }
+
+        return this.createVersionLink(versionGroupId, versionUuid, technology)
     }
 
     /**
