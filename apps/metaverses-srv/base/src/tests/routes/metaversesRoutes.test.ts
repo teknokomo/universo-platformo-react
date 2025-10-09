@@ -271,7 +271,10 @@ describe('Metaverses Routes', () => {
             const context = buildDataSource()
             const app = express()
             app.use(express.json())
-            app.use('/metaverses', createMetaversesRoutes(ensureAuth, () => context.dataSource))
+            app.use(
+                '/metaverses',
+                createMetaversesRoutes(ensureAuth, () => context.dataSource)
+            )
             return { app, ...context }
         }
 
@@ -387,10 +390,7 @@ describe('Metaverses Routes', () => {
                 role: 'editor'
             })
 
-            await request(app)
-                .post('/metaverses/metaverse-1/members')
-                .send({ email: 'target@example.com', role: 'member' })
-                .expect(403)
+            await request(app).post('/metaverses/metaverse-1/members').send({ email: 'target@example.com', role: 'member' }).expect(403)
 
             expect(authUserRepo.createQueryBuilder).not.toHaveBeenCalled()
         })
@@ -424,9 +424,7 @@ describe('Metaverses Routes', () => {
                 role: 'editor',
                 email: 'target@example.com'
             })
-            expect(metaverseUserRepo.save).toHaveBeenCalledWith(
-                expect.objectContaining({ id: 'membership-target', role: 'editor' })
-            )
+            expect(metaverseUserRepo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'membership-target', role: 'editor' }))
         })
 
         it('should forbid updating member without permission', async () => {
@@ -439,10 +437,7 @@ describe('Metaverses Routes', () => {
                 role: 'member'
             })
 
-            await request(app)
-                .patch('/metaverses/metaverse-1/members/membership-target')
-                .send({ role: 'editor' })
-                .expect(403)
+            await request(app).patch('/metaverses/metaverse-1/members/membership-target').send({ role: 'editor' }).expect(403)
         })
 
         it('should delete member when authorized', async () => {
@@ -463,9 +458,7 @@ describe('Metaverses Routes', () => {
                 })
 
             await request(app).delete('/metaverses/metaverse-1/members/membership-target').expect(204)
-            expect(metaverseUserRepo.remove).toHaveBeenCalledWith(
-                expect.objectContaining({ id: 'membership-target' })
-            )
+            expect(metaverseUserRepo.remove).toHaveBeenCalledWith(expect.objectContaining({ id: 'membership-target' }))
         })
 
         it('should reject deleting member without permission', async () => {
@@ -478,9 +471,7 @@ describe('Metaverses Routes', () => {
                 role: 'member'
             })
 
-            await request(app)
-                .delete('/metaverses/metaverse-1/members/membership-target')
-                .expect(403)
+            await request(app).delete('/metaverses/metaverse-1/members/membership-target').expect(403)
         })
     })
 })

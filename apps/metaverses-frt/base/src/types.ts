@@ -15,6 +15,7 @@ export interface MetaverseMember {
     userId: string
     email: string | null
     role: MetaverseRole
+    comment?: string
     createdAt: string
 }
 

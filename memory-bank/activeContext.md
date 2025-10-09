@@ -1,33 +1,34 @@
-## 2025-10-08 — Publication Links Group Fix ✅
+## 2025-10-09 — MetaverseAccess Page MVP Redesign ✅
 
-**Problem Identified**: Group publication links missing `version_group_id`, causing them to "fall off" when switching active canvas versions.
+**Completed Implementation**: Full redesign of MetaverseAccess page to align with platform UI standards and add comment functionality for member management.
 
-**Root Cause**: 
-- `PublishLinksApi.createGroupLink()` didn't pass `versionGroupId` parameter to backend
-- Backend `createLink()` saved `versionGroupId` as NULL for group links
-- `updateGroupTarget()` only updates links where `versionGroupId` is not NULL
-- Result: group links remained pointing to old canvas IDs when active version changed
+**Key Changes Delivered**:
 
-**Changes Made**:
+1. **Backend Enhancement (`@universo/metaverses-srv`)**:
+   - Modified existing migration to add `comment TEXT` field to `metaverses_users` table (no new migration needed, DB can be recreated)
+   - Enhanced `MetaverseUser` entity with optional `comment` property
+   - Updated API routes to accept `comment` in invite/update operations and include it in responses
+   - Extended Zod validation schemas for member management operations
+   - All existing tests pass (16/16)
 
-1. **Enhanced PublishLinksApi.ts**:
-   - Added optional `versionGroupId` parameter to `createGroupLink()` method
-   - Updated POST request body to include `versionGroupId: versionGroupId || null`
-   - Maintained backward compatibility with existing callers
+2. **Frontend Redesign (`@universo/metaverses-frt`)**:
+   - **Modal Dialogs**: Created `MemberInviteDialog` and `MemberEditDialog` components with comment support
+   - **View Toggle**: Added card/list view switcher using ToggleButtonGroup (IconCards/IconList)
+   - **Card View**: Custom Card components displaying member info, comments, and role chips
+   - **Enhanced Table**: Added comment column, replaced inline editing with modal-based actions
+   - **Preserved Logic**: All permission checks, self-management confirmations, and role restrictions maintained
+   - **TypeScript**: Updated `MetaverseMember` interface to include optional `comment` field
 
-2. **Updated PlayCanvasPublisher.jsx**:
-   - Extract `versionGroupId` from flow: `flow?.versionGroupId || flow?.version_group_id`
-   - Pass `versionGroupId` to `createGroupLink()` calls
-   - Added explanatory comments for the fix
+3. **Localization Updates**:
+   - Changed Russian page title to "Доступ" (shortened from "Управление доступом")
+   - Added dialog-specific i18n keys for comment functionality
+   - Maintained consistency across EN/RU locales
 
-3. **Updated ARJSPublisher.jsx**:
-   - Same pattern as PlayCanvas: extract and pass `versionGroupId`
-   - Ensures both AR.js and PlayCanvas group links work correctly
-
-4. **Fixed PublishLinkService.ts**:
-   - Corrected `updateLink()` to set `targetType = 'group'` when `targetVersionUuid` is cleared
-   - Fixed TypeScript error in `generateBaseSlug()` by converting Buffer to Uint8Array
-   - Ensures data integrity and type safety
+**Current Status**: 
+- ✅ All lint checks pass (only 1 unrelated warning in MetaverseDetail.tsx)
+- ✅ Frontend and backend build successfully  
+- ✅ Backend tests pass completely (16/16)
+- ✅ MVP functionality implemented with modern UI patterns
 
 **Impact**: Group publication links now properly follow active version changes, fixing the MVP functionality for both PlayCanvas and AR.js publishing.
 

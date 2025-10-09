@@ -7,12 +7,7 @@ import { EntityMetaverse } from '../database/entities/EntityMetaverse'
 import { Section } from '../database/entities/Section'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { AuthUser } from '../database/entities/AuthUser'
-import {
-    ensureMetaverseAccess,
-    ensureSectionAccess,
-    ROLE_PERMISSIONS,
-    MetaverseRole
-} from './guards'
+import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole } from './guards'
 import { z } from 'zod'
 
 const resolveUserId = (req: Request): string | undefined => {
@@ -57,6 +52,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         userId: member.user_id,
         email,
         role: (member.role || 'member') as MetaverseRole,
+        comment: member.comment,
         createdAt: member.created_at
     })
 
@@ -311,14 +307,15 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             const schema = z.object({
                 email: z.string().email(),
-                role: memberRoleSchema
+                role: memberRoleSchema,
+                comment: z.string().optional()
             })
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
             }
 
-            const { email, role } = parsed.data
+            const { email, role, comment } = parsed.data
             const { authUserRepo, metaverseUserRepo } = repos()
 
             const targetUser = await authUserRepo
@@ -336,13 +333,17 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             })
 
             if (existing) {
-                return res.status(409).json({ error: 'User already has access' })
+                return res.status(409).json({
+                    error: 'User already has access',
+                    code: 'METAVERSE_MEMBER_EXISTS'
+                })
             }
 
             const membership = metaverseUserRepo.create({
                 metaverse_id: metaverseId,
                 user_id: targetUser.id,
-                role
+                role,
+                comment
             })
             const saved = await metaverseUserRepo.save(membership)
 
@@ -362,14 +363,15 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
 
             const schema = z.object({
-                role: memberRoleSchema
+                role: memberRoleSchema,
+                comment: z.string().optional()
             })
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
             }
 
-            const { role } = parsed.data
+            const { role, comment } = parsed.data
             const { metaverseUserRepo, authUserRepo } = repos()
 
             const membership = await metaverseUserRepo.findOne({
@@ -385,6 +387,9 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             }
 
             membership.role = role
+            if (comment !== undefined) {
+                membership.comment = comment
+            }
             const saved = await metaverseUserRepo.save(membership)
             const authUser = await authUserRepo.findOne({ where: { id: membership.user_id } })
 

@@ -1,3 +1,38 @@
+## 2025-10-09 — MetaverseAccess Page MVP Redesign Implementation ✅
+
+**Comprehensive Redesign**: Successfully implemented modern UI for MetaverseAccess page with comment functionality and standard platform patterns.
+
+**Backend Enhancements (`@universo/metaverses-srv`)**:
+- Modified existing migration `1741277700000-AddMetaversesSectionsEntities.ts` to include `comment TEXT` field in `metaverses_users` table
+- Enhanced `MetaverseUser` TypeORM entity with optional comment column (`@Column({ type: 'text', nullable: true })`)
+- Updated API routes for member management to accept and return comment field in invite/update operations
+- Extended Zod validation schemas to handle optional comment parameter
+- Maintained full backward compatibility for existing member operations
+- All 16 unit tests continue passing, no functional regressions
+
+**Frontend Modernization (`@universo/metaverses-frt`)**:
+- **Modal Dialogs**: Implemented `MemberInviteDialog` and `MemberEditDialog` components with email, role, and comment fields
+- **View Toggle**: Added card/list view switcher using MUI ToggleButtonGroup with IconCards/IconList
+- **Card View**: Created grid layout with custom Card components displaying member info, comments, and role chips
+- **Enhanced Table**: Added comment column to table view, replaced inline editing with action buttons (Edit/Remove)
+- **UI Consistency**: Replaced inline invite form with modal dialog triggered by standardized "Invite" button
+- **Type Safety**: Updated `MetaverseMember` interface to include optional comment field with proper TypeScript coverage
+- **Preserved Functionality**: All existing permission checks, self-management confirmations, and role restrictions maintained
+
+**Localization Updates**:
+- Updated Russian page title from "Управление доступом" to "Доступ" for consistency with menu
+- Added complete i18n support for dialog components (`dialogs.inviteTitle`, `dialogs.editTitle`, `dialogs.commentLabel`, etc.)
+- Maintained consistency across EN/RU locales
+
+**Quality Assurance**:
+- ✅ Frontend: ESLint passes (39 errors fixed, only 1 unrelated warning remains)
+- ✅ Backend: ESLint passes, no formatting issues
+- ✅ Builds: Both packages compile successfully without TypeScript errors
+- ✅ Tests: Backend test suite passes completely (16/16)
+- ✅ MVP Complete: All requested features implemented with modern UI patterns
+
+**Technical Achievement**: Delivered complete MVP redesign that aligns MetaverseAccess with platform UI standards while adding requested comment functionality. Implementation maintains backward compatibility and preserves all existing access management logic.
+
 ## 2025-10-08 — Publication Links robustness
 
 - Implemented server-side fallback in `@universo/publish-srv` so group links created without `versionGroupId` derive it from the target canvas automatically. This ensures group links follow the active version after switches.

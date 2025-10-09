@@ -21,7 +21,8 @@
         "sections": "Секции",
         "entities": "Сущности",
         "docs": "Справка",
-        "profile": "Профиль"
+        "profile": "Профиль",
+        "access": "Управление доступом"
     },
     "profileMenu": {
         "export": "Экспорт",

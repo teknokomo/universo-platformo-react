@@ -7,15 +7,6 @@ import { EntityMetaverse } from './EntityMetaverse'
 import { EntitySection } from './EntitySection'
 import { AuthUser } from './AuthUser'
 
-export const metaversesEntities = [
-    Metaverse,
-    MetaverseUser,
-    Section,
-    SectionMetaverse,
-    Entity,
-    EntityMetaverse,
-    EntitySection,
-    AuthUser
-]
+export const metaversesEntities = [Metaverse, MetaverseUser, Section, SectionMetaverse, Entity, EntityMetaverse, EntitySection, AuthUser]
 
 export { Metaverse, MetaverseUser, Section, SectionMetaverse, Entity, EntityMetaverse, EntitySection, AuthUser }

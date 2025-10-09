@@ -1,12 +1,5 @@
 import apiClient from './apiClient'
-import {
-    Metaverse,
-    Section,
-    Entity,
-    MetaverseMember,
-    MetaverseMembersResponse,
-    MetaverseAssignableRole
-} from '../types'
+import { Metaverse, Section, Entity, MetaverseMember, MetaverseMembersResponse, MetaverseAssignableRole } from '../types'
 
 export const listMetaverses = () => apiClient.get<Metaverse[]>('/metaverses')
 
@@ -37,16 +30,15 @@ export const getMetaverseSections = (metaverseId: string) => apiClient.get<Secti
 export const addSectionToMetaverse = (metaverseId: string, sectionId: string) =>
     apiClient.post<void>(`/metaverses/${metaverseId}/sections/${sectionId}`)
 
-export const listMetaverseMembers = (metaverseId: string) =>
-    apiClient.get<MetaverseMembersResponse>(`/metaverses/${metaverseId}/members`)
+export const listMetaverseMembers = (metaverseId: string) => apiClient.get<MetaverseMembersResponse>(`/metaverses/${metaverseId}/members`)
 
-export const inviteMetaverseMember = (metaverseId: string, data: { email: string; role: MetaverseAssignableRole }) =>
+export const inviteMetaverseMember = (metaverseId: string, data: { email: string; role: MetaverseAssignableRole; comment?: string }) =>
     apiClient.post<MetaverseMember>(`/metaverses/${metaverseId}/members`, data)
 
 export const updateMetaverseMemberRole = (
     metaverseId: string,
     memberId: string,
-    data: { role: MetaverseAssignableRole }
+    data: { role: MetaverseAssignableRole; comment?: string }
 ) => apiClient.patch<MetaverseMember>(`/metaverses/${metaverseId}/members/${memberId}`, data)
 
 export const removeMetaverseMember = (metaverseId: string, memberId: string) =>

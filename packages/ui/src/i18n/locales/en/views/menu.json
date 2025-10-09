@@ -21,7 +21,8 @@
         "sections": "Sections",
         "entities": "Entities",
         "docs": "Help",
-        "profile": "Profile"
+        "profile": "Profile",
+        "access": "Access management"
     },
     "profileMenu": {
         "export": "Export",

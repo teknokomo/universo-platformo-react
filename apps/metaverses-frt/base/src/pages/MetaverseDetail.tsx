@@ -173,7 +173,17 @@ const MetaverseDetail = () => {
     const updateEntitiesApi = async () => fetchMetaverseData()
     const updateSectionsApi = async () => fetchMetaverseData()
 
+    const canManageMembers = metaverse?.permissions?.manageMembers ?? false
     const canCreateContent = metaverse?.permissions?.createContent ?? false
+
+    useEffect(() => {
+        if (section !== 'access') return
+        if (isLoading) return
+        if (!metaverseId) return
+        if (!metaverse || canManageMembers) return
+
+        navigate(`/metaverses/${metaverseId}`, { replace: true })
+    }, [section, isLoading, metaverseId, metaverse, canManageMembers, navigate])
 
     if (isLoading) {
         return (
@@ -227,7 +237,8 @@ const MetaverseDetail = () => {
                                         size='small'
                                         color='primary'
                                         variant='outlined'
-                                        label={t(`metaverses.roles.${metaverse.role}`)}
+                                        label={t(`roles.${metaverse.role}`)}
+                                        sx={{ pointerEvents: 'none' }}
                                     />
                                 )}
                             </Stack>

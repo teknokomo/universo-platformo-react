@@ -45,11 +45,7 @@ export interface MetaverseMembershipContext {
     metaverseId: string
 }
 
-export async function getMetaverseMembership(
-    ds: DataSource,
-    userId: string,
-    metaverseId: string
-): Promise<MetaverseUser | null> {
+export async function getMetaverseMembership(ds: DataSource, userId: string, metaverseId: string): Promise<MetaverseUser | null> {
     const repo = ds.getRepository(MetaverseUser)
     return repo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
 }
@@ -164,7 +160,9 @@ export async function ensureEntityAccess(
         return { membership: memberships[0], metaverseId: memberships[0].metaverse_id, viaMetaverseIds: uniqueMetaverseIds }
     }
 
-    const allowedMembership = memberships.find((membership) => ROLE_PERMISSIONS[(membership.role || 'member') as MetaverseRole]?.[permission])
+    const allowedMembership = memberships.find(
+        (membership) => ROLE_PERMISSIONS[(membership.role || 'member') as MetaverseRole]?.[permission]
+    )
     if (!allowedMembership) {
         const err: any = new Error('Forbidden for this role')
         err.status = 403

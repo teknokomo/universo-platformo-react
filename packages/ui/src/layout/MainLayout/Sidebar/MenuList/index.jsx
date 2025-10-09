@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import axios from 'axios'
 import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
 import unikDashboard from '@apps/uniks-frt/base/src/menu-items/unikDashboard'
@@ -11,6 +12,58 @@ const MenuList = () => {
     const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const clusterMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
+    const metaverseId = metaverseMatch ? metaverseMatch[1] : null
+    const [metaversePermissions, setMetaversePermissions] = useState({})
+    const knownMetaversePermission = metaverseId ? metaversePermissions[metaverseId] : undefined
+
+    useEffect(() => {
+        if (!metaverseId) {
+            return
+        }
+        if (knownMetaversePermission !== undefined) {
+            return
+        }
+
+        let isActive = true
+
+        const fetchPermissions = async () => {
+            try {
+                const token = localStorage.getItem('token')
+                const response = await axios.get(`/api/v1/metaverses/${metaverseId}`, {
+                    headers: token
+                        ? {
+                              Authorization: `Bearer ${token}`
+                          }
+                        : undefined
+                })
+
+                if (!isActive) return
+
+                setMetaversePermissions((prev) => ({
+                    ...prev,
+                    [metaverseId]: Boolean(response?.data?.permissions?.manageMembers)
+                }))
+            } catch (error) {
+                if (!isActive) return
+
+                console.error('Failed to load metaverse permissions', {
+                    metaverseId,
+                    error
+                })
+
+                setMetaversePermissions((prev) => ({
+                    ...prev,
+                    [metaverseId]: false
+                }))
+            }
+        }
+
+        fetchPermissions()
+
+        return () => {
+            isActive = false
+        }
+    }, [metaverseId, knownMetaversePermission])
 
     let menuItems
     if (unikMatch) {
@@ -33,11 +86,22 @@ const MenuList = () => {
                 url: `/clusters/${clusterId}${item.url}`
             }))
         }
-    } else if (metaverseMatch) {
-        const metaverseId = metaverseMatch[1]
+    } else if (metaverseMatch && metaverseId) {
+        const filteredChildren = metaversesDashboard.children.filter((item) => {
+            if (item.id !== 'access') {
+                return true
+            }
+
+            if (knownMetaversePermission === undefined) {
+                return true
+            }
+
+            return Boolean(knownMetaversePermission)
+        })
+
         menuItems = {
             ...metaversesDashboard,
-            children: metaversesDashboard.children.map((item) => ({
+            children: filteredChildren.map((item) => ({
                 ...item,
                 url: `/metaverses/${metaverseId}${item.url}`
             }))
