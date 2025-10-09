@@ -554,9 +554,24 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         if (!value) {
             setPublishedUrl('')
             try {
-                // Remove all group links for this technology
-                const links = await PublishLinksApi.listLinks({ technology: 'arjs' })
-                const groupLinks = links.filter(link => link.targetType === 'group')
+                const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+                const links = await PublishLinksApi.listLinks({
+                    technology: 'arjs',
+                    ...(versionGroupId ? { versionGroupId } : {})
+                })
+
+                const groupLinks = links.filter((link) => {
+                    if (link.targetType !== 'group') {
+                        return false
+                    }
+
+                    if (versionGroupId && link.versionGroupId === versionGroupId) {
+                        return true
+                    }
+
+                    return link.targetCanvasId === flow.id
+                })
+
                 await Promise.all(groupLinks.map(link => PublishLinksApi.deleteLink(link.id)))
                 
                 // Save settings with isPublic: false
