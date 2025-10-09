@@ -229,11 +229,31 @@ const PlayCanvasPublisher = ({ flow }) => {
         setIsPublic(nextValue)
 
         if (!nextValue) {
-            // Remove all group links for this technology
+            // Remove only links related to the current canvas/version group
             try {
                 const links = await PublishLinksApi.listLinks({ technology: 'playcanvas' })
-                const groupLinks = links.filter(link => link.targetType === 'group')
-                await Promise.all(groupLinks.map(link => PublishLinksApi.deleteLink(link.id)))
+                const relevantLinks = links.filter(link => {
+                    if (link.targetType !== 'group') {
+                        return false
+                    }
+
+                    if (normalizedVersionGroupId) {
+                        return link.versionGroupId === normalizedVersionGroupId
+                    }
+
+                    if (flow?.id && link.targetCanvasId) {
+                        return String(link.targetCanvasId) === String(flow.id)
+                    }
+
+                    return false
+                })
+
+                if (relevantLinks.length === 0) {
+                    setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
+                    return
+                }
+
+                await Promise.all(relevantLinks.map(link => PublishLinksApi.deleteLink(link.id)))
                 await loadPublishLinks()
                 setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
             } catch (error) {
@@ -252,7 +272,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             }
 
             // Create group link using unified API with normalized version group id
-            await PublishLinksApi.createGroupLink(flow.id, 'playcanvas', normalizedVersionGroupId ?? undefined)
+            await PublishLinksApi.createGroupLink(String(flow.id), 'playcanvas', normalizedVersionGroupId ?? undefined)
 
             // Reload links to display the new publication
             await loadPublishLinks()
