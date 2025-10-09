@@ -9,14 +9,12 @@
         "save": "Сохранить",
         "saving": "Сохранение..."
     },
-
     "menu": {
         "metaverseboard": "Метаверсборд",
         "entities": "Сущности",
         "sections": "Секции",
         "access": "Доступ"
     },
-
     "metaverses": {
         "title": "Метавселенные",
         "create": "Создать метавселенную",
@@ -34,7 +32,6 @@
         "saveError": "Не удалось сохранить метавселенную",
         "createMetaverse": "Создать метавселенную",
         "editMetaverse": "Редактировать метавселенную",
-
         "list": {
             "title": "Метавселенные",
             "searchPlaceholder": "Поиск метавселенных...",
@@ -66,6 +63,50 @@
             "sections": "Секции",
             "entities": "Сущности",
             "role": "Роль"
+        },
+        "access": {
+            "title": "Доступ",
+            "subtitle": "Управление ролями участников для \"{{name}}\"",
+            "emailLabel": "Email пользователя",
+            "emailPlaceholder": "user@example.com",
+            "roleLabel": "Роль",
+            "inviteButton": "Пригласить",
+            "refresh": "Обновить",
+            "empty": "Пока нет участников",
+            "notAllowed": "У вас нет прав управлять участниками этой метавселенной.",
+            "confirm": {
+                "removeTitle": "Удалить участника",
+                "removeDescription": "Удалить {{email}} из этой метавселенной?",
+                "removeSelfDescription": "Вы собираетесь удалить собственный доступ. Вы потеряете доступ к этой метавселенной.",
+                "downgradeTitle": "Изменение роли",
+                "downgradeDescription": "Изменив свою роль на {{role}}, вы потеряете возможность управлять доступом в этой метавселенной.",
+                "confirmButton": "Продолжить",
+                "cancelButton": "Отмена"
+            },
+            "notifications": {
+                "selfDowngraded": "Ваша роль обновлена, теперь вы не можете управлять доступом в этой метавселенной.",
+                "selfRemoved": "Вы удалили себя и потеряли доступ к этой метавселенной."
+            },
+            "errors": {
+                "loadFailed": "Не удалось загрузить список участников",
+                "inviteFailed": "Не удалось пригласить участника",
+                "alreadyHasAccess": "Пользователь уже имеет доступ",
+                "updateFailed": "Не удалось обновить роль участника",
+                "removeFailed": "Не удалось удалить участника"
+            },
+            "table": {
+                "email": "Email",
+                "role": "Роль",
+                "added": "Добавлен",
+                "actions": "Действия",
+                "remove": "Удалить"
+            },
+            "dialogs": {
+                "inviteTitle": "Пригласить участника",
+                "editTitle": "Редактировать участника",
+                "commentLabel": "Комментарий",
+                "commentPlaceholder": "Необязательный комментарий об этом участнике"
+            }
         }
     },
     "roles": {
@@ -73,30 +114,6 @@
         "admin": "Администратор",
         "editor": "Редактор",
         "member": "Участник"
-    },
-    "access": {
-        "title": "Управление доступом",
-        "subtitle": "Управление ролями участников для \"{{name}}\"",
-        "emailLabel": "Email участника",
-        "emailPlaceholder": "user@example.com",
-        "roleLabel": "Роль",
-        "inviteButton": "Пригласить",
-        "refresh": "Обновить",
-        "empty": "Пока нет участников",
-        "notAllowed": "У вас нет прав управлять участниками этой метавселенной.",
-        "errors": {
-            "loadFailed": "Не удалось загрузить список участников",
-            "inviteFailed": "Не удалось пригласить участника",
-            "updateFailed": "Не удалось обновить роль участника",
-            "removeFailed": "Не удалось удалить участника"
-        },
-        "table": {
-            "email": "Email",
-            "role": "Роль",
-            "added": "Добавлен",
-            "actions": "Действия",
-            "remove": "Удалить"
-        }
     },
     "sections": {
         "title": "Секции",
@@ -144,7 +161,6 @@
         "name": "Название",
         "description": "Описание",
         "noEntitiesFound": "Сущности не найдены",
-
         "list": {
             "title": "Сущности",
             "searchPlaceholder": "Поиск сущностей...",

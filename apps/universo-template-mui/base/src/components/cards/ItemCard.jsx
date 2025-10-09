@@ -30,8 +30,13 @@ const CardWrapper = styled(Card, {
 
 // ===========================|| CONTRACT CARD ||=========================== //
 
-const ItemCard = ({ data, images, onClick, allowStretch = false }) => {
+const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndContent = null }) => {
     const theme = useTheme()
+    const imageList = Array.isArray(images) ? images : []
+    const hasImages = imageList.length > 0
+    const hasFooterEndContent = Boolean(footerEndContent)
+    const showFooter = hasImages || hasFooterEndContent
+
     return (
         <CardWrapper
             allowStretch={allowStretch}
@@ -109,33 +114,55 @@ const ItemCard = ({ data, images, onClick, allowStretch = false }) => {
                             </span>
                         )}
                     </Box>
-                    {images && (
+                    {showFooter && (
                         <Box
                             sx={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'start',
+                                justifyContent:
+                                    hasImages && hasFooterEndContent ? 'space-between' : hasFooterEndContent ? 'flex-end' : 'flex-start',
                                 gap: 1
                             }}
                         >
-                            {images.slice(0, images.length > 3 ? 3 : images.length).map((img) => (
+                            {hasImages && (
                                 <Box
-                                    key={img}
                                     sx={{
-                                        width: 30,
-                                        height: 30,
-                                        borderRadius: '50%',
-                                        backgroundColor:
-                                            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[300]
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'start',
+                                        gap: 1,
+                                        flexWrap: 'wrap'
                                     }}
                                 >
-                                    <img style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }} alt='' src={img} />
+                                    {imageList.slice(0, imageList.length > 3 ? 3 : imageList.length).map((img) => (
+                                        <Box
+                                            key={img}
+                                            sx={{
+                                                width: 30,
+                                                height: 30,
+                                                borderRadius: '50%',
+                                                backgroundColor:
+                                                    theme.palette.mode === 'dark'
+                                                        ? theme.palette.common.white
+                                                        : theme.palette.grey[300]
+                                            }}
+                                        >
+                                            <img
+                                                style={{ width: '100%', height: '100%', padding: 5, objectFit: 'contain' }}
+                                                alt=''
+                                                src={img}
+                                            />
+                                        </Box>
+                                    ))}
+                                    {imageList.length > 3 && (
+                                        <Typography sx={{ alignItems: 'center', display: 'flex', fontSize: '.9rem', fontWeight: 200 }}>
+                                            + {imageList.length - 3} More
+                                        </Typography>
+                                    )}
                                 </Box>
-                            ))}
-                            {images.length > 3 && (
-                                <Typography sx={{ alignItems: 'center', display: 'flex', fontSize: '.9rem', fontWeight: 200 }}>
-                                    + {images.length - 3} More
-                                </Typography>
+                            )}
+                            {hasFooterEndContent && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', ml: hasImages ? 1 : 0 }}>{footerEndContent}</Box>
                             )}
                         </Box>
                     )}
@@ -149,7 +176,8 @@ ItemCard.propTypes = {
     data: PropTypes.object,
     images: PropTypes.array,
     onClick: PropTypes.func,
-    allowStretch: PropTypes.bool
+    allowStretch: PropTypes.bool,
+    footerEndContent: PropTypes.node
 }
 
 export default ItemCard

@@ -48,6 +48,7 @@ export class AddMetaversesSectionsEntities1741277700000 implements MigrationInte
                 metaverse_id UUID NOT NULL,
                 user_id UUID NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'owner',
+                comment TEXT,
                 created_at TIMESTAMP NOT NULL DEFAULT now(),
                 UNIQUE(metaverse_id, user_id),
                 FOREIGN KEY (metaverse_id) REFERENCES metaverses.metaverses(id) ON DELETE CASCADE

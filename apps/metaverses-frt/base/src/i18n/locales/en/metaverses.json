@@ -9,14 +9,12 @@
         "save": "Save",
         "saving": "Saving..."
     },
-
     "menu": {
         "metaverseboard": "Metaverseboard",
         "entities": "Entities",
         "sections": "Sections",
         "access": "Access"
     },
-
     "metaverses": {
         "title": "Metaverses",
         "create": "Create Metaverse",
@@ -34,7 +32,6 @@
         "saveError": "Failed to save metaverse",
         "createMetaverse": "Create Metaverse",
         "editMetaverse": "Edit Metaverse",
-
         "list": {
             "title": "Metaverses",
             "searchPlaceholder": "Search metaverses...",
@@ -66,6 +63,50 @@
             "sections": "Sections",
             "entities": "Entities",
             "role": "Role"
+        },
+        "access": {
+            "title": "Access management",
+            "subtitle": "Manage member roles for \"{{name}}\"",
+            "emailLabel": "User email",
+            "emailPlaceholder": "user@example.com",
+            "roleLabel": "Role",
+            "inviteButton": "Invite",
+            "refresh": "Refresh",
+            "empty": "No members yet",
+            "notAllowed": "You do not have permission to manage members in this metaverse.",
+            "confirm": {
+                "removeTitle": "Remove member",
+                "removeDescription": "Remove {{email}} from this metaverse?",
+                "removeSelfDescription": "You are about to remove your own access. You will lose access to this metaverse.",
+                "downgradeTitle": "Change role",
+                "downgradeDescription": "Changing your role to {{role}} will remove your ability to manage access in this metaverse.",
+                "confirmButton": "Continue",
+                "cancelButton": "Cancel"
+            },
+            "notifications": {
+                "selfDowngraded": "Your role has been updated and you can no longer manage access in this metaverse.",
+                "selfRemoved": "You removed yourself and lost access to this metaverse."
+            },
+            "errors": {
+                "loadFailed": "Failed to load members",
+                "inviteFailed": "Failed to invite member",
+                "alreadyHasAccess": "User already has access",
+                "updateFailed": "Failed to update member",
+                "removeFailed": "Failed to remove member"
+            },
+            "table": {
+                "email": "Email",
+                "role": "Role",
+                "added": "Added",
+                "actions": "Actions",
+                "remove": "Remove"
+            },
+            "dialogs": {
+                "inviteTitle": "Invite Member",
+                "editTitle": "Edit Member",
+                "commentLabel": "Comment",
+                "commentPlaceholder": "Optional comment about this member"
+            }
         }
     },
     "roles": {
@@ -73,30 +114,6 @@
         "admin": "Admin",
         "editor": "Editor",
         "member": "Member"
-    },
-    "access": {
-        "title": "Access management",
-        "subtitle": "Manage member roles for \"{{name}}\"",
-        "emailLabel": "Member email",
-        "emailPlaceholder": "user@example.com",
-        "roleLabel": "Role",
-        "inviteButton": "Invite",
-        "refresh": "Refresh",
-        "empty": "No members yet",
-        "notAllowed": "You do not have permission to manage members in this metaverse.",
-        "errors": {
-            "loadFailed": "Failed to load members",
-            "inviteFailed": "Failed to invite member",
-            "updateFailed": "Failed to update member",
-            "removeFailed": "Failed to remove member"
-        },
-        "table": {
-            "email": "Email",
-            "role": "Role",
-            "added": "Added",
-            "actions": "Actions",
-            "remove": "Remove"
-        }
     },
     "sections": {
         "title": "Sections",

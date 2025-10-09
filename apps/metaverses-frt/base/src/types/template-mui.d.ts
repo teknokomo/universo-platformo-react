@@ -8,3 +8,20 @@ declare module '@universo/template-mui' {
 declare module '@universo/template-mui/components/table/FlowListTable' {
     export const FlowListTable: any
 }
+
+declare module '@ui/ui-component/button/StyledButton' {
+    export const StyledButton: any
+}
+
+declare module '@ui/store/actions' {
+    export const enqueueSnackbar: any
+}
+
+declare module '@ui/utils/authProvider' {
+    export const useAuth: any
+}
+
+declare module '@ui/hooks/useConfirm' {
+    const useConfirm: any
+    export default useConfirm
+}

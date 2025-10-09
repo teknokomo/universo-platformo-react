@@ -113,10 +113,7 @@ const MetaverseList = () => {
 
     const updateFlowsApi = fetchMetaverses
 
-    const roleLabel = useCallback(
-        (role?: MetaverseRole) => (role ? t(`metaverses.roles.${role}`) : '—'),
-        [t]
-    )
+    const roleLabel = useCallback((role?: MetaverseRole) => (role ? t(`roles.${role}`) : '—'), [t])
 
     const metaverseColumns = useMemo(
         () => [
@@ -278,22 +275,23 @@ const MetaverseList = () => {
                                         metaverses
                                             .filter(filterMetaverses)
                                             .map((metaverse) => (
-                                                <Stack key={metaverse.id} spacing={1}>
-                                                    <ItemCard
-                                                        data={metaverse}
-                                                        images={images[metaverse.id] || []}
-                                                        onClick={() => goToMetaverse(metaverse)}
-                                                    />
-                                                    {metaverse.role && (
-                                                        <Chip
-                                                            size='small'
-                                                            variant='outlined'
-                                                            color='primary'
-                                                            label={roleLabel(metaverse.role)}
-                                                            sx={{ alignSelf: 'flex-start' }}
-                                                        />
-                                                    )}
-                                                </Stack>
+                                                <ItemCard
+                                                    key={metaverse.id}
+                                                    data={metaverse}
+                                                    images={images[metaverse.id] || []}
+                                                    onClick={() => goToMetaverse(metaverse)}
+                                                    footerEndContent={
+                                                        metaverse.role ? (
+                                                            <Chip
+                                                                size='small'
+                                                                variant='outlined'
+                                                                color='primary'
+                                                                label={roleLabel(metaverse.role)}
+                                                                sx={{ pointerEvents: 'none' }}
+                                                            />
+                                                        ) : undefined
+                                                    }
+                                                />
                                             ))}
                                 </Box>
                             ) : (

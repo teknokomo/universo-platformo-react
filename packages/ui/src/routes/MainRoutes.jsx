@@ -221,6 +221,10 @@ const MainRoutes = {
                             element: <MetaverseDetail />
                         },
                         {
+                            path: 'access',
+                            element: <MetaverseDetail />
+                        },
+                        {
                             path: 'sections/:sectionId',
                             element: <SectionDetail />
                         },

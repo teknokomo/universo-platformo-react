@@ -15,6 +15,9 @@ export class MetaverseUser {
     @Column({ type: 'varchar', length: 50, default: 'owner' })
     role!: string
 
+    @Column({ type: 'text', nullable: true })
+    comment?: string
+
     @CreateDateColumn()
     created_at!: Date
 
