@@ -106,7 +106,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
     /**
      * @route   POST /arjs
-     * @desc    Создает новую публикацию AR.js (только метаданные)
+     * @desc    Creates a new AR.js publication (metadata only)
      * @body    { canvasId: string, generationMode: string, isPublic: boolean, projectName: string }
      */
     router.post('/arjs', async (req: Request, res: Response) => {
@@ -124,8 +124,8 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
     /**
      * @route   GET /arjs/public/:publicationId
-     * @desc    Возвращает данные UPDL сцены для публичной AR.js публикации
-     * @param   publicationId - ID публикации (равен canvasId)
+     * @desc    Returns UPDL scene data for a public AR.js publication by slug
+     * @param   publicationId - Base58 publication slug (parameter name kept for legacy compatibility)
      */
     router.get('/arjs/public/:publicationId', async (req: Request, res: Response) => {
         try {
@@ -142,8 +142,8 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
     /**
      * @route   GET /canvas/:canvasId
-     * @desc    Прямой запрос к потоковой генерации UPDL сцены по Canvas ID (новый формат)
-     * @param   canvasId - ID холста для генерации сцены
+     * @desc    Streams UPDL scene data for a public canvas publication by slug
+     * @param   canvasId - Base58 publication slug (parameter name kept for legacy compatibility)
      */
     router.get('/canvas/:canvasId', async (req: Request, res: Response) => {
         try {
@@ -164,7 +164,7 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
     /**
      * @route   POST /canvas
-     * @desc    Создает новую публикацию Canvas (новый формат)
+     * @desc    Creates a new canvas publication (new format)
      * @body    { canvasId: string, generationMode: string, isPublic: boolean, projectName: string }
      */
     router.post('/canvas', async (req: Request, res: Response) => {
@@ -182,8 +182,8 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
     /**
      * @route   GET /canvas/public/:canvasId
-     * @desc    Возвращает данные UPDL сцены для публичной Canvas публикации (новый формат)
-     * @param   canvasId - ID холста
+     * @desc    Returns UPDL scene data for a public canvas publication by slug (new format)
+     * @param   canvasId - Base58 publication slug (parameter name kept for legacy compatibility)
      */
     router.get('/canvas/public/:canvasId', async (req: Request, res: Response) => {
         try {
