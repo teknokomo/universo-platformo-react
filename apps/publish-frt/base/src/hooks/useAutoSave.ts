@@ -83,10 +83,10 @@ export function useAutoSave<T>({
 
         setStatus('saving')
         isSavingRef.current = true
-        setHasUnsavedChanges(false)
 
         try {
             await latestOnSaveRef.current(latestDataRef.current)
+            setHasUnsavedChanges(false)
             setStatus('saved')
             // Reset to idle after 2 seconds
             setTimeout(() => {
