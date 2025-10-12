@@ -56,17 +56,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         flowIdRef.current = flow?.id
     }, [flow?.id])
 
-    // CRITICAL DEBUG: Diagnose flow.id undefined issue
-    useEffect(() => {
-        console.log('🔍 [ARJSPublisher] FLOW DEBUG:', {
-            flowExists: !!flow,
-            flowId: flow?.id,
-            flowKeys: flow ? Object.keys(flow) : 'no flow',
-            flowValue: flow,
-            flowType: typeof flow
-        })
-    }, [flow])
-
     // State for project title
     const [projectTitle, setProjectTitle] = useState(flow?.name || '')
     // State for marker type
@@ -386,12 +375,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
             try {
                 setSettingsLoading(true)
-                console.log('ARJSPublisher: Loading saved settings for flow', flow.id) // Simple console.log
-
                 const savedSettings = await ARJSPublicationApi.loadARJSSettings(flow.id)
 
                 if (savedSettings) {
-                    console.log('ARJSPublisher: Restored settings', savedSettings) // Simple console.log
                     setIsPublic(savedSettings.isPublic || false)
                     setProjectTitle(savedSettings.projectTitle || flow?.name || '')
                     setMarkerType(savedSettings.markerType || 'preset')
@@ -418,7 +404,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                             if (globalSettings.autoCorrectLegacySettings) {
                                 // Auto-correct legacy settings
-                                console.log('ARJSPublisher: Auto-correcting legacy library configuration')
                                 setArjsSource(globalSettings.defaultLibrarySource)
                                 setAframeSource(globalSettings.defaultLibrarySource)
                                 setArjsVersion('3.4.7')
@@ -436,7 +421,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 })
                             } else {
                                 // Show recommendation but keep existing settings
-                                console.log('ARJSPublisher: Legacy configuration detected, showing recommendation')
                                 setArjsVersion(savedSettings.libraryConfig.arjs?.version || '3.4.7')
                                 setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
                                 setAframeVersion(savedSettings.libraryConfig.aframe?.version || '1.7.1')
@@ -455,7 +439,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                             }
                         } else {
                             // No legacy conflict, apply enforcement
-                            console.log('ARJSPublisher: Enforcing global library management settings')
                             setArjsSource(globalSettings.defaultLibrarySource)
                             setAframeSource(globalSettings.defaultLibrarySource)
                             setArjsVersion('3.4.7')
@@ -469,7 +452,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
                     } else if (globalSettings?.enableGlobalLibraryManagement) {
                         // LEVEL 1: Priority mode - set defaults but allow user choice
-                        console.log('ARJSPublisher: Using global library management as default priority')
                         setArjsSource(globalSettings.defaultLibrarySource)
                         setAframeSource(globalSettings.defaultLibrarySource)
                         setArjsVersion('3.4.7')
@@ -486,17 +468,13 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         await loadPublishLinks()
                     }
                 } else {
-                    console.log('ARJSPublisher: No saved settings found, using defaults') // Simple console.log
-
                     // Apply global settings with two-level logic
                     if (globalSettings?.enforceGlobalLibraryManagement) {
                         // LEVEL 2: Enforcement mode - force global settings
-                        console.log('ARJSPublisher: Enforcing global library management (no saved settings)')
                         setArjsSource(globalSettings.defaultLibrarySource)
                         setAframeSource(globalSettings.defaultLibrarySource)
                     } else if (globalSettings?.enableGlobalLibraryManagement) {
                         // LEVEL 1: Priority mode - use global as default but allow user choice
-                        console.log('ARJSPublisher: Using global library management as default (no saved settings)')
                         setArjsSource(globalSettings.defaultLibrarySource)
                         setAframeSource(globalSettings.defaultLibrarySource)
                     } else {
@@ -560,7 +538,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const handleArjsSourceChange = (event) => {
         // Allow changes in legacy recommendation mode
         if (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings)) {
-            console.log('ARJSPublisher: Source change blocked by global library management')
             return
         }
 
@@ -591,7 +568,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const handleAframeSourceChange = (event) => {
         // Allow changes in legacy recommendation mode
         if (globalSettings?.enforceGlobalLibraryManagement && (!isLegacyScenario || globalSettings?.autoCorrectLegacySettings)) {
-            console.log('ARJSPublisher: Source change blocked by global library management')
             return
         }
 

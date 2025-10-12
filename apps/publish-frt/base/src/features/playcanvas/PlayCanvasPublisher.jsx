@@ -104,7 +104,7 @@ const PlayCanvasPublisher = ({ flow }) => {
         resolvedVersionGroupIdRef.current = resolvedVersionGroupId
     }, [resolvedVersionGroupId])
     const [versionGroupFetchAttempted, setVersionGroupFetchAttempted] = useState(Boolean(normalizedVersionGroupId))
-    const loadedFlowIdsRef = useRef(new Set())
+    const lastLoadedFlowIdRef = useRef(null)
 
     useEffect(() => {
         if (normalizedVersionGroupId !== resolvedVersionGroupId) {
@@ -225,11 +225,13 @@ const PlayCanvasPublisher = ({ flow }) => {
                 setLoading(false)
                 return
             }
-            if (loadedFlowIdsRef.current.has(flow.id)) {
+
+            if (lastLoadedFlowIdRef.current === flow.id) {
                 setLoading(false)
                 return
             }
-            loadedFlowIdsRef.current.add(flow.id)
+
+            lastLoadedFlowIdRef.current = flow.id
             try {
                 const settings = await PlayCanvasPublicationApi.loadPlayCanvasSettings(flow.id)
                 if (settings) {
@@ -260,8 +262,10 @@ const PlayCanvasPublisher = ({ flow }) => {
                     setLibraryVersion(libVer || DEFAULT_VERSION)
 
                 }
+            }
         } catch (e) {
             console.error('PlayCanvasPublisher: load error', e)
+            lastLoadedFlowIdRef.current = null
             setError(e.message)
         } finally {
             setLoading(false)
