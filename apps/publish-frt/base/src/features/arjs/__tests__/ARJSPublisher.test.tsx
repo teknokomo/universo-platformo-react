@@ -1,3 +1,4 @@
+import React from 'react'
 import { vi } from 'vitest'
 import { act } from 'react'
 import userEvent from '@testing-library/user-event'

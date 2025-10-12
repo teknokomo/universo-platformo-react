@@ -38,15 +38,17 @@ export class PublishLinksApi {
             throw new Error('unikId not found in URL')
         }
 
-        const response = await client().get('/publish/links', {
-            params: {
+        const normalizedParams = Object.fromEntries(
+            Object.entries({
                 unikId,
-                ...(spaceId ? { spaceId } : {}),
-                ...(params.technology ? { technology: params.technology } : {}),
-                ...(params.versionGroupId ? { versionGroupId: params.versionGroupId } : {}),
-                ...(params.targetVersionUuid ? { targetVersionUuid: params.targetVersionUuid } : {})
-            },
-            ...(config?.signal ? { signal: config.signal } : {})
+                spaceId: spaceId ?? undefined,
+                ...params
+            }).filter(([, value]) => value !== null && value !== undefined && value !== '')
+        )
+
+        const response = await client().get('/publish/links', {
+            params: normalizedParams,
+            signal: config?.signal
         })
 
         const records = response.data?.data
