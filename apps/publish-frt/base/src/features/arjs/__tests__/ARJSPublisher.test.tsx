@@ -6,11 +6,18 @@ import { renderWithProviders, screen, waitFor } from '@testing/frontend'
 
 import ARJSPublisher from '../ARJSPublisher.jsx'
 
-const { mockGetCurrentUrlIds, mockLoadSettings, mockSaveSettings, mockPublish, mockGetGlobalSettings, mockCreateGroupLink } = vi.hoisted(
+const {
+    mockGetCurrentUrlIds,
+    mockLoadARJSSettings,
+    mockSaveARJSSettings,
+    mockPublish,
+    mockGetGlobalSettings,
+    mockCreateGroupLink
+} = vi.hoisted(
     () => ({
         mockGetCurrentUrlIds: vi.fn(() => ({ flowId: 'flow-123' })),
-        mockLoadSettings: vi.fn(async () => ({ data: { projectTitle: 'Demo Project', isPublic: false } })),
-        mockSaveSettings: vi.fn(async () => ({ data: { success: true } })),
+        mockLoadARJSSettings: vi.fn(async () => ({ projectTitle: 'Demo Project', isPublic: false })),
+        mockSaveARJSSettings: vi.fn(async () => undefined),
         mockPublish: vi.fn(async () => ({ publicationId: 'pub-123' })),
         mockGetGlobalSettings: vi.fn(async () => ({ data: { success: true, data: {} } })),
         mockCreateGroupLink: vi.fn(async () => ({ id: 'link-123', baseSlug: 'abc123def456' }))
@@ -19,9 +26,13 @@ const { mockGetCurrentUrlIds, mockLoadSettings, mockSaveSettings, mockPublish, m
 
 vi.mock('../../../api', () => ({
     getCurrentUrlIds: mockGetCurrentUrlIds,
+    ARJSPublicationApi: {
+        loadARJSSettings: mockLoadARJSSettings,
+        saveARJSSettings: mockSaveARJSSettings
+    },
     ChatflowsApi: {
-        loadSettings: mockLoadSettings,
-        saveSettings: mockSaveSettings
+        loadSettings: mockLoadARJSSettings,
+        saveSettings: mockSaveARJSSettings
     },
     ARJSPublishApi: {
         publishARJS: mockPublish
@@ -64,14 +75,14 @@ describe('ARJSPublisher', () => {
             )
         })
 
-        await waitFor(() => expect(mockLoadSettings).toHaveBeenCalledWith('flow-123'))
+        await waitFor(() => expect(mockLoadARJSSettings).toHaveBeenCalledWith('flow-123'))
 
         const toggle = await screen.findByRole('checkbox', { name: /configuration\.makePublic/i })
         await userEvent.click(toggle)
 
         await waitFor(() => expect(mockCreateGroupLink).toHaveBeenCalledTimes(1))
 
-        expect(mockSaveSettings).toHaveBeenCalledWith('flow-123', expect.objectContaining({ isPublic: true }))
-        expect(mockCreateGroupLink).toHaveBeenCalledWith('flow-123', 'arjs')
+        expect(mockSaveARJSSettings).toHaveBeenCalledWith('flow-123', expect.objectContaining({ isPublic: true }))
+        expect(mockCreateGroupLink).toHaveBeenCalledWith('flow-123', 'arjs', undefined)
     })
 })
