@@ -187,16 +187,17 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
 
         setPublishing(true)
         try {
+            const previousLinksCount = publishedLinks.length
             await PublishLinksApi.createVersionLink(targetVersion.id, targetVersion.versionUuid, technology)
             // Reload versions first to update publishedVersionUuids, then reload links
             await loadVersions()
             let updatedLinks = await loadPublishedLinks()
             // Retry a few times in case backend is eventually consistent
-            if (!updatedLinks || updatedLinks.length === 0) {
+            if (!updatedLinks || updatedLinks.length <= previousLinksCount) {
                 for (let attempt = 1; attempt <= 3; attempt++) {
                     await new Promise((r) => setTimeout(r, 300 * attempt))
                     updatedLinks = await loadPublishedLinks()
-                    if (updatedLinks && updatedLinks.length > 0) break
+                    if (updatedLinks && updatedLinks.length > previousLinksCount) break
                 }
             }
             setSelectedVersion('')

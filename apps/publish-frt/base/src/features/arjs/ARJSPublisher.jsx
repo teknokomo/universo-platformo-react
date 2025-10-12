@@ -255,7 +255,6 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                 // Retry on empty results or invalid data, but only on first attempt
                 if ((filtered.length === 0 || !isValidData(filtered)) && retryCount === 0) {
-                    console.log('[ARJSPublisher] Invalid or empty links, retrying in 500ms...')
                     await new Promise((resolve) => setTimeout(resolve, 500))
                     return loadPublishLinks(1)
                 }
@@ -285,8 +284,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // Load published links only on mount (event-driven pattern)
     useEffect(() => {
         loadPublishLinks()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [loadPublishLinks])
 
     useEffect(() => {
         if (isPublic && publishLinkItems.length > 0) {
@@ -300,11 +298,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     useEffect(() => {
         const loadGlobalSettings = async () => {
             try {
-                console.log('ARJSPublisher: Loading global settings...')
                 const response = await PublicationApi.getGlobalSettings()
                 if (response.data?.success) {
                     setGlobalSettings(response.data.data)
-                    console.log('ARJSPublisher: Global settings loaded:', response.data.data)
                 } else {
                     console.warn('ARJSPublisher: Failed to load global settings')
                 }
@@ -740,7 +736,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             
             // Optimistically update UI with new link
             setPublishedUrl(fullPublicUrl)
-            setPublishLinkRecords([createdLink])
+            setPublishLinkRecords((previous) => {
+                const withoutDuplicate = previous.filter((record) => record.id !== createdLink.id)
+                return [...withoutDuplicate, createdLink]
+            })
             setSnackbar({ open: true, message: t('notifications.publicationCreated') })
 
             if (onPublish) {

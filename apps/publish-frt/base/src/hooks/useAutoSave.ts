@@ -80,6 +80,13 @@ export function useAutoSave<T>({
         }
     }, [enabled])
 
+    const clearStatusResetTimeout = useCallback(() => {
+        if (statusResetTimeoutRef.current) {
+            clearTimeout(statusResetTimeoutRef.current)
+            statusResetTimeoutRef.current = null
+        }
+    }, [])
+
     useEffect(() => {
         return () => {
             if (timeoutRef.current) {
@@ -88,13 +95,6 @@ export function useAutoSave<T>({
             clearStatusResetTimeout()
         }
     }, [clearStatusResetTimeout])
-
-    const clearStatusResetTimeout = useCallback(() => {
-        if (statusResetTimeoutRef.current) {
-            clearTimeout(statusResetTimeoutRef.current)
-            statusResetTimeoutRef.current = null
-        }
-    }, [])
 
     const triggerSave = useCallback(async () => {
         if (!enabled) {
