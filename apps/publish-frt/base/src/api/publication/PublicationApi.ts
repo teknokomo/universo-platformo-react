@@ -1,11 +1,24 @@
 // Universo Platformo | Base Publication API for all technologies
 // Base publication functionality for Spaces (formerly Chatflows)
 
-import axios from 'axios'
-import { getAuthHeaders, getCurrentUrlIds } from '../common'
+import { getCurrentUrlIds } from '../common'
+import { getPublishApiClient } from '../client'
 import { SUPPORTED_TECHNOLOGIES } from '../../builders/common/types'
 
-const API_BASE = '/api/v1'
+type AxiosErrorLike = {
+    isAxiosError?: boolean
+    response?: { data?: { error?: string }; status?: number; statusText?: string }
+    message?: string
+}
+
+const client = () => getPublishApiClient()
+
+const toAxiosError = (error: unknown): AxiosErrorLike | null => {
+    if (error && typeof error === 'object' && 'isAxiosError' in error) {
+        return error as AxiosErrorLike
+    }
+    return null
+}
 
 /**
  * Base Publication API client for all technologies
@@ -19,13 +32,7 @@ export class PublicationApi {
      */
     static async getCanvasById(unikId: string, canvasId: string) {
         try {
-            const headers = {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal'
-            }
-
-            const response = await axios.get(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, { headers })
-            return response
+            return await client().get(`/unik/${unikId}/canvases/${canvasId}`)
         } catch (error) {
             console.error('[PublicationApi] Error getting canvas:', error)
             throw error
@@ -41,14 +48,7 @@ export class PublicationApi {
      */
     static async updateCanvas(unikId: string, canvasId: string, body: any) {
         try {
-            const headers = {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal',
-                'Content-Type': 'application/json'
-            }
-
-            const response = await axios.put(`${API_BASE}/unik/${unikId}/canvases/${canvasId}`, body, { headers })
-            return response
+            return await client().put(`/unik/${unikId}/canvases/${canvasId}`, body)
         } catch (error) {
             console.error('[PublicationApi] Error updating canvas:', error)
             throw error
@@ -78,7 +78,9 @@ export class PublicationApi {
             if (currentCanvas.chatbotConfig) {
                 try {
                     existingConfig =
-                        typeof currentCanvas.chatbotConfig === 'string' ? JSON.parse(currentCanvas.chatbotConfig) : currentCanvas.chatbotConfig
+                        typeof currentCanvas.chatbotConfig === 'string'
+                            ? JSON.parse(currentCanvas.chatbotConfig)
+                            : currentCanvas.chatbotConfig
                 } catch (parseError) {
                     console.warn('Failed to parse existing chatbotConfig, using empty object:', parseError)
                     existingConfig = {}
@@ -119,8 +121,9 @@ export class PublicationApi {
             console.log(`✅ [PublicationApi] ${technology} settings saved successfully for canvas ${canvasId}`)
         } catch (error) {
             console.error(`❌ [PublicationApi] Failed to save ${technology} settings:`, error)
-            if (axios.isAxiosError(error)) {
-                const errorMessage = error.response?.data?.error || error.response?.statusText || error.message
+            const axiosError = toAxiosError(error)
+            if (axiosError?.response) {
+                const errorMessage = axiosError.response.data?.error || axiosError.response.statusText || axiosError.message
                 throw new Error(`Failed to save ${technology} settings: ${errorMessage}`)
             }
             throw error
@@ -161,11 +164,12 @@ export class PublicationApi {
             return null
         } catch (error) {
             console.error(`❌ [PublicationApi] Failed to load ${technology} settings:`, error)
-            if (axios.isAxiosError(error)) {
-                if (error.response?.status === 404) {
+            const axiosError = toAxiosError(error)
+            if (axiosError?.response) {
+                if (axiosError.response.status === 404) {
                     throw new Error('Canvas not found')
                 }
-                const errorMessage = error.response?.data?.error || error.response?.statusText || error.message
+                const errorMessage = axiosError.response.data?.error || axiosError.response.statusText || axiosError.message
                 throw new Error(`Failed to load ${technology} settings: ${errorMessage}`)
             }
             throw error
@@ -204,13 +208,7 @@ export class PublicationApi {
      */
     static async getGlobalSettings() {
         try {
-            const headers = {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal'
-            }
-
-            const response = await axios.get(`${API_BASE}/publish/settings/global`, { headers })
-            return response
+            return await client().get('/publish/settings/global')
         } catch (error) {
             console.error('[PublicationApi] Error getting global settings:', error)
             throw error

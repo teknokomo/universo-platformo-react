@@ -5,7 +5,6 @@ import { BaseBuilder } from '../../../common/BaseBuilder'
 import { UPDLProcessor } from '@universo-platformo/utils'
 import { IUPDLSpace } from '@universo-platformo/types'
 import { BuildResult, BuildOptions, BuilderConfig, BuildErrorClass } from '../../../common/types'
-import { IFlowData } from '@universo/publish-srv'
 
 /**
  * PlayCanvasBuilder generates simple PlayCanvas HTML from UPDL data

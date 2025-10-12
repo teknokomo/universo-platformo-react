@@ -36,8 +36,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
             try {
                 const processedData = UPDLProcessor.processFlowData(flowData)
 
-                const templateId =
-                    (config.templateId === 'mmoomm' ? 'mmoomm-playcanvas' : config.templateId) || 'mmoomm-playcanvas'
+                const templateId = (config.templateId === 'mmoomm' ? 'mmoomm-playcanvas' : config.templateId) || 'mmoomm-playcanvas'
                 const builder = TemplateRegistry.createBuilder(templateId)
 
                 const buildOptions = {

@@ -310,6 +310,9 @@
             "copyLink": "Copy Link",
             "selectTechnology": "Select technology",
             "activeLabel": "Active",
+            "unknownVersion": "Unknown version",
+            "versionLabel": "Version",
+            "versionLinksTitle": "Version Links (Fixed Snapshots)",
             "groupMissing": "Version group is not detected yet. You can still publish specific versions once they appear below.",
             "versionPublished": "Version published successfully",
             "versionUnpublished": "Publication removed",
@@ -334,5 +337,10 @@
         "configSaved": "PlayCanvas publication settings saved",
         "saveError": "Error saving PlayCanvas settings",
         "libraryHint": "Choose PlayCanvas engine version"
+    },
+    "common": {
+        "saving": "Saving...",
+        "saved": "Saved",
+        "saveError": "Save error"
     }
 }

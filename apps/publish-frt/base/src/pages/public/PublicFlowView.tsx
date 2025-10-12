@@ -69,19 +69,14 @@ const PublicFlowView: React.FC = () => {
                 }
 
                 if (technologies.length === 0) {
-                    throw new Error(
-                        t('publish.publicFlow.errors.noPublicTech', 'No published technologies are available')
-                    )
+                    throw new Error(t('publish.publicFlow.errors.noPublicTech', 'No published technologies are available'))
                 }
 
                 const normalizedTechnology =
-                    nextPublication.technology === 'arjs' || nextPublication.technology === 'playcanvas'
-                        ? nextPublication.technology
-                        : null
+                    nextPublication.technology === 'arjs' || nextPublication.technology === 'playcanvas' ? nextPublication.technology : null
 
-                const preferredTech = normalizedTechnology && technologies.includes(normalizedTechnology)
-                    ? normalizedTechnology
-                    : technologies[0]
+                const preferredTech =
+                    normalizedTechnology && technologies.includes(normalizedTechnology) ? normalizedTechnology : technologies[0]
 
                 setPublication(nextPublication)
                 setActiveTechnology(preferredTech)
@@ -184,10 +179,7 @@ const PublicFlowView: React.FC = () => {
                             {t('publish.publicFlow.errors.unsupportedTechnology', 'Technology is not supported')}
                         </Typography>
                         <Typography variant='body1'>
-                            {t(
-                                'publish.publicFlow.errors.noRenderer',
-                                'No compatible viewer is available for this publication.'
-                            )}
+                            {t('publish.publicFlow.errors.noRenderer', 'No compatible viewer is available for this publication.')}
                         </Typography>
                     </Alert>
                 </Box>

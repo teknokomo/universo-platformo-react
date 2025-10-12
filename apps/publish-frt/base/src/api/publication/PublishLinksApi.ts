@@ -1,7 +1,7 @@
-import axios from 'axios'
-import { getApiBaseUrl, getAuthHeaders, getCurrentUrlIds } from '../common'
+import { getCurrentUrlIds } from '../common'
+import { getPublishApiClient } from '../client'
 
-const API_BASE_URL = getApiBaseUrl()
+const client = () => getPublishApiClient()
 
 export type PublishLinkTargetType = 'group' | 'version'
 
@@ -27,40 +27,28 @@ export interface PublishLinkQueryParams {
     targetVersionUuid?: string | null
 }
 
+export interface PublishLinksApiConfig {
+    signal?: AbortSignal
+}
+
 export class PublishLinksApi {
-    static async listLinks(params: PublishLinkQueryParams = {}): Promise<PublishLinkRecord[]> {
+    static async listLinks(params: PublishLinkQueryParams = {}, config?: PublishLinksApiConfig): Promise<PublishLinkRecord[]> {
         const { unikId, spaceId } = getCurrentUrlIds()
         if (!unikId) {
             throw new Error('unikId not found in URL')
         }
 
-        const searchParams = new URLSearchParams()
-        searchParams.set('unikId', unikId)
+        const normalizedParams = Object.fromEntries(
+            Object.entries({
+                unikId,
+                spaceId: spaceId ?? undefined,
+                ...params
+            }).filter(([, value]) => value !== null && value !== undefined && value !== '')
+        )
 
-        if (spaceId) {
-            searchParams.set('spaceId', spaceId)
-        }
-
-        if (params.technology) {
-            searchParams.set('technology', params.technology)
-        }
-
-        if (params.versionGroupId) {
-            searchParams.set('versionGroupId', params.versionGroupId)
-        }
-
-        if (params.targetVersionUuid) {
-            searchParams.set('targetVersionUuid', params.targetVersionUuid)
-        }
-
-        const queryString = searchParams.toString()
-        const url = `${API_BASE_URL}/api/v1/publish/links${queryString ? `?${queryString}` : ''}`
-
-        const response = await axios.get(url, {
-            headers: {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal'
-            }
+        const response = await client().get('/publish/links', {
+            params: normalizedParams,
+            signal: config?.signal
         })
 
         const records = response.data?.data
@@ -71,34 +59,21 @@ export class PublishLinksApi {
         return []
     }
 
-    static async createGroupLink(
-        canvasId: string,
-        technology: 'arjs' | 'playcanvas',
-        versionGroupId?: string
-    ): Promise<PublishLinkRecord> {
+    static async createGroupLink(canvasId: string, technology: 'arjs' | 'playcanvas', versionGroupId?: string): Promise<PublishLinkRecord> {
         const { unikId, spaceId } = getCurrentUrlIds()
         if (!unikId) {
             throw new Error('unikId not found in URL')
         }
 
-        const response = await axios.post(
-            `${API_BASE_URL}/api/v1/publish/links`,
-            {
-                unikId,
-                spaceId: spaceId || null,
-                technology,
-                targetCanvasId: canvasId,
-                versionGroupId: versionGroupId || null,
-                targetType: 'group',
-                isPublic: true
-            },
-            {
-                headers: {
-                    ...getAuthHeaders(),
-                    'x-request-from': 'internal'
-                }
-            }
-        )
+        const response = await client().post('/publish/links', {
+            unikId,
+            spaceId: spaceId || null,
+            technology,
+            targetCanvasId: canvasId,
+            versionGroupId: versionGroupId || null,
+            targetType: 'group',
+            isPublic: true
+        })
 
         return response.data.data
     }
@@ -109,7 +84,7 @@ export class PublishLinksApi {
             throw new Error('unikId not found in URL')
         }
 
-        const response = await axios.post(`${API_BASE_URL}/api/v1/publish/links`, {
+        const response = await client().post('/publish/links', {
             unikId,
             spaceId: spaceId || null,
             technology,
@@ -117,33 +92,18 @@ export class PublishLinksApi {
             targetVersionUuid: versionUuid,
             targetType: 'version',
             isPublic: true
-        }, {
-            headers: {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal'
-            }
         })
 
         return response.data.data
     }
 
     static async deleteLink(linkId: string): Promise<void> {
-        await axios.delete(`${API_BASE_URL}/api/v1/publish/links/${linkId}`, {
-            headers: {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal'
-            }
-        })
+        await client().delete(`/publish/links/${linkId}`)
     }
 
     static async updateCustomSlug(linkId: string, customSlug: string): Promise<PublishLinkRecord> {
-        const response = await axios.patch(`${API_BASE_URL}/api/v1/publish/links/${linkId}`, {
+        const response = await client().patch(`/publish/links/${linkId}`, {
             customSlug
-        }, {
-            headers: {
-                ...getAuthHeaders(),
-                'x-request-from': 'internal'
-            }
         })
 
         return response.data.data

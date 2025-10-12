@@ -310,6 +310,9 @@
             "copyLink": "Копировать ссылку",
             "selectTechnology": "Выберите технологию",
             "activeLabel": "активная",
+            "unknownVersion": "Неизвестная версия",
+            "versionLabel": "Версия",
+            "versionLinksTitle": "Ссылки на версии (фиксированные снимки)",
             "groupMissing": "Группа версий пока не обнаружена. Можно публиковать версии, как только они появятся ниже.",
             "versionPublished": "Версия успешно опубликована",
             "versionUnpublished": "Публикация удалена",
@@ -334,5 +337,10 @@
         "configSaved": "Настройки публикации PlayCanvas сохранены",
         "saveError": "Ошибка при сохранении настроек PlayCanvas",
         "libraryHint": "Выберите версию движка PlayCanvas"
+    },
+    "common": {
+        "saving": "Сохранение...",
+        "saved": "Сохранено",
+        "saveError": "Ошибка сохранения"
     }
 }

@@ -1,6 +1,7 @@
 import { DataSource, EntityManager, Repository } from 'typeorm'
 import { randomBytes } from 'crypto'
 import bs58 from 'bs58'
+import logger from '../utils/logger'
 import { PublishCanvas } from '../database/entities'
 import { CreatePublishLinkDto, PublishLinkQuery, PublishLinkResponse, UpdatePublishLinkDto } from '../types/publishLink.types'
 import { CanvasMinimal } from '../types/publication.types'
@@ -72,6 +73,7 @@ export class PublishLinkService {
             .getRawOne()
 
         if (!fallback?.unikId) {
+            logger.warn('[PublishLinkService] Unable to resolve space context for canvas %s', canvasId)
             throw new Error('Unable to resolve unik/space context for publication link')
         }
 
@@ -127,7 +129,24 @@ export class PublishLinkService {
                     const vg = (canvas as any).versionGroupId as string | undefined
                     if (vg) {
                         resolvedVersionGroupId = vg
+                        logger.debug(
+                            '[PublishLinkService] Resolved versionGroupId %s for canvas %s via fallback lookup',
+                            vg,
+                            payload.targetCanvasId
+                        )
+                    } else {
+                        logger.warn(
+                            '[PublishLinkService] Canvas %s missing versionGroupId when creating %s publication link',
+                            payload.targetCanvasId,
+                            payload.technology
+                        )
                     }
+                } else {
+                    logger.warn(
+                        '[PublishLinkService] Canvas %s not found while creating %s publication link',
+                        payload.targetCanvasId,
+                        payload.technology
+                    )
                 }
             }
 

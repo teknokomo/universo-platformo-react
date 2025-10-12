@@ -65,5 +65,4 @@ export class ARJSPublicationApi extends PublicationApi {
         console.warn('[ARJSPublicationApi] loadSettings is deprecated, use loadARJSSettings instead')
         return this.loadARJSSettings(canvasId)
     }
-
 }

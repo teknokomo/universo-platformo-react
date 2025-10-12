@@ -46,7 +46,6 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
 
             console.log('[PlayCanvasMMOOMMBuilder] Build completed via template package')
             return result
-
         } catch (error) {
             console.error('[PlayCanvasMMOOMMBuilder] Build error:', error)
 

@@ -1,7 +1,7 @@
 // Universo Platformo | Publish Version Section Component
 // Component for publishing specific canvas versions
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     Box,
     Typography,
@@ -28,9 +28,17 @@ interface PublishVersionSectionProps {
     canvasId: string
     versionGroupId?: string | null
     technology: 'arjs' | 'playcanvas'
+    onVersionGroupResolved?: (versionGroupId: string) => void
 }
 
-export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ unikId, spaceId, canvasId, versionGroupId, technology }) => {
+export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
+    unikId,
+    spaceId,
+    canvasId,
+    versionGroupId,
+    technology,
+    onVersionGroupResolved
+}) => {
     const { t } = useTranslation('publish')
     const [allVersions, setAllVersions] = useState<CanvasVersion[]>([])
     const [selectedVersion, setSelectedVersion] = useState('')
@@ -39,8 +47,13 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
     const [publishing, setPublishing] = useState(false)
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
     const [versionsLoaded, setVersionsLoaded] = useState(false)
+    const linksStatusRef = useRef({
+        loading: false,
+        abortController: null as AbortController | null
+    })
 
     const loadVersions = useCallback(async () => {
+        setVersionsLoaded(false)
         setLoading(true)
         try {
             const data = await canvasVersionsApi.listVersions(unikId, spaceId, canvasId)
@@ -54,6 +67,12 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
         }
     }, [unikId, spaceId, canvasId, t])
 
+    useEffect(() => {
+        setPublishedLinks([])
+        setVersionsLoaded(false)
+        void loadVersions()
+    }, [loadVersions, unikId, spaceId, canvasId, technology])
+
     const versionIds = useMemo(
         () => new Set(allVersions.map((version) => version.id).filter((id): id is string => Boolean(id))),
         [allVersions]
@@ -64,56 +83,96 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
         [allVersions]
     )
 
+    const inferredVersionGroupId = useMemo(() => {
+        if (versionGroupId) {
+            return versionGroupId
+        }
+
+        const withGroup = allVersions.find((version) => version.versionGroupId)
+        return withGroup?.versionGroupId ?? null
+    }, [versionGroupId, allVersions])
+
+    useEffect(() => {
+        if (!versionGroupId && inferredVersionGroupId && onVersionGroupResolved) {
+            onVersionGroupResolved(inferredVersionGroupId)
+        }
+    }, [versionGroupId, inferredVersionGroupId, onVersionGroupResolved])
+
     const loadPublishedLinks = useCallback(async () => {
         if (!versionsLoaded) {
-            return
+            return []
         }
 
-        if (!versionGroupId && allVersions.length === 0) {
+        if (!inferredVersionGroupId && allVersions.length === 0) {
             setPublishedLinks([])
-            return
+            return []
         }
+
+        // Prevent race conditions
+        if (linksStatusRef.current.loading) {
+            return []
+        }
+
+        // Cancel previous request if still pending
+        if (linksStatusRef.current.abortController) {
+            linksStatusRef.current.abortController.abort()
+        }
+
+        const abortController = new AbortController()
+        linksStatusRef.current.loading = true
+        linksStatusRef.current.abortController = abortController
 
         try {
-            const links = await PublishLinksApi.listLinks(
-                versionGroupId
-                    ? { versionGroupId, technology }
-                    : { technology }
-            )
+            // Fetch by technology only; do not constrain by versionGroupId here to avoid missing links
+            const links = await PublishLinksApi.listLinks({ technology }, { signal: abortController.signal })
 
             const relevantLinks = links.filter((link) => {
+                // Only process version-type links
                 if (link.targetType !== 'version') {
                     return false
                 }
 
-                if (versionGroupId && link.versionGroupId === versionGroupId) {
+                // For version links, we want to show ALL versions for this canvas
+                // Simplified logic: if it's a version link and belongs to this canvas, show it
+                if (link.targetCanvasId && versionIds.has(String(link.targetCanvasId))) {
                     return true
                 }
 
-                if (link.targetCanvasId && versionIds.has(link.targetCanvasId)) {
+                // Fallback: check by version UUID (if we have this version loaded)
+                if (link.targetVersionUuid && publishedVersionUuids.has(link.targetVersionUuid)) {
                     return true
                 }
 
-                if (link.targetVersionUuid) {
-                    return publishedVersionUuids.has(link.targetVersionUuid)
+                // Additional check by version group ID (if specified)
+                const effectiveGroupId = versionGroupId ?? inferredVersionGroupId
+                if (effectiveGroupId && link.versionGroupId === effectiveGroupId) {
+                    return true
                 }
 
                 return false
             })
 
             setPublishedLinks(relevantLinks)
-        } catch (error) {
+            return relevantLinks
+        } catch (error: any) {
+            if (error.name === 'AbortError' || error.name === 'CanceledError') {
+                return []
+            }
             console.error('Failed to load published links:', error)
+            return []
+        } finally {
+            linksStatusRef.current.loading = false
+            linksStatusRef.current.abortController = null
         }
-    }, [technology, versionGroupId, versionsLoaded, versionIds, publishedVersionUuids])
+    }, [technology, versionGroupId, inferredVersionGroupId, versionsLoaded, versionIds, publishedVersionUuids, allVersions.length])
 
+    // Load published links after versions are loaded
+    // This fixes the race condition where mount-only effect runs before versionsLoaded is true
     useEffect(() => {
-        loadVersions()
-    }, [loadVersions])
-
-    useEffect(() => {
-        loadPublishedLinks()
-    }, [loadPublishedLinks])
+        if (versionsLoaded) {
+            void loadPublishedLinks()
+        }
+    }, [versionsLoaded, loadPublishedLinks])
 
     const handlePublish = async () => {
         if (!selectedVersion) return
@@ -127,8 +186,19 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
 
         setPublishing(true)
         try {
+            const previousLinksCount = publishedLinks.length
             await PublishLinksApi.createVersionLink(targetVersion.id, targetVersion.versionUuid, technology)
-            await loadPublishedLinks()
+            // Reload versions first to update publishedVersionUuids, then reload links
+            await loadVersions()
+            let updatedLinks = await loadPublishedLinks()
+            // Retry a few times in case backend is eventually consistent
+            if (!updatedLinks || updatedLinks.length <= previousLinksCount) {
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    await new Promise((r) => setTimeout(r, 300 * attempt))
+                    updatedLinks = await loadPublishedLinks()
+                    if (updatedLinks && updatedLinks.length > previousLinksCount) break
+                }
+            }
             setSelectedVersion('')
             setSnackbar({ open: true, message: t('versions.versionPublished') })
         } catch (error) {
@@ -142,6 +212,8 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
     const handleDelete = async (linkId: string) => {
         try {
             await PublishLinksApi.deleteLink(linkId)
+            // Reload versions first to update publishedVersionUuids, then reload links
+            await loadVersions()
             await loadPublishedLinks()
             setSnackbar({ open: true, message: t('versions.versionUnpublished') })
         } catch (error) {
@@ -167,15 +239,28 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
 
         return publishedLinks.map((link) => {
             const version = allVersions.find((v) => v.versionUuid === link.targetVersionUuid)
+
             const createdAtLabel = version?.createdAt ? new Date(version.createdAt).toLocaleString() : null
+
+            let friendlyLabel: string
+            if (version?.versionLabel && version.versionLabel.trim().length > 0) {
+                friendlyLabel = version.versionLabel
+            } else if (typeof version?.versionIndex === 'number') {
+                friendlyLabel = `${t('versions.versionLabel')} ${version.versionIndex}`
+            } else if (link.targetVersionUuid) {
+                const shortUuid = String(link.targetVersionUuid).slice(-6)
+                friendlyLabel = `${t('versions.versionLabel')} • ${shortUuid}`
+            } else {
+                friendlyLabel = t('versions.unknownVersion')
+            }
 
             return {
                 link,
-                label: version?.versionLabel || 'Unknown version',
+                label: friendlyLabel,
                 createdAtLabel
             }
         })
-    }, [allVersions, publishedLinks])
+    }, [allVersions, publishedLinks, t])
 
     useEffect(() => {
         if (!selectedVersion) {
@@ -196,11 +281,21 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
         )
     }
 
-    const showVersionGroupNotice = !versionGroupId && allVersions.length === 0
+    const showVersionGroupNotice = versionsLoaded && !inferredVersionGroupId
 
     return (
         <>
-            <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+            {/* Create Version Link Card */}
+            <Box
+                sx={{
+                    mt: 3,
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    bgcolor: 'background.paper'
+                }}
+            >
                 {showVersionGroupNotice && (
                     <Alert severity='warning' sx={{ mb: 2 }}>
                         {t('versions.groupMissing')}
@@ -213,7 +308,7 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
                 {allVersions.length === 0 ? (
                     <Alert severity='info'>{t('versions.noVersions')}</Alert>
                 ) : (
-                    <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
                         <Select
                             value={selectedVersion}
                             onChange={(e) => setSelectedVersion(e.target.value)}
@@ -245,45 +340,52 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({ un
                         </Button>
                     </Box>
                 )}
-
-                {publishedVersionItems.length > 0 && (
-                    <>
-                        <Typography variant='subtitle2' sx={{ mt: 2, mb: 1 }}>
-                            {t('versions.publishedVersions')}
-                        </Typography>
-                        <List dense>
-                            {publishedVersionItems.map(({ link, label, createdAtLabel }) => {
-                                const secondary = createdAtLabel
-                                    ? `/b/${link.baseSlug} • ${createdAtLabel}`
-                                    : `/b/${link.baseSlug}`
-                                return (
-                                    <ListItem
-                                        key={link.id}
-                                        secondaryAction={
-                                            <>
-                                                <IconButton size='small' onClick={() => handleCopy(link.baseSlug)}>
-                                                    <ContentCopyIcon fontSize='small' />
-                                                </IconButton>
-                                                <IconButton size='small' onClick={() => handleOpen(link.baseSlug)}>
-                                                    <OpenInNewIcon fontSize='small' />
-                                                </IconButton>
-                                                <IconButton size='small' onClick={() => handleDelete(link.id)}>
-                                                    <DeleteIcon fontSize='small' />
-                                                </IconButton>
-                                            </>
-                                        }
-                                    >
-                                        <ListItemText
-                                            primary={label}
-                                            secondary={secondary}
-                                        />
-                                    </ListItem>
-                                )
-                            })}
-                        </List>
-                    </>
-                )}
             </Box>
+
+            {/* Published Version Links List Card */}
+            {publishedVersionItems.length > 0 && (
+                <Box
+                    sx={{
+                        mt: 2,
+                        p: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'background.paper'
+                    }}
+                >
+                    <Typography variant='h6' gutterBottom>
+                        {t('versions.publishedVersions')}
+                    </Typography>
+                    <List dense>
+                        {publishedVersionItems.map(({ link, label, createdAtLabel }) => {
+                            const versionInfo = `${t('versions.versionLabel')}: ${label}`
+                            const urlInfo = `/b/${link.baseSlug}`
+                            const secondary = createdAtLabel ? `${urlInfo} • ${createdAtLabel}` : urlInfo
+                            return (
+                                <ListItem
+                                    key={link.id}
+                                    secondaryAction={
+                                        <>
+                                            <IconButton size='small' onClick={() => handleCopy(link.baseSlug)} title={t('links.copy')}>
+                                                <ContentCopyIcon fontSize='small' />
+                                            </IconButton>
+                                            <IconButton size='small' onClick={() => handleOpen(link.baseSlug)} title={t('links.open')}>
+                                                <OpenInNewIcon fontSize='small' />
+                                            </IconButton>
+                                            <IconButton size='small' onClick={() => handleDelete(link.id)} title={t('general.delete')}>
+                                                <DeleteIcon fontSize='small' />
+                                            </IconButton>
+                                        </>
+                                    }
+                                >
+                                    <ListItemText primary={versionInfo} secondary={secondary} />
+                                </ListItem>
+                            )
+                        })}
+                    </List>
+                </Box>
+            )}
 
             <Snackbar
                 open={snackbar.open}
