@@ -3,8 +3,9 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChatflowsApi, PublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
+import { ARJSPublicationApi, PublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
 import { FieldNormalizer } from '../../utils/fieldNormalizer'
+import { useAutoSave } from '../../hooks'
 
 // Universo Platformo | Simple demo mode toggle - set to true to enable demo features
 const DEMO_MODE = false
@@ -113,6 +114,61 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // State for tracking legacy scenarios to avoid showing standard message
     const [isLegacyScenario, setIsLegacyScenario] = useState(false)
     const [publishLinkRecords, setPublishLinkRecords] = useState([])
+    const normalizedVersionGroupId = useMemo(() => FieldNormalizer.normalizeVersionGroupId(flow), [flow])
+    const [resolvedVersionGroupId, setResolvedVersionGroupId] = useState(normalizedVersionGroupId)
+    const [versionGroupFetchAttempted, setVersionGroupFetchAttempted] = useState(Boolean(normalizedVersionGroupId))
+    
+    // Ref for managing concurrent requests
+    const linksStatusRef = useRef({
+        loading: false,
+        abortController: null
+    })
+
+    useEffect(() => {
+        if (normalizedVersionGroupId !== resolvedVersionGroupId) {
+            setResolvedVersionGroupId(normalizedVersionGroupId)
+            setVersionGroupFetchAttempted(Boolean(normalizedVersionGroupId))
+        }
+    }, [normalizedVersionGroupId, resolvedVersionGroupId])
+
+    useEffect(() => {
+        if (resolvedVersionGroupId) {
+            setVersionGroupFetchAttempted(true)
+        }
+    }, [resolvedVersionGroupId])
+
+    useEffect(() => {
+        if (resolvedVersionGroupId || !flow?.id || versionGroupFetchAttempted) {
+            return
+        }
+
+        const { unikId } = getCurrentUrlIds()
+        if (!unikId) {
+            return
+        }
+
+        let cancelled = false
+
+        const fetchVersionGroup = async () => {
+            try {
+                setVersionGroupFetchAttempted(true)
+                const response = await PublicationApi.getCanvasById(unikId, String(flow.id))
+                const payload = response?.data
+                const detected = FieldNormalizer.normalizeVersionGroupId(payload)
+                if (detected && !cancelled) {
+                    setResolvedVersionGroupId(detected)
+                }
+            } catch (err) {
+                console.warn('[ARJSPublisher] Failed to resolve versionGroupId from API', err)
+            }
+        }
+
+        fetchVersionGroup()
+
+        return () => {
+            cancelled = true
+        }
+    }, [flow?.id, resolvedVersionGroupId, versionGroupFetchAttempted])
 
     const publishLinkItems = useMemo(() => {
         if (!publishLinkRecords?.length) {
@@ -149,16 +205,33 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
     const loadPublishLinks = useCallback(
         async (retryCount = 0) => {
-            const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+            const versionGroupId = resolvedVersionGroupId
             if (!flow?.id && !versionGroupId) {
                 return []
             }
 
+            // Prevent race conditions
+            if (linksStatusRef.current.loading) {
+                return []
+            }
+
+            // Cancel previous request if still pending
+            if (linksStatusRef.current.abortController) {
+                linksStatusRef.current.abortController.abort()
+            }
+
+            const abortController = new AbortController()
+            linksStatusRef.current.loading = true
+            linksStatusRef.current.abortController = abortController
+
             try {
-                const links = await PublishLinksApi.listLinks({
-                    technology: 'arjs',
-                    versionGroupId: versionGroupId ?? null
-                })
+                const links = await PublishLinksApi.listLinks(
+                    {
+                        technology: 'arjs',
+                        versionGroupId: versionGroupId ?? null
+                    },
+                    { signal: abortController.signal }
+                )
 
                 const filtered = links.filter((link) => {
                     if (versionGroupId && link.versionGroupId === versionGroupId) {
@@ -195,17 +268,25 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                 return filtered
             } catch (loadError) {
+                if (loadError.name === 'AbortError' || loadError.name === 'CanceledError') {
+                    return []
+                }
                 console.error('ARJSPublisher: Failed to load publish links', loadError)
                 setPublishLinkRecords([])
                 return []
+            } finally {
+                linksStatusRef.current.loading = false
+                linksStatusRef.current.abortController = null
             }
         },
-        [flow?.id, flow?.versionGroupId]
+        [flow?.id, resolvedVersionGroupId]
     )
 
+    // Load published links only on mount (event-driven pattern)
     useEffect(() => {
         loadPublishLinks()
-    }, [loadPublishLinks])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     useEffect(() => {
         if (isPublic && publishLinkItems.length > 0) {
@@ -242,65 +323,55 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setSettingsInitialized(false)
     }, [flow?.id])
 
-    // Universo Platformo | Function to save current settings
-    const saveCurrentSettings = async () => {
-        // Universo Platformo | always save with the latest flow.id
-        const currentFlowId = flowIdRef.current
-        if (!currentFlowId || DEMO_MODE || settingsLoading) {
-            return
-        }
+    // Auto-save settings (excluding isPublic which is handled separately)
+    const settingsData = useMemo(
+        () => ({
+            projectTitle,
+            markerType,
+            markerValue,
+            templateId: templateType,
+            generationMode,
+            templateType,
+            arDisplayType,
+            wallpaperType,
+            cameraUsage,
+            backgroundColor,
+            libraryConfig: {
+                arjs: { version: arjsVersion, source: arjsSource },
+                aframe: { version: aframeVersion, source: aframeSource }
+            }
+        }),
+        [
+            projectTitle,
+            markerType,
+            markerValue,
+            templateType,
+            generationMode,
+            arDisplayType,
+            wallpaperType,
+            cameraUsage,
+            backgroundColor,
+            arjsVersion,
+            arjsSource,
+            aframeVersion,
+            aframeSource
+        ]
+    )
 
-        try {
-            await ChatflowsApi.saveSettings(currentFlowId, {
-                isPublic: isPublic,
-                projectTitle: projectTitle,
-                markerType: markerType,
-                markerValue: markerValue,
-                templateId: templateType,
-                generationMode: generationMode,
-                templateType: templateType,
-                arDisplayType: arDisplayType,
-                wallpaperType: wallpaperType,
-                cameraUsage: cameraUsage,
-                backgroundColor: backgroundColor, // Add background color to settings
-                // Include library configuration
-                libraryConfig: {
-                    arjs: { version: arjsVersion, source: arjsSource },
-                    aframe: { version: aframeVersion, source: aframeSource }
-                }
+    const { status: autoSaveStatus } = useAutoSave({
+        data: settingsData,
+        onSave: async (data) => {
+            const currentFlowId = flowIdRef.current
+            if (!currentFlowId || DEMO_MODE || settingsLoading) return
+
+            await ARJSPublicationApi.saveARJSSettings(currentFlowId, {
+                isPublic,
+                ...data
             })
-            console.log('ARJSPublisher: Settings auto-saved') // Simple console.log instead of debugLog
-        } catch (error) {
-            console.error('📱 [ARJSPublisher] Error auto-saving settings:', error)
-            // Don't show error to user for auto-save to avoid interrupting UX
-        }
-    }
-
-    // Universo Platformo | Auto-save settings when parameters change
-    useEffect(() => {
-        if (!settingsLoading) {
-            const debounceTimeout = setTimeout(() => {
-                saveCurrentSettings()
-            }, 1000) // Debounce to avoid too frequent saves
-
-            return () => clearTimeout(debounceTimeout)
-        }
-    }, [
-        projectTitle,
-        markerType,
-        markerValue,
-        generationMode,
-        arjsVersion,
-        arjsSource,
-        aframeVersion,
-        aframeSource,
-        arDisplayType,
-        wallpaperType,
-        cameraUsage,
-        backgroundColor, // Add backgroundColor to dependencies
-        settingsLoading,
-        flow?.id
-    ]) // Universo Platformo | re-run when flow changes
+        },
+        delay: 500,
+        enabled: !settingsLoading && settingsInitialized
+    })
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
@@ -316,7 +387,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 setSettingsLoading(true)
                 console.log('ARJSPublisher: Loading saved settings for flow', flow.id) // Simple console.log
 
-                const savedSettings = await ChatflowsApi.loadSettings(flow.id)
+                const savedSettings = await ARJSPublicationApi.loadARJSSettings(flow.id)
 
                 if (savedSettings) {
                     console.log('ARJSPublisher: Restored settings', savedSettings) // Simple console.log
@@ -444,7 +515,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         }
 
         loadSavedSettings()
-    }, [flow?.id, globalSettingsLoaded, loadPublishLinks])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [flow?.id, globalSettingsLoaded])
 
     // Initialize with flow data when component mounts
     useEffect(() => {
@@ -548,16 +620,21 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             return
         }
 
+        // Optimistic UI update
+        const previousPublic = isPublic
+        const previousRecords = publishLinkRecords
         setIsPublic(value)
 
         // If public toggle is off, remove group links
         if (!value) {
+            // Optimistically clear UI
             setPublishedUrl('')
+            setPublishLinkRecords([])
+            
             try {
-                const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
                 const links = await PublishLinksApi.listLinks({
                     technology: 'arjs',
-                    ...(versionGroupId ? { versionGroupId } : {})
+                    ...(resolvedVersionGroupId ? { versionGroupId: resolvedVersionGroupId } : {})
                 })
 
                 const groupLinks = links.filter((link) => {
@@ -565,7 +642,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         return false
                     }
 
-                    if (versionGroupId && link.versionGroupId === versionGroupId) {
+                    if (resolvedVersionGroupId && link.versionGroupId === resolvedVersionGroupId) {
                         return true
                     }
 
@@ -576,7 +653,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 
                 // Save settings with isPublic: false
                 if (!DEMO_MODE && flow?.id) {
-                    await ChatflowsApi.saveSettings(flow.id, {
+                    await ARJSPublicationApi.saveARJSSettings(flow.id, {
                         isPublic: false,
                         projectTitle: projectTitle,
                         markerType: markerType,
@@ -595,13 +672,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     })
                 }
                 
-                await loadPublishLinks()
                 setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
             } catch (error) {
                 console.error('📱 [ARJSPublisher] Error removing publication:', error)
                 setError('Failed to remove publication')
                 setSnackbar({ open: true, message: t('notifications.publicationError') })
-                setIsPublic(true) // Revert toggle on error
+                // Rollback optimistic update on error
+                setIsPublic(previousPublic)
+                setPublishLinkRecords(previousRecords)
             }
             return
         }
@@ -628,7 +706,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
         try {
             // Save AR.js settings with isPublic: true
-            await ChatflowsApi.saveSettings(flow.id, {
+            await ARJSPublicationApi.saveARJSSettings(flow.id, {
                 isPublic: true,
                 projectTitle: projectTitle,
                 markerType: markerType,
@@ -647,17 +725,18 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             })
 
             // Extract versionGroupId from flow (supports both camelCase and snake_case)
-            const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+            const versionGroupId = resolvedVersionGroupId
 
             // Create group link using unified API with versionGroupId
-            const createdLink = await PublishLinksApi.createGroupLink(flow.id, 'arjs', versionGroupId)
+            const createdLink = await PublishLinksApi.createGroupLink(flow.id, 'arjs', versionGroupId ?? undefined)
 
             // Form public URL from created link
             const fullPublicUrl = `${window.location.origin}/p/${createdLink.baseSlug}`
+            
+            // Optimistically update UI with new link
             setPublishedUrl(fullPublicUrl)
+            setPublishLinkRecords([createdLink])
             setSnackbar({ open: true, message: t('notifications.publicationCreated') })
-
-            await loadPublishLinks()
 
             if (onPublish) {
                 onPublish({ 
@@ -669,7 +748,9 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.error('📱 [ARJSPublisher.handlePublicChange] Error during publication:', error)
             setError(error instanceof Error ? error.message : 'Unknown error occurred during publication')
             setSnackbar({ open: true, message: t('notifications.publicationError') })
-            setIsPublic(false) // Reset toggle in case of error
+            // Rollback on error
+            setIsPublic(previousPublic)
+            setPublishLinkRecords(previousRecords)
         } finally {
             setIsPublishing(false)
         }
@@ -778,6 +859,15 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     fullWidth
                                     margin='normal'
                                     variant='outlined'
+                                    helperText={
+                                        autoSaveStatus === 'saving'
+                                            ? t('common.saving')
+                                            : autoSaveStatus === 'saved'
+                                              ? t('common.saved')
+                                              : autoSaveStatus === 'error'
+                                                ? t('common.saveError')
+                                                : ''
+                                    }
                                 />
 
                                 {/* Generation Mode Selector */}
@@ -1120,7 +1210,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             {(() => {
                 const { unikId: urlUnikId, spaceId } = getCurrentUrlIds()
                 const effectiveUnikId = unikId || urlUnikId
-                const versionGroupId = FieldNormalizer.normalizeVersionGroupId(flow)
+                const versionGroupId = resolvedVersionGroupId
 
                 // Check if this is an inactive version
                 const isActiveVersion = flow?.isActive ?? flow?.is_active
@@ -1171,6 +1261,11 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         canvasId={flow.id}
                         versionGroupId={versionGroupId}
                         technology='arjs'
+                        onVersionGroupResolved={(vg) => {
+                            if (vg && vg !== resolvedVersionGroupId) {
+                                setResolvedVersionGroupId(vg)
+                            }
+                        }}
                     />
                 )
             })()}

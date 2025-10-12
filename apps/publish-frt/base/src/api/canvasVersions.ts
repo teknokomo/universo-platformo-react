@@ -1,10 +1,10 @@
 // Universo Platformo | Canvas Versions API Client
 
-import axios from 'axios'
-import { getApiBaseUrl, getAuthHeaders } from './common'
+import { getPublishApiClient } from './client'
 
 export interface CanvasVersion {
     id: string
+    versionGroupId?: string | null
     versionUuid: string
     versionLabel: string
     versionDescription?: string
@@ -20,9 +20,10 @@ type RawCanvasVersion = Partial<CanvasVersion> & {
     version_uuid?: string | null
     canvasId?: string | number | null
     canvas_id?: string | number | null
+    version_group_id?: string | null
 }
 
-const API_BASE_URL = getApiBaseUrl()
+const client = () => getPublishApiClient()
 
 const toNullableString = (value: unknown): string | null => {
     if (typeof value === 'string' && value.trim().length > 0) {
@@ -50,9 +51,11 @@ const normalizeDate = (value: unknown): string | null => {
 const mapCanvasVersion = (version: RawCanvasVersion): CanvasVersion | null => {
     const rawId = version.id ?? version.canvasId ?? version.canvas_id ?? null
     const rawVersionUuid = version.versionUuid ?? version.version_uuid ?? null
+    const rawVersionGroup = version.versionGroupId ?? version.version_group_id ?? null
 
     const id = toNullableString(rawId)
     const versionUuid = toNullableString(rawVersionUuid)
+    const versionGroupId = toNullableString(rawVersionGroup)
 
     if (!id || !versionUuid) {
         return null
@@ -65,11 +68,12 @@ const mapCanvasVersion = (version: RawCanvasVersion): CanvasVersion | null => {
         typeof version.versionIndex === 'number'
             ? version.versionIndex
             : Number.isFinite(Number(version.versionIndex))
-                ? Number(version.versionIndex)
-                : 0
+            ? Number(version.versionIndex)
+            : 0
 
     return {
         id,
+        versionGroupId,
         versionUuid,
         versionLabel: version.versionLabel ?? '',
         versionDescription: version.versionDescription,
@@ -85,23 +89,15 @@ export const canvasVersionsApi = {
      * List all versions for a canvas
      */
     async listVersions(unikId: string, spaceId: string, canvasId: string): Promise<CanvasVersion[]> {
-        const { data } = await axios.get(
-            `${API_BASE_URL}/api/v1/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}/versions`,
-            {
-                headers: {
-                    ...getAuthHeaders(),
-                    'x-request-from': 'internal'
-                }
-            }
-        )
+        const { data } = await client().get(`/unik/${unikId}/spaces/${spaceId}/canvases/${canvasId}/versions`)
 
         const rawVersions = Array.isArray(data?.data?.versions)
             ? data.data.versions
             : Array.isArray(data?.data)
-                ? data.data
-                : Array.isArray(data)
-                    ? data
-                    : []
+            ? data.data
+            : Array.isArray(data)
+            ? data
+            : []
 
         if (!Array.isArray(rawVersions) || rawVersions.length === 0) {
             return []

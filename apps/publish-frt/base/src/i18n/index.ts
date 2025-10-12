@@ -24,4 +24,3 @@ export function getPublishTranslations(language: string): Record<string, any> {
 }
 
 export default publishTranslations
-

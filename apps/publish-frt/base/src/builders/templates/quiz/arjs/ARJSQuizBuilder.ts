@@ -4,9 +4,7 @@
 import { AbstractTemplateBuilder } from '../../../common/AbstractTemplateBuilder'
 import { BuildOptions, TemplateConfig } from '../../../common/types'
 import type { IFlowData } from '@universo/publish-srv'
-import { ARJSQuizBuilder as QuizTemplateBuilder, IFlowData as QuizFlowData } from '@universo/template-quiz'
-import { UPDLProcessor } from '@universo-platformo/utils'
-import { IUPDLSpace, IUPDLMultiScene } from '@universo-platformo/types'
+import { ARJSQuizBuilder as QuizTemplateBuilder } from '@universo/template-quiz'
 
 /**
  * Lightweight Quiz Builder Coordinator
@@ -46,12 +44,12 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
             const rawHtml = await this.templateBuilder.build(flowData as any, templateOptions)
 
             // If the template returned only a scene fragment (no <html> or library scripts), wrap it
-            const needsWrap = !/(<!DOCTYPE html>|<html[\s>])/i.test(rawHtml || '') || !/(aframe|min\.js|aframe-ar\.js|arjs)/i.test(rawHtml || '')
+            const needsWrap =
+                !/(<!DOCTYPE html>|<html[\s>])/i.test(rawHtml || '') || !/(aframe|min\.js|aframe-ar\.js|arjs)/i.test(rawHtml || '')
             const finalHtml = needsWrap ? this.wrapWithDocumentStructure(rawHtml, templateOptions) : rawHtml
 
             console.log('[ARJSQuizBuilder] Build completed via template package', { wrapped: needsWrap })
             return finalHtml
-
         } catch (error) {
             console.error('[ARJSQuizBuilder] Build error:', error)
 
@@ -85,7 +83,6 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
             console.log('[ARJSQuizBuilder] result html length:', html?.length || 0)
 
             return { ...result, html }
-
         } catch (error) {
             console.error('[ARJSQuizBuilder] buildFromFlowData error:', error)
             return {
@@ -105,18 +102,18 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
 
     /**
      * Get required libraries for Quiz template
-     * @param options Build options that may affect library requirements  
+     * @param options Build options that may affect library requirements
      */
     getRequiredLibraries(options?: BuildOptions): string[] {
         console.log(`[ARJSQuizBuilder Wrapper] getRequiredLibraries called with options:`, options)
-        
+
         // Convert publish-frt options to template package format
         const templateOptions = this.convertBuildOptions(options || {})
         console.log(`[ARJSQuizBuilder Wrapper] Converted to template options:`, templateOptions)
-        
+
         const libraries = this.templateBuilder.getRequiredLibraries(templateOptions)
         console.log(`[ARJSQuizBuilder Wrapper] Template returned libraries:`, libraries)
-        
+
         return libraries
     }
 

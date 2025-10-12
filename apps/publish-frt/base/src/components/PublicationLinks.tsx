@@ -27,9 +27,8 @@ export const PublicationLinks: React.FC<PublicationLinksProps> = ({ links, techn
 
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
 
-    // Separate group and version links
+    // Show ONLY base (group) links here; version links are displayed in the bottom block (PublishVersionSection)
     const groupLinks = links.filter((link) => link.targetType === 'group')
-    const versionLinks = links.filter((link) => link.targetType === 'version')
 
     const handleCopy = async (url: string, linkId: string) => {
         try {
@@ -45,7 +44,8 @@ export const PublicationLinks: React.FC<PublicationLinksProps> = ({ links, techn
         window.open(url, '_blank', 'noopener,noreferrer')
     }
 
-    if (links.length === 0) {
+    // If there is nothing to show (no base links), render nothing
+    if (groupLinks.length === 0) {
         return null
     }
 
@@ -98,53 +98,7 @@ export const PublicationLinks: React.FC<PublicationLinksProps> = ({ links, techn
                 )
             })}
 
-            {/* Version Links (Fixed Snapshots) */}
-            {versionLinks.length > 0 && (
-                <>
-                    <Typography variant='subtitle2' sx={{ mt: 2, mb: 1 }}>
-                        Version Links (Fixed Snapshots)
-                    </Typography>
-                    {versionLinks.map((link) => {
-                        const url = `${origin}/b/${link.baseSlug}`
-                        return (
-                            <Box key={link.id} sx={{ mb: 1 }}>
-                                <Typography variant='caption' color='text.secondary' sx={{ mb: 0.5, display: 'block' }}>
-                                    {link.versionLabel || 'Version'}
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    size='small'
-                                    value={url}
-                                    InputProps={{
-                                        readOnly: true,
-                                        sx: { fontFamily: 'monospace', fontSize: '0.875rem' },
-                                        endAdornment: (
-                                            <InputAdornment position='end'>
-                                                <Tooltip
-                                                    title={copied === link.id ? t('links.copied', 'Copied!') : t('links.copy', 'Copy')}
-                                                >
-                                                    <IconButton
-                                                        size='small'
-                                                        onClick={() => handleCopy(url, link.id)}
-                                                        color={copied === link.id ? 'success' : 'default'}
-                                                    >
-                                                        <ContentCopyIcon fontSize='small' />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                <Tooltip title={t('links.open', 'Open in new tab')}>
-                                                    <IconButton size='small' onClick={() => handleOpen(url)}>
-                                                        <OpenInNewIcon fontSize='small' />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                />
-                            </Box>
-                        )
-                    })}
-                </>
-            )}
+            {/* Version links intentionally removed here. They are rendered in PublishVersionSection (bottom block). */}
         </Box>
     )
 }

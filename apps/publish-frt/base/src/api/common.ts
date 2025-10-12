@@ -2,37 +2,6 @@
 // Core API functions used across all API clients
 
 /**
- * Get the authentication token from localStorage
- * @returns an object with headers for requests containing the token
- */
-export const getAuthHeaders = (): Record<string, string> => {
-    try {
-        // Try to get the token from localStorage
-        // Universo Platformo | Changed localStorage key to 'token' to align with main app
-        const tokenString = localStorage.getItem('token')
-        if (!tokenString) {
-            console.warn("[getAuthHeaders] No auth token found in localStorage using key 'token'")
-            return {}
-        }
-
-        // Universo Platformo | Assuming the token stored under 'token' is the direct access token string
-        if (tokenString) {
-            console.log("[getAuthHeaders] Auth token string found with key 'token', adding to headers.")
-            return {
-                Authorization: `Bearer ${tokenString}`
-            }
-        }
-
-        // Fallback or further checks can be added here if needed
-        console.warn('[getAuthHeaders] Token string was present but evaluated to false, returning empty headers.')
-        return {}
-    } catch (error) {
-        console.error('[getAuthHeaders] Error accessing localStorage:', error)
-        return {}
-    }
-}
-
-/**
  * Extract IDs from the current URL
  * @returns an object with the extracted identifiers
  */
@@ -66,7 +35,7 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; spaceI
             result.spaceId = spaceMatch[1]
         }
 
-        // For backward compatibility, if we have spaceId but no canvasId, 
+        // For backward compatibility, if we have spaceId but no canvasId,
         // we can assume the first canvas has the same ID as the space
         if (result.spaceId && !result.canvasId) {
             result.canvasId = result.spaceId

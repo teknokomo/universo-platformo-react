@@ -14,13 +14,7 @@ interface ARViewPageProps {
     canvasId?: string
 }
 
-const ARViewPage: React.FC<ARViewPageProps> = ({
-    flowData,
-    renderConfig,
-    libraryConfig,
-    projectName,
-    canvasId
-}) => {
+const ARViewPage: React.FC<ARViewPageProps> = ({ flowData, renderConfig, libraryConfig, projectName, canvasId }) => {
     const { t } = useTranslation('publish')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)

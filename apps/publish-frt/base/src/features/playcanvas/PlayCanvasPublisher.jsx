@@ -16,6 +16,7 @@ import {
     FormHelperText,
     Snackbar
 } from '@mui/material'
+import { useSession } from '@universo/auth-frt'
 
 import TemplateSelect from '../../components/TemplateSelect'
 import GenerationModeSelect from '../../components/GenerationModeSelect'
@@ -23,16 +24,19 @@ import GameModeSelector from '../../components/GameModeSelector'
 import ColyseusSettings from '../../components/ColyseusSettings'
 import { PublicationLinks } from '../../components/PublicationLinks'
 import { PublishVersionSection } from '../../components/PublishVersionSection'
-import { PlayCanvasPublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
+import { PlayCanvasPublicationApi, PublishLinksApi, PublicationApi, getCurrentUrlIds, getPublishApiClient } from '../../api'
 import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
 import { isValidBase58 } from '../../utils/base58Validator'
 import { FieldNormalizer } from '../../utils/fieldNormalizer'
+import { useAutoSave } from '../../hooks'
 
 const DEFAULT_VERSION = '2.9.0'
 const DEFAULT_TEMPLATE = 'mmoomm-playcanvas'
 
 const PlayCanvasPublisher = ({ flow }) => {
     const { t } = useTranslation('publish')
+    const publishClient = useMemo(() => getPublishApiClient(), [])
+    const { user: authUser, refresh: refreshSession } = useSession({ client: publishClient })
 
     // Universo Platformo | keep latest flow.id for delayed saves
     const flowIdRef = useRef(flow?.id)
@@ -55,6 +59,10 @@ const PlayCanvasPublisher = ({ flow }) => {
     const [error, setError] = useState('')
     const [publishLinkRecords, setPublishLinkRecords] = useState([])
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
+    const publishLinksStatusRef = useRef({
+        loading: false,
+        abortController: null
+    })
 
     const publishLinkItems = useMemo(() => {
         if (!publishLinkRecords?.length) {
@@ -89,25 +97,88 @@ const PlayCanvasPublisher = ({ flow }) => {
         })
     }, [publishLinkRecords])
 
-    const normalizedVersionGroupId = useMemo(
-        () => FieldNormalizer.normalizeVersionGroupId(flow),
-        [flow]
-    )
+    const normalizedVersionGroupId = useMemo(() => FieldNormalizer.normalizeVersionGroupId(flow), [flow])
+    const [resolvedVersionGroupId, setResolvedVersionGroupId] = useState(normalizedVersionGroupId)
+    const [versionGroupFetchAttempted, setVersionGroupFetchAttempted] = useState(Boolean(normalizedVersionGroupId))
+    const loadedFlowIdsRef = useRef(new Set())
+
+    useEffect(() => {
+        if (normalizedVersionGroupId !== resolvedVersionGroupId) {
+            setResolvedVersionGroupId(normalizedVersionGroupId)
+            setVersionGroupFetchAttempted(Boolean(normalizedVersionGroupId))
+        }
+    }, [normalizedVersionGroupId, resolvedVersionGroupId])
+
+    useEffect(() => {
+        if (resolvedVersionGroupId) {
+            setVersionGroupFetchAttempted(true)
+        }
+    }, [resolvedVersionGroupId])
+
+    useEffect(() => {
+        if (resolvedVersionGroupId || !flow?.id || versionGroupFetchAttempted) {
+            return
+        }
+
+        const { unikId } = getCurrentUrlIds()
+        if (!unikId) {
+            return
+        }
+
+        let cancelled = false
+
+        const fetchVersionGroup = async () => {
+            try {
+                setVersionGroupFetchAttempted(true)
+                const response = await PublicationApi.getCanvasById(unikId, String(flow.id))
+                const payload = response?.data
+                const detected = FieldNormalizer.normalizeVersionGroupId(payload)
+                if (detected && !cancelled) {
+                    setResolvedVersionGroupId(detected)
+                }
+            } catch (err) {
+                console.warn('[PlayCanvasPublisher] Failed to load versionGroupId from API', err)
+            }
+        }
+
+        fetchVersionGroup()
+
+        return () => {
+            cancelled = true
+        }
+    }, [flow?.id, resolvedVersionGroupId, versionGroupFetchAttempted])
 
     const loadPublishLinks = useCallback(
-        async (retryCount = 0) => {
-            if (!flow?.id && !normalizedVersionGroupId) {
+        async () => {
+            if (!flow?.id && !resolvedVersionGroupId) {
                 return []
             }
 
+            // Prevent race conditions
+            if (publishLinksStatusRef.current.loading) {
+                return []
+            }
+
+            // Cancel previous request if still pending
+            if (publishLinksStatusRef.current.abortController) {
+                publishLinksStatusRef.current.abortController.abort()
+            }
+
+            const abortController = new AbortController()
+            publishLinksStatusRef.current.loading = true
+            publishLinksStatusRef.current.abortController = abortController
+
             try {
-                const links = await PublishLinksApi.listLinks({
-                    technology: 'playcanvas',
-                    versionGroupId: normalizedVersionGroupId ?? null
-                })
+                const links = await PublishLinksApi.listLinks(
+                    {
+                        technology: 'playcanvas',
+                        versionGroupId: resolvedVersionGroupId ?? null
+                    },
+                    { signal: abortController.signal }
+                )
 
                 const filtered = links.filter((link) => {
-                    if (normalizedVersionGroupId && link.versionGroupId === normalizedVersionGroupId) {
+                    if (resolvedVersionGroupId && link.versionGroupId === resolvedVersionGroupId) {
                         return true
                     }
 
@@ -118,42 +189,31 @@ const PlayCanvasPublisher = ({ flow }) => {
                     return false
                 })
 
-                // Validate Base58 slugs and retry if invalid data found
-                const isValidData = (links) => {
-                    return links.every(link => 
-                        link.baseSlug && 
-                        isValidBase58(link.baseSlug)
-                    )
-                }
-
-                // Retry on empty results or invalid data, but only on first attempt
-                if ((filtered.length === 0 || !isValidData(filtered)) && retryCount === 0) {
-                    if (process.env.NODE_ENV !== 'production') {
-                        console.warn('[PlayCanvasPublisher] Invalid or empty links, retrying in 500ms...')
-                    }
-                    await new Promise((resolve) => setTimeout(resolve, 500))
-                    return loadPublishLinks(1)
-                }
-
+                const hasGroupLink = filtered.some((link) => link.targetType === 'group')
                 setPublishLinkRecords(filtered)
-
-                // Update public state based on actual links
-                const hasGroupLink = filtered.some(link => link.targetType === 'group')
-                setIsPublic(hasGroupLink)
+                setIsPublic((prev) => (prev === hasGroupLink ? prev : hasGroupLink))
 
                 return filtered
             } catch (apiError) {
+                if (apiError.name === 'AbortError' || apiError.name === 'CanceledError') {
+                    return []
+                }
                 console.error('PlayCanvasPublisher: failed to load publish links', apiError)
                 setPublishLinkRecords([])
                 return []
+            } finally {
+                publishLinksStatusRef.current.loading = false
+                publishLinksStatusRef.current.abortController = null
             }
         },
-        [flow?.id, normalizedVersionGroupId]
+        [flow?.id, resolvedVersionGroupId]
     )
 
+    // Load publish links only on mount (event-driven pattern)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         loadPublishLinks()
-    }, [loadPublishLinks])
+    }, [])
 
     useEffect(() => {
         const load = async () => {
@@ -161,6 +221,11 @@ const PlayCanvasPublisher = ({ flow }) => {
                 setLoading(false)
                 return
             }
+            if (loadedFlowIdsRef.current.has(flow.id)) {
+                setLoading(false)
+                return
+            }
+            loadedFlowIdsRef.current.add(flow.id)
             try {
                 const settings = await PlayCanvasPublicationApi.loadPlayCanvasSettings(flow.id)
                 if (settings) {
@@ -194,11 +259,11 @@ const PlayCanvasPublisher = ({ flow }) => {
                         await loadPublishLinks()
                     }
                 }
-            } catch (e) {
-                console.error('PlayCanvasPublisher: load error', e)
-                setError(e.message)
-            } finally {
-                setLoading(false)
+        } catch (e) {
+            console.error('PlayCanvasPublisher: load error', e)
+            setError(e.message)
+        } finally {
+            setLoading(false)
             }
         }
         load()
@@ -226,10 +291,16 @@ const PlayCanvasPublisher = ({ flow }) => {
 
     const handlePublicToggle = async (event) => {
         const nextValue = event.target.checked
+        const previousValue = isPublic
+        const previousRecords = publishLinkRecords
+
+        // Optimistic update
         setIsPublic(nextValue)
 
         if (!nextValue) {
-            // Remove only links related to the current canvas/version group
+            // Optimistically clear links
+            setPublishLinkRecords([])
+
             try {
                 const links = await PublishLinksApi.listLinks({ technology: 'playcanvas' })
                 const relevantLinks = links.filter(link => {
@@ -237,8 +308,8 @@ const PlayCanvasPublisher = ({ flow }) => {
                         return false
                     }
 
-                    if (normalizedVersionGroupId) {
-                        return link.versionGroupId === normalizedVersionGroupId
+                    if (resolvedVersionGroupId) {
+                        return link.versionGroupId === resolvedVersionGroupId
                     }
 
                     if (flow?.id && link.targetCanvasId) {
@@ -254,12 +325,15 @@ const PlayCanvasPublisher = ({ flow }) => {
                 }
 
                 await Promise.all(relevantLinks.map(link => PublishLinksApi.deleteLink(link.id)))
-                await loadPublishLinks()
                 setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
             } catch (error) {
                 console.error('[PlayCanvasPublisher] Error removing publication:', error)
                 setSnackbar({ open: true, message: t('notifications.publicationError') })
-                setIsPublic(true) // Revert toggle on error
+                // Rollback on error
+                setIsPublic(previousValue)
+                setPublishLinkRecords(previousRecords)
+                // Reload to sync state
+                await loadPublishLinks()
             }
             return
         }
@@ -268,22 +342,28 @@ const PlayCanvasPublisher = ({ flow }) => {
         try {
             if (!flow?.id) {
                 console.error('[PlayCanvasPublisher] Cannot create publication: flow.id is missing')
+                setIsPublic(previousValue)
                 return
             }
 
-            // Create group link using unified API with normalized version group id
-            await PublishLinksApi.createGroupLink(String(flow.id), 'playcanvas', normalizedVersionGroupId ?? undefined)
+            const ensuredUser = authUser ?? (await refreshSession())
+            if (!ensuredUser) {
+                throw new Error('Authentication required to publish PlayCanvas links')
+            }
+
+            await PublishLinksApi.createGroupLink(String(flow.id), 'playcanvas', resolvedVersionGroupId ?? undefined)
 
             // Reload links to display the new publication
             await loadPublishLinks()
 
-            // Show success notification
             setSnackbar({ open: true, message: t('notifications.publicationCreated') })
         } catch (error) {
             console.error('[PlayCanvasPublisher] Error creating publication:', error)
             setError(error.message || 'Failed to create publication')
             setSnackbar({ open: true, message: t('notifications.publicationError') })
-            setIsPublic(false) // Revert toggle on error
+            // Rollback on error
+            setIsPublic(previousValue)
+            setPublishLinkRecords(previousRecords)
         }
     }
 
@@ -291,12 +371,41 @@ const PlayCanvasPublisher = ({ flow }) => {
         setSnackbar({ ...snackbar, open: false })
     }
 
-    useEffect(() => {
-        if (!loading) {
-            const tId = setTimeout(saveSettings, 500)
-            return () => clearTimeout(tId)
-        }
-    }, [projectTitle, isPublic, templateId, libraryVersion, generationMode, demoMode, gameMode, colyseusSettings, loading, flow?.id]) // Add gameMode and colyseusSettings to dependencies
+    // Auto-save settings (excluding isPublic which is handled separately)
+    const settingsData = useMemo(
+        () => ({
+            projectTitle,
+            templateId,
+            libraryVersion,
+            generationMode,
+            demoMode,
+            gameMode,
+            colyseusSettings
+        }),
+        [projectTitle, templateId, libraryVersion, generationMode, demoMode, gameMode, colyseusSettings]
+    )
+
+    const { status: autoSaveStatus } = useAutoSave({
+        data: settingsData,
+        onSave: async (data) => {
+            const currentFlowId = flowIdRef.current
+            if (!currentFlowId || loading) return
+
+            await PlayCanvasPublicationApi.savePlayCanvasSettings(currentFlowId, {
+                isPublic,
+                projectTitle: data.projectTitle,
+                templateId: data.templateId,
+                libraryVersion: data.libraryVersion,
+                generationMode: data.generationMode,
+                demoMode: data.demoMode,
+                gameMode: data.gameMode,
+                colyseusSettings: data.colyseusSettings,
+                libraryConfig: { playcanvas: { version: data.libraryVersion, source: 'official' } }
+            })
+        },
+        delay: 500,
+        enableBeforeUnload: true
+    })
 
     if (loading)
         return (
@@ -330,6 +439,15 @@ const PlayCanvasPublisher = ({ flow }) => {
                         margin='normal'
                         value={projectTitle}
                         onChange={(e) => setProjectTitle(e.target.value)}
+                        helperText={
+                            autoSaveStatus === 'saving'
+                                ? t('common.saving')
+                                : autoSaveStatus === 'saved'
+                                  ? t('common.saved')
+                                  : autoSaveStatus === 'error'
+                                    ? t('common.saveError')
+                                    : ''
+                        }
                     />
 
                     {/* Generation Mode Selector */}
@@ -395,7 +513,7 @@ const PlayCanvasPublisher = ({ flow }) => {
             {/* Publish Version Section */}
             {(() => {
                 const { unikId, spaceId } = getCurrentUrlIds()
-                const versionGroupId = normalizedVersionGroupId
+                const versionGroupId = resolvedVersionGroupId
 
                 const isActiveVersion = flow?.isActive ?? flow?.is_active
 
@@ -439,26 +557,6 @@ const PlayCanvasPublisher = ({ flow }) => {
                     )
                 }
 
-                if (!versionGroupId) {
-                    return (
-                        <Box
-                            sx={{
-                                mt: 3,
-                                p: 2,
-                                border: '1px solid',
-                                borderColor: 'warning.main',
-                                borderRadius: 1,
-                                bgcolor: 'warning.light'
-                            }}
-                        >
-                            <Typography variant='body2' color='warning.dark'>
-                                ℹ️ Version group information is missing for this canvas. Publish Version actions are disabled until the canvas
-                                metadata is refreshed.
-                            </Typography>
-                        </Box>
-                    )
-                }
-
                 return (
                     <PublishVersionSection
                         unikId={unikId}
@@ -466,6 +564,11 @@ const PlayCanvasPublisher = ({ flow }) => {
                         canvasId={flow.id}
                         versionGroupId={versionGroupId}
                         technology='playcanvas'
+                        onVersionGroupResolved={(vg) => {
+                            if (vg && vg !== resolvedVersionGroupId) {
+                                setResolvedVersionGroupId(vg)
+                            }
+                        }}
                     />
                 )
             })()}

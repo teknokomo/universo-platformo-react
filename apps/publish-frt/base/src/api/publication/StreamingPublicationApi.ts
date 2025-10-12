@@ -1,9 +1,10 @@
 // Universo Platformo | Streaming Publication API - for real-time content generation
 // API client for streaming publication of content across different technologies
 
-import axios, { AxiosError } from 'axios'
-import { getAuthHeaders, getApiBaseUrl } from '../common'
-import { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult, IPublicationDataResult } from '@universo/publish-srv'
+import axios from 'axios'
+import { getApiBaseUrl } from '../common'
+import { getPublishApiClient } from '../client'
+import { IARJSPublishRequest, IARJSPublishResponse, IPublicationDataResult } from '@universo/publish-srv'
 
 // Get base URL when initializing module
 const API_BASE_URL = getApiBaseUrl()
@@ -18,12 +19,8 @@ export class StreamingPublicationApi {
      * @param headers Existing headers (optional)
      * @returns Combined headers with authorization
      */
-    private static getHeaders(headers: Record<string, string> = {}): Record<string, string> {
-        return {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders(),
-            ...headers
-        }
+    private static getClient() {
+        return getPublishApiClient()
     }
 
     /**
@@ -33,12 +30,10 @@ export class StreamingPublicationApi {
      */
     static async publishARJS(request: IARJSPublishRequest): Promise<IARJSPublishResponse> {
         try {
-            const apiUrl = `${API_BASE_URL}/api/v1/publish/arjs`
+            const apiUrl = '/publish/arjs'
             console.log('🚀 [StreamingPublicationApi] Publishing AR.js project:', request.canvasId ?? 'unknown')
 
-            const response = await axios.post<IARJSPublishResponse>(apiUrl, request, {
-                headers: this.getHeaders()
-            })
+            const response = await this.getClient().post<IARJSPublishResponse>(apiUrl, request)
 
             console.log('✅ [StreamingPublicationApi] Publication successful:', response.data.publicationId)
             return response.data
