@@ -358,9 +358,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         ]
     )
 
-    const { status: autoSaveStatus } = useAutoSave({
-        data: settingsData,
-        onSave: async (data) => {
+    const handleAutoSave = useCallback(
+        async (data) => {
             const currentFlowId = flowIdRef.current
             if (!currentFlowId || DEMO_MODE || settingsLoading) return
 
@@ -369,6 +368,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 ...data
             })
         },
+        [isPublic, settingsLoading]
+    )
+
+    const { status: autoSaveStatus } = useAutoSave({
+        data: settingsData,
+        onSave: handleAutoSave,
         delay: 500,
         enabled: !settingsLoading && settingsInitialized
     })

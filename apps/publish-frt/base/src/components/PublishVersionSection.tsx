@@ -53,6 +53,7 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
     })
 
     const loadVersions = useCallback(async () => {
+        setVersionsLoaded(false)
         setLoading(true)
         try {
             const data = await canvasVersionsApi.listVersions(unikId, spaceId, canvasId)
@@ -65,6 +66,12 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
             setVersionsLoaded(true)
         }
     }, [unikId, spaceId, canvasId, t])
+
+    useEffect(() => {
+        setPublishedLinks([])
+        setVersionsLoaded(false)
+        void loadVersions()
+    }, [loadVersions, unikId, spaceId, canvasId, technology])
 
     const versionIds = useMemo(
         () => new Set(allVersions.map((version) => version.id).filter((id): id is string => Boolean(id))),
@@ -117,21 +124,7 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
 
         try {
             // Fetch by technology only; do not constrain by versionGroupId here to avoid missing links
-            const links = await PublishLinksApi.listLinks(
-                { technology },
-                { signal: abortController.signal }
-            )
-
-            // eslint-disable-next-line no-console
-            console.log('[PublishVersionSection] Filter debug:', {
-                totalLinks: links.length,
-                allLinks: links.map(l => ({ id: l.id, targetType: l.targetType, targetVersionUuid: l.targetVersionUuid, versionGroupId: l.versionGroupId })),
-                versionLinks: links.filter(l => l.targetType === 'version').length,
-                effectiveGroupId: versionGroupId ?? inferredVersionGroupId,
-                versionIds: Array.from(versionIds),
-                publishedVersionUuids: Array.from(publishedVersionUuids),
-                sampleLink: links[0]
-            })
+            const links = await PublishLinksApi.listLinks({ technology }, { signal: abortController.signal })
 
             const relevantLinks = links.filter((link) => {
                 // Only process version-type links
@@ -159,8 +152,6 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
                 return false
             })
 
-            // eslint-disable-next-line no-console
-            console.log('[PublishVersionSection] Setting published links:', relevantLinks.length, relevantLinks)
             setPublishedLinks(relevantLinks)
             return relevantLinks
         } catch (error: any) {
@@ -174,10 +165,6 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
             linksStatusRef.current.abortController = null
         }
     }, [technology, versionGroupId, inferredVersionGroupId, versionsLoaded, versionIds, publishedVersionUuids, allVersions.length])
-
-    useEffect(() => {
-        loadVersions()
-    }, [loadVersions])
 
     // Load published links after versions are loaded
     // This fixes the race condition where mount-only effect runs before versionsLoaded is true
@@ -212,8 +199,6 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
                     if (updatedLinks && updatedLinks.length > 0) break
                 }
             }
-            // eslint-disable-next-line no-console
-            console.log('[PublishVersionSection] After publish - updated links:', updatedLinks)
             setSelectedVersion('')
             setSnackbar({ open: true, message: t('versions.versionPublished') })
         } catch (error) {
@@ -252,25 +237,8 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
             return []
         }
 
-        // eslint-disable-next-line no-console
-        console.log('[PublishVersionSection] Building publishedVersionItems:', {
-            publishedLinksCount: publishedLinks.length,
-            allVersionsCount: allVersions.length,
-            sampleLink: publishedLinks[0],
-            sampleVersion: allVersions[0]
-        })
-
         return publishedLinks.map((link) => {
             const version = allVersions.find((v) => v.versionUuid === link.targetVersionUuid)
-
-            // eslint-disable-next-line no-console
-            if (!version) {
-                console.warn('[PublishVersionSection] Version not found for link:', {
-                    linkId: link.id,
-                    targetVersionUuid: link.targetVersionUuid,
-                    availableUuids: allVersions.map((v) => v.versionUuid)
-                })
-            }
 
             const createdAtLabel = version?.createdAt ? new Date(version.createdAt).toLocaleString() : null
 

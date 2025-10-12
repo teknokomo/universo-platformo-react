@@ -99,6 +99,10 @@ const PlayCanvasPublisher = ({ flow }) => {
 
     const normalizedVersionGroupId = useMemo(() => FieldNormalizer.normalizeVersionGroupId(flow), [flow])
     const [resolvedVersionGroupId, setResolvedVersionGroupId] = useState(normalizedVersionGroupId)
+    const resolvedVersionGroupIdRef = useRef(resolvedVersionGroupId)
+    useEffect(() => {
+        resolvedVersionGroupIdRef.current = resolvedVersionGroupId
+    }, [resolvedVersionGroupId])
     const [versionGroupFetchAttempted, setVersionGroupFetchAttempted] = useState(Boolean(normalizedVersionGroupId))
     const loadedFlowIdsRef = useRef(new Set())
 
@@ -148,72 +152,72 @@ const PlayCanvasPublisher = ({ flow }) => {
         }
     }, [flow?.id, resolvedVersionGroupId, versionGroupFetchAttempted])
 
-    const loadPublishLinks = useCallback(
-        async () => {
-            if (!flow?.id && !resolvedVersionGroupId) {
-                return []
-            }
+    const loadPublishLinks = useCallback(async () => {
+        const currentFlowId = flowIdRef.current
+        const currentVersionGroupId = resolvedVersionGroupIdRef.current
 
-            // Prevent race conditions
-            if (publishLinksStatusRef.current.loading) {
-                return []
-            }
+        if (!currentFlowId && !currentVersionGroupId) {
+            return []
+        }
 
-            // Cancel previous request if still pending
-            if (publishLinksStatusRef.current.abortController) {
-                publishLinksStatusRef.current.abortController.abort()
-            }
+        if (publishLinksStatusRef.current.loading) {
+            return []
+        }
 
-            const abortController = new AbortController()
-            publishLinksStatusRef.current.loading = true
-            publishLinksStatusRef.current.abortController = abortController
+        if (publishLinksStatusRef.current.abortController) {
+            publishLinksStatusRef.current.abortController.abort()
+        }
 
-            try {
-                const links = await PublishLinksApi.listLinks(
-                    {
-                        technology: 'playcanvas',
-                        versionGroupId: resolvedVersionGroupId ?? null
-                    },
-                    { signal: abortController.signal }
-                )
+        const abortController = new AbortController()
+        publishLinksStatusRef.current.loading = true
+        publishLinksStatusRef.current.abortController = abortController
 
-                const filtered = links.filter((link) => {
-                    if (resolvedVersionGroupId && link.versionGroupId === resolvedVersionGroupId) {
-                        return true
-                    }
+        try {
+            const links = await PublishLinksApi.listLinks(
+                {
+                    technology: 'playcanvas',
+                    versionGroupId: currentVersionGroupId ?? null
+                },
+                { signal: abortController.signal }
+            )
 
-                    if (flow?.id && link.targetCanvasId === flow.id) {
-                        return true
-                    }
-
-                    return false
-                })
-
-                const hasGroupLink = filtered.some((link) => link.targetType === 'group')
-                setPublishLinkRecords(filtered)
-                setIsPublic((prev) => (prev === hasGroupLink ? prev : hasGroupLink))
-
-                return filtered
-            } catch (apiError) {
-                if (apiError.name === 'AbortError' || apiError.name === 'CanceledError') {
-                    return []
+            const filtered = links.filter((link) => {
+                if (currentVersionGroupId && link.versionGroupId === currentVersionGroupId) {
+                    return true
                 }
-                console.error('PlayCanvasPublisher: failed to load publish links', apiError)
-                setPublishLinkRecords([])
-                return []
-            } finally {
-                publishLinksStatusRef.current.loading = false
-                publishLinksStatusRef.current.abortController = null
-            }
-        },
-        [flow?.id, resolvedVersionGroupId]
-    )
 
-    // Load publish links only on mount (event-driven pattern)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-        loadPublishLinks()
+                if (currentFlowId && link.targetCanvasId === currentFlowId) {
+                    return true
+                }
+
+                return false
+            })
+
+            const hasGroupLink = filtered.some((link) => link.targetType === 'group')
+            setPublishLinkRecords(filtered)
+            setIsPublic((prev) => (prev === hasGroupLink ? prev : hasGroupLink))
+
+            return filtered
+        } catch (apiError) {
+            if (apiError.name === 'AbortError' || apiError.name === 'CanceledError') {
+                return []
+            }
+            console.error('PlayCanvasPublisher: failed to load publish links', apiError)
+            setPublishLinkRecords([])
+            return []
+        } finally {
+            publishLinksStatusRef.current.loading = false
+            publishLinksStatusRef.current.abortController = null
+        }
     }, [])
+
+    useEffect(() => {
+        if (!flow?.id && !resolvedVersionGroupId) {
+            return
+        }
+
+        loadPublishLinks()
+    }, [flow?.id, resolvedVersionGroupId, loadPublishLinks])
 
     useEffect(() => {
         const load = async () => {
@@ -255,19 +259,16 @@ const PlayCanvasPublisher = ({ flow }) => {
                     const libVer = settings.libraryConfig?.playcanvas?.version
                     setLibraryVersion(libVer || DEFAULT_VERSION)
 
-                    if (settings.isPublic) {
-                        await loadPublishLinks()
-                    }
                 }
         } catch (e) {
             console.error('PlayCanvasPublisher: load error', e)
             setError(e.message)
         } finally {
             setLoading(false)
-            }
         }
-        load()
-    }, [flow?.id, loadPublishLinks])
+    }
+    load()
+    }, [flow?.id])
 
     const saveSettings = async () => {
         // Universo Platformo | always use the latest flow.id
@@ -385,9 +386,8 @@ const PlayCanvasPublisher = ({ flow }) => {
         [projectTitle, templateId, libraryVersion, generationMode, demoMode, gameMode, colyseusSettings]
     )
 
-    const { status: autoSaveStatus } = useAutoSave({
-        data: settingsData,
-        onSave: async (data) => {
+    const handleAutoSave = useCallback(
+        async (data) => {
             const currentFlowId = flowIdRef.current
             if (!currentFlowId || loading) return
 
@@ -403,8 +403,15 @@ const PlayCanvasPublisher = ({ flow }) => {
                 libraryConfig: { playcanvas: { version: data.libraryVersion, source: 'official' } }
             })
         },
+        [isPublic, loading]
+    )
+
+    const { status: autoSaveStatus } = useAutoSave({
+        data: settingsData,
+        onSave: handleAutoSave,
         delay: 500,
-        enableBeforeUnload: true
+        enableBeforeUnload: true,
+        enabled: !loading
     })
 
     if (loading)

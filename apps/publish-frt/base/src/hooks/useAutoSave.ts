@@ -7,6 +7,7 @@ export interface UseAutoSaveOptions<T> {
     onSave: (data: T) => Promise<void>
     delay?: number
     enableBeforeUnload?: boolean
+    enabled?: boolean
 }
 
 export interface UseAutoSaveReturn {
@@ -37,15 +38,46 @@ export interface UseAutoSaveReturn {
  * })
  * ```
  */
-export function useAutoSave<T>({ data, onSave, delay = 500, enableBeforeUnload = false }: UseAutoSaveOptions<T>): UseAutoSaveReturn {
+export function useAutoSave<T>({
+    data,
+    onSave,
+    delay = 500,
+    enableBeforeUnload = false,
+    enabled = true
+}: UseAutoSaveOptions<T>): UseAutoSaveReturn {
     const [status, setStatus] = useState<AutoSaveStatus>('idle')
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
     const isFirstRenderRef = useRef(true)
     const isSavingRef = useRef(false)
+    const latestDataRef = useRef(data)
+    const latestOnSaveRef = useRef(onSave)
+
+    useEffect(() => {
+        latestDataRef.current = data
+    }, [data])
+
+    useEffect(() => {
+        latestOnSaveRef.current = onSave
+    }, [onSave])
+
+    useEffect(() => {
+        if (!enabled && timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
+        }
+    }, [enabled])
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+            }
+        }
+    }, [])
 
     const triggerSave = useCallback(async () => {
-        if (isSavingRef.current) {
+        if (!enabled || isSavingRef.current) {
             return
         }
 
@@ -54,7 +86,7 @@ export function useAutoSave<T>({ data, onSave, delay = 500, enableBeforeUnload =
         setHasUnsavedChanges(false)
 
         try {
-            await onSave(data)
+            await latestOnSaveRef.current(latestDataRef.current)
             setStatus('saved')
             // Reset to idle after 2 seconds
             setTimeout(() => {
@@ -67,9 +99,19 @@ export function useAutoSave<T>({ data, onSave, delay = 500, enableBeforeUnload =
         } finally {
             isSavingRef.current = false
         }
-    }, [data, onSave])
+    }, [enabled])
 
     useEffect(() => {
+        if (!enabled) {
+            setHasUnsavedChanges(false)
+            setStatus('idle')
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+                timeoutRef.current = null
+            }
+            return
+        }
+
         // Skip first render (initialization)
         if (isFirstRenderRef.current) {
             isFirstRenderRef.current = false
@@ -94,11 +136,11 @@ export function useAutoSave<T>({ data, onSave, delay = 500, enableBeforeUnload =
                 clearTimeout(timeoutRef.current)
             }
         }
-    }, [data, delay])
+    }, [data, delay, enabled, triggerSave])
 
     // beforeunload protection
     useEffect(() => {
-        if (!enableBeforeUnload) {
+        if (!enableBeforeUnload || !enabled) {
             return
         }
 
@@ -115,7 +157,7 @@ export function useAutoSave<T>({ data, onSave, delay = 500, enableBeforeUnload =
         return () => {
             window.removeEventListener('beforeunload', handleBeforeUnload)
         }
-    }, [enableBeforeUnload, hasUnsavedChanges])
+    }, [enableBeforeUnload, enabled, hasUnsavedChanges])
 
     return {
         status,
