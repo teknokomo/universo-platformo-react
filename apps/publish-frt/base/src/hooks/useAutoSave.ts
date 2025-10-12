@@ -48,6 +48,7 @@ export function useAutoSave<T>({
     const [status, setStatus] = useState<AutoSaveStatus>('idle')
     const [hasUnsavedChanges, setHasUnsavedChangesState] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const statusResetTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const isFirstRenderRef = useRef(true)
     const isSavingRef = useRef(false)
     const pendingSaveRef = useRef(false)
@@ -84,6 +85,14 @@ export function useAutoSave<T>({
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current)
             }
+            clearStatusResetTimeout()
+        }
+    }, [clearStatusResetTimeout])
+
+    const clearStatusResetTimeout = useCallback(() => {
+        if (statusResetTimeoutRef.current) {
+            clearTimeout(statusResetTimeoutRef.current)
+            statusResetTimeoutRef.current = null
         }
     }, [])
 
@@ -97,6 +106,7 @@ export function useAutoSave<T>({
             return
         }
 
+        clearStatusResetTimeout()
         setStatus('saving')
         isSavingRef.current = true
         // Mark current unsaved changes as being processed while keeping the state value
@@ -113,9 +123,13 @@ export function useAutoSave<T>({
                 setHasUnsavedChanges(false)
             }
             setStatus('saved')
-            // Reset to idle after 2 seconds
-            setTimeout(() => {
-                setStatus('idle')
+            // Reset to idle after 2 seconds if no new save is in progress
+            clearStatusResetTimeout()
+            statusResetTimeoutRef.current = setTimeout(() => {
+                if (!isSavingRef.current) {
+                    setStatus('idle')
+                }
+                statusResetTimeoutRef.current = null
             }, 2000)
         } catch (error) {
             console.error('useAutoSave: save failed', error)
@@ -131,7 +145,7 @@ export function useAutoSave<T>({
                 triggerSave()
             }
         }
-    }, [enabled, setHasUnsavedChanges])
+    }, [clearStatusResetTimeout, enabled, setHasUnsavedChanges])
 
     useEffect(() => {
         if (!enabled) {
@@ -141,6 +155,7 @@ export function useAutoSave<T>({
                 clearTimeout(timeoutRef.current)
                 timeoutRef.current = null
             }
+            clearStatusResetTimeout()
             return
         }
 
@@ -168,7 +183,7 @@ export function useAutoSave<T>({
                 clearTimeout(timeoutRef.current)
             }
         }
-    }, [data, delay, enabled, triggerSave, setHasUnsavedChanges])
+    }, [clearStatusResetTimeout, data, delay, enabled, triggerSave, setHasUnsavedChanges])
 
     // beforeunload protection
     useEffect(() => {
