@@ -170,10 +170,9 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
     // This fixes the race condition where mount-only effect runs before versionsLoaded is true
     useEffect(() => {
         if (versionsLoaded) {
-            loadPublishedLinks()
+            void loadPublishedLinks()
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [versionsLoaded])
+    }, [versionsLoaded, loadPublishedLinks])
 
     const handlePublish = async () => {
         if (!selectedVersion) return

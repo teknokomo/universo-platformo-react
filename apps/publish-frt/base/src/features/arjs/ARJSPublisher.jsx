@@ -365,9 +365,11 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
+        let cancelled = false
+
         const loadSavedSettings = async () => {
             if (!flow?.id || DEMO_MODE || !globalSettingsLoaded || settingsInitialized) {
-                if (globalSettingsLoaded && !settingsInitialized) {
+                if (!cancelled && globalSettingsLoaded && !settingsInitialized) {
                     setSettingsLoading(false)
                 }
                 return
@@ -376,6 +378,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             try {
                 setSettingsLoading(true)
                 const savedSettings = await ARJSPublicationApi.loadARJSSettings(flow.id)
+
+                if (cancelled) {
+                    return
+                }
 
                 if (savedSettings) {
                     setIsPublic(savedSettings.isPublic || false)
@@ -484,18 +490,36 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     }
                 }
 
-                setSettingsInitialized(true)
+                if (!cancelled) {
+                    setSettingsInitialized(true)
+                }
             } catch (error) {
-                console.error('📱 [ARJSPublisher] Error loading settings:', error)
-                setError('Failed to load saved settings')
+                if (!cancelled) {
+                    console.error('📱 [ARJSPublisher] Error loading settings:', error)
+                    setError('Failed to load saved settings')
+                }
             } finally {
-                setSettingsLoading(false)
+                if (!cancelled) {
+                    setSettingsLoading(false)
+                }
             }
         }
 
-        loadSavedSettings()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [flow?.id, globalSettingsLoaded])
+        void loadSavedSettings()
+
+        return () => {
+            cancelled = true
+        }
+    }, [
+        DEMO_MODE,
+        flow?.id,
+        flow?.name,
+        globalSettings,
+        globalSettingsLoaded,
+        loadPublishLinks,
+        settingsInitialized,
+        t
+    ])
 
     // Initialize with flow data when component mounts
     useEffect(() => {
