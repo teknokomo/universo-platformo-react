@@ -1,7 +1,7 @@
 import { Theme } from '@mui/material/styles'
 import { axisClasses, legendClasses, chartsGridClasses } from '@mui/x-charts'
 import type { ChartsComponents } from '@mui/x-charts/themeAugmentation'
-import { gray } from '../../components/shared/themePrimitives'
+import { gray } from './themePrimitives'
 
 /* eslint-disable import/prefer-default-export */
 export const chartsCustomizations: ChartsComponents<Theme> = {

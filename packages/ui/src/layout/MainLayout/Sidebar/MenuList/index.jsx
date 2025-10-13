@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import axios from 'axios'
+import client from '@/api/client'
 import NavGroup from './NavGroup'
 import dashboard from '@/menu-items/dashboard'
 import unikDashboard from '@apps/uniks-frt/base/src/menu-items/unikDashboard'
@@ -28,14 +28,7 @@ const MenuList = () => {
 
         const fetchPermissions = async () => {
             try {
-                const token = localStorage.getItem('token')
-                const response = await axios.get(`/api/v1/metaverses/${metaverseId}`, {
-                    headers: token
-                        ? {
-                              Authorization: `Bearer ${token}`
-                          }
-                        : undefined
-                })
+                const response = await client.get(`metaverses/${metaverseId}`)
 
                 if (!isActive) return
 

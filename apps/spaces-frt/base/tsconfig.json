@@ -17,7 +17,9 @@
     "paths": {
       "@/*": ["src/*"],
       "@ui/*": ["../../../packages/ui/src/*"],
-      "@universo/space-builder-frt": ["../../space-builder-frt/base/dist/cjs/index.js"]
+      "@universo/space-builder-frt": ["../../space-builder-frt/base/dist/cjs/index.js"],
+      "@universo/auth-frt": ["../../auth-frt/base/dist/index.d.ts"],
+      "@universo/auth-frt/*": ["../../auth-frt/base/dist/*"]
     }
   },
   "include": [

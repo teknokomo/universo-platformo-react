@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom'
 import { Breadcrumbs, Card, CircularProgress, Link, Stack, Typography, Button } from '@mui/material'
-import { IconArrowLeft } from '@tabler/icons-react'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import { useTranslation } from 'react-i18next'
 
 // ui imports
 import ErrorBoundary from '@ui/ErrorBoundary'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as entitiesApi from '../api/entities'
 import { Entity } from '../types'
 
@@ -16,10 +17,10 @@ const EntityDetail: React.FC = () => {
     const navigate = useNavigate()
     const { t } = useTranslation('metaverses')
 
-    const { request: getEntity } = useApi(entitiesApi.getEntity)
+    const { request: getEntity } = useApi<Entity, [string]>(entitiesApi.getEntity as ApiFunc<Entity, [string]>)
 
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [entity, setEntity] = useState<Entity | null>(null)
 
     useEffect(() => {
@@ -29,8 +30,10 @@ const EntityDetail: React.FC = () => {
                 setLoading(true)
                 setError(null)
                 const res = await getEntity(entityId)
-                setEntity(res)
-            } catch (err: any) {
+                if (res) {
+                    setEntity(res)
+                }
+            } catch (err: unknown) {
                 setError(err)
             } finally {
                 setLoading(false)
@@ -42,7 +45,7 @@ const EntityDetail: React.FC = () => {
     return (
         <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', p: 1.25 }}>
             {error ? (
-                <ErrorBoundary error={error} />
+                <ErrorBoundary error={error as any} />
             ) : (
                 <Stack spacing={2}>
                     <Breadcrumbs aria-label='breadcrumb'>
@@ -51,7 +54,7 @@ const EntityDetail: React.FC = () => {
                             to={metaverseId ? `/metaverses/${metaverseId}/entities` : '/entities'}
                             sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                         >
-                            <IconArrowLeft size={16} />
+                            <ArrowBackRoundedIcon fontSize='small' />
                             {t('entities.title')}
                         </Link>
                         <Typography color='text.primary'>{entity?.name || t('entities.detail.info')}</Typography>

@@ -342,16 +342,47 @@ export class CanvasService {
             const canvas = await this.loadCanvasOrThrow(canvasId, scope)
 
             let canvasConfig: Record<string, any> = {}
-            if (canvas.chatbotConfig) {
-                canvasConfig = JSON.parse(canvas.chatbotConfig)
+            const rawChatbotConfig = canvas.chatbotConfig
+            if (rawChatbotConfig != null) {
+                try {
+                    if (typeof rawChatbotConfig === 'string') {
+                        const trimmed = rawChatbotConfig.trim()
+                        canvasConfig = trimmed ? JSON.parse(trimmed) : {}
+                    } else if (typeof rawChatbotConfig === 'object') {
+                        canvasConfig = rawChatbotConfig
+                    }
+                } catch (configError) {
+                    this.deps.logger.warn(
+                        '[spaces-srv] Failed to parse chatbotConfig for canvas %s: %s',
+                        canvasId,
+                        configError instanceof Error ? configError.message : String(configError)
+                    )
+                    canvasConfig = {}
+                }
                 if (canvasConfig?.postProcessing?.enabled === true) {
                     return { isStreaming: false }
                 }
             }
 
-            const parsedFlowData = JSON.parse(canvas.flowData)
-            const nodes = parsedFlowData.nodes ?? []
-            const edges = parsedFlowData.edges ?? []
+            let parsedFlowData: any = {}
+            try {
+                if (typeof canvas.flowData === 'string') {
+                    const trimmed = canvas.flowData.trim()
+                    parsedFlowData = trimmed ? JSON.parse(trimmed) : {}
+                } else {
+                    parsedFlowData = canvas.flowData ?? {}
+                }
+            } catch (flowError) {
+                this.deps.logger.warn(
+                    '[spaces-srv] Failed to parse flowData for canvas %s: %s',
+                    canvasId,
+                    flowError instanceof Error ? flowError.message : String(flowError)
+                )
+                return { isStreaming: false }
+            }
+
+            const nodes = Array.isArray(parsedFlowData?.nodes) ? parsedFlowData.nodes : []
+            const edges = Array.isArray(parsedFlowData?.edges) ? parsedFlowData.edges : []
             const { graph, nodeDependencies } = this.deps.constructGraphs(nodes, edges)
             const endingNodes = this.deps.getEndingNodes(nodeDependencies, graph, nodes)
 

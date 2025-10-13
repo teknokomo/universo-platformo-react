@@ -83,7 +83,7 @@ export default function LanguageSwitcher() {
                             onClick={handleOpen}
                             size='small'
                             sx={{
-                                borderRadius: '12px',
+                                borderRadius: 1,
                                 color: theme.palette.text.primary,
                                 '&:hover': {
                                     backgroundColor: theme.palette.action.hover

@@ -12,6 +12,7 @@ const BaseEntityMenu = ({
   descriptors,
   namespace = 'flowList',
   menuButtonLabelKey = 'menu.button',
+  renderTrigger, // Custom trigger renderer function (optional)
   createContext,
   contextExtras
 }) => {
@@ -71,21 +72,48 @@ const BaseEntityMenu = ({
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('Action execution failed', d.id, e)
-      ctx.helpers.enqueueSnackbar &&
-        ctx.helpers.enqueueSnackbar({
-          message: e?.message || 'Action failed',
-          options: { variant: 'error' }
-        })
+      if (ctx.helpers.enqueueSnackbar) {
+        const enqueue = ctx.helpers.enqueueSnackbar
+        const candidateMessage =
+          e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+            ? e.message
+            : typeof e === 'string'
+              ? e
+              : 'Action failed'
+        const message = candidateMessage && candidateMessage.length > 0 ? candidateMessage : 'Action failed'
+        if (typeof enqueue === 'function') {
+          if (enqueue.length >= 2) {
+            enqueue(message, { variant: 'error' })
+          } else {
+            enqueue({
+              message,
+              options: { variant: 'error' }
+            })
+          }
+        }
+      }
     } finally {
       setBusyActionId(null)
     }
   }
 
+  // Default trigger: Button with dropdown icon
+  const defaultTrigger = (props) => (
+    <Button endIcon={<KeyboardArrowDownIcon />} {...props}>
+      {t(menuButtonLabelKey)}
+    </Button>
+  )
+
+  // Use custom trigger if provided, otherwise use default
+  const trigger = renderTrigger || defaultTrigger
+
   return (
     <>
-      <Button endIcon={<KeyboardArrowDownIcon />} onClick={handleOpen} aria-haspopup='true'>
-        {t(menuButtonLabelKey)}
-      </Button>
+      {trigger({
+        onClick: handleOpen,
+        'aria-haspopup': 'true',
+        disabled: busyActionId !== null
+      })}
       <Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
         {Object.entries(groups).map(([group, acts], gi, arr) => (
           <React.Fragment key={group}>

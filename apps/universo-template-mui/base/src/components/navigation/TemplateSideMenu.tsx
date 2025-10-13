@@ -82,7 +82,7 @@ const TemplateSideMenu: React.FC<TemplateSideMenuProps> = ({ items }) => {
                                     <ListItemText
                                         primary={
                                             <Typography variant={selected ? 'h6' : 'body1'} color='inherit'>
-                                                {t(`menu.${item.titleKey}`)}
+                                                {t(item.titleKey)}
                                             </Typography>
                                         }
                                     />

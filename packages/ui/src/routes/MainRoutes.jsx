@@ -13,7 +13,8 @@ const PublicFlowView = Loadable(lazy(() => import('@apps/publish-frt/base/src/pa
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList.jsx')))
-const MetaverseDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseDetail }))))
+// Legacy MetaverseDetail route removed from routing usage; keep import commented for reference
+// const MetaverseDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseDetail }))))
 const SectionDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.SectionDetail }))))
 const ClusterDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterDetail }))))
 const DomainDetail = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.DomainDetail }))))
@@ -197,45 +198,7 @@ const MainRoutes = {
                 }
             ]
         },
-        {
-            path: 'metaverses',
-            children: [
-                {
-                    path: ':metaverseId',
-                    element: (
-                        <AuthGuard>
-                            <MetaversesContainer />
-                        </AuthGuard>
-                    ),
-                    children: [
-                        {
-                            index: true,
-                            element: <MetaverseDetail />
-                        },
-                        {
-                            path: 'entities',
-                            element: <MetaverseDetail />
-                        },
-                        {
-                            path: 'sections',
-                            element: <MetaverseDetail />
-                        },
-                        {
-                            path: 'access',
-                            element: <MetaverseDetail />
-                        },
-                        {
-                            path: 'sections/:sectionId',
-                            element: <SectionDetail />
-                        },
-                        {
-                            path: 'entities/:entityId',
-                            element: <EntityDetail />
-                        }
-                    ]
-                }
-            ]
-        },
+        // Legacy metaverses subtree removed. New routes are provided by MainRoutesMUI from @universo/template-mui.
         {
             path: 'clusters/:clusterId',
             element: (

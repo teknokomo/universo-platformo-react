@@ -1,22 +1,22 @@
-import axios from 'axios'
+import { createAuthClient } from '@universo/auth-frt'
+import type { AxiosError, AxiosResponse } from 'axios'
 
-const apiClient = axios.create({
-    baseURL: '/api/v1',
-    headers: {
-        'Content-Type': 'application/json'
-    }
-})
+const apiClient = createAuthClient({ baseURL: '/api/v1' })
 
-apiClient.interceptors.request.use((config) => {
-    try {
-        const token = localStorage.getItem('token')
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`
+apiClient.defaults.headers.common['Content-Type'] = 'application/json'
+apiClient.defaults.headers.common['x-request-from'] = 'internal'
+
+apiClient.interceptors.response.use(
+    (response: AxiosResponse) => response,
+    (error: AxiosError) => {
+        if (error?.response?.status === 401 && typeof window !== 'undefined') {
+            const isAuthRoute = window.location.pathname.startsWith('/auth')
+            if (!isAuthRoute) {
+                window.location.href = '/auth'
+            }
         }
-    } catch (e) {
-        // ignore
+        return Promise.reject(error)
     }
-    return config
-})
+)
 
 export default apiClient

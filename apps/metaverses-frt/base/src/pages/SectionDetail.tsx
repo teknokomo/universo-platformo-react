@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom'
 import { Breadcrumbs, Card, CircularProgress, Link, Stack, Typography, Button, Tabs, Tab, Box } from '@mui/material'
-import { IconArrowLeft, IconPlus } from '@tabler/icons-react'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 
 // ui imports
@@ -9,6 +10,7 @@ import ErrorBoundary from '@ui/ErrorBoundary'
 import APIEmptySVG from '@ui/assets/images/api_empty.svg'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as sectionsApi from '../api/sections'
 import { Section, Entity } from '../types'
 import EntityDialog from './EntityDialog'
@@ -41,11 +43,13 @@ const SectionDetail: React.FC = () => {
     const navigate = useNavigate()
     const { t } = useTranslation('metaverses')
 
-    const { request: getSection } = useApi(sectionsApi.getSection)
-    const { request: getSectionEntities } = useApi(sectionsApi.getSectionEntities)
+    const { request: getSection } = useApi<Section, [string]>(sectionsApi.getSection as ApiFunc<Section, [string]>)
+    const { request: getSectionEntities } = useApi<Entity[], [string]>(
+        sectionsApi.getSectionEntities as ApiFunc<Entity[], [string]>
+    )
 
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [section, setSection] = useState<Section | null>(null)
     const [entities, setEntities] = useState<Entity[]>([])
     const [tabValue, setTabValue] = useState(0)
@@ -58,9 +62,11 @@ const SectionDetail: React.FC = () => {
                 setLoading(true)
                 setError(null)
                 const [sectionRes, entitiesRes] = await Promise.all([getSection(sectionId), getSectionEntities(sectionId)])
-                setSection(sectionRes)
-                setEntities(entitiesRes || [])
-            } catch (err: any) {
+                if (sectionRes) {
+                    setSection(sectionRes)
+                }
+                setEntities(Array.isArray(entitiesRes) ? entitiesRes : [])
+            } catch (err: unknown) {
                 setError(err)
             } finally {
                 setLoading(false)
@@ -90,7 +96,7 @@ const SectionDetail: React.FC = () => {
     return (
         <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', p: 1.25 }}>
             {error ? (
-                <ErrorBoundary error={error} />
+                <ErrorBoundary error={error as any} />
             ) : (
                 <Stack spacing={2}>
                     <Breadcrumbs aria-label='breadcrumb'>
@@ -99,7 +105,7 @@ const SectionDetail: React.FC = () => {
                             to={metaverseId ? `/metaverses/${metaverseId}/sections` : '/sections'}
                             sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                         >
-                            <IconArrowLeft size={16} />
+                            <ArrowBackRoundedIcon fontSize='small' />
                             {t('sections.title')}
                         </Link>
                         <Typography color='text.primary'>{section?.name || t('sections.detail.info')}</Typography>
@@ -138,7 +144,11 @@ const SectionDetail: React.FC = () => {
                                 <Stack spacing={2}>
                                     <Stack direction='row' justifyContent='space-between' alignItems='center'>
                                         <Typography variant='h6'>{t('sections.detail.entities')}</Typography>
-                                        <Button variant='contained' startIcon={<IconPlus size={16} />} onClick={handleAddEntity}>
+                                        <Button
+                                            variant='contained'
+                                            startIcon={<AddRoundedIcon fontSize='small' />}
+                                            onClick={handleAddEntity}
+                                        >
                                             {t('entities.list.addNew')}
                                         </Button>
                                     </Stack>

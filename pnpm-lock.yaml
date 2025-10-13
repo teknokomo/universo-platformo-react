@@ -814,6 +814,9 @@ importers:
 
   apps/space-builder-frt/base:
     dependencies:
+      '@universo/auth-frt':
+        specifier: workspace:*
+        version: link:../../auth-frt/base
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -912,6 +915,9 @@ importers:
       '@tabler/icons-react':
         specifier: ^3.30.0
         version: 3.34.0(react@18.3.1)
+      '@universo/auth-frt':
+        specifier: workspace:*
+        version: link:../../auth-frt/base
       react:
         specifier: ^18.2.0
         version: 18.3.1

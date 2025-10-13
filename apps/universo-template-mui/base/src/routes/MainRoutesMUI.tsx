@@ -1,30 +1,23 @@
 import { lazy } from 'react'
-import { Outlet } from 'react-router-dom'
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import Dashboard from '../views/dashboard/Dashboard'
 import { ErrorBoundary } from '../components'
 
-// Import AuthGuard from main UI package
-// @ts-ignore - JS file imported in TS
 import AuthGuard from '@ui/routes/AuthGuard'
 
-// Import Loadable utility from main UI package
-// @ts-ignore - JS file imported in TS
 import Loadable from '@ui/ui-component/loading/Loadable'
 
-// Use existing list components from monorepo apps
-// @ts-ignore - JS file imported in TS
 const UnikList = Loadable(lazy(() => import('@apps/uniks-frt/base/src/pages/UnikList')))
 
-// @ts-ignore
 const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseList }))))
-// @ts-ignore
+const MetaverseBoard = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseBoard }))))
+const MetaverseAccess = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.MetaverseAccess }))))
+const SectionsList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.SectionsList }))))
+const SectionDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.SectionDetail }))))
+const EntityList = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.EntityList }))))
+const EntityDetail = Loadable(lazy(() => import('@universo/metaverses-frt').then((m) => ({ default: m.EntityDetail }))))
 const ClusterList = Loadable(lazy(() => import('@universo/resources-frt').then((m) => ({ default: m.ClusterList }))))
-// @ts-ignore
 const ProfilePage = Loadable(lazy(() => import('@apps/profile-frt/base/src/pages/Profile.jsx')))
-
-// Container component for nested routes
-const UniksContainer = () => <Outlet />
 
 // Main routes configuration object (matching MainRoutes.jsx structure)
 const MainRoutesMUI = {
@@ -57,6 +50,66 @@ const MainRoutesMUI = {
                 <AuthGuard>
                     <ErrorBoundary>
                         <MetaverseList />
+                    </ErrorBoundary>
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverses/:metaverseId',
+            element: (
+                <AuthGuard>
+                    <ErrorBoundary>
+                        <MetaverseBoard />
+                    </ErrorBoundary>
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverses/:metaverseId/access',
+            element: (
+                <AuthGuard>
+                    <ErrorBoundary>
+                        <MetaverseAccess />
+                    </ErrorBoundary>
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverses/:metaverseId/entities',
+            element: (
+                <AuthGuard>
+                    <ErrorBoundary>
+                        <EntityList />
+                    </ErrorBoundary>
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverses/:metaverseId/sections',
+            element: (
+                <AuthGuard>
+                    <ErrorBoundary>
+                        <SectionsList />
+                    </ErrorBoundary>
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverses/:metaverseId/sections/:sectionId',
+            element: (
+                <AuthGuard>
+                    <ErrorBoundary>
+                        <SectionDetail />
+                    </ErrorBoundary>
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverses/:metaverseId/entities/:entityId',
+            element: (
+                <AuthGuard>
+                    <ErrorBoundary>
+                        <EntityDetail />
                     </ErrorBoundary>
                 </AuthGuard>
             )

@@ -15,7 +15,10 @@ import {
     Chip
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import { IconPlus, IconArrowLeft, IconLayoutGrid, IconList } from '@tabler/icons-react'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded'
+import ViewListRoundedIcon from '@mui/icons-material/ViewListRounded'
 import { useTranslation } from 'react-i18next'
 
 // project imports
@@ -29,6 +32,7 @@ import { FlowListTable } from '@ui/ui-component/table/FlowListTable'
 import APIEmptySVG from '@ui/assets/images/api_empty.svg'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
 // import * as sectionsApi from '../api/sections'
 import { Metaverse, Entity, Section } from '../types'
@@ -53,7 +57,7 @@ const MetaverseDetail = () => {
     const [entities, setEntities] = useState<Entity[]>([])
     const [sections, setSections] = useState<Section[]>([])
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const location = useLocation()
     const pathname = location.pathname
     const section: 'board' | 'entities' | 'sections' | 'access' = pathname.endsWith('/entities')
@@ -69,9 +73,23 @@ const MetaverseDetail = () => {
     const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null)
     const [selectedSection] = useState<Section | null>(null)
 
-    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
-    const { request: getMetaverseEntities } = useApi(metaversesApi.getMetaverseEntities)
-    const { request: getMetaverseSections } = useApi(metaversesApi.getMetaverseSections)
+    const getErrorText = (err: unknown) => {
+        if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
+            return (err as any).message as string
+        }
+        if (typeof err === 'string') {
+            return err
+        }
+        return t('common.error', 'Error')
+    }
+
+    const { request: getMetaverse } = useApi<Metaverse, [string]>(metaversesApi.getMetaverse as ApiFunc<Metaverse, [string]>)
+    const { request: getMetaverseEntities } = useApi<Entity[], [string]>(
+        metaversesApi.getMetaverseEntities as ApiFunc<Entity[], [string]>
+    )
+    const { request: getMetaverseSections } = useApi<Section[], [string]>(
+        metaversesApi.getMetaverseSections as ApiFunc<Section[], [string]>
+    )
 
     useEffect(() => {
         if (metaverseId) {
@@ -92,10 +110,12 @@ const MetaverseDetail = () => {
                 getMetaverseSections(metaverseId)
             ])
 
-            setMetaverse(metaverseResult)
+            if (metaverseResult) {
+                setMetaverse(metaverseResult)
+            }
             setEntities(Array.isArray(entitiesResult) ? entitiesResult : [])
             setSections(Array.isArray(sectionsResult) ? sectionsResult : [])
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err)
         } finally {
             setLoading(false)
@@ -204,7 +224,7 @@ const MetaverseDetail = () => {
         return (
             <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto' }}>
                 <ErrorBoundary>
-                    <div>Error: {error.message || error}</div>
+                    <div>Error: {getErrorText(error)}</div>
                 </ErrorBoundary>
             </Card>
         )
@@ -215,7 +235,7 @@ const MetaverseDetail = () => {
             <Stack spacing={2}>
                 <Breadcrumbs aria-label='breadcrumb'>
                     <Link component={RouterLink} to='/metaverses' sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <IconArrowLeft size={16} />
+                        <ArrowBackRoundedIcon fontSize='small' />
                         {t('metaverses.title')}
                     </Link>
                     <Typography color='text.primary'>{metaverse?.name || t('metaverses.detail.info')}</Typography>
@@ -279,19 +299,19 @@ const MetaverseDetail = () => {
                                             value='card'
                                             title={t('common.cardView', 'Card View')}
                                         >
-                                            <IconLayoutGrid />
+                                            <GridViewRoundedIcon />
                                         </ToggleButton>
                                         <ToggleButton
                                             sx={{ borderColor: theme.palette.grey[900] + 25, borderRadius: 2 }}
                                             value='list'
                                             title={t('common.listView', 'List View')}
                                         >
-                                            <IconList />
+                                            <ViewListRoundedIcon />
                                         </ToggleButton>
                                     </ToggleButtonGroup>
                                     <Button
                                         variant='contained'
-                                        startIcon={<IconPlus size={16} />}
+                                        startIcon={<AddRoundedIcon fontSize='small' />}
                                         onClick={handleAddEntity}
                                         sx={{ borderRadius: 2, height: 40 }}
                                         disabled={!canCreateContent}
@@ -355,19 +375,19 @@ const MetaverseDetail = () => {
                                             value='card'
                                             title={t('common.cardView', 'Card View')}
                                         >
-                                            <IconLayoutGrid />
+                                            <GridViewRoundedIcon />
                                         </ToggleButton>
                                         <ToggleButton
                                             sx={{ borderColor: theme.palette.grey[900] + 25, borderRadius: 2 }}
                                             value='list'
                                             title={t('common.listView', 'List View')}
                                         >
-                                            <IconList />
+                                            <ViewListRoundedIcon />
                                         </ToggleButton>
                                     </ToggleButtonGroup>
                                     <Button
                                         variant='contained'
-                                        startIcon={<IconPlus size={16} />}
+                                        startIcon={<AddRoundedIcon fontSize='small' />}
                                         onClick={() => setSectionDialogOpen(true)}
                                         sx={{ borderRadius: 2, height: 40 }}
                                         disabled={!canCreateContent}

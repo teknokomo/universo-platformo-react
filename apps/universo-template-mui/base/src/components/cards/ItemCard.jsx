@@ -18,9 +18,7 @@ const CardWrapper = styled(Card, {
         background: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[50],
         boxShadow: '0 2px 14px 0 rgb(32 40 45 / 20%)'
     },
-    height: '100%',
-    minHeight: '160px',
-    maxHeight: '300px',
+    height: '180px',
     minWidth: 220,
     maxWidth: allowStretch ? '100%' : 360,
     width: '100%',
@@ -30,7 +28,7 @@ const CardWrapper = styled(Card, {
 
 // ===========================|| CONTRACT CARD ||=========================== //
 
-const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndContent = null }) => {
+const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndContent = null, headerAction = null, sx = {} }) => {
     const theme = useTheme()
     const imageList = Array.isArray(images) ? images : []
     const hasImages = imageList.length > 0
@@ -41,10 +39,23 @@ const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndConten
         <CardWrapper
             allowStretch={allowStretch}
             onClick={onClick}
-            sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 2 }}
+            sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 1, ...sx }}
         >
-            <Box sx={{ height: '100%', p: 2.25 }}>
-                <Grid container justifyContent='space-between' direction='column' sx={{ height: '100%', gap: 3 }}>
+            <Box sx={{ height: '100%', p: 2, position: 'relative' }}>
+                {/* Header action positioned tighter to the top-right corner */}
+                {headerAction && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: -12,
+                            right: -12,
+                            zIndex: 1
+                        }}
+                    >
+                        {headerAction}
+                    </Box>
+                )}
+                <Grid container justifyContent='space-between' direction='column' sx={{ height: '100%', gap: 1.5 }}>
                     <Box display='flex' flexDirection='column' sx={{ width: '100%' }}>
                         <div
                             style={{
@@ -86,32 +97,33 @@ const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndConten
                             )}
                             <Typography
                                 sx={{
-                                    display: '-webkit-box',
                                     fontSize: '1.25rem',
                                     fontWeight: 500,
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    overflow: 'hidden'
+                                    whiteSpace: 'nowrap',
+                                    width: '100%',
+                                    flexShrink: 1
                                 }}
                             >
                                 {data.templateName || data.name}
                             </Typography>
                         </div>
                         {data.description && (
-                            <span
-                                style={{
+                            <Typography
+                                sx={{
                                     display: '-webkit-box',
-                                    marginTop: 10,
-                                    overflowWrap: 'break-word',
-                                    WebkitLineClamp: 3,
+                                    mt: 1.25,
+                                    fontSize: '0.875rem',
+                                    WebkitLineClamp: 2,
                                     WebkitBoxOrient: 'vertical',
                                     textOverflow: 'ellipsis',
-                                    overflow: 'hidden'
+                                    overflow: 'hidden',
+                                    wordBreak: 'break-word'
                                 }}
                             >
                                 {data.description}
-                            </span>
+                            </Typography>
                         )}
                     </Box>
                     {showFooter && (
@@ -142,9 +154,7 @@ const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndConten
                                                 height: 30,
                                                 borderRadius: '50%',
                                                 backgroundColor:
-                                                    theme.palette.mode === 'dark'
-                                                        ? theme.palette.common.white
-                                                        : theme.palette.grey[300]
+                                                    theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[300]
                                             }}
                                         >
                                             <img
@@ -177,7 +187,9 @@ ItemCard.propTypes = {
     images: PropTypes.array,
     onClick: PropTypes.func,
     allowStretch: PropTypes.bool,
-    footerEndContent: PropTypes.node
+    footerEndContent: PropTypes.node,
+    headerAction: PropTypes.node,
+    sx: PropTypes.object
 }
 
 export default ItemCard

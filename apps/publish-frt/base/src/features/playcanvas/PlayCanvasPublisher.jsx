@@ -260,18 +260,16 @@ const PlayCanvasPublisher = ({ flow }) => {
 
                     const libVer = settings.libraryConfig?.playcanvas?.version
                     setLibraryVersion(libVer || DEFAULT_VERSION)
-
                 }
+            } catch (e) {
+                console.error('PlayCanvasPublisher: load error', e)
+                lastLoadedFlowIdRef.current = null
+                setError(e.message)
+            } finally {
+                setLoading(false)
             }
-        } catch (e) {
-            console.error('PlayCanvasPublisher: load error', e)
-            lastLoadedFlowIdRef.current = null
-            setError(e.message)
-        } finally {
-            setLoading(false)
         }
-    }
-    load()
+        load()
     }, [flow?.id])
 
     const saveSettings = async () => {
