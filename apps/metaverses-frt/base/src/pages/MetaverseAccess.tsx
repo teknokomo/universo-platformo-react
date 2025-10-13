@@ -20,6 +20,7 @@ import { IconUserPlus } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
 import {
     Metaverse,
@@ -37,6 +38,48 @@ import { useAuth } from '@ui/utils/authProvider'
 
 import MemberInviteDialog from '../components/dialogs/MemberInviteDialog'
 import MemberEditDialog from '../components/dialogs/MemberEditDialog'
+
+type MetaverseInvitePayload = { email: string; role: MetaverseAssignableRole; comment?: string }
+
+const getErrorResponseData = (error: unknown): any => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: unknown }).response
+        if (response && typeof response === 'object' && 'data' in response) {
+            return (response as { data?: any }).data
+        }
+    }
+    return undefined
+}
+
+const getErrorCode = (error: unknown): string | undefined => {
+    const data = getErrorResponseData(error)
+    if (data && typeof data === 'object' && 'code' in data && typeof (data as any).code === 'string') {
+        return (data as { code: string }).code
+    }
+    return undefined
+}
+
+const getErrorMessage = (error: unknown): string | undefined => {
+    const data = getErrorResponseData(error)
+    if (typeof data === 'string') {
+        return data
+    }
+    if (data && typeof data === 'object') {
+        if ('error' in data && typeof (data as any).error === 'string') {
+            return (data as { error: string }).error
+        }
+        if ('message' in data && typeof (data as any).message === 'string') {
+            return (data as { message: string }).message
+        }
+    }
+    if (error instanceof Error) {
+        return error.message
+    }
+    if (typeof error === 'string') {
+        return error
+    }
+    return undefined
+}
 
 const rolePermissionsMap: Record<MetaverseRole, MetaversePermissions> = {
     owner: {
@@ -109,11 +152,23 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
         )
     }, [members, normalizedSearch])
 
-    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
-    const { request: fetchMembers, loading: loadingMembers } = useApi(metaversesApi.listMetaverseMembers)
-    const { request: inviteMember, loading: invitingMember } = useApi(metaversesApi.inviteMetaverseMember)
-    const { request: changeMemberRole, loading: updatingMember } = useApi(metaversesApi.updateMetaverseMemberRole)
-    const { request: removeMember, loading: removingMember } = useApi(metaversesApi.removeMetaverseMember)
+    const { request: getMetaverse } = useApi<Metaverse, [string]>(metaversesApi.getMetaverse)
+    const { request: fetchMembers, loading: loadingMembers } = useApi<MetaverseMembersResponse, [string]>(
+        metaversesApi.listMetaverseMembers
+    )
+    const { request: inviteMember, loading: invitingMember } = useApi<MetaverseMember, [string, MetaverseInvitePayload]>(
+        metaversesApi.inviteMetaverseMember as ApiFunc<MetaverseMember, [string, MetaverseInvitePayload]>
+    )
+    const { request: changeMemberRole, loading: updatingMember } = useApi<
+        MetaverseMember,
+        [string, string, { role: MetaverseAssignableRole; comment?: string }]
+    >(metaversesApi.updateMetaverseMemberRole as ApiFunc<
+        MetaverseMember,
+        [string, string, { role: MetaverseAssignableRole; comment?: string }]
+    >)
+    const { request: removeMember, loading: removingMember } = useApi<void, [string, string]>(
+        metaversesApi.removeMetaverseMember
+    )
 
     const canManageMembers = permissions?.manageMembers ?? false
     const shouldLoadMembers = Boolean(metaverseId) && canManageMembers
@@ -164,10 +219,10 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
                 setMembers(Array.isArray(response.members) ? response.members : [])
                 setPermissions(response.permissions)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             const message =
-                error?.response?.data?.error || error?.message || t('metaverses.access.errors.loadFailed', 'Failed to load members')
-            setErrorMessage(String(message))
+                getErrorMessage(error) || t('metaverses.access.errors.loadFailed', 'Failed to load members')
+            setErrorMessage(message)
         }
     }, [fetchMembers, metaverseId, shouldLoadMembers, t])
 
@@ -206,10 +261,9 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
                     return [...withoutDuplicate, newMember]
                 })
             }
-        } catch (error: any) {
-            const errorData = error?.response?.data
-            const errorCode = errorData?.code
-            const rawMessage = errorData?.error || error?.message
+        } catch (error: unknown) {
+            const errorCode = getErrorCode(error)
+            const rawMessage = getErrorMessage(error)
 
             if (errorCode === 'METAVERSE_MEMBER_EXISTS' || rawMessage === 'User already has access') {
                 setErrorMessage(t('metaverses.access.errors.alreadyHasAccess'))
@@ -256,10 +310,10 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
                     }
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             const message =
-                error?.response?.data?.error || error?.message || t('metaverses.access.errors.updateFailed', 'Failed to update member')
-            setErrorMessage(String(message))
+                getErrorMessage(error) || t('metaverses.access.errors.updateFailed', 'Failed to update member')
+            setErrorMessage(message)
         } finally {
             // Error handling completed
         }
@@ -297,10 +351,10 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
                 })
                 navigate('/metaverses', { replace: true })
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             const message =
-                error?.response?.data?.error || error?.message || t('metaverses.access.errors.removeFailed', 'Failed to remove member')
-            setErrorMessage(String(message))
+                getErrorMessage(error) || t('metaverses.access.errors.removeFailed', 'Failed to remove member')
+            setErrorMessage(message)
         } finally {
             // Error handling completed
         }

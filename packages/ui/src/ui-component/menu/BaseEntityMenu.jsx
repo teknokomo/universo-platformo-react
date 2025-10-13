@@ -12,7 +12,7 @@ const BaseEntityMenu = ({
   descriptors,
   namespace = 'flowList',
   menuButtonLabelKey = 'menu.button',
-  renderTrigger, // NEW: custom trigger renderer function (optional)
+  renderTrigger, // Custom trigger renderer function (optional)
   createContext,
   contextExtras
 }) => {
@@ -72,11 +72,25 @@ const BaseEntityMenu = ({
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error('Action execution failed', d.id, e)
-      ctx.helpers.enqueueSnackbar &&
-        ctx.helpers.enqueueSnackbar({
-          message: e?.message || 'Action failed',
-          options: { variant: 'error' }
-        })
+      if (ctx.helpers.enqueueSnackbar) {
+        const enqueue = ctx.helpers.enqueueSnackbar
+        const message =
+          (e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+            ? e.message
+            : typeof e === 'string'
+              ? e
+              : 'Action failed') || 'Action failed'
+        if (typeof enqueue === 'function') {
+          if (enqueue.length >= 2) {
+            enqueue(message, { variant: 'error' })
+          } else {
+            enqueue({
+              message,
+              options: { variant: 'error' }
+            })
+          }
+        }
+      }
     } finally {
       setBusyActionId(null)
     }

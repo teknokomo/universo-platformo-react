@@ -33,7 +33,7 @@ export const inputsCustomizations: Components<Theme> = {
                 borderRadius: (theme.vars || theme).shape.borderRadius,
                 textTransform: 'none',
                 '&.Mui-disabled': {
-                    opacity: 1
+                    opacity: 0.6
                 },
                 variants: [
                     {

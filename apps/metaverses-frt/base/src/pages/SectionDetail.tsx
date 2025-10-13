@@ -10,6 +10,7 @@ import ErrorBoundary from '@ui/ErrorBoundary'
 import APIEmptySVG from '@ui/assets/images/api_empty.svg'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as sectionsApi from '../api/sections'
 import { Section, Entity } from '../types'
 import EntityDialog from './EntityDialog'
@@ -42,11 +43,13 @@ const SectionDetail: React.FC = () => {
     const navigate = useNavigate()
     const { t } = useTranslation('metaverses')
 
-    const { request: getSection } = useApi(sectionsApi.getSection)
-    const { request: getSectionEntities } = useApi(sectionsApi.getSectionEntities)
+    const { request: getSection } = useApi<Section, [string]>(sectionsApi.getSection as ApiFunc<Section, [string]>)
+    const { request: getSectionEntities } = useApi<Entity[], [string]>(
+        sectionsApi.getSectionEntities as ApiFunc<Entity[], [string]>
+    )
 
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [section, setSection] = useState<Section | null>(null)
     const [entities, setEntities] = useState<Entity[]>([])
     const [tabValue, setTabValue] = useState(0)
@@ -59,9 +62,11 @@ const SectionDetail: React.FC = () => {
                 setLoading(true)
                 setError(null)
                 const [sectionRes, entitiesRes] = await Promise.all([getSection(sectionId), getSectionEntities(sectionId)])
-                setSection(sectionRes)
-                setEntities(entitiesRes || [])
-            } catch (err: any) {
+                if (sectionRes) {
+                    setSection(sectionRes)
+                }
+                setEntities(Array.isArray(entitiesRes) ? entitiesRes : [])
+            } catch (err: unknown) {
                 setError(err)
             } finally {
                 setLoading(false)
@@ -91,7 +96,7 @@ const SectionDetail: React.FC = () => {
     return (
         <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', p: 1.25 }}>
             {error ? (
-                <ErrorBoundary error={error} />
+                <ErrorBoundary error={error as any} />
             ) : (
                 <Stack spacing={2}>
                     <Breadcrumbs aria-label='breadcrumb'>

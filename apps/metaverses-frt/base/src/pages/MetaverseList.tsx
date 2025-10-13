@@ -33,7 +33,7 @@ const MetaverseList = () => {
 
     // State management following Uniks pattern
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [metaverses, setMetaverses] = useState<Metaverse[]>([])
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
@@ -47,9 +47,11 @@ const MetaverseList = () => {
 
     const { confirm } = useConfirm()
 
-    const { request: loadMetaverses } = useApi(metaversesApi.listMetaverses)
-    const updateMetaverseApi = useApi(metaversesApi.updateMetaverse)
-    const deleteMetaverseApi = useApi(metaversesApi.deleteMetaverse)
+    const { request: loadMetaverses } = useApi<Metaverse[], []>(metaversesApi.listMetaverses)
+    const updateMetaverseApi = useApi<Metaverse, [string, { name: string; description?: string }]>(
+        metaversesApi.updateMetaverse
+    )
+    const deleteMetaverseApi = useApi<void, [string]>(metaversesApi.deleteMetaverse)
 
     const fetchMetaverses = useCallback(async () => {
         try {
@@ -58,7 +60,7 @@ const MetaverseList = () => {
             const result = await loadMetaverses()
             const metaversesArray = Array.isArray(result) ? result : []
             setMetaverses(metaversesArray)
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err)
             setMetaverses([])
         } finally {
@@ -105,8 +107,18 @@ const MetaverseList = () => {
                 description: data.description
             })
             handleDialogSave()
-        } catch (e: any) {
-            setDialogError(e?.message || String(e))
+        } catch (e: unknown) {
+            const responseMessage =
+                e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const message =
+                typeof responseMessage === 'string'
+                    ? responseMessage
+                    : e instanceof Error
+                      ? e.message
+                      : typeof e === 'string'
+                        ? e
+                        : t('common.error', 'Operation failed')
+            setDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to create metaverse', e)
         } finally {
@@ -128,11 +140,29 @@ const MetaverseList = () => {
         setSearch(value)
     }
 
+    const getErrorText = useCallback(
+        (err: unknown) => {
+            if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
+                return (err as any).message as string
+            }
+            if (typeof err === 'string') {
+                return err
+            }
+            return t('common.error', 'Error')
+        },
+        [t]
+    )
+
+    const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search])
+
     const filterMetaverses = (data: any) => {
+        if (!normalizedSearch) {
+            return true
+        }
+
         const name = (data?.name || '').toLowerCase()
         const description = (data?.description || '').toLowerCase()
-        const term = search.toLowerCase()
-        return name.includes(term) || description.includes(term)
+        return name.includes(normalizedSearch) || description.includes(normalizedSearch)
     }
 
     const updateFlowsApi = fetchMetaverses
@@ -192,7 +222,7 @@ const MetaverseList = () => {
                 updateEntity: async (id: string, patch: any) => {
                     try {
                         await updateMetaverseApi.request(id, patch)
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                         setError(err)
                         throw err
                     }
@@ -200,7 +230,7 @@ const MetaverseList = () => {
                 deleteEntity: async (id: string) => {
                     try {
                         await deleteMetaverseApi.request(id)
-                    } catch (err: any) {
+                    } catch (err: unknown) {
                         setError(err)
                         throw err
                     }
@@ -224,7 +254,14 @@ const MetaverseList = () => {
                     })
                     return confirmed
                 },
-                enqueueSnackbar,
+                enqueueSnackbar: (payload: {
+                    message: string
+                    options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                }) => {
+                    if (payload?.message) {
+                        enqueueSnackbar(payload.message, payload.options)
+                    }
+                },
                 // Helper to open ConfirmDeleteDialog independently from BaseEntityMenu
                 openDeleteDialog: (metaverse: Metaverse) => {
                     setDeleteDialogState({ open: true, metaverse })
@@ -245,7 +282,7 @@ const MetaverseList = () => {
         >
             {error ? (
                 <ErrorBoundary>
-                    <div>Error: {error.message || error}</div>
+                    <div>Error: {getErrorText(error)}</div>
                 </ErrorBoundary>
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
@@ -418,13 +455,20 @@ const MetaverseList = () => {
                             setDeleteDialogState({ open: false, metaverse: null })
                             await fetchMetaverses()
                             enqueueSnackbar(t('metaverses.deleteSuccess'), { variant: 'success' })
-                        } catch (err: any) {
-                            enqueueSnackbar(
-                                typeof err?.response?.data === 'object'
-                                    ? err.response.data.message
-                                    : err?.response?.data || err?.message || t('metaverses.deleteError'),
-                                { variant: 'error' }
-                            )
+                        } catch (err: unknown) {
+                            const responseMessage =
+                                err && typeof err === 'object' && 'response' in err
+                                    ? (err as any)?.response?.data?.message
+                                    : undefined
+                            const message =
+                                typeof responseMessage === 'string'
+                                    ? responseMessage
+                                    : err instanceof Error
+                                      ? err.message
+                                      : typeof err === 'string'
+                                        ? err
+                                        : t('metaverses.deleteError')
+                            enqueueSnackbar(message, { variant: 'error' })
                             setDeleteDialogState({ open: false, metaverse: null })
                         }
                     }

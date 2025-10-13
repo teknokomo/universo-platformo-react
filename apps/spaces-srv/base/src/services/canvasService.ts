@@ -346,11 +346,10 @@ export class CanvasService {
             if (rawChatbotConfig !== null && rawChatbotConfig !== undefined) {
                 try {
                     if (typeof rawChatbotConfig === 'string') {
-                        canvasConfig = rawChatbotConfig.trim().length ? JSON.parse(rawChatbotConfig) : {}
+                        const trimmed = rawChatbotConfig.trim()
+                        canvasConfig = trimmed ? JSON.parse(trimmed) : {}
                     } else if (typeof rawChatbotConfig === 'object') {
-                        canvasConfig = rawChatbotConfig || {}
-                    } else {
-                        canvasConfig = {}
+                        canvasConfig = rawChatbotConfig
                     }
                 } catch (configError) {
                     this.deps.logger.warn(
@@ -367,8 +366,12 @@ export class CanvasService {
 
             let parsedFlowData: any = {}
             try {
-                parsedFlowData =
-                    typeof canvas.flowData === 'string' ? JSON.parse(canvas.flowData) : canvas.flowData ?? {}
+                if (typeof canvas.flowData === 'string') {
+                    const trimmed = canvas.flowData.trim()
+                    parsedFlowData = trimmed ? JSON.parse(trimmed) : {}
+                } else {
+                    parsedFlowData = canvas.flowData ?? {}
+                }
             } catch (flowError) {
                 this.deps.logger.warn(
                     '[spaces-srv] Failed to parse flowData for canvas %s: %s',

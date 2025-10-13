@@ -61,7 +61,9 @@ export interface ActionContext {
         deleteEntity?: (id: string) => Promise<void>
     }
     helpers?: {
-        enqueueSnackbar?: (payload: { message: string; options?: { variant?: string } }) => void
+        enqueueSnackbar?:
+            | ((payload: { message: string; options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' } }) => void)
+            | ((message: string, options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }) => void)
         confirm?: (config: {
             title: string
             description?: string
@@ -204,10 +206,21 @@ export const BaseEntityMenu: React.FC<BaseEntityMenuProps> = ({
         } catch (e) {
             console.error('Action execution failed', d.id, e)
             if (ctx.helpers?.enqueueSnackbar) {
-                ctx.helpers.enqueueSnackbar({
-                    message: (e as Error)?.message || 'Action failed',
-                    options: { variant: 'error' }
-                })
+                const enqueue = ctx.helpers.enqueueSnackbar
+                const message =
+                    e instanceof Error ? e.message : typeof e === 'string' && e.length > 0 ? e : 'Action failed'
+                if (typeof enqueue === 'function') {
+                    if (enqueue.length >= 2) {
+                        ;(enqueue as (message: string, options?: { variant?: string }) => void)(message, {
+                            variant: 'error'
+                        })
+                    } else {
+                        ;(enqueue as (payload: { message: string; options?: { variant?: string } }) => void)({
+                            message,
+                            options: { variant: 'error' }
+                        })
+                    }
+                }
             }
         } finally {
             setBusyActionId(null)

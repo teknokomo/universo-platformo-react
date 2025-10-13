@@ -32,6 +32,7 @@ import { FlowListTable } from '@ui/ui-component/table/FlowListTable'
 import APIEmptySVG from '@ui/assets/images/api_empty.svg'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
 // import * as sectionsApi from '../api/sections'
 import { Metaverse, Entity, Section } from '../types'
@@ -56,7 +57,7 @@ const MetaverseDetail = () => {
     const [entities, setEntities] = useState<Entity[]>([])
     const [sections, setSections] = useState<Section[]>([])
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const location = useLocation()
     const pathname = location.pathname
     const section: 'board' | 'entities' | 'sections' | 'access' = pathname.endsWith('/entities')
@@ -72,9 +73,23 @@ const MetaverseDetail = () => {
     const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null)
     const [selectedSection] = useState<Section | null>(null)
 
-    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
-    const { request: getMetaverseEntities } = useApi(metaversesApi.getMetaverseEntities)
-    const { request: getMetaverseSections } = useApi(metaversesApi.getMetaverseSections)
+    const getErrorText = (err: unknown) => {
+        if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
+            return (err as any).message as string
+        }
+        if (typeof err === 'string') {
+            return err
+        }
+        return t('common.error', 'Error')
+    }
+
+    const { request: getMetaverse } = useApi<Metaverse, [string]>(metaversesApi.getMetaverse as ApiFunc<Metaverse, [string]>)
+    const { request: getMetaverseEntities } = useApi<Entity[], [string]>(
+        metaversesApi.getMetaverseEntities as ApiFunc<Entity[], [string]>
+    )
+    const { request: getMetaverseSections } = useApi<Section[], [string]>(
+        metaversesApi.getMetaverseSections as ApiFunc<Section[], [string]>
+    )
 
     useEffect(() => {
         if (metaverseId) {
@@ -95,10 +110,12 @@ const MetaverseDetail = () => {
                 getMetaverseSections(metaverseId)
             ])
 
-            setMetaverse(metaverseResult)
+            if (metaverseResult) {
+                setMetaverse(metaverseResult)
+            }
             setEntities(Array.isArray(entitiesResult) ? entitiesResult : [])
             setSections(Array.isArray(sectionsResult) ? sectionsResult : [])
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err)
         } finally {
             setLoading(false)
@@ -207,7 +224,7 @@ const MetaverseDetail = () => {
         return (
             <Card sx={{ background: 'transparent', maxWidth: '1280px', mx: 'auto' }}>
                 <ErrorBoundary>
-                    <div>Error: {error.message || error}</div>
+                    <div>Error: {getErrorText(error)}</div>
                 </ErrorBoundary>
             </Card>
         )

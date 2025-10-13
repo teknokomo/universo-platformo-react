@@ -17,9 +17,9 @@ const MetaverseBoard = () => {
 
     const [metaverse, setMetaverse] = useState<Metaverse | null>(null)
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
 
-    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
+    const { request: getMetaverse } = useApi<Metaverse, [string]>(metaversesApi.getMetaverse)
 
     useEffect(() => {
         if (metaverseId) {
@@ -35,8 +35,10 @@ const MetaverseBoard = () => {
             setError(null)
 
             const metaverseResult = await getMetaverse(metaverseId)
-            setMetaverse(metaverseResult)
-        } catch (err: any) {
+            if (metaverseResult) {
+                setMetaverse(metaverseResult)
+            }
+        } catch (err: unknown) {
             setError(err)
         } finally {
             setLoading(false)

@@ -21,7 +21,7 @@ const EntityList = () => {
     const [metaverse, setMetaverse] = useState<Metaverse | null>(null)
     const [entities, setEntities] = useState<Entity[]>([])
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [viewType, setViewType] = useState<'card' | 'list'>('card')
     const [search, setSearch] = useState('')
     const [isEntityDialogOpen, setEntityDialogOpen] = useState(false)
@@ -38,8 +38,8 @@ const EntityList = () => {
         )
     }, [entities, normalizedSearch])
 
-    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
-    const { request: getMetaverseEntities } = useApi(metaversesApi.getMetaverseEntities)
+    const { request: getMetaverse } = useApi<Metaverse, [string]>(metaversesApi.getMetaverse)
+    const { request: getMetaverseEntities } = useApi<Entity[], [string]>(metaversesApi.getMetaverseEntities)
 
     useEffect(() => {
         if (metaverseId) {
@@ -56,9 +56,11 @@ const EntityList = () => {
 
             const [metaverseResult, entitiesResult] = await Promise.all([getMetaverse(metaverseId), getMetaverseEntities(metaverseId)])
 
-            setMetaverse(metaverseResult)
+            if (metaverseResult) {
+                setMetaverse(metaverseResult)
+            }
             setEntities(Array.isArray(entitiesResult) ? entitiesResult : [])
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err)
         } finally {
             setLoading(false)

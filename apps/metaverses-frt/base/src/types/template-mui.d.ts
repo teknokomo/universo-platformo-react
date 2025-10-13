@@ -216,6 +216,11 @@ declare module '@universo/template-mui' {
     }
 }
 
+declare module '@universo/auth-frt' {
+    import type { AxiosInstance } from 'axios'
+    export function createAuthClient(config: { baseURL: string }): AxiosInstance
+}
+
 // ============================================================================
 // Dialog Components (Fully Typed)
 // ============================================================================

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import ErrorBoundary from '@ui/ErrorBoundary'
 
 import { useApi } from '../hooks/useApi'
+import type { ApiFunc } from '../hooks/useApi'
 import * as entitiesApi from '../api/entities'
 import { Entity } from '../types'
 
@@ -16,10 +17,10 @@ const EntityDetail: React.FC = () => {
     const navigate = useNavigate()
     const { t } = useTranslation('metaverses')
 
-    const { request: getEntity } = useApi(entitiesApi.getEntity)
+    const { request: getEntity } = useApi<Entity, [string]>(entitiesApi.getEntity as ApiFunc<Entity, [string]>)
 
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [entity, setEntity] = useState<Entity | null>(null)
 
     useEffect(() => {
@@ -29,8 +30,10 @@ const EntityDetail: React.FC = () => {
                 setLoading(true)
                 setError(null)
                 const res = await getEntity(entityId)
-                setEntity(res)
-            } catch (err: any) {
+                if (res) {
+                    setEntity(res)
+                }
+            } catch (err: unknown) {
                 setError(err)
             } finally {
                 setLoading(false)
@@ -42,7 +45,7 @@ const EntityDetail: React.FC = () => {
     return (
         <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', p: 1.25 }}>
             {error ? (
-                <ErrorBoundary error={error} />
+                <ErrorBoundary error={error as any} />
             ) : (
                 <Stack spacing={2}>
                     <Breadcrumbs aria-label='breadcrumb'>

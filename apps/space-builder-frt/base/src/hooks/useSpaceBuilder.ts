@@ -54,19 +54,25 @@ export function useSpaceBuilder() {
         try {
             const { data } = await apiClient.post<T>(relativePath, body)
             return data
-        } catch (error: any) {
-            const status = error?.response?.status ?? 0
-            const responseData = error?.response?.data
+        } catch (error: unknown) {
+            const response =
+                error && typeof error === 'object' && 'response' in error
+                    ? (error as { response?: { status?: number; data?: unknown } }).response
+                    : undefined
+            const status = typeof response?.status === 'number' ? response.status : 0
+            const responseData = response && 'data' in response ? response.data : undefined
             const rawBody =
                 typeof responseData === 'string'
                     ? responseData
-                    : responseData
-                    ? JSON.stringify(responseData)
-                    : undefined
+                    : responseData !== undefined
+                      ? JSON.stringify(responseData)
+                      : undefined
             const message =
-                responseData && typeof responseData === 'object' && typeof responseData.message === 'string'
-                    ? responseData.message
-                    : rawBody || `Request failed: ${status || 'unknown'}`
+                responseData && typeof responseData === 'object' && responseData !== null && 'message' in responseData
+                    ? String((responseData as { message?: unknown }).message ?? rawBody ?? `Request failed: ${status || 'unknown'}`)
+                    : typeof responseData === 'string'
+                      ? responseData
+                      : rawBody || `Request failed: ${status || 'unknown'}`
             if (status) {
                 throw new SpaceBuilderHttpError(message, { status, data: responseData, rawBody })
             }

@@ -21,7 +21,7 @@ const SectionsList = () => {
     const [metaverse, setMetaverse] = useState<Metaverse | null>(null)
     const [sections, setSections] = useState<Section[]>([])
     const [isLoading, setLoading] = useState(true)
-    const [error, setError] = useState<any>(null)
+    const [error, setError] = useState<unknown>(null)
     const [viewType, setViewType] = useState<'card' | 'list'>('card')
     const [search, setSearch] = useState('')
     const [isSectionDialogOpen, setSectionDialogOpen] = useState(false)
@@ -38,8 +38,8 @@ const SectionsList = () => {
         )
     }, [sections, normalizedSearch])
 
-    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
-    const { request: getMetaverseSections } = useApi(metaversesApi.getMetaverseSections)
+    const { request: getMetaverse } = useApi<Metaverse, [string]>(metaversesApi.getMetaverse)
+    const { request: getMetaverseSections } = useApi<Section[], [string]>(metaversesApi.getMetaverseSections)
 
     useEffect(() => {
         if (metaverseId) {
@@ -56,9 +56,11 @@ const SectionsList = () => {
 
             const [metaverseResult, sectionsResult] = await Promise.all([getMetaverse(metaverseId), getMetaverseSections(metaverseId)])
 
-            setMetaverse(metaverseResult)
+            if (metaverseResult) {
+                setMetaverse(metaverseResult)
+            }
             setSections(Array.isArray(sectionsResult) ? sectionsResult : [])
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err)
         } finally {
             setLoading(false)

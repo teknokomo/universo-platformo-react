@@ -1,5 +1,47 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+type MetaverseActionContext = {
+    entity: { id: string; name?: string; description?: string }
+    t: (key: string, options?: any) => string
+    api: {
+        updateEntity?: (id: string, data: { name: string; description?: string }) => Promise<void>
+        deleteEntity?: (id: string) => Promise<void>
+    }
+    helpers?: {
+        refreshList?: () => Promise<void>
+        enqueueSnackbar?:
+            | ((payload: { message: string; options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' } }) => void)
+            | ((message: string, options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }) => void)
+        openDeleteDialog?: (entity: unknown) => void
+    }
+}
+
+const notifyError = (ctx: MetaverseActionContext, error: unknown) => {
+    const enqueue = ctx.helpers?.enqueueSnackbar
+    if (!enqueue) {
+        return
+    }
+
+    const fallback = ctx.t('common.error') || 'Operation failed'
+    const message =
+        (error && typeof error === 'object' && 'response' in error &&
+            typeof (error as any)?.response?.data?.message === 'string'
+            ? (error as any).response.data.message
+            : error instanceof Error
+              ? error.message
+              : typeof error === 'string'
+                ? error
+                : fallback) || fallback
+
+    if (enqueue.length >= 2) {
+        ;(enqueue as (message: string, options?: { variant?: string }) => void)(message, { variant: 'error' })
+    } else {
+        ;(enqueue as (payload: { message: string; options?: { variant?: string } }) => void)({
+            message,
+            options: { variant: 'error' }
+        })
+    }
+}
 
 // Action descriptors for metaverse entity menu
 export const metaverseActions = [
@@ -14,7 +56,7 @@ export const metaverseActions = [
                 const module = await import('@universo/template-mui/components/dialogs')
                 return { default: module.EntityFormDialog }
             },
-            buildProps: (ctx: any) => ({
+            buildProps: (ctx: MetaverseActionContext) => ({
                 open: true,
                 mode: 'edit',
                 title: ctx.t('metaverses.editTitle'),
@@ -33,29 +75,23 @@ export const metaverseActions = [
                 },
                 onSuccess: async () => {
                     try {
-                        await ctx.helpers.refreshList?.()
+                        await ctx.helpers?.refreshList?.()
                     } catch (e) {
                         // eslint-disable-next-line no-console
-                        console.error('refreshList after success failed', e)
+                        console.error('Failed to refresh metaverse list after successful edit operation', e)
                     }
                 },
                 onDelete: () => {
                     // Open delete confirmation dialog
                     // MUI will handle focus management between the two dialogs
-                    ctx.helpers.openDeleteDialog?.(ctx.entity)
+                    ctx.helpers?.openDeleteDialog?.(ctx.entity)
                 },
                 onSave: async (data: { name: string; description?: string }) => {
                     try {
                         await ctx.api.updateEntity?.(ctx.entity.id, data)
-                        await ctx.helpers.refreshList?.()
-                    } catch (error: any) {
-                        ctx.helpers.enqueueSnackbar?.({
-                            message:
-                                typeof error?.response?.data === 'object'
-                                    ? error.response.data.message
-                                    : error?.response?.data || error?.message,
-                            options: { variant: 'error' }
-                        })
+                        await ctx.helpers?.refreshList?.()
+                    } catch (error: unknown) {
+                        notifyError(ctx, error)
                         throw error
                     }
                 }
@@ -74,7 +110,7 @@ export const metaverseActions = [
                 const module = await import('@universo/template-mui/components/dialogs')
                 return { default: module.ConfirmDeleteDialog }
             },
-            buildProps: (ctx: any) => ({
+            buildProps: (ctx: MetaverseActionContext) => ({
                 open: true,
                 title: ctx.t('metaverses.confirmDelete'),
                 description: ctx.t('metaverses.confirmDeleteDescription', { name: ctx.entity?.name || '' }),
@@ -86,15 +122,9 @@ export const metaverseActions = [
                 onConfirm: async () => {
                     try {
                         await ctx.api.deleteEntity?.(ctx.entity.id)
-                        await ctx.helpers.refreshList?.()
-                    } catch (error: any) {
-                        ctx.helpers.enqueueSnackbar?.({
-                            message:
-                                typeof error?.response?.data === 'object'
-                                    ? error.response.data.message
-                                    : error?.response?.data || error?.message,
-                            options: { variant: 'error' }
-                        })
+                        await ctx.helpers?.refreshList?.()
+                    } catch (error: unknown) {
+                        notifyError(ctx, error)
                         throw error
                     }
                 }
