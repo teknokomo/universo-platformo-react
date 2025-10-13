@@ -1,17 +1,14 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-type MetaverseActionContext = {
+import type { ActionContext } from '@universo/template-mui'
+
+type MetaverseActionContext = ActionContext & {
     entity: { id: string; name?: string; description?: string }
-    t: (key: string, options?: any) => string
     api: {
         updateEntity?: (id: string, data: { name: string; description?: string }) => Promise<void>
         deleteEntity?: (id: string) => Promise<void>
     }
-    helpers?: {
-        refreshList?: () => Promise<void>
-        enqueueSnackbar?:
-            | ((payload: { message: string; options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' } }) => void)
-            | ((message: string, options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }) => void)
+    helpers?: ActionContext['helpers'] & {
         openDeleteDialog?: (entity: unknown) => void
     }
 }
@@ -23,15 +20,15 @@ const notifyError = (ctx: MetaverseActionContext, error: unknown) => {
     }
 
     const fallback = ctx.t('common.error') || 'Operation failed'
-    const message =
-        (error && typeof error === 'object' && 'response' in error &&
-            typeof (error as any)?.response?.data?.message === 'string'
+    const candidateMessage =
+        error && typeof error === 'object' && 'response' in error && typeof (error as any)?.response?.data?.message === 'string'
             ? (error as any).response.data.message
             : error instanceof Error
               ? error.message
               : typeof error === 'string'
                 ? error
-                : fallback) || fallback
+                : fallback
+    const message = candidateMessage && candidateMessage.length > 0 ? candidateMessage : fallback
 
     if (enqueue.length >= 2) {
         ;(enqueue as (message: string, options?: { variant?: string }) => void)(message, { variant: 'error' })

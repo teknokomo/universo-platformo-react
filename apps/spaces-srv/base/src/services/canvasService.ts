@@ -343,7 +343,7 @@ export class CanvasService {
 
             let canvasConfig: Record<string, any> = {}
             const rawChatbotConfig = canvas.chatbotConfig
-            if (rawChatbotConfig !== null && rawChatbotConfig !== undefined) {
+            if (rawChatbotConfig != null) {
                 try {
                     if (typeof rawChatbotConfig === 'string') {
                         const trimmed = rawChatbotConfig.trim()

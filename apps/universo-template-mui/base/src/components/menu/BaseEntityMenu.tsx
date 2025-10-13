@@ -207,8 +207,13 @@ export const BaseEntityMenu: React.FC<BaseEntityMenuProps> = ({
             console.error('Action execution failed', d.id, e)
             if (ctx.helpers?.enqueueSnackbar) {
                 const enqueue = ctx.helpers.enqueueSnackbar
-                const message =
-                    e instanceof Error ? e.message : typeof e === 'string' && e.length > 0 ? e : 'Action failed'
+                const candidateMessage =
+                    e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string'
+                        ? (e as any).message
+                        : typeof e === 'string'
+                          ? e
+                          : 'Action failed'
+                const message = candidateMessage && candidateMessage.length > 0 ? candidateMessage : 'Action failed'
                 if (typeof enqueue === 'function') {
                     if (enqueue.length >= 2) {
                         ;(enqueue as (message: string, options?: { variant?: string }) => void)(message, {

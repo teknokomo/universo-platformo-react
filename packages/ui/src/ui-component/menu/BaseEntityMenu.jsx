@@ -74,12 +74,13 @@ const BaseEntityMenu = ({
       console.error('Action execution failed', d.id, e)
       if (ctx.helpers.enqueueSnackbar) {
         const enqueue = ctx.helpers.enqueueSnackbar
-        const message =
-          (e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+        const candidateMessage =
+          e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
             ? e.message
             : typeof e === 'string'
               ? e
-              : 'Action failed') || 'Action failed'
+              : 'Action failed'
+        const message = candidateMessage && candidateMessage.length > 0 ? candidateMessage : 'Action failed'
         if (typeof enqueue === 'function') {
           if (enqueue.length >= 2) {
             enqueue(message, { variant: 'error' })

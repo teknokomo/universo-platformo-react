@@ -41,7 +41,7 @@ const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndConten
             onClick={onClick}
             sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 1, ...sx }}
         >
-            <Box sx={{ height: '100%', p: 1, position: 'relative' }}>
+            <Box sx={{ height: '100%', p: 2, position: 'relative' }}>
                 {/* Header action positioned tighter to the top-right corner */}
                 {headerAction && (
                     <Box
