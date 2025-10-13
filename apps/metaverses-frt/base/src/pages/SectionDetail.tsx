@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom'
 import { Breadcrumbs, Card, CircularProgress, Link, Stack, Typography, Button, Tabs, Tab, Box } from '@mui/material'
-import { IconArrowLeft, IconPlus } from '@tabler/icons-react'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 
 // ui imports
@@ -99,7 +100,7 @@ const SectionDetail: React.FC = () => {
                             to={metaverseId ? `/metaverses/${metaverseId}/sections` : '/sections'}
                             sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                         >
-                            <IconArrowLeft size={16} />
+                            <ArrowBackRoundedIcon fontSize='small' />
                             {t('sections.title')}
                         </Link>
                         <Typography color='text.primary'>{section?.name || t('sections.detail.info')}</Typography>
@@ -138,7 +139,11 @@ const SectionDetail: React.FC = () => {
                                 <Stack spacing={2}>
                                     <Stack direction='row' justifyContent='space-between' alignItems='center'>
                                         <Typography variant='h6'>{t('sections.detail.entities')}</Typography>
-                                        <Button variant='contained' startIcon={<IconPlus size={16} />} onClick={handleAddEntity}>
+                                        <Button
+                                            variant='contained'
+                                            startIcon={<AddRoundedIcon fontSize='small' />}
+                                            onClick={handleAddEntity}
+                                        >
                                             {t('entities.list.addNew')}
                                         </Button>
                                     </Stack>

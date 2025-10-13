@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QuizPlan, SpaceBuilderHttpError, useSpaceBuilder } from '../hooks/useSpaceBuilder'
+import apiClient from '../api/client'
 import { useTranslation } from 'react-i18next'
 import {
     Dialog,
@@ -106,63 +107,34 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
     useEffect(() => {
         if (!open) return
         setCreationMode(defaultCreationMode)
-        const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
         const load = async () => {
-            const call = async (bearer?: string) =>
-                fetch('/api/v1/space-builder/config', {
-                    method: 'GET',
-                    headers: {
-                        ...(bearer ? { Authorization: `Bearer ${bearer}` } : {})
-                    },
-                    credentials: 'include'
-                })
-            let res = await call(token)
-            if (res.status === 401) {
-                try {
-                    await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
-                } catch (_) {
-                    /* ignore refresh failures */
-                }
-                const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
-                res = await call(newToken)
+            try {
+                const { data } = await apiClient.get('space-builder/config')
+                setTestMode(Boolean(data?.testMode))
+                setDisableUserCreds(Boolean(data?.disableUserCredentials))
+                setTestItems(Array.isArray(data?.items) ? data.items : [])
+            } catch (error) {
+                console.error('[SpaceBuilderDialog] Failed to load config', error)
+                setTestMode(false)
+                setDisableUserCreds(false)
+                setTestItems([])
             }
-            if (!res.ok) throw new Error(`Config request failed: ${res.status}`)
-            const data = await res.json().catch(() => ({ testMode: false, disableUserCredentials: false, items: [] }))
-            setTestMode(!!data?.testMode)
-            setDisableUserCreds(!!data?.disableUserCredentials)
-            setTestItems(Array.isArray(data?.items) ? data.items : [])
         }
-        load().catch(() => {
-            setTestMode(false)
-            setDisableUserCreds(false)
-            setTestItems([])
-        })
+        load()
     }, [open, defaultCreationMode])
 
     // Load available providers when dialog opens (merge test providers if test mode)
     useEffect(() => {
         if (!open) return
         const unikId = (typeof localStorage !== 'undefined' && localStorage.getItem('parentUnikId')) || ''
-        const url = `/api/v1/space-builder/providers${unikId ? `?unikId=${encodeURIComponent(unikId)}` : ''}`
-        const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
-        const call = async (bearer?: string) =>
-            fetch(url, { method: 'GET', credentials: 'include', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) } })
-        ;(async () => {
+
+        const loadProviders = async () => {
             try {
-                let res = await call(token)
-                if (res.status === 401) {
-                    try {
-                        await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
-                    } catch (_) {
-                        /* ignore refresh failures */
-                    }
-                    const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
-                    res = await call(newToken)
-                }
-                if (!res.ok) throw new Error(String(res.status))
-                const d = await res.json().catch(() => ({ providers: [] }))
-                const baseList: ProviderMeta[] = Array.isArray(d?.providers) ? d.providers : []
-                // Build test providers (at the front) preserving order from /config (env order)
+                const { data } = await apiClient.get('space-builder/providers', {
+                    params: unikId ? { unikId } : undefined
+                })
+
+                const baseList: ProviderMeta[] = Array.isArray(data?.providers) ? data.providers : []
                 const testList: ProviderMeta[] = (testMode ? testItems : []).map((it) => ({
                     id: `test:${it.id}`,
                     label: `${it.label}`,
@@ -174,15 +146,17 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
                 }))
                 const finalList = [...testList, ...baseList]
                 setProviders(finalList)
-                // Default selection: first test provider if present, else first base
                 if (!providerId && finalList.length) {
                     setProviderId(finalList[0].id)
                     if (finalList[0].id.startsWith('test:')) setModelName(testItems[0]?.model || '')
                 }
-            } catch {
+            } catch (error) {
+                console.error('[SpaceBuilderDialog] Failed to load providers', error)
                 setProviders([])
             }
-        })()
+        }
+
+        loadProviders()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, testMode, testKey])
 
@@ -199,13 +173,11 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
         if (modelOptionsMap[pid]?.length) return
         ;(async () => {
             try {
-                const res = await fetch(`/api/v1/node-load-method/${pid}`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: pid, loadMethod: 'listModels', inputParams: [] })
+                const { data } = await apiClient.post(`node-load-method/${pid}`, {
+                    name: pid,
+                    loadMethod: 'listModels',
+                    inputParams: []
                 })
-                const data = await res.json()
                 const list = (Array.isArray(data) ? data : []).map((m: any) => m.name)
                 setModelOptionsMap((s) => ({ ...s, [pid]: list }))
                 if (!modelName && list.length) setModelName(list[0])
@@ -550,26 +522,8 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
         if (!selectedProvider) return
         const credName = selectedProvider.credentialNames?.[0]
         if (!credName) return
-        const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
-        const call = async (bearer?: string) =>
-            fetch(`/api/v1/components-credentials/${encodeURIComponent(credName)}`, {
-                method: 'GET',
-                credentials: 'include',
-                headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }
-            })
         try {
-            let res = await call(token)
-            if (res.status === 401) {
-                try {
-                    await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
-                } catch (_) {
-                    /* ignore refresh failures */
-                }
-                const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
-                res = await call(newToken)
-            }
-            if (!res.ok) throw new Error('Failed to load credential schema')
-            const schema = await res.json()
+            const { data: schema } = await apiClient.get(`components-credentials/${encodeURIComponent(credName)}`)
             setCreateSchema(schema)
             setCreateValues({})
             setCreateName(schema?.label || schema?.name || 'Credential')
@@ -592,15 +546,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
                 plainDataObj: createValues,
                 unikId
             }
-            const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
-            const res = await fetch(`/api/v1/unik/${encodeURIComponent(unikId)}/credentials`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                body: JSON.stringify(body)
-            })
-            if (!res.ok) throw new Error('Failed to create credential')
-            const createdResp = await res.json().catch(() => ({} as any))
+            const { data: createdResp } = await apiClient.post(`unik/${encodeURIComponent(unikId)}/credentials`, body)
             const createdId = createdResp?.id || createdResp?.data?.id
             // Refresh providers to include new credential
             setCreateOpen(false)
@@ -622,23 +568,11 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
 
     async function refreshProviders(): Promise<ProviderMeta[]> {
         const unikId = (typeof localStorage !== 'undefined' && localStorage.getItem('parentUnikId')) || ''
-        const url = `/api/v1/space-builder/providers${unikId ? `?unikId=${encodeURIComponent(unikId)}` : ''}`
-        const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
-        const call = async (bearer?: string) =>
-            fetch(url, { method: 'GET', credentials: 'include', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) } })
         try {
-            let res = await call(token)
-            if (res.status === 401) {
-                try {
-                    await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
-                } catch (_) {
-                    /* ignore refresh failures */
-                }
-                const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
-                res = await call(newToken)
-            }
-            if (!res.ok) return providers
-            const d = await res.json().catch(() => ({ providers: [] }))
+            const { data } = await apiClient.get('space-builder/providers', {
+                params: unikId ? { unikId } : undefined
+            })
+            const d = data ?? { providers: [] }
             const list: ProviderMeta[] = Array.isArray(d?.providers) ? d.providers : []
             setProviders(list)
             return list

@@ -15,7 +15,10 @@ import {
     Chip
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import { IconPlus, IconArrowLeft, IconLayoutGrid, IconList } from '@tabler/icons-react'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded'
+import ViewListRoundedIcon from '@mui/icons-material/ViewListRounded'
 import { useTranslation } from 'react-i18next'
 
 // project imports
@@ -215,7 +218,7 @@ const MetaverseDetail = () => {
             <Stack spacing={2}>
                 <Breadcrumbs aria-label='breadcrumb'>
                     <Link component={RouterLink} to='/metaverses' sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <IconArrowLeft size={16} />
+                        <ArrowBackRoundedIcon fontSize='small' />
                         {t('metaverses.title')}
                     </Link>
                     <Typography color='text.primary'>{metaverse?.name || t('metaverses.detail.info')}</Typography>
@@ -279,19 +282,19 @@ const MetaverseDetail = () => {
                                             value='card'
                                             title={t('common.cardView', 'Card View')}
                                         >
-                                            <IconLayoutGrid />
+                                            <GridViewRoundedIcon />
                                         </ToggleButton>
                                         <ToggleButton
                                             sx={{ borderColor: theme.palette.grey[900] + 25, borderRadius: 2 }}
                                             value='list'
                                             title={t('common.listView', 'List View')}
                                         >
-                                            <IconList />
+                                            <ViewListRoundedIcon />
                                         </ToggleButton>
                                     </ToggleButtonGroup>
                                     <Button
                                         variant='contained'
-                                        startIcon={<IconPlus size={16} />}
+                                        startIcon={<AddRoundedIcon fontSize='small' />}
                                         onClick={handleAddEntity}
                                         sx={{ borderRadius: 2, height: 40 }}
                                         disabled={!canCreateContent}
@@ -355,19 +358,19 @@ const MetaverseDetail = () => {
                                             value='card'
                                             title={t('common.cardView', 'Card View')}
                                         >
-                                            <IconLayoutGrid />
+                                            <GridViewRoundedIcon />
                                         </ToggleButton>
                                         <ToggleButton
                                             sx={{ borderColor: theme.palette.grey[900] + 25, borderRadius: 2 }}
                                             value='list'
                                             title={t('common.listView', 'List View')}
                                         >
-                                            <IconList />
+                                            <ViewListRoundedIcon />
                                         </ToggleButton>
                                     </ToggleButtonGroup>
                                     <Button
                                         variant='contained'
-                                        startIcon={<IconPlus size={16} />}
+                                        startIcon={<AddRoundedIcon fontSize='small' />}
                                         onClick={() => setSectionDialogOpen(true)}
                                         sx={{ borderRadius: 2, height: 40 }}
                                         disabled={!canCreateContent}

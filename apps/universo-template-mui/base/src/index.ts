@@ -19,8 +19,29 @@ export { default as UnikLayout } from './layout/MainLayoutMUI'
 export const TemplateProvider = ({ children }: { children?: any }) => children as any
 
 // Components
-export { ErrorBoundary, MarketplaceTable, TableViewOnly, ToolsTable } from './components'
+export { ErrorBoundary, MarketplaceTable, TableViewOnly, ToolsTable, ToolbarControls, ViewHeaderMUI, TemplateMainCard, EmptyListState, SkeletonGrid, BaseEntityMenu } from './components'
+export type { BaseEntityMenuProps, ActionDescriptor, ActionContext, TriggerProps } from './components'
+// Re-export dialogs (EntityFormDialog, etc.) so consumers can import from '@universo/template-mui'
+export * from './components/dialogs'
 export * from './i18n'
+
+// Assets - explicit named exports for SVG defaults
+export {
+    APIEmptySVG,
+    AgentsEmptySVG,
+    AssistantEmptySVG,
+    ChunksEmptySVG,
+    CredentialEmptySVG,
+    DocStoreEmptySVG,
+    DocStoreDetailsEmptySVG,
+    LeadsEmptySVG,
+    MessageEmptySVG,
+    PromptEmptySVG,
+    ToolsEmptySVG,
+    UpsertHistoryEmptySVG,
+    VariablesEmptySVG,
+    WorkflowEmptySVG
+} from './assets'
 
 // Card components
 export { default as ItemCard } from './components/cards/ItemCard'

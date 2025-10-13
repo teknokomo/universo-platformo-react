@@ -5,10 +5,8 @@ import {
     Alert,
     Box,
     Button,
-    Card,
     Chip,
     CircularProgress,
-    IconButton,
     Stack,
     Table,
     TableBody,
@@ -16,11 +14,9 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    ToggleButton,
-    ToggleButtonGroup,
     Typography
 } from '@mui/material'
-import { IconCards, IconList, IconRefresh, IconUserPlus } from '@tabler/icons-react'
+import { IconUserPlus } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 
 import { useApi } from '../hooks/useApi'
@@ -33,9 +29,9 @@ import {
     MetaversePermissions,
     MetaverseRole
 } from '../types'
+import { ItemCard, ToolbarControls, ViewHeaderMUI as ViewHeader, TemplateMainCard as MainCard } from '@universo/template-mui'
 import useConfirm from '@ui/hooks/useConfirm'
 import ConfirmDialog from '@ui/ui-component/dialog/ConfirmDialog'
-import ViewHeader from '@ui/layout/MainLayout/ViewHeader'
 import { enqueueSnackbar as enqueueSnackbarAction } from '@ui/store/actions'
 import { useAuth } from '@ui/utils/authProvider'
 
@@ -77,7 +73,7 @@ interface MetaverseAccessProps {
     metaverse?: Metaverse | null
 }
 
-const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
+const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}) => {
     const { metaverseId } = useParams<{ metaverseId: string }>()
     const navigate = useNavigate()
     const { t } = useTranslation('metaverses')
@@ -86,15 +82,21 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
     const currentUserId = user?.id ?? null
     const { confirm } = useConfirm()
 
+    // State for metaverse data when used as standalone component
+    const [metaverse, setMetaverse] = useState<Metaverse | null>(propMetaverse || null)
+    const [loadingMetaverse, setLoadingMetaverse] = useState(false)
+
     const [members, setMembers] = useState<MetaverseMember[]>([])
-    const [permissions, setPermissions] = useState<MetaverseMembersResponse['permissions'] | null>(metaverse?.permissions ?? null)
+    const [permissions, setPermissions] = useState<MetaverseMembersResponse['permissions'] | null>(propMetaverse?.permissions ?? null)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
     const [viewType, setViewType] = useState<'card' | 'list'>('card')
+    const [search, setSearch] = useState('')
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [editingMember, setEditingMember] = useState<MetaverseMember | null>(null)
 
+    const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
     const { request: fetchMembers, loading: loadingMembers } = useApi(metaversesApi.listMetaverseMembers)
     const { request: inviteMember, loading: invitingMember } = useApi(metaversesApi.inviteMetaverseMember)
     const { request: changeMemberRole, loading: updatingMember } = useApi(metaversesApi.updateMetaverseMemberRole)
@@ -102,6 +104,33 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
 
     const canManageMembers = permissions?.manageMembers ?? false
     const shouldLoadMembers = Boolean(metaverseId) && canManageMembers
+
+    // Load metaverse data if not provided as prop (standalone mode)
+    useEffect(() => {
+        if (!propMetaverse && metaverseId && !metaverse) {
+            setLoadingMetaverse(true)
+            getMetaverse(metaverseId)
+                .then((result) => {
+                    if (result) {
+                        setMetaverse(result)
+                        setPermissions(result.permissions || null)
+                    }
+                })
+                .catch((error) => {
+                    console.error('Failed to load metaverse:', error)
+                    setErrorMessage(t('metaverses.access.errors.loadMetaverseFailed', 'Failed to load metaverse data'))
+                })
+                .finally(() => {
+                    setLoadingMetaverse(false)
+                })
+        }
+    }, [propMetaverse, metaverseId, metaverse, getMetaverse, t])
+
+    useEffect(() => {
+        if (propMetaverse?.permissions) {
+            setPermissions(propMetaverse.permissions)
+        }
+    }, [propMetaverse?.permissions])
 
     useEffect(() => {
         if (metaverse?.permissions) {
@@ -266,57 +295,47 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
 
     const isBusy = invitingMember || updatingMember || removingMember
 
+    if (loadingMetaverse) {
+        return (
+            <MainCard disableHeader disableContentPadding border={false} shadow={false} content={false}>
+                <Box display='flex' justifyContent='center' p={3}>
+                    <CircularProgress size={24} />
+                </Box>
+            </MainCard>
+        )
+    }
+
     return (
-        <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', width: '100%' }}>
+        <MainCard disableHeader disableContentPadding border={false} shadow={false} content={false}>
             <Stack spacing={3} sx={{ p: 2 }}>
                 <ViewHeader
                     title={t('metaverses.access.title')}
-                    description={metaverse?.name ? t('metaverses.access.subtitle', { name: metaverse.name }) : undefined}
-                    search={false}
+                    search={shouldLoadMembers}
+                    searchPlaceholder={t('common.search', 'Search')}
+                    onSearchChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setSearch(e.target.value)}
                 >
-                    <Stack direction='row' spacing={1} alignItems='center'>
+                    <ToolbarControls
+                        viewToggleEnabled={shouldLoadMembers}
+                        viewMode={viewType}
+                        onViewModeChange={setViewType}
+                        primaryAction={
+                            shouldLoadMembers
+                                ? {
+                                      label: t('common.invite', 'Пригласить'),
+                                      onClick: () => setInviteDialogOpen(true),
+                                      disabled: isBusy,
+                                      startIcon: <IconUserPlus />
+                                  }
+                                : undefined
+                        }
+                    >
                         {loadingMembers && shouldLoadMembers && <CircularProgress size={18} />}
-                        <IconButton
-                            onClick={() => shouldLoadMembers && loadMembers()}
-                            aria-label={t('metaverses.access.refresh')}
-                            size='small'
-                            disabled={!shouldLoadMembers}
-                        >
-                            <IconRefresh size={18} />
-                        </IconButton>
-                    </Stack>
+                    </ToolbarControls>
                 </ViewHeader>
 
                 {errorMessage && <Alert severity='error'>{errorMessage}</Alert>}
 
                 {!shouldLoadMembers && <Alert severity='info'>{t('metaverses.access.notAllowed')}</Alert>}
-
-                {shouldLoadMembers && (
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
-                        <ToggleButtonGroup
-                            value={viewType}
-                            exclusive
-                            onChange={(_, newView) => newView && setViewType(newView)}
-                            size='small'
-                        >
-                            <ToggleButton value='card' aria-label={t('common.cardView')}>
-                                <IconCards size={18} />
-                            </ToggleButton>
-                            <ToggleButton value='list' aria-label={t('common.listView')}>
-                                <IconList size={18} />
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                        <Button
-                            variant='contained'
-                            onClick={() => setInviteDialogOpen(true)}
-                            disabled={isBusy}
-                            startIcon={<IconUserPlus />}
-                            sx={{ borderRadius: 2, height: 40 }}
-                        >
-                            {t('metaverses.access.inviteButton')}
-                        </Button>
-                    </Stack>
-                )}
 
                 {shouldLoadMembers && (
                     <Box>
@@ -338,45 +357,36 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
                                     gap: 2
                                 }}
                             >
-                                {members.map((member) => {
-                                    const isOwner = member.role === 'owner'
-                                    return (
-                                        <Card
-                                            key={member.id}
-                                            sx={{
-                                                p: 2,
-                                                cursor: !isOwner ? 'pointer' : 'default',
-                                                '&:hover': !isOwner
-                                                    ? {
-                                                          boxShadow: 3
-                                                      }
-                                                    : {}
-                                            }}
-                                            onClick={() => !isOwner && openEditDialog(member)}
-                                        >
-                                            <Box>
-                                                <Typography variant='h6' component='div' gutterBottom>
-                                                    {member.email || member.userId}
-                                                </Typography>
-                                                {member.comment && (
-                                                    <Typography variant='body2' color='text.secondary' gutterBottom>
-                                                        {member.comment}
-                                                    </Typography>
-                                                )}
-                                                <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Chip
-                                                        label={roleLabels[member.role as keyof typeof roleLabels]}
-                                                        color={isOwner ? 'primary' : 'default'}
-                                                        size='small'
-                                                    />
-                                                    <Typography variant='caption' color='text.secondary'>
-                                                        {new Date(member.createdAt).toLocaleDateString()}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </Card>
+                                {members
+                                    .filter((m) =>
+                                        search.trim().length
+                                            ? `${m.email || m.userId || ''} ${m.comment || ''} ${m.role || ''}`
+                                                  .toLowerCase()
+                                                  .includes(search.toLowerCase())
+                                            : true
                                     )
-                                })}
+                                    .map((member) => {
+                                        const isOwner = member.role === 'owner'
+                                        return (
+                                            <ItemCard
+                                                key={member.id}
+                                                data={{
+                                                    name: member.email || member.userId,
+                                                    description: member.comment || ''
+                                                }}
+                                                images={[]}
+                                                onClick={() => !isOwner && openEditDialog(member)}
+                                                sx={{
+                                                    cursor: !isOwner ? 'pointer' : 'default',
+                                                    '&:hover': !isOwner
+                                                        ? {
+                                                              boxShadow: 3
+                                                          }
+                                                        : {}
+                                                }}
+                                            />
+                                        )
+                                    })}
                             </Box>
                         ) : (
                             <TableContainer component={Box} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
@@ -391,44 +401,52 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {members.map((member) => {
-                                            const isOwner = member.role === 'owner'
-                                            return (
-                                                <TableRow key={member.id} hover>
-                                                    <TableCell>{member.email || member.userId}</TableCell>
-                                                    <TableCell>
-                                                        <Chip
-                                                            label={roleLabels[member.role as keyof typeof roleLabels]}
-                                                            color={isOwner ? 'primary' : 'default'}
-                                                            size='small'
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>{member.comment || '-'}</TableCell>
-                                                    <TableCell>{new Date(member.createdAt).toLocaleDateString()}</TableCell>
-                                                    <TableCell align='right'>
-                                                        {!isOwner && (
-                                                            <Stack direction='row' spacing={1}>
-                                                                <Button
-                                                                    size='small'
-                                                                    onClick={() => openEditDialog(member)}
-                                                                    disabled={!canManageMembers}
-                                                                >
-                                                                    {t('common.edit', 'Edit')}
-                                                                </Button>
-                                                                <Button
-                                                                    size='small'
-                                                                    color='error'
-                                                                    onClick={() => handleRemove(member)}
-                                                                    disabled={!canManageMembers}
-                                                                >
-                                                                    {t('metaverses.access.table.remove')}
-                                                                </Button>
-                                                            </Stack>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
+                                        {members
+                                            .filter((m) =>
+                                                search.trim().length
+                                                    ? `${m.email || m.userId || ''} ${m.comment || ''} ${m.role || ''}`
+                                                          .toLowerCase()
+                                                          .includes(search.toLowerCase())
+                                                    : true
                                             )
-                                        })}
+                                            .map((member) => {
+                                                const isOwner = member.role === 'owner'
+                                                return (
+                                                    <TableRow key={member.id} hover>
+                                                        <TableCell>{member.email || member.userId}</TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={roleLabels[member.role as keyof typeof roleLabels]}
+                                                                color={isOwner ? 'primary' : 'default'}
+                                                                size='small'
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>{member.comment || '-'}</TableCell>
+                                                        <TableCell>{new Date(member.createdAt).toLocaleDateString()}</TableCell>
+                                                        <TableCell align='right'>
+                                                            {!isOwner && (
+                                                                <Stack direction='row' spacing={1}>
+                                                                    <Button
+                                                                        size='small'
+                                                                        onClick={() => openEditDialog(member)}
+                                                                        disabled={!canManageMembers}
+                                                                    >
+                                                                        {t('common.edit', 'Edit')}
+                                                                    </Button>
+                                                                    <Button
+                                                                        size='small'
+                                                                        color='error'
+                                                                        onClick={() => handleRemove(member)}
+                                                                        disabled={!canManageMembers}
+                                                                    >
+                                                                        {t('metaverses.access.table.remove')}
+                                                                    </Button>
+                                                                </Stack>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -456,7 +474,7 @@ const MetaverseAccess = ({ metaverse }: MetaverseAccessProps) => {
             />
 
             <ConfirmDialog />
-        </Card>
+        </MainCard>
     )
 }
 

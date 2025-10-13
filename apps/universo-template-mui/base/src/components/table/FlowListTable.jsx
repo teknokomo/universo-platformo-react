@@ -17,7 +17,6 @@ import {
     TableHead,
     TableRow,
     TableSortLabel,
-    Tooltip,
     Typography,
     useTheme
 } from '@mui/material'
@@ -123,8 +122,8 @@ export const FlowListTable = ({
 
     return (
         <>
-            <TableContainer sx={{ border: 1, borderColor, borderRadius: 2 }} component={Paper}>
-                <Table sx={{ minWidth: 650 }} size='small' aria-label='a dense table'>
+            <TableContainer sx={{ border: 1, borderColor, borderRadius: 1 }} component={Paper}>
+                <Table sx={{ minWidth: 900 }} size='small' aria-label='a dense table'>
                     <TableHead
                         sx={{
                             backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
@@ -161,7 +160,7 @@ export const FlowListTable = ({
                                     </StyledTableCell>
                                 </>
                             )}
-                            <StyledTableCell style={{ width: '15%' }} key='3'>
+                            <StyledTableCell style={{ width: '14%' }} key='3'>
                                 <TableSortLabel
                                     active={orderBy === 'updatedDate'}
                                     direction={order}
@@ -223,27 +222,22 @@ export const FlowListTable = ({
                                     return (
                                         <StyledTableRow key={index}>
                                             <StyledTableCell key='0'>
-                                                <Tooltip title={row.templateName || row.name}>
-                                                    <Typography
-                                                        sx={{
-                                                            display: '-webkit-box',
-                                                            fontSize: 14,
-                                                            fontWeight: 500,
-                                                            WebkitLineClamp: 2,
-                                                            WebkitBoxOrient: 'vertical',
-                                                            textOverflow: 'ellipsis',
-                                                            overflow: 'hidden'
-                                                        }}
-                                                    >
-                                                        {linkTarget ? (
-                                                            <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
-                                                                {displayName}
-                                                            </Link>
-                                                        ) : (
-                                                            displayName
-                                                        )}
-                                                    </Typography>
-                                                </Tooltip>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: 14,
+                                                        fontWeight: 500,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'break-word'
+                                                    }}
+                                                >
+                                                    {linkTarget ? (
+                                                        <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
+                                                            {displayName}
+                                                        </Link>
+                                                    ) : (
+                                                        displayName
+                                                    )}
+                                                </Typography>
                                             </StyledTableCell>
                                             {isUnikTable ? (
                                                 <StyledTableCell key='1'>

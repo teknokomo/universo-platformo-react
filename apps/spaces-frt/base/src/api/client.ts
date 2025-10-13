@@ -1,42 +1,11 @@
-import axios, {
-  AxiosHeaders,
-  type AxiosError,
-  type AxiosInstance,
-  type AxiosResponse,
-  type InternalAxiosRequestConfig,
-} from 'axios'
+import { createAuthClient } from '@universo/auth-frt'
+import type { AxiosResponse } from 'axios'
 
 import { baseURL } from '@ui/store/constant'
 
-interface RetriableRequestConfig extends InternalAxiosRequestConfig {
-  _retry?: boolean
-}
+const client = createAuthClient({ baseURL: `${baseURL}/api/v1` })
 
-const client: AxiosInstance = axios.create({
-  baseURL: `${baseURL}/api/v1`,
-  headers: {
-    'Content-type': 'application/json',
-    'x-request-from': 'internal',
-  },
-  withCredentials: true,
-})
-
-client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  try {
-    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null
-    if (token) {
-      const headers = config.headers instanceof AxiosHeaders
-        ? config.headers
-        : new AxiosHeaders(config.headers)
-
-      headers.set('Authorization', `Bearer ${token}`)
-      config.headers = headers
-    }
-  } catch {
-    // ignore storage errors
-  }
-  return config
-})
+client.defaults.headers.common['x-request-from'] = 'internal'
 
 client.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -51,46 +20,14 @@ client.interceptors.response.use(
     }
     return response
   },
-  async (error: AxiosError) => {
-    const responseStatus = error.response?.status
-    const originalRequest = (error.config ?? {}) as RetriableRequestConfig
-
-    if (responseStatus === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-      try {
-        const refreshResponse = await axios.post(
-          `${baseURL}/api/v1/auth/refresh`,
-          {},
-          { withCredentials: true },
-        )
-        const accessToken = (refreshResponse.data as { accessToken?: string } | undefined)?.accessToken
-
-        if (accessToken) {
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem('token', accessToken)
-          }
-
-          const headers = originalRequest.headers instanceof AxiosHeaders
-            ? originalRequest.headers
-            : new AxiosHeaders(originalRequest.headers)
-
-          headers.set('Authorization', `Bearer ${accessToken}`)
-          originalRequest.headers = headers
-          return client(originalRequest)
-        }
-      } catch (refreshError) {
-        // eslint-disable-next-line no-console
-        console.error('Token refresh failed:', refreshError)
-        try {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/auth'
-          }
-        } catch {
-          // ignore navigation errors in non-browser contexts
-        }
+  (error: unknown) => {
+    const status = typeof error === 'object' && error && 'response' in error ? (error as any).response?.status : undefined
+    if (status === 401 && typeof window !== 'undefined') {
+      const isAuthRoute = window.location.pathname.startsWith('/auth')
+      if (!isAuthRoute) {
+        window.location.href = '/auth'
       }
     }
-
     return Promise.reject(error)
   },
 )

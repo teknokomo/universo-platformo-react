@@ -32,6 +32,9 @@ export const inputsCustomizations: Components<Theme> = {
                 boxShadow: 'none',
                 borderRadius: (theme.vars || theme).shape.borderRadius,
                 textTransform: 'none',
+                '&.Mui-disabled': {
+                    opacity: 1
+                },
                 variants: [
                     {
                         props: {
@@ -69,6 +72,13 @@ export const inputsCustomizations: Components<Theme> = {
                             '&:active': {
                                 backgroundColor: gray[800]
                             },
+                            '&.Mui-disabled': {
+                                color: alpha(gray[100], 0.9),
+                                backgroundImage: 'none',
+                                backgroundColor: alpha(gray[800], 0.55),
+                                borderColor: alpha(gray[700], 0.85),
+                                boxShadow: 'none'
+                            },
                             ...theme.applyStyles('dark', {
                                 color: 'black',
                                 backgroundColor: gray[50],
@@ -82,6 +92,11 @@ export const inputsCustomizations: Components<Theme> = {
                                 },
                                 '&:active': {
                                     backgroundColor: gray[400]
+                                },
+                                '&.Mui-disabled': {
+                                    color: alpha(gray[900], 0.8),
+                                    backgroundColor: alpha(gray[200], 0.75),
+                                    borderColor: gray[300]
                                 }
                             })
                         }
@@ -123,6 +138,11 @@ export const inputsCustomizations: Components<Theme> = {
                             '&:active': {
                                 backgroundColor: gray[200]
                             },
+                            '&.Mui-disabled': {
+                                color: alpha(gray[600], 0.85),
+                                borderColor: gray[200],
+                                backgroundColor: alpha(gray[100], 0.7)
+                            },
                             ...theme.applyStyles('dark', {
                                 backgroundColor: gray[800],
                                 borderColor: gray[700],
@@ -133,6 +153,11 @@ export const inputsCustomizations: Components<Theme> = {
                                 },
                                 '&:active': {
                                     backgroundColor: gray[900]
+                                },
+                                '&.Mui-disabled': {
+                                    color: alpha(gray[300], 0.9),
+                                    borderColor: gray[700],
+                                    backgroundColor: gray[800]
                                 }
                             })
                         }
@@ -375,49 +400,44 @@ export const inputsCustomizations: Components<Theme> = {
     },
     MuiOutlinedInput: {
         styleOverrides: {
-            input: {
-                padding: 0
-            },
             root: ({ theme }) => ({
-                padding: '8px 12px',
                 color: (theme.vars || theme).palette.text.primary,
                 borderRadius: (theme.vars || theme).shape.borderRadius,
-                border: `1px solid ${(theme.vars || theme).palette.divider}`,
                 backgroundColor: (theme.vars || theme).palette.background.default,
                 transition: 'border 120ms ease-in',
-                '&:hover': {
+                '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: (theme.vars || theme).palette.divider
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
                     borderColor: gray[400]
                 },
                 [`&.${outlinedInputClasses.focused}`]: {
-                    outline: `3px solid ${alpha(brand[500], 0.5)}`,
-                    borderColor: brand[400]
+                    outline: `3px solid ${alpha(brand[500], 0.35)}`,
+                    '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: brand[400]
+                    }
+                },
+                [`&.${outlinedInputClasses.disabled}`]: {
+                    '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: alpha(gray[200], 0.8)
+                    }
                 },
                 ...theme.applyStyles('dark', {
-                    '&:hover': {
-                        borderColor: gray[500]
-                    }
-                }),
-                variants: [
-                    {
-                        props: {
-                            size: 'small'
-                        },
-                        style: {
-                            height: '2.25rem'
-                        }
+                    '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: gray[700]
                     },
-                    {
-                        props: {
-                            size: 'medium'
-                        },
-                        style: {
-                            height: '2.5rem'
-                        }
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: gray[600]
                     }
-                ]
+                })
             }),
-            notchedOutline: {
-                border: 'none'
+            input: {
+                padding: '15.5px 16px',
+                lineHeight: 1.4375
+            },
+            inputMultiline: {
+                padding: '15.5px 16px',
+                lineHeight: 1.4375
             }
         }
     },
@@ -427,6 +447,27 @@ export const inputsCustomizations: Components<Theme> = {
                 color: (theme.vars || theme).palette.grey[500],
                 ...theme.applyStyles('dark', {
                     color: (theme.vars || theme).palette.grey[400]
+                })
+            })
+        }
+    },
+    MuiInputLabel: {
+        styleOverrides: {
+            root: ({ theme }) => ({
+                fontWeight: 500,
+                '&.Mui-focused': {
+                    color: brand[400]
+                },
+                '&.MuiInputLabel-shrink': {
+                    padding: '0 4px',
+                    marginLeft: -2,
+                    backgroundColor: (theme.vars || theme).palette.background.default,
+                    lineHeight: 1.2
+                },
+                ...theme.applyStyles('dark', {
+                    '&.MuiInputLabel-shrink': {
+                        backgroundColor: (theme.vars || theme).palette.background.default
+                    }
                 })
             })
         }

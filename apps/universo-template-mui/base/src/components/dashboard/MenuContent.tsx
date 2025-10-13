@@ -10,7 +10,7 @@ import Stack from '@mui/material/Stack'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@ui/i18n'
-import { rootMenuItems } from '../../navigation/menuConfigs'
+import { rootMenuItems, getMetaverseMenuItems } from '../../navigation/menuConfigs'
 
 // const secondaryListItems = [
 //   { text: 'Settings', icon: <SettingsRoundedIcon /> },
@@ -21,20 +21,32 @@ import { rootMenuItems } from '../../navigation/menuConfigs'
 export default function MenuContent() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
+
+    // Check if we're in a metaverse context
+    const isMetaverseContext = location.pathname.match(/^\/metaverses\/([^/]+)/)
+    const metaverseId = isMetaverseContext ? isMetaverseContext[1] : null
+
+    // Use metaverse-specific menu if in metaverse context, otherwise use root menu
+    const menuItems = metaverseId ? getMetaverseMenuItems(metaverseId) : rootMenuItems
+
     return (
         <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
             <List dense>
-                {rootMenuItems.map((item, index) => {
+                {menuItems.map((item, index) => {
                     const Icon = item.icon
                     const buttonProps = item.external
                         ? { component: 'a', href: item.url, target: item.target ?? '_blank', rel: 'noopener noreferrer' }
                         : { component: NavLink, to: item.url }
-                    const isSelected = !item.external && (location.pathname === item.url || location.pathname.startsWith(`${item.url}/`))
+
+                    // Exact match logic: selected only if pathname exactly matches item.url
+                    // This prevents metaverse board from being highlighted when on /entities or /sections
+                    const isSelected = !item.external && location.pathname === item.url
+
                     return (
                         <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
                             <ListItemButton selected={isSelected} {...buttonProps}>
                                 <ListItemIcon>{<Icon size={20} stroke={1.5} />}</ListItemIcon>
-                                <ListItemText primary={t(`menu.${item.titleKey}`)} />
+                                <ListItemText primary={t(item.titleKey)} />
                             </ListItemButton>
                         </ListItem>
                     )

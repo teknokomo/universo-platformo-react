@@ -14,6 +14,8 @@
     "jsx": "react",
     "baseUrl": ".",
     "paths": {
+      "@universo/auth-frt": ["../auth-frt/base/src"],
+      "@universo/auth-frt/*": ["../auth-frt/base/src/*"],
       "*": ["*"]
     },
     "moduleResolution": "node"

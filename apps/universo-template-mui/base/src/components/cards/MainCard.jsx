@@ -22,6 +22,9 @@ const MainCard = forwardRef(function MainCard(
             py: 0
         },
         darkTitle,
+        border = true,
+        disableContentPadding = false,
+        disableHeader = false,
         secondary,
         shadow,
         sx = {},
@@ -30,31 +33,38 @@ const MainCard = forwardRef(function MainCard(
     },
     ref
 ) {
-    const otherProps = { ...others, border: others.border === false ? undefined : others.border }
+    const otherProps = { ...others, border: border === false ? undefined : border }
     return (
         <Card
             ref={ref}
             {...otherProps}
             sx={{
                 background: 'transparent',
+                boxShadow: shadow === false ? 'none' : undefined,
+                border: border === false ? 'none' : undefined,
                 ':hover': {
                     boxShadow: boxShadow ? shadow || '0 2px 14px 0 rgb(32 40 45 / 8%)' : 'inherit'
                 },
-                maxWidth: '1280px',
-                mx: 'auto',
+                maxWidth: disableHeader ? '100%' : '1280px',
+                mx: disableHeader ? undefined : 'auto',
                 ...sx
             }}
         >
             {/* card header and action */}
-            {!darkTitle && title && <CardHeader sx={headerSX} title={title} action={secondary} />}
-            {darkTitle && title && <CardHeader sx={headerSX} title={<Typography variant='h3'>{title}</Typography>} action={secondary} />}
+            {!disableHeader && !darkTitle && title && <CardHeader sx={headerSX} title={title} action={secondary} />}
+            {!disableHeader && darkTitle && title && (
+                <CardHeader sx={headerSX} title={<Typography variant='h3'>{title}</Typography>} action={secondary} />
+            )}
 
             {/* content & header divider */}
-            {title && <Divider />}
+            {!disableHeader && title && <Divider />}
 
             {/* card content */}
             {content && (
-                <CardContent sx={contentSX} className={contentClass}>
+                <CardContent
+                    sx={disableContentPadding ? { px: 0, py: 0, '&:last-child': { pb: 0 }, ...contentSX } : contentSX}
+                    className={contentClass}
+                >
                     {children}
                 </CardContent>
             )}
@@ -71,6 +81,8 @@ MainCard.propTypes = {
     contentClass: PropTypes.string,
     contentSX: PropTypes.object,
     darkTitle: PropTypes.bool,
+    disableContentPadding: PropTypes.bool,
+    disableHeader: PropTypes.bool,
     secondary: PropTypes.oneOfType([PropTypes.node, PropTypes.string, PropTypes.object]),
     shadow: PropTypes.string,
     sx: PropTypes.object,

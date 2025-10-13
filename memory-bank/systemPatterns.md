@@ -360,6 +360,175 @@ POST   /domains { clusterId: required }
 -   **Hierarchical Structure**: Parent-child relationships with typed connections
 -   **Version Compatibility**: Forward/backward compatibility via `updlVersion`
 
+## React Hooks Patterns
+
+### ⚠️ React useEffect Antipattern Warning
+
+**CRITICAL**: Never use `useCallback` functions in `useEffect` dependencies array for mount-only effects.
+
+**Antipattern (Creates Infinite Loop)**:
+```javascript
+const loadData = useCallback(async () => {
+    // ... fetch data, setState
+}, [dep1, dep2])
+
+useEffect(() => {
+    loadData()
+}, [loadData])  // ❌ WRONG! Creates infinite loop
+```
+
+**Problem**: 
+- Functions are objects in JavaScript
+- Each render creates new function reference (even with `useCallback`)
+- `useEffect` sees new reference → runs → `setState` → re-render → new reference → loop
+
+**Correct Pattern (Mount-Only Execution)**:
+```javascript
+const loadData = useCallback(async () => {
+    // ... fetch data, setState
+}, [dep1, dep2])
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+    loadData()
+}, [])  // ✅ CORRECT! Empty array = mount-only
+```
+
+**Why It Works**: JavaScript closures capture current values. `loadData` has access to latest `dep1` and `dep2` even with empty deps array.
+
+**When to Use**:
+- Event-driven data loading (load on mount, reload after user actions)
+- Single-user MVP contexts
+- Initial data fetch that doesn't need automatic refresh
+
+**Real Example** (Publication System):
+- PlayCanvasPublisher.jsx line 212
+- PublishVersionSection.tsx line 167
+- Bug caused continuous 429 errors (infinite requests)
+- Fix: Changed `[loadFunction]` → `[]` with eslint-disable comment
+
+---
+
+### useAutoSave Hook Pattern
+
+**Purpose**: Standardized auto-save functionality with debouncing, status indication, and data loss protection
+
+**Location**: `apps/publish-frt/base/src/hooks/useAutoSave.ts`
+
+**Features**:
+- **Debouncing**: Configurable delay (default 500ms) to reduce API calls
+- **Status Indication**: Returns `idle | saving | saved | error` for UI feedback
+- **Unsaved Changes Tracking**: `hasUnsavedChanges` flag for conditional logic
+- **Manual Save**: `triggerSave()` function for immediate saves
+- **Beforeunload Protection**: Optional warning on page close with unsaved changes
+- **First Render Skip**: Prevents save on component initialization
+
+**Usage Pattern**:
+```typescript
+const { status, hasUnsavedChanges, triggerSave } = useAutoSave({
+    data: settingsData,
+    onSave: async (data) => await api.saveSettings(data),
+    delay: 500,
+    enableBeforeUnload: true
+})
+
+// Visual indicator in UI
+<TextField
+    helperText={
+        status === 'saving' ? t('common.saving') :
+        status === 'saved' ? t('common.saved') :
+        status === 'error' ? t('common.saveError') : ''
+    }
+/>
+```
+
+**When to Use**:
+- Forms with frequent updates (settings, configurations)
+- Preventing data loss on accidental page close
+- Consistent auto-save UX across application
+- Reducing API calls via debouncing
+
+**When NOT to Use**:
+- Single-field forms (use inline debounce)
+- Critical data requiring explicit save confirmation
+- Real-time collaborative editing (use dedicated sync library)
+
+## Event-Driven Data Loading Pattern
+
+**Purpose**: Efficient data fetching without polling overhead for single-user MVP contexts
+
+**Implementation** (Publication System):
+
+**Key Principles**:
+1. **Load on Mount**: Single initial request via `useEffect(() => { loadData() }, [])` (mount-only, see antipattern warning above)
+2. **Reload After Actions**: Call `loadData()` after create/delete operations
+3. **No Polling**: Remove `setInterval` - periodic updates unnecessary for single-user context
+4. **AbortController**: Cancel stale requests to prevent race conditions
+
+**Pattern Example**:
+```javascript
+const statusRef = useRef({
+    loading: false,
+    abortController: null
+})
+
+const loadData = useCallback(async () => {
+    if (statusRef.current.loading) return []
+    
+    // Cancel previous request
+    if (statusRef.current.abortController) {
+        statusRef.current.abortController.abort()
+    }
+    
+    const abortController = new AbortController()
+    statusRef.current.loading = true
+    statusRef.current.abortController = abortController
+    
+    try {
+        const data = await api.fetchData({ signal: abortController.signal })
+        setData(data)
+        return data
+    } catch (error) {
+        if (error.name === 'AbortError' || error.name === 'CanceledError') {
+            return []
+        }
+        console.error('Load failed:', error)
+        return []
+    } finally {
+        statusRef.current.loading = false
+        statusRef.current.abortController = null
+    }
+}, [dependencies])
+
+// Mount-time load (mount-only pattern, see antipattern warning)
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { loadData() }, [])
+
+// Reload after action
+const handleCreate = async () => {
+    await api.create(item)
+    await loadData() // Refresh data
+}
+```
+
+**Benefits**:
+- 92% reduction in API requests (from 12 req/min polling to 1 initial + action-triggered)
+- Eliminates rate limit errors (429)
+- Simpler codebase (no throttling cache logic)
+- Race condition protection via AbortController
+
+**When to Use**:
+- Single-user scenarios (admin dashboards, settings)
+- Data that changes only via user actions
+- MVP/early-stage products
+- Rate-limited APIs
+
+**When NOT to Use**:
+- Multi-user collaborative features
+- Real-time data requirements
+- Server-driven updates (use WebSocket/SSE)
+- High-frequency external data changes
+
 ## Development Principles
 
 ### Architecture Patterns

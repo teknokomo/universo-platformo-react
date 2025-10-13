@@ -7,9 +7,12 @@
         "backToSections": "Back to Sections",
         "cancel": "Cancel",
         "save": "Save",
-        "saving": "Saving..."
+        "saving": "Saving...",
+        "add": "Add",
+        "invite": "Invite"
     },
     "menu": {
+        "button": "Options",
         "metaverseboard": "Metaverseboard",
         "entities": "Entities",
         "sections": "Sections",
@@ -27,7 +30,11 @@
         "noMetaversesFound": "No metaverses found",
         "edit": "Edit",
         "delete": "Delete",
-        "confirmDelete": "Are you sure you want to delete this metaverse?",
+        "deleting": "Deleting...",
+        "confirmDelete": "Delete metaverse?",
+        "confirmDeleteDescription": "This action cannot be undone. Metaverse \"{{name}}\" and all its data will be permanently deleted.",
+        "deleteSuccess": "Metaverse deleted successfully",
+        "deleteError": "Failed to delete metaverse",
         "nameRequired": "Name is required",
         "saveError": "Failed to save metaverse",
         "createMetaverse": "Create Metaverse",
@@ -60,6 +67,7 @@
             "required": "This field is required"
         },
         "table": {
+            "description": "Description",
             "sections": "Sections",
             "entities": "Entities",
             "role": "Role"

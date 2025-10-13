@@ -12,6 +12,7 @@ const BaseEntityMenu = ({
   descriptors,
   namespace = 'flowList',
   menuButtonLabelKey = 'menu.button',
+  renderTrigger, // NEW: custom trigger renderer function (optional)
   createContext,
   contextExtras
 }) => {
@@ -81,11 +82,23 @@ const BaseEntityMenu = ({
     }
   }
 
+  // Default trigger: Button with dropdown icon
+  const defaultTrigger = (props) => (
+    <Button endIcon={<KeyboardArrowDownIcon />} {...props}>
+      {t(menuButtonLabelKey)}
+    </Button>
+  )
+
+  // Use custom trigger if provided, otherwise use default
+  const trigger = renderTrigger || defaultTrigger
+
   return (
     <>
-      <Button endIcon={<KeyboardArrowDownIcon />} onClick={handleOpen} aria-haspopup='true'>
-        {t(menuButtonLabelKey)}
-      </Button>
+      {trigger({
+        onClick: handleOpen,
+        'aria-haspopup': 'true',
+        disabled: busyActionId !== null
+      })}
       <Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
         {Object.entries(groups).map(([group, acts], gi, arr) => (
           <React.Fragment key={group}>

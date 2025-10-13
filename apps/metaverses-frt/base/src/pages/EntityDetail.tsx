@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom'
 import { Breadcrumbs, Card, CircularProgress, Link, Stack, Typography, Button } from '@mui/material'
-import { IconArrowLeft } from '@tabler/icons-react'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import { useTranslation } from 'react-i18next'
 
 // ui imports
@@ -51,7 +51,7 @@ const EntityDetail: React.FC = () => {
                             to={metaverseId ? `/metaverses/${metaverseId}/entities` : '/entities'}
                             sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                         >
-                            <IconArrowLeft size={16} />
+                            <ArrowBackRoundedIcon fontSize='small' />
                             {t('entities.title')}
                         </Link>
                         <Typography color='text.primary'>{entity?.name || t('entities.detail.info')}</Typography>
