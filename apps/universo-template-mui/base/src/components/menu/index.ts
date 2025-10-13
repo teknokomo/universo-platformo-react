@@ -1,4 +1,4 @@
-export { BaseEntityMenu, default } from './BaseEntityMenu'
+export { BaseEntityMenu } from './BaseEntityMenu'
 export type {
     BaseEntityMenuProps,
     ActionDescriptor,

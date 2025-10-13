@@ -342,10 +342,16 @@ export class CanvasService {
             const canvas = await this.loadCanvasOrThrow(canvasId, scope)
 
             let canvasConfig: Record<string, any> = {}
-            if (canvas.chatbotConfig) {
+            const rawChatbotConfig = canvas.chatbotConfig
+            if (rawChatbotConfig !== null && rawChatbotConfig !== undefined) {
                 try {
-                    canvasConfig =
-                        typeof canvas.chatbotConfig === 'string' ? JSON.parse(canvas.chatbotConfig) : canvas.chatbotConfig
+                    if (typeof rawChatbotConfig === 'string') {
+                        canvasConfig = rawChatbotConfig.trim().length ? JSON.parse(rawChatbotConfig) : {}
+                    } else if (typeof rawChatbotConfig === 'object') {
+                        canvasConfig = rawChatbotConfig || {}
+                    } else {
+                        canvasConfig = {}
+                    }
                 } catch (configError) {
                     this.deps.logger.warn(
                         '[spaces-srv] Failed to parse chatbotConfig for canvas %s: %s',

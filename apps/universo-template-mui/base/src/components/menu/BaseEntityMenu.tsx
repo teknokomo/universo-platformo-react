@@ -260,5 +260,3 @@ export const BaseEntityMenu: React.FC<BaseEntityMenuProps> = ({
         </>
     )
 }
-
-export default BaseEntityMenu

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Stack, CircularProgress } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -26,6 +26,17 @@ const EntityList = () => {
     const [search, setSearch] = useState('')
     const [isEntityDialogOpen, setEntityDialogOpen] = useState(false)
     const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null)
+
+    const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search])
+    const filteredEntities = useMemo(() => {
+        if (!normalizedSearch) {
+            return entities
+        }
+
+        return entities.filter((entity) =>
+            `${entity.name ?? ''} ${entity.description ?? ''}`.toLowerCase().includes(normalizedSearch)
+        )
+    }, [entities, normalizedSearch])
 
     const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
     const { request: getMetaverseEntities } = useApi(metaversesApi.getMetaverseEntities)
@@ -126,13 +137,7 @@ const EntityList = () => {
                                 gap: 2
                             }}
                         >
-                            {entities
-                                .filter((e) =>
-                                    search.trim().length
-                                        ? `${e.name ?? ''} ${e.description ?? ''}`.toLowerCase().includes(search.toLowerCase())
-                                        : true
-                                )
-                                .map((entity) => (
+                            {filteredEntities.map((entity) => (
                                     <ItemCard
                                         key={entity.id}
                                         data={entity}

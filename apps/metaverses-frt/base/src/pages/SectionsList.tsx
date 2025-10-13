@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Stack, CircularProgress } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -26,6 +26,17 @@ const SectionsList = () => {
     const [search, setSearch] = useState('')
     const [isSectionDialogOpen, setSectionDialogOpen] = useState(false)
     const [selectedSection, setSelectedSection] = useState<Section | null>(null)
+
+    const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search])
+    const filteredSections = useMemo(() => {
+        if (!normalizedSearch) {
+            return sections
+        }
+
+        return sections.filter((section) =>
+            `${section.name ?? ''} ${section.description ?? ''}`.toLowerCase().includes(normalizedSearch)
+        )
+    }, [sections, normalizedSearch])
 
     const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
     const { request: getMetaverseSections } = useApi(metaversesApi.getMetaverseSections)
@@ -126,13 +137,7 @@ const SectionsList = () => {
                                 gap: 2
                             }}
                         >
-                            {sections
-                                .filter((s) =>
-                                    search.trim().length
-                                        ? `${s.name ?? ''} ${s.description ?? ''}`.toLowerCase().includes(search.toLowerCase())
-                                        : true
-                                )
-                                .map((section) => (
+                            {filteredSections.map((section) => (
                                     <ItemCard
                                         key={section.id}
                                         data={section}

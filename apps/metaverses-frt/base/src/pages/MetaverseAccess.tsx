@@ -96,6 +96,19 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [editingMember, setEditingMember] = useState<MetaverseMember | null>(null)
 
+    const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search])
+    const filteredMembers = useMemo(() => {
+        if (!normalizedSearch) {
+            return members
+        }
+
+        return members.filter((member) =>
+            `${member.email || member.userId || ''} ${member.comment || ''} ${member.role || ''}`
+                .toLowerCase()
+                .includes(normalizedSearch)
+        )
+    }, [members, normalizedSearch])
+
     const { request: getMetaverse } = useApi(metaversesApi.getMetaverse)
     const { request: fetchMembers, loading: loadingMembers } = useApi(metaversesApi.listMetaverseMembers)
     const { request: inviteMember, loading: invitingMember } = useApi(metaversesApi.inviteMetaverseMember)
@@ -357,15 +370,7 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
                                     gap: 2
                                 }}
                             >
-                                {members
-                                    .filter((m) =>
-                                        search.trim().length
-                                            ? `${m.email || m.userId || ''} ${m.comment || ''} ${m.role || ''}`
-                                                  .toLowerCase()
-                                                  .includes(search.toLowerCase())
-                                            : true
-                                    )
-                                    .map((member) => {
+                                {filteredMembers.map((member) => {
                                         const isOwner = member.role === 'owner'
                                         return (
                                             <ItemCard
@@ -401,15 +406,7 @@ const MetaverseAccess = ({ metaverse: propMetaverse }: MetaverseAccessProps = {}
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {members
-                                            .filter((m) =>
-                                                search.trim().length
-                                                    ? `${m.email || m.userId || ''} ${m.comment || ''} ${m.role || ''}`
-                                                          .toLowerCase()
-                                                          .includes(search.toLowerCase())
-                                                    : true
-                                            )
-                                            .map((member) => {
+                                        {filteredMembers.map((member) => {
                                                 const isOwner = member.role === 'owner'
                                                 return (
                                                     <TableRow key={member.id} hover>
