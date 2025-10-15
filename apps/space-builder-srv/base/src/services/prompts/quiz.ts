@@ -1,5 +1,5 @@
 export function getQuizMetaPrompt(): string {
-  return `You are an expert UPDL flow designer.
+    return `You are an expert UPDL flow designer.
 Task: Convert the user's request into a valid JSON graph {"nodes":[],"edges":[]}.
 
 Allowed nodes (data.name):

@@ -16,6 +16,7 @@ This package provides reusable React components:
 -   The final UPDL graph is built by a deterministic local builder from a validated quiz plan (no LLM involved at this stage).
 -   This stabilizes results, avoids hallucinations and reduces token usage.
 -   Node naming and coordinates are fully assigned by our builder.
+-   **Graph capacity**: supports up to 250 nodes and 500 edges (sufficient for 30 questions × 5 answers)
 
 ## Environment
 
@@ -89,7 +90,7 @@ import { SpaceBuilderFab } from '@universo/space-builder-frt'
 
 -   Paste study material into the input (limit 5000 characters)
 -   Optionally provide "Additional conditions" (limit 500 chars) to strictly guide the LLM
--   Choose number of questions (1–10) and answers per question (2–5)
+-   Choose number of questions (1–30) and answers per question (2–5)
 -   Click "Prepare" → the UI calls `POST /api/v1/space-builder/prepare` and receives a `quizPlan`
 
 2. Preview

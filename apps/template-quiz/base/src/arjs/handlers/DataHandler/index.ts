@@ -3,24 +3,24 @@
 
 // Local types to avoid circular dependency
 interface IUPDLData {
-    id: string;
-    name: string;
-    dataType: string;
-    content: string;
-    isCorrect: boolean;
+    id: string
+    name: string
+    dataType: string
+    content: string
+    isCorrect: boolean
     [key: string]: any
 }
 interface IUPDLMultiScene {
-    scenes: any[];
-    currentSceneIndex: number;
-    totalScenes: number;
+    scenes: any[]
+    currentSceneIndex: number
+    totalScenes: number
     isCompleted: boolean
 }
 interface IUPDLScene {
-    spaceId: string;
-    spaceData: any;
-    dataNodes: any[];
-    objectNodes: any[];
+    spaceId: string
+    spaceData: any
+    dataNodes: any[]
+    objectNodes: any[]
     [key: string]: any
 }
 import { BuildOptions } from '../../../common/types'
@@ -39,7 +39,6 @@ export class DataHandler {
      */
     process(datas: IUPDLData[], options: BuildOptions = {}): string {
         try {
-
             // If no data nodes, return empty content
             if (!datas || datas.length === 0) {
                 return ''
@@ -48,7 +47,6 @@ export class DataHandler {
             // Separate data by type
             const questions = datas.filter((data) => data.dataType?.toLowerCase() === 'question')
             const answers = datas.filter((data) => data.dataType?.toLowerCase() === 'answer')
-
 
             // Generate quiz UI and logic
             let content = ''
@@ -116,10 +114,10 @@ export class DataHandler {
             let content = ''
 
             // Add multi-scene UI elements (all scenes, but hidden initially)
-            content += this.generateMultiSceneUI(multiScene, finalShowPoints, leadCollection)
+            content += this.generateMultiSceneUI(multiScene, finalShowPoints, leadCollection, options)
 
             // Add multi-scene JavaScript logic with state management
-            content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection)
+            content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection, options)
 
             // (quiet) multi-scene generation summary suppressed
 
@@ -135,12 +133,14 @@ export class DataHandler {
      * @param multiScene Multi-scene data structure
      * @param showPoints Whether to show points counter
      * @param leadCollection Lead collection configuration
+     * @param options Build options
      * @returns HTML string with multi-scene quiz UI
      */
     private generateMultiSceneUI(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean }
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        options: BuildOptions = {}
     ): string {
         // UI generation parameters logged only in debug mode
 
@@ -158,6 +158,41 @@ export class DataHandler {
         // Universo Platformo | Add lead collection form if configured
         if (leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)) {
             html += this.generateLeadCollectionForm(leadCollection)
+        }
+
+        // Add timer UI if enabled
+        const timerConfig = (options as any).timerConfig
+        if (timerConfig?.enabled && timerConfig.minutes !== undefined && timerConfig.seconds !== undefined) {
+            const totalSeconds = timerConfig.minutes * 60 + timerConfig.seconds
+            if (totalSeconds > 0) {
+                const displayMinutes = Math.floor(totalSeconds / 60)
+                const displaySeconds = totalSeconds % 60
+                html += `
+                    <!-- Quiz Timer -->
+                    <div id="quiz-timer" style="
+                        position: fixed;
+                        top: 20px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: rgba(0,0,0,0.9);
+                        color: white;
+                        padding: 15px 30px;
+                        border-radius: 10px;
+                        z-index: 10000;
+                        font-family: Arial, sans-serif;
+                        font-size: 24px;
+                        font-weight: bold;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                        display: none;
+                        text-align: center;
+                    ">
+                        <div id="timer-label" style="font-size: 12px; opacity: 0.8; margin-bottom: 5px;">Оставшееся время</div>
+                        <div id="timer-display">${displayMinutes.toString().padStart(2, '0')}:${displaySeconds
+                        .toString()
+                        .padStart(2, '0')}</div>
+                    </div>
+                `
+            }
         }
 
         html += `
@@ -325,7 +360,8 @@ export class DataHandler {
     private generateMultiSceneScript(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean }
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        options: BuildOptions = {}
     ): string {
         // Script generation parameters logged only in debug mode
 
@@ -348,7 +384,7 @@ export class DataHandler {
 
         // Scene mapping logged only in debug mode
 
-    return `
+        return `
             <script>
                 // Universo Platformo | Multi-Scene Quiz Logic
         // Lightweight debug facility
@@ -370,6 +406,100 @@ export class DataHandler {
                 
                 // Universo Platformo | Global flag to prevent duplicate lead saves
                 let leadSaved = false;
+                
+                ${(options as any).timerConfig?.enabled
+                ? `
+                // Universo Platformo | Quiz Timer
+                class QuizTimer {
+                    constructor(minutes, seconds) {
+                        this.totalSeconds = minutes * 60 + seconds;
+                        this.remainingSeconds = this.totalSeconds;
+                        this.timerElement = document.getElementById('quiz-timer');
+                        this.displayElement = document.getElementById('timer-display');
+                        this.intervalId = null;
+                        this.onTimeUpCallback = null;
+                    }
+
+                    start() {
+                        if (this.timerElement) {
+                            this.timerElement.style.display = 'block';
+                        }
+                        this.intervalId = setInterval(() => {
+                            this.remainingSeconds--;
+                            this.updateDisplay();
+                            
+                            if (this.remainingSeconds <= 0) {
+                                this.stop();
+                                if (this.onTimeUpCallback) {
+                                    this.onTimeUpCallback();
+                                }
+                            }
+                        }, 1000);
+                        dbg('[QuizTimer] started');
+                    }
+
+                    stop() {
+                        if (this.intervalId) {
+                            clearInterval(this.intervalId);
+                            this.intervalId = null;
+                        }
+                        if (this.timerElement) {
+                            this.timerElement.style.display = 'none';
+                        }
+                        dbg('[QuizTimer] stopped');
+                    }
+
+                    reset() {
+                        this.stop();
+                        this.remainingSeconds = this.totalSeconds;
+                        this.updateDisplay();
+                        if (this.timerElement) {
+                            this.timerElement.style.backgroundColor = 'rgba(0,0,0,0.9)';
+                            this.timerElement.style.animation = 'none';
+                        }
+                        dbg('[QuizTimer] reset');
+                    }
+
+                    updateDisplay() {
+                        const minutes = Math.floor(this.remainingSeconds / 60);
+                        const seconds = this.remainingSeconds % 60;
+                        if (this.displayElement) {
+                            this.displayElement.textContent = 
+                                minutes.toString().padStart(2, '0') + ':' + 
+                                seconds.toString().padStart(2, '0');
+                        }
+                        
+                        // Warning states
+                        if (this.timerElement) {
+                            if (this.remainingSeconds <= 10) {
+                                this.timerElement.style.backgroundColor = 'rgba(220, 38, 38, 0.9)';
+                                this.timerElement.style.animation = 'pulse 1s infinite';
+                            } else if (this.remainingSeconds <= 30) {
+                                this.timerElement.style.backgroundColor = 'rgba(234, 88, 12, 0.9)';
+                                this.timerElement.style.animation = 'none';
+                            }
+                        }
+                    }
+
+                    onTimeUp(callback) {
+                        this.onTimeUpCallback = callback;
+                    }
+                }
+
+                // Add pulse animation for timer
+                const style = document.createElement('style');
+                style.textContent = \`
+                    @keyframes pulse {
+                        0%, 100% { transform: translateX(-50%) scale(1); }
+                        50% { transform: translateX(-50%) scale(1.05); }
+                    }
+                \`;
+                document.head.appendChild(style);
+
+                const quizTimer = new QuizTimer(${(options as any).timerConfig.minutes}, ${(options as any).timerConfig.seconds});
+                `
+                : ''
+            }
                 
                 // Universo Platformo | Points management system
                 class PointsManager {
@@ -564,6 +694,40 @@ export class DataHandler {
                     
                     // Initialize points manager (always needed for data saving)
                     pointsManager.initialize();
+                    
+                    ${(options as any).timerConfig?.enabled
+                ? `
+                    // Setup timer timeout handler
+                    if (typeof quizTimer !== 'undefined') {
+                        quizTimer.onTimeUp(() => {
+                            console.log('[QuizTimer] Time is up! Force completing quiz...');
+                            
+                            // Find results scene
+                            const resultsSceneIndex = ${JSON.stringify(multiScene.scenes.findIndex((s) => s.isResultsScene))};
+                            
+                            if (resultsSceneIndex >= 0) {
+                                // Navigate to results scene - showQuizResults will be called automatically by showCurrentScene()
+                                sceneManager.setCurrentScene(resultsSceneIndex);
+                                sceneManager.showCurrentScene();
+                            } else {
+                                // No results scene - save immediately and show alert
+                                const currentPoints = pointsManager.getCurrentPoints();
+                                if (!leadSaved) {
+                                    if (!leadData.hasData) {
+                                        leadData.name = null;
+                                        leadData.email = null;
+                                        leadData.phone = null;
+                                        leadData.hasData = true;
+                                    }
+                                    saveLeadDataToSupabase(leadData, currentPoints, 'timeout-no-results-scene');
+                                }
+                                alert('Время вышло! Ваш результат: ' + currentPoints + ' баллов');
+                            }
+                        });
+                    }
+                    `
+                : ''
+            }
                     
                     // Universo Platformo | Debug scene elements after initialization
                     // (verbose scene enumeration removed; re-enable via QUIZ_DEBUG if needed)
@@ -984,6 +1148,17 @@ export class DataHandler {
                 function showQuizResults(totalPoints, fromCompletionFlag) {
                     console.log('[QuizResults] Results screen points=' + totalPoints);
                     dbg('[QuizResults] ctx fromCompletion=' + fromCompletionFlag + ' leadSaved=' + leadSaved + ' hasData=' + leadData.hasData);
+                    
+                    ${(options as any).timerConfig?.enabled
+                    ? `
+                    // Stop quiz timer
+                    if (typeof quizTimer !== 'undefined') {
+                        quizTimer.stop();
+                    }
+                    `
+                    : ''
+                }
+                    
                     // Attempt guarded save here (primary point for results-ending quizzes)
                     if (!leadSaved) {
                         if (!leadData.hasData) {
@@ -1095,6 +1270,16 @@ export class DataHandler {
                     sceneManager.reset();
                     pointsManager.reset();
                     
+                    ${(options as any).timerConfig?.enabled
+                    ? `
+                    // Reset quiz timer
+                    if (typeof quizTimer !== 'undefined') {
+                        quizTimer.reset();
+                    }
+                    `
+                    : ''
+                }
+                    
                     // Reset lead data for new attempt
                     leadData.hasData = false;
                     leadData.saved = false;
@@ -1165,6 +1350,16 @@ export class DataHandler {
                     if (progressContainer) {
                         progressContainer.style.display = 'block';
                     }
+                    
+                    ${(options as any).timerConfig?.enabled
+                    ? `
+                    // Start quiz timer
+                    if (typeof quizTimer !== 'undefined') {
+                        quizTimer.start();
+                    }
+                    `
+                    : ''
+                }
                     
                     // Universo Platformo | Transition to first quiz scene (scene 1)
                     // Scene 0 had lead collection form, now we go to scene 1 with questions

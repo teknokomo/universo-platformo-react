@@ -29,7 +29,7 @@ export const TemplateSelect: React.FC<TemplateSelectProps> = ({
     // Get all required i18n namespaces from templates
     const requiredNamespaces = React.useMemo(() => {
         const namespaces = new Set(['publish'])
-        templates.forEach(t => {
+        templates.forEach((t) => {
             if (t.i18nNamespace) {
                 namespaces.add(t.i18nNamespace)
             }

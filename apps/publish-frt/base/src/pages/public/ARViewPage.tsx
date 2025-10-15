@@ -77,6 +77,7 @@ const ARViewPage: React.FC = () => {
                     chatflowId: publicationId,
                     cameraUsage: renderConfig.cameraUsage || 'standard', // Default to standard for backward compatibility
                     backgroundColor: renderConfig.backgroundColor, // Add backgroundColor from renderConfig
+                    timerConfig: renderConfig.timerConfig, // Add timerConfig from renderConfig
                     ...(displayType === 'wallpaper'
                         ? { arDisplayType: 'wallpaper', wallpaperType: renderConfig.wallpaperType || 'standard' }
                         : { markerType: renderConfig.markerType || 'preset', markerValue: renderConfig.markerValue || 'hiro' })
@@ -87,8 +88,9 @@ const ARViewPage: React.FC = () => {
                     displayType,
                     cameraUsage: renderConfig.cameraUsage || 'standard',
                     backgroundColor: renderConfig.backgroundColor, // Log backgroundColor
-                    markerType: displayType === 'marker' ? (renderConfig.markerType || 'preset') : undefined,
-                    markerValue: displayType === 'marker' ? (renderConfig.markerValue || 'hiro') : undefined,
+                    timerConfig: renderConfig.timerConfig, // Log timerConfig
+                    markerType: displayType === 'marker' ? renderConfig.markerType || 'preset' : undefined,
+                    markerValue: displayType === 'marker' ? renderConfig.markerValue || 'hiro' : undefined,
                     hasLibraryConfig: !!buildOptions.libraryConfig,
                     libraryConfigDetails: buildOptions.libraryConfig,
                     flowDataLength: publicationData.flowData.length

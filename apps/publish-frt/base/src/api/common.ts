@@ -46,8 +46,8 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; chatfl
         const result: { unikId?: string; canvasId?: string; chatflowId?: string; spaceId?: string } = {}
 
         // Extract the unikId - support both new singular '/unik/' and legacy '/uniks/' patterns
-        const unikSingularMatch = pathname.match(/\/unik\/([^\/]+)/)
-        const unikLegacyMatch = pathname.match(/\/uniks\/([^\/]+)/)
+        const unikSingularMatch = pathname.match(/\/unik\/([^/]+)/)
+        const unikLegacyMatch = pathname.match(/\/uniks\/([^/]+)/)
         if (unikSingularMatch && unikSingularMatch[1]) {
             result.unikId = unikSingularMatch[1]
         } else if (unikLegacyMatch && unikLegacyMatch[1]) {
@@ -55,24 +55,24 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; chatfl
         }
 
         // Extract the canvasId (new structure)
-        const canvasMatch = pathname.match(/\/canvas\/([^\/]+)/)
+        const canvasMatch = pathname.match(/\/canvas\/([^/]+)/)
         if (canvasMatch && canvasMatch[1]) {
             result.canvasId = canvasMatch[1]
         }
 
         // Extract the spaceId (new structure)
-        const spaceMatch = pathname.match(/\/space\/([^\/]+)/)
+        const spaceMatch = pathname.match(/\/space\/([^/]+)/)
         if (spaceMatch && spaceMatch[1]) {
             result.spaceId = spaceMatch[1]
         }
 
         // Extract the chatflowId (legacy structure)
-        const chatflowMatch = pathname.match(/\/chatflows\/([^\/]+)/)
+        const chatflowMatch = pathname.match(/\/chatflows\/([^/]+)/)
         if (chatflowMatch && chatflowMatch[1]) {
             result.chatflowId = chatflowMatch[1]
         }
 
-        // For backward compatibility, if we have spaceId but no canvasId, 
+        // For backward compatibility, if we have spaceId but no canvasId,
         // we can assume the first canvas has the same ID as the space
         if (result.spaceId && !result.canvasId) {
             result.canvasId = result.spaceId

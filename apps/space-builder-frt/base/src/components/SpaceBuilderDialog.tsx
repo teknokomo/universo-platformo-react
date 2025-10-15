@@ -1,7 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSpaceBuilder } from '../hooks/useSpaceBuilder'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Checkbox, FormControlLabel, Button, Typography, Box, Alert, Tooltip } from '@mui/material'
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Button,
+  Typography,
+  Box,
+  Alert,
+  Tooltip
+} from '@mui/material'
 import { LoadingButton } from '@mui/lab'
 import SettingsIcon from '@mui/icons-material/Settings'
 
@@ -77,7 +94,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
       if (res.status === 401) {
         try {
           await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
-        } catch (_) {}
+        } catch (_) { }
         const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
         res = await call(newToken)
       }
@@ -102,39 +119,41 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
     const call = async (bearer?: string) =>
       fetch(url, { method: 'GET', credentials: 'include', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) } })
-    ;(async () => {
-      try {
-        let res = await call(token)
-        if (res.status === 401) {
-          try { await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' }) } catch (_) {}
-          const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
-          res = await call(newToken)
+      ; (async () => {
+        try {
+          let res = await call(token)
+          if (res.status === 401) {
+            try {
+              await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+            } catch (_) { }
+            const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
+            res = await call(newToken)
+          }
+          if (!res.ok) throw new Error(String(res.status))
+          const d = await res.json().catch(() => ({ providers: [] }))
+          const baseList: ProviderMeta[] = Array.isArray(d?.providers) ? d.providers : []
+          // Build test providers (at the front) preserving order from /config (env order)
+          const testList: ProviderMeta[] = (testMode ? testItems : []).map((it) => ({
+            id: `test:${it.id}`,
+            label: `${it.label}`,
+            iconUrl: '',
+            credentialNames: [],
+            credentials: [],
+            supportsAsyncModels: false,
+            inputsSchema: [{ name: 'modelName', label: 'Model Name', type: 'string', default: it.model }]
+          }))
+          const finalList = [...testList, ...baseList]
+          setProviders(finalList)
+          // Default selection: first test provider if present, else first base
+          if (!providerId && finalList.length) {
+            setProviderId(finalList[0].id)
+            // Pre-fill test model
+            if (finalList[0].id.startsWith('test:')) setModelName(testItems[0]?.model || '')
+          }
+        } catch {
+          setProviders([])
         }
-        if (!res.ok) throw new Error(String(res.status))
-        const d = await res.json().catch(() => ({ providers: [] }))
-        const baseList: ProviderMeta[] = Array.isArray(d?.providers) ? d.providers : []
-        // Build test providers (at the front) preserving order from /config (env order)
-        const testList: ProviderMeta[] = (testMode ? testItems : []).map((it) => ({
-          id: `test:${it.id}`,
-          label: `${it.label}`,
-          iconUrl: '',
-          credentialNames: [],
-          credentials: [],
-          supportsAsyncModels: false,
-          inputsSchema: [{ name: 'modelName', label: 'Model Name', type: 'string', default: it.model }]
-        }))
-        const finalList = [...testList, ...baseList]
-        setProviders(finalList)
-        // Default selection: first test provider if present, else first base
-        if (!providerId && finalList.length) {
-          setProviderId(finalList[0].id)
-          // Pre-fill test model
-          if (finalList[0].id.startsWith('test:')) setModelName((testItems[0]?.model) || '')
-        }
-      } catch {
-        setProviders([])
-      }
-    })()
+      })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, testMode, JSON.stringify(testItems)])
 
@@ -145,27 +164,29 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     if (!selectedProvider.supportsAsyncModels) return
     const pid = selectedProvider.id
     if (modelOptionsMap[pid]?.length) return
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/v1/node-load-method/${pid}`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: pid, loadMethod: 'listModels', inputParams: [] })
-        })
-        const data = await res.json()
-        const list = (Array.isArray(data) ? data : []).map((m: any) => m.name)
-        setModelOptionsMap((s) => ({ ...s, [pid]: list }))
-        if (!modelName && list.length) setModelName(list[0])
-      } catch (e) { console.error(`[SpaceBuilder] Failed to load models for provider ${pid}:`, e) }
-    })()
+      ; (async () => {
+        try {
+          const res = await fetch(`/api/v1/node-load-method/${pid}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: pid, loadMethod: 'listModels', inputParams: [] })
+          })
+          const data = await res.json()
+          const list = (Array.isArray(data) ? data : []).map((m: any) => m.name)
+          setModelOptionsMap((s) => ({ ...s, [pid]: list }))
+          if (!modelName && list.length) setModelName(list[0])
+        } catch (e) {
+          console.error(`[SpaceBuilder] Failed to load models for provider ${pid}:`, e)
+        }
+      })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, selectedProvider?.id])
 
   // Keep modelName in sync for test providers
   useEffect(() => {
     if (String(providerId).startsWith('test:')) {
-      const m = (testItems.find((x) => `test:${x.id}` === providerId)?.model) || ''
+      const m = testItems.find((x) => `test:${x.id}` === providerId)?.model || ''
       setModelName(m)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,7 +231,8 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
   const tooLong = sourceText.length > 5000
   const acTooLong = additionalConditions.length > 500
   const canPrepare = useMemo(() => {
-    if (testMode) return Boolean(sourceText.trim() && (disableUserCreds ? true : (model || (providerId && modelName))) && !tooLong && !acTooLong)
+    if (testMode)
+      return Boolean(sourceText.trim() && (disableUserCreds ? true : model || (providerId && modelName)) && !tooLong && !acTooLong)
     return Boolean(sourceText.trim() && ((providerId && modelName) || model) && !tooLong && !acTooLong)
   }, [testMode, disableUserCreds, sourceText, tooLong, acTooLong, model, providerId, modelName])
 
@@ -219,9 +241,9 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     const lines: string[] = []
     items.forEach((it: any, idx: number) => {
       lines.push(`${idx + 1}. ${String(it?.question || '')}`)
-      ;(Array.isArray(it?.answers) ? it.answers : []).forEach((a: any) => {
-        lines.push(`  - ${String(a?.text || '')}${a?.isCorrect ? ' ✅' : ''}`)
-      })
+        ; (Array.isArray(it?.answers) ? it.answers : []).forEach((a: any) => {
+          lines.push(`  - ${String(a?.text || '')}${a?.isCorrect ? ' ✅' : ''}`)
+        })
       if (idx < items.length - 1) lines.push('')
     })
     return lines.join('\n')
@@ -242,7 +264,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
 
   useEffect(() => {
     if (settingsOpen) {
-      let initial = modelKey || (effectiveModels?.[0]?.key || '')
+      let initial = modelKey || effectiveModels?.[0]?.key || ''
       if (testMode && disableUserCreds && testModelOptions.length) initial = testModelOptions[0].key
       setTempModelKey(initial)
     }
@@ -311,7 +333,11 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     if (!quizPlan) return
     setBusy(true)
     try {
-      const data = await generateFlow({ quizPlan, selectedChatModel: buildSelectedChatModel(), options: { includeStartCollectName: collectNames, includeEndScore: showFinal, generateAnswerGraphics: false } })
+      const data = await generateFlow({
+        quizPlan,
+        selectedChatModel: buildSelectedChatModel(),
+        options: { includeStartCollectName: collectNames, includeEndScore: showFinal, generateAnswerGraphics: false }
+      })
       onApply(data, creationMode)
       resetState()
       onClose()
@@ -349,12 +375,16 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
     const call = async (bearer?: string) =>
       fetch(`/api/v1/components-credentials/${encodeURIComponent(credName)}`, {
-        method: 'GET', credentials: 'include', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }
+        method: 'GET',
+        credentials: 'include',
+        headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) }
       })
     try {
       let res = await call(token)
       if (res.status === 401) {
-        try { await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' }) } catch (_) {}
+        try {
+          await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+        } catch (_) { }
         const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
         res = await call(newToken)
       }
@@ -377,14 +407,16 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     setCreateLoading(true)
     try {
       const body = {
-        name: createName || (createSchema.label || createSchema.name || 'Credential'),
+        name: createName || createSchema.label || createSchema.name || 'Credential',
         credentialName: createSchema.name,
         plainDataObj: createValues,
         unikId
       }
       const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
       const res = await fetch(`/api/v1/unik/${encodeURIComponent(unikId)}/credentials`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(body)
       })
       if (!res.ok) throw new Error('Failed to create credential')
@@ -412,11 +444,14 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
     const unikId = (typeof localStorage !== 'undefined' && localStorage.getItem('parentUnikId')) || ''
     const url = `/api/v1/space-builder/providers${unikId ? `?unikId=${encodeURIComponent(unikId)}` : ''}`
     const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || ''
-    const call = async (bearer?: string) => fetch(url, { method: 'GET', credentials: 'include', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) } })
+    const call = async (bearer?: string) =>
+      fetch(url, { method: 'GET', credentials: 'include', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) } })
     try {
       let res = await call(token)
       if (res.status === 401) {
-        try { await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' }) } catch (_) {}
+        try {
+          await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+        } catch (_) { }
         const newToken = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || token
         res = await call(newToken)
       }
@@ -434,7 +469,14 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
 
   return (
     <>
-      <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth='md' disableEnforceFocus={settingsOpen} disableRestoreFocus={settingsOpen}>
+      <Dialog
+        open={open}
+        onClose={busy ? undefined : onClose}
+        fullWidth
+        maxWidth='md'
+        disableEnforceFocus={settingsOpen}
+        disableRestoreFocus={settingsOpen}
+      >
         <DialogTitle>{t('spaceBuilder.title')}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {step === 'input' && (
@@ -468,8 +510,12 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <FormControl fullWidth>
                   <InputLabel>{t('spaceBuilder.questionsCount')}</InputLabel>
-                  <Select label={t('spaceBuilder.questionsCount')} value={questionsCount} onChange={(e) => setQuestionsCount(Number(e.target.value))}>
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <Select
+                    label={t('spaceBuilder.questionsCount')}
+                    value={questionsCount}
+                    onChange={(e) => setQuestionsCount(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
                       <MenuItem key={n} value={n}>
                         {n}
                       </MenuItem>
@@ -478,7 +524,11 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
                 </FormControl>
                 <FormControl fullWidth>
                   <InputLabel>{t('spaceBuilder.answersPerQuestion')}</InputLabel>
-                  <Select label={t('spaceBuilder.answersPerQuestion')} value={answersPerQuestion} onChange={(e) => setAnswersPerQuestion(Number(e.target.value))}>
+                  <Select
+                    label={t('spaceBuilder.answersPerQuestion')}
+                    value={answersPerQuestion}
+                    onChange={(e) => setAnswersPerQuestion(Number(e.target.value))}
+                  >
                     {[2, 3, 4, 5].map((n) => (
                       <MenuItem key={n} value={n}>
                         {n}
@@ -496,7 +546,11 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <FormControl fullWidth>
                   <InputLabel>{t('spaceBuilder.creationModeLabel') || 'Creation mode'}</InputLabel>
-                  <Select label={t('spaceBuilder.creationModeLabel') || 'Creation mode'} value={creationMode} onChange={(e) => setCreationMode(String(e.target.value) as any)}>
+                  <Select
+                    label={t('spaceBuilder.creationModeLabel') || 'Creation mode'}
+                    value={creationMode}
+                    onChange={(e) => setCreationMode(String(e.target.value) as any)}
+                  >
                     <MenuItem value='newSpace'>{t('spaceBuilder.creationMode.newSpace')}</MenuItem>
                     <MenuItem value='replace'>{t('spaceBuilder.creationMode.replace')}</MenuItem>
                     <MenuItem value='append'>{t('spaceBuilder.creationMode.append')}</MenuItem>
@@ -558,7 +612,14 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
           <Box>
             {step === 'input' && (
               <Tooltip title={t('spaceBuilder.modelSettings') || 'Model settings'} arrow>
-                <Button id='sb-model-settings-btn' onClick={() => setSettingsOpen(true)} disabled={busy} variant='contained' size='small' sx={{ minWidth: 36, width: 36, height: 36, p: 0, borderRadius: 1 }}>
+                <Button
+                  id='sb-model-settings-btn'
+                  onClick={() => setSettingsOpen(true)}
+                  disabled={busy}
+                  variant='contained'
+                  size='small'
+                  sx={{ minWidth: 36, width: 36, height: 36, p: 0, borderRadius: 1 }}
+                >
                   <SettingsIcon fontSize='small' />
                 </Button>
               </Tooltip>
@@ -569,13 +630,25 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               <Button onClick={onClose} disabled={busy}>
                 {t('spaceBuilder.cancel') || 'Cancel'}
               </Button>
-              <LoadingButton loading={busy} loadingPosition='start' onClick={onPrepare} disabled={!canPrepare || busy} variant='contained'>
+              <LoadingButton
+                loading={busy}
+                loadingPosition='start'
+                onClick={onPrepare}
+                disabled={!canPrepare || busy}
+                variant='contained'
+              >
                 {busy ? t('spaceBuilder.preparing') || 'Preparing…' : t('spaceBuilder.prepare') || 'Prepare'}
               </LoadingButton>
             </Box>
           ) : step === 'preview' ? (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button onClick={() => { setReviseText(''); setStep('input') }} disabled={busy}>
+              <Button
+                onClick={() => {
+                  setReviseText('')
+                  setStep('input')
+                }}
+                disabled={busy}
+              >
                 {t('spaceBuilder.back') || 'Back'}
               </Button>
               <Button onClick={() => setStep('settings')} disabled={busy} variant='contained'>
@@ -587,7 +660,13 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               <Button onClick={() => setStep('preview')} disabled={busy}>
                 {t('spaceBuilder.back') || 'Back'}
               </Button>
-              <LoadingButton loading={busy} loadingPosition='start' onClick={onGenerate} disabled={!quizPlan || busy} variant='contained'>
+              <LoadingButton
+                loading={busy}
+                loadingPosition='start'
+                onClick={onGenerate}
+                disabled={!quizPlan || busy}
+                variant='contained'
+              >
                 {busy ? t('spaceBuilder.generating') || 'Generating…' : t('spaceBuilder.generate') || 'Generate'}
               </LoadingButton>
             </Box>
@@ -628,19 +707,28 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             ))}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
-          <Button onClick={() => setCreateOpen(false)} disabled={createLoading}>{t('spaceBuilder.cancel') || 'Cancel'}</Button>
+          <Button onClick={() => setCreateOpen(false)} disabled={createLoading}>
+            {t('spaceBuilder.cancel') || 'Cancel'}
+          </Button>
           <LoadingButton loading={createLoading} variant='contained' onClick={submitCreateCredential}>
             {t('spaceBuilder.createCredential.add')}
           </LoadingButton>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={settingsOpen} onClose={busy ? undefined : handleCloseSettings} maxWidth='sm' fullWidth closeAfterTransition={false}>
+      <Dialog
+        open={settingsOpen}
+        onClose={busy ? undefined : handleCloseSettings}
+        maxWidth='sm'
+        fullWidth
+        closeAfterTransition={false}
+      >
         <DialogTitle>{t('spaceBuilder.modelSettingsTitle') || 'Model settings'}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {testMode && (
             <Alert severity='info'>
-              {t('spaceBuilder.testModeInfo') || 'Test mode is active: server always uses test providers; chosen credential models may be disabled.'}
+              {t('spaceBuilder.testModeInfo') ||
+                'Test mode is active: server always uses test providers; chosen credential models may be disabled.'}
             </Alert>
           )}
 
@@ -648,9 +736,15 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             <>
               <FormControl fullWidth disabled={!testModelOptions.length} sx={{ mt: 1 }}>
                 <InputLabel>{t('spaceBuilder.model')}</InputLabel>
-                <Select label={t('spaceBuilder.model')} value={tempModelKey} onChange={(e) => setTempModelKey(String(e.target.value))}>
+                <Select
+                  label={t('spaceBuilder.model')}
+                  value={tempModelKey}
+                  onChange={(e) => setTempModelKey(String(e.target.value))}
+                >
                   {testModelOptions.map((m) => (
-                    <MenuItem key={m.key} value={m.key}>{m.label}</MenuItem>
+                    <MenuItem key={m.key} value={m.key}>
+                      {m.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -664,12 +758,20 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
             <>
               <FormControl fullWidth sx={{ mt: 1 }}>
                 <InputLabel>{t('spaceBuilder.provider') || 'Provider'}</InputLabel>
-                <Select label={t('spaceBuilder.provider') || 'Provider'} value={providerId} onChange={(e) => {
-                  setProviderId(String(e.target.value)); setCredentialId(''); setModelName('')
-                }}>
+                <Select
+                  label={t('spaceBuilder.provider') || 'Provider'}
+                  value={providerId}
+                  onChange={(e) => {
+                    setProviderId(String(e.target.value))
+                    setCredentialId('')
+                    setModelName('')
+                  }}
+                >
                   {providers.map((p) => (
                     <MenuItem key={p.id} value={p.id}>
-                      {p.iconUrl ? <img src={p.iconUrl} alt='' width={18} height={18} style={{ marginRight: 8 }} /> : null}
+                      {p.iconUrl ? (
+                        <img src={p.iconUrl} alt='' width={18} height={18} style={{ marginRight: 8 }} />
+                      ) : null}
                       {p.label}
                     </MenuItem>
                   ))}
@@ -685,48 +787,88 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
               ) : (
                 <FormControl fullWidth disabled={!selectedProvider}>
                   <InputLabel>{t('spaceBuilder.connectCredential') || 'Connect Credential'}</InputLabel>
-                  <Select label={t('spaceBuilder.connectCredential') || 'Connect Credential'} value={credentialId} onChange={(e) => {
-                    const val = String(e.target.value)
-                    if (val === '__create__') {
-                      // reset selection then open creation dialog
-                      setCredentialId('')
-                      openCreateCredential()
-                      return
-                    }
-                    setCredentialId(val)
-                  }}>
+                  <Select
+                    label={t('spaceBuilder.connectCredential') || 'Connect Credential'}
+                    value={credentialId}
+                    onChange={(e) => {
+                      const val = String(e.target.value)
+                      if (val === '__create__') {
+                        // reset selection then open creation dialog
+                        setCredentialId('')
+                        openCreateCredential()
+                        return
+                      }
+                      setCredentialId(val)
+                    }}
+                  >
                     <MenuItem value='__create__'>{t('spaceBuilder.createNew') || '- Create New -'}</MenuItem>
                     {(selectedProvider?.credentials || []).map((c) => (
-                      <MenuItem key={c.id} value={c.id}>{c.label}</MenuItem>
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.label}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               )}
               <FormControl fullWidth disabled={!selectedProvider}>
                 {String(providerId).startsWith('test:') ? (
-                  <TextField label={t('spaceBuilder.model')} value={modelName || (testItems.find((x)=>`test:${x.id}`===providerId)?.model || '')} disabled />
+                  <TextField
+                    label={t('spaceBuilder.model')}
+                    value={modelName || testItems.find((x) => `test:${x.id}` === providerId)?.model || ''}
+                    disabled
+                  />
                 ) : selectedProvider?.supportsAsyncModels ? (
                   <>
                     <InputLabel>{t('spaceBuilder.model')}</InputLabel>
-                    <Select label={t('spaceBuilder.model')} value={modelName} onChange={(e) => setModelName(String(e.target.value))}>
+                    <Select
+                      label={t('spaceBuilder.model')}
+                      value={modelName}
+                      onChange={(e) => setModelName(String(e.target.value))}
+                    >
                       {(modelOptionsMap[selectedProvider.id] || []).map((m: string) => (
-                        <MenuItem key={m} value={m}>{m}</MenuItem>
+                        <MenuItem key={m} value={m}>
+                          {m}
+                        </MenuItem>
                       ))}
                     </Select>
                   </>
                 ) : (
-                  <TextField label={t('spaceBuilder.model')} value={modelName} onChange={(e) => setModelName(e.target.value)} />
+                  <TextField
+                    label={t('spaceBuilder.model')}
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                  />
                 )}
               </FormControl>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 {!!selectedProvider?.inputsSchema?.find((p) => p.name === 'temperature') && (
-                  <TextField type='number' inputProps={{ step: 0.1 }} label='Temperature' value={advParams.temperature ?? ''} onChange={(e) => setAdvParams((s) => ({ ...s, temperature: Number(e.target.value) }))} />
+                  <TextField
+                    type='number'
+                    inputProps={{ step: 0.1 }}
+                    label='Temperature'
+                    value={advParams.temperature ?? ''}
+                    onChange={(e) => setAdvParams((s) => ({ ...s, temperature: Number(e.target.value) }))}
+                  />
                 )}
                 {!!selectedProvider?.inputsSchema?.find((p) => p.name === 'topP') && (
-                  <TextField type='number' inputProps={{ step: 0.1 }} label='TopP' value={advParams.topP ?? ''} onChange={(e) => setAdvParams((s) => ({ ...s, topP: Number(e.target.value) }))} />
+                  <TextField
+                    type='number'
+                    inputProps={{ step: 0.1 }}
+                    label='TopP'
+                    value={advParams.topP ?? ''}
+                    onChange={(e) => setAdvParams((s) => ({ ...s, topP: Number(e.target.value) }))}
+                  />
                 )}
               </Box>
-              <FormControlLabel control={<Checkbox checked={!!advParams.streaming} onChange={(e) => setAdvParams((s) => ({ ...s, streaming: e.target.checked }))} />} label='Streaming' />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!advParams.streaming}
+                    onChange={(e) => setAdvParams((s) => ({ ...s, streaming: e.target.checked }))}
+                  />
+                }
+                label='Streaming'
+              />
             </>
           )}
         </DialogContent>
@@ -737,7 +879,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({ open, on
           <Button
             onClick={() => {
               if (testMode && disableUserCreds) {
-                const next = tempModelKey || (testModelOptions[0]?.key || '')
+                const next = tempModelKey || testModelOptions[0]?.key || ''
                 if (next) setModelKey(next)
               }
               handleCloseSettings()
@@ -759,11 +901,7 @@ const FriendlyReviseHint: React.FC = () => {
   const [open, setOpen] = useState(true)
   if (!open) return null
   return (
-    <Alert
-      severity='info'
-      onClose={() => setOpen(false)}
-      sx={{ mt: 2 }}
-    >
+    <Alert severity='info' onClose={() => setOpen(false)} sx={{ mt: 2 }}>
       {t('spaceBuilder.reviseHint')}
     </Alert>
   )

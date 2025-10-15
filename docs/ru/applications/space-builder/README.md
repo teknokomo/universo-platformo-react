@@ -27,6 +27,7 @@ UI может применить сгенерированный граф в тр
 -   Финальный UPDL‑граф строится локальным детерминированным билдером из валидированного плана (на этом шаге LLM не используется).
 -   Это стабилизирует результат, исключает галлюцинации и уменьшает расход токенов.
 -   Имена узлов и их координаты назначаются билдером для консистентной раскладки.
+-   **Ёмкость графа**: поддерживает до 250 узлов и 500 рёбер (достаточно для 30 вопросов × 5 ответов)
 
 ## Переменные окружения
 
@@ -67,7 +68,7 @@ UI может применить сгенерированный граф в тр
     -   Если `testMode=true` и `disableUserCredentials=true`, показываются только тестовые модели.
     -   В ином случае UI объединяет тестовые модели с моделями из Credentials, сортирует по label и удаляет дубликаты по label.
 -   `POST /api/v1/space-builder/prepare`
-    -   Тело: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
+    -   Тело: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..30, answersPerQuestion: 2..5 } }`
     -   Ответ: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
 -   `POST /api/v1/space-builder/generate`
     -   Тело: либо `{ question: string, selectedChatModel: {...} }`, либо `{ quizPlan: QuizPlan, selectedChatModel: {...} }`

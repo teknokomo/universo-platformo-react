@@ -34,4 +34,4 @@ export const DEMO_MODES: DemoModeConfig[] = [
 /**
  * Default demo mode
  */
-export const DEFAULT_DEMO_MODE: DemoMode = 'off' 
+export const DEFAULT_DEMO_MODE: DemoMode = 'off'

@@ -60,7 +60,7 @@ export class SimpleValidator {
             return false
         }
 
-        return requiredProps.every((prop) => obj.hasOwnProperty(prop))
+        return requiredProps.every((prop) => Object.prototype.hasOwnProperty.call(obj, prop))
     }
 
     /**

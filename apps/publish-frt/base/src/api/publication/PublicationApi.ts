@@ -97,6 +97,8 @@ export class PublicationApi {
      */
     static async savePublicationSettings(canvasId: string, technology: string, settings: any): Promise<void> {
         try {
+            console.log(`🔧 [PublicationApi] Saving ${technology} settings for canvas ${canvasId}:`, settings)
+
             // Get unikId from URL since we need it for the request
             const { unikId } = getCurrentUrlIds()
             if (!unikId) {
@@ -112,7 +114,9 @@ export class PublicationApi {
             if (currentCanvas.chatbotConfig) {
                 try {
                     existingConfig =
-                        typeof currentCanvas.chatbotConfig === 'string' ? JSON.parse(currentCanvas.chatbotConfig) : currentCanvas.chatbotConfig
+                        typeof currentCanvas.chatbotConfig === 'string'
+                            ? JSON.parse(currentCanvas.chatbotConfig)
+                            : currentCanvas.chatbotConfig
                 } catch (parseError) {
                     console.warn('Failed to parse existing chatbotConfig, using empty object:', parseError)
                     existingConfig = {}
@@ -120,10 +124,16 @@ export class PublicationApi {
             }
 
             // Create new configuration with technology settings
+            // IMPORTANT: merge with existing technology block to preserve fields (e.g., timerConfig)
             const newConfig = {
                 ...existingConfig,
-                [technology]: settings
+                [technology]: {
+                    ...(existingConfig[technology] || {}),
+                    ...settings
+                }
             }
+
+            console.log(`🔧 [PublicationApi] New config to save:`, newConfig)
 
             // Implement exclusive publication logic
             if (settings.isPublic) {
@@ -184,12 +194,20 @@ export class PublicationApi {
 
                     // Return technology settings from specific block
                     if (config[technology]) {
+                        // Log full object with explicit timerConfig check
                         console.log(`✅ [PublicationApi] ${technology} settings loaded successfully for canvas ${canvasId}`)
+                        console.log(`   - Full settings object:`, JSON.stringify(config[technology], null, 2))
+                        console.log(`   - timerConfig specifically:`, config[technology].timerConfig)
                         return config[technology]
+                    } else {
+                        console.log(`⚠️ [PublicationApi] No ${technology} settings found in config for canvas ${canvasId}`)
+                        console.log(`   - Available keys in config:`, Object.keys(config))
                     }
                 } catch (parseError) {
                     console.warn(`Failed to parse chatbotConfig when loading ${technology} settings:`, parseError)
                 }
+            } else {
+                console.log(`⚠️ [PublicationApi] No chatbotConfig found for canvas ${canvasId}`)
             }
 
             return null

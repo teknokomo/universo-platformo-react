@@ -4,7 +4,7 @@
 /**
  * Setup and register all available builders
  * Call this function during application initialization
- * 
+ *
  * NOTE: This function is deprecated. Template system now uses TemplateRegistry instead.
  */
 export function setupBuilders(): void {

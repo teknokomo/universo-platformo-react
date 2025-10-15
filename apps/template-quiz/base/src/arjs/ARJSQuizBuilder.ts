@@ -5,7 +5,7 @@ import { BuildOptions, ITemplateBuilder, IFlowData, IQuizTemplateConfig, BuildRe
 import { QuizTemplateConfig as QuizConfig } from '../common/config'
 import { SpaceHandler, ObjectHandler, CameraHandler, LightHandler, DataHandler } from './handlers'
 import { UPDLProcessor } from '@universo-platformo/utils'
-import { IUPDLSpace, IUPDLMultiScene, IUPDLData } from '@universo-platformo/types'
+import { IUPDLMultiScene, IUPDLData } from '@universo-platformo/types'
 
 /**
  * AR.js Quiz Builder - Template-specific implementation
@@ -238,8 +238,6 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
         )
     }
 
-
-
     /**
      * Generate AR.js scene content with proper marker structure
      * Renamed from generateARJSHTML for clarity and consistency
@@ -274,11 +272,11 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
         console.log(`[ARJSQuizBuilder] displayType=${displayType}, cameraUsage=${cameraUsage}, backgroundColor=${backgroundColor}`)
         console.log(`[ARJSQuizBuilder] DEBUG options.backgroundColor:`, (options as any).backgroundColor)
         console.log(`[ARJSQuizBuilder] DEBUG options keys:`, Object.keys(options))
-        
+
         // Simple background color mode for disabled camera
         if (cameraUsage === 'none') {
             console.log(`[ARJSQuizBuilder] Camera disabled - using simple background color: ${backgroundColor}`)
-            
+
             const finalHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -320,13 +318,15 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
 </body>
 </html>`
 
-            console.log(`[ARJSQuizBuilder] Simple background HTML generated (${finalHTML.length} chars), backgroundColor: ${backgroundColor}`)
+            console.log(
+                `[ARJSQuizBuilder] Simple background HTML generated (${finalHTML.length} chars), backgroundColor: ${backgroundColor}`
+            )
             return finalHTML
         }
-        
+
         if (displayType === 'wallpaper') {
             // Allow switching between a rotating wireframe sphere and a simple sky background
-            const useSky = (options as any).wallpaperType === 'sky';
+            const useSky = (options as any).wallpaperType === 'sky'
             const wallpaperEntity = useSky
                 ? `\n    <a-sky color="#0a0a1a"></a-sky>`
                 : `\n    <a-sphere radius="25" \n              segments-width="48" \n              segments-height="32"\n              material="shader: flat; wireframe: true; wireframe-linewidth: 2; color: #00e6ff; opacity: 0.6; side: back; transparent: true"\n              animation="property: rotation; to: 0 360 0; loop: true; dur: 90000; easing: linear"></a-sphere>`
@@ -350,12 +350,13 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
             }
 
             // Camera entity is conditional - but we ALWAYS need a camera for 3D rendering
-            const cameraWithWallpaper = cameraUsage !== 'none' 
-                ? `<!-- Camera with wallpaper background (AR mode with webcam) -->
+            const cameraWithWallpaper =
+                cameraUsage !== 'none'
+                    ? `<!-- Camera with wallpaper background (AR mode with webcam) -->
     <a-entity camera>
         ${wallpaperEntity}
-    </a-entity>` 
-                : `<!-- Camera with wallpaper background (3D mode without webcam) -->
+    </a-entity>`
+                    : `<!-- Camera with wallpaper background (3D mode without webcam) -->
     <a-entity camera>
         ${wallpaperEntity}
     </a-entity>`
@@ -386,9 +387,11 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
     });
 </script>`
 
-            console.log(`[ARJSQuizBuilder] Wallpaper HTML generated (${finalHTML.length} chars), camera entity included:`, 
-                finalHTML.includes('<a-entity camera>'))
-            
+            console.log(
+                `[ARJSQuizBuilder] Wallpaper HTML generated (${finalHTML.length} chars), camera entity included:`,
+                finalHTML.includes('<a-entity camera>')
+            )
+
             return finalHTML
         }
 
@@ -529,15 +532,15 @@ export class ARJSQuizBuilder implements ITemplateBuilder {
     getRequiredLibraries(options?: any): string[] {
         const cameraUsage = options?.cameraUsage || 'standard'
         const displayType = options?.arDisplayType || 'wallpaper'
-        
+
         // Always need A-Frame for 3D content
         const libraries = ['aframe']
-        
+
         if (cameraUsage === 'none') {
             // No camera = no AR.js needed (works for both wallpaper and marker modes)
             return libraries
         }
-        
+
         // Camera enabled = need AR.js for AR functionality
         libraries.push('arjs')
         return libraries

@@ -9,6 +9,13 @@ interface ILibraryConfig {
     aframe?: { version: string; source: string }
 }
 
+// Universo Platformo | Timer configuration interface
+interface ITimerConfig {
+    enabled: boolean
+    minutes: number
+    seconds: number
+}
+
 // Universo Platformo | AR.js specific publication settings interface
 export interface ARJSPublicationSettings {
     isPublic: boolean
@@ -22,6 +29,7 @@ export interface ARJSPublicationSettings {
     wallpaperType?: 'standard'
     cameraUsage?: 'none' | 'standard'
     backgroundColor?: string // Add background color to interface
+    timerConfig?: ITimerConfig // Add timer configuration to interface
 }
 
 /**

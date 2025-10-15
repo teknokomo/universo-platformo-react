@@ -4,23 +4,22 @@
 
 // Local types to avoid circular dependency
 interface IUPDLObject {
-    id: string;
-    name: string;
-    type: string;
-    position: { x: number; y: number; z: number };
-    rotation: { x: number; y: number; z: number };
-    scale: { x: number; y: number; z: number };
-    color: string;
+    id: string
+    name: string
+    type: string
+    position: { x: number; y: number; z: number }
+    rotation: { x: number; y: number; z: number }
+    scale: { x: number; y: number; z: number }
+    color: string
     [key: string]: any
 }
 interface IUPDLMultiScene {
-    scenes: any[];
-    currentSceneIndex: number;
-    totalScenes: number;
+    scenes: any[]
+    currentSceneIndex: number
+    totalScenes: number
     isCompleted: boolean
 }
 import { BuildOptions } from '../../common/types'
-import { SimpleValidator } from '../utils/SimpleValidator'
 
 /**
  * Processes UPDL Object nodes for AR.js generation
@@ -148,7 +147,7 @@ export class ObjectHandler {
 
             // Determine object type and create corresponding A-Frame element
             switch (object.type.toLowerCase()) {
-                case 'box':
+                case 'box': {
                     const boxElement = `<a-box 
                 position="${position}"
                 rotation="${rotation}"
@@ -158,10 +157,9 @@ export class ObjectHandler {
             ></a-box>\n`
                     console.log(`[ObjectHandler] Generated box element: ${boxElement.replace(/\n/g, ' ').trim()}`)
                     return boxElement
-
-                case 'sphere':
+                }
+                case 'sphere': {
                     // Universo Platformo | Normalize sphere radius to 0.5 for consistent size with boxes
-                    const rawRadiusScene = object.geometry?.radius ?? object.radius ?? 1
                     const normalizedRadiusScene = 0.5 // Set to 0.5 to match box size (1x1x1 box ≈ 1 diameter sphere)
                     const sphereElement = `<a-sphere 
                 position="${position}"
@@ -172,6 +170,7 @@ export class ObjectHandler {
             ></a-sphere>\n`
                     console.log(`[ObjectHandler] Generated sphere element: ${sphereElement.replace(/\n/g, ' ').trim()}`)
                     return sphereElement
+                }
 
                 case 'cylinder':
                     return `<a-cylinder 
@@ -230,7 +229,7 @@ export class ObjectHandler {
             ></a-cone>\n`
 
                 // Default, if type is not defined, create a cube
-                default:
+                default: {
                     const defaultElement = `<a-box 
                 position="${position}"
                 rotation="${rotation}"
@@ -240,6 +239,7 @@ export class ObjectHandler {
             ></a-box>\n`
                     console.log(`[ObjectHandler] Generated default box element: ${defaultElement.replace(/\n/g, ' ').trim()}`)
                     return defaultElement
+                }
             }
         } catch (error) {
             console.error(`[ObjectHandler] Error generating object element:`, error)
@@ -274,9 +274,8 @@ export class ObjectHandler {
                 scale="${scale}"
             ></a-box>\n`
 
-                case 'sphere':
+                case 'sphere': {
                     // Universo Platformo | Normalize sphere radius to 0.5 for consistent size with boxes
-                    const rawRadius = object.geometry?.radius ?? object.radius ?? 1
                     const normalizedRadius = 0.5 // Set to 0.5 to match box size (1x1x1 box ≈ 1 diameter sphere)
                     return `<a-sphere 
                 position="${position}"
@@ -284,6 +283,7 @@ export class ObjectHandler {
                 radius="${normalizedRadius}"
                 scale="${scale}"
             ></a-sphere>\n`
+                }
 
                 case 'cylinder':
                     return `<a-cylinder 

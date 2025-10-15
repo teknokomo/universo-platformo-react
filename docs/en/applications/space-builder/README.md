@@ -27,6 +27,7 @@ The UI can apply the generated graph in three modes (Creation mode):
 -   The final UPDL graph is built by a deterministic local builder from the validated quiz plan (no LLM step here).
 -   This stabilizes results, avoids hallucinations and reduces token usage.
 -   Node names and coordinates are assigned by the builder for consistent layouts.
+-   **Graph capacity**: supports up to 250 nodes and 500 edges (sufficient for 30 questions × 5 answers)
 
 ## Environment
 
@@ -67,7 +68,7 @@ Notes:
     -   When `testMode=true` and `disableUserCredentials=true`, only the test items are shown.
     -   Otherwise, the UI merges test items with credential‑based models, sorts by label, and de‑duplicates by label.
 -   `POST /api/v1/space-builder/prepare`
-    -   Request: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
+    -   Request: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..30, answersPerQuestion: 2..5 } }`
     -   Response: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
 -   `POST /api/v1/space-builder/generate`
     -   Request: either `{ question: string, selectedChatModel: {...} }` or `{ quizPlan: QuizPlan, selectedChatModel: {...} }`

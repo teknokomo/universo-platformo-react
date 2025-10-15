@@ -85,8 +85,8 @@ export class FlowDataService {
                             logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
                         }
                         if (config?.arjs) {
-                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor } = config.arjs
-                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor }
+                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor, timerConfig } = config.arjs
+                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor, timerConfig }
                             logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
                         }
                         if (config?.playcanvas) {

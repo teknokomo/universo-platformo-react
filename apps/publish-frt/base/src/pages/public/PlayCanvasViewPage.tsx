@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom'
 import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { UPDLProcessor } from '@universo-platformo/utils'
-import { IUPDLSpace, IUPDLMultiScene } from '@universo-platformo/types'
 import { TemplateRegistry } from '../../builders/common/TemplateRegistry'
 
 // Feature flag for backend fetch - set to false as default per user requirements
@@ -87,7 +86,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData: propF
                 // Use default values from server environment when settings not configured
                 const defaultColyseusSettings = {
                     serverHost: 'localhost', // Default from MULTIPLAYER_SERVER_HOST
-                    serverPort: 2567,       // Default from MULTIPLAYER_SERVER_PORT
+                    serverPort: 2567, // Default from MULTIPLAYER_SERVER_PORT
                     roomName: 'mmoomm_room'
                 }
 

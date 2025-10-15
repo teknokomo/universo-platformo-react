@@ -102,6 +102,11 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [aframeVersion, setAframeVersion] = useState('1.7.1')
     const [aframeSource, setAframeSource] = useState('official')
 
+    // NEW: State for quiz timer configuration
+    const [timerEnabled, setTimerEnabled] = useState(false)
+    const [timerMinutes, setTimerMinutes] = useState(5)
+    const [timerSeconds, setTimerSeconds] = useState(0)
+
     // NEW: State for global settings
     const [globalSettings, setGlobalSettings] = useState(null)
     const [globalSettingsLoaded, setGlobalSettingsLoaded] = useState(false)
@@ -145,7 +150,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         }
 
         try {
-            await ChatflowsApi.saveSettings(currentFlowId, {
+            const settingsToSave = {
                 isPublic: isPublic,
                 projectTitle: projectTitle,
                 markerType: markerType,
@@ -156,14 +161,22 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 arDisplayType: arDisplayType,
                 wallpaperType: wallpaperType,
                 cameraUsage: cameraUsage,
-                backgroundColor: backgroundColor, // Add background color to settings
+                backgroundColor: backgroundColor,
                 // Include library configuration
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
                     aframe: { version: aframeVersion, source: aframeSource }
+                },
+                // Include timer configuration
+                timerConfig: {
+                    enabled: timerEnabled,
+                    minutes: timerMinutes,
+                    seconds: timerSeconds
                 }
-            })
-            console.log('ARJSPublisher: Settings auto-saved') // Simple console.log instead of debugLog
+            }
+            console.log('🔧 [ARJSPublisher] Saving settings with timerConfig:', settingsToSave.timerConfig)
+            await ChatflowsApi.saveSettings(currentFlowId, settingsToSave)
+            console.log('✅ [ARJSPublisher] Settings auto-saved successfully')
         } catch (error) {
             console.error('📱 [ARJSPublisher] Error auto-saving settings:', error)
             // Don't show error to user for auto-save to avoid interrupting UX
@@ -191,10 +204,13 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         arDisplayType,
         wallpaperType,
         cameraUsage,
-        backgroundColor, // Add backgroundColor to dependencies
+        backgroundColor,
+        timerEnabled,
+        timerMinutes,
+        timerSeconds,
         settingsLoading,
         flow?.id
-    ]) // Universo Platformo | re-run when flow changes
+    ])
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
@@ -224,19 +240,34 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     setArDisplayType(savedSettings.arDisplayType || (savedSettings.markerType ? 'marker' : 'wallpaper'))
                     setWallpaperType(savedSettings.wallpaperType || 'standard')
                     setCameraUsage(savedSettings.cameraUsage || 'none')
-                    setBackgroundColor(savedSettings.backgroundColor || '#1976d2') // Load background color
+                    setBackgroundColor(savedSettings.backgroundColor || '#1976d2')
+
+                    // Load timer configuration
+                    console.log('🔧 [ARJSPublisher] Loading timerConfig from savedSettings:', savedSettings.timerConfig)
+                    if (savedSettings.timerConfig) {
+                        setTimerEnabled(savedSettings.timerConfig.enabled || false)
+                        setTimerMinutes(savedSettings.timerConfig.minutes || 5)
+                        setTimerSeconds(savedSettings.timerConfig.seconds || 0)
+                        console.log('✅ [ARJSPublisher] Timer loaded:', {
+                            enabled: savedSettings.timerConfig.enabled,
+                            minutes: savedSettings.timerConfig.minutes,
+                            seconds: savedSettings.timerConfig.seconds
+                        })
+                    } else {
+                        console.log('⚠️ [ARJSPublisher] No timerConfig found in savedSettings, using defaults')
+                    }
 
                     // NEW: Load library configuration with legacy detection and auto-correction
                     if (globalSettings?.enforceGlobalLibraryManagement) {
                         // LEVEL 2: Enforcement mode - detect legacy and handle accordingly
-                        const hasLegacyConfig = savedSettings.libraryConfig && 
+                        const hasLegacyConfig = savedSettings.libraryConfig &&
                             (savedSettings.libraryConfig.arjs?.source !== globalSettings.defaultLibrarySource ||
-                             savedSettings.libraryConfig.aframe?.source !== globalSettings.defaultLibrarySource)
-                        
+                                savedSettings.libraryConfig.aframe?.source !== globalSettings.defaultLibrarySource)
+
                         if (hasLegacyConfig) {
                             // This is a legacy space with conflicting settings
                             setIsLegacyScenario(true) // Mark as legacy scenario
-                            
+
                             if (globalSettings.autoCorrectLegacySettings) {
                                 // Auto-correct legacy settings
                                 console.log('ARJSPublisher: Auto-correcting legacy library configuration')
@@ -244,12 +275,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 setAframeSource(globalSettings.defaultLibrarySource)
                                 setArjsVersion('3.4.7')
                                 setAframeVersion('1.7.1')
-                                
+
                                 // Show correction message to user
                                 setAlert({
                                     type: 'info',
                                     message: t('arjs.globalLibraryManagement.legacyCorrectedMessage', {
-                                        source: globalSettings.defaultLibrarySource === 'official' 
+                                        source: globalSettings.defaultLibrarySource === 'official'
                                             ? t('arjs.globalLibraryManagement.officialSource')
                                             : t('arjs.globalLibraryManagement.kiberplanoSource')
                                     })
@@ -261,12 +292,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                 setArjsSource(savedSettings.libraryConfig.arjs?.source || 'official')
                                 setAframeVersion(savedSettings.libraryConfig.aframe?.version || '1.7.1')
                                 setAframeSource(savedSettings.libraryConfig.aframe?.source || 'official')
-                                
+
                                 // Show recommendation message to user
                                 setAlert({
                                     type: 'warning',
                                     message: t('arjs.globalLibraryManagement.legacyRecommendationMessage', {
-                                        source: globalSettings.defaultLibrarySource === 'official' 
+                                        source: globalSettings.defaultLibrarySource === 'official'
                                             ? t('arjs.globalLibraryManagement.officialSource')
                                             : t('arjs.globalLibraryManagement.kiberplanoSource')
                                     })
@@ -309,7 +340,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     }
                 } else {
                     console.log('ARJSPublisher: No saved settings found, using defaults') // Simple console.log
-                    
+
                     // Apply global settings with two-level logic
                     if (globalSettings?.enforceGlobalLibraryManagement) {
                         // LEVEL 2: Enforcement mode - force global settings
@@ -384,14 +415,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.log('ARJSPublisher: Source change blocked by global library management')
             return
         }
-        
+
         setArjsSource(event.target.value)
-        
+
         // Clear legacy alert and scenario when user changes source in recommendation mode
         if (isLegacyScenario && !globalSettings?.autoCorrectLegacySettings) {
             const newSourceMatchesGlobal = event.target.value === globalSettings.defaultLibrarySource
             const aframeSourceMatchesGlobal = aframeSource === globalSettings.defaultLibrarySource
-            
+
             if (newSourceMatchesGlobal && aframeSourceMatchesGlobal) {
                 setAlert(null)
                 setIsLegacyScenario(false)
@@ -415,14 +446,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             console.log('ARJSPublisher: Source change blocked by global library management')
             return
         }
-        
+
         setAframeSource(event.target.value)
-        
+
         // Clear legacy alert and scenario when user changes source in recommendation mode
         if (isLegacyScenario && !globalSettings?.autoCorrectLegacySettings) {
             const arjsSourceMatchesGlobal = arjsSource === globalSettings.defaultLibrarySource
             const newSourceMatchesGlobal = event.target.value === globalSettings.defaultLibrarySource
-            
+
             if (arjsSourceMatchesGlobal && newSourceMatchesGlobal) {
                 setAlert(null)
                 setIsLegacyScenario(false)
@@ -445,39 +476,45 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         setIsPublic(value)
 
         // If public toggle is off, reset the URL and save settings
-                    if (!value) {
-                setPublishedUrl('')
+        if (!value) {
+            setPublishedUrl('')
 
-                // Universo Platformo | Save settings with isPublic: false
-                if (!DEMO_MODE && flow?.id) {
-                    try {
-                        await ChatflowsApi.saveSettings(flow.id, {
-                            isPublic: false,
-                            projectTitle: projectTitle,
-                            markerType: markerType,
-                            markerValue: markerValue,
-                            templateId: templateType,
-                            generationMode: generationMode,
-                            templateType: templateType,
-                            // New: AR display config
-                            arDisplayType: arDisplayType,
-                            wallpaperType: wallpaperType,
-                            cameraUsage: cameraUsage,
-                            backgroundColor: backgroundColor, // Add background color here too
-                            // NEW: Include library configuration
-                            libraryConfig: {
-                                arjs: { version: arjsVersion, source: arjsSource },
-                                aframe: { version: aframeVersion, source: aframeSource }
-                            }
-                        })
-                        console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
-                    } catch (error) {
-                        console.error('📱 [ARJSPublisher] Error saving settings:', error)
-                        setError('Failed to save settings')
-                    }
+            // Universo Platformo | Save settings with isPublic: false
+            if (!DEMO_MODE && flow?.id) {
+                try {
+                    await ChatflowsApi.saveSettings(flow.id, {
+                        isPublic: false,
+                        projectTitle: projectTitle,
+                        markerType: markerType,
+                        markerValue: markerValue,
+                        templateId: templateType,
+                        generationMode: generationMode,
+                        templateType: templateType,
+                        // New: AR display config
+                        arDisplayType: arDisplayType,
+                        wallpaperType: wallpaperType,
+                        cameraUsage: cameraUsage,
+                        backgroundColor: backgroundColor, // Add background color here too
+                        // NEW: Include library configuration
+                        libraryConfig: {
+                            arjs: { version: arjsVersion, source: arjsSource },
+                            aframe: { version: aframeVersion, source: aframeSource }
+                        },
+                        // Ensure timer persist on private toggle too
+                        timerConfig: {
+                            enabled: timerEnabled,
+                            minutes: timerMinutes,
+                            seconds: timerSeconds
+                        }
+                    })
+                    console.log('ARJSPublisher: Settings saved with isPublic: false') // Simple console.log instead of debugLog
+                } catch (error) {
+                    console.error('📱 [ARJSPublisher] Error saving settings:', error)
+                    setError('Failed to save settings')
                 }
-                return
             }
+            return
+        }
 
         // Universo Platformo | Special handling for demo mode
         if (DEMO_MODE) {
@@ -521,6 +558,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 libraryConfig: {
                     arjs: { version: arjsVersion, source: arjsSource },
                     aframe: { version: aframeVersion, source: aframeSource }
+                },
+                // Ensure timer persist on publish
+                timerConfig: {
+                    enabled: timerEnabled,
+                    minutes: timerMinutes,
+                    seconds: timerSeconds
                 }
             })
             console.log('ARJSPublisher: Settings saved with isPublic: true') // Simple console.log instead of debugLog
@@ -800,7 +843,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     {globalSettings?.enforceGlobalLibraryManagement && !isLegacyScenario && (
                                         <Alert severity="info" sx={{ mb: 2 }}>
                                             {t('arjs.globalLibraryManagement.enforcedMessage', {
-                                                source: globalSettings.defaultLibrarySource === 'official' 
+                                                source: globalSettings.defaultLibrarySource === 'official'
                                                     ? t('arjs.globalLibraryManagement.officialSource')
                                                     : t('arjs.globalLibraryManagement.kiberplanoSource')
                                             })}
@@ -809,8 +852,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                                     {/* Legacy Configuration Alert - shown in place of standard message */}
                                     {alert && isLegacyScenario && (
-                                        <Alert 
-                                            severity={alert.type} 
+                                        <Alert
+                                            severity={alert.type}
                                             sx={{ mb: 2 }}
                                             onClose={() => setAlert(null)}
                                         >
@@ -901,6 +944,70 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     </Box>
                                 </Box>
 
+                                {/* Quiz Timer Configuration Section */}
+                                <Box sx={{ mt: 3, mb: 2 }}>
+                                    <Typography variant='subtitle2' gutterBottom>
+                                        Настройки таймера квиза
+                                    </Typography>
+
+                                    {/* Timer Enable Toggle */}
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={timerEnabled}
+                                                onChange={(e) => setTimerEnabled(e.target.checked)}
+                                                disabled={!!publishedUrl}
+                                            />
+                                        }
+                                        label="Включить таймер"
+                                    />
+
+                                    {/* Timer Duration Settings (only when enabled) */}
+                                    {timerEnabled && (
+                                        <Box sx={{ mt: 2 }}>
+                                            <Grid container spacing={2}>
+                                                <Grid item xs={6}>
+                                                    <TextField
+                                                        fullWidth
+                                                        size='small'
+                                                        label="Минуты"
+                                                        type="number"
+                                                        value={timerMinutes}
+                                                        onChange={(e) => {
+                                                            const value = Math.max(0, Math.min(60, parseInt(e.target.value) || 0))
+                                                            setTimerMinutes(value)
+                                                        }}
+                                                        disabled={!!publishedUrl}
+                                                        inputProps={{ min: 0, max: 60 }}
+                                                        helperText="0-60 минут"
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <TextField
+                                                        fullWidth
+                                                        size='small'
+                                                        label="Секунды"
+                                                        type="number"
+                                                        value={timerSeconds}
+                                                        onChange={(e) => {
+                                                            const value = Math.max(0, Math.min(59, parseInt(e.target.value) || 0))
+                                                            setTimerSeconds(value)
+                                                        }}
+                                                        disabled={!!publishedUrl}
+                                                        inputProps={{ min: 0, max: 59 }}
+                                                        helperText="0-59 секунд"
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                            {timerMinutes === 0 && timerSeconds === 0 && (
+                                                <Alert severity="warning" sx={{ mt: 2 }}>
+                                                    Внимание: общее время таймера не может быть 0. Установите хотя бы 1 секунду.
+                                                </Alert>
+                                            )}
+                                        </Box>
+                                    )}
+                                </Box>
+
                                 {/* Marker Preview (only when marker selected) */}
                                 {arDisplayType === 'marker' && (
                                     <Box sx={{ textAlign: 'center', my: 2 }}>
@@ -969,7 +1076,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                         <PublicationLink url={publishedUrl} onCopy={handleCopyUrl} />
 
                                         {/* QR Code Section */}
-                                        <QRCodeSection 
+                                        <QRCodeSection
                                             publishedUrl={publishedUrl}
                                             disabled={isPublishing}
                                             onDownloadSuccess={(message) => setSnackbar({ open: true, message })}
@@ -979,27 +1086,27 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                             <Typography variant='body2' gutterBottom>
                                                 Инструкция по использованию:
                                             </Typography>
-                                                                                    <Box sx={{ textAlign: 'left', pl: 2 }}>
-                                            <Typography variant='body2' component='div'>
-                                                {arDisplayType === 'wallpaper' ? (
-                                                    <ol>
-                                                        <li>Откройте URL на устройстве с камерой</li>
-                                                        <li>Разрешите доступ к камере</li>
-                                                        <li>Маркер не требуется — фон появится автоматически</li>
-                                                        <li>Проходите квиз</li>
-                                                    </ol>
-                                                ) : (
-                                                    <ol>
-                                                        <li>Откройте URL на устройстве с камерой</li>
-                                                        <li>Разрешите доступ к камере</li>
-                                                        <li>
-                                                            Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}
-                                                        </li>
-                                                        <li>Дождитесь появления 3D объекта</li>
-                                                    </ol>
-                                                )}
-                                            </Typography>
-                                        </Box>
+                                            <Box sx={{ textAlign: 'left', pl: 2 }}>
+                                                <Typography variant='body2' component='div'>
+                                                    {arDisplayType === 'wallpaper' ? (
+                                                        <ol>
+                                                            <li>Откройте URL на устройстве с камерой</li>
+                                                            <li>Разрешите доступ к камере</li>
+                                                            <li>Маркер не требуется — фон появится автоматически</li>
+                                                            <li>Проходите квиз</li>
+                                                        </ol>
+                                                    ) : (
+                                                        <ol>
+                                                            <li>Откройте URL на устройстве с камерой</li>
+                                                            <li>Разрешите доступ к камере</li>
+                                                            <li>
+                                                                Наведите камеру на маркер {markerType === 'preset' ? `"${markerValue}"` : ''}
+                                                            </li>
+                                                            <li>Дождитесь появления 3D объекта</li>
+                                                        </ol>
+                                                    )}
+                                                </Typography>
+                                            </Box>
                                         </Box>
                                     </Box>
                                 )}

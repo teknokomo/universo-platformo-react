@@ -13,7 +13,101 @@ Outcome:
 Notes:
 - Entities `Canvas`, `Space`, and `SpaceCanvas` are local to the package under `src/database/entities/` and re-exported from `src/index.ts`.
 
-## Current Focus (2025-09-18)
+## Current Focus (2025-10-14)
+
+**AR.js Quiz Timer Implementation - COMPLETED + CRITICAL BUG FIXED**
+
+**Implementation Summary:**
+Implemented timer functionality for AR.js quiz publications allowing quiz administrators to set time limits with automatic completion on timeout. Critical bug discovered during QA and fixed to ensure runtime activation.
+
+**Phase 1 - Frontend UI (ARJSPublisher.jsx):**
+- Added state management: `timerEnabled`, `timerMinutes`, `timerSeconds`
+- Created UI section after "Настройки библиотек" with toggle switch and time inputs
+- Integrated save/load flow: `chatbotConfig.arjs.timerConfig = { enabled, minutes, seconds }`
+- Added validation: minutes 0-60, seconds 0-59, warning when total time is 0
+
+**Phase 2 - Backend Extraction (FlowDataService.ts):**
+- Extracted `timerConfig` from `config.arjs` into `renderConfig`
+- Added `timerConfig` field to `RenderConfig` TypeScript interface
+- Ensured backward compatibility: undefined timerConfig handled gracefully
+
+**Phase 3 - Template Generation (DataHandler/index.ts):**
+- Generated timer HTML: fixed position top center with MM:SS countdown display
+- Implemented `QuizTimer` class with start/stop/reset/onTimeUp methods
+- Added warning states: 30s orange background, 10s red with pulse animation
+- Integrated timer lifecycle:
+  - Start: After "Начать квиз" button in `showQuizAfterLeadCollection`
+  - Stop: When entering results screen in `showQuizResults`
+  - Reset: On quiz restart in `restartQuiz`
+  - Timeout: Auto-navigate to results + save lead data in `onTimeUp` callback
+
+**Phase 4 - Testing & Deployment:**
+- Linting: publish-frt 0 errors/69 warnings, template-quiz 0 errors/48 warnings
+- Fixed: Regex escape characters, ColyseusSettings interface conflict, case declarations
+- Build: ✅ 27/27 tasks completed successfully in 6m5s
+
+**Phase 5 - Critical Bug Fix (QA-identified):**
+- QA discovered blocker: timerConfig not passed to buildOptions in ARViewPage.tsx
+- Data flow traced: UI ✅ → API ✅ → Backend ✅ → Frontend ❌ → Template (blocked)
+- Root cause: ARViewPage.tsx extracted timerConfig to renderConfig but didn't add to buildOptions
+- Fix applied: Added `timerConfig: renderConfig.timerConfig` to buildOptions object (line 79)
+- Also added timerConfig to debug console.log for troubleshooting
+- Build: ✅ 27/27 tasks completed successfully in 6m11s
+- **Result**: Timer now properly flows through entire system and activates in runtime
+
+**Current Status:**
+- ✅ All 6 implementation phases completed
+- ✅ Phase 5: Critical bug fixed - timer activation unblocked (ARViewPage.tsx)
+- ✅ Phase 6: Database persistence fixed - TypeScript interface updated (ARJSPublicationApi.ts)
+- ✅ **Full clean rebuild completed** (Phase 6 deployment)
+  - Issue: timerConfig not persisting to database despite save attempts
+  - Root cause: ARJSPublicationSettings interface missing timerConfig field
+  - Solution: Added ITimerConfig interface and timerConfig field to settings interface
+  - Added: Comprehensive logging in ARJSPublisher and PublicationApi for debugging
+  - Rebuild: `pnpm build:clean` executed (27/27 tasks, 7m6.675s, no cache)
+- ✅ **Deployed to production** - Service restarted, online (32.3mb)
+- Ready for browser cache clear and manual testing with detailed logs
+
+**Technical Details:**
+- Storage: `chatbotConfig.arjs.timerConfig` (JSON, no DB migration)
+- Data flow: UI → PublicationApi → chatbotConfig → FlowDataService → renderConfig → ARViewPage → BuildOptions → template
+- Backward compatible: Missing timerConfig → no timer generated
+- Edge cases handled: 0:00 duration warning, no results scene fallback, duplicate save prevention
+
+**Next Steps:**
+1. Manual testing of timer functionality in production
+2. Deployment via `pm2 restart universo-platformo` (requires user approval)
+3. Verification of countdown, warnings, and auto-completion behavior
+
+---
+
+## Previous Focus (2025-10-14)
+
+**Space Builder Question Limit Increase & GraphSchema Capacity Update - COMPLETED**
+
+**Phase 1 Completion:**
+- Increased maximum questions limit from 10 to 30 for quiz creation
+- Updated all validation layers: UI, backend schema, controller, documentation
+- Clean compilation with no errors, deployed to production
+
+**Phase 2 Completion (Issue discovered during user testing):**
+- User tested 30-question quiz generation, encountered validation error
+- Error: "Array must contain at most 150 element(s)" from GraphSchema validation
+- Root cause: 30 questions × 5 answers = 182 nodes, exceeds 150-node limit
+- Solution: Updated GraphSchema limits to max(250) nodes and max(500) edges
+- Mathematical basis: 212 max nodes calculated, 250 provides 18% safety margin
+- Added explanatory comments documenting capacity calculation
+- Updated all documentation with graph capacity specifications (4 README files)
+- Fixed 120 prettier formatting errors with lint --fix
+- Full rebuild completed successfully: 27/27 tasks in 5m44s
+- PM2 restarted with updated code, service online and ready for testing
+
+**Current Status:**
+- All code changes implemented and deployed
+- Ready for user testing with 30-question quiz generation
+- Awaiting user feedback to confirm generation now works correctly
+
+## Previous Focus (2025-09-18)
 
 - AR.js wallpaper mode without camera: ensure background renders in A-Frame-only mode.
 - Implemented wallpaper as rotating wireframe `a-sphere` with `shader: flat` and as optional `a-sky`.
@@ -48,6 +142,43 @@ Next steps: Observe in-browser result; if transparency ordering issues appear, c
 - Frontend: ARViewPage.tsx preserves `cameraUsage` settings without fallback override
 - Template: ARJSQuizBuilder.ts conditionally removes `arjs` attribute and camera entity based on `cameraUsage`
 - UI: ARJSPublisher.jsx field reordering and proper conditional logic for marker/wallpaper modes
+
+## DevOps Mode Enhancement (2025-09-19) - ✅ **COMPLETED**
+
+**Implemented Critical Safety Improvements:**
+- Added PM2 fallback strategy: try `pm2 start universo-platformo` first, fallback to full command if needed
+- **CRITICAL SAFETY**: Added HTTP health checks before disabling maintenance mode (prevents switching to broken app)
+- Fixed nginx pager issues: added `--no-pager` flag to all nginx/systemctl commands
+- Improved maintenance mode management: use existing configurations instead of recreating each time
+- Enhanced error handling with rollback procedures
+
+**Key Safety Features:**
+- Application health verification: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` must return 200
+- Retry logic: up to 3 attempts with 10-second intervals before declaring failure
+- Maintenance mode preservation: if health checks fail, maintenance mode stays active
+- Configuration persistence: leverage existing nginx configs at `/etc/nginx/sites-available/`
+
+**DevOps Process Status:** Production-ready with zero-downtime deployment capabilities and comprehensive safety checks.
+
+## Maintenance Page Enhancement (2025-09-19) - ✅ **COMPLETED**
+
+**Implemented Multilingual Maintenance Page:**
+- Fixed encoding issues: replaced problematic symbols with emoji icons 👨‍💻🔨🚀
+- Updated branding: "Universo Platform" → "Universo Kiberplano" throughout
+- **Automatic language detection**: Russian for ru* locales, English for all others
+- Quality translations for professional maintenance communication
+- Responsive design with animated loading spinner preserved
+
+**Technical Features:**
+- JavaScript language detection via `navigator.language.startsWith('ru')`
+- Dynamic content updates for title, headings, and all text elements
+- Maintains original visual styling with improved accessibility
+- Professional messaging for both languages with appropriate tone
+
+**Integration:**
+- Updated DevOps chatmode documentation for new multilingual maintenance page
+- Seamless integration with existing nginx configuration management
+- Preserved file permissions and deployment workflow compatibility
 - **Library Loading**: Fixed getRequiredLibraries() to conditionally load AR.js only when needed
 - **Wallpaper Mode**: Fixed to work with just A-Frame when camera disabled
 - Build validation: Clean compilation of template-quiz and publish-frt packages

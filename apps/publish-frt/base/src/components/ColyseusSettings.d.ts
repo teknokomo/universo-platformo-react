@@ -3,15 +3,15 @@
 
 import React from 'react'
 
-export interface ColyseusSettings {
+export interface ColyseusConfig {
     serverHost: string
     serverPort: number
     roomName: string
 }
 
 export interface ColyseusSettingsProps {
-    settings?: ColyseusSettings
-    onChange: (settings: ColyseusSettings) => void
+    settings?: ColyseusConfig
+    onChange: (settings: ColyseusConfig) => void
     visible?: boolean
 }
 

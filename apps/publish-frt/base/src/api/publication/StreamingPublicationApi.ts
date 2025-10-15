@@ -1,9 +1,9 @@
 // Universo Platformo | Streaming Publication API - for real-time content generation
 // API client for streaming publication of content across different technologies
 
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 import { getAuthHeaders, getApiBaseUrl } from '../common'
-import { IARJSPublishRequest, IARJSPublishResponse, IUPDLFlowResult, IPublicationDataResult } from '@universo/publish-srv'
+import { IARJSPublishRequest, IARJSPublishResponse, IPublicationDataResult } from '@universo/publish-srv'
 
 // Get base URL when initializing module
 const API_BASE_URL = getApiBaseUrl()
