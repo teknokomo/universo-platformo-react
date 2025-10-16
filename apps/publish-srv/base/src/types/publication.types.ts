@@ -398,6 +398,11 @@ export interface RenderConfig {
     markerValue?: string
     cameraUsage?: 'none' | 'standard'
     backgroundColor?: string // Add background color field
+    timerConfig?: {
+        enabled: boolean
+        limitSeconds: number
+        position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-right'
+    }
 }
 
 export interface RawFlowData {

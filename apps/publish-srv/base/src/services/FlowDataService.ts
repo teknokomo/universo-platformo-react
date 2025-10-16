@@ -5,8 +5,11 @@
 import { DataSource } from 'typeorm'
 import logger from '../utils/logger'
 import { RawFlowData, CanvasMinimal } from '../types/publication.types'
-import { serialization } from '@universo-platformo/utils'
+import { publish, serialization } from '@universo-platformo/utils'
 import { PublishCanvas } from '../database/entities'
+
+const normalizeTimerConfig = (config: unknown) =>
+    publish.normalizeTimerConfig(config as Partial<publish.TimerConfig> | null | undefined)
 
 /**
  * Service for handling flow data extraction from Supabase
@@ -103,8 +106,16 @@ export class FlowDataService {
                             logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
                         }
                         if (config?.arjs) {
-                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor } = config.arjs
-                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor }
+                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor, timerConfig } = config.arjs
+                            renderConfig = {
+                                arDisplayType,
+                                wallpaperType,
+                                markerType,
+                                markerValue,
+                                cameraUsage,
+                                backgroundColor,
+                                ...(timerConfig ? { timerConfig: normalizeTimerConfig(timerConfig) } : {})
+                            }
                             logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
                         }
                         if (config?.playcanvas) {

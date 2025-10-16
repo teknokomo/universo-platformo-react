@@ -80,7 +80,7 @@ vi.mock('@universo/spaces-frt', () => ({
 vi.mock('@/api/lead', () => ({
   __esModule: true,
   default: {
-    getAllLeads: getLeadsMock,
+    getCanvasLeads: getLeadsMock,
   },
 }))
 

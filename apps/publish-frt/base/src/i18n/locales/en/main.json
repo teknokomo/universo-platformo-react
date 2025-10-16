@@ -341,6 +341,41 @@
     "common": {
         "saving": "Saving...",
         "saved": "Saved",
-        "saveError": "Save error"
+        "saveError": "Save error",
+        "retry": "Retry"
+    },
+    "publisher": {
+        "timer": {
+            "title": "Timer Settings",
+            "enabled": "Enable timer",
+            "enabledHelp": "Add countdown timer for quiz completion",
+            "limitSeconds": "Time limit (seconds)",
+            "limitSecondsHelp": "From 10 to 3600 seconds (1 hour)",
+            "position": "Timer position",
+  "positionHelp": "Choose timer location on screen",
+  "topCenter": "Top Center",
+  "topLeft": "Top Left",
+  "topRight": "Top Right",
+            "bottomLeft": "Bottom Left",
+            "bottomRight": "Bottom Right"
+        }
+    },
+    "apiCodeDialog": {
+        "noAuthorization": "No Authorization",
+        "addNewKey": "- Add New Key -",
+        "chooseApiKey": "Choose an API key",
+        "cannotUseApiKey": "You cannot use API key while embedding/sharing chatbot.",
+        "selectNoAuthorization": "Please select <b>\"No Authorization\"</b> from the dropdown at the top right corner.",
+        "showOverrideConfig": "Show Override Config",
+        "overrideConfigDescription": "You can override existing input configuration of the space with overrideConfig property.",
+        "securityNote": "For security reason, override config is disabled by default. You can change this by going into Space Configuration -> Security tab, and enable the property you want to override.",
+        "refer": "Refer",
+        "here": "here",
+        "forMoreDetails": "for more details",
+        "nodes": "Nodes",
+        "variables": "Variables",
+        "multipleValuesNote": "You can also specify multiple values for a config parameter by specifying the node id",
+        "readHere": "Read",
+        "streamingNote": "on how to stream response back to application"
     }
 }

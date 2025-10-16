@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { ILibraryConfig } from '@universo-platformo/types'
 import { ARJSBuilder } from '../../builders'
+import { normalizeTimerConfig } from '../../utils/timerConfig'
 
 type NullableRecord = Record<string, any> | null | undefined
 
@@ -34,6 +35,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({ flowData, renderConfig, library
                 const builder = new ARJSBuilder()
                 const config = (renderConfig as Record<string, any>) || {}
                 const displayType = config.arDisplayType || 'marker'
+                const timerConfig = normalizeTimerConfig(config.timerConfig)
 
                 const buildOptions = {
                     projectName: projectName || 'AR.js Experience',
@@ -41,6 +43,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({ flowData, renderConfig, library
                     canvasId,
                     cameraUsage: config.cameraUsage || 'standard',
                     backgroundColor: config.backgroundColor,
+                    timerConfig,
                     ...(displayType === 'wallpaper'
                         ? {
                               arDisplayType: 'wallpaper',

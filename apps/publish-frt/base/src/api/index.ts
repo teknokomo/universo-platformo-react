@@ -9,3 +9,6 @@ export { getPublishApiClient, resetPublishApiClient } from './client'
 
 // Re-export all publication API clients
 export * from './publication'
+
+// Query keys and invalidation helpers (TanStack Query v5)
+export { publishQueryKeys, invalidatePublishQueries } from './queryKeys'

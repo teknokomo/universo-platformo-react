@@ -8,7 +8,7 @@
 -   `GET /api/v1/space-builder/config` (требуется авторизация)
     -   Ответ: `{ testMode: boolean, disableUserCredentials: boolean, items: Array<{ id, provider, model, label }> }`
 -   `POST /api/v1/space-builder/prepare`
-    -   Тело: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
+-   Тело: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..30, answersPerQuestion: 2..5 } }`
     -   Ответ: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
 -   `POST /api/v1/space-builder/generate`
     -   Тело: либо `{ question: string, selectedChatModel: {...} }`, либо `{ quizPlan: QuizPlan, selectedChatModel: {...} }`

@@ -214,6 +214,55 @@ declare module '@universo/template-mui' {
         'aria-haspopup': 'true'
         disabled: boolean
     }
+
+    export interface ActionContext {
+        entity: any
+        entityKind: string
+        t: (key: string, params?: Record<string, any>) => string
+        api?: {
+            updateEntity?: (id: string, data: any) => Promise<void>
+            deleteEntity?: (id: string) => Promise<void>
+        }
+        helpers?: {
+            enqueueSnackbar?: ((message: string, options?: { variant?: string }) => void) | ((payload: { message: string; options?: { variant?: string } }) => void)
+            confirm?: (config: {
+                title: string
+                description?: string
+                confirmButtonName?: string
+                cancelButtonName?: string
+            }) => Promise<boolean>
+            refreshList?: () => Promise<void>
+            openDeleteDialog?: (entity: any) => void
+            closeSnackbar?: (key: any) => void
+            openWindow?: (url: string) => void
+        }
+        meta?: Record<string, any>
+        runtime?: Record<string, any>
+        [key: string]: any
+    }
+
+    export interface ActionDescriptor {
+        id: string
+        labelKey: string
+        icon?: React.ReactNode | (() => React.ReactNode)
+        order?: number
+        group?: string
+        entityKinds?: string[]
+        visible?: (ctx: ActionContext) => boolean
+        enabled?: (ctx: ActionContext) => boolean
+        confirm?: (ctx: ActionContext) => {
+            titleKey: string
+            descriptionKey?: string
+            confirmKey?: string
+            cancelKey?: string
+            interpolate?: Record<string, any>
+        } | null | undefined
+        dialog?: {
+            loader: () => Promise<{ default: React.ComponentType<any> }>
+            buildProps: (ctx: ActionContext) => Record<string, any>
+        }
+        onSelect?: (ctx: ActionContext) => void | Promise<void>
+    }
 }
 
 declare module '@universo/auth-frt' {

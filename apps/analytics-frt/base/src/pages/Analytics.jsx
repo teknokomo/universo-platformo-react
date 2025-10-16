@@ -123,7 +123,7 @@ const Analytics = () => {
     const [spacesLoading, setSpacesLoading] = useState(true)
     const [canvasesLoading, setCanvasesLoading] = useState(false)
 
-    const getAllLeadsApi = useApi(() => leadsApi.getAllLeads(selectedCanvasId))
+    const getCanvasLeadsApi = useApi(() => leadsApi.getCanvasLeads(selectedCanvasId))
     const getSpacesApi = useApi(() => spacesApi.getSpaces(unikId))
     const getCanvasesApi = useApi(() => (selectedSpaceId ? spacesApi.getCanvases(unikId, selectedSpaceId) : null))
 
@@ -186,7 +186,7 @@ const Analytics = () => {
 
     const onConfirm = () => {
         if (selectedCanvasId) {
-            getAllLeadsApi.request()
+            getCanvasLeadsApi.request()
         }
     }
 
@@ -212,14 +212,14 @@ const Analytics = () => {
     // Load leads whenever canvas changes
     useEffect(() => {
         if (selectedCanvasId) {
-            getAllLeadsApi.request()
+            getCanvasLeadsApi.request()
         }
     }, [selectedCanvasId])
 
     useEffect(() => {
-        if (getAllLeadsApi.data) {
+        if (getCanvasLeadsApi.data) {
             try {
-                const leadsData = getAllLeadsApi.data
+                const leadsData = getCanvasLeadsApi.data
                 setLeads(leadsData)
                 setAnalytics(calculateAnalytics(leadsData))
                 setLoading(false)
@@ -229,15 +229,15 @@ const Analytics = () => {
                 setLoading(false)
             }
         }
-    }, [getAllLeadsApi.data])
+    }, [getCanvasLeadsApi.data])
 
     useEffect(() => {
-        if (getAllLeadsApi.error) {
-            console.error('[Analytics] Error loading leads:', getAllLeadsApi.error)
-            setError(getAllLeadsApi.error)
+        if (getCanvasLeadsApi.error) {
+            console.error('[Analytics] Error loading leads:', getCanvasLeadsApi.error)
+            setError(getCanvasLeadsApi.error)
             setLoading(false)
         }
-    }, [getAllLeadsApi.error])
+    }, [getCanvasLeadsApi.error])
 
     // Handle spaces loading
     // Spaces loaded

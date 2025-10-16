@@ -31,5 +31,7 @@
         "rimraf": "^5.0.5",
         "typescript": "^5.8.3",
         "vitest": "^2.1.4"
+    },
+    "dependencies": {
     }
 }

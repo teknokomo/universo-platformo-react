@@ -3,7 +3,7 @@
 // REFACTORED: Using lazy initialization pattern like profile-srv
 
 import express, { Router, Request, Response } from 'express'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit'
 import { DataSource } from 'typeorm'
 import { PublishController } from '../controllers/publishController'
 import { FlowDataService } from '../services/FlowDataService'
@@ -23,21 +23,34 @@ export function createPublishRoutes(dataSource: DataSource): Router {
 
         // Rate limiting (MVP, conservative defaults)
         // Note: ensure app.set('trust proxy', 1) at the server entry if behind a proxy
-        const writeLimiter = rateLimit({
-            windowMs: 60 * 1000, // 1 minute
-            max: 60, // 60 write requests per IP per minute
-            standardHeaders: true,
-            legacyHeaders: false,
-            message: { success: false, error: 'Too many requests, please try again later.' }
-        })
+        const createRateLimitHandler = (type: 'read' | 'write'): RateLimitRequestHandler =>
+            rateLimit({
+                windowMs: 60 * 1000,
+                max: type === 'read' ? 200 : 60,
+                standardHeaders: true,
+                legacyHeaders: false,
+                handler: (req, res) => {
+                    const limitInfo = (req as any).rateLimit
+                    const resetMs = limitInfo?.resetTime ? Math.max(0, limitInfo.resetTime.getTime() - Date.now()) : 60_000
+                    const retryAfterSeconds = Math.max(1, Math.ceil(resetMs / 1000))
 
-        const readLimiter = rateLimit({
-            windowMs: 60 * 1000,
-            max: 200, // 200 read requests per IP per minute
-            standardHeaders: true,
-            legacyHeaders: false,
-            message: { success: false, error: 'Too many requests, please try again later.' }
-        })
+                    res.set({
+                        'Retry-After': retryAfterSeconds.toString(),
+                        'X-RateLimit-Limit': String(limitInfo?.limit ?? 0),
+                        'X-RateLimit-Remaining': String(limitInfo?.remaining ?? 0),
+                        'X-RateLimit-Reset': limitInfo?.resetTime ? limitInfo.resetTime.toISOString() : ''
+                    })
+
+                    logger.warn(
+                        `[publish:${type}] rate limit exceeded for ${req.ip} (${limitInfo?.current}/${limitInfo?.limit})`
+                    )
+
+                    res.status(429).json({ success: false, error: 'Too many requests, please try again later.' })
+                }
+            })
+
+        const writeLimiter = createRateLimitHandler('write')
+        const readLimiter = createRateLimitHandler('read')
 
     // Helper to create controller lazily after DataSource is ready
     const getController = async (): Promise<PublishController> => {

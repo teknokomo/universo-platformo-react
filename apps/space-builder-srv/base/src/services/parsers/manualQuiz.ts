@@ -87,8 +87,8 @@ export function parseManualQuizText(rawText: string): QuizPlan {
     issues.push('At least one question is required.')
   }
 
-  if (items.length > 10) {
-    issues.push('A maximum of 10 questions is allowed.')
+  if (items.length > 30) {
+    issues.push('A maximum of 30 questions is allowed.')
   }
 
   items.forEach((item) => {

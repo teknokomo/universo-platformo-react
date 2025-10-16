@@ -3,6 +3,39 @@ import axios, { AxiosInstance } from 'axios'
 export const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
 const CSRF_STORAGE_SYMBOL = Symbol.for('universo.auth.csrfStorageKey')
 
+const RETRYABLE_METHODS = new Set(['get', 'head', 'options'])
+const RETRYABLE_STATUSES = new Set([503, 504])
+const MAX_RETRY_ATTEMPTS = 4
+const BASE_BACKOFF_MS = 300
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const parseRetryAfter = (value: unknown): number | null => {
+        if (!value) return null
+        if (typeof value === 'string') {
+                const seconds = Number(value)
+                if (!Number.isNaN(seconds)) {
+                        return Math.max(0, seconds * 1000)
+                }
+                const nextDate = Date.parse(value)
+                if (!Number.isNaN(nextDate)) {
+                        const diff = nextDate - Date.now()
+                        return diff > 0 ? diff : 0
+                }
+        }
+        return null
+}
+
+const resolveBackoffDelay = (attempt: number, retryAfter?: unknown): number => {
+        const headerDelay = parseRetryAfter(retryAfter)
+        if (headerDelay !== null) {
+                return headerDelay + Math.random() * 150
+        }
+        const expo = BASE_BACKOFF_MS * Math.pow(2, attempt)
+        const jitter = Math.random() * 100
+        return expo + jitter
+}
+
 export interface AuthClientOptions {
         /** Base URL pointing to the API root (e.g. `${baseURL}/api/v1`). */
         baseURL: string
@@ -79,11 +112,31 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
 
         instance.interceptors.response.use(
                 (response) => response,
-                (error) => {
-                        if (error?.response?.status === 419) {
+                async (error) => {
+                        const status = error?.response?.status
+                        if (status === 419) {
                                 const storage = getSessionStorage()
                                 storage?.removeItem(mergedOptions.csrfStorageKey)
                         }
+
+                        const config: Record<string, any> = error?.config ?? {}
+                        const method = typeof config?.method === 'string' ? config.method.toLowerCase() : ''
+                        const shouldRetry =
+                                RETRYABLE_METHODS.has(method) &&
+                                typeof status === 'number' &&
+                                RETRYABLE_STATUSES.has(status)
+
+                        if (shouldRetry) {
+                                const currentAttempt = config.__retryCount ?? 0
+                                if (currentAttempt < MAX_RETRY_ATTEMPTS) {
+                                        const retryAfterHeader = error?.response?.headers?.['retry-after'] ?? error?.response?.headers?.['Retry-After']
+                                        const delayMs = resolveBackoffDelay(currentAttempt, retryAfterHeader)
+                                        config.__retryCount = currentAttempt + 1
+                                        await delay(delayMs)
+                                        return instance(config)
+                                }
+                        }
+
                         return Promise.reject(error)
                 },
         )

@@ -22,6 +22,11 @@ export interface ARJSPublicationSettings {
     wallpaperType?: 'standard'
     cameraUsage?: 'none' | 'standard'
     backgroundColor?: string // Add background color to interface
+    timerConfig?: {
+        enabled: boolean
+        limitSeconds: number
+        position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-right'
+    }
 }
 
 /**

@@ -1,53 +1,389 @@
-## 2025-10-13 — Architecture Simplification: Direct Dialog Integration ✅
+## 2025-10-16 — Code Quality: Eliminated Duplicate API Method ✅
 
-**Current Status**: Simplified architecture by removing adapters (140 lines deleted). Fixed critical i18n bug causing language keys to display.
+**Issue**: Lead API client had duplicate methods (`getAllLeads` and `getCanvasLeads`) with identical implementation. Only `getAllLeads` was used, `getCanvasLeads` was dead code.
 
-### Latest Changes:
+**Analysis**:
+- grep search revealed `getAllLeads` used only in Analytics.jsx (18 occurrences)
+- `getCanvasLeads` was never used anywhere in codebase
+- Both methods called same endpoint: `GET /api/v1/leads/:id`
+- Decision: Keep more descriptive name (`getCanvasLeads`), eliminate generic name
 
-**Architecture Refactoring** (MVP-focused simplification):
-- ❌ **Removed**: EntityFormDialogAdapter.tsx (67 lines) - unnecessary abstraction
-- ❌ **Removed**: ConfirmDeleteDialogAdapter.tsx (64 lines) - duplicate logic
-- ✅ **Direct imports**: Components now imported directly from template-mui
-- ✅ **Fixed i18n**: Changed namespace 'flowList' → 'metaverses'
-- ✅ **Internal loading**: ConfirmDeleteDialog manages own state
+**Refactoring Applied**:
+1. ✅ **API Client** (`packages/ui/src/api/lead.js`):
+   - Removed duplicate `getAllLeads` method
+   - Kept only `getCanvasLeads` for clarity
+   - Export simplified to: `{ getCanvasLeads, addLead }`
 
-### Why Removed Adapters?
+2. ✅ **Analytics Component** (`apps/analytics-frt/base/src/pages/Analytics.jsx`):
+   - Renamed hook: `getAllLeadsApi` → `getCanvasLeadsApi`
+   - Updated 9 usages: `.request()`, `.data`, `.error`
+   - Consistent naming throughout component
 
-**Problem Identified**:
-1. Language keys showing instead of translations (e.g., "metaverses.edit")
-2. Wrong namespace ('flowList' instead of 'metaverses')
-3. 140 lines of duplicate loading/error logic
-4. Unnecessary abstraction for MVP
+3. ✅ **Test Mock** (`apps/analytics-frt/base/src/pages/__tests__/Analytics.test.tsx`):
+   - Changed mock: `getAllLeads: getLeadsMock` → `getCanvasLeads: getLeadsMock`
 
-**Solution**:
-- ✅ Fix root cause: namespace='metaverses' in BaseEntityMenu
-- ✅ Use components directly (no wrapper needed)
-- ✅ Components manage own loading states
-- ✅ Simpler, cleaner code
+**Validation**:
+- ✅ Build successful: `flowise-ui` package (1m 2s)
+- ✅ Build successful: `analytics-frt` package
+- ✅ Tests passed: 1/1 with 77.57% coverage
+- ✅ No functional changes - pure refactoring
 
-### Current Implementation:
+**Impact**: More maintainable code with descriptive naming. `getCanvasLeads` clearly indicates it fetches leads for a specific canvas (not all leads globally). Eliminated confusion from duplicate methods.
 
-**MetaverseList.tsx** (Fixed i18n):
+---
+
+## 2025-10-16 — Auth Translation Keys Bug Fix ✅
+
+**Issue**: Login and registration pages showing translation keys (e.g., `auth.createAccount`, `auth.loginInstead`) instead of actual translated text.
+
+**Root Cause**: Component `Auth.jsx` was using translation keys that didn't exist in translation files:
+- Used: `auth.createAccount`, `auth.haveAccount`, `auth.loginInstead`
+- Available: `auth.registerLink`, `auth.hasAccount`, `auth.loginLink`
+
+**Fix Applied**:
+- ✅ Updated `Auth.jsx` to use correct translation keys that exist in both `en.json` and `ru.json`
+- ✅ Mapped `createAccount` → `registerLink` ("Register" / "Зарегистрироваться")
+- ✅ Mapped `haveAccount` → `hasAccount` ("Already have an account?" / "Уже есть аккаунт?")
+- ✅ Mapped `loginInstead` → `loginLink` ("Login" / "Войти")
+- ✅ Build successful: `flowise-ui` package rebuilt
+
+**Files Modified**:
+- `packages/ui/src/views/up-auth/Auth.jsx` - Fixed translation key mappings
+
+**Testing**: Ready for browser testing to verify login and registration pages display proper localized text.
+
+---
+
+## 2025-10-16 — Analytics API Method Missing Bug Fix ✅
+
+**Issue**: Analytics page showing `TypeError: Ie.getAllLeads is not a function` when trying to view quiz lead data.
+
+**Root Cause**: API client (`packages/ui/src/api/lead.js`) was missing the `getAllLeads` method that Analytics component was trying to call. The client only had `getCanvasLeads` and `addLead` methods.
+
+**Fix Applied**:
+- ✅ Added `getAllLeads` method to lead API client as alias for `getCanvasLeads`
+- ✅ Both methods now point to the same backend endpoint: `GET /api/v1/leads/:id`
+- ✅ Build successful: `flowise-ui` package rebuilt
+
+**Files Modified**:
+- `packages/ui/src/api/lead.js` - Added `getAllLeads` method export
+
+**Testing**: Ready for browser testing to verify Analytics page loads lead data correctly.
+
+---
+
+## 2025-10-16 — AR.js Timer Position Bug Fix ✅
+
+**Issue**: Timer with `position: "top-center"` was displayed as `"top-right"` in published AR.js applications.
+
+**Root Cause**: In `apps/template-quiz/base/src/arjs/handlers/DataHandler/index.ts`, the position validation array was missing `'top-center'`:
 ```typescript
-<BaseEntityMenu
-    namespace='metaverses'  // ✅ Was 'flowList' - FIXED
-    descriptors={metaverseActions}
-    ...
-/>
+// ❌ BEFORE (BUG):
+position: (['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).includes(
+    timerConfig.position as any
+)
+    ? (timerConfig.position as string)
+    : 'top-right'  // Fallback when position not found
 ```
 
-**MetaverseActions.tsx** (Direct imports):
-```typescript
-// Edit action
-dialog: {
-    loader: async () => {
-        const module = await import('@universo/template-mui/components/dialogs')
-        return { default: module.EntityFormDialog }  // ✅ Direct
-    }
+**Fix Applied**:
+- ✅ Added `'top-center'` to validation array (line 142)
+- ✅ Changed default fallback from `'top-right'` to `'top-center'` (line 147)
+- ✅ Changed CSS position fallback from `'top-right'` to `'top-center'` (line 203)
+- ✅ All tests pass: `timerConfig.test.ts` and `ARJSPublisher.test.tsx`
+- ✅ Build successful: `@universo/template-quiz` and `publish-frt`
+
+**Files Modified**:
+- `apps/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` (2 locations)
+
+**Testing**: 
+- Unit tests confirm `'top-center'` is now properly validated
+- Ready for browser testing to verify visual position in published AR apps
+
+---
+
+## 2025-10-16 — AR.js Timer Configuration Pipeline ✅
+
+**Scope**: Restored end-to-end timer support in AR publications while keeping new Canvas architecture intact.
+
+- ✅ **ARJSPublisher** now sanitizes timer inputs through shared helpers and persists them alongside other AR.js settings.
+- ✅ **Timer utilities** (`normalizeTimerConfig`, `sanitizeTimerInput`) centralize clamping (10–3600 s) and position whitelists for both editor and public viewer.
+- ✅ **FlowDataService** normalizes `timerConfig` extracted from Supabase JSON, preventing invalid payloads from breaking published builds.
+- ✅ **Public AR viewer** forwards normalized timer data to `ARJSBuilder`, enabling countdown overlays in published quizzes.
+- ✅ **Regression tests** cover timer helpers and ensure publication saves include timer payloads.
+
+## 2025-01-16 — useQuery() Refactoring: Fixed Request Deduplication ✅
+
+**Current Status**: Successfully refactored ARJSPublisher and PlayCanvasPublisher to use declarative `useQuery()` hook instead of imperative `fetchQuery()`. This CRITICAL fix enables automatic request deduplication.
+
+### Latest Changes (16 января 2025):
+
+**useQuery() Refactoring (Critical Fix for 429 Errors):**
+- ✅ **ARJSPublisher**: Replaced `queryClient.fetchQuery()` in useEffect with `useQuery()` hook
+- ✅ **PlayCanvasPublisher**: Replaced `queryClient.fetchQuery()` in useEffect with `useQuery()` hook
+- ✅ **Removed**: Manual state management (versionGroupFetchAttempted, setResolvedVersionGroupId)
+- ✅ **Added**: Automatic loading states, error handling via `useQuery()`
+- ✅ **Builds**: Both publish-frt and flowise-ui compile successfully
+- ✅ **Ready**: For browser testing to verify request deduplication
+
+**Why This Fix is Critical**:
+```javascript
+// ❌ BEFORE (WRONG - No Deduplication):
+useEffect(() => {
+    const payload = await queryClient.fetchQuery({  // Imperative API
+        queryKey: ['publish', 'canvas', unikId, String(flow.id)],
+        queryFn: async () => { /* ... */ }
+    })
+    // Problem: Each component makes its own HTTP request
+    // Even with same query key, fetchQuery doesn't deduplicate
+}, [flow?.id, queryClient, ...])  // queryClient in deps causes re-runs
+
+// ✅ AFTER (CORRECT - Automatic Deduplication):
+const { data: canvasData, isLoading, isError } = useQuery({  // Declarative API
+    queryKey: ['publish', 'canvas', currentUnikId, String(flow?.id)],
+    queryFn: async () => {
+        const response = await PublicationApi.getCanvasById(currentUnikId, String(flow.id))
+        return response?.data
+    },
+    enabled: !!flow?.id && !!currentUnikId && !normalizedVersionGroupId,
+    staleTime: 5 * 60 * 1000,
+    retry: false
+})
+
+// Compute resolvedVersionGroupId from data
+const resolvedVersionGroupId = useMemo(() => {
+    if (normalizedVersionGroupId) return normalizedVersionGroupId
+    if (canvasData) return FieldNormalizer.normalizeVersionGroupId(canvasData)
+    return null
+}, [normalizedVersionGroupId, canvasData])
+
+// Benefit: TanStack Query automatically deduplicates concurrent requests
+// If ARJSPublisher and PlayCanvasPublisher both request same data,
+// only ONE HTTP request is made!
+```
+
+**Previous Implementation (13 января 2025):**
+- ✅ **Created**: `packages/ui/src/config/queryClient.js` - central configuration
+- ✅ **Integrated**: QueryClientProvider at `packages/ui/src/index.jsx` (application root)
+- ✅ **Added**: React Query DevTools for development debugging
+- ✅ **Created**: Query Key Factory at `apps/publish-frt/base/src/api/queryKeys.ts`
+- ✅ **Removed**: All local QueryClient instances (APICodeDialog, PublishQueryProvider, PublishDialog)
+- ✅ **Cleaned**: Obsolete files and imports
+
+### Critical Architecture Fix: Single Global QueryClient 🎯
+
+**Problem Identified During QA**:
+1. ❌ **Original Proposal**: Create QueryClient at PublishDialog level (per-dialog instance)
+2. ❌ **Anti-Pattern**: Violates TanStack Query v5 official guidance
+3. ❌ **Official Docs**: "In most cases, you should create a single QueryClient per application at the root level"
+4. ❌ **Issues**: Isolated caches, lost data on dialog close, no cross-dialog deduplication → 429 errors persist
+
+**Correct Architecture Implemented**:
+```javascript
+// packages/ui/src/config/queryClient.js
+export function createGlobalQueryClient() {
+    return new QueryClient({
+        defaultOptions: {
+            queries: {
+                staleTime: 5 * 60 * 1000,        // 5 minutes (vs previous 30s)
+                gcTime: 30 * 60 * 1000,           // 30 minutes GC
+                refetchOnWindowFocus: false,
+                retry: (failureCount, error) => {
+                    const status = error?.response?.status
+                    // NEVER retry 401/403/404/429
+                    if ([401, 403, 404, 429].includes(status)) return false
+                    // Retry 5xx errors up to 2 times
+                    if (status >= 500 && status < 600) return failureCount < 2
+                    return false
+                },
+                retryDelay: (attempt, error) => {
+                    // Respect Retry-After header if present
+                    const retryAfter = parseRetryAfter(error?.response?.headers)
+                    if (retryAfter !== null) return retryAfter + Math.random() * 150
+                    // Exponential backoff: min(1s * 2^attempt, 30s)
+                    return Math.min(1000 * Math.pow(2, attempt), 30000)
+                }
+            }
+        }
+    })
 }
 
-// Delete action
-dialog: {
+// packages/ui/src/index.jsx - Application Root
+const queryClient = createGlobalQueryClient()
+
+root.render(
+    <React.StrictMode>
+        <QueryClientProvider client={queryClient}>
+            <Provider store={store}>
+                <BrowserRouter>
+                    {/* Entire app tree gets single QueryClient */}
+                </BrowserRouter>
+            </Provider>
+            {/* DevTools only in development */}
+            {process.env.NODE_ENV === 'development' && (
+                <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+            )}
+        </QueryClientProvider>
+    </React.StrictMode>
+)
+```
+
+**Query Key Factory Pattern**:
+```typescript
+// apps/publish-frt/base/src/api/queryKeys.ts
+export const publishQueryKeys = {
+    all: ['publish'],
+    links: () => [...publishQueryKeys.all, 'links'],
+    linksByTechnology: (technology: string) => [
+        ...publishQueryKeys.links(), 
+        'byTechnology', 
+        technology
+    ],
+    linksByVersion: (
+        technology: string, 
+        flowId: string | number | null | undefined, 
+        versionGroupId: string | null | undefined
+    ) => [
+        ...publishQueryKeys.linksByTechnology(technology),
+        'flow',
+        String(flowId ?? 'null'),  // Normalize to string
+        'version',
+        versionGroupId ?? 'null'
+    ],
+    // ... more keys
+}
+
+// Helper functions for cache invalidation
+export const invalidatePublishQueries = {
+    all: (queryClient: QueryClient) => 
+        queryClient.invalidateQueries({ queryKey: publishQueryKeys.all }),
+    linksByTechnology: (queryClient: QueryClient, technology: string) =>
+        queryClient.invalidateQueries({ queryKey: publishQueryKeys.linksByTechnology(technology) })
+    // ... more helpers
+}
+```
+
+## 2024-10-16 — QueryClient Integration Fixed (MVP Solution) ✅ [ARCHIVED]
+
+**Status**: SUPERSEDED by global QueryClient architecture. This section kept for historical reference only.
+
+**Old Status**: Successfully fixed "No QueryClient set" error by integrating TanStack Query directly into packages/ui. MVP approach ensures minimal changes and immediate bug fix.
+
+### Latest Changes (16 октября 2025):
+
+**QueryClient Integration (MVP approach):**
+- ✅ **Added**: `@tanstack/react-query@^5.90.3` to `packages/ui/package.json`
+- ✅ **Integrated**: QueryClient directly in `packages/ui/src/views/canvases/APICodeDialog.jsx`
+- ✅ **Wrapped**: ARJSPublisher and PlayCanvasPublisher in `QueryClientProvider`
+- ✅ **Fixed**: "No QueryClient set" error causing white screen
+- ✅ **Tested**: Full build successful (flowise-ui built in 1m 9s)
+- ✅ **Validated**: No TypeScript/ESLint errors
+
+### Critical Bug Fix: QueryClient Provider 🎯
+
+**Problem Root Cause**:
+1. APICodeDialog imports ARJSPublisher and PlayCanvasPublisher directly from publish-frt
+2. Publishers use `useQueryClient()` hook (TanStack Query v5)
+3. No QueryClientProvider in packages/ui → "No QueryClient set" error
+4. White screen and console errors when opening "Публикация" tab
+
+**MVP Solution Implemented**:
+```javascript
+// packages/ui/src/views/canvases/APICodeDialog.jsx
+
+// 1. Import TanStack Query
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useMemo } from 'react'
+
+// 2. Create QueryClient in component
+const publishQueryClient = useMemo(() => new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 30_000,          // 30 seconds
+            gcTime: 5 * 60_000,         // 5 minutes
+            retry: (failureCount, error) => {
+                const status = error?.response?.status
+                if (!status) return failureCount < 1
+                // Don't retry on auth/rate limit errors
+                if (status === 401 || status === 403 || status === 404 || status === 429) {
+                    return false
+                }
+                return failureCount < 1
+            },
+            retryDelay: (attempt, error) => {
+                // Respect Retry-After header
+                const retryAfter = error?.response?.headers?.['retry-after']
+                if (retryAfter) {
+                    const seconds = Number(retryAfter)
+                    if (!Number.isNaN(seconds)) {
+                        return Math.max(0, seconds * 1000) + Math.random() * 150
+                    }
+                }
+                // Exponential backoff
+                return 300 * Math.pow(2, attempt)
+            }
+        }
+    }
+}), [])
+
+// 3. Wrap publishers in QueryClientProvider
+<QueryClientProvider client={publishQueryClient}>
+    <ARJSPublisher flow={currentCanvas} unikId={effectiveUnikId} />
+</QueryClientProvider>
+
+<QueryClientProvider client={publishQueryClient}>
+    <PlayCanvasPublisher flow={currentCanvas} />
+</QueryClientProvider>
+```
+
+### Why MVP Approach?
+
+**Advantages**:
+- ✅ **Minimal changes**: Only 2 files modified (package.json + APICodeDialog.jsx)
+- ✅ **Immediate fix**: White screen error resolved
+- ✅ **No breaking changes**: Existing code continues working
+- ✅ **Fast implementation**: 10 minutes vs hours for full migration
+- ✅ **Low risk**: Isolated changes, easy to revert if needed
+
+**Trade-offs** (acceptable for MVP):
+- ⚠️ APICodeDialog remains in packages/ui (not fully migrated to publish-frt)
+- ⚠️ Duplicate QueryClient configuration (also exists in PublishDialog.tsx)
+- ⚠️ PublishDialog.tsx not used yet (future improvement)
+
+### Previous Migration Context:
+
+**UI Component Migration** (14 files copied to publish-frt):
+- ✅ **Copied**: APICodeDialog.jsx (1031 lines) to apps/publish-frt/base/src/features/dialog/
+- ✅ **Copied**: 3 dialog components, 7 chatbot components, 4 API components
+- ✅ **Created**: PublishDialog.tsx wrapper (for future use)
+- ❌ **Not integrated**: Publishers still imported directly, bypassing PublishDialog
+
+**Original Plan vs Reality**:
+- **Plan**: Use PublishDialog wrapper to provide QueryClient
+- **Reality**: APICodeDialog in packages/ui imports publishers directly
+- **Solution**: Add QueryClient directly in packages/ui (pragmatic MVP)
+
+### Architecture Notes:
+
+**Current State**:
+```
+packages/ui/src/views/canvases/APICodeDialog.jsx
+  ├─ Creates QueryClient
+  ├─ Wraps ARJSPublisher in QueryClientProvider
+  └─ Wraps PlayCanvasPublisher in QueryClientProvider
+
+apps/publish-frt/base/src/features/arjs/ARJSPublisher.jsx
+  └─ Uses useQueryClient() hook ✅ (now works!)
+
+apps/publish-frt/base/src/features/playcanvas/PlayCanvasPublisher.jsx
+  └─ Uses useQueryClient() hook ✅ (now works!)
+```
+
+**Future Migration Path**:
+1. Phase 1 (MVP): ✅ **DONE** - Add QueryClient in packages/ui
+2. Phase 2 (Future): Migrate UI components to publish-frt
+3. Phase 3 (Future): Replace APICodeDialog import with PublishDialog
+4. Phase 4 (Future): Remove QueryClient from packages/ui (use PublishDialog)
     loader: async () => {
         const module = await import('@universo/template-mui/components/dialogs')
         return { default: module.ConfirmDeleteDialog }  // ✅ Direct
