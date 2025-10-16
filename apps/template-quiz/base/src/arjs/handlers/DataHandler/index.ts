@@ -31,6 +31,28 @@ import { BuildOptions } from '../../../common/types'
 export class DataHandler {
     // Universo Platformo | Global points counter for quiz
     private currentPoints: number = 0
+
+    // Universo Platformo | UI Constants for safe timer integration
+    private static readonly TIMER_Z_INDEX = 9998 // Below quiz container (9999)
+    private static readonly QUIZ_CONTAINER_Z_INDEX = 9999
+
+    private static readonly WARNING_THRESHOLD_SECONDS = 30
+    private static readonly DANGER_THRESHOLD_SECONDS = 10
+
+    private static readonly TIMER_POSITIONS = {
+        'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto', transform: 'none' },
+        'top-center': { top: '10px', left: '50%', right: 'auto', bottom: 'auto', transform: 'translateX(-50%)' },
+        'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto', transform: 'none' },
+        'bottom-left': { bottom: '80px', left: '10px', right: 'auto', top: 'auto', transform: 'none' },
+        'bottom-right': { bottom: '80px', right: '10px', left: 'auto', top: 'auto', transform: 'none' }
+    }
+
+    private static readonly DEFAULT_TIMER_CONFIG = {
+        enabled: false,
+        limitSeconds: 60,
+        position: 'top-center' as const
+    }
+
     /**
      * Process data array for quiz functionality
      * @param datas Array of UPDL data nodes
@@ -112,14 +134,28 @@ export class DataHandler {
                 spaceDataKeys: firstScene?.spaceData ? Object.keys(firstScene.spaceData) : []
             })
 
+            // Universo Platformo | Extract and validate timer configuration
+            const timerConfig = options.timerConfig || DataHandler.DEFAULT_TIMER_CONFIG
+            const safeTimerConfig = {
+                enabled: timerConfig.enabled === true,
+                limitSeconds: Math.max(10, Math.min(3600, timerConfig.limitSeconds || 60)),
+                position: (['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-right'] as const).includes(
+                    timerConfig.position as any
+                )
+                    ? (timerConfig.position as string)
+                    : 'top-center'
+            }
+
+            console.log('🔧 [DataHandler] Timer configuration:', safeTimerConfig)
+
             // Generate multi-scene UI and logic
             let content = ''
 
             // Add multi-scene UI elements (all scenes, but hidden initially)
-            content += this.generateMultiSceneUI(multiScene, finalShowPoints, leadCollection)
+            content += this.generateMultiSceneUI(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
 
             // Add multi-scene JavaScript logic with state management
-            content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection)
+            content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
 
             // (quiet) multi-scene generation summary suppressed
 
@@ -135,12 +171,14 @@ export class DataHandler {
      * @param multiScene Multi-scene data structure
      * @param showPoints Whether to show points counter
      * @param leadCollection Lead collection configuration
+     * @param timerConfig Timer configuration
      * @returns HTML string with multi-scene quiz UI
      */
     private generateMultiSceneUI(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean }
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
     ): string {
         // UI generation parameters logged only in debug mode
 
@@ -158,6 +196,37 @@ export class DataHandler {
         // Universo Platformo | Add lead collection form if configured
         if (leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)) {
             html += this.generateLeadCollectionForm(leadCollection)
+        }
+
+        // Universo Platformo | Add timer UI if enabled
+        if (timerConfig?.enabled) {
+            const position = DataHandler.TIMER_POSITIONS[timerConfig.position as keyof typeof DataHandler.TIMER_POSITIONS] || DataHandler.TIMER_POSITIONS['top-center']
+
+            html += `
+            <!-- Universo Platformo | Timer Display -->
+            <div id="quiz-timer" style="
+                position: fixed;
+                top: ${position.top};
+                right: ${position.right};
+                bottom: ${position.bottom};
+                left: ${position.left};
+                background: rgba(0, 0, 0, 0.85);
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-family: Arial, sans-serif;
+                font-size: 16px;
+                font-weight: bold;
+                z-index: ${DataHandler.TIMER_Z_INDEX};
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                min-width: 80px;
+                text-align: center;
+                transform: ${position.transform};
+                display: none;
+            ">
+                ⏱️ <span id="timer-display">--:--</span>
+            </div>
+            `
         }
 
         html += `
@@ -320,12 +389,14 @@ export class DataHandler {
      * @param multiScene Multi-scene data structure
      * @param showPoints Whether to show points counter
      * @param leadCollection Lead collection configuration
+     * @param timerConfig Timer configuration
      * @returns JavaScript string with multi-scene logic
      */
     private generateMultiSceneScript(
         multiScene: IUPDLMultiScene,
         showPoints: boolean = false,
-        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean }
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
     ): string {
         // Script generation parameters logged only in debug mode
 
@@ -370,6 +441,138 @@ export class DataHandler {
                 
                 // Universo Platformo | Global flag to prevent duplicate lead saves
                 let leadSaved = false;
+                
+                // Universo Platformo | Timer management system
+                ${timerConfig?.enabled ? `
+                const RESULTS_SCENE_INDEX = ${multiScene.scenes.findIndex((scene) => scene.isResultsScene)};
+
+                class TimerManager {
+                    constructor(limitSeconds) {
+                        this.limitSeconds = Math.max(10, Number(limitSeconds) || 60);
+                        this.timeRemaining = this.limitSeconds;
+                        this.frameId = null;
+                        this.deadline = null;
+                        this.isRunning = false;
+                        this.timerDisplay = null;
+                        this.timerContainer = null;
+                        this.now = typeof performance !== 'undefined' && performance.now ? () => performance.now() : () => Date.now();
+
+                        this.WARNING_THRESHOLD = ${DataHandler.WARNING_THRESHOLD_SECONDS};
+                        this.DANGER_THRESHOLD = ${DataHandler.DANGER_THRESHOLD_SECONDS};
+                    }
+
+                    initialize() {
+                        this.timerDisplay = document.getElementById('timer-display');
+                        this.timerContainer = document.getElementById('quiz-timer');
+                        this.updateDisplay(this.limitSeconds * 1000);
+                        dbg('[TimerManager] initialized', this.limitSeconds + 's');
+                    }
+
+                    start() {
+                        if (this.isRunning) return;
+
+                        this.deadline = this.now() + this.limitSeconds * 1000;
+                        this.timeRemaining = this.limitSeconds;
+                        this.isRunning = true;
+
+                        if (this.timerContainer) {
+                            this.timerContainer.style.display = 'block';
+                        }
+
+                        this.scheduleFrame();
+                        console.log('[TimerManager] Started:', this.limitSeconds + 's');
+                    }
+
+                    scheduleFrame() {
+                        this.frameId = requestAnimationFrame((timestamp) => this.onFrame(timestamp));
+                    }
+
+                    onFrame(timestamp) {
+                        if (!this.isRunning) return;
+
+                        const remainingMs = Math.max(0, this.deadline - timestamp);
+                        this.timeRemaining = Math.ceil(remainingMs / 1000);
+                        this.updateDisplay(remainingMs);
+
+                        if (remainingMs <= 0) {
+                            this.stop();
+                            this.onTimeExpired();
+                            return;
+                        }
+
+                        this.scheduleFrame();
+                    }
+
+                    updateDisplay(remainingMs) {
+                        if (!this.timerDisplay) return;
+
+                        const secondsLeft = Math.max(0, typeof remainingMs === 'number' ? Math.ceil(remainingMs / 1000) : this.timeRemaining);
+                        const minutes = Math.floor(secondsLeft / 60);
+                        const seconds = secondsLeft % 60;
+                        const formattedTime = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+
+                        this.timerDisplay.textContent = formattedTime;
+
+                        if (this.timerContainer) {
+                            if (secondsLeft <= this.DANGER_THRESHOLD) {
+                                this.timerContainer.style.background = 'rgba(244, 67, 54, 0.95)';
+                            } else if (secondsLeft <= this.WARNING_THRESHOLD) {
+                                this.timerContainer.style.background = 'rgba(255, 152, 0, 0.95)';
+                            } else {
+                                this.timerContainer.style.background = 'rgba(0, 0, 0, 0.85)';
+                            }
+                        }
+                    }
+
+                    stop() {
+                        if (this.frameId) {
+                            cancelAnimationFrame(this.frameId);
+                            this.frameId = null;
+                        }
+                        this.isRunning = false;
+                        this.deadline = null;
+                        console.log('[TimerManager] Stopped');
+
+                        if (this.timerContainer) {
+                            this.timerContainer.style.display = 'none';
+                        }
+                    }
+
+                    reset() {
+                        this.stop();
+                        this.timeRemaining = this.limitSeconds;
+                        this.updateDisplay(this.limitSeconds * 1000);
+                        if (this.timerContainer) {
+                            this.timerContainer.style.display = 'none';
+                        }
+                        dbg('[TimerManager] reset');
+                    }
+
+                    onTimeExpired() {
+                        console.log('[TimerManager] ⏰ Time expired! Showing results...');
+
+                        // Prevent further interactions
+                        const answerButtons = document.querySelectorAll('.quiz-answer-btn');
+                        answerButtons.forEach((btn) => {
+                            btn.disabled = true;
+                            btn.style.cursor = 'not-allowed';
+                            btn.style.opacity = '0.6';
+                        });
+
+                        sceneManager.isCompleted = true;
+
+                        if (typeof RESULTS_SCENE_INDEX === 'number' && RESULTS_SCENE_INDEX >= 0) {
+                            sceneManager.setCurrentScene(RESULTS_SCENE_INDEX);
+                            sceneManager.showCurrentScene();
+                            sceneManager.showObjectsOfCurrentScene();
+                        } else {
+                            showQuizResults(pointsManager.getCurrentPoints(), /*fromCompletion*/ false);
+                        }
+                    }
+                }
+
+                const timerManager = new TimerManager(${timerConfig.limitSeconds});
+                ` : ''}
                 
                 // Universo Platformo | Points management system
                 class PointsManager {
@@ -564,6 +767,20 @@ export class DataHandler {
                     
                     // Initialize points manager (always needed for data saving)
                     pointsManager.initialize();
+                    
+                    // Universo Platformo | Initialize timer manager
+                    ${timerConfig?.enabled ? `
+                    timerManager.initialize();
+                    
+                    // Auto-start timer if no lead collection
+                    ${!leadCollection ? `
+                    setTimeout(() => {
+                        if (timerManager && !timerManager.isRunning) {
+                            timerManager.start();
+                        }
+                    }, 500);
+                    ` : '// Timer will start after lead form'}
+                    ` : '// Timer disabled'}
                     
                     // Universo Platformo | Debug scene elements after initialization
                     // (verbose scene enumeration removed; re-enable via QUIZ_DEBUG if needed)
@@ -982,6 +1199,14 @@ export class DataHandler {
                 // Universo Platformo | Quiz results and restart functions
                 function showQuizResults(totalPoints, fromCompletionFlag) {
                     console.log('[QuizResults] Results screen points=' + totalPoints);
+                    
+                    // Universo Platformo | Stop timer when quiz ends
+                    ${timerConfig?.enabled ? `
+                    if (timerManager) {
+                        timerManager.stop();
+                    }
+                    ` : ''}
+                    
                     dbg('[QuizResults] ctx fromCompletion=' + fromCompletionFlag + ' leadSaved=' + leadSaved + ' hasData=' + leadData.hasData);
                     // Attempt guarded save here (primary point for results-ending quizzes)
                     if (!leadSaved) {
@@ -1170,6 +1395,13 @@ export class DataHandler {
                     sceneManager.setCurrentScene(1);
                     sceneManager.showCurrentScene();
                     sceneManager.showObjectsOfCurrentScene();
+                    
+                    // Universo Platformo | Start timer when quiz begins
+                    ${timerConfig?.enabled ? `
+                    if (timerManager && !timerManager.isRunning) {
+                        timerManager.start();
+                    }
+                    ` : ''}
                     
                     console.log('[LeadCollection] Transitioned to quiz scene 1');
                 }

@@ -16,7 +16,7 @@ export const QuizItemSchema = z
   })
 
 export const QuizPlanSchema = z.object({
-  items: z.array(QuizItemSchema).min(1).max(10)
+  items: z.array(QuizItemSchema).min(1).max(30)
 })
 
 export type QuizPlan = z.infer<typeof QuizPlanSchema>

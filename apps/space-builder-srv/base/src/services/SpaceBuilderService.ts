@@ -188,8 +188,9 @@ export class SpaceBuilderService {
 
   private normalizePlan(plan: any): QuizPlan {
     const items = Array.isArray(plan?.items) ? plan.items : []
+    const limitedItems = items.slice(0, 30)
     return {
-      items: items.map((it: any) => ({
+      items: limitedItems.map((it: any) => ({
         question: String(it?.question || '').slice(0, 400),
         answers: Array.isArray(it?.answers)
           ? it.answers.map((a: any) => ({ text: String(a?.text || '').slice(0, 400), isCorrect: Boolean(a?.isCorrect) }))

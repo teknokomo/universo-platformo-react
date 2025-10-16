@@ -45,13 +45,14 @@
     "author": "Universo Platformo",
     "license": "MIT",
     "dependencies": {
+        "@tanstack/react-query": "^5.52.0",
         "@universo-platformo/types": "workspace:*",
         "@universo-platformo/utils": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
-        "typescript": "^5.4.5",
         "rimraf": "^5.0.0",
+        "typescript": "^5.4.5",
         "vitest": "^2.1.4"
     }
 }

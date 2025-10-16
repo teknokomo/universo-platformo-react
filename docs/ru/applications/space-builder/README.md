@@ -67,7 +67,7 @@ UI может применить сгенерированный граф в тр
     -   Если `testMode=true` и `disableUserCredentials=true`, показываются только тестовые модели.
     -   В ином случае UI объединяет тестовые модели с моделями из Credentials, сортирует по label и удаляет дубликаты по label.
 -   `POST /api/v1/space-builder/prepare`
-    -   Тело: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..10, answersPerQuestion: 2..5 } }`
+    -   Тело: `{ sourceText: string (1..5000), additionalConditions?: string (0..500), selectedChatModel: { provider: string, modelName: string, credentialId?: string }, options: { questionsCount: 1..30, answersPerQuestion: 2..5 } }`
     -   Ответ: `{ quizPlan: { items: Array<{ question: string, answers: Array<{ text: string, isCorrect: boolean }> }> } }`
 -   `POST /api/v1/space-builder/generate`
     -   Тело: либо `{ question: string, selectedChatModel: {...} }`, либо `{ quizPlan: QuizPlan, selectedChatModel: {...} }`

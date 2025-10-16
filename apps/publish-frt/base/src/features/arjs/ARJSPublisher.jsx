@@ -2,10 +2,12 @@
 // React component for publishing AR.js experiences using streaming mode
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ARJSPublicationApi, PublicationApi, PublishLinksApi, getCurrentUrlIds } from '../../api'
+import { ARJSPublicationApi, PublicationApi, PublishLinksApi, getCurrentUrlIds, publishQueryKeys, invalidatePublishQueries } from '../../api'
 import { FieldNormalizer } from '../../utils/fieldNormalizer'
 import { useAutoSave } from '../../hooks'
+import { normalizeTimerConfig, sanitizeTimerInput } from '../../utils/timerConfig'
 
 // Universo Platformo | Simple demo mode toggle - set to true to enable demo features
 const DEMO_MODE = false
@@ -27,7 +29,8 @@ import {
     Alert,
     Snackbar,
     FormHelperText,
-    Grid
+    Grid,
+    Button
 } from '@mui/material'
 
 // Icons
@@ -47,7 +50,7 @@ import { isValidBase58 } from '../../utils/base58Validator'
  * AR.js Publisher Component
  * Supports streaming generation of AR.js content
  */
-const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
+const ARJSPublisherComponent = ({ flow, unikId, onPublish, onCancel, initialConfig }) => {
     // Use 'publish' namespace as registered in packages/ui i18n
     const { t } = useTranslation('publish')
     // Universo Platformo | reference to latest flow.id
@@ -96,6 +99,16 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     const [aframeVersion, setAframeVersion] = useState('1.7.1')
     const [aframeSource, setAframeSource] = useState('official')
 
+    // Universo Platformo | Timer configuration state
+    const [timerEnabled, setTimerEnabled] = useState(false)
+   const [timerLimitSeconds, setTimerLimitSeconds] = useState(60)
+    const [timerPosition, setTimerPosition] = useState('top-center')
+
+    const normalizedTimerConfig = useMemo(
+        () => sanitizeTimerInput(timerEnabled, timerLimitSeconds, timerPosition),
+        [timerEnabled, timerLimitSeconds, timerPosition]
+    )
+
     // NEW: State for global settings
     const [globalSettings, setGlobalSettings] = useState(null)
     const [globalSettingsLoaded, setGlobalSettingsLoaded] = useState(false)
@@ -103,61 +116,57 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
     // State for tracking legacy scenarios to avoid showing standard message
     const [isLegacyScenario, setIsLegacyScenario] = useState(false)
     const [publishLinkRecords, setPublishLinkRecords] = useState([])
+    const [settingsReloadNonce, setSettingsReloadNonce] = useState(0)
     const normalizedVersionGroupId = useMemo(() => FieldNormalizer.normalizeVersionGroupId(flow), [flow])
-    const [resolvedVersionGroupId, setResolvedVersionGroupId] = useState(normalizedVersionGroupId)
-    const [versionGroupFetchAttempted, setVersionGroupFetchAttempted] = useState(Boolean(normalizedVersionGroupId))
     
-    // Ref for managing concurrent requests
-    const linksStatusRef = useRef({
-        loading: false,
-        abortController: null
+    // Get queryClient for imperative queries (loadPublishLinks, invalidateQueries)
+    const queryClient = useQueryClient()
+    
+    // Get current unikId from URL
+    const currentUnikId = useMemo(() => {
+        const { unikId: urlUnikId } = getCurrentUrlIds()
+        return urlUnikId
+    }, [])
+
+    // Use useQuery for automatic deduplication and caching
+    // This replaces the imperative fetchQuery approach
+    const {
+        data: canvasData,
+        isLoading: isCanvasLoading,
+        isError: isCanvasError
+    } = useQuery({
+        queryKey: publishQueryKeys.canvasByUnik(currentUnikId, flow?.id),
+        queryFn: async () => {
+            const response = await PublicationApi.getCanvasById(currentUnikId, String(flow.id))
+            return response?.data
+        },
+        enabled: !!flow?.id && !!currentUnikId && !normalizedVersionGroupId,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        retry: false // Don't retry on error, just show warning
     })
 
-    useEffect(() => {
-        if (normalizedVersionGroupId !== resolvedVersionGroupId) {
-            setResolvedVersionGroupId(normalizedVersionGroupId)
-            setVersionGroupFetchAttempted(Boolean(normalizedVersionGroupId))
+    // Compute resolvedVersionGroupId from either flow data or fetched canvas data
+    const resolvedVersionGroupId = useMemo(() => {
+        // First try to get from flow itself
+        if (normalizedVersionGroupId) {
+            return normalizedVersionGroupId
         }
-    }, [normalizedVersionGroupId, resolvedVersionGroupId])
-
-    useEffect(() => {
-        if (resolvedVersionGroupId) {
-            setVersionGroupFetchAttempted(true)
-        }
-    }, [resolvedVersionGroupId])
-
-    useEffect(() => {
-        if (resolvedVersionGroupId || !flow?.id || versionGroupFetchAttempted) {
-            return
-        }
-
-        const { unikId } = getCurrentUrlIds()
-        if (!unikId) {
-            return
-        }
-
-        let cancelled = false
-
-        const fetchVersionGroup = async () => {
-            try {
-                setVersionGroupFetchAttempted(true)
-                const response = await PublicationApi.getCanvasById(unikId, String(flow.id))
-                const payload = response?.data
-                const detected = FieldNormalizer.normalizeVersionGroupId(payload)
-                if (detected && !cancelled) {
-                    setResolvedVersionGroupId(detected)
-                }
-            } catch (err) {
-                console.warn('[ARJSPublisher] Failed to resolve versionGroupId from API', err)
+        // Otherwise try to extract from fetched canvas data
+        if (canvasData) {
+            const detected = FieldNormalizer.normalizeVersionGroupId(canvasData)
+            if (detected) {
+                return detected
             }
         }
+        return null
+    }, [normalizedVersionGroupId, canvasData])
 
-        fetchVersionGroup()
-
-        return () => {
-            cancelled = true
+    // Log warning if canvas fetch failed
+    useEffect(() => {
+        if (isCanvasError) {
+            console.warn('[ARJSPublisher] Failed to resolve versionGroupId from API')
         }
-    }, [flow?.id, resolvedVersionGroupId, versionGroupFetchAttempted])
+    }, [isCanvasError])
 
     const publishLinkItems = useMemo(() => {
         if (!publishLinkRecords?.length) {
@@ -192,83 +201,58 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         })
     }, [publishLinkRecords])
 
-    const loadPublishLinks = useCallback(
-        async (retryCount = 0) => {
-            const versionGroupId = resolvedVersionGroupId
-            if (!flow?.id && !versionGroupId) {
-                return []
-            }
+    const loadPublishLinks = useCallback(async () => {
+        const versionGroupId = resolvedVersionGroupId ?? null
+        const flowId = flow?.id ? String(flow.id) : null
+        if (!flowId && !versionGroupId) {
+            return []
+        }
 
-            // Prevent race conditions
-            if (linksStatusRef.current.loading) {
-                return []
-            }
+        try {
+            const records = await queryClient.fetchQuery({
+                queryKey: publishQueryKeys.linksByVersion('arjs', flowId, versionGroupId),
+                queryFn: async () => {
+                    const links = await PublishLinksApi.listLinks({ technology: 'arjs', versionGroupId }, undefined)
+                    const filtered = links.filter((link) => {
+                        if (versionGroupId && link.versionGroupId === versionGroupId) {
+                            return true
+                        }
 
-            // Cancel previous request if still pending
-            if (linksStatusRef.current.abortController) {
-                linksStatusRef.current.abortController.abort()
-            }
+                        if (flowId && link.targetCanvasId === flowId) {
+                            return true
+                        }
 
-            const abortController = new AbortController()
-            linksStatusRef.current.loading = true
-            linksStatusRef.current.abortController = abortController
+                        return false
+                    })
 
-            try {
-                const links = await PublishLinksApi.listLinks(
-                    {
-                        technology: 'arjs',
-                        versionGroupId: versionGroupId ?? null
-                    },
-                    { signal: abortController.signal }
-                )
-
-                const filtered = links.filter((link) => {
-                    if (versionGroupId && link.versionGroupId === versionGroupId) {
-                        return true
+                    const isValidData = (items) => items.every((link) => link.baseSlug && isValidBase58(link.baseSlug))
+                    if (!filtered.length || !isValidData(filtered)) {
+                        return []
                     }
 
-                    if (flow?.id && link.targetCanvasId === flow.id) {
-                        return true
-                    }
-
-                    return false
-                })
-
-                // Validate Base58 slugs and retry if invalid data found
-                const isValidData = (links) => {
-                    return links.every(link => 
-                        link.baseSlug && 
-                        isValidBase58(link.baseSlug)
-                    )
+                    return filtered
                 }
+            })
 
-                // Retry on empty results or invalid data, but only on first attempt
-                if ((filtered.length === 0 || !isValidData(filtered)) && retryCount === 0) {
-                    await new Promise((resolve) => setTimeout(resolve, 500))
-                    return loadPublishLinks(1)
-                }
+            setPublishLinkRecords(records)
+            setIsPublic(records.some((link) => link.targetType === 'group'))
 
-                setPublishLinkRecords(filtered)
+            return records
+        } catch (loadError) {
+            console.error('ARJSPublisher: Failed to load publish links', loadError)
+            setPublishLinkRecords([])
+            return []
+        }
+    }, [flow?.id, queryClient, resolvedVersionGroupId])
 
-                // Update public state based on actual links
-                const hasGroupLink = filtered.some(link => link.targetType === 'group')
-                setIsPublic(hasGroupLink)
-
-                return filtered
-            } catch (loadError) {
-                if (loadError.name === 'AbortError' || loadError.name === 'CanceledError') {
-                    return []
-                }
-                console.error('ARJSPublisher: Failed to load publish links', loadError)
-                setPublishLinkRecords([])
-                return []
-            } finally {
-                linksStatusRef.current.loading = false
-                linksStatusRef.current.abortController = null
-            }
-        },
-        [flow?.id, resolvedVersionGroupId]
-    )
+    const handleRetryLoadSettings = useCallback(() => {
+        setError(null)
+        setSettingsLoading(true)
+        setSettingsInitialized(false)
+        setSettingsReloadNonce((nonce) => nonce + 1)
+        queryClient.invalidateQueries({ queryKey: publishQueryKeys.canvas() })
+        invalidatePublishQueries.linksByTechnology(queryClient, 'arjs')
+    }, [queryClient])
 
     // Load published links only on mount (event-driven pattern)
     useEffect(() => {
@@ -324,7 +308,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             libraryConfig: {
                 arjs: { version: arjsVersion, source: arjsSource },
                 aframe: { version: aframeVersion, source: aframeSource }
-            }
+            },
+            timerConfig: normalizedTimerConfig
         }),
         [
             projectTitle,
@@ -339,7 +324,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             arjsVersion,
             arjsSource,
             aframeVersion,
-            aframeSource
+            aframeSource,
+            normalizedTimerConfig
         ]
     )
 
@@ -362,6 +348,14 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         delay: 500,
         enabled: !settingsLoading && settingsInitialized
     })
+
+    const buildSettingsPayload = useCallback(
+        (overrides = {}) => ({
+            ...settingsData,
+            ...overrides
+        }),
+        [settingsData]
+    )
 
     // Universo Platformo | Load saved settings when component mounts
     useEffect(() => {
@@ -395,6 +389,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                     setWallpaperType(savedSettings.wallpaperType || 'standard')
                     setCameraUsage(savedSettings.cameraUsage || 'none')
                     setBackgroundColor(savedSettings.backgroundColor || '#1976d2') // Load background color
+
+                    // Universo Platformo | Load timer configuration
+                    const safeTimer = normalizeTimerConfig(savedSettings.timerConfig)
+                    setTimerEnabled(safeTimer.enabled)
+                    setTimerLimitSeconds(safeTimer.limitSeconds)
+                    setTimerPosition(safeTimer.position)
 
                     // NEW: Load library configuration with legacy detection and auto-correction
                     if (globalSettings?.enforceGlobalLibraryManagement) {
@@ -496,7 +496,12 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
             } catch (error) {
                 if (!cancelled) {
                     console.error('📱 [ARJSPublisher] Error loading settings:', error)
-                    setError('Failed to load saved settings')
+                    const message =
+                        error instanceof Error
+                            ? error.message
+                            : 'Failed to load saved settings. Please retry shortly.'
+                    setError(message)
+                    setSettingsInitialized(true)
                 }
             } finally {
                 if (!cancelled) {
@@ -518,7 +523,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         globalSettingsLoaded,
         loadPublishLinks,
         settingsInitialized,
-        t
+        t,
+        settingsReloadNonce
     ])
 
     // Initialize with flow data when component mounts
@@ -654,23 +660,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                 
                 // Save settings with isPublic: false
                 if (!DEMO_MODE && flow?.id) {
-                    await ARJSPublicationApi.saveARJSSettings(flow.id, {
-                        isPublic: false,
-                        projectTitle: projectTitle,
-                        markerType: markerType,
-                        markerValue: markerValue,
-                        templateId: templateType,
-                        generationMode: generationMode,
-                        templateType: templateType,
-                        arDisplayType: arDisplayType,
-                        wallpaperType: wallpaperType,
-                        cameraUsage: cameraUsage,
-                        backgroundColor: backgroundColor,
-                        libraryConfig: {
-                            arjs: { version: arjsVersion, source: arjsSource },
-                            aframe: { version: aframeVersion, source: aframeSource }
-                        }
-                    })
+                    await ARJSPublicationApi.saveARJSSettings(flow.id, buildSettingsPayload({ isPublic: false }))
                 }
                 
                 setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
@@ -707,23 +697,7 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
         try {
             // Save AR.js settings with isPublic: true
-            await ARJSPublicationApi.saveARJSSettings(flow.id, {
-                isPublic: true,
-                projectTitle: projectTitle,
-                markerType: markerType,
-                markerValue: markerValue,
-                templateId: templateType,
-                generationMode: generationMode,
-                templateType: templateType,
-                arDisplayType: arDisplayType,
-                wallpaperType: wallpaperType,
-                cameraUsage: cameraUsage,
-                backgroundColor: backgroundColor,
-                libraryConfig: {
-                    arjs: { version: arjsVersion, source: arjsSource },
-                    aframe: { version: aframeVersion, source: aframeSource }
-                }
-            })
+            await ARJSPublicationApi.saveARJSSettings(flow.id, buildSettingsPayload({ isPublic: true }))
 
             // Extract versionGroupId from flow (supports both camelCase and snake_case)
             const versionGroupId = resolvedVersionGroupId
@@ -980,6 +954,77 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                                     </FormControl>
                                 )}
 
+                                {/* Universo Platformo | Timer Settings Section */}
+                                <Box sx={{ mt: 3, mb: 2 }}>
+                                    <Typography variant='subtitle2' gutterBottom>
+                                        {t('publisher.timer.title', 'Настройки таймера')}
+                                    </Typography>
+
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={timerEnabled}
+                                                onChange={(e) => setTimerEnabled(e.target.checked)}
+                                                disabled={isPublishing || loading}
+                                            />
+                                        }
+                                        label={t('publisher.timer.enabled', 'Включить таймер')}
+                                    />
+                                    <FormHelperText>
+                                        {t('publisher.timer.enabledHelp', 'Добавить обратный отсчёт времени для прохождения квиза')}
+                                    </FormHelperText>
+
+                                    {timerEnabled && (
+                                        <>
+                                            <TextField
+                                                fullWidth
+                                                type='number'
+                                                label={t('publisher.timer.limitSeconds', 'Лимит времени (секунды)')}
+                                                value={timerLimitSeconds}
+                                                onChange={(e) => {
+                                                    const value = parseInt(e.target.value, 10)
+                                                    if (value >= 10 && value <= 3600) {
+                                                        setTimerLimitSeconds(value)
+                                                    }
+                                                }}
+                                                disabled={isPublishing || loading}
+                                                inputProps={{ min: 10, max: 3600, step: 10 }}
+                                                helperText={t('publisher.timer.limitSecondsHelp', 'От 10 до 3600 секунд (1 час)')}
+                                                margin='normal'
+                                            />
+
+                                            <FormControl fullWidth margin='normal'>
+                                                <InputLabel>{t('publisher.timer.position', 'Позиция таймера')}</InputLabel>
+                                                <Select
+                                                    value={timerPosition}
+                                                    onChange={(e) => setTimerPosition(e.target.value)}
+                                                    disabled={isPublishing || loading}
+                                                    label={t('publisher.timer.position', 'Позиция таймера')}
+                                                >
+                                                    <MenuItem value='top-left'>
+                                                        {t('publisher.timer.position.topLeft', 'Вверху слева')}
+                                                    </MenuItem>
+                                                    <MenuItem value='top-center'>
+                                                        {t('publisher.timer.position.topCenter', 'Вверху по центру')}
+                                                    </MenuItem>
+                                                    <MenuItem value='top-right'>
+                                                        {t('publisher.timer.position.topRight', 'Вверху справа')}
+                                                    </MenuItem>
+                                                    <MenuItem value='bottom-left'>
+                                                        {t('publisher.timer.position.bottomLeft', 'Внизу слева')}
+                                                    </MenuItem>
+                                                    <MenuItem value='bottom-right'>
+                                                        {t('publisher.timer.position.bottomRight', 'Внизу справа')}
+                                                    </MenuItem>
+                                                </Select>
+                                                <FormHelperText>
+                                                    {t('publisher.timer.positionHelp', 'Выберите расположение таймера на экране')}
+                                                </FormHelperText>
+                                            </FormControl>
+                                        </>
+                                    )}
+                                </Box>
+
                                 {/* NEW: Library Configuration Section */}
                                 <Box sx={{ mt: 3, mb: 2 }}>
                                     <Typography variant='subtitle2' gutterBottom>
@@ -1200,8 +1245,13 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
 
                                 {/* Error display */}
                                 {error && (
-                                    <Alert severity='error' sx={{ my: 2 }}>
-                                        {error}
+                                    <Alert severity='error' sx={{ my: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Box component='span' sx={{ flexGrow: 1 }}>
+                                            {error}
+                                        </Box>
+                                        <Button variant='outlined' color='inherit' size='small' onClick={handleRetryLoadSettings}>
+                                            {t('common.retry', 'Повторить')}
+                                        </Button>
                                     </Alert>
                                 )}
                             </>
@@ -1265,11 +1315,8 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
                         canvasId={flow.id}
                         versionGroupId={versionGroupId}
                         technology='arjs'
-                        onVersionGroupResolved={(vg) => {
-                            if (vg && vg !== resolvedVersionGroupId) {
-                                setResolvedVersionGroupId(vg)
-                            }
-                        }}
+                        // onVersionGroupResolved removed: resolvedVersionGroupId is now computed via useMemo
+                        // from normalizedVersionGroupId or canvasData, no manual state update needed
                     />
                 )
             })()}
@@ -1279,6 +1326,10 @@ const ARJSPublisher = ({ flow, unikId, onPublish, onCancel, initialConfig }) => 
         </Box>
     )
 }
+
+// NOTE: QueryClient is now provided by PublishDialog wrapper
+// No need for local PublishQueryProvider
+const ARJSPublisher = ARJSPublisherComponent
 
 export { ARJSPublisher }
 export default ARJSPublisher

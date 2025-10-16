@@ -529,6 +529,324 @@ const handleCreate = async () => {
 - Server-driven updates (use WebSocket/SSE)
 - High-frequency external data changes
 
+---
+
+## TanStack Query v5 Architecture Patterns (2025-01-16)
+
+### Overview
+
+**TanStack Query v5** (formerly React Query) is used for server state management across the application. This section documents our patterns and best practices.
+
+**Installation**:
+- `@tanstack/react-query`: ^5.90.3 (production)
+- `@tanstack/react-query-devtools`: ^5.90.2 (development)
+
+### 1. Global QueryClient Pattern
+
+✅ **CORRECT**: Single QueryClient at application root
+
+```javascript
+// packages/ui/src/index.jsx
+import { QueryClientProvider } from '@tanstack/react-query'
+import { createGlobalQueryClient } from '@/config/queryClient'
+
+const queryClient = createGlobalQueryClient()
+
+root.render(
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>
+)
+```
+
+❌ **WRONG**: Multiple QueryClient instances per component
+```javascript
+// Don't create local QueryClient in components
+const MyComponent = () => {
+  const queryClient = new QueryClient() // ❌ NO!
+  // ...
+}
+```
+
+**Why**: 
+- One QueryClient = one cache for entire app
+- Enables automatic request deduplication
+- Persistent cache across component lifecycle
+- Follows official TanStack Query v5 best practices
+
+### 2. Query Key Factory Pattern
+
+**Location**: `apps/publish-frt/base/src/api/queryKeys.ts`
+
+✅ **CORRECT**: Use Query Key Factory for consistency
+
+```typescript
+import { publishQueryKeys } from '@/api/queryKeys'
+
+const { data } = useQuery({
+  queryKey: publishQueryKeys.canvasByUnik(unikId, canvasId),
+  queryFn: fetchCanvas
+})
+```
+
+❌ **WRONG**: Hardcoded query keys
+```javascript
+// Don't hardcode keys - prone to typos and mismatches
+const { data } = useQuery({
+  queryKey: ['publish', 'canvas', unikId, canvasId], // ❌ NO!
+  queryFn: fetchCanvas
+})
+```
+
+**Benefits**:
+- Type normalization (prevents cache mismatches)
+- Easy cache invalidation
+- TypeScript autocomplete support
+- Single source of truth
+
+**Available Keys**:
+```typescript
+publishQueryKeys.all                              // ['publish']
+publishQueryKeys.canvas()                         // ['publish', 'canvas']
+publishQueryKeys.canvasByUnik(unikId, canvasId)   // ['publish', 'canvas', uId, cId]
+publishQueryKeys.linksByVersion(tech, fId, vId)   // ['publish', 'links', tech, fId, vId]
+```
+
+**Cache Invalidation**:
+```typescript
+import { invalidatePublishQueries } from '@/api/queryKeys'
+
+const queryClient = useQueryClient()
+
+// After mutation
+await saveCanvas()
+invalidatePublishQueries.canvas(queryClient, canvasId)
+```
+
+### 3. Declarative useQuery() vs Imperative fetchQuery()
+
+✅ **CORRECT**: useQuery() for component-level data
+
+```javascript
+// Automatic deduplication, loading states, error handling
+const { data, isLoading, isError } = useQuery({
+  queryKey: publishQueryKeys.canvasByUnik(unikId, canvasId),
+  queryFn: async () => await PublicationApi.getCanvasById(unikId, canvasId),
+  enabled: !!unikId && !!canvasId,
+  staleTime: 5 * 60 * 1000  // 5 minutes
+})
+```
+
+❌ **WRONG**: fetchQuery() in useEffect (no deduplication)
+
+```javascript
+// This creates duplicate requests if multiple components mount
+useEffect(() => {
+  const fetch = async () => {
+    const data = await queryClient.fetchQuery({ /* ... */ })
+    setData(data)
+  }
+  fetch()
+}, [canvasId])
+```
+
+**When to use each**:
+
+| Pattern | Use Case | Deduplication |
+|---------|----------|---------------|
+| `useQuery()` | Component-level data fetching | ✅ Automatic |
+| `queryClient.fetchQuery()` | On-demand fetching in callbacks | ❌ Manual |
+
+### 4. Hybrid Approach Pattern
+
+✅ **CORRECT**: Combine useQuery + useQueryClient
+
+```javascript
+const MyPublisher = ({ flow }) => {
+  // 1. Get queryClient for imperative operations
+  const queryClient = useQueryClient()
+  
+  // 2. useQuery for component data (automatic deduplication)
+  const { data: canvasData } = useQuery({
+    queryKey: publishQueryKeys.canvasByUnik(unikId, flow?.id),
+    queryFn: fetchCanvas,
+    enabled: !!flow?.id
+  })
+  
+  // 3. Computed values via useMemo (reactive)
+  const resolvedVersionGroupId = useMemo(() => {
+    if (normalizedVersionGroupId) return normalizedVersionGroupId
+    if (canvasData) return FieldNormalizer.normalizeVersionGroupId(canvasData)
+    return null
+  }, [normalizedVersionGroupId, canvasData])
+  
+  // 4. queryClient.fetchQuery for callbacks (on-demand)
+  const loadPublishLinks = useCallback(async () => {
+    const records = await queryClient.fetchQuery({
+      queryKey: publishQueryKeys.linksByVersion('arjs', flow.id, versionGroupId),
+      queryFn: fetchLinks
+    })
+    return records
+  }, [queryClient, flow.id, versionGroupId])
+  
+  // 5. Cache invalidation after mutations
+  const handlePublish = async () => {
+    await publishCanvas()
+    invalidatePublishQueries.linksByTechnology(queryClient, 'arjs')
+  }
+}
+```
+
+**Why this works**:
+- `useQuery()` for component state = automatic deduplication
+- `useQueryClient()` for imperative actions = manual control when needed
+- Both patterns are valid and complement each other
+
+### 5. QueryClient Configuration Best Practices
+
+**Location**: `packages/ui/src/config/queryClient.js`
+
+```javascript
+export const createGlobalQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000,        // 5 minutes - reduces API calls
+        gcTime: 30 * 60 * 1000,          // 30 minutes - memory management
+        refetchOnWindowFocus: false,      // Prevents unnecessary refetch
+        
+        // Smart retry: skip auth errors and rate limits
+        retry: (failureCount, error) => {
+          const status = error?.response?.status
+          if ([401, 403, 404, 429].includes(status)) return false
+          if (status >= 500 && status < 600) return failureCount < 2
+          return false
+        },
+        
+        // Exponential backoff with Retry-After header support (RFC 7231)
+        retryDelay: (attempt, error) => {
+          const retryAfter = error?.response?.headers?.['retry-after']
+          const parsed = parseRetryAfter(retryAfter)
+          if (parsed !== null) {
+            return parsed + Math.random() * 150  // Jitter prevents thundering herd
+          }
+          return Math.min(1000 * Math.pow(2, attempt), 30000)
+        }
+      },
+      
+      mutations: {
+        retry: false  // Don't retry mutations (may have side effects)
+      }
+    }
+  })
+```
+
+**Key Configuration Choices**:
+
+| Option | Value | Rationale |
+|--------|-------|-----------|
+| `staleTime` | 5 minutes | Balance between freshness and API calls |
+| `gcTime` | 30 minutes | Keep data in memory for quick navigation |
+| `refetchOnWindowFocus` | false | Prevent unnecessary refetch on tab switch |
+| `retry` | Smart policy | Skip 401/403/404/429, retry 5xx up to 2x |
+| `retryDelay` | Exponential + jitter | Respect Retry-After, prevent thundering herd |
+
+### 6. React Query DevTools
+
+**Usage** (development only):
+
+```javascript
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+
+{process.env.NODE_ENV === 'development' && (
+  <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+)}
+```
+
+**How to use**:
+1. Open DevTools in browser (bottom-right corner)
+2. Find query by key
+3. Check status: fresh/stale/fetching/error
+4. Verify fetch count (should be 1, not 10+)
+
+### 7. Common Anti-Patterns to Avoid
+
+❌ **Multiple QueryClient instances**
+```javascript
+// Don't create local QueryClient per component
+const MyComponent = () => {
+  const queryClient = new QueryClient()  // ❌
+}
+```
+
+❌ **fetchQuery in useEffect**
+```javascript
+// No automatic deduplication
+useEffect(() => {
+  queryClient.fetchQuery({ /* ... */ })  // ❌
+}, [deps])
+```
+
+❌ **Manual state management for async data**
+```javascript
+// useQuery handles this automatically
+const [data, setData] = useState(null)
+const [loading, setLoading] = useState(true)  // ❌
+```
+
+❌ **Hardcoded query keys**
+```javascript
+// Use Query Key Factory instead
+queryKey: ['publish', 'canvas', id]  // ❌
+```
+
+### 8. Migration from Old Patterns
+
+**Before (Anti-pattern)**:
+```javascript
+const [data, setData] = useState(null)
+const [loading, setLoading] = useState(true)
+
+useEffect(() => {
+  const fetch = async () => {
+    const result = await api.getData()
+    setData(result)
+    setLoading(false)
+  }
+  fetch()
+}, [id])
+```
+
+**After (Best practice)**:
+```javascript
+const { data, isLoading } = useQuery({
+  queryKey: publishQueryKeys.canvasByUnik(unikId, id),
+  queryFn: () => api.getData(id),
+  enabled: !!id
+})
+```
+
+**Benefits**:
+- ✅ -40 lines of code per component
+- ✅ Automatic deduplication (prevents 429 errors)
+- ✅ No manual state management
+- ✅ Declarative approach
+- ✅ Built-in loading/error states
+
+### Documentation
+
+**Detailed guides**:
+- `apps/publish-frt/README.md` - Full architecture documentation
+- `apps/publish-frt/README-RU.md` - Русская версия
+- `apps/publish-frt/base/src/api/queryKeys.ts` - Query Key Factory with JSDoc
+
+**External resources**:
+- [TanStack Query v5 Docs](https://tanstack.com/query/latest)
+- [React Query Best Practices](https://tkdodo.eu/blog/practical-react-query)
+- [Query Key Factory Pattern](https://tkdodo.eu/blog/effective-react-query-keys)
+
+---
+
 ## Development Principles
 
 ### Architecture Patterns

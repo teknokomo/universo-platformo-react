@@ -2,8 +2,16 @@
     "name": "publish-frt",
     "version": "0.1.0",
     "description": "Frontend for publication system in Universo Platformo",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "main": "dist/publish-frt/base/src/index.js",
+    "types": "dist/publish-frt/base/src/index.d.ts",
+    "module": "dist/publish-frt/base/src/index.js",
+    "exports": {
+        ".": {
+            "types": "./dist/publish-frt/base/src/index.d.ts",
+            "import": "./dist/publish-frt/base/src/index.js",
+            "require": "./dist/publish-frt/base/src/index.js"
+        }
+    },
     "scripts": {
         "clean": "rimraf dist",
         "build": "pnpm run clean && tsc && gulp",
@@ -23,11 +31,12 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@tanstack/react-query": "^5.90.3",
+        "@universo-platformo/types": "workspace:*",
+        "@universo-platformo/utils": "workspace:*",
         "@universo/publish-srv": "workspace:*",
         "@universo/template-mmoomm": "workspace:*",
         "@universo/template-quiz": "workspace:*",
-        "@universo-platformo/utils": "workspace:*",
-        "@universo-platformo/types": "workspace:*",
         "axios": "1.7.9",
         "file-saver": "^2.0.5",
         "jszip": "^3.10.1",
@@ -37,14 +46,14 @@
         "typescript": "^5.4.5"
     },
     "devDependencies": {
+        "@testing-library/jest-dom": "^6.4.5",
+        "@testing-library/react": "^14.1.2",
+        "@testing-library/user-event": "^14.5.2",
         "@types/file-saver": "^2.0.7",
         "@types/gulp": "4.0.9",
         "@types/node": "^20.11.17",
         "@types/react": "^18.2.55",
         "@types/react-dom": "^18.2.19",
-        "@testing-library/jest-dom": "^6.4.5",
-        "@testing-library/react": "^14.1.2",
-        "@testing-library/user-event": "^14.5.2",
         "eslint": "^8.56.0",
         "gulp": "^4.0.2",
         "rimraf": "^5.0.5",

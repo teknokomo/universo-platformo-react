@@ -23,6 +23,9 @@ import {
 import { LoadingButton } from '@mui/lab'
 import SettingsIcon from '@mui/icons-material/Settings'
 
+const QUESTION_COUNT_OPTIONS = Array.from({ length: 30 }, (_, index) => index + 1)
+const QUESTIONS_WARNING_THRESHOLD = 20
+
 export type SpaceBuilderCreationMode = 'replace' | 'append' | 'newSpace' | 'newCanvas'
 
 export type SpaceBuilderDialogProps = {
@@ -53,6 +56,7 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
     const [creationMode, setCreationMode] = useState<SpaceBuilderCreationMode>(defaultCreationMode)
     const [busy, setBusy] = useState(false)
     const [questionsCount, setQuestionsCount] = useState(1)
+    const isLargeQuiz = questionsCount > QUESTIONS_WARNING_THRESHOLD
     const [answersPerQuestion, setAnswersPerQuestion] = useState(2)
     const [quizPlan, setQuizPlan] = useState<QuizPlan | null>(null)
     const [testMode, setTestMode] = useState(false)
@@ -631,13 +635,18 @@ export const SpaceBuilderDialog: React.FC<SpaceBuilderDialogProps> = ({
                                         value={questionsCount}
                                         onChange={(e) => setQuestionsCount(Number(e.target.value))}
                                     >
-                                        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                        {QUESTION_COUNT_OPTIONS.map((n) => (
                                             <MenuItem key={n} value={n}>
                                                 {n}
                                             </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
+                                {isLargeQuiz && (
+                                    <Alert severity='info' sx={{ alignItems: 'center' }}>
+                                        {t('spaceBuilder.largeQuizHint', 'Большие квизы занимают больше времени на подготовку. Убедитесь, что источник выдерживает 30 вопросов.')}
+                                    </Alert>
+                                )}
                                 <FormControl fullWidth>
                                     <InputLabel>{t('spaceBuilder.answersPerQuestion')}</InputLabel>
                                     <Select

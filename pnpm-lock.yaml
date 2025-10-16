@@ -576,6 +576,9 @@ importers:
 
   apps/publish-frt/base:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.90.3
+        version: 5.90.3(react@18.3.1)
       '@universo-platformo/types':
         specifier: workspace:*
         version: link:../../universo-platformo-types/base
@@ -652,6 +655,9 @@ importers:
 
   apps/publish-srv/base:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.52.0
+        version: 5.90.3(react@18.3.1)
       '@universo-platformo/utils':
         specifier: workspace:*
         version: link:../../universo-platformo-utils/base
@@ -1016,6 +1022,9 @@ importers:
 
   apps/template-mmoomm/base:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.52.0
+        version: 5.90.3(react@18.3.1)
       '@universo-platformo/types':
         specifier: workspace:*
         version: link:../../universo-platformo-types/base
@@ -1038,6 +1047,9 @@ importers:
 
   apps/template-quiz/base:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.52.0
+        version: 5.90.3(react@18.3.1)
       '@universo-platformo/types':
         specifier: workspace:*
         version: link:../../universo-platformo-types/base
@@ -1145,6 +1157,10 @@ importers:
         version: 29.4.1(@babel/core@7.27.7)(@jest/transform@29.7.0)(@jest/types@30.0.1)(babel-jest@29.7.0(@babel/core@7.27.7))(jest-util@30.0.2)(jest@29.7.0(@types/node@20.12.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.12.9(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3)))(typescript@5.8.3)
 
   apps/universo-platformo-types/base:
+    dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.52.0
+        version: 5.90.3(react@18.3.1)
     devDependencies:
       '@types/node':
         specifier: 20.12.12
@@ -1164,6 +1180,9 @@ importers:
 
   apps/universo-platformo-utils/base:
     dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.52.0
+        version: 5.90.3(react@18.3.1)
       '@universo-platformo/types':
         specifier: workspace:*
         version: link:../../universo-platformo-types/base
@@ -2067,6 +2086,9 @@ importers:
       '@tabler/icons-react':
         specifier: ^3.30.0
         version: 3.34.0(react@18.3.1)
+      '@tanstack/react-query':
+        specifier: ^5.90.3
+        version: 5.90.3(react@18.3.1)
       '@uiw/codemirror-theme-sublime':
         specifier: ^4.21.21
         version: 4.23.14(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.0)
@@ -2117,10 +2139,10 @@ importers:
         version: 16.6.1
       flowise-embed:
         specifier: latest
-        version: 3.0.4
+        version: 3.0.5
       flowise-embed-react:
         specifier: latest
-        version: 3.0.3(@types/node@20.12.12)(flowise-embed@3.0.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(terser@5.43.1)(typescript@5.8.3)
+        version: 3.0.5(@types/node@20.12.12)(flowise-embed@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(terser@5.43.1)(typescript@5.8.3)
       flowise-react-json-view:
         specifier: '*'
         version: 1.21.7(@types/react@18.3.23)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2227,6 +2249,9 @@ importers:
       '@babel/plugin-proposal-private-property-in-object':
         specifier: ^7.21.11
         version: 7.21.11(@babel/core@7.27.7)
+      '@tanstack/react-query-devtools':
+        specifier: ^5.90.2
+        version: 5.90.2(@tanstack/react-query@5.90.3(react@18.3.1))(react@18.3.1)
       '@testing-library/jest-dom':
         specifier: ^5.11.10
         version: 5.17.0
@@ -7298,6 +7323,23 @@ packages:
   '@tabler/icons@3.34.0':
     resolution: {integrity: sha512-jtVqv0JC1WU2TTEBN32D9+R6mc1iEBuPwLnBsWaR02SIEciu9aq5806AWkCHuObhQ4ERhhXErLEK7Fs+tEZxiA==}
 
+  '@tanstack/query-core@5.90.3':
+    resolution: {integrity: sha512-HtPOnCwmx4dd35PfXU8jjkhwYrsHfuqgC8RCJIwWglmhIUIlzPP0ZcEkDAc+UtAWCiLm7T8rxeEfHZlz3hYMCA==}
+
+  '@tanstack/query-devtools@5.90.1':
+    resolution: {integrity: sha512-GtINOPjPUH0OegJExZ70UahT9ykmAhmtNVcmtdnOZbxLwT7R5OmRztR5Ahe3/Cu7LArEmR6/588tAycuaWb1xQ==}
+
+  '@tanstack/react-query-devtools@5.90.2':
+    resolution: {integrity: sha512-vAXJzZuBXtCQtrY3F/yUNJCV4obT/A/n81kb3+YqLbro5Z2+phdAbceO+deU3ywPw8B42oyJlp4FhO0SoivDFQ==}
+    peerDependencies:
+      '@tanstack/react-query': ^5.90.2
+      react: ^18 || ^19
+
+  '@tanstack/react-query@5.90.3':
+    resolution: {integrity: sha512-i/LRL6DtuhG6bjGzavIMIVuKKPWx2AnEBIsBfuMm3YoHne0a20nWmsatOCBcVSaT0/8/5YFjNkebHAPLVUSi0Q==}
+    peerDependencies:
+      react: ^18 || ^19
+
   '@testing-library/dom@9.3.4':
     resolution: {integrity: sha512-FlS4ZWlp97iiNWig0Muq8p+3rVDjRiYE+YKGbAqXOu9nwJFFOdL00kFpz42M+4huzYi86vAK1sOOfyOG45muIQ==}
     engines: {node: '>=14'}
@@ -11249,14 +11291,14 @@ packages:
   flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
 
-  flowise-embed-react@3.0.3:
-    resolution: {integrity: sha512-+7Ta33EUvF8mC3qKIG9ppf2GMViJjiSVaFOPt725IlH6jgikHRdcGuXGGPavjQzQH22L3P8WnhaniVHJnRn6kg==}
+  flowise-embed-react@3.0.5:
+    resolution: {integrity: sha512-rcSU2JLKPQkx2Vxieh+W2IK1xzf8WiHIPQdcx/kFLef9aljz/ZU0IhUbGOskkzsZDQGy1ng6HqHkvZ/pcYt9mw==}
     peerDependencies:
       flowise-embed: '*'
       react: 18.x
 
-  flowise-embed@3.0.4:
-    resolution: {integrity: sha512-FjDtQRYsXLbpwzePN4wbA8/aLTXiJN3Ji9iL/CRGR9EdrgA85UHF1JuGBrqDvrsKm81KKXBjvBlnNus6+NyW+w==}
+  flowise-embed@3.0.5:
+    resolution: {integrity: sha512-CCZRpZdTeSW2Oagj7LxxK7YZKEbqjylUs2ayCuhB2hNoufkOpEJlyvqdDKcy6FDc+DwKg5aSjSFyTH2AFVh1pQ==}
 
   flowise-nim-container-manager@1.0.11:
     resolution: {integrity: sha512-Er/leiIzJZ691kWqXkjCWv29g0G5qWA4juBOcGZ1P5kBLnkKFxbWc5x8JsSPcHuJQIiGNX/dYEzp2ZrOV3YYMg==}
@@ -15874,7 +15916,7 @@ packages:
   puppeteer@20.9.0:
     resolution: {integrity: sha512-kAglT4VZ9fWEGg3oLc4/de+JcONuEJhlh3J6f5R1TLkrY/EHHIHxWXDOzXvaxQCtedmyVXBwg8M+P8YCO/wZjw==}
     engines: {node: '>=16.3.0'}
-    deprecated: < 24.10.2 is no longer supported
+    deprecated: < 24.15.0 is no longer supported
 
   pure-color@1.3.0:
     resolution: {integrity: sha512-QFADYnsVoBMw1srW7OVKEYjG+MbIa49s54w1MA1EDY6r2r/sTcKKYqRX1f4GYvnXP7eN/Pe9HFcX+hwzmrXRHA==}
@@ -26157,6 +26199,21 @@ snapshots:
 
   '@tabler/icons@3.34.0': {}
 
+  '@tanstack/query-core@5.90.3': {}
+
+  '@tanstack/query-devtools@5.90.1': {}
+
+  '@tanstack/react-query-devtools@5.90.2(@tanstack/react-query@5.90.3(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@tanstack/query-devtools': 5.90.1
+      '@tanstack/react-query': 5.90.3(react@18.3.1)
+      react: 18.3.1
+
+  '@tanstack/react-query@5.90.3(react@18.3.1)':
+    dependencies:
+      '@tanstack/query-core': 5.90.3
+      react: 18.3.1
+
   '@testing-library/dom@9.3.4':
     dependencies:
       '@babel/code-frame': 7.27.1
@@ -31099,10 +31156,10 @@ snapshots:
 
   flatted@3.3.3: {}
 
-  flowise-embed-react@3.0.3(@types/node@20.12.12)(flowise-embed@3.0.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(terser@5.43.1)(typescript@5.8.3):
+  flowise-embed-react@3.0.5(@types/node@20.12.12)(flowise-embed@3.0.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(terser@5.43.1)(typescript@5.8.3):
     dependencies:
       '@ladle/react': 2.5.1(@types/node@20.12.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(terser@5.43.1)(typescript@5.8.3)
-      flowise-embed: 3.0.4
+      flowise-embed: 3.0.5
       react: 18.3.1
     transitivePeerDependencies:
       - '@types/node'
@@ -31116,7 +31173,7 @@ snapshots:
       - terser
       - typescript
 
-  flowise-embed@3.0.4:
+  flowise-embed@3.0.5:
     dependencies:
       '@babel/core': 7.27.7
       '@microsoft/fetch-event-source': 2.0.1
@@ -33087,7 +33144,7 @@ snapshots:
       '@types/node': 20.12.12
       jest-mock: 29.7.0
       jest-util: 29.7.0
-      jsdom: 20.0.3(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5)
+      jsdom: 20.0.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5)
     optionalDependencies:
       canvas: 2.11.2(encoding@0.1.13)
     transitivePeerDependencies:
@@ -33709,7 +33766,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  jsdom@20.0.3(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5):
+  jsdom@20.0.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5):
     dependencies:
       abab: 2.0.6
       acorn: 8.15.0
@@ -37817,7 +37874,7 @@ snapshots:
       '@types/mathjax': 0.0.37
       hast-util-from-dom: 4.2.0
       hast-util-to-text: 3.1.2
-      jsdom: 20.0.3(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5)
+      jsdom: 20.0.3(bufferutil@4.0.9)(canvas@2.11.2)(utf-8-validate@6.0.5)
       mathjax-full: 3.2.2
       unified: 10.1.2
       unist-util-visit: 4.1.2

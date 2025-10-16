@@ -41,6 +41,18 @@ export interface IQuizTemplateConfig {
     }
 }
 
+// Timer configuration interface
+export interface TimerConfig {
+    /** Enable/disable timer */
+    enabled: boolean
+
+    /** Time limit in seconds */
+    limitSeconds: number
+
+    /** Timer position on screen */
+    position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-right'
+}
+
 // Build options interface
 export interface BuildOptions {
     includeStartCollectName?: boolean
@@ -49,6 +61,7 @@ export interface BuildOptions {
     canvasId?: string // Canvas ID for publication context
     markerType?: string // AR marker type
     markerValue?: string // AR marker value
+    timerConfig?: TimerConfig // Timer configuration
     [key: string]: any
 }
 

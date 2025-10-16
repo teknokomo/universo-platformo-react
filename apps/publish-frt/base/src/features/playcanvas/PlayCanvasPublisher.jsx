@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
     Box,
@@ -14,7 +15,9 @@ import {
     Card,
     CardContent,
     FormHelperText,
-    Snackbar
+    Snackbar,
+    Alert,
+    Button
 } from '@mui/material'
 import { useSession } from '@universo/auth-frt'
 
@@ -24,7 +27,7 @@ import GameModeSelector from '../../components/GameModeSelector'
 import ColyseusSettings from '../../components/ColyseusSettings'
 import { PublicationLinks } from '../../components/PublicationLinks'
 import { PublishVersionSection } from '../../components/PublishVersionSection'
-import { PlayCanvasPublicationApi, PublishLinksApi, PublicationApi, getCurrentUrlIds, getPublishApiClient } from '../../api'
+import { PlayCanvasPublicationApi, PublishLinksApi, PublicationApi, getCurrentUrlIds, getPublishApiClient, publishQueryKeys } from '../../api'
 import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
 import { isValidBase58 } from '../../utils/base58Validator'
 import { FieldNormalizer } from '../../utils/fieldNormalizer'
@@ -33,7 +36,7 @@ import { useAutoSave } from '../../hooks'
 const DEFAULT_VERSION = '2.9.0'
 const DEFAULT_TEMPLATE = 'mmoomm-playcanvas'
 
-const PlayCanvasPublisher = ({ flow }) => {
+const PlayCanvasPublisherComponent = ({ flow }) => {
     const { t } = useTranslation('publish')
     const publishClient = useMemo(() => getPublishApiClient(), [])
     const { user: authUser, refresh: refreshSession } = useSession({ client: publishClient })
@@ -59,10 +62,8 @@ const PlayCanvasPublisher = ({ flow }) => {
     const [error, setError] = useState('')
     const [publishLinkRecords, setPublishLinkRecords] = useState([])
     const [snackbar, setSnackbar] = useState({ open: false, message: '' })
-    const publishLinksStatusRef = useRef({
-        loading: false,
-        abortController: null
-    })
+    const queryClient = useQueryClient()
+    const [settingsReloadNonce, setSettingsReloadNonce] = useState(0)
 
     const publishLinkItems = useMemo(() => {
         if (!publishLinkRecords?.length) {
@@ -98,118 +99,104 @@ const PlayCanvasPublisher = ({ flow }) => {
     }, [publishLinkRecords])
 
     const normalizedVersionGroupId = useMemo(() => FieldNormalizer.normalizeVersionGroupId(flow), [flow])
-    const [resolvedVersionGroupId, setResolvedVersionGroupId] = useState(normalizedVersionGroupId)
+    const lastLoadedFlowIdRef = useRef(null)
+
+    // Get current unikId from URL
+    const currentUnikId = useMemo(() => {
+        const { unikId: urlUnikId } = getCurrentUrlIds()
+        return urlUnikId
+    }, [])
+
+    // Use useQuery for automatic deduplication and caching
+    // This replaces the imperative fetchQuery approach
+    const {
+        data: canvasData,
+        isLoading: isCanvasLoading,
+        isError: isCanvasError
+    } = useQuery({
+        queryKey: publishQueryKeys.canvasByUnik(currentUnikId, flow?.id),
+        queryFn: async () => {
+            const response = await PublicationApi.getCanvasById(currentUnikId, String(flow.id))
+            return response?.data
+        },
+        enabled: !!flow?.id && !!currentUnikId && !normalizedVersionGroupId,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        retry: false // Don't retry on error, just show warning
+    })
+
+    // Compute resolvedVersionGroupId from either flow data or fetched canvas data
+    const resolvedVersionGroupId = useMemo(() => {
+        // First try to get from flow itself
+        if (normalizedVersionGroupId) {
+            return normalizedVersionGroupId
+        }
+        // Otherwise try to extract from fetched canvas data
+        if (canvasData) {
+            const detected = FieldNormalizer.normalizeVersionGroupId(canvasData)
+            if (detected) {
+                return detected
+            }
+        }
+        return null
+    }, [normalizedVersionGroupId, canvasData])
+
+    // Keep ref updated for use in callbacks
     const resolvedVersionGroupIdRef = useRef(resolvedVersionGroupId)
     useEffect(() => {
         resolvedVersionGroupIdRef.current = resolvedVersionGroupId
     }, [resolvedVersionGroupId])
-    const [versionGroupFetchAttempted, setVersionGroupFetchAttempted] = useState(Boolean(normalizedVersionGroupId))
-    const lastLoadedFlowIdRef = useRef(null)
 
+    // Log warning if canvas fetch failed
     useEffect(() => {
-        if (normalizedVersionGroupId !== resolvedVersionGroupId) {
-            setResolvedVersionGroupId(normalizedVersionGroupId)
-            setVersionGroupFetchAttempted(Boolean(normalizedVersionGroupId))
+        if (isCanvasError) {
+            console.warn('[PlayCanvasPublisher] Failed to load versionGroupId from API')
         }
-    }, [normalizedVersionGroupId, resolvedVersionGroupId])
-
-    useEffect(() => {
-        if (resolvedVersionGroupId) {
-            setVersionGroupFetchAttempted(true)
-        }
-    }, [resolvedVersionGroupId])
-
-    useEffect(() => {
-        if (resolvedVersionGroupId || !flow?.id || versionGroupFetchAttempted) {
-            return
-        }
-
-        const { unikId } = getCurrentUrlIds()
-        if (!unikId) {
-            return
-        }
-
-        let cancelled = false
-
-        const fetchVersionGroup = async () => {
-            try {
-                setVersionGroupFetchAttempted(true)
-                const response = await PublicationApi.getCanvasById(unikId, String(flow.id))
-                const payload = response?.data
-                const detected = FieldNormalizer.normalizeVersionGroupId(payload)
-                if (detected && !cancelled) {
-                    setResolvedVersionGroupId(detected)
-                }
-            } catch (err) {
-                console.warn('[PlayCanvasPublisher] Failed to load versionGroupId from API', err)
-            }
-        }
-
-        fetchVersionGroup()
-
-        return () => {
-            cancelled = true
-        }
-    }, [flow?.id, resolvedVersionGroupId, versionGroupFetchAttempted])
+    }, [isCanvasError])
 
     const loadPublishLinks = useCallback(async () => {
-        const currentFlowId = flowIdRef.current
-        const currentVersionGroupId = resolvedVersionGroupIdRef.current
+        const currentFlowId = flowIdRef.current ? String(flowIdRef.current) : null
+        const currentVersionGroupId = resolvedVersionGroupIdRef.current ?? null
 
         if (!currentFlowId && !currentVersionGroupId) {
             return []
         }
 
-        if (publishLinksStatusRef.current.loading) {
-            return []
-        }
-
-        if (publishLinksStatusRef.current.abortController) {
-            publishLinksStatusRef.current.abortController.abort()
-        }
-
-        const abortController = new AbortController()
-        publishLinksStatusRef.current.loading = true
-        publishLinksStatusRef.current.abortController = abortController
-
         try {
-            const links = await PublishLinksApi.listLinks(
-                {
-                    technology: 'playcanvas',
-                    versionGroupId: currentVersionGroupId ?? null
-                },
-                { signal: abortController.signal }
-            )
+            const records = await queryClient.fetchQuery({
+                queryKey: publishQueryKeys.linksByVersion('playcanvas', currentFlowId, currentVersionGroupId),
+                queryFn: async () => {
+                    const links = await PublishLinksApi.listLinks({
+                        technology: 'playcanvas',
+                        versionGroupId: currentVersionGroupId ?? null
+                    })
 
-            const filtered = links.filter((link) => {
-                if (currentVersionGroupId && link.versionGroupId === currentVersionGroupId) {
-                    return true
+                    return links.filter((link) => {
+                        if (currentVersionGroupId && link.versionGroupId === currentVersionGroupId) {
+                            return true
+                        }
+
+                        if (currentFlowId && link.targetCanvasId === currentFlowId) {
+                            return true
+                        }
+
+                        return false
+                    })
                 }
-
-                if (currentFlowId && link.targetCanvasId === currentFlowId) {
-                    return true
-                }
-
-                return false
             })
 
-            const hasGroupLink = filtered.some((link) => link.targetType === 'group')
-            setPublishLinkRecords(filtered)
-            setIsPublic((prev) => (prev === hasGroupLink ? prev : hasGroupLink))
+            setPublishLinkRecords(records)
+            setIsPublic((prev) => {
+                const hasGroupLink = records.some((link) => link.targetType === 'group')
+                return prev === hasGroupLink ? prev : hasGroupLink
+            })
 
-            return filtered
+            return records
         } catch (apiError) {
-            if (apiError.name === 'AbortError' || apiError.name === 'CanceledError') {
-                return []
-            }
             console.error('PlayCanvasPublisher: failed to load publish links', apiError)
             setPublishLinkRecords([])
             return []
-        } finally {
-            publishLinksStatusRef.current.loading = false
-            publishLinksStatusRef.current.abortController = null
         }
-    }, [])
+    }, [queryClient])
 
     useEffect(() => {
         if (!flow?.id && !resolvedVersionGroupId) {
@@ -264,13 +251,23 @@ const PlayCanvasPublisher = ({ flow }) => {
             } catch (e) {
                 console.error('PlayCanvasPublisher: load error', e)
                 lastLoadedFlowIdRef.current = null
-                setError(e.message)
+                const message = e instanceof Error ? e.message : 'Failed to load PlayCanvas settings. Please retry.'
+                setError(message)
             } finally {
                 setLoading(false)
             }
         }
         load()
-    }, [flow?.id])
+    }, [flow?.id, settingsReloadNonce])
+
+    const handleRetryLoadSettings = useCallback(() => {
+        setError('')
+        setLoading(true)
+        lastLoadedFlowIdRef.current = null
+        setSettingsReloadNonce((nonce) => nonce + 1)
+        queryClient.invalidateQueries({ queryKey: ['publish', 'canvas'], exact: false })
+        queryClient.invalidateQueries({ queryKey: ['publish', 'links', 'playcanvas'], exact: false })
+    }, [queryClient])
 
     const saveSettings = async () => {
         // Universo Platformo | always use the latest flow.id
@@ -422,12 +419,6 @@ const PlayCanvasPublisher = ({ flow }) => {
                 <CircularProgress />
             </Box>
         )
-    if (error)
-        return (
-            <Box sx={{ p: 2 }}>
-                <Typography color='error'>{error}</Typography>
-            </Box>
-        )
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -438,6 +429,17 @@ const PlayCanvasPublisher = ({ flow }) => {
             <Typography variant='body2' color='text.secondary' paragraph>
                 {t('technologies.playcanvasDescription')}
             </Typography>
+
+            {error && (
+                <Alert severity='error' sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box component='span' sx={{ flexGrow: 1 }}>
+                        {error}
+                    </Box>
+                    <Button variant='outlined' color='inherit' size='small' onClick={handleRetryLoadSettings}>
+                        {t('common.retry', 'Повторить')}
+                    </Button>
+                </Alert>
+            )}
 
             {/* Main Content Card */}
             <Card variant='outlined' sx={{ mb: 3 }}>
@@ -573,11 +575,8 @@ const PlayCanvasPublisher = ({ flow }) => {
                         canvasId={flow.id}
                         versionGroupId={versionGroupId}
                         technology='playcanvas'
-                        onVersionGroupResolved={(vg) => {
-                            if (vg && vg !== resolvedVersionGroupId) {
-                                setResolvedVersionGroupId(vg)
-                            }
-                        }}
+                        // onVersionGroupResolved removed: resolvedVersionGroupId is now computed via useMemo
+                        // from normalizedVersionGroupId or canvasData, no manual state update needed
                     />
                 )
             })()}
@@ -587,5 +586,9 @@ const PlayCanvasPublisher = ({ flow }) => {
         </Box>
     )
 }
+
+// NOTE: QueryClient is now provided by PublishDialog wrapper
+// No need for local PublishQueryProvider
+const PlayCanvasPublisher = PlayCanvasPublisherComponent
 
 export default PlayCanvasPublisher

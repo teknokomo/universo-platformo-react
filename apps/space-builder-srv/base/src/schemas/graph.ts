@@ -27,8 +27,8 @@ const Edge = z
   .passthrough()
 
 export const GraphSchema = z.object({
-  nodes: z.array(Node).max(150),
-  edges: z.array(Edge).max(300)
+  nodes: z.array(Node).max(250),
+  edges: z.array(Edge).max(500)
 })
 
 export type Graph = z.infer<typeof GraphSchema>

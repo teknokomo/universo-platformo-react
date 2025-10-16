@@ -5,6 +5,229 @@ Frontend for the publication system in Universo Platformo, supporting AR.js and 
 See also: Creating New Apps/Packages (best practices)
 
 - ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
+## UI Components Migration (October 2024)
+
+This package consolidates all **"Publish & Export"** UI components from various parts of the monorepo into a single location. The migration improves maintainability, eliminates scattered QueryClient instances causing 429 request storms, and provides a unified entry point for all publication-related interfaces.
+
+### Migration Details
+
+**Migrated from:** `packages/ui/src/views/publish/` and `packages/ui/src/views/canvases/`  
+**Migration date:** October 2024  
+**Total files migrated:** 14 component files
+
+#### Migrated Components Structure
+
+```
+src/features/
+├─ dialog/              # Publication dialog components (from canvases/)
+│  ├─ APICodeDialog.jsx       # Main publish dialog (1031 lines)
+│  ├─ Configuration.jsx       # Display mode settings
+│  ├─ EmbedChat.jsx           # Chat embed code generator
+│  └─ index.ts                # Barrel exports
+├─ chatbot/             # Chatbot publication components (from publish/bots/)
+│  ├─ ChatBotSettings.jsx     # Chatbot configuration UI
+│  ├─ BaseBot.jsx             # Base bot display component
+│  ├─ BaseBotSettings.jsx     # Base bot settings
+│  ├─ BotRouter.jsx           # Bot routing logic
+│  ├─ ChatBotViewer.jsx       # Bot viewer component
+│  ├─ embed/
+│  │  ├─ BaseBotEmbed.jsx    # Base bot embed code
+│  │  ├─ ChatBotEmbed.jsx    # Chatbot embed code
+│  │  └─ index.ts            # Embed exports
+│  └─ index.ts                # Chatbot exports
+└─ api/                 # API code sharing components (from publish/)
+   ├─ APIShare.jsx            # API sharing interface
+   ├─ PythonCode.jsx          # Python code generator
+   ├─ JavaScriptCode.jsx      # JavaScript code generator
+   ├─ LinksCode.jsx           # Links code generator
+   └─ index.ts                # API exports
+```
+
+### Critical Architecture Fix: Single QueryClient
+
+**Problem Identified:** Multiple QueryClient instances across `ARJSPublisher`, `PlayCanvasPublisher`, and individual publishers caused race conditions and 429 (Too Many Requests) errors.
+
+**Solution Implemented:** Created unified `PublishDialog` wrapper providing a single QueryClient for all publish operations.
+
+#### PublishDialog Component
+
+**Location:** `src/components/PublishDialog.tsx`
+
+```typescript
+import React, { useMemo } from 'react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { createPublishQueryClient } from '../providers/PublishQueryProvider'
+import APICodeDialog from '../features/dialog/APICodeDialog'
+
+interface PublishDialogProps {
+  show: boolean
+  dialogProps: {
+    type: string
+    data: any
+    onConfirm?: () => void
+    onCancel?: () => void
+  }
+  onCancel: () => void
+}
+
+const PublishDialog: React.FC<PublishDialogProps> = ({ show, dialogProps, onCancel }) => {
+  const queryClient = useMemo(() => createPublishQueryClient(), [])
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <APICodeDialog show={show} dialogProps={dialogProps} onCancel={onCancel} />
+    </QueryClientProvider>
+  )
+}
+
+export default PublishDialog
+```
+
+**Key Benefits:**
+- Single QueryClient instance eliminates race conditions
+- Reduces concurrent requests from multiple publishers
+- Fixes 429 rate limiting issues
+- Improves overall application stability
+
+#### Updated Publisher Components
+
+**ARJSPublisher.jsx** and **PlayCanvasPublisher.jsx** no longer wrap themselves in `PublishQueryProvider`:
+
+```javascript
+// Before (causing multiple QueryClient instances):
+export default () => (
+  <PublishQueryProvider>
+    <ARJSPublisherComponent />
+  </PublishQueryProvider>
+)
+
+// After (clean export, QueryClient provided by parent):
+export const ARJSPublisher = ARJSPublisherComponent
+```
+
+### Localization Migration
+
+All publish-related i18n keys migrated from `packages/ui/src/i18n/locales/{en,ru}/views/canvases.json` to `apps/publish-frt/base/src/i18n/locales/{en,ru}/main.json`.
+
+**New i18n section:** `apiCodeDialog`
+
+**Keys migrated:**
+- `noAuthorization`, `addNewKey`, `chooseApiKey`, `apiEndpoint`
+- `shareAPI`, `configuration`, `embed`, `viewInBrowser`
+- `publish`, `unpublish`, `publishing`, `unpublishing`
+- `pythonCode`, `javascriptCode`, `links`
+- And all sub-keys for each section
+
+### Package Exports
+
+**Entry Point:** `src/index.ts`
+
+```typescript
+// Main publish dialog with QueryClient
+export { default as PublishDialog } from './components/PublishDialog'
+export { createPublishQueryClient } from './providers/PublishQueryProvider'
+
+// Dialog components (migrated from canvases/)
+export { default as APICodeDialog } from './features/dialog/APICodeDialog'
+export { default as Configuration } from './features/dialog/Configuration'
+export { default as EmbedChat } from './features/dialog/EmbedChat'
+
+// Chatbot components (migrated from publish/bots/)
+export { default as ChatBotSettings } from './features/chatbot/ChatBotSettings'
+export { default as BaseBot } from './features/chatbot/BaseBot'
+export { default as BaseBotSettings } from './features/chatbot/BaseBotSettings'
+export { default as BotRouter } from './features/chatbot/BotRouter'
+export { default as ChatBotViewer } from './features/chatbot/ChatBotViewer'
+
+// Chatbot embed components
+export { default as BaseBotEmbed } from './features/chatbot/embed/BaseBotEmbed'
+export { default as ChatBotEmbed } from './features/chatbot/embed/ChatBotEmbed'
+
+// API components (migrated from publish/)
+export { default as APIShare } from './features/api/APIShare'
+export { default as PythonCode } from './features/api/PythonCode'
+export { default as JavaScriptCode } from './features/api/JavaScriptCode'
+export { default as LinksCode } from './features/api/LinksCode'
+
+// Existing publishers
+export { ARJSPublisher } from './features/arjs/ARJSPublisher'
+export { PlayCanvasPublisher } from './features/playcanvas/PlayCanvasPublisher'
+```
+
+**Package.json configuration:**
+
+```json
+{
+  "main": "dist/publish-frt/base/src/index.js",
+  "module": "dist/publish-frt/base/src/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/publish-frt/base/src/index.js",
+      "require": "./dist/publish-frt/base/src/index.js"
+    }
+  }
+}
+```
+
+### MVP Constraints & Future Work
+
+#### Current State (MVP)
+
+**Import Strategy:** Kept `@/` imports pointing to `flowise-ui` for stability:
+```javascript
+// Current approach in migrated files
+import { useTranslation } from 'react-i18next'
+import '@/views/canvases/CanvasHeader.css'
+import { SyntaxHighlighter, CodeBlock } from '@/ui-component/SyntaxHighlighter'
+```
+
+**Build Output:** TypeScript compiles to CommonJS (per `tsconfig.json`), Gulp copies static assets.
+
+#### Known Issues
+
+1. **CommonJS/ESM Incompatibility:** Direct imports of `publish-frt` components in `flowise-ui` fail due to Vite expecting ESM while TypeScript produces CommonJS.
+   - **Impact:** Cannot yet use `import { PublishDialog } from 'publish-frt'` in main UI
+   - **Workaround:** Keep original imports (`@/views/canvases/APICodeDialog`) for now
+
+2. **Import Migration Pending:** Full conversion from `@/` imports to workspace paths (`@universo/...`) deferred to future iteration.
+
+#### Future Improvements
+
+- [ ] Convert TypeScript compilation to ESM (update `tsconfig.json` module target)
+- [ ] Migrate all internal `@/` imports to workspace paths
+- [ ] Enable direct `publish-frt` imports in `flowise-ui`
+- [ ] Remove original files from `packages/ui` once stability confirmed
+- [ ] Performance testing of single QueryClient approach
+- [ ] Integration tests for publish dialog from UI
+
+### Migration Success Metrics
+
+✅ **Build Status:** Both `publish-frt` and `flowise-ui` build successfully  
+✅ **QueryClient Fix:** Multiple QueryClient instances eliminated  
+✅ **Code Organization:** All publish UI components in one location  
+✅ **Localization:** Complete i18n migration for English and Russian  
+✅ **Exports:** All components available via barrel exports  
+
+### Testing Recommendations
+
+1. **Manual Testing:**
+   - Open any canvas and trigger "Publish & Export" dialog
+   - Verify all tabs (API, Configuration, Embed) work correctly
+   - Test AR.js and PlayCanvas publishers
+   - Confirm no 429 errors during publication operations
+
+2. **Performance Monitoring:**
+   - Monitor request counts during publish operations
+   - Verify single QueryClient behavior in browser DevTools
+   - Check for reduced duplicate requests
+
+3. **Regression Testing:**
+   - Ensure existing publish workflows continue working
+   - Test all configuration options (markers, libraries, display modes)
+   - Verify public links generation and viewing
+
+---
+
 ## Project Structure
 
 The project follows a unified structure for applications in the monorepo:
@@ -114,6 +337,16 @@ Frontend implications:
 
 - Pass only the required fields (`unikId`, `canvasId`/`spaceId` if applicable, `versionGroupId` for group links).
 - Handle 400 responses by showing a concise validation error to the user.
+
+## Server-state management and retries
+
+Starting from October 2025 the publication UI uses **TanStack Query** to manage server-side state:
+
+- `PublishQueryProvider` (see `src/providers/PublishQueryProvider.tsx`) hosts a shared `QueryClient` with sensible defaults (`staleTime` 30 s, `gcTime` 5 min, retries only for 5xx).
+- AR.js и PlayCanvas издатели запрашивают `/publish/links` и `/canvases/:id` через `queryClient.fetchQuery`, что исключает параллельные повторные запросы и кеширует полученные данные.
+- Для пользовательских повторных попыток показано уведомление с кнопкой «Retry», которое инвалидацирует связанные ключи (`publish/canvas`, `publish/links/*`) и перезапускает загрузку.
+
+Серверные лимитеры теперь отправляют `Retry-After`, `X-RateLimit-*`. Клиент уважает эти заголовки и больше не пытается повторять запросы агрессивно. При необходимости можно расширить стратегию, добавив собственный `QueryCache` или очереди, но для MVP достаточно встроенных возможностей TanStack Query + наглядных ошибок.
 
 ## Critical Architecture: Iframe-Based AR.js Rendering
 

@@ -18,8 +18,8 @@ export async function prepareController(req: Request, res: Response) {
   }
   const qCount = Number(options?.questionsCount ?? 1)
   const aPerQ = Number(options?.answersPerQuestion ?? 2)
-  if (!Number.isInteger(qCount) || qCount < 1 || qCount > 10) {
-    return res.status(400).json({ error: 'Invalid input: questionsCount must be 1..10' })
+  if (!Number.isInteger(qCount) || qCount < 1 || qCount > 30) {
+    return res.status(400).json({ error: 'Invalid input: questionsCount must be 1..30' })
   }
   if (!Number.isInteger(aPerQ) || aPerQ < 2 || aPerQ > 5) {
     return res.status(400).json({ error: 'Invalid input: answersPerQuestion must be 2..5' })

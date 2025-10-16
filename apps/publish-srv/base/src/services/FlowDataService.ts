@@ -8,6 +8,28 @@ import { RawFlowData, CanvasMinimal } from '../types/publication.types'
 import { serialization } from '@universo-platformo/utils'
 import { PublishCanvas } from '../database/entities'
 
+const TIMER_POSITIONS = new Set(['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-right'])
+
+const normalizeTimerConfig = (config: any) => {
+    if (!config || typeof config !== 'object') {
+        return undefined
+    }
+
+    const enabled = config.enabled === true
+    const limitSecondsCandidate = Number(config.limitSeconds)
+    const limitSeconds = Number.isFinite(limitSecondsCandidate)
+        ? Math.min(3600, Math.max(10, Math.round(limitSecondsCandidate)))
+        : 60
+
+    const position = TIMER_POSITIONS.has(config.position) ? config.position : 'top-center'
+
+    return {
+        enabled,
+        limitSeconds,
+        position
+    }
+}
+
 /**
  * Service for handling flow data extraction from Supabase
  * This service ONLY retrieves raw data without any UPDL processing
@@ -103,8 +125,16 @@ export class FlowDataService {
                             logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
                         }
                         if (config?.arjs) {
-                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor } = config.arjs
-                            renderConfig = { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor }
+                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor, timerConfig } = config.arjs
+                            renderConfig = {
+                                arDisplayType,
+                                wallpaperType,
+                                markerType,
+                                markerValue,
+                                cameraUsage,
+                                backgroundColor,
+                                ...(timerConfig ? { timerConfig: normalizeTimerConfig(timerConfig) } : {})
+                            }
                             logger.info(`[FlowDataService] Extracted renderConfig: ${JSON.stringify(renderConfig)}`)
                         }
                         if (config?.playcanvas) {
