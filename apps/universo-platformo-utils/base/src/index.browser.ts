@@ -6,6 +6,7 @@ export * as delta from './delta'
 export * as serialization from './serialization'
 export * as math from './math'
 export * as updl from './updl'
+export * as publish from './publish'
 export { UPDLProcessor } from './updl/UPDLProcessor'
 
 // Explicit imports to avoid pulling in Node "net" dependency when bundling for the browser.

@@ -47,62 +47,47 @@ src/features/
 
 **Problem Identified:** Multiple QueryClient instances across `ARJSPublisher`, `PlayCanvasPublisher`, and individual publishers caused race conditions and 429 (Too Many Requests) errors.
 
-**Solution Implemented:** Created unified `PublishDialog` wrapper providing a single QueryClient for all publish operations.
+**Solution Implemented:** A single global `QueryClient` is now created at the UI root (`packages/ui/src/index.jsx`). All publish features consume this shared client directly, eliminating redundant providers and network storms.
 
-#### PublishDialog Component
+#### Global QueryClient Provider
 
-**Location:** `src/components/PublishDialog.tsx`
+**Location:** `packages/ui/src/index.jsx`
 
 ```typescript
-import React, { useMemo } from 'react'
-import { QueryClientProvider } from '@tanstack/react-query'
-import { createPublishQueryClient } from '../providers/PublishQueryProvider'
-import APICodeDialog from '../features/dialog/APICodeDialog'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import App from './App'
 
-interface PublishDialogProps {
-  show: boolean
-  dialogProps: {
-    type: string
-    data: any
-    onConfirm?: () => void
-    onCancel?: () => void
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: true,
+      refetchOnWindowFocus: false
+    }
   }
-  onCancel: () => void
-}
+})
 
-const PublishDialog: React.FC<PublishDialogProps> = ({ show, dialogProps, onCancel }) => {
-  const queryClient = useMemo(() => createPublishQueryClient(), [])
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <APICodeDialog show={show} dialogProps={dialogProps} onCancel={onCancel} />
-    </QueryClientProvider>
-  )
-}
-
-export default PublishDialog
+root.render(
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>
+)
 ```
 
-**Key Benefits:**
-- Single QueryClient instance eliminates race conditions
-- Reduces concurrent requests from multiple publishers
-- Fixes 429 rate limiting issues
-- Improves overall application stability
+**Usage:** All publish-related dialogs and components now rely on the global `QueryClient` provided at the UI root. There is no longer a dedicated `PublishDialog.tsx` wrapper or a separate `PublishQueryProvider`.
 
-#### Updated Publisher Components
+```typescript
+// Example usage of the main publish dialog component
+import APICodeDialog from '../features/dialog/APICodeDialog'
 
-**ARJSPublisher.jsx** and **PlayCanvasPublisher.jsx** no longer wrap themselves in `PublishQueryProvider`:
+// The QueryClientProvider is now set up at the app root, so you can use publish dialogs directly:
 
-```javascript
-// Before (causing multiple QueryClient instances):
-export default () => (
-  <PublishQueryProvider>
-    <ARJSPublisherComponent />
-  </PublishQueryProvider>
-)
-
-// After (clean export, QueryClient provided by parent):
-export const ARJSPublisher = ARJSPublisherComponent
+<APICodeDialog
+  show={showDialog}
+  type={dialogType}
+  data={dialogData}
+  onConfirm={handleConfirm}
+  onCancel={handleCancel}
+/>
 ```
 
 ### Localization Migration
@@ -123,10 +108,6 @@ All publish-related i18n keys migrated from `packages/ui/src/i18n/locales/{en,ru
 **Entry Point:** `src/index.ts`
 
 ```typescript
-// Main publish dialog with QueryClient
-export { default as PublishDialog } from './components/PublishDialog'
-export { createPublishQueryClient } from './providers/PublishQueryProvider'
-
 // Dialog components (migrated from canvases/)
 export { default as APICodeDialog } from './features/dialog/APICodeDialog'
 export { default as Configuration } from './features/dialog/Configuration'

@@ -265,8 +265,8 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
         setLoading(true)
         lastLoadedFlowIdRef.current = null
         setSettingsReloadNonce((nonce) => nonce + 1)
-        queryClient.invalidateQueries({ queryKey: ['publish', 'canvas'], exact: false })
-        queryClient.invalidateQueries({ queryKey: ['publish', 'links', 'playcanvas'], exact: false })
+        queryClient.invalidateQueries({ queryKey: publishQueryKeys.canvas(), exact: false })
+        queryClient.invalidateQueries({ queryKey: publishQueryKeys.linksByTechnology('playcanvas'), exact: false })
     }, [queryClient])
 
     const saveSettings = async () => {

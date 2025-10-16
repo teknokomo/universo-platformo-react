@@ -25,7 +25,7 @@ export interface ARJSPublicationSettings {
     timerConfig?: {
         enabled: boolean
         limitSeconds: number
-        position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+        position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-right'
     }
 }
 

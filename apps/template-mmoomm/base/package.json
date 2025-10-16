@@ -45,7 +45,6 @@
     "author": "Universo Platformo",
     "license": "MIT",
     "dependencies": {
-        "@tanstack/react-query": "^5.52.0",
         "@universo-platformo/types": "workspace:*",
         "@universo-platformo/utils": "workspace:*"
     },

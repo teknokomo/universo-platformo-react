@@ -25,6 +25,13 @@ interface IUPDLScene {
 }
 import { BuildOptions } from '../../../common/types'
 
+const DATA_HANDLER_DEBUG = false
+const debugLog = (...args: any[]) => {
+    if (DATA_HANDLER_DEBUG) {
+        console.log(...args)
+    }
+}
+
 /**
  * Processes UPDL Data nodes for AR.js quiz generation
  */
@@ -120,7 +127,7 @@ export class DataHandler {
             // Use showPoints from scenes or from options parameter
             const finalShowPoints = showPointsFromScenes || !!options.showPoints
 
-            console.log('🔧 [DataHandler] Lead collection analysis:', {
+            debugLog('🔧 [DataHandler] Lead collection analysis:', {
                 hasScenes: multiScene.scenes.length > 0,
                 firstSceneExists: !!firstScene,
                 hasSpaceData: !!firstScene?.spaceData,
@@ -146,7 +153,7 @@ export class DataHandler {
                     : 'top-center'
             }
 
-            console.log('🔧 [DataHandler] Timer configuration:', safeTimerConfig)
+            debugLog('🔧 [DataHandler] Timer configuration:', safeTimerConfig)
 
             // Generate multi-scene UI and logic
             let content = ''
@@ -425,7 +432,7 @@ export class DataHandler {
         // Lightweight debug facility
         const QUIZ_DEBUG = false; // flip to true for verbose diagnostics
         const dbg = (...args) => { if (QUIZ_DEBUG) console.log(...args); };
-        console.log('[MultiSceneQuiz] Init');
+        dbg('[MultiSceneQuiz] Init');
                 
                 // Universo Platformo | Scene to question number mapping
                 const sceneToQuestionMap = ${JSON.stringify(sceneToQuestionMap)};
@@ -480,7 +487,7 @@ export class DataHandler {
                         }
 
                         this.scheduleFrame();
-                        console.log('[TimerManager] Started:', this.limitSeconds + 's');
+                        dbg('[TimerManager] Started:', this.limitSeconds + 's');
                     }
 
                     scheduleFrame() {
@@ -531,7 +538,7 @@ export class DataHandler {
                         }
                         this.isRunning = false;
                         this.deadline = null;
-                        console.log('[TimerManager] Stopped');
+                        dbg('[TimerManager] Stopped');
 
                         if (this.timerContainer) {
                             this.timerContainer.style.display = 'none';
@@ -549,7 +556,7 @@ export class DataHandler {
                     }
 
                     onTimeExpired() {
-                        console.log('[TimerManager] ⏰ Time expired! Showing results...');
+                        dbg('[TimerManager] ⏰ Time expired! Showing results...');
 
                         // Prevent further interactions
                         const answerButtons = document.querySelectorAll('.quiz-answer-btn');

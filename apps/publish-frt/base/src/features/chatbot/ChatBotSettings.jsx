@@ -1,7 +1,6 @@
 // Universo Platformo | Chat Bot Settings implementation
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { createRoot } from 'react-dom/client'
 import { FormControlLabel, Switch } from '@mui/material'
 import Grid from '@mui/material/Grid'
 

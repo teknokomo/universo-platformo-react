@@ -9,9 +9,6 @@ import { CopyBlock, atomOneDark } from 'react-code-blocks'
 // Const
 import { baseURL } from '@/store/constant'
 
-// Project import
-import { CheckboxInput } from '@/ui-component/checkbox/Checkbox'
-
 function TabPanel(props) {
     const { children, value, index, ...other } = props
     return (

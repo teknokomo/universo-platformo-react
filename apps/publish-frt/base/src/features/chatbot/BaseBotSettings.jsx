@@ -43,7 +43,7 @@ const BaseBotSettings = ({
     const dispatch = useDispatch()
     const theme = useTheme()
     const canvas = useSelector((state) => state.canvas.currentCanvas)
-    const botConfig = canvas[configKey] ? JSON.parse(canvas[configKey]) : defaultConfig
+    const botConfig = canvas[configKey] ?? defaultConfig
     const { t } = useTranslation('canvases')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId

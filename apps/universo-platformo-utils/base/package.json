@@ -27,7 +27,6 @@
     },
     "license": "Omsk Open License",
     "dependencies": {
-        "@tanstack/react-query": "^5.52.0",
         "@universo-platformo/types": "workspace:*",
         "zod": "3.25.76"
     },

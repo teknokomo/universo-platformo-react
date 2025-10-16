@@ -5,30 +5,11 @@
 import { DataSource } from 'typeorm'
 import logger from '../utils/logger'
 import { RawFlowData, CanvasMinimal } from '../types/publication.types'
-import { serialization } from '@universo-platformo/utils'
+import { publish, serialization } from '@universo-platformo/utils'
 import { PublishCanvas } from '../database/entities'
 
-const TIMER_POSITIONS = new Set(['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-right'])
-
-const normalizeTimerConfig = (config: any) => {
-    if (!config || typeof config !== 'object') {
-        return undefined
-    }
-
-    const enabled = config.enabled === true
-    const limitSecondsCandidate = Number(config.limitSeconds)
-    const limitSeconds = Number.isFinite(limitSecondsCandidate)
-        ? Math.min(3600, Math.max(10, Math.round(limitSecondsCandidate)))
-        : 60
-
-    const position = TIMER_POSITIONS.has(config.position) ? config.position : 'top-center'
-
-    return {
-        enabled,
-        limitSeconds,
-        position
-    }
-}
+const normalizeTimerConfig = (config: unknown) =>
+    publish.normalizeTimerConfig(config as Partial<publish.TimerConfig> | null | undefined)
 
 /**
  * Service for handling flow data extraction from Supabase

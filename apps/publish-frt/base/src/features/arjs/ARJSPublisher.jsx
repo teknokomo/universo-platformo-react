@@ -1002,19 +1002,19 @@ const ARJSPublisherComponent = ({ flow, unikId, onPublish, onCancel, initialConf
                                                     label={t('publisher.timer.position', 'Позиция таймера')}
                                                 >
                                                     <MenuItem value='top-left'>
-                                                        {t('publisher.timer.position.topLeft', 'Вверху слева')}
+                                                        {t('publisher.timer.topLeft', 'Вверху слева')}
                                                     </MenuItem>
                                                     <MenuItem value='top-center'>
-                                                        {t('publisher.timer.position.topCenter', 'Вверху по центру')}
+                                                        {t('publisher.timer.topCenter', 'Вверху по центру')}
                                                     </MenuItem>
                                                     <MenuItem value='top-right'>
-                                                        {t('publisher.timer.position.topRight', 'Вверху справа')}
+                                                        {t('publisher.timer.topRight', 'Вверху справа')}
                                                     </MenuItem>
                                                     <MenuItem value='bottom-left'>
-                                                        {t('publisher.timer.position.bottomLeft', 'Внизу слева')}
+                                                        {t('publisher.timer.bottomLeft', 'Внизу слева')}
                                                     </MenuItem>
                                                     <MenuItem value='bottom-right'>
-                                                        {t('publisher.timer.position.bottomRight', 'Внизу справа')}
+                                                        {t('publisher.timer.bottomRight', 'Внизу справа')}
                                                     </MenuItem>
                                                 </Select>
                                                 <FormHelperText>

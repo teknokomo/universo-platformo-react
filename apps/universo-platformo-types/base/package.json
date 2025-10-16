@@ -33,6 +33,5 @@
         "vitest": "^2.1.4"
     },
     "dependencies": {
-        "@tanstack/react-query": "^5.52.0"
     }
 }
