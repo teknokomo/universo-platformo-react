@@ -13,7 +13,7 @@
 - i18n: отдельный неймспейс `finance` подключается в основном приложении.
 
 ```
-apps/
+packages/
 ├─ finance-srv/
 │  └─ base/
 │     ├─ src/database/entities/Transaction.ts

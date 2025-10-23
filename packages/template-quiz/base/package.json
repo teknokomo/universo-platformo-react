@@ -1,0 +1,58 @@
+{
+    "name": "@universo/template-quiz",
+    "version": "1.0.0",
+    "description": "Quiz template system for AR.js and other 3D technologies",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./arjs": {
+            "types": "./dist/arjs/index.d.ts",
+            "import": "./dist/arjs/index.mjs",
+            "require": "./dist/arjs/index.js"
+        },
+        "./i18n": {
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        }
+    },
+    "files": [
+        "dist/**/*",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "tsdown",
+        "clean": "rimraf dist",
+        "dev": "tsdown --watch",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "keywords": [
+        "quiz",
+        "arjs",
+        "3d",
+        "template",
+        "ar",
+        "updl"
+    ],
+    "author": "Universo Platformo",
+    "license": "MIT",
+    "dependencies": {
+        "@universo/types": "workspace:*",
+        "@universo/utils": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "rimraf": "^5.0.0",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

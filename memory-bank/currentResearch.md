@@ -83,7 +83,7 @@ const slug = nanoid()
 
 ### Phase 1: Fix Migration Order (Immediate)
 1. Rename migration file and class to timestamp `1744000000000`
-2. Update import in `apps/publish-srv/base/src/database/migrations/postgres/index.ts`
+2. Update import in `packages/publish-srv/base/src/database/migrations/postgres/index.ts`
 3. Drop and recreate Supabase database (test environment)
 4. Verify migrations run in correct order
 

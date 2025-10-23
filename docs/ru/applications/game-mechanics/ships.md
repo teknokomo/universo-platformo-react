@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/ships-frt/base/
-apps/ships-srv/base/
+packages/ships-frt/base/
+packages/ships-srv/base/
 ```

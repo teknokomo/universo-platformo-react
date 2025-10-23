@@ -21,7 +21,7 @@ A valid Microsoft 365 license assigned to the Azure Active Directory user. Refer
 
 1. Login to your existing [Azure](https://login.microsoftonline.com/) account or [sign up](https://signup.live.com/signup) if you haven't already signed up
 2. Search for **App registrations**.
-3. Next, register a new Azure application in [app registrations](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade/quickStartType~/null/isMSAApp~/false).
+3. Next, register a new Azure application in [app registrations](https://portal.azure.com/#view/Microsoft_AAD_Registeredpackages/CreateApplicationBlade/quickStartType~/null/isMSAApp~/false).
 
 <figure><img src="../../../.gitbook/assets/image (192).png" alt="" width="304"><figcaption></figcaption></figure>
 

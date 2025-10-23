@@ -13,7 +13,7 @@ El sistema de análisis proporciona herramientas completas para analizar el rend
 La aplicación de análisis está construida como un módulo frontend ligero:
 
 ```
-apps/analytics-frt/base/
+packages/analytics-frt/base/
 ├── src/
 │   └── pages/
 │       └── Analytics.jsx    # Página principal de análisis
@@ -49,7 +49,7 @@ El módulo de análisis se integra con el frontend principal de Flowise a travé
 
 ```javascript
 // Importación en la aplicación principal de Flowise
-import { AnalyticsPage } from '@apps/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frt'
 ```
 
 ### Fuentes de Datos
@@ -72,7 +72,7 @@ El componente principal que proporciona:
 ### Integración Básica
 ```javascript
 import React from 'react'
-import { AnalyticsPage } from '@apps/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frt'
 
 function App() {
   return (

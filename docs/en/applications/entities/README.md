@@ -9,7 +9,7 @@ The Entities Service (`entities-srv`) handles entity templates, instances and th
 - Optional arbitrary relations between entities
 
 ## API Endpoints
-See [apps/entities-srv/base/README.md](../../../../apps/entities-srv/base/README.md) for full endpoint list.
+See [packages/entities-srv/base/README.md](../../../../packages/entities-srv/base/README.md) for full endpoint list.
 
 ## Data Model
 Core entities:

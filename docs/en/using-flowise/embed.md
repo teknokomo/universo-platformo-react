@@ -291,7 +291,7 @@ npx flowise start --CORS_ORIGINS=* --IFRAME_ORIGINS=*
 
 If using Docker, place the env variables inside `Flowise/docker/.env`
 
-If using local Git clone, place the env variables inside `Flowise/packages/server/.env`
+If using local Git clone, place the env variables inside `Flowise/packages/flowise-server/.env`
 
 ## Video Tutorials
 

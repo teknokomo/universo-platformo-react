@@ -22,7 +22,7 @@ UPDL es un módulo puro de definiciones de nodos que se integra perfectamente co
 El código fuente tiene una estructura modular, con cada nodo de alto nivel en su propio directorio:
 
 ```
-apps/updl/base/src/
+packages/updl/base/src/
 ├── assets/              # Recursos estáticos (iconos)
 │   └── icons/
 ├── i18n/                # Recursos de internacionalización

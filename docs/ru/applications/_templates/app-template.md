@@ -26,9 +26,9 @@
 ## Структура каталогов
 
 ```txt
-apps/<service>-srv/base/
+packages/<service>-srv/base/
   src/{api,domain,infra,ws}/...
-apps/<service>-frt/base/
+packages/<service>-frt/base/
   src/{app,components,services,store,utils}/...
 ```
 

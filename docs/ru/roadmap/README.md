@@ -24,7 +24,7 @@ Universo Platformo в настоящее время состоит из 6 раб
 ### Существующие приложения
 
 ```
-apps/
+packages/
 ├── updl/                # Система узлов UPDL (7 высокоуровневых узлов)
 ├── publish-frt/         # Фронтенд публикации (AR.js, PlayCanvas)
 ├── publish-srv/         # Бэкенд публикации (workspace пакет)

@@ -1,0 +1,93 @@
+{
+    "name": "@universo/publish-frt",
+    "version": "0.1.0",
+    "description": "Frontend for publication system in Universo Platformo",
+    "main": "./src/index.ts",
+    "module": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts",
+        "./builders": {
+            "types": "./dist/builders/index.d.ts",
+            "import": "./dist/builders/index.mjs",
+            "require": "./dist/builders/index.js"
+        },
+        "./i18n": {
+            "types": "./dist/i18n/index.d.ts",
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        },
+        "./src/hooks/useAutoSave": "./src/hooks/useAutoSave.ts",
+        "./src/components": "./src/components/index.ts",
+        "./src/components/*": "./src/components/*",
+        "./src/features/dialog": "./src/features/dialog/index.ts",
+        "./src/features/chatbot": "./src/features/chatbot/index.ts",
+        "./src/features/chatbot/embed": "./src/features/chatbot/embed/index.ts",
+        "./src/features/api": "./src/features/api/index.ts",
+        "./src/features/arjs/ARJSPublisher": "./src/features/arjs/ARJSPublisher.jsx",
+        "./src/features/arjs/ARJSExporter": "./src/features/arjs/ARJSExporter.jsx",
+        "./src/features/playcanvas/PlayCanvasPublisher": "./src/features/playcanvas/PlayCanvasPublisher.jsx",
+        "./src/hooks": "./src/hooks/index.ts",
+        "./src/types/gameMode.types": "./src/types/gameMode.types.ts",
+        "./src/types/publication.types": "./src/types/publication.types.ts",
+        "./features/arjs/*": {
+            "default": "./src/features/arjs/*"
+        },
+        "./features/playcanvas/*": {
+            "default": "./src/features/playcanvas/*"
+        },
+        "./pages/*": {
+            "default": "./src/pages/*"
+        },
+        "./assets/*": {
+            "default": "./src/assets/*"
+        }
+    },
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown",
+        "build:watch": "tsdown --watch",
+        "lint": "eslint --ext .ts,.tsx src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "keywords": [
+        "universo",
+        "platformo",
+        "publish",
+        "frontend",
+        "3d",
+        "ar",
+        "vr"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@tanstack/react-query": "^5.90.3",
+        "@universo/i18n": "workspace:*",
+        "@universo/types": "workspace:*",
+        "@universo/utils": "workspace:*",
+        "@universo/publish-srv": "workspace:*",
+        "@universo/template-mmoomm": "workspace:*",
+        "@universo/template-quiz": "workspace:*",
+        "axios": "1.7.9",
+        "file-saver": "^2.0.5",
+        "jszip": "^3.10.1",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-qr-code": "^2.0.18",
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.4.5",
+        "@testing-library/react": "^14.1.2",
+        "@testing-library/user-event": "^14.5.2",
+        "@types/file-saver": "^2.0.7",
+        "@types/node": "^20.11.17",
+        "@types/react": "^18.2.55",
+        "@types/react-dom": "^18.2.19",
+        "eslint": "^8.56.0",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "vitest": "^2.1.4"
+    }
+}

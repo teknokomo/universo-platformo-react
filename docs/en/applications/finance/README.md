@@ -13,7 +13,7 @@ The Finance module provides account, currency, and transaction management as a c
 - i18n: dedicated `finance` namespace is loaded into the main app.
 
 ```
-apps/
+packages/
 ├─ finance-srv/
 │  └─ base/
 │     ├─ src/database/entities/Transaction.ts

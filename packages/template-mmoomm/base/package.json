@@ -1,0 +1,59 @@
+{
+    "name": "@universo/template-mmoomm",
+    "version": "1.0.0",
+    "description": "MMOOMM template system for PlayCanvas and other 3D technologies",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./playcanvas": {
+            "types": "./dist/playcanvas/index.d.ts",
+            "import": "./dist/playcanvas/index.mjs",
+            "require": "./dist/playcanvas/index.js"
+        },
+        "./i18n": {
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        }
+    },
+    "files": [
+        "dist/**/*",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "tsdown",
+        "clean": "rimraf dist",
+        "dev": "tsdown --watch",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "keywords": [
+        "mmoomm",
+        "playcanvas",
+        "3d",
+        "template",
+        "multiplayer",
+        "colyseus",
+        "updl"
+    ],
+    "author": "Universo Platformo",
+    "license": "MIT",
+    "dependencies": {
+        "@universo/types": "workspace:*",
+        "@universo/utils": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "rimraf": "^5.0.0",
+        "tsdown": "catalog:",
+        "typescript": "^5.4.5",
+        "vitest": "^2.1.4"
+    }
+}

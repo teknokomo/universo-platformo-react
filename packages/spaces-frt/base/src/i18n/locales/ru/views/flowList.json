@@ -1,0 +1,65 @@
+{
+  "flowList": {
+    "entities": {
+      "canvas": "Холст",
+      "agent": "Агент",
+      "unik": "Уник"
+    },
+    "table": {
+      "columns": {
+        "name": "Название",
+        "category": "Категория",
+        "nodes": "Узлы",
+        "spaces": "Пространства",
+        "lastModified": "Дата изменения",
+        "actions": "Действия"
+      },
+      "more_one": "+ ещё {{count}}",
+      "more_few": "+ ещё {{count}}",
+      "more_many": "+ ещё {{count}}",
+      "more_other": "+ ещё {{count}}"
+    },
+    "menu": {
+      "button": "Опции",
+      "rename": "Переименовать",
+      "duplicate": "Дублировать",
+      "export": "Экспорт",
+      "exportTemplate": "Сохранить как шаблон",
+      "starterPrompts": "Стартовые подсказки",
+      "chatFeedback": "Отзывы чата",
+      "allowedDomains": "Разрешённые домены",
+      "speechToText": "Речь в текст",
+      "updateCategory": "Обновить категории",
+      "delete": "Удалить"
+    },
+    "dialogs": {
+      "rename": {
+        "title": "Переименовать {{entity}}",
+        "confirm": "Переименовать"
+      },
+      "starterPrompts": {
+        "title": "Стартовые подсказки - {{name}}"
+      },
+      "chatFeedback": {
+        "title": "Отзывы чата - {{name}}"
+      },
+      "allowedDomains": {
+        "title": "Разрешённые домены - {{name}}"
+      },
+      "speechToText": {
+        "title": "Речь в текст - {{name}}"
+      }
+    },
+    "confirm": {
+      "delete": {
+        "title": "Удалить",
+        "description": "Удалить {{entity}} {{name}}?",
+        "confirm": "Удалить",
+        "cancel": "Отмена"
+      }
+    },
+    "export": {
+      "fileSuffix": "{{entity}}"
+    }
+  }
+}

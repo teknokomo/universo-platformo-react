@@ -17,7 +17,7 @@ Análisis de la arquitectura actual de Universo Platformo en estado Alpha (v0.21
 ### Estructura Actual de Aplicaciones
 
 ```
-apps/
+packages/
 ├── updl/                # Sistema de Nodos UPDL (7 nodos de alto nivel)
 ├── publish-frt/         # Frontend de Publicación (AR.js, PlayCanvas)
 ├── publish-srv/         # Backend de Publicación (paquete workspace)
@@ -28,14 +28,14 @@ apps/
 
 ### Detalles de Aplicaciones
 
-#### Sistema UPDL (`apps/updl/`)
+#### Sistema UPDL (`packages/updl/`)
 **Propósito**: Sistema central de nodos para crear aplicaciones Universo
 **Características Clave**:
 - 7 nodos abstractos de alto nivel (Space, Entity, Component, Event, Action, Data, Universo)
 - Editor de flujo visual para crear lógica de juego
 - Capacidades de exportación a múltiples plataformas
 
-#### Sistema de Publicación (`apps/publish-frt/`, `apps/publish-srv/`)
+#### Sistema de Publicación (`packages/publish-frt/`, `packages/publish-srv/`)
 **Propósito**: Exportación y publicación multiplataforma
 **Características Clave**:
 - Exportación AR.js (listo para producción)
@@ -43,14 +43,14 @@ apps/
 - Generación de código basada en plantillas
 - Soporte para plantilla MMOOMM
 
-#### Gestión de Perfiles (`apps/profile-frt/`, `apps/profile-srv/`)
+#### Gestión de Perfiles (`packages/profile-frt/`, `packages/profile-srv/`)
 **Propósito**: Gestión de cuentas de usuario y perfiles
 **Características Clave**:
 - Registro y autenticación de usuarios
 - Personalización de perfiles
 - Gestión de configuraciones
 
-#### Sistema de Análisis (`apps/analytics-frt/`)
+#### Sistema de Análisis (`packages/analytics-frt/`)
 **Propósito**: Análisis de cuestionarios e interacciones
 **Características Clave**:
 - Seguimiento de resultados de cuestionarios
@@ -63,7 +63,7 @@ apps/
 
 ```
 packages/
-├── api-documentation/   # Generador de documentación API
+├── universo-rest-docs/   # Generador de documentación API
 ├── components/         # Componentes UI y de negocio compartidos
 ├── server/            # Funcionalidad central del servidor
 └── ui/               # Biblioteca UI frontend
@@ -71,14 +71,14 @@ packages/
 
 ### Detalles de Packages
 
-#### Documentación API (`packages/api-documentation/`)
+#### Documentación API (`packages/universo-rest-docs/`)
 **Propósito**: Generación automatizada de documentación API
 **Tecnología**: TypeScript + OpenAPI
 **Dependencias**: 
 - Express.js para servir documentación
 - Swagger UI para interfaz de documentación
 
-#### Componentes (`packages/components/`)
+#### Componentes (`packages/flowise-components/`)
 **Propósito**: Lógica de negocio compartida y componentes UI
 **Tecnología**: TypeScript + React
 **Módulos Clave**:
@@ -88,7 +88,7 @@ packages/
 - Manejo de errores
 - Carga de modelos
 
-#### Servidor (`packages/server/`)
+#### Servidor (`packages/flowise-server/`)
 **Propósito**: Funcionalidad central del servidor y middleware
 **Tecnología**: Node.js + Express.js + TypeScript
 **Características Clave**:
@@ -98,7 +98,7 @@ packages/
 - Manejo de carga de archivos
 - Soporte WebSocket
 
-#### UI (`packages/ui/`)
+#### UI (`packages/flowise-ui/`)
 **Propósito**: Biblioteca UI frontend y componentes
 **Tecnología**: React + Material-UI + TypeScript
 **Componentes Clave**:

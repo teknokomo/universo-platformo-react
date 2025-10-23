@@ -1,7 +1,25 @@
 ---
 description: 'DevOps mode for automated deployment with zero-downtime updates, maintenance mode, and rollback capabilities'
-tools: ['runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube']
+tools:
+    [
+        'runNotebooks',
+        'search',
+        'runCommands',
+        'runTasks',
+        'usages',
+        'vscodeAPI',
+        'think',
+        'problems',
+        'changes',
+        'testFailure',
+        'openSimpleBrowser',
+        'fetch',
+        'githubRepo',
+        'todos',
+        'rube'
+    ]
 ---
+
 DevOps mode for automated deployment with zero-downtime updates, maintenance mode, and rollback capabilities.  
 Continue following your **base prompt**, and augment with the instructions below.
 
@@ -28,13 +46,13 @@ Continue following your **base prompt**, and augment with the instructions below
     - Handle naming conflicts by adding sequential suffix if needed
 5. **Deploy new version**:
     - Clone specified repository version to `/srv/universo-platformo-react/`
-    - Copy essential env files from backup: `packages/server/.env` and `packages/ui/.env`
+    - Copy essential env files from backup: `packages/flowise-server/.env` and `packages/flowise-ui/.env`
     - Set correct file permissions: `chown -R $USER:$USER /srv/universo-platformo-react`
 6. **Build and start services**:
     - Navigate to project root: `cd /srv/universo-platformo-react`
     - Install dependencies: `pnpm install`
     - Build project: `pnpm build`
-    - Start PM2 process: Try `pm2 start universo-platformo` first (uses saved config). If fails, use full command: `cd packages/server/bin && pm2 start ./run --name universo-platformo -- start`
+    - Start PM2 process: Try `pm2 start universo-platformo` first (uses saved config). If fails, use full command: `cd packages/flowise-server/bin && pm2 start ./run --name universo-platformo -- start`
     - Verify PM2 status: `pm2 list`
 7. **Disable maintenance mode**:
     - Wait 10-15 seconds for application to fully start
@@ -56,47 +74,49 @@ Continue following your **base prompt**, and augment with the instructions below
 
 **Error Handling & Rollback:**
 
-- If any step fails, immediately begin rollback procedure:
-  - Stop any running new processes
-  - Restore previous version from backup directory
-  - Restart PM2 with previous version
-  - Disable maintenance mode
-  - Report failure details to user
+-   If any step fails, immediately begin rollback procedure:
+    -   Stop any running new processes
+    -   Restore previous version from backup directory
+    -   Restart PM2 with previous version
+    -   Disable maintenance mode
+    -   Report failure details to user
 
 **Maintenance Configuration Templates:**
 
 If maintenance configurations don't exist, create them using these templates:
-- Main config: `/etc/nginx/sites-available/universo.pro` (standard proxy to localhost:3000)
-- Maintenance config: `/etc/nginx/sites-available/universo.pro.maintenance` (serves static page from /srv/maintenance/)
+
+-   Main config: `/etc/nginx/sites-available/universo.pro` (standard proxy to localhost:3000)
+-   Maintenance config: `/etc/nginx/sites-available/universo.pro.maintenance` (serves static page from /srv/maintenance/)
 
 **Maintenance Page Features:**
-- Multilingual support: Auto-detects browser language (Russian/English)
-- Professional design with branded Universo Kiberplano styling
-- Responsive layout with animated loading spinner
-- Estimated completion time display
+
+-   Multilingual support: Auto-detects browser language (Russian/English)
+-   Professional design with branded Universo Kiberplano styling
+-   Responsive layout with animated loading spinner
+-   Estimated completion time display
 
 **User Interaction Examples:**
 
-- "Deploy latest main branch" → Full deployment from main
-- "Deploy tag v2.3.0" → Deploy specific release tag  
-- "Build only, don't start" → Deploy and build but don't start services
-- "Deploy but keep maintenance mode" → Deploy without disabling maintenance
-- "Rollback to previous version" → Restore from most recent backup
+-   "Deploy latest main branch" → Full deployment from main
+-   "Deploy tag v2.3.0" → Deploy specific release tag
+-   "Build only, don't start" → Deploy and build but don't start services
+-   "Deploy but keep maintenance mode" → Deploy without disabling maintenance
+-   "Rollback to previous version" → Restore from most recent backup
 
 **Safety Checks:**
 
-- Always verify backup creation before proceeding with destructive operations
-- Confirm nginx and PM2 are responsive before starting
-- Validate repository access before stopping services
-- Test maintenance page accessibility before stopping application
-- Ensure disk space is sufficient for both backup and new deployment
+-   Always verify backup creation before proceeding with destructive operations
+-   Confirm nginx and PM2 are responsive before starting
+-   Validate repository access before stopping services
+-   Test maintenance page accessibility before stopping application
+-   Ensure disk space is sufficient for both backup and new deployment
 
 **Required Permissions:**
 
-- sudo access for nginx management
-- PM2 process management rights
-- Read/write access to `/srv/` directory
-- Git repository access
-- File system permissions for `/srv/maintenance/`
+-   sudo access for nginx management
+-   PM2 process management rights
+-   Read/write access to `/srv/` directory
+-   Git repository access
+-   File system permissions for `/srv/maintenance/`
 
 Do not proceed with any destructive operations until user explicitly confirms the deployment plan.

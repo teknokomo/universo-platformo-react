@@ -10,11 +10,11 @@
 
 ### Структура
 
-Flowise разделяет каждую интеграцию узла в папке `packages/components/nodes`. Давайте попробуем создать простой инструмент!
+Flowise разделяет каждую интеграцию узла в папке `packages/flowise-components/nodes`. Давайте попробуем создать простой инструмент!
 
 ### Создание инструмента калькулятора
 
-Создайте новую папку с именем `Calculator` в папке `packages/components/nodes/tools`. Затем создайте новый файл с именем `Calculator.ts`. Внутри файла мы сначала напишем базовый класс.
+Создайте новую папку с именем `Calculator` в папке `packages/flowise-components/nodes/tools`. Затем создайте новый файл с именем `Calculator.ts`. Внутри файла мы сначала напишем базовый класс.
 
 ```javascript
 import { INode } from '../../../src/Interface'
@@ -118,7 +118,7 @@ module.exports = { nodeClass: Calculator_Tools }
 
 ### Сборка и запуск
 
-В файле `.env` внутри `packages/server` создайте новую переменную окружения:
+В файле `.env` внутри `packages/flowise-server` создайте новую переменную окружения:
 
 ```javascript
 SHOW_COMMUNITY_NODES=true

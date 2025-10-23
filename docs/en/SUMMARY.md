@@ -24,7 +24,7 @@
         -   [Trading Systems](universo-platformo/resources/trading-systems.md)
         -   [Mining Mechanics](universo-platformo/resources/mining-mechanics.md)
     -   [Utils Package](universo-platformo/utils/README.md)
-    -   [Creating New Apps/Packages](universo-platformo/shared-guides/creating-apps.md)
+    -   [Creating New packages/Packages](universo-platformo/shared-guides/creating-apps.md)
 -   [Roadmap](roadmap/README.md)
     -   [Current Architecture](roadmap/current-architecture/README.md)
         -   [Existing Applications](roadmap/current-architecture/existing-apps.md)

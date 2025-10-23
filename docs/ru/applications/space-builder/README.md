@@ -6,8 +6,8 @@
 
 Space Builder состоит из двух пакетов:
 
--   `apps/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
--   `apps/space-builder-srv` — API (мета‑промпт, вызов провайдера, извлечение JSON, валидация Zod)
+-   `packages/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
+-   `packages/space-builder-srv` — API (мета‑промпт, вызов провайдера, извлечение JSON, валидация Zod)
 
 UI реализует трёхшаговый сценарий для создания квиза (Подготовить → Предпросмотр → Настройки → Сгенерировать):
 
@@ -30,7 +30,7 @@ UI может применить сгенерированный граф в тр
 
 ## Переменные окружения
 
-Настройка в `packages/server/.env`:
+Настройка в `packages/flowise-server/.env`:
 
 -   Флаги тестового режима
     -   `SPACE_BUILDER_TEST_MODE=true|false`

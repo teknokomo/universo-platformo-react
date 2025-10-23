@@ -10,7 +10,7 @@ Resources subsystem consists of a backend service (`resources-srv`) and a fronte
 - **Junctions** – many‑to‑many tables for cluster–resource, domain–resource, and cluster–domain with CASCADE and UNIQUE constraints.
 
 ## API
-Full endpoint list is in [apps/resources-srv/base/README.md](../../../../apps/resources-srv/base/README.md).
+Full endpoint list is in [packages/resources-srv/base/README.md](../../../../packages/resources-srv/base/README.md).
 
 ## Security
 - Application‑level authorization guards protect every CRUD and linking route to prevent IDOR and cross‑cluster access.

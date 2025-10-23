@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.33.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.34.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE-Flowise.md)
 
@@ -59,11 +59,11 @@ The project aims to create a unified platform for developing interactive 3D appl
 
 ## Current Status
 
-**Current Sprint**: 0.33.0-alpha (October 2025)
+**Current Sprint**: 0.34.0-alpha (October 2025)
 
 **Primary Focus**:
 
--   APPs architecture implementation with apps/updl and apps/publish
+-   APPs architecture implementation with packages/updl and packages/publish
 -   Universal UPDL node system development
 -   AR.js and PlayCanvas React exporters
 -   Publication and export UI integration
@@ -84,13 +84,13 @@ universo-platformo-react/
 │   ├── components/            # Components and utilities
 │   ├── server/                # Server-side code
 │   └── ui/                    # Frontend
-├── apps/                      # New APPs architecture
+├── packages/                      # New APPs architecture
 │   ├── updl/                  # UPDL node system
 │   │   └── imp/               # Implementation
 │   └── publish/               # Publication system
 │       ├── imp/               # Implementation
 │       │   ├── react/         # Frontend
-│       │   │   └── miniapps/  # Technology-specific handlers
+│       │   │   └── minipackages/  # Technology-specific handlers
 │       │   └── express/       # Backend
 ```
 
@@ -197,16 +197,16 @@ Each implementation shares the same core concepts and goals while leveraging the
 
 3. Set up environment variables
 
-    - Create `.env` file in `packages/server` directory
+    - Create `.env` file in `packages/flowise-server` directory
     - Add required Supabase configuration:
         ```
         SUPABASE_URL=your_supabase_url
         SUPABASE_ANON_KEY=your_supabase_anon_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
         ```
-    - Optionally, create `.env` file in `packages/ui` directory for UI-specific settings like `VITE_PORT`
+    - Optionally, create `.env` file in `packages/flowise-ui` directory for UI-specific settings like `VITE_PORT`
 
-    Note: After refactoring, Supabase configuration should only be specified in the `packages/server` directory.
+    Note: After refactoring, Supabase configuration should only be specified in the `packages/flowise-server` directory.
 
 4. Build the project
 
@@ -272,6 +272,6 @@ We welcome contributions to Universo Platformo React! Please follow these steps:
 This project uses dual licensing:
 
 -   **Original Flowise Code (packages/ directory)**: Licensed under the [Apache License Version 2.0](LICENSE-Flowise.md)
--   **Universo Platformo Extensions (apps/ directory)**: Licensed under the Omsk Open License
+-   **Universo Platformo Extensions (packages/ directory)**: Licensed under the Omsk Open License
 
 The Omsk Open License is similar to the MIT license but includes additional "Basic Provisions" aimed at creating a meaningful and safe public domain while protecting traditional values.

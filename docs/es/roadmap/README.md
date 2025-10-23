@@ -22,7 +22,7 @@ Universo Platformo actualmente consiste en 6 aplicaciones funcionales construida
 ### Aplicaciones Existentes
 
 ```
-apps/
+packages/
 ├── updl/                # Sistema de Nodos UPDL (7 nodos de alto nivel)
 ├── publish-frt/         # Frontend de Publicación (AR.js, PlayCanvas)
 ├── publish-srv/         # Backend de Publicación (paquete workspace)

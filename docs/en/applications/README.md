@@ -6,14 +6,14 @@ This section documents the modular applications that extend the main Flowise pla
 
 ## Overview
 
-The Universo Platformo applications directory (`apps/`) contains specialized modules that implement the unique features of the platform. These applications work together to provide a comprehensive ecosystem for creating AI agents, 3D/AR/VR experiences, and managing user interactions.
+The Universo Platformo applications directory (`packages/`) contains specialized modules that implement the unique features of the platform. These applications work together to provide a comprehensive ecosystem for creating AI agents, 3D/AR/VR experiences, and managing user interactions.
 
 ## Application Architecture
 
 All applications follow a consistent modular structure designed for scalability and maintainability. The architecture now includes both standalone applications and modular template packages:
 
 ```
-apps/
+packages/
 ├── updl/                # UPDL node system for universal 3D/AR/VR spaces
 ├── uniks-frt/           # Workspace management frontend
 ├── uniks-srv/           # Workspace management backend

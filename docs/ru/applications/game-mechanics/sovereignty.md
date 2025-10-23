@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/sovereignty-frt/base/
-apps/sovereignty-srv/base/
+packages/sovereignty-frt/base/
+packages/sovereignty-srv/base/
 ```

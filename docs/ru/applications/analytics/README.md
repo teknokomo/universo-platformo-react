@@ -13,7 +13,7 @@
 Приложение аналитики построено как легкий фронтенд модуль:
 
 ```
-apps/analytics-frt/base/
+packages/analytics-frt/base/
 ├── src/
 │   └── pages/
 │       └── Analytics.jsx    # Основная страница аналитики
@@ -49,7 +49,7 @@ apps/analytics-frt/base/
 
 ```javascript
 // Импорт в основном приложении Flowise
-import { AnalyticsPage } from '@apps/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frt'
 ```
 
 ### Источники данных
@@ -106,7 +106,7 @@ import { AnalyticsPage } from '@apps/analytics-frt'
 ### Базовая интеграция
 ```javascript
 import React from 'react'
-import { AnalyticsPage } from '@apps/analytics-frt'
+import { AnalyticsPage } from '@packages/analytics-frt'
 
 function App() {
   return (

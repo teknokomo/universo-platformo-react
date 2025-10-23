@@ -1,0 +1,60 @@
+{
+  "chatMessage": {
+    "initialGreeting": "Hi there! How can I help?",
+    "defaultError": "Oops! There seems to be an error. Please try again.",
+    "common": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "upload": "Upload",
+      "send": "Send",
+      "record": "Record",
+      "stopRecording": "Stop Recording",
+      "clearAttachments": "Clear Attachments",
+      "removeAttachment": "Remove attachment",
+      "typing": "Typing...",
+      "generatingResponse": "Generating response...",
+      "uploadFile": "Upload File",
+      "uploadImage": "Upload Image",
+      "chooseFile": "Choose File",
+      "fileUploadError": "Unable to upload documents",
+      "audioRecording": "Audio Recording",
+      "audioProcessing": "Processing audio...",
+      "sourceDocuments": "Source Documents",
+      "viewSources": "View Sources",
+      "stopGeneration": "Stop Generation",
+      "continueGeneration": "Continue Generation",
+      "retry": "Retry"
+    },
+    "chat": {
+      "chat": "Chat",
+      "clearChat": "Clear Chat",
+      "clearConversation": "Clear Conversation",
+      "clearChatHistory": "Clear Chat History",
+      "clearChatHistoryConfirm": "Are you sure you want to clear all chat history?",
+      "clear": "Clear",
+      "clearedChatHistory": "Successfully cleared all chat history",
+      "expandChat": "Expand Chat"
+    },
+    "uploadFiles": {
+      "dragAndDrop": "Drag and drop files here, or click to select files",
+      "maxFileSize": "Maximum file size: {size}",
+      "allowedFileTypes": "Allowed file types: {types}"
+    },
+    "feedback": {
+      "provideFeedback": "Provide Feedback",
+      "feedbackPlaceholder": "Enter your feedback here...",
+      "submitFeedback": "Submit Feedback",
+      "feedbackSuccess": "Feedback submitted successfully",
+      "feedbackError": "Failed to submit feedback"
+    },
+    "errors": {
+      "missingCanvasContext": "Unable to load canvas capabilities because the unik context is unavailable. Refresh the page and try again."
+    }
+  },
+  "chatbot": {
+    "invalid": "Invalid Chatbot. Please check your configuration."
+  }
+}

@@ -9,9 +9,9 @@ This design document outlines the enhancement of the Space Builder functionality
 ### Current Architecture Analysis
 
 The current Space Builder consists of:
-- **Frontend (`apps/space-builder-frt`)**: React components for UI interaction
-- **Backend (`apps/space-builder-srv`)**: API endpoints and LLM integration
-- **Quiz Template**: Currently embedded in `apps/publish-frt/base/src/builders/templates/quiz`
+- **Frontend (`packages/space-builder-frt`)**: React components for UI interaction
+- **Backend (`packages/space-builder-srv`)**: API endpoints and LLM integration
+- **Quiz Template**: Currently embedded in `packages/publish-frt/base/src/builders/templates/quiz`
 - **Credentials System**: Partially implemented with test mode fallback
 
 ### Target Architecture
@@ -24,11 +24,11 @@ The enhanced architecture will feature:
 
 ## Components and Interfaces
 
-### 1. Template Quiz Package (`apps/template-quiz`)
+### 1. Template Quiz Package (`packages/template-quiz`)
 
 #### Package Structure
 ```
-apps/template-quiz/base/
+packages/template-quiz/base/
 ├── src/
 │   ├── arjs/                    # AR.js implementation
 │   │   ├── builders/            # Quiz builders
@@ -66,7 +66,7 @@ interface ARJSQuizBuilder extends ITemplateBuilder {
 ```
 
 #### Migration Strategy
-1. **Phase 1**: Copy existing code from `apps/publish-frt/base/src/builders/templates/quiz`
+1. **Phase 1**: Copy existing code from `packages/publish-frt/base/src/builders/templates/quiz`
 2. **Phase 2**: Adapt to independent package structure
 3. **Phase 3**: Implement i18n integration following template-mmoomm pattern
 4. **Phase 4**: Update publish-frt to use new package
@@ -76,7 +76,7 @@ interface ARJSQuizBuilder extends ITemplateBuilder {
 
 #### Current Issue Analysis
 The Space Builder has two working modes:
-1. **Test Mode** (`SPACE_BUILDER_TEST_MODE=true`): Uses unencrypted API keys from `packages/server/.env` - this works correctly
+1. **Test Mode** (`SPACE_BUILDER_TEST_MODE=true`): Uses unencrypted API keys from `packages/flowise-server/.env` - this works correctly
 2. **Credentials Mode** (`SPACE_BUILDER_DISABLE_USER_CREDENTIALS=false`): Should use encrypted credentials from the Credentials system - this currently fails
 
 The problem is that when using user credentials, the Space Builder's `resolveCredential` function receives a `credentialId` but the current implementation in the main server only returns `cred.plainDataObj.apiKey`, which doesn't properly handle the decryption and extraction of the correct API key field for different providers.

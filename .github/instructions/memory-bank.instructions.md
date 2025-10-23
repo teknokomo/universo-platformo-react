@@ -1,9 +1,10 @@
 ---
 applyTo: '**'
 ---
+
 ---
-description: 'When you want to update any file in memory-bank, including activeContext.md, tasks.md, progress.md, productContext.md, systemPatterns.md, techContext.md and any other in this folder'
----
+
+## description: 'When you want to update any file in memory-bank, including activeContext.md, tasks.md, progress.md, productContext.md, systemPatterns.md, techContext.md and any other in this folder'
 
 # Rules for Memory Bank
 
@@ -49,7 +50,7 @@ description: 'When you want to update any file in memory-bank, including activeC
     -   Completed tasks: `- [x] Task description (optional brief outcome)`
     -   Do not write long prose in tasks.md; if more detail is needed for context, put it in `progress.md` or as a note indented below the task. For instance:
         `- [ ] Implement new camera rotation logic`
-            `- Note: camera jitter happens when combining Q+E keys, need to address quaternions conversion.`
+        `- Note: camera jitter happens when combining Q+E keys, need to address quaternions conversion.`
     -   Keep tasks.md focused on actionable items rather than general status or discussion.
 
 -   **Update Frequency:** Treat the memory bank as the AI’s persistent memory. Always review and update `activeContext.md` and `tasks.md` at the start and end of each significant development session. Update `progress.md` whenever a milestone is reached or a set of tasks is completed (ensuring alignment with what was in `tasks.md`). Update other files (`systemPatterns.md`, `techContext.md`, etc.) when relevant changes occur (new patterns, new technologies, etc.). Consistently maintaining these ensures the next AI session starts with accurate context.
@@ -62,6 +63,6 @@ description: 'When you want to update any file in memory-bank, including activeC
     -   If a detail is only historically relevant and not needed for ongoing context, consider moving it from a frequently-used file (like `activeContext.md`) to a less frequently read archive or into `progress.md` under a past date.
     -   Focus on information that the AI or developer needs to recall to continue the project effectively.
 
--   **Cross-Reference External Docs:** When applicable, reference external documentation (README files in the repository, wiki pages, etc.) instead of copying their content into the memory bank. For example, if detailed API specifications or user guides exist in the repository (e.g., `apps/<app>/README.md`), link to those in the memory files rather than duplicating the full text. This keeps the memory bank slim and avoids inconsistencies. Ensure any such links are clearly labeled.
+-   **Cross-Reference External Docs:** When applicable, reference external documentation (README files in the repository, wiki pages, etc.) instead of copying their content into the memory bank. For example, if detailed API specifications or user guides exist in the repository (e.g., `packages/<app>/README.md`), link to those in the memory files rather than duplicating the full text. This keeps the memory bank slim and avoids inconsistencies. Ensure any such links are clearly labeled.
 
 By following these rules, the AI agents will maintain a well-structured, up-to-date memory bank, reducing confusion and duplication. This ensures consistent context and smoother progress in development.

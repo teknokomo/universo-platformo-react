@@ -2,30 +2,30 @@
 
 ## Фаза 1: Подготовка инфраструктуры
 
-- [x] 1. Создание приложения apps/spaces-srv
-  - Создать структуру директорий по аналогии с apps/metaverse-srv
+- [x] 1. Создание приложения packages/spaces-srv
+  - Создать структуру директорий по аналогии с packages/metaverse-srv
   - Настроить package.json с зависимостями TypeORM и Express
   - Создать базовые конфигурационные файлы (tsconfig.json)
   - _Требования: 8.1, 8.2_
 
 - [x] 2. Создание Entity классов для новой структуры данных
-  - Создать Entity класс Space в apps/spaces-srv/base/src/database/entities/Space.ts
-  - Создать Entity класс Canvas в apps/spaces-srv/base/src/database/entities/Canvas.ts  
-  - Создать Entity класс SpaceCanvas в apps/spaces-srv/base/src/database/entities/SpaceCanvas.ts
+  - Создать Entity класс Space в packages/spaces-srv/base/src/database/entities/Space.ts
+  - Создать Entity класс Canvas в packages/spaces-srv/base/src/database/entities/Canvas.ts  
+  - Создать Entity класс SpaceCanvas в packages/spaces-srv/base/src/database/entities/SpaceCanvas.ts
   - Настроить связи между entities (OneToMany, ManyToOne)
   - _Требования: 3.1, 3.2, 11.1_
 
 - [x] 3. Регистрация новых entities в центральном реестре
-  - Экспортировать entities из apps/spaces-srv/base/src/database/entities/index.ts
-  - Импортировать и зарегистрировать entities в packages/server/src/database/entities/index.ts
+  - Экспортировать entities из packages/spaces-srv/base/src/database/entities/index.ts
+  - Импортировать и зарегистрировать entities в packages/flowise-server/src/database/entities/index.ts
   - Проверить корректность регистрации через сборку проекта
   - _Требования: 8.3_
 
 - [x] 4. Создание миграции для новых таблиц
-  - Создать миграцию SpacesRefactoring в apps/spaces-srv/base/src/database/migrations/postgres/
+  - Создать миграцию SpacesRefactoring в packages/spaces-srv/base/src/database/migrations/postgres/
   - Реализовать создание таблиц spaces, canvases, spaces_canvases с RLS политиками
   - Добавить индексы и ограничения целостности по аналогии с metaverse-srv
-  - Зарегистрировать миграцию в центральном реестре packages/server/src/database/migrations/postgres/index.ts
+  - Зарегистрировать миграцию в центральном реестре packages/flowise-server/src/database/migrations/postgres/index.ts
   - Обеспечить совместимость с Supabase и существующей архитектурой Uniks
   - Удалить старую таблицу chat_flow (данные не нужны)
   - _Требования: 3.1, 3.2, 3.3, 11.2, 8.7_
@@ -63,7 +63,7 @@
   - _Требования: 5.2, 9.2_
 
 - [x] 9. Адаптация системы публикации для Canvas
-  - Обновить apps/publish-srv для работы с canvasId вместо chatflowId
+  - Обновить packages/publish-srv для работы с canvasId вместо chatflowId
   - Изменить генерацию URL публикации на /published/canvas/{canvasId}
   - Обновить логику получения данных для публикации из таблицы canvases
   - Адаптировать шаблоны AR.js Quiz и PlayCanvas MMOOMM для работы с Canvas
@@ -80,14 +80,14 @@
 ## Фаза 3: Пользовательский интерфейс
 
 - [x] 11. Обновление роутинга и URL структуры
-  - Создать новые роуты /spaces, /space/:id в packages/ui
+  - Создать новые роуты /spaces, /space/:id в packages/flowise-ui
   - Добавить редиректы с /chatflows на /spaces и /chatflow/:id на /space/:id
   - Обновить навигационные ссылки в компонентах UI
   - Протестировать корректность всех переходов
   - _Требования: 1.2_
 
 - [x] 12. Обновление переводов для новой терминологии
-  - Обновить файлы переводов packages/ui/src/i18n/en.json и ru.json
+  - Обновить файлы переводов packages/flowise-ui/src/i18n/en.json и ru.json
   - Заменить "Chatflows" на "Spaces", "Чат-потоки" на "Пространства"
   - Добавить новые термины для Canvas ("Canvas", "Холст")
   - Обновить все компоненты для использования новых ключей переводов
@@ -124,7 +124,7 @@
 ## Фаза 4: Интеграция с существующими системами
 
 - [ ] 16. Адаптация Space Builder для работы с Canvas
-  - Обновить apps/space-builder-srv для создания Canvas вместо ChatFlow
+  - Обновить packages/space-builder-srv для создания Canvas вместо ChatFlow
   - Адаптировать генерацию UPDL узлов для новой структуры Canvas
   - Обеспечить совместимость с существующим функционалом prompt-to-flow
   - Протестировать создание Spaces через Space Builder
@@ -138,7 +138,7 @@
   - _Требования: 5.1, 5.2_
 
 - [ ] 18. Адаптация Analytics для Canvas
-  - Обновить apps/analytics-frt для отслеживания Canvas вместо ChatFlow
+  - Обновить packages/analytics-frt для отслеживания Canvas вместо ChatFlow
   - Адаптировать метрики и отчеты для новой структуры
   - Обеспечить совместимость с существующими quiz analytics
   - _Требования: 5.3_
@@ -187,7 +187,7 @@
   - _Требования: 18.1, 18.2, 18.3_
 
 - [ ] 25. Обеспечение совместимости с архитектурой проекта
-  - Убедиться в соответствии с принципами APPs Architecture (изоляция в apps/)
+  - Убедиться в соответствии с принципами APPs Architecture (изоляция в packages/)
   - Проверить совместимость с Supabase JWT аутентификацией
   - Обеспечить работу с системой Uniks (workspace isolation)
   - Протестировать совместимость с существующими template packages

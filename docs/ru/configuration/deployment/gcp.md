@@ -82,7 +82,7 @@ docker push gcr.io/[ProjectId]/flowise:latest
 Создайте файл `flowise-deployment.yaml`:
 
 ```yaml
-apiVersion: apps/v1
+apiVersion: packages/v1
 kind: Deployment
 metadata:
   name: flowise-deployment
@@ -160,7 +160,7 @@ data:
   username: Zmxvd2lzZQ==  # base64 encoded 'flowise'
   password: cGFzc3dvcmQ=  # base64 encoded 'password' - замените на ваш пароль
 ---
-apiVersion: apps/v1
+apiVersion: packages/v1
 kind: Deployment
 metadata:
   name: postgres-deployment
@@ -361,7 +361,7 @@ metadata:
   name: flowise-hpa
 spec:
   scaleTargetRef:
-    apiVersion: apps/v1
+    apiVersion: packages/v1
     kind: Deployment
     name: flowise-deployment
   minReplicas: 2

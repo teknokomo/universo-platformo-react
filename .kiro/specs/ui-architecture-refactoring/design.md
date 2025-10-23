@@ -22,8 +22,8 @@
 2. **Копирование без изменений**:
    ```bash
    # Пример копирования StatCard.tsx
-   cp apps/universo-template-mui/base/src/components/dashboard/StatCard.tsx \
-      apps/universo-template-mui/base/src/components/cards/EntityCard.tsx
+   cp packages/universo-template-mui/base/src/components/dashboard/StatCard.tsx \
+      packages/universo-template-mui/base/src/components/cards/EntityCard.tsx
    ```
 
 3. **Поэтапная адаптация**:
@@ -56,17 +56,17 @@
 #### Конкретные проблемы для исправления:
 
 1. **Проблема с маршрутизацией**:
-   - ❌ В `packages/ui/src/routes/index.jsx` создано много мусорного/лишнего кода
+   - ❌ В `packages/flowise-ui/src/routes/index.jsx` создано много мусорного/лишнего кода
    - ✅ **Решение**: Удалить весь мусорный код и сделать простое подключение новой структуры
 
 2. **Проблема с интеграцией**:
    - ❌ `MainRoutesMUI.tsx` и `MainLayoutMUI.tsx` подключены неправильно
-   - ✅ **Решение**: Правильное подключение в `packages/ui/src/App.jsx` или нормально в `packages/ui/src/routes/index.jsx`
+   - ✅ **Решение**: Правильное подключение в `packages/flowise-ui/src/App.jsx` или нормально в `packages/flowise-ui/src/routes/index.jsx`
 
 3. **Проблема с дублирующими компонентами**:
-   - ❌ Промежуточные итерации в `packages/ui/src/ui-component` (доработанные для нового дизайна)
-   - ❌ Тестовые компоненты в `apps/universo-template-mui/base/src/components/universal`
-   - ❌ Неправильный `apps/universo-template-mui/base/src/components/EntityCard.tsx`
+   - ❌ Промежуточные итерации в `packages/flowise-ui/src/ui-components` (доработанные для нового дизайна)
+   - ❌ Тестовые компоненты в `packages/universo-template-mui/base/src/components/universal`
+   - ❌ Неправильный `packages/universo-template-mui/base/src/components/EntityCard.tsx`
    - ✅ **Решение**: Удалить все после создания правильных версий на основе копирования
 
 4. **Проблема с логикой карточек**:
@@ -104,7 +104,7 @@ graph TB
 ### Новая структура папок
 
 ```
-apps/universo-template-mui/base/src/
+packages/universo-template-mui/base/src/
 ├── components/
 │   ├── dashboard/              # Перемещено из views/dashboard/components/
 │   │   ├── StatCard.tsx        # Базовый компонент карточек
@@ -144,7 +144,7 @@ apps/universo-template-mui/base/src/
 
 #### 1. EntityCard (Универсальная карточка сущности)
 
-**ИСТОЧНИК**: Копируется из `apps/universo-template-mui/base/src/components/dashboard/StatCard.tsx`
+**ИСТОЧНИК**: Копируется из `packages/universo-template-mui/base/src/components/dashboard/StatCard.tsx`
 
 **ПРОЦЕСС АДАПТАЦИИ**:
 1. Скопировать `StatCard.tsx` → `EntityCard.tsx`
@@ -426,17 +426,17 @@ describe('EntityToolbar', () => {
 
 #### Этап 1: Архитектурная реструктуризация
 1. **Перемещение папок компонентов**:
-   - `apps/universo-template-mui/base/src/views/dashboard/components` → `apps/universo-template-mui/base/src/components/dashboard`
-   - `apps/universo-template-mui/base/src/views/dashboard/theme` → `apps/universo-template-mui/base/src/theme`
-   - `apps/universo-template-mui/base/src/views/auth` → правильное размещение
-   - `apps/universo-template-mui/base/src/views/shared` → правильное размещение
-   - `apps/universo-template-mui/base/src/views/dashboard/internals` → правильное размещение
+   - `packages/universo-template-mui/base/src/views/dashboard/components` → `packages/universo-template-mui/base/src/components/dashboard`
+   - `packages/universo-template-mui/base/src/views/dashboard/theme` → `packages/universo-template-mui/base/src/theme`
+   - `packages/universo-template-mui/base/src/views/auth` → правильное размещение
+   - `packages/universo-template-mui/base/src/views/shared` → правильное размещение
+   - `packages/universo-template-mui/base/src/views/dashboard/internals` → правильное размещение
 2. **Обновление всех импортов и ссылок** в `Dashboard.tsx` и `MainLayoutMUI.tsx`
-3. **Очистка маршрутизации** - удаление мусорного кода из `packages/ui/src/routes/index.jsx`
+3. **Очистка маршрутизации** - удаление мусорного кода из `packages/flowise-ui/src/routes/index.jsx`
 4. **Проверка работоспособности** - убедиться, что все перемещения не сломали текущую работу
 
 #### Этап 2: Создание компонентов карточек (КОПИРОВАНИЕ, НЕ ПЕРЕПИСЫВАНИЕ)
-1. **Копирование StatCard.tsx** из `apps/universo-template-mui/base/src/components/dashboard/` в `apps/universo-template-mui/base/src/components/cards/`
+1. **Копирование StatCard.tsx** из `packages/universo-template-mui/base/src/components/dashboard/` в `packages/universo-template-mui/base/src/components/cards/`
 2. **Осторожная адаптация StatCard.tsx**:
    - Сохранить всю оригинальную логику responsive поведения
    - Постепенно удалить демо-данные графиков
@@ -445,8 +445,8 @@ describe('EntityToolbar', () => {
 3. **Создание InfoCard** на основе карточки с кнопкой из dashboard
 4. **Создание CardGrid** - копирование логики сетки из Dashboard.tsx
 5. **Удаление старых тестовых компонентов**:
-   - Удалить `apps/universo-template-mui/base/src/components/universal/`
-   - Удалить `apps/universo-template-mui/base/src/components/EntityCard.tsx`
+   - Удалить `packages/universo-template-mui/base/src/components/universal/`
+   - Удалить `packages/universo-template-mui/base/src/components/EntityCard.tsx`
 
 #### Этап 3: Создание компонентов списков (КОПИРОВАНИЕ, НЕ ПЕРЕПИСЫВАНИЕ)
 1. **Найти и скопировать компонент таблицы/списка** из dashboard шаблона
@@ -458,7 +458,7 @@ describe('EntityToolbar', () => {
 4. **Тестирование совместимости пагинации** с режимом карточек
 
 #### Этап 4: Создание панели инструментов (НА ОСНОВЕ ШАБЛОНА)
-1. **Анализ существующих компонентов** в `packages/ui/src/ui-component` для возможного использования
+1. **Анализ существующих компонентов** в `packages/flowise-ui/src/ui-components` для возможного использования
 2. **Создание EntityToolbar** на основе паттернов из нового MUI шаблона
 3. **Реализация поиска и фильтрации** с соблюдением стилей нового шаблона
 4. **Добавление переключения видов** (карточки/список)
@@ -466,7 +466,7 @@ describe('EntityToolbar', () => {
 
 #### Этап 5: Интеграция и развертывание
 1. **Исправление интеграции маршрутизации**:
-   - Простое и прямое подключение в `packages/ui/src/App.jsx` или `packages/ui/src/routes/index.jsx`
+   - Простое и прямое подключение в `packages/flowise-ui/src/App.jsx` или `packages/flowise-ui/src/routes/index.jsx`
    - Избегание чрезмерной абстракции
 2. **Замена существующих компонентов** на всех страницах сущностей
 3. **Удаление устаревших компонентов** после создания правильных версий
@@ -474,12 +474,12 @@ describe('EntityToolbar', () => {
 
 ### Стратегия тонкого слоя абстракции
 
-#### Правильный подход к `apps/universo-templates/`
+#### Правильный подход к `packages/universo-templates/`
 
-**ПРИНЦИП**: `apps/universo-templates/` должен быть тонким переключателем, а НЕ сложной абстракцией.
+**ПРИНЦИП**: `packages/universo-templates/` должен быть тонким переключателем, а НЕ сложной абстракцией.
 
 ```typescript
-// apps/universo-templates/base/src/index.ts
+// packages/universo-templates/base/src/index.ts
 interface TemplateConfig {
   mainRouter: React.ComponentType;
   mainLayout: React.ComponentType;
@@ -511,7 +511,7 @@ export const getActiveTemplate = (): TemplateConfig => {
 #### Интеграция с основным приложением
 
 ```typescript
-// packages/ui/src/App.jsx - простое подключение
+// packages/flowise-ui/src/App.jsx - простое подключение
 import { getActiveTemplate } from '@universo/templates';
 
 const App = () => {
@@ -526,7 +526,7 @@ const App = () => {
 ```
 
 **ВАЖНО**: 
-- Сначала реализовать работу `apps/universo-template-mui/`
+- Сначала реализовать работу `packages/universo-template-mui/`
 - Потом добавить тонкий слой абстракции
 - Избегать чрезмерной абстракции
 

@@ -1,6 +1,30 @@
 ---
 description: 'Safely pull updates (fork/upstream aware), stash-first, resolve conflicts via memory-bank context, no auto-stage, merge-only by default'
-tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
+tools:
+    [
+        'edit',
+        'runNotebooks',
+        'search',
+        'runCommands',
+        'runTasks',
+        'usages',
+        'vscodeAPI',
+        'think',
+        'problems',
+        'changes',
+        'testFailure',
+        'openSimpleBrowser',
+        'fetch',
+        'githubRepo',
+        'todos',
+        'rube',
+        'dbclient-getDatabases',
+        'dbclient-getTables',
+        'dbclient-executeQuery',
+        'copilotCodingAgent',
+        'activePullRequest',
+        'openPullRequest'
+    ]
 ---
 
 This mode automates pulling changes from GitHub into the current local repository while preserving unfinished work and resolving conflicts safely—without committing or pushing anything. Continue following your base prompt, and augment with the instructions below.
@@ -111,7 +135,7 @@ Core Capabilities:
 Input Format:
 
 1. Upstream and local hunks around the conflict (20–40 lines of context)
-2. File path and type (e.g., apps/_/base, packages/_)
+2. File path and type (e.g., packages/_/base, packages/_)
 3. Relevant memory-bank context (summaries from systemPatterns.md, techContext.md, activeContext.md)
 
 Output Format per conflict:

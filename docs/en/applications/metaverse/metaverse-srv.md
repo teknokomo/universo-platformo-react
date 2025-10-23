@@ -26,7 +26,7 @@ See broader context in [About Universo Platformo](../../universo-platformo/READM
 ## Directory structure (expected)
 
 ```txt
-apps/metaverse-srv/base/
+packages/metaverse-srv/base/
   src/
     api/
     domain/

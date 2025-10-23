@@ -87,7 +87,7 @@ pnpm build --filter updl
 ### APPs Architecture (6 Applications) ✅ **COMPLETE**
 
 ```
-apps/
+packages/
 ├── updl/base/                # High-level UPDL abstract nodes
 ├── publish-frt/base/         # Multi-technology export frontend
 ├── publish-srv/base/         # Publication backend with template system
@@ -105,7 +105,7 @@ apps/
 
 ### Environment Setup
 
-Create `.env` file in `packages/server/` directory:
+Create `.env` file in `packages/flowise-server/` directory:
 
 ```bash
 SUPABASE_URL=your_supabase_url
@@ -113,7 +113,7 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 ```
 
-**Note**: After refactoring, Supabase configuration should only be specified in `packages/server/` directory.
+**Note**: After refactoring, Supabase configuration should only be specified in `packages/flowise-server/` directory.
 
 ## Coding Standards & Guidelines
 
@@ -125,7 +125,7 @@ SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 ## Key Resources & Documentation
 
 -   **Project Repository**: [universo-platformo-react](https://github.com/teknokomo/universo-platformo-react)
--   **Detailed APPs Structure**: [apps/README.md](../apps/README.md)
+-   **Detailed APPs Structure**: [packages/README.md](../packages/README.md)
 -   **Technical Context**: [memory-bank/techContext.md](techContext.md)
 -   **System Patterns**: [memory-bank/systemPatterns.md](systemPatterns.md)
 -   **Progress Timeline**: [memory-bank/progress.md](progress.md)
@@ -136,7 +136,7 @@ SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 **Dual Licensing Structure:**
 
 -   **Original Flowise Code** (`packages/` directory): Apache License 2.0
--   **Universo Platformo Extensions** (`apps/` directory): Omsk Open License
+-   **Universo Platformo Extensions** (`packages/` directory): Omsk Open License
 
 The Omsk Open License is similar to MIT but includes additional provisions for creating meaningful public domain while protecting traditional values.
 

@@ -57,7 +57,7 @@ Universo Platformo follows a modular architecture:
 ```
 universo-platformo-react/
 ├── packages/                  # Original Flowise packages
-├── apps/                      # Universo Platformo extensions
+├── packages/                      # Universo Platformo extensions
 │   ├── updl/                  # UPDL node system
 │   ├── publish-frt/           # Frontend publishing system
 │   ├── publish-srv/           # Backend publishing system

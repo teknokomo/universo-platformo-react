@@ -1,0 +1,30 @@
+{
+  "name": "@flowise/store",
+  "version": "0.1.0",
+  "description": "Shared Redux store for Flowise applications",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "redux": "^5.0.1"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-redux": "^9.1.0"
+  },
+  "devDependencies": {
+    "tsdown": "^0.15.7",
+    "typescript": "^5.8.3"
+  }
+}

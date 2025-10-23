@@ -58,8 +58,8 @@ The implementation followed a phased approach to resolve complex build system is
 
 ### Primary Components Created
 
--   **Backend Package**: `apps/uniks-srv/base/` with Express routes, TypeORM entities, database migrations
--   **Frontend Package**: `apps/uniks-frt/base/` with React components, menu configurations, i18n support
+-   **Backend Package**: `packages/uniks-srv/base/` with Express routes, TypeORM entities, database migrations
+-   **Frontend Package**: `packages/uniks-frt/base/` with React components, menu configurations, i18n support
 -   **Type Declarations**: `flowiseRoutes.d.ts` for external module integration
 -   **Configuration Updates**: TypeScript and Vite configuration modifications
 
@@ -138,28 +138,28 @@ The implementation followed a phased approach to resolve complex build system is
 
 ### Backend Package (`@universo/uniks-srv`)
 
--   `apps/uniks-srv/base/src/routes/uniksRoutes.ts` - Express routes for Uniks CRUD operations
--   `apps/uniks-srv/base/src/types/flowiseRoutes.d.ts` - TypeScript declarations for external modules
--   `apps/uniks-srv/base/package.json` - Package dependencies and scripts
--   `apps/uniks-srv/base/tsconfig.json` - TypeScript configuration
+-   `packages/uniks-srv/base/src/routes/uniksRoutes.ts` - Express routes for Uniks CRUD operations
+-   `packages/uniks-srv/base/src/types/flowiseRoutes.d.ts` - TypeScript declarations for external modules
+-   `packages/uniks-srv/base/package.json` - Package dependencies and scripts
+-   `packages/uniks-srv/base/tsconfig.json` - TypeScript configuration
 
 ### Frontend Package (`@universo/uniks-frt`)
 
--   `apps/uniks-frt/base/src/pages/` - React components (UnikList, UnikDetail, UnikDialog)
--   `apps/uniks-frt/base/src/i18n/` - Internationalization files
--   `apps/uniks-frt/base/src/menu-items/` - Menu configurations
--   `apps/uniks-frt/base/package.json` - Package dependencies
--   `apps/uniks-frt/base/tsconfig.json` - TypeScript configuration
+-   `packages/uniks-frt/base/src/pages/` - React components (UnikList, UnikDetail, UnikDialog)
+-   `packages/uniks-frt/base/src/i18n/` - Internationalization files
+-   `packages/uniks-frt/base/src/menu-items/` - Menu configurations
+-   `packages/uniks-frt/base/package.json` - Package dependencies
+-   `packages/uniks-frt/base/tsconfig.json` - TypeScript configuration
 
 ### Build System Configuration
 
--   `packages/ui/vite.config.js` - Vite alias configuration updates
--   `packages/ui/src/i18n/index.js` - i18n import path corrections
+-   `packages/flowise-ui/vite.config.js` - Vite alias configuration updates
+-   `packages/flowise-ui/src/i18n/index.js` - i18n import path corrections
 
 ### Integration Points
 
--   `packages/server/` - Integration with main server package
--   `packages/ui/` - Integration with main UI package
+-   `packages/flowise-server/` - Integration with main server package
+-   `packages/flowise-ui/` - Integration with main UI package
 
 ## Related Documentation
 

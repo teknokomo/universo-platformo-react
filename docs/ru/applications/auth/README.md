@@ -2,8 +2,8 @@
 
 В Universo Platformo внедрена сессионная авторизация на базе Passport.js и Supabase. Реализация вынесена в два переиспользуемых пакета:
 
-- `@universo/auth-srv` — интеграция Express/Passport, подключённая в `packages/server`
-- `@universo/auth-frt` — React-примитивы (`createAuthClient`, `useSession`, `LoginForm`), используемые в `packages/ui`
+- `@universo/auth-srv` — интеграция Express/Passport, подключённая в `packages/flowise-server`
+- `@universo/auth-frt` — React-примитивы (`createAuthClient`, `useSession`, `LoginForm`), используемые в `packages/flowise-ui`
 
 ## Поток запросов
 
@@ -23,7 +23,7 @@ CSRF-защита включена для всех state-changing маршрут
 
 ## Интеграция на фронтенде
 
-`packages/ui` использует `@universo/auth-frt`:
+`packages/flowise-ui` использует `@universo/auth-frt`:
 
 ```ts
 const authClient = createAuthClient({ baseURL: `${baseURL}/api/v1` })
@@ -34,7 +34,7 @@ const { user, refresh, logout } = useSession({ client: authClient })
 
 ## Переменные окружения
 
-Определяются в `packages/server`:
+Определяются в `packages/flowise-server`:
 
 - `SESSION_SECRET`
 - `SESSION_COOKIE_NAME` (опционально, по умолчанию `up.sid`)
@@ -48,7 +48,7 @@ const { user, refresh, logout } = useSession({ client: authClient })
 ```bash
 pnpm --filter @universo/auth-srv build
 pnpm --filter @universo/auth-frt build
-pnpm --filter flowise build   # packages/server
+pnpm --filter flowise build   # packages/flowise-server
 pnpm --filter flowise lint
 ```
 

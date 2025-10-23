@@ -27,14 +27,22 @@ Universo Platformo React — это продвинутая платформа с
 
 Мы начали осторожное отделение Spaces от легаси UI Flowise в отдельную пару приложений:
 
-- `apps/spaces-srv` — бэкенд для Spaces/Canvases (сущности TypeORM, эндпоинт reorder)
-- `apps/spaces-frt` — фронтенд с вкладками холстов, drag & drop и изолированным HTTP‑клиентом
+- `packages/spaces-srv` — бэкенд для Spaces/Canvases (сущности TypeORM, эндпоинт reorder)
+- `packages/spaces-frt` — фронтенд с вкладками холстов, drag & drop и изолированным HTTP‑клиентом
 
 Ключевые изменения:
-- В UI список Пространств теперь загружается из `apps/spaces-frt`.
-- Маршруты Canvas обрабатываются под MinimalLayout через `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx`, поэтому на экране холста не отображается левое меню.
+- В UI список Пространств теперь загружается из `packages/spaces-frt`.
+- Маршруты Canvas обрабатываются под MinimalLayout через `packages/spaces-frt/base/src/entry/CanvasRoutes.jsx`, поэтому на экране холста не отображается левое меню.
 - Локальные хуки (`useApi`, `useCanvases`) и локальный Axios‑клиент убирают жёсткую связность с Flowise UI.
 - Удалены неиспользуемые файлы Flowise UI, устранены коллизии алиасов Vite.
+
+## Runtime-шимы UI (2025‑10)
+
+Чтобы поддерживать работу интерфейса, унаследованного от Flowise, в чистом браузерном ESM после миграции на tsdown, мы добавили отдельную директорию с шимами:
+
+- `/packages/flowise-ui/src/shims/globalRequire.ts` сопоставляет устаревшие вызовы CommonJS `require('react')` их ESM-эквивалентам, поэтому такие зависимости, как `prop-types`, больше не падают.
+- `/packages/flowise-ui/src/shims/useSyncExternalStoreShim.ts` и `useSyncExternalStoreShimWithSelector.ts` реализуют хуки React 18 `useSyncExternalStore` без опоры на CommonJS-бандлы, сохраняя стабильность `react-redux` во время сборки Vite.
+- Оба шима импортируются из `packages/flowise-ui/src/index.jsx` до рендера приложения, что предотвращает белые экраны из-за отсутствующих CommonJS-хелперов.
 
 Существует 3 основных визуальных конструктора:
 
@@ -92,13 +100,13 @@ universo-platformo-react/
 │   ├── components/            # Компоненты и утилиты
 │   ├── server/                # Серверный код
 │   └── ui/                    # Фронтенд
-├── apps/                      # Новая архитектура приложений
+├── packages/                      # Новая архитектура приложений
 │   ├── updl/                  # Система узлов UPDL
 │   │   └── imp/               # Реализация
 │   └── publish/               # Система публикации
 │       ├── imp/               # Реализация
 │       │   ├── react/         # Фронтенд
-│       │   │   └── miniapps/  # Обработчики для конкретных технологий
+│       │   │   └── minipackages/  # Обработчики для конкретных технологий
 │       │   └── express/       # Бэкенд
 └── docs/                      # Эта документация
 ```

@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/auth-enhanced-frt/base/
-apps/auth-enhanced-srv/base/
+packages/auth-enhanced-frt/base/
+packages/auth-enhanced-srv/base/
 ```

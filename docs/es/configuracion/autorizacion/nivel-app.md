@@ -16,7 +16,7 @@ Para migrar del flujo básico heredado, configura Supabase y habilita los endpoi
 
 ### Variables de entorno obligatorias
 
-Añade las siguientes variables a `packages/server/.env` (o proporciónalas mediante flags de CLI):
+Añade las siguientes variables a `packages/flowise-server/.env` (o proporciónalas mediante flags de CLI):
 
 - `SESSION_SECRET` — Cadena secreta para firmar las sesiones de Express.
 - `SUPABASE_URL` — URL de tu proyecto Supabase.
@@ -83,7 +83,7 @@ environment:
 
 ### Git clone
 
-Si ejecutas desde el código fuente, añade las variables a `packages/server/.env`:
+Si ejecutas desde el código fuente, añade las variables a `packages/flowise-server/.env`:
 
 ```dotenv
 SESSION_SECRET=super-secret

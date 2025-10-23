@@ -28,7 +28,7 @@ El sistema de autenticación ha sido migrado desde una autenticación heredada b
 ### Componentes del Sistema
 
 ```
-packages/ui/src/
+packages/flowise-ui/src/
 ├── views/up-auth/
 │   └── Auth.jsx                    # Página principal de autenticación
 ├── utils/
@@ -261,7 +261,7 @@ const { user, isAuthenticated, login, logout } = useAuth()
 
 ### Hoja de Ruta de Migración
 
-1. **Fase 1**: Migración completa a estructura `apps/auth-frt`
+1. **Fase 1**: Migración completa a estructura `packages/auth-frt`
 2. **Fase 2**: Características de seguridad mejoradas
 3. **Fase 3**: Métodos de autenticación avanzados
 4. **Fase 4**: Auditoría completa y características de cumplimiento

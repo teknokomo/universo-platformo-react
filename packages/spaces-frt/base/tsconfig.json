@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx",
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "outDir": "dist/cjs",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../flowise-ui/src/*"],
+      "@ui/*": ["../../flowise-ui/src/*"],
+      "@universo/space-builder-frt": ["../../space-builder-frt/base/dist/cjs/index.js"]
+    }
+  },
+  "include": [
+    "src/index.ts",
+    "src/api/**/*.ts",
+    "src/i18n/**/*.ts",
+    "src/types/**/*.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

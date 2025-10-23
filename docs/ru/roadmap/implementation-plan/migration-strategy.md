@@ -236,15 +236,15 @@ interface UPDLSystemMigration {
 
 ```mermaid
 graph TD
-    A[analytics-frt] --> B[packages/components]
+    A[analytics-frt] --> B[packages/flowise-components]
     C[profile-frt] --> B
     C --> D[profile-srv]
     E[publish-frt] --> B
     E --> F[publish-srv]
-    F --> G[packages/server]
+    F --> G[packages/flowise-server]
     D --> G
     H[updl] --> B
-    H --> I[packages/ui]
+    H --> I[packages/flowise-ui]
     
     subgraph "Новые сервисы"
         J[analytics-enhanced-srv]

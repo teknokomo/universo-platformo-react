@@ -4,8 +4,7 @@
         "build": {
             "dependsOn": ["^build"],
             "outputs": ["dist/**", "build/**"],
-            "cache": false,
-            "inputs": ["src/**", "public/**", "../apps/**"]
+            "cache": false
         },
         "test": {},
         "dev": {

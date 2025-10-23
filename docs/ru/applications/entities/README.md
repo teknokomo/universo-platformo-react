@@ -9,7 +9,7 @@
 - произвольные связи между сущностями
 
 ## API
-Полный список конечных точек см. в [apps/entities-srv/base/README.md](../../../../apps/entities-srv/base/README.md).
+Полный список конечных точек см. в [packages/entities-srv/base/README.md](../../../../packages/entities-srv/base/README.md).
 
 ## Модель данных
 Ключевые сущности:

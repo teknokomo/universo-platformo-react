@@ -11,7 +11,7 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/template-engine-srv/base/
+packages/template-engine-srv/base/
   src/{api,domain,infra}/...
 ```
 

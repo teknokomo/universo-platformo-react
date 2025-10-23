@@ -12,7 +12,7 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/api-gateway-srv/base/
+packages/api-gateway-srv/base/
   src/{api,infra}/...
 ```
 

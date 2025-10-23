@@ -1,6 +1,6 @@
 # Monitoreo
 
-Flowise tiene soporte nativo para Prometheus con Grafana y OpenTelemetry. Sin embargo, solo se rastrean métricas de alto nivel como solicitudes de API, conteos de flujos/predicciones. Consulta [aquí](https://github.com/FlowiseAI/Flowise/blob/main/packages/server/src/Interface.Metrics.ts#L13) para ver la lista de métricas de contador. Para observabilidad detallada nodo por nodo, recomendamos usar [Analítica](analytic.md).
+Flowise tiene soporte nativo para Prometheus con Grafana y OpenTelemetry. Sin embargo, solo se rastrean métricas de alto nivel como solicitudes de API, conteos de flujos/predicciones. Consulta [aquí](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-server/src/Interface.Metrics.ts#L13) para ver la lista de métricas de contador. Para observabilidad detallada nodo por nodo, recomendamos usar [Analítica](analytic.md).
 
 ## Prometheus
 

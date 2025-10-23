@@ -22,7 +22,7 @@ UPDL is a pure node definitions module that integrates seamlessly with Flowise:
 The source code has a modular structure, with each high-level node in its own directory:
 
 ```
-apps/updl/base/src/
+packages/updl/base/src/
 ├── assets/              # Static resources (icons)
 │   └── icons/
 ├── i18n/                # Internationalization resources

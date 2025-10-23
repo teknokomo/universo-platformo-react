@@ -7,7 +7,7 @@ Reusable Jest configuration, setup helpers, and mocks for backend services live 
 Add the shared configuration to a backend app by importing the base config from `tools/testing/backend/jest.base.config.cjs` and extending it if necessary:
 
 ```js
-// apps/example-srv/base/jest.config.cjs
+// packages/example-srv/base/jest.config.cjs
 const baseConfig = require('../../tools/testing/backend/jest.base.config.cjs')
 
 module.exports = {

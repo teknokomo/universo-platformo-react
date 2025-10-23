@@ -1,0 +1,60 @@
+{
+  "chatMessage": {
+    "initialGreeting": "Привет! Чем я могу помочь?",
+    "defaultError": "Ой! Произошла ошибка. Пожалуйста, попробуйте еще раз.",
+    "common": {
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "edit": "Редактировать",
+      "add": "Добавить",
+      "upload": "Загрузить",
+      "send": "Отправить",
+      "record": "Записать",
+      "stopRecording": "Остановить запись",
+      "clearAttachments": "Очистить вложения",
+      "removeAttachment": "Удалить вложение",
+      "typing": "Печатает...",
+      "generatingResponse": "Генерация ответа...",
+      "uploadFile": "Загрузить файл",
+      "uploadImage": "Загрузить изображение",
+      "chooseFile": "Выбрать файл",
+      "fileUploadError": "Не удалось загрузить документы",
+      "audioRecording": "Запись аудио",
+      "audioProcessing": "Обработка аудио...",
+      "sourceDocuments": "Исходные документы",
+      "viewSources": "Просмотр источников",
+      "stopGeneration": "Остановить генерацию",
+      "continueGeneration": "Продолжить генерацию",
+      "retry": "Повторить"
+    },
+    "chat": {
+      "chat": "Чат",
+      "clearChat": "Очистить чат",
+      "clearConversation": "Очистить беседу",
+      "clearChatHistory": "Очистить историю чата",
+      "clearChatHistoryConfirm": "Вы уверены, что хотите очистить всю историю чата?",
+      "clear": "Очистить",
+      "clearedChatHistory": "История чата успешно очищена",
+      "expandChat": "Развернуть чат"
+    },
+    "uploadFiles": {
+      "dragAndDrop": "Перетащите файлы сюда или нажмите, чтобы выбрать файлы",
+      "maxFileSize": "Максимальный размер файла: {size}",
+      "allowedFileTypes": "Разрешенные типы файлов: {types}"
+    },
+    "feedback": {
+      "provideFeedback": "Оставить отзыв",
+      "feedbackPlaceholder": "Введите ваш отзыв здесь...",
+      "submitFeedback": "Отправить отзыв",
+      "feedbackSuccess": "Отзыв успешно отправлен",
+      "feedbackError": "Не удалось отправить отзыв"
+    },
+    "errors": {
+      "missingCanvasContext": "Не удалось загрузить возможности холста, потому что контекст unik недоступен. Обновите страницу и попробуйте снова."
+    }
+  },
+  "chatbot": {
+    "invalid": "Некорректный чат-бот"
+  }
+}

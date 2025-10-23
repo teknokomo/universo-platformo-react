@@ -3,15 +3,15 @@ name: Docs i18n Check
 on:
   pull_request:
     paths:
-      - 'apps/**/README.md'
-      - 'apps/**/README-RU.md'
+      - 'packages/**/README.md'
+      - 'packages/**/README-RU.md'
       - 'docs/en/**'
       - 'docs/ru/**'
       - '.gemini/rules/i18n-docs.md'
   push:
     paths:
-      - 'apps/**/README.md'
-      - 'apps/**/README-RU.md'
+      - 'packages/**/README.md'
+      - 'packages/**/README-RU.md'
       - 'docs/en/**'
       - 'docs/ru/**'
 

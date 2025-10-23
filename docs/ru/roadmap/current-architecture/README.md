@@ -22,8 +22,8 @@ universo-platformo-react/
 │   ├── components/            # Узлы и учетные данные
 │   ├── server/                # Основной Express сервер
 │   ├── ui/                    # React интерфейс Flowise
-│   └── api-documentation/     # Swagger документация
-├── apps/                      # Расширения Universo Platformo
+│   └── universo-rest-docs/     # Swagger документация
+├── packages/                      # Расширения Universo Platformo
 │   ├── updl/                  # Система узлов UPDL
 │   ├── publish-frt/           # Фронтенд публикации
 │   ├── publish-srv/           # Бэкенд публикации
@@ -44,7 +44,7 @@ universo-platformo-react/
 
 ### 1. UPDL (Universal Platform Definition Language)
 
-**Расположение**: `apps/updl/base/`
+**Расположение**: `packages/updl/base/`
 
 **Функциональность**:
 - 7 высокоуровневых абстрактных узлов
@@ -72,7 +72,7 @@ interface UPDLNode {
 
 ### 2. Publish Frontend (publish-frt)
 
-**Расположение**: `apps/publish-frt/base/`
+**Расположение**: `packages/publish-frt/base/`
 
 **Функциональность**:
 - Экспорт UPDL в AR.js и PlayCanvas
@@ -96,7 +96,7 @@ class UPDLProcessor {
 
 ### 3. Publish Backend (publish-srv)
 
-**Расположение**: `apps/publish-srv/base/`
+**Расположение**: `packages/publish-srv/base/`
 **Workspace пакет**: `@universo/publish-srv`
 
 **Функциональность**:
@@ -111,7 +111,7 @@ class UPDLProcessor {
 
 ### 4. Profile Frontend (profile-frt)
 
-**Расположение**: `apps/profile-frt/base/`
+**Расположение**: `packages/profile-frt/base/`
 
 **Функциональность**:
 - Управление профилями пользователей
@@ -125,7 +125,7 @@ class UPDLProcessor {
 
 ### 5. Profile Backend (profile-srv)
 
-**Расположение**: `apps/profile-srv/base/`
+**Расположение**: `packages/profile-srv/base/`
 **Workspace пакет**: `@universo/profile-srv`
 
 **Функциональность**:
@@ -135,7 +135,7 @@ class UPDLProcessor {
 
 ### 6. Analytics Frontend (analytics-frt)
 
-**Расположение**: `apps/analytics-frt/base/`
+**Расположение**: `packages/analytics-frt/base/`
 
 **Функциональность**:
 - Отслеживание производительности квизов
@@ -144,7 +144,7 @@ class UPDLProcessor {
 
 ## Packages анализ
 
-### packages/components
+### packages/flowise-components
 
 **Текущее состояние**: Монолитный пакет с узлами Flowise
 
@@ -162,7 +162,7 @@ class UPDLProcessor {
 
 **Предложения по рефакторингу**:
 ```
-packages/components → apps/
+packages/flowise-components → packages/
 ├── langchain-nodes-srv/       # LangChain специфичные узлы
 ├── ai-models-srv/             # AI модели и провайдеры
 ├── vector-stores-srv/         # Векторные хранилища
@@ -170,7 +170,7 @@ packages/components → apps/
 └── tools-srv/                 # Инструменты и утилиты
 ```
 
-### packages/server
+### packages/flowise-server
 
 **Текущее состояние**: Монолитный Express сервер
 
@@ -188,7 +188,7 @@ packages/components → apps/
 
 **Предложения по рефакторингу**:
 ```
-packages/server → apps/
+packages/flowise-server → packages/
 ├── workflow-engine-srv/       # Движок выполнения потоков
 ├── api-gateway-srv/           # Единая точка входа
 ├── auth-core-srv/             # Базовая авторизация
@@ -196,7 +196,7 @@ packages/server → apps/
 └── websocket-srv/             # WebSocket соединения
 ```
 
-### packages/ui
+### packages/flowise-ui
 
 **Текущее состояние**: Монолитное React приложение
 
@@ -208,7 +208,7 @@ packages/server → apps/
 
 **Предложения по рефакторингу**:
 ```
-packages/ui → apps/
+packages/flowise-ui → packages/
 ├── workflow-editor-frt/       # Редактор потоков
 ├── node-palette-frt/          # Палитра узлов
 ├── dashboard-frt/             # Основная панель
