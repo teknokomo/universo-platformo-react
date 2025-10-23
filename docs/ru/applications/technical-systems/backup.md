@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/backup-srv/base/
+packages/backup-srv/base/
   src/{api,infra}/...
 ```

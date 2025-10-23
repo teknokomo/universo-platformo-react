@@ -1,0 +1,50 @@
+{
+    "name": "@universo/updl",
+    "version": "0.1.0",
+    "description": "Universo Platformo Definition Language for 3D/AR/VR scene definition - UPDL Node Extensions for Flowise",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./i18n": {
+            "types": "./dist/i18n/index.d.ts",
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsdown",
+        "build:watch": "tsdown --watch",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts,.tsx src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "keywords": [
+        "updl",
+        "universo",
+        "platformo",
+        "flowise",
+        "nodes",
+        "3d",
+        "ar",
+        "vr",
+        "webxr"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "typescript": "^5.4.5"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "eslint": "^8.56.0",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "vitest": "^2.1.4"
+    }
+}

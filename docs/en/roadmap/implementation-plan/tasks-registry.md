@@ -6,17 +6,17 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
 -   **Redesign Authentication System (Supabase, preparation for Passport.js)**
 
-    Task: stabilize multi-user authentication, fix token handling and refresh, consistently pass authentication to frontend/backend and exported applications. Create `apps/auth-frt` and `apps/auth-srv` applications.
+    Task: stabilize multi-user authentication, fix token handling and refresh, consistently pass authentication to frontend/backend and exported applications. Create `packages/auth-frt` and `packages/auth-srv` applications.
 
     Details:
 
-    -   In `apps/auth-srv` implement abstraction layer over Supabase Auth (access/refresh validation, rotation, webhook events), provide adapter for future Passport.js integration.
-    -   In `apps/auth-frt` — UI components for login/registration/token refresh, Supabase SDK integration, token storage/refresh, request interceptors.
-    -   Update authentication integration in `apps/publish-frt`, `apps/template-engine-srv` (PlayCanvas export), `apps/multiplayer-colyseus-srv` (JWT in join parameters).
+    -   In `packages/auth-srv` implement abstraction layer over Supabase Auth (access/refresh validation, rotation, webhook events), provide adapter for future Passport.js integration.
+    -   In `packages/auth-frt` — UI components for login/registration/token refresh, Supabase SDK integration, token storage/refresh, request interceptors.
+    -   Update authentication integration in `packages/publish-frt`, `packages/template-engine-srv` (PlayCanvas export), `packages/multiplayer-colyseus-srv` (JWT in join parameters).
 
 -   **Metaverses: frontend and server, Unik/Space relationships and roles**
 
-    Task: create `apps/metaverse-frt` and `apps/metaverse-srv` as base applications for metaverse domain. Provide meta↔meta relationship models (child/partner), metaverse catalog, and Unik/Space integration.
+    Task: create `packages/metaverse-frt` and `packages/metaverse-srv` as base applications for metaverse domain. Provide meta↔meta relationship models (child/partner), metaverse catalog, and Unik/Space integration.
 
     Details:
 
@@ -30,7 +30,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   In `apps/updl/` and/or `apps/updl/imp/*` add link nodes: `SpaceLink` (external Chatflow/Space reference), `UnikLink` (Space set connection from Unik), `MetaverseLink` (complete world connection).
+    -   In `packages/updl/` and/or `packages/updl/imp/*` add link nodes: `SpaceLink` (external Chatflow/Space reference), `UnikLink` (Space set connection from Unik), `MetaverseLink` (complete world connection).
     -   Implement dependent graph loading by reference (with version control), canvas link port display, cycle validation.
     -   Documentation: update `universo-platformo/updl-nodes/*` and `applications/metaverse/*` for new link architecture.
 
@@ -40,7 +40,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Import Agent v2 concept (Flowise 3.x) into `apps/updl` → single constructor (without Chatflow/Agentflow separation): prompt → node/link synthesis.
+    -   Import Agent v2 concept (Flowise 3.x) into `packages/updl` → single constructor (without Chatflow/Agentflow separation): prompt → node/link synthesis.
     -   Save graph drafts/versions, rollback, version comparison.
 
 -   **Chatbot Publishing: extract embed to separate application**
@@ -49,8 +49,8 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Create `apps/chatbot-embed-srv` for serving chatbot embeds independently.
-    -   Update `apps/publish-frt` to use dedicated embed service.
+    -   Create `packages/chatbot-embed-srv` for serving chatbot embeds independently.
+    -   Update `packages/publish-frt` to use dedicated embed service.
     -   Implement proper CORS and security for embedded chatbots.
 
 -   **Template Engine Server: pre-generation mode**
@@ -59,10 +59,10 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Implement server-side template processing in `apps/template-engine-srv`.
+    -   Implement server-side template processing in `packages/template-engine-srv`.
     -   Add artifact storage system (S3/local filesystem).
     -   Create build queue and status tracking.
-    -   Update `apps/publish-frt` to support both streaming and pre-generation modes.
+    -   Update `packages/publish-frt` to support both streaming and pre-generation modes.
 
 ## Stage 2. Base Package Creation and Modularization
 
@@ -71,7 +71,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
     Task: extract all shared TypeScript interfaces and types into a dedicated package.
 
     Status: ✅ Completed
-    - Created `apps/universo-platformo-types/` with dual build system
+    - Created `packages/universo-types/` with dual build system
     - Migrated all UPDL interfaces and platform types
     - Updated all consuming packages to use shared types
 
@@ -80,7 +80,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
     Task: extract common utilities, especially UPDLProcessor, into a shared package.
 
     Status: ✅ Completed
-    - Created `apps/universo-platformo-utils/` with UPDLProcessor
+    - Created `packages/universo-utils/` with UPDLProcessor
     - Implemented dual build system (CJS + ESM + Types)
     - Migrated UPDLProcessor from local implementations
 
@@ -89,7 +89,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
     Task: move AR.js quiz functionality to a dedicated template package.
 
     Status: ✅ Completed
-    - Created `apps/template-quiz/` with complete AR.js quiz implementation
+    - Created `packages/template-quiz/` with complete AR.js quiz implementation
     - Implemented modular handler system (DataHandler, ObjectHandler)
     - Integrated with TemplateRegistry system
 
@@ -98,7 +98,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
     Task: move PlayCanvas MMOOMM functionality to a dedicated template package.
 
     Status: ✅ Completed
-    - Created `apps/template-mmoomm/` with complete PlayCanvas implementation
+    - Created `packages/template-mmoomm/` with complete PlayCanvas implementation
     - Implemented entity system, physics, and multiplayer support
     - Fixed ship duplication issues in multi-scene processing
 
@@ -108,7 +108,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Move profile-related components from `apps/profile-frt` to shared package.
+    -   Move profile-related components from `packages/profile-frt` to shared package.
     -   Create reusable profile widgets and forms.
     -   Implement profile data synchronization utilities.
 
@@ -118,7 +118,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Move workspace components from `apps/uniks-frt` to shared package.
+    -   Move workspace components from `packages/uniks-frt` to shared package.
     -   Create reusable workspace management widgets.
     -   Implement workspace collaboration utilities.
 
@@ -130,7 +130,7 @@ This document is a step-by-step registry of tasks for creating a fully functiona
 
     Details:
 
-    -   Add WebSocket support to `apps/updl/`.
+    -   Add WebSocket support to `packages/updl/`.
     -   Implement operational transformation for concurrent editing.
     -   Add user presence indicators and conflict resolution.
 

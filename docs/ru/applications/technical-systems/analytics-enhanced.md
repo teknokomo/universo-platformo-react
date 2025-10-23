@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/analytics-enhanced-frt/base/
-apps/analytics-enhanced-srv/base/
+packages/analytics-enhanced-frt/base/
+packages/analytics-enhanced-srv/base/
 ```

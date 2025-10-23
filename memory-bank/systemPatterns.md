@@ -46,7 +46,7 @@
 **Structure**:
 
 ```
-apps/package-name/
+packages/package-name/
 ├── base/
 │   ├── src/
 │   │   ├── interfaces/     # TypeScript interfaces
@@ -74,7 +74,7 @@ apps/package-name/
 **Structure**:
 
 ```
-apps/template-name/
+packages/template-name/
 ├── base/
 │   ├── src/
 │   │   ├── platform/       # Platform-specific implementations
@@ -413,7 +413,7 @@ useEffect(() => {
 
 **Purpose**: Standardized auto-save functionality with debouncing, status indication, and data loss protection
 
-**Location**: `apps/publish-frt/base/src/hooks/useAutoSave.ts`
+**Location**: `packages/publish-frt/base/src/hooks/useAutoSave.ts`
 
 **Features**:
 - **Debouncing**: Configurable delay (default 500ms) to reduce API calls
@@ -546,7 +546,7 @@ const handleCreate = async () => {
 ✅ **CORRECT**: Single QueryClient at application root
 
 ```javascript
-// packages/ui/src/index.jsx
+// packages/flowise-ui/src/index.jsx
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createGlobalQueryClient } from '@/config/queryClient'
 
@@ -576,7 +576,7 @@ const MyComponent = () => {
 
 ### 2. Query Key Factory Pattern
 
-**Location**: `apps/publish-frt/base/src/api/queryKeys.ts`
+**Location**: `packages/publish-frt/base/src/api/queryKeys.ts`
 
 ✅ **CORRECT**: Use Query Key Factory for consistency
 
@@ -704,7 +704,7 @@ const MyPublisher = ({ flow }) => {
 
 ### 5. QueryClient Configuration Best Practices
 
-**Location**: `packages/ui/src/config/queryClient.js`
+**Location**: `packages/flowise-ui/src/config/queryClient.js`
 
 ```javascript
 export const createGlobalQueryClient = () =>
@@ -836,9 +836,9 @@ const { data, isLoading } = useQuery({
 ### Documentation
 
 **Detailed guides**:
-- `apps/publish-frt/README.md` - Full architecture documentation
-- `apps/publish-frt/README-RU.md` - Русская версия
-- `apps/publish-frt/base/src/api/queryKeys.ts` - Query Key Factory with JSDoc
+- `packages/publish-frt/README.md` - Full architecture documentation
+- `packages/publish-frt/README-RU.md` - Русская версия
+- `packages/publish-frt/base/src/api/queryKeys.ts` - Query Key Factory with JSDoc
 
 **External resources**:
 - [TanStack Query v5 Docs](https://tanstack.com/query/latest)
@@ -858,7 +858,7 @@ const { data, isLoading } = useQuery({
 ### Code Standards
 
 -   **Documentation**: Prefix comments with "Universo Platformo |", concise English documentation
--   **Localization**: Modular i18n with namespace separation (`apps/<app>/i18n/`)
+-   **Localization**: Modular i18n with namespace separation (`packages/<app>/i18n/`)
 -   **Workspace Packages**: Scoped packages (`@universo/package-name`) for backend services
 
 ### Future-Ready Design
@@ -869,4 +869,4 @@ const { data, isLoading } = useQuery({
 
 ---
 
-_For detailed application structure and development guidelines, see [apps/README.md](../apps/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._
+_For detailed application structure and development guidelines, see [packages/README.md](../packages/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._

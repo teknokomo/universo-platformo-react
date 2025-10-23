@@ -4,7 +4,7 @@ description: Learn how to configure environment variables for Flowise
 
 # Environment Variables
 
-Flowise support different environment variables to configure your instance. You can specify the following variables in the `.env` file inside `packages/server` folder. Refer to [.env.example](https://github.com/FlowiseAI/Flowise/blob/main/packages/server/.env.example) file.
+Flowise support different environment variables to configure your instance. You can specify the following variables in the `.env` file inside `packages/flowise-server` folder. Refer to [.env.example](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-server/.env.example) file.
 
 <table><thead><tr><th width="233">Variable</th><th width="219">Description</th><th width="104">Type</th><th>Default</th></tr></thead><tbody><tr><td>PORT</td><td>The HTTP port Flowise runs on</td><td>Number</td><td>3000</td></tr><tr><td>FLOWISE_FILE_SIZE_LIMIT</td><td>Maximum file size when uploading</td><td>String</td><td><code>50mb</code></td></tr><tr><td>NUMBER_OF_PROXIES</td><td>Rate Limit Proxy</td><td>Number</td><td></td></tr><tr><td>CORS_ORIGINS</td><td>The allowed origins for all cross-origin HTTP calls</td><td>String</td><td></td></tr><tr><td>IFRAME_ORIGINS</td><td>The allowed origins for iframe src embedding</td><td>String</td><td></td></tr><tr><td>SHOW_COMMUNITY_NODES</td><td>Display nodes that are created by community</td><td>Boolean: <code>true</code> or <code>false</code></td><td></td></tr><tr><td>DISABLED_NODES</td><td>Comma separated list of node names to disable</td><td>String</td><td></td></tr></tbody></table>
 
@@ -52,7 +52,7 @@ User can specify `STORAGE_TYPE` to use AWS S3, Google Cloud Storage or local pat
 | Variable   | Description                         | Type                                             |                                |
 | ---------- | ----------------------------------- | ------------------------------------------------ | ------------------------------ |
 | DEBUG      | Print logs from components          | Boolean                                          |                                |
-| LOG\_PATH  | Location where log files are stored | String                                           | `Flowise/packages/server/logs` |
+| LOG\_PATH  | Location where log files are stored | String                                           | `Flowise/packages/flowise-server/logs` |
 | LOG\_LEVEL | Different levels of logs            | Enum String: `error`, `info`, `verbose`, `debug` | `info`                         |
 
 `DEBUG`: if set to true, will print logs to terminal/console:
@@ -86,7 +86,7 @@ You can configure to use AWS Secret Manager to store the encryption key instead.
 | Variable                      | Description                                           | Type                        | Default                   |
 | ----------------------------- | ----------------------------------------------------- | --------------------------- | ------------------------- |
 | SECRETKEY\_STORAGE\_TYPE      | How to store the encryption key                       | Enum String: `local`, `aws` | `local`                   |
-| SECRETKEY\_PATH               | Local file path where encryption key is saved         | String                      | `Flowise/packages/server` |
+| SECRETKEY\_PATH               | Local file path where encryption key is saved         | String                      | `Flowise/packages/flowise-server` |
 | FLOWISE\_SECRETKEY\_OVERWRITE | Encryption key to be used instead of the existing key | String                      |                           |
 | SECRETKEY\_AWS\_ACCESS\_KEY   |                                                       | String                      |                           |
 | SECRETKEY\_AWS\_SECRET\_KEY   |                                                       | String                      |                           |
@@ -106,9 +106,9 @@ Credential API Key returned from the UI is not the same length as your original 
 
 In some cases, you might want to use custom model on the existing Chat Model and LLM nodes, or restrict access to only certain models.
 
-By default, Flowise pulls the model list from [here](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/models.json). However user can create their own `models.json` file and specify the file path:
+By default, Flowise pulls the model list from [here](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/models.json). However user can create their own `models.json` file and specify the file path:
 
-<table><thead><tr><th width="164">Variable</th><th width="196">Description</th><th width="78">Type</th><th>Default</th></tr></thead><tbody><tr><td>MODEL_LIST_CONFIG_JSON</td><td>Link to load list of models from your <code>models.json</code> config file</td><td>String</td><td><a href="https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/components/models.json">https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/components/models.json</a></td></tr></tbody></table>
+<table><thead><tr><th width="164">Variable</th><th width="196">Description</th><th width="78">Type</th><th>Default</th></tr></thead><tbody><tr><td>MODEL_LIST_CONFIG_JSON</td><td>Link to load list of models from your <code>models.json</code> config file</td><td>String</td><td><a href="https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/flowise-components/models.json">https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/flowise-components/models.json</a></td></tr></tbody></table>
 
 ## For API Keys (Deprecated)
 
@@ -117,7 +117,7 @@ Users can create multiple API keys within Flowise in order to authenticate with 
 | Variable              | Description                                                                                | Type                      | Default                   |
 | --------------------- | ------------------------------------------------------------------------------------------ | ------------------------- | ------------------------- |
 | APIKEY\_STORAGE\_TYPE | Method to store API keys                                                                   | Enum string: `json`, `db` | `json`                    |
-| APIKEY\_PATH          | Location where the API keys are stored when `APIKEY_STORAGE_TYPE` is unspecified or `json` | String                    | `Flowise/packages/server` |
+| APIKEY\_PATH          | Location where the API keys are stored when `APIKEY_STORAGE_TYPE` is unspecified or `json` | String                    | `Flowise/packages/flowise-server` |
 
 Using `db` as storage type will store the API keys to database instead of a local JSON file.
 

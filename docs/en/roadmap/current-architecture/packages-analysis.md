@@ -18,7 +18,7 @@ Detailed analysis of the workspace packages structure in Universo Platformo, exa
 
 ```
 packages/
-├── api-documentation/   # API documentation generator
+├── universo-rest-docs/   # API documentation generator
 ├── components/         # Shared UI and business components
 ├── server/            # Core server functionality
 └── ui/               # Frontend UI library
@@ -26,7 +26,7 @@ packages/
 
 ### Package Details
 
-#### API Documentation (`packages/api-documentation/`)
+#### API Documentation (`packages/universo-rest-docs/`)
 **Purpose**: Automated API documentation generation
 **Technology**: TypeScript + OpenAPI
 **Dependencies**: 
@@ -35,7 +35,7 @@ packages/
 
 ```json
 {
-  "name": "@universo-platformo/api-documentation",
+  "name": "@universo-platformo/universo-rest-docs",
   "version": "0.21.0",
   "dependencies": {
     "express": "^4.18.0",
@@ -45,7 +45,7 @@ packages/
 }
 ```
 
-#### Components (`packages/components/`)
+#### Components (`packages/flowise-components/`)
 **Purpose**: Shared business logic and UI components
 **Technology**: TypeScript + React
 **Key Modules**:
@@ -56,7 +56,7 @@ packages/
 - Model loading
 
 ```typescript
-// Key interfaces from packages/components/src/Interface.ts
+// Key interfaces from packages/flowise-components/src/Interface.ts
 interface INode {
     id: string;
     type: string;
@@ -82,7 +82,7 @@ interface INodeParams {
 }
 ```
 
-#### Server (`packages/server/`)
+#### Server (`packages/flowise-server/`)
 **Purpose**: Core server functionality and middleware
 **Technology**: Node.js + Express.js + TypeScript
 **Key Features**:
@@ -109,7 +109,7 @@ interface DatabaseConfig {
 }
 ```
 
-#### UI (`packages/ui/`)
+#### UI (`packages/flowise-ui/`)
 **Purpose**: Frontend UI library and components
 **Technology**: React + Material-UI + TypeScript
 **Key Components**:
@@ -124,19 +124,19 @@ interface DatabaseConfig {
 
 ```mermaid
 graph TD
-    A[apps/updl] --> B[packages/components]
-    A --> C[packages/ui]
-    D[apps/publish-frt] --> B
+    A[packages/updl] --> B[packages/flowise-components]
+    A --> C[packages/flowise-ui]
+    D[packages/publish-frt] --> B
     D --> C
-    E[apps/profile-frt] --> B
+    E[packages/profile-frt] --> B
     E --> C
-    F[apps/analytics-frt] --> B
+    F[packages/analytics-frt] --> B
     F --> C
-    G[apps/publish-srv] --> H[packages/server]
+    G[packages/publish-srv] --> H[packages/flowise-server]
     G --> B
-    I[apps/profile-srv] --> H
+    I[packages/profile-srv] --> H
     I --> B
-    J[packages/api-documentation] --> H
+    J[packages/universo-rest-docs] --> H
 ```
 
 ### External Dependencies
@@ -169,7 +169,7 @@ graph TD
 
 ### Business Logic Components
 
-#### Node System (`packages/components/src/`)
+#### Node System (`packages/flowise-components/src/`)
 - **Interface.ts**: Core type definitions
 - **validator.ts**: Input validation
 - **modelLoader.ts**: Dynamic model loading
@@ -177,7 +177,7 @@ graph TD
 
 #### Storage Utilities
 ```typescript
-// packages/components/src/storageUtils.ts
+// packages/flowise-components/src/storageUtils.ts
 export interface IStorageConfig {
     provider: 'supabase' | 'local' | 's3';
     bucket?: string;
@@ -195,7 +195,7 @@ export class StorageManager {
 
 #### Error Handling
 ```typescript
-// packages/components/src/error.ts
+// packages/flowise-components/src/error.ts
 export class UniversoError extends Error {
     code: string;
     statusCode: number;
@@ -220,7 +220,7 @@ export const ErrorCodes = {
 
 ### UI Components
 
-#### Layout Components (`packages/ui/src/`)
+#### Layout Components (`packages/flowise-ui/src/`)
 - Header and navigation
 - Sidebar components
 - Modal dialogs

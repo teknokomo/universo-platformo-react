@@ -100,7 +100,7 @@ CORS_ORIGINS="http://localhost:3000,http://example.com"
 
 If using Docker, place the env variables inside `Flowise/docker/.env`
 
-If using local Git clone, place the env variables inside `Flowise/packages/server/.env`
+If using local Git clone, place the env variables inside `Flowise/packages/flowise-server/.env`
 
 ## Video Tutorials
 

@@ -88,7 +88,7 @@ docker push gcr.io/[ProjectId]/flowise:dev
 
 ```
 # deployment.yaml
-apiVersion: apps/v1
+apiVersion: packages/v1
 kind: Deployment
 metadata:
   name: flowise

@@ -1,0 +1,38 @@
+{
+    "menu": {
+        "dashboard": "Униборд",
+        "spaces": "Пространства",
+        "agentflows": "Агенты",
+        "assistants": "Ассистенты",
+        "tools": "Инструменты",
+        "credentials": "Учетные данные",
+        "variables": "Переменные",
+        "apiKeys": "API-ключи",
+        "documentStores": "Документы",
+        "analytics": "Аналитика",
+        "templates": "Шаблоны",
+        "uniks": "Уники",
+        "metaverses": "Метавселенные",
+        "metaverseboard": "Метаверсборд",
+        "clusters": "Кластеры",
+        "clusterboard": "Кластерборд",
+        "resources": "Ресурсы",
+        "domains": "Домены",
+        "sections": "Секции",
+        "entities": "Сущности",
+        "docs": "Справка",
+        "profile": "Профиль",
+        "access": "Управление доступом"
+    },
+    "profileMenu": {
+        "export": "Экспорт",
+        "import": "Импорт",
+        "aboutFlowise": "О Kiberplano",
+        "logout": "Выйти",
+        "exportDialog": {
+            "title": "Выберите данные для экспорта",
+            "exporting": "Экспорт...",
+            "exportingInfo": "Экспорт данных может занять некоторое время"
+        }
+    }
+}

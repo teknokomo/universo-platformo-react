@@ -1,0 +1,41 @@
+{
+    "menu": {
+        "profile": "Профиль"
+    },
+    "profile": {
+        "title": "Профиль пользователя",
+        "loading": "Загрузка...",
+        "personalInfo": "Личная информация",
+        "emailSection": "Настройки электронной почты",
+        "passwordSection": "Настройки пароля",
+        "nickname": "Никнейм",
+        "firstName": "Имя",
+        "lastName": "Фамилия",
+        "email": "Электронная почта",
+        "password": "Пароль",
+        "nicknameRequired": "Никнейм обязателен",
+        "nicknameHelp": "Ваш уникальный идентификатор на платформе",
+        "updateProfile": "Обновить профиль",
+        "updateEmail": "Изменить почту",
+        "updatePassword": "Изменить пароль",
+        "updating": "Обновление...",
+        "updateSuccess": "Профиль успешно обновлен",
+        "updateError": "Не удалось обновить профиль",
+        "emailUpdated": "Почта успешно обновлена",
+        "passwordUpdated": "Пароль успешно обновлён",
+        "emailUpdateFailed": "Не удалось обновить почту",
+        "passwordUpdateFailed": "Не удалось обновить пароль",
+        "emailRequired": "Необходимо указать email",
+        "passwordRequired": "Необходимо указать пароль",
+        "invalidToken": "Недействительный или истёкший токен аутентификации",
+        "networkError": "Произошла ошибка сети",
+        "currentPassword": "Текущий пароль",
+        "newPassword": "Новый пароль",
+        "confirmNewPassword": "Подтвердите новый пароль",
+        "currentPasswordRequired": "Необходимо ввести текущий пароль",
+        "newPasswordRequired": "Необходимо ввести новый пароль",
+        "passwordsDoNotMatch": "Новые пароли не совпадают",
+        "passwordTooShort": "Пароль должен содержать минимум 6 символов",
+        "currentPasswordIncorrect": "Неверный текущий пароль"
+    }
+}

@@ -108,8 +108,8 @@ const result = await builder.buildFromFlowData(flowDataString)
 Create the package structure:
 
 ```bash
-mkdir -p apps/template-mytemplate/base/src
-cd apps/template-mytemplate/base
+mkdir -p packages/template-mytemplate/base/src
+cd packages/template-mytemplate/base
 ```
 
 Initialize `package.json`:
@@ -162,7 +162,7 @@ export function getTemplateTranslations(lang: string): TemplateNamespace {
 }
 ```
 
-See also: Creating New Apps/Packages → `docs/en/universo-platformo/shared-guides/creating-apps.md`.
+See also: Creating New packages/Packages → `docs/en/universo-platformo/shared-guides/creating-apps.md`.
 
 ### Step 2: Implement Builder Class
 

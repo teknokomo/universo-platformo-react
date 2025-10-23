@@ -1,0 +1,5 @@
+export { default as UnikList } from '@universo/uniks-frt/src/pages/UnikList.js'
+export { default as UnikDialog } from '@universo/uniks-frt/src/pages/UnikDialog.js'
+export { default as UnikDetail } from '@universo/uniks-frt/src/pages/UnikDetail.js'
+export { default as unikDashboard } from '@universo/uniks-frt/src/menu-items/unikDashboard.js'
+export { uniksTranslations } from '@universo/uniks-frt/src/i18n/index.js'

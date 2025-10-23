@@ -16,7 +16,7 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/entities-srv/base/
+packages/entities-srv/base/
   src/
     api/            # Контроллеры REST/WS
     domain/         # Модель ECS, агрегаты, фабрики, политики

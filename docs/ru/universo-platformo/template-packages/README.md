@@ -108,8 +108,8 @@ const result = await builder.buildFromFlowData(flowDataString)
 Создайте структуру пакета:
 
 ```bash
-mkdir -p apps/template-mytemplate/base/src
-cd apps/template-mytemplate/base
+mkdir -p packages/template-mytemplate/base/src
+cd packages/template-mytemplate/base
 ```
 
 Инициализируйте `package.json`:

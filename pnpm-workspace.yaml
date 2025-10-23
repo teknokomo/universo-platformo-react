@@ -1,3 +1,51 @@
 packages:
     - 'packages/*'
-    - 'apps/*/base'
+    - 'packages/*/base'
+
+# Catalog - single source of truth for dependency versions
+# Using conservative versions to minimize migration risk
+catalog:
+    # TypeScript toolchain - unified to 5.8.3 for consistent compilation across monorepo
+    typescript: ^5.8.3
+    
+    # i18next ecosystem - downgraded to stable 23.x due to TypeScript 5.8 incompatibility
+    # i18next 24.x uses 'const' type parameters syntax that causes parsing errors in TS 5.8
+    # Version 23.16.8 is proven stable and widely used
+    i18next: 23.16.8
+    react-i18next: ^15.5.3
+    i18next-http-backend: ^2.7.0
+    i18next-browser-languagedetector: ^8.0.2
+    
+    # React ecosystem - current stable
+    react: ^18.3.1
+    react-dom: ^18.3.1
+    '@types/react': ^18.3.18
+    '@types/react-dom': ^18.3.5
+    
+    # Build tools and bundlers
+    tsdown: ^0.15.7
+    vite: ^5.4.19
+    '@vitejs/plugin-react': ^4.3.4
+    vitest: ^2.1.8
+    
+    # MUI ecosystem - v6.x (latest stable)
+    '@mui/material': ^6.5.0
+    '@mui/icons-material': ^6.5.0
+    '@emotion/react': ^11.14.0
+    '@emotion/styled': ^11.14.1
+    
+    # Testing utilities
+    '@testing-library/react': ^14.3.1
+    '@testing-library/jest-dom': ^6.8.0
+    '@testing-library/user-event': ^14.6.1
+    jsdom: ^24.0.0
+    
+    # TypeScript types
+    '@types/node': ^20.12.12
+    
+    # Linting and formatting
+    eslint: ^8.57.1
+    
+    # Utilities
+    dayjs: ^1.11.13
+    axios: ^1.7.9

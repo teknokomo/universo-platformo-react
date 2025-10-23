@@ -1,0 +1,99 @@
+{
+    "name": "@universo/template-mui",
+    "version": "0.1.0",
+    "description": "Material-UI template implementation for Universo Platformo React",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./i18n": {
+            "types": "./dist/i18n/index.d.ts",
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        },
+        "./components/table/FlowListTable": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./components/dialogs": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./components/dialogs/EntityFormDialog": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown && tsc --emitDeclarationOnly",
+        "dev": "tsdown --watch",
+        "lint": "eslint --ext .ts,.tsx,.jsx src/",
+        "test": "jest"
+    },
+    "dependencies": {
+        "@flowise/template-mui": "workspace:*",
+        "@mui/material": "catalog:",
+        "@mui/icons-material": "catalog:",
+        "@mui/x-charts": "^7.22.2",
+        "@mui/x-data-grid": "^7.22.2",
+        "@mui/x-data-grid-pro": "^7.22.2",
+        "@mui/x-date-pickers": "^7.22.2",
+        "@mui/x-date-pickers-pro": "^7.22.2",
+        "@mui/x-tree-view": "^7.22.2",
+        "@universo/i18n": "workspace:*",
+        "@emotion/react": "catalog:",
+        "@emotion/styled": "catalog:",
+        "dayjs": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "@testing-library/react": "catalog:",
+        "@testing-library/jest-dom": "catalog:",
+        "@testing-library/user-event": "catalog:",
+        "jest": "^29.7.0",
+        "jest-environment-jsdom": "^29.7.0"
+    },
+    "typesVersions": {
+        "*": {
+            "components/dialogs": [
+                "dist/components/dialogs/index.d.ts"
+            ],
+            "components/dialogs/EntityFormDialog": [
+                "dist/components/dialogs/EntityFormDialog.d.ts"
+            ],
+            "*": [
+                "dist/index.d.ts"
+            ]
+        }
+    },
+    "peerDependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-router-dom": "~6.3.0"
+    },
+    "keywords": [
+        "universo",
+        "mui",
+        "material-ui",
+        "template",
+        "react"
+    ],
+    "author": "Universo Platformo Team",
+    "license": "MIT"
+}

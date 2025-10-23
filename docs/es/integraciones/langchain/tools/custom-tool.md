@@ -60,7 +60,7 @@ La descripción es una parte importante ya que ChatGPT se basa en esto para deci
 <figure><img src="../../../.gitbook/assets/image (6) (3).png" alt=""><figcaption></figcaption></figure>
 
 * JavaScript Function: Vamos a usar la API [Morning Star](https://rapidapi.com/apidojo/api/morning-star) `/market/v2/get-movers` para obtener datos. Primero debes hacer clic en Subscribe to Test si aún no lo has hecho, luego copia el código y pégalo en JavaScript Function.
-  * Agrega `const fetch = require('node-fetch');` al principio para importar la librería. Puedes importar cualquier [módulo](https://www.w3schools.com/nodejs/ref_modules.asp) integrado de NodeJS y [librerías externas](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/src/utils.ts#L289).
+  * Agrega `const fetch = require('node-fetch');` al principio para importar la librería. Puedes importar cualquier [módulo](https://www.w3schools.com/nodejs/ref_modules.asp) integrado de NodeJS y [librerías externas](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/src/utils.ts#L289).
   * Retorna el `result` al final.
 
 <figure><img src="../../../.gitbook/assets/Untitled (4) (1).png" alt=""><figcaption></figcaption></figure>
@@ -111,7 +111,7 @@ Input Schema le indica al LLM qué debe devolver como objeto JSON. En este caso,
 <figure><img src="../../../.gitbook/assets/image (4) (2).png" alt=""><figcaption></figcaption></figure>
 
 * JavaScript Function: Vamos a usar la API [Morning Star](https://rapidapi.com/apidojo/api/morning-star) `/news/list` para obtener los datos. Primero debes hacer clic en Subscribe to Test si aún no lo has hecho, luego copia el código y pégalo en JavaScript Function.
-  * Agrega `const fetch = require('node-fetch');` al principio para importar la librería. Puedes importar cualquier [módulo](https://www.w3schools.com/nodejs/ref_modules.asp) integrado de NodeJS y [librerías externas](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/src/utils.ts#L289).
+  * Agrega `const fetch = require('node-fetch');` al principio para importar la librería. Puedes importar cualquier [módulo](https://www.w3schools.com/nodejs/ref_modules.asp) integrado de NodeJS y [librerías externas](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/src/utils.ts#L289).
   * Retorna el `result` al final.
 * Luego, reemplaza el parámetro performanceId codificado en la URL: `0P0000OQN8` por la variable de propiedad especificada en Input Schema: `$performanceId`
 * Puedes usar cualquier propiedad especificada en Input Schema como variables en la JavaScript Function agregando el prefijo `$` al principio del nombre de la variable.
@@ -452,9 +452,9 @@ query({
 
 ### Importar Dependencias Externas
 
-Puedes importar cualquier [módulo](https://www.w3schools.com/nodejs/ref_modules.asp) integrado de NodeJS y [librerías externas](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/src/utils.ts#L289) soportadas en la Function.
+Puedes importar cualquier [módulo](https://www.w3schools.com/nodejs/ref_modules.asp) integrado de NodeJS y [librerías externas](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/src/utils.ts#L289) soportadas en la Function.
 
-1. Para importar cualquier librería no soportada, puedes agregar fácilmente el nuevo paquete npm al `package.json` en la carpeta `packages/components`.
+1. Para importar cualquier librería no soportada, puedes agregar fácilmente el nuevo paquete npm al `package.json` en la carpeta `packages/flowise-components`.
 
 ```bash
 cd Flowise && cd packages && cd components

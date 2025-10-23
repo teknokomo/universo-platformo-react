@@ -1,6 +1,6 @@
 # Пакет `@universo-platformo/client-sdk` — [Статус: Планируется]
 
-Назначение: типобезопасный клиент для REST (из OpenAPI `apps/*-srv`) и транспорт Colyseus (Room API) для экспортируемых проектов.
+Назначение: типобезопасный клиент для REST (из OpenAPI `packages/*-srv`) и транспорт Colyseus (Room API) для экспортируемых проектов.
 
 Роль в дорожной карте: Этап 2/7, инжектируется `template-engine-srv` при сборке клиента (например, PlayCanvas).
 

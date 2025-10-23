@@ -22,7 +22,7 @@ Universo Platformo currently consists of 6 working applications built on top of 
 ### Existing Applications
 
 ```
-apps/
+packages/
 ├── updl/                # UPDL Node System (7 high-level nodes)
 ├── publish-frt/         # Publication Frontend (AR.js, PlayCanvas)
 ├── publish-srv/         # Publication Backend (workspace package)

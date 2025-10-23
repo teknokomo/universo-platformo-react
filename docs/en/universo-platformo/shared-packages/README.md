@@ -4,7 +4,7 @@ Universo Platformo uses a modular architecture with shared packages that provide
 
 ## Overview
 
-The shared packages are located in the `apps/` directory and follow a standardized structure:
+The shared packages are located in the `packages/` directory and follow a standardized structure:
 
 - **Types Package** (`@universo-platformo/types`): Shared TypeScript type definitions
 - **Utils Package** (`@universo-platformo/utils`): Common utility functions and processors
@@ -42,7 +42,7 @@ Packages are integrated using PNPM workspaces with the `workspace:*` protocol:
 
 ### Types Package
 
-**Location**: `apps/universo-platformo-types/`
+**Location**: `packages/universo-types/`
 **Package Name**: `@universo-platformo/types`
 
 Contains all shared TypeScript type definitions and interfaces used across the platform.
@@ -60,7 +60,7 @@ import { IUPDLSpace, IUPDLData, IFlowData } from '@universo-platformo/types'
 
 ### Utils Package
 
-**Location**: `apps/universo-platformo-utils/`
+**Location**: `packages/universo-utils/`
 **Package Name**: `@universo-platformo/utils`
 
 Provides shared utility functions and processors used across multiple applications.
@@ -84,14 +84,14 @@ Template packages provide specialized functionality for different export formats
 
 ### Quiz Template
 
-**Location**: `apps/template-quiz/`
+**Location**: `packages/template-quiz/`
 **Package Name**: `@universo/template-quiz`
 
 Specialized package for creating AR.js educational quizzes with lead collection capabilities.
 
 ### MMOOMM Template
 
-**Location**: `apps/template-mmoomm/`
+**Location**: `packages/template-mmoomm/`
 **Package Name**: `@universo/template-mmoomm`
 
 Specialized package for creating PlayCanvas space MMO experiences with advanced game mechanics.
@@ -102,7 +102,7 @@ Specialized package for creating PlayCanvas space MMO experiences with advanced 
 
 When creating new shared packages, follow these guidelines:
 
-1. **Location**: Place in `apps/` directory with descriptive name
+1. **Location**: Place in `packages/` directory with descriptive name
 2. **Structure**: Use the standard `base/` subdirectory structure
 3. **Build System**: Implement dual build (CJS + ESM + Types)
 4. **Dependencies**: Minimize external dependencies

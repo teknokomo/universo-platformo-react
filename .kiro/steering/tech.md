@@ -68,6 +68,6 @@ pnpm format                   # Format with Prettier
 ```
 
 ## Environment Setup
-- Create `.env` in `packages/server/` with Supabase configuration
-- Optionally create `.env` in `packages/ui/` for UI settings
+- Create `.env` in `packages/flowise-server/` with Supabase configuration
+- Optionally create `.env` in `packages/flowise-ui/` for UI settings
 - Use `VITE_PORT` for UI port configuration

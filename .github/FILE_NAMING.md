@@ -135,13 +135,13 @@ Does the file contain JSX elements (<Component />)?
 
 1. **Use Git rename** to preserve history:
    ```bash
-   git mv apps/metaverses-frt/base/src/pages/metaverseActions.tsx apps/metaverses-frt/base/src/pages/MetaverseActions.tsx
+   git mv packages/metaverses-frt/base/src/pages/metaverseActions.tsx packages/metaverses-frt/base/src/pages/MetaverseActions.tsx
    ```
 
 2. **Find all imports**:
    ```bash
-   grep -r "from './metaverseActions'" apps/metaverses-frt/
-   grep -r "from '../pages/metaverseActions'" apps/metaverses-frt/
+   grep -r "from './metaverseActions'" packages/metaverses-frt/
+   grep -r "from '../pages/metaverseActions'" packages/metaverses-frt/
    ```
 
 3. **Update imports**:

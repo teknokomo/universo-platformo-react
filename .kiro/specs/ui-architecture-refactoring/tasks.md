@@ -4,23 +4,23 @@
 
     Внимание!!! Отвечай пользователю на русском языке.
 - [x] 1.1 Перемещение папки компонентов dashboard
-  - Перекопировать папку `apps/universo-template-mui/base/src/views/dashboard/components` в `apps/universo-template-mui/base/src/components/dashboard`
-  - Обновить все импорты в `apps/universo-template-mui/base/src/views/dashboard/Dashboard.tsx`
-  - Обновить все импорты в `apps/universo-template-mui/base/src/layout/MainLayoutMUI.tsx`
-  - Удалить старую папку `apps/universo-template-mui/base/src/views/dashboard/components` после проверки работоспособности
+  - Перекопировать папку `packages/universo-template-mui/base/src/views/dashboard/components` в `packages/universo-template-mui/base/src/components/dashboard`
+  - Обновить все импорты в `packages/universo-template-mui/base/src/views/dashboard/Dashboard.tsx`
+  - Обновить все импорты в `packages/universo-template-mui/base/src/layout/MainLayoutMUI.tsx`
+  - Удалить старую папку `packages/universo-template-mui/base/src/views/dashboard/components` после проверки работоспособности
   - _Требования: 1.1, 1.2_
 
 - [x] 1.2 Перемещение папки темы
-  - Перекопировать папку `apps/universo-template-mui/base/src/views/dashboard/theme` в `apps/universo-template-mui/base/src/theme`
+  - Перекопировать папку `packages/universo-template-mui/base/src/views/dashboard/theme` в `packages/universo-template-mui/base/src/theme`
   - Обновить все импорты темы в соответствующих файлах
-  - Удалить старую папку `apps/universo-template-mui/base/src/views/dashboard/theme` после проверки
+  - Удалить старую папку `packages/universo-template-mui/base/src/views/dashboard/theme` после проверки
   - _Требования: 1.3_
 
 - [x] 1.3 Организация папок auth, shared и internals
-  - Определить правильное расположение для папки `apps/universo-template-mui/base/src/views/auth`
+  - Определить правильное расположение для папки `packages/universo-template-mui/base/src/views/auth`
   - Перенести компоненты auth в соответствующее место
-  - Определить правильное расположение для папки `apps/universo-template-mui/base/src/views/shared`
-  - Перенести папку `apps/universo-template-mui/base/src/views/dashboard/internals` в правильное место
+  - Определить правильное расположение для папки `packages/universo-template-mui/base/src/views/shared`
+  - Перенести папку `packages/universo-template-mui/base/src/views/dashboard/internals` в правильное место
   - Обновить все ссылки на перемещенные компоненты
   - _Требования: 1.4, 1.5, 1.6_
 
@@ -31,13 +31,13 @@
   - _Требования: 13.1, 13.6_
 
  - [x] 1.5 Дополнительный рефакторинг структуры
-  - `apps/universo-template-mui/base/src/auth` нужно перенести из неё `apps/universo-template-mui/base/src/auth/components` в `apps/universo-template-mui/base/src/components/auth` а остальное в `apps/universo-template-mui/base/src/auth` (в паапке останутся только README.md и SignInSide.tsx) перенести в `apps/universo-template-mui/base/src/views`.
+  - `packages/universo-template-mui/base/src/auth` нужно перенести из неё `packages/universo-template-mui/base/src/auth/components` в `packages/universo-template-mui/base/src/components/auth` а остальное в `packages/universo-template-mui/base/src/auth` (в паапке останутся только README.md и SignInSide.tsx) перенести в `packages/universo-template-mui/base/src/views`.
   - Обновить все ссылки на перемещенные компоненты
-  - Папку `apps/universo-template-mui/base/src/views/shared` перенести в `apps/universo-template-mui/base/src/components`.
+  - Папку `packages/universo-template-mui/base/src/views/shared` перенести в `packages/universo-template-mui/base/src/components`.
   - Обновить все ссылки на перемещенные компоненты
-  - Папку `apps/universo-template-mui/base/src/internals` перенести в `apps/universo-template-mui/base/src/components`. После этого в новом месте, уже по адресу `apps/universo-template-mui/base/src/components/internals` перенести в корень этой папки файлы из дочерней папки `apps/universo-template-mui/base/src/components/internals/components` (поднять файлы на уровень выше) это файлы `Copyright.tsx` и `CustomIcons.tsx`, которые после этого будут находится прямо в `apps/universo-template-mui/base/src/components/internals`. Тогда нужно будет удалить пустую папку `apps/universo-template-mui/base/src/components/internals/components`
+  - Папку `packages/universo-template-mui/base/src/internals` перенести в `packages/universo-template-mui/base/src/components`. После этого в новом месте, уже по адресу `packages/universo-template-mui/base/src/components/internals` перенести в корень этой папки файлы из дочерней папки `packages/universo-template-mui/base/src/components/internals/components` (поднять файлы на уровень выше) это файлы `Copyright.tsx` и `CustomIcons.tsx`, которые после этого будут находится прямо в `packages/universo-template-mui/base/src/components/internals`. Тогда нужно будет удалить пустую папку `packages/universo-template-mui/base/src/components/internals/components`
   - Обновить все ссылки на перемещенные компоненты
-  - Папку `apps/universo-template-mui/base/src/theme` переименовать в `themes`. Вложенную дочернюю папку, уже по новому пути `apps/universo-template-mui/base/src/themes/customizations` переименовать в `mui-custom`.
+  - Папку `packages/universo-template-mui/base/src/theme` переименовать в `themes`. Вложенную дочернюю папку, уже по новому пути `packages/universo-template-mui/base/src/themes/customizations` переименовать в `mui-custom`.
   - Обновить все ссылки на перемещенные компоненты
   - Запустить сборку проекта и убедиться, что все перемещения не сломали текущую работу
   - Проверить, что Dashboard.tsx корректно отображается в Униборде
@@ -45,15 +45,15 @@
 
 - [x] 2. Создание компонентов карточек (копирование и адаптация)
 - [x] 2.0 Создание структуры папок для компонентов карточек
-  - Создать папку `apps/universo-template-mui/base/src/components/cards/`
-  - Создать папку `apps/universo-template-mui/base/src/components/lists/`
-  - Создать папку `apps/universo-template-mui/base/src/components/toolbar/`
+  - Создать папку `packages/universo-template-mui/base/src/components/cards/`
+  - Создать папку `packages/universo-template-mui/base/src/components/lists/`
+  - Создать папку `packages/universo-template-mui/base/src/components/toolbar/`
   - Подготовить структуру для размещения новых компонентов
   - _Требования: 2.5, 3.5_
 
 - [x] 2.1 Копирование и адаптация StatCard.tsx для EntityCard
   - **КРИТИЧЕСКИ ВАЖНО**: НЕ переписывать компонент с нуля, а именно КОПИРОВАТЬ существующий работающий StatCard.tsx
-  - Скопировать `apps/universo-template-mui/base/src/components/dashboard/StatCard.tsx` в `apps/universo-template-mui/base/src/components/cards/EntityCard.tsx`
+  - Скопировать `packages/universo-template-mui/base/src/components/dashboard/StatCard.tsx` в `packages/universo-template-mui/base/src/components/cards/EntityCard.tsx`
   - Проверить, что скопированный компонент работает с демо-данными (не удалять демо-данные сразу!)
   - Сохранить оригинальный StatCard.tsx, он не будет удалятся в рамках этой задачи
   - Осторожно и пошагово удалить демо-данные графиков из скопированного компонента
@@ -66,7 +66,7 @@
 - [x] 2.2 Создание InfoCard на основе карточки с кнопкой
   - **КРИТИЧЕСКИ ВАЖНО**: НЕ создавать компонент с нуля, а КОПИРОВАТЬ существующую карточку с кнопкой
   - Найти в Dashboard.tsx (в его дочерних компонентах) карточку с кнопкой "Get insights" (четвертая карточка в первом ряду)
-  - Скопировать этот компонент полностью в `apps/universo-template-mui/base/src/components/cards/InfoCard.tsx`
+  - Скопировать этот компонент полностью в `packages/universo-template-mui/base/src/components/cards/InfoCard.tsx`
   - Проверить, что скопированный компонент работает с оригинальным содержимым
   - Сохранить оригинальную версию, она не будет удалятся в рамках этой задачи
   - Осторожно адаптировать содержимое: "Больше информации можно получить в документации"
@@ -78,7 +78,7 @@
 - [x] 2.3 Создание CardGrid на основе логики сетки Dashboard
   - **КРИТИЧЕСКИ ВАЖНО**: НЕ создавать сетку с нуля, а КОПИРОВАТЬ логику из Dashboard.tsx (его дочерних компонентов)
   - Найти и скопировать точную логику сетки карточек из Dashboard.tsx (контейнер с 4 карточками)
-  - Создать компонент `apps/universo-template-mui/base/src/components/cards/CardGrid.tsx` на основе скопированной логики
+  - Создать компонент `packages/universo-template-mui/base/src/components/cards/CardGrid.tsx` на основе скопированной логики
   - **ОБЯЗАТЕЛЬНО**: Сохранить точные breakpoints и CSS Grid логику из оригинала
   - **ОБЯЗАТЕЛЬНО**: Сохранить responsive поведение: сначала сужение карточек по ширине, потом перенос строк
   - **ОБЯЗАТЕЛЬНО**: Сохранить точное поведение: 4 карточки → 2 карточки → 1 карточка
@@ -87,8 +87,8 @@
   - _Требования: 2.2, 2.6, 8.1, 8.2, 8.4, 9.1, 9.4_
 
 - [x] 2.4 Удаление старых тестовых компонентов карточек
-  - Удалить всю папку `apps/universo-template-mui/base/src/components/universal`
-  - Удалить файл `apps/universo-template-mui/base/src/components/EntityCard.tsx`
+  - Удалить всю папку `packages/universo-template-mui/base/src/components/universal`
+  - Удалить файл `packages/universo-template-mui/base/src/components/EntityCard.tsx`
   - Обновить или удалить все ссылки на удаленные компоненты
   - _Требования: 5.1, 5.2, 5.4_
 
@@ -105,7 +105,7 @@
   - **КРИТИЧЕСКИ ВАЖНО**: НЕ создавать таблицу с нуля, а найти и КОПИРОВАТЬ существующий компонент
   - Найти компонент таблицы/списка с пагинацией в dashboard шаблоне, находится в разделе Details.
   - Изучить структуру dashboard шаблона для поиска компонента таблицы
-  - Скопировать найденный компонент полностью в `apps/universo-template-mui/base/src/components/lists/EntityList.tsx`
+  - Скопировать найденный компонент полностью в `packages/universo-template-mui/base/src/components/lists/EntityList.tsx`
   - Проверить, что скопированный компонент работает с демо-данными (НЕ удалять демо-данные сразу!)
   - Сохранить оригинальную версию до полного тестирования
   - _Требования: 3.1, 9.1, 9.4_
@@ -114,7 +114,7 @@
   - **ОБЯЗАТЕЛЬНО**: Сохранить всю оригинальную логику пагинации из dashboard
   - **ОБЯЗАТЕЛЬНО**: Сохранить все стили таблицы из оригинала
   - Постепенно и осторожно заменить демо-данные на интерфейс для реальных данных сущностей, там будут размещаться список Уников, Метавселенных, Кластеров и множества других данных, это будет альтернатива варианту отображения карточками, который мы реализовывали на предыдущем этапе.
-  - Создать типы для EntityListProps и ColumnDefinition, совместимые с оригинальным компонентом. Это будет заменять старый функционал UI списков, который можно найти и изучить в `packages/ui/src/ui-component`
+  - Создать типы для EntityListProps и ColumnDefinition, совместимые с оригинальным компонентом. Это будет заменять старый функционал UI списков, который можно найти и изучить в `packages/flowise-ui/src/ui-components`
   - Вносить изменения инкрементально, тестируя каждый шаг
   - НЕ изменять основную структуру таблицы или логику пагинации, но при этом адаптировать под новый необходимый функционал.
   - Убедиться, что пагинация работает точно так же, как в оригинале
@@ -122,7 +122,7 @@
 
 - [x] 3.3 Копирование и адаптация пагинации
   - **КРИТИЧЕСКИ ВАЖНО**: НЕ создавать пагинацию с нуля, а КОПИРОВАТЬ из dashboard (и его дочерних компонентов)
-  - Найти и скопировать компонент пагинации из dashboard в `apps/universo-template-mui/base/src/components/lists/Pagination.tsx`
+  - Найти и скопировать компонент пагинации из dashboard в `packages/universo-template-mui/base/src/components/lists/Pagination.tsx`
   - **ОБЯЗАТЕЛЬНО**: Сохранить все стили и поведение из оригинала
   - Проверить, что скопированная пагинация работает с оригинальными данными
   - Осторожно адаптировать для работы как с списками, так и с карточками
@@ -140,13 +140,13 @@
 
 - [x] 4. Создание панели инструментов
 - [x] 4.1 Анализ существующих компонентов панели инструментов
-  - Проанализировать компоненты в `packages/ui/src/ui-component` на предмет возможного использования
+  - Проанализировать компоненты в `packages/flowise-ui/src/ui-components` на предмет возможного использования
   - Определить, какие компоненты можно адаптировать, а какие нужно создать заново
   - Изучить паттерны дизайна из нового MUI шаблона для панели инструментов
   - _Требования: 4.1, 14.3_
 
 - [x] 4.2 Создание EntityToolbar
-  - Создать `apps/universo-template-mui/base/src/components/toolbar/EntityToolbar.tsx`
+  - Создать `packages/universo-template-mui/base/src/components/toolbar/EntityToolbar.tsx`
   - Реализовать поиск/фильтрацию с соблюдением стилей нового шаблона
   - Добавить переключение между видами карточек и списков
   - Добавить кнопку "Создать" и контекстно-зависимые кнопки
@@ -160,13 +160,13 @@
 
 - [x] 5. Исправление интеграции маршрутизации
 - [x] 5.1 Очистка мусорного кода в маршрутизации
-  - Удалить весь мусорный/лишний код из `packages/ui/src/routes/index.jsx` и `packages/ui/src/routes/MainRoutes.jsx`
+  - Удалить весь мусорный/лишний код из `packages/flowise-ui/src/routes/index.jsx` и `packages/flowise-ui/src/routes/MainRoutes.jsx`
   - Заменить на простое подключение новой структуры
   - Избегать чрезмерной абстракции
   - _Требования: 6.1, 6.2, 6.4, 14.1_
 
 - [x] 5.2 Правильная интеграция MainRoutesMUI и MainLayoutMUI
-  - Сделать правильное подключение в `packages/ui/src/App.jsx` (нужно помнить, что MainRoutesMUI и MainLayoutMUI - это TypeScript файлы и их нужно правильно подключить в JavaScript-файлe, смотри примеры работы в других частях проекта, например в `apps/resources-frt`) или нормально в `packages/ui/src/routes/index.jsx`
+  - Сделать правильное подключение в `packages/flowise-ui/src/App.jsx` (нужно помнить, что MainRoutesMUI и MainLayoutMUI - это TypeScript файлы и их нужно правильно подключить в JavaScript-файлe, смотри примеры работы в других частях проекта, например в `packages/resources-frt`) или нормально в `packages/flowise-ui/src/routes/index.jsx`
   - Обеспечить простой и прямой подход к интеграции
   - Проверить корректность работы маршрутизации
   - _Требования: 6.1, 6.3, 14.2_
@@ -176,7 +176,7 @@
 - [x] 6.1 Исправление responsive поведения карточек Уников
   - **КРИТИЧЕСКАЯ ПРОБЛЕМА**: Текущий список Уников использует сетку из 3 карточек (как в Flowise)
   - Заменить текущую логику сетки из 3 карточек на правильную логику из 4 карточек.
-  - Применить точное поведение из Униборда (`apps/universo-template-mui/base/src/views/dashboard/Dashboard.tsx` и его дочерних компонентах): 4 карточки → 2 карточки → 1 карточка
+  - Применить точное поведение из Униборда (`packages/universo-template-mui/base/src/views/dashboard/Dashboard.tsx` и его дочерних компонентах): 4 карточки → 2 карточки → 1 карточка
   - **ОБЯЗАТЕЛЬНО**: Убрать логику, похожую на изначальный UI Flowise
   - Использовать созданные компоненты EntityCard и CardGrid (скопированные из dashboard)
   - Проверить, что поведение точно соответствует тому, что показано в Униборде
@@ -204,10 +204,10 @@
   @universo/resources-frt:build: src/pages/ClusterList.tsx(9,25): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalTable'.
   @universo/resources-frt:build: src/pages/ClusterList.tsx(9,41): error TS2305: Module '"@universo/template-mui"' has no exported member 'UniversalViewLayout'.
   @universo/resources-frt:build:  ELIFECYCLE  Command failed with exit code 2.
-  @universo/resources-frt:build: ERROR: command finished with error: command (/home/vladimir/GigaProjects/universo-platformo-react/apps/resources-frt/base) pnpm run build exited (2)
+  @universo/resources-frt:build: ERROR: command finished with error: command (/home/vladimir/GigaProjects/universo-platformo-react/packages/resources-frt/base) pnpm run build exited (2)
   @universo/uniks-frt:build: cache bypass, force executing 736a4facfb11291f
   analytics-frt:build: cache bypass, force executing a5083004870a463e
-  @universo/resources-frt#build: command (/home/vladimir/GigaProjects/universo-platformo-react/apps/resources-frt/base) pnpm run build exited (2)
+  @universo/resources-frt#build: command (/home/vladimir/GigaProjects/universo-platformo-react/packages/resources-frt/base) pnpm run build exited (2)
 
   Tasks:    22 successful, 29 total
   Cached:    0 cached, 29 total
@@ -234,14 +234,14 @@
 
 - [ ] 8. Реализация тонкого слоя абстракции
 - [ ] 8.1 Создание простого переключателя тем
-  - Создать тонкий переключатель в `apps/universo-templates/`
+  - Создать тонкий переключатель в `packages/universo-templates/`
   - Реализовать простую логику определения активного UI пакета
   - Предоставить ссылки на основной роутер и основной макет
   - Избегать сложной абстракции
   - _Требования: 7.1, 7.2, 7.3, 7.4_
 - [ ] 9. Очистка и удаление устаревших компонентов
 - [ ] 9.1 Анализ и удаление дублирующих компонентов
-  - Проанализировать компоненты в `packages/ui/src/ui-component`, доработанные для нового дизайна
+  - Проанализировать компоненты в `packages/flowise-ui/src/ui-components`, доработанные для нового дизайна
   - Найти все дублирующие и тестовые компоненты
   - Удалить их после создания правильных версий
   - _Требования: 5.3, 5.4, 14.3, 14.4_

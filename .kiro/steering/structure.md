@@ -10,7 +10,7 @@ universo-platformo-react/
 │   ├── components/        # Flowise components and UPDL nodes
 │   ├── server/           # Backend server (Express + TypeORM)
 │   └── ui/               # Frontend React application
-├── apps/                 # Modular applications (NEW architecture)
+├── packages/                 # Modular applications (NEW architecture)
 │   ├── */base/           # Each app has a base/ subdirectory
 │   └── README.md         # Apps documentation
 ├── docs/                 # Documentation (en/es/ru)
@@ -21,7 +21,7 @@ universo-platformo-react/
 ## Apps Architecture
 Each application follows this structure:
 ```
-apps/{app-name}/
+packages/{app-name}/
 └── base/                 # Core functionality
     ├── src/              # Source code
     │   ├── api/          # API clients (frontend)
@@ -61,7 +61,7 @@ apps/{app-name}/
 ## Key Conventions
 - Use `pnpm` not `npm`
 - Frontend apps end with `-frt`, backend with `-srv`
-- All apps are in `apps/*/base/` structure
+- All apps are in `packages/*/base/` structure
 - Shared types are exported from backend packages
 - Assets (SVGs, icons) processed via Gulp in frontend apps
 - TypeScript compilation via `tsc`, then Gulp for assets

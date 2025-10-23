@@ -1,0 +1,150 @@
+{
+  "documentStore": {
+    "title": "Document Store",
+    "searchPlaceholder": "Search Name",
+    "addNew": "Add New",
+    "noDocumentStoresYet": "No Document Stores Created Yet",
+    "addDocumentStore": "Add Document Store",
+    "empty": "EMPTY",
+    "addDocumentLoader": "Add Document Loader",
+    "moreActions": "More Actions",
+    "noDocumentAddedYet": "No Document Added Yet",
+    "actions": {
+      "viewEditChunks": "View & Edit Chunks",
+      "upsertAllChunks": "Upsert All Chunks",
+      "upsertChunks": "Upsert Chunks",
+      "retrievalQuery": "Retrieval Query",
+      "refresh": "Refresh",
+      "delete": "Delete",
+      "options": "Options",
+      "previewProcess": "Preview & Process",
+      "viewAPI": "View API",
+      "manageLinks": "Manage Links"
+    },
+    "form": {
+      "name": "Name",
+      "description": "Description",
+      "add": "Add",
+      "cancel": "Cancel"
+    },
+    "table": {
+      "name": "Name",
+      "description": "Description",
+      "connectedFlows": "Connected flows",
+      "totalCharacters": "Total characters",
+      "totalChunks": "Total chunks",
+      "loaderTypes": "Loader types",
+      "more": "More",
+      "loader": "Loader",
+      "splitter": "Splitter",
+      "sources": "Source(s)",
+      "chunks": "Chunks",
+      "chars": "Chars",
+      "actions": "Actions"
+    },
+    "detail": {
+      "description": "Description",
+      "canvasesUsed": "Canvases Used:",
+      "someFilesPendingProcessing": "Some files are pending processing. Please Refresh to get the latest status."
+    },
+    "messages": {
+      "storeDeleted": "Store, Loader and associated document chunks deleted",
+      "deleteError": "Failed to delete Document Store: {error}",
+      "loaderDeleted": "Loader and associated document chunks deleted",
+      "loaderProcessed": "Document processed successfully",
+      "chunksUpserted": "Document chunks upserted successfully",
+      "storeRefreshed": "Document store refreshed successfully!",
+      "refreshError": "Failed to refresh document store: {error}"
+    },
+    "loaders": {
+      "common": {
+        "name": "Name",
+        "process": "Process",
+        "preview": "Preview",
+        "previewChunks": "Preview Chunks",
+        "back": "Back",
+        "selectTextSplitter": "Select Text Splitter",
+        "splitter": "Splitter",
+        "none": "None",
+        "fillMandatoryFields": "Please fill in all mandatory fields.",
+        "previewError": "Failed to preview chunks: {error}",
+        "processingSubmitted": "File submitted for processing. Redirecting to Document Store..",
+        "processingError": "Failed to process chunking: {error}",
+        "uploadFile": "Upload File",
+        "chooseFile": "Choose a file to upload",
+        "showChunksInPreview": "Show Chunks in Preview",
+        "ofChunks": "of {total} Chunks",
+        "characters": "Characters",
+        "chunksPreview": "Chunks Preview",
+        "selectLoader": "Select Document Loader",
+        "clearSearch": "Clear Search"
+      },
+      "deleteDescription": "Delete Loader {name}? This will delete all the associated document chunks.",
+      "pdf": {
+        "title": "PDF File",
+        "loaderName": "PDF File Loader Name",
+        "file": "PDF File",
+        "usage": "Usage",
+        "oneDocumentPerPage": "One document per page",
+        "useLegacyBuild": "Use Legacy Build",
+        "additionalMetadata": "Additional Metadata",
+        "omitMetadataKeys": "Omit Metadata Keys"
+      }
+    },
+    "deleteDialog": {
+      "title": "Delete Document Store",
+      "description": "Delete Store {name}? This will delete all the associated loaders and document chunks.",
+      "removeFromVectorStore": "Remove data from vector store and record manager",
+      "dataDeleteNote": "* Only data that were upserted with Record Manager will be deleted from vector store"
+    },
+    "status": {
+      "stale": "STALE",
+      "empty": "EMPTY",
+      "syncing": "SYNCING",
+      "upserting": "UPSERTING",
+      "sync": "SYNC",
+      "upserted": "UPSERTED",
+      "new": "NEW"
+    },
+    "chunks": {
+      "editChunk": "Edit Chunk",
+      "deleteChunk": "Delete Chunk",
+      "characters": "{{count}} characters",
+      "charactersCount": "Characters: {{count}}",
+      "editSuccess": "Document chunk successfully edited!",
+      "editError": "Failed to edit chunk: {{error}}",
+      "delete": "Delete",
+      "deleteConfirm": "Delete chunk {{id}}? This action cannot be undone.",
+      "deleteSuccess": "Document chunk successfully deleted!",
+      "deleteError": "Failed to delete chunk: {{error}}",
+      "showing": "Showing {{start}}-{{end}} of {{total}} chunks",
+      "totalCharacters": "{{count}} characters",
+      "noChunks": "No Chunks"
+    },
+    "api": {
+      "upsertDescription": "With the Upsert API, you can choose an existing document and reuse the same configuration for upserting.",
+      "addMetadata": "Add additional metadata to the document chunks",
+      "replaceExisting": "Replace existing document with the new upserted chunks",
+      "createNewDocStore": "Create a new document store",
+      "overrideConfig": "Override existing configuration",
+      "overrideConfigsDescription": "You can override existing configurations:"
+    },
+    "common": {
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "save": "Save",
+      "expand": "Expand",
+      "search": "Search",
+      "edit": "Edit",
+      "close": "Close",
+      "add": "Add",
+      "cardView": "Card View",
+      "listView": "List View",
+      "refresh": "Refresh"
+    },
+    "refreshDialog": {
+      "title": "Refresh all loaders and upsert all chunks?",
+      "description": "This will re-process all loaders and upsert all chunks. This action might take some time."
+    }
+  }
+}

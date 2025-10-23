@@ -10,7 +10,7 @@
 - **Связи** — таблицы многие‑ко‑многим для пар кластер–ресурс, домен–ресурс и кластер–домен с CASCADE и UNIQUE.
 
 ## API
-Полный список эндпоинтов: [apps/resources-srv/base/README.md](../../../../apps/resources-srv/base/README.md).
+Полный список эндпоинтов: [packages/resources-srv/base/README.md](../../../../packages/resources-srv/base/README.md).
 
 ## Безопасность
 - Проверки доступа на уровне приложения (guards) защищают все CRUD и операции связывания, предотвращая IDOR и межкластерные утечки.

@@ -32,4 +32,4 @@ We welcome contributions! Please submit Pull Requests and we will review them. F
 This project uses a dual licensing structure:
 
 -   **Original Flowise Code** (`packages/` directory): [Apache License 2.0](https://github.com/FlowiseAI/Flowise/blob/main/LICENSE.md)
--   **Universo Platformo Extensions** (`apps/` directory): Omsk Open License
+-   **Universo Platformo Extensions** (`packages/` directory): Omsk Open License

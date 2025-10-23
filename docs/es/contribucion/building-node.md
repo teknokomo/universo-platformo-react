@@ -6,11 +6,11 @@ Primero, instala Git y clona el repositorio de Flowise. Puedes seguir los pasos 
 
 ### Structure
 
-Flowise separa cada integración de node bajo la carpeta `packages/components/nodes`. ¡Vamos a crear una simple Tool!
+Flowise separa cada integración de node bajo la carpeta `packages/flowise-components/nodes`. ¡Vamos a crear una simple Tool!
 
 ### Create Calculator Tool
 
-Crea una nueva carpeta llamada `Calculator` bajo la carpeta `packages/components/nodes/tools`. Luego crea un nuevo archivo llamado `Calculator.ts`. Dentro del archivo, primero escribiremos la clase base.
+Crea una nueva carpeta llamada `Calculator` bajo la carpeta `packages/flowise-components/nodes/tools`. Luego crea un nuevo archivo llamado `Calculator.ts`. Dentro del archivo, primero escribiremos la clase base.
 
 ```javascript
 import { INode } from '../../../src/Interface'
@@ -114,7 +114,7 @@ module.exports = { nodeClass: Calculator_Tools }
 
 ### Build and Run
 
-En el archivo `.env` dentro de `packages/server`, crea una nueva variable de entorno:
+En el archivo `.env` dentro de `packages/flowise-server`, crea una nueva variable de entorno:
 
 ```javascript
 SHOW_COMMUNITY_NODES=true

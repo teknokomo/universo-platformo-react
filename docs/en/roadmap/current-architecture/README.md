@@ -17,7 +17,7 @@ Analysis of the current Universo Platformo architecture in Alpha status (v0.21.0
 ### Current Application Structure
 
 ```
-apps/
+packages/
 ├── updl/                # UPDL Node System (7 high-level nodes)
 ├── publish-frt/         # Publication Frontend (AR.js, PlayCanvas)
 ├── publish-srv/         # Publication Backend (workspace package)
@@ -28,14 +28,14 @@ apps/
 
 ### Application Details
 
-#### UPDL System (`apps/updl/`)
+#### UPDL System (`packages/updl/`)
 **Purpose**: Core node system for creating Universo applications
 **Key Features**:
 - 7 abstract high-level nodes (Space, Entity, Component, Event, Action, Data, Universo)
 - Visual flow editor for creating game logic
 - Export capabilities to multiple platforms
 
-#### Publication System (`apps/publish-frt/`, `apps/publish-srv/`)
+#### Publication System (`packages/publish-frt/`, `packages/publish-srv/`)
 **Purpose**: Multi-platform export and publishing
 **Key Features**:
 - AR.js export (production ready)
@@ -43,14 +43,14 @@ apps/
 - Template-based code generation
 - MMOOMM template support
 
-#### Profile Management (`apps/profile-frt/`, `apps/profile-srv/`)
+#### Profile Management (`packages/profile-frt/`, `packages/profile-srv/`)
 **Purpose**: User account and profile management
 **Key Features**:
 - User registration and authentication
 - Profile customization
 - Settings management
 
-#### Analytics System (`apps/analytics-frt/`)
+#### Analytics System (`packages/analytics-frt/`)
 **Purpose**: Quiz and interaction analytics
 **Key Features**:
 - Quiz result tracking
@@ -63,7 +63,7 @@ apps/
 
 ```
 packages/
-├── api-documentation/   # API documentation generator
+├── universo-rest-docs/   # API documentation generator
 ├── components/         # Shared UI components
 ├── server/            # Core server functionality
 └── ui/               # Frontend UI library
@@ -71,19 +71,19 @@ packages/
 
 ### Package Dependencies
 
-#### Shared Components (`packages/components/`)
+#### Shared Components (`packages/flowise-components/`)
 - Reusable UI components
 - Common interfaces and types
 - Validation utilities
 - Storage utilities
 
-#### Server Core (`packages/server/`)
+#### Server Core (`packages/flowise-server/`)
 - Express.js server foundation
 - Authentication middleware
 - Database connections
 - API routing
 
-#### UI Library (`packages/ui/`)
+#### UI Library (`packages/flowise-ui/`)
 - React components
 - Material-UI integration
 - Custom themes

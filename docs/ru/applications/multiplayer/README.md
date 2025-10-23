@@ -37,7 +37,7 @@
 ### Структура пакета
 
 ```
-apps/multiplayer-colyseus-srv/base/
+packages/multiplayer-colyseus-srv/base/
 ├── package.json          # Зависимости: colyseus, @colyseus/schema
 ├── tsconfig.json         # Конфигурация TypeScript
 ├── src/

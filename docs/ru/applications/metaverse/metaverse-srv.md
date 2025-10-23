@@ -26,7 +26,7 @@
 ## Структура каталогов (ожидаемая)
 
 ```txt
-apps/metaverse-srv/base/
+packages/metaverse-srv/base/
   src/
     api/
     domain/

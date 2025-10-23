@@ -166,15 +166,15 @@ pnpm start
 
 9. For development build:
 
-* Create `.env` file and specify the `PORT` (refer to `.env.example`) in `packages/ui`
-* Create `.env` file and specify the `PORT` (refer to `.env.example`) in `packages/server`
+* Create `.env` file and specify the `PORT` (refer to `.env.example`) in `packages/flowise-ui`
+* Create `.env` file and specify the `PORT` (refer to `.env.example`) in `packages/flowise-server`
 
 ```bash
 pnpm dev
 ```
 
-* Any changes made in `packages/ui` or `packages/server` will be reflected at [http://localhost:8080](http://localhost:8080/)
-* For changes made in `packages/components`, you will need to build again to pickup the changes
+* Any changes made in `packages/flowise-ui` or `packages/flowise-server` will be reflected at [http://localhost:8080](http://localhost:8080/)
+* For changes made in `packages/flowise-components`, you will need to build again to pickup the changes
 *   After making all the changes, run:
 
     ```bash

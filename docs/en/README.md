@@ -27,14 +27,22 @@ It offers a complete solution that includes:
 
 We began decoupling Spaces from legacy Flowise UI into a dedicated pair of applications:
 
-- `apps/spaces-srv` — backend for Spaces/Canvases (TypeORM entities, reorder endpoints)
-- `apps/spaces-frt` — frontend with multi‑canvas tabs, drag & drop, and an isolated HTTP client
+- `packages/spaces-srv` — backend for Spaces/Canvases (TypeORM entities, reorder endpoints)
+- `packages/spaces-frt` — frontend with multi‑canvas tabs, drag & drop, and an isolated HTTP client
 
 Key changes:
-- The UI now loads the Spaces list from `apps/spaces-frt`.
-- Canvas routes are handled under MinimalLayout via `apps/spaces-frt/base/src/entry/CanvasRoutes.jsx`, so the canvas page does not show the main left menu.
+- The UI now loads the Spaces list from `packages/spaces-frt`.
+- Canvas routes are handled under MinimalLayout via `packages/spaces-frt/base/src/entry/CanvasRoutes.jsx`, so the canvas page does not show the main left menu.
 - Local hooks (`useApi`, `useCanvases`) and a local Axios client remove tight coupling to Flowise UI.
 - Unused Flowise UI files were removed to reduce noise and alias conflicts.
+
+## UI Runtime Shims (2025‑10)
+
+To keep the Flowise-derived UI running in pure browser ESM after the tsdown migration, we added a dedicated shims directory:
+
+- `/packages/flowise-ui/src/shims/globalRequire.ts` maps legacy CommonJS `require('react')` entry points to their ESM equivalents so dependencies like `prop-types` no longer crash.
+- `/packages/flowise-ui/src/shims/useSyncExternalStoreShim.ts` and `useSyncExternalStoreShimWithSelector.ts` reimplement the React 18 `useSyncExternalStore` hooks without relying on CommonJS bundles, keeping `react-redux` stable under Vite.
+- Both shims are imported from `packages/flowise-ui/src/index.jsx` before the app renders, preventing white screens triggered by missing CommonJS helpers.
 
 There are 3 main visual builders namely:
 

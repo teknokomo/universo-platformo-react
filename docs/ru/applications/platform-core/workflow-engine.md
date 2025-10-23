@@ -12,6 +12,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/workflow-engine-srv/base/
+packages/workflow-engine-srv/base/
   src/{api,domain,infra}/...
 ```

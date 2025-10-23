@@ -4,7 +4,7 @@ description: Aprende cómo configurar las environment variables para Flowise
 
 # Environment Variables
 
-Flowise soporta diferentes environment variables para configurar tu instancia. Puedes especificar las siguientes variables en el archivo `.env` dentro de la carpeta `packages/server`. Consulta el archivo [.env.example](https://github.com/FlowiseAI/Flowise/blob/main/packages/server/.env.example).
+Flowise soporta diferentes environment variables para configurar tu instancia. Puedes especificar las siguientes variables en el archivo `.env` dentro de la carpeta `packages/flowise-server`. Consulta el archivo [.env.example](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-server/.env.example).
 
 <table><thead><tr><th width="233">Variable</th><th width="219">Descripción</th><th width="104">Type</th><th>Default</th></tr></thead><tbody><tr><td>PORT</td><td>El puerto HTTP en el que se ejecuta Flowise</td><td>Number</td><td>3000</td></tr><tr><td>FLOWISE_FILE_SIZE_LIMIT</td><td>Tamaño máximo de archivo al subir</td><td>String</td><td><code>50mb</code></td></tr><tr><td>NUMBER_OF_PROXIES</td><td>Rate Limit Proxy</td><td>Number</td><td></td></tr><tr><td>CORS_ORIGINS</td><td>Los orígenes permitidos para todas las llamadas HTTP cross-origin</td><td>String</td><td></td></tr><tr><td>IFRAME_ORIGINS</td><td>Los orígenes permitidos para incrustar en iframe src</td><td>String</td><td></td></tr><tr><td>DISABLE_CHATFLOW_REUSE</td><td>Deshabilita el cacheo del flow, permitiendo que cada interacción del canvas se ejecute desde cero</td><td>Boolean: <code>true</code> o <code>false</code></td><td></td></tr><tr><td>SHOW_COMMUNITY_NODES</td><td>Muestra los nodes creados por la comunidad</td><td>Boolean: <code>true</code> o <code>false</code></td><td></td></tr></tbody></table>
 
@@ -61,7 +61,7 @@ TOOL_FUNCTION_EXTERNAL_DEP=axios,moment
 | Variable   | Descripción                         | Type                                             |                                |
 | ---------- | ----------------------------------- | ------------------------------------------------ | ------------------------------ |
 | DEBUG      | Imprime logs de los componentes     | Boolean                                          |                                |
-| LOG_PATH  | Ubicación donde se guardan los archivos de log | String                                           | `Flowise/packages/server/logs` |
+| LOG_PATH  | Ubicación donde se guardan los archivos de log | String                                           | `Flowise/packages/flowise-server/logs` |
 | LOG_LEVEL | Diferentes niveles de logs          | Enum String: `error`, `info`, `verbose`, `debug` | `info`                         |
 
 `DEBUG`: si se establece en true, imprimirá logs en la terminal/consola:
@@ -84,7 +84,7 @@ Por defecto, se generará una random encryption key al iniciar la aplicación y 
 
 | Variable                      | Descripción                                                                  | Type   |                           |
 | ----------------------------- | ---------------------------------------------------------------------------- | ------ | ------------------------- |
-| SECRETKEY_PATH               | Ubicación donde se guarda la encryption key (usada para encriptar/desencriptar credentials) | String | `Flowise/packages/server` |
+| SECRETKEY_PATH               | Ubicación donde se guarda la encryption key (usada para encriptar/desencriptar credentials) | String | `Flowise/packages/flowise-server` |
 | FLOWISE_SECRETKEY_OVERWRITE | Encryption key a usar en lugar de la key almacenada en SECRETKEY_PATH       | String |                           |
 
 Por algunas razones, a veces la encryption key podría regenerarse o la ruta almacenada cambió, esto causará errores como - <mark style="color:red;">Credentials could not be decrypted.</mark>
@@ -101,9 +101,9 @@ La Credential API Key devuelta desde la UI no tiene la misma longitud que tu Api
 
 En algunos casos, podrías querer usar un modelo personalizado en los nodes existentes de Chat Model y LLM, o restringir el acceso a solo ciertos modelos.
 
-Por defecto, Flowise obtiene la lista de modelos de [aquí](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/models.json). Sin embargo, el usuario puede crear su propio archivo `models.json` y especificar la ruta del archivo:
+Por defecto, Flowise obtiene la lista de modelos de [aquí](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/models.json). Sin embargo, el usuario puede crear su propio archivo `models.json` y especificar la ruta del archivo:
 
-<table><thead><tr><th width="164">Variable</th><th width="196">Descripción</th><th width="78">Type</th><th>Default</th></tr></thead><tbody><tr><td>MODEL_LIST_CONFIG_JSON</td><td>Link para cargar la lista de modelos desde tu archivo de configuración <code>models.json</code></td><td>String</td><td><a href="https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/components/models.json">https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/components/models.json</a></td></tr></tbody></table>
+<table><thead><tr><th width="164">Variable</th><th width="196">Descripción</th><th width="78">Type</th><th>Default</th></tr></thead><tbody><tr><td>MODEL_LIST_CONFIG_JSON</td><td>Link para cargar la lista de modelos desde tu archivo de configuración <code>models.json</code></td><td>String</td><td><a href="https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/flowise-components/models.json">https://raw.githubusercontent.com/FlowiseAI/Flowise/main/packages/flowise-components/models.json</a></td></tr></tbody></table>
 
 ## Para Storage
 

@@ -34,7 +34,7 @@ I18N_SCOPE=all        pnpm docs:i18n:check
 
 Scopes:
 
-- `resources` — only pairs related to Resources apps (`apps/resources-frt`, `apps/resources-srv`) and their app docs (`docs/en|ru/applications/resources/README.md`)
+- `resources` — only pairs related to Resources apps (`packages/resources-frt`, `packages/resources-srv`) and their app docs (`docs/en|ru/applications/resources/README.md`)
 - `all` — scan the entire repository (enable after fully syncing the rest of the docs)
 
 ## CI Workflow

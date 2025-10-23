@@ -1,0 +1,139 @@
+.edgebutton {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    background: #eee;
+    border: 1px solid #fff;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.edgebutton:hover {
+    background: #5e35b1;
+    color: #eee;
+    box-shadow: 0 0 6px 2px rgba(0, 0, 0, 0.08);
+}
+
+.edgebutton-foreignobject div {
+    background: transparent;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 40px;
+}
+
+.reactflow-parent-wrapper {
+    display: flex;
+    flex-grow: 1;
+    height: 100%;
+}
+
+.reactflow-parent-wrapper .reactflow-wrapper {
+    flex-grow: 1;
+    height: 100%;
+}
+
+.canvas-editor .react-flow__handle-connecting {
+    cursor: not-allowed;
+    background: #db4e4e !important;
+}
+
+.canvas-editor .react-flow__handle-valid {
+    cursor: crosshair;
+    background: #5dba62 !important;
+}
+
+/* Canvas Tabs Styles */
+.canvas-tabs-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1200;
+    background: var(--mui-palette-background-default);
+    border-top: 1px solid var(--mui-palette-divider);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+}
+
+.canvas-tabs-wrapper {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.canvas-tab {
+    min-height: 40px;
+    min-width: 120px;
+    max-width: 220px;
+    text-transform: none;
+    border-radius: 0 0 8px 8px;
+}
+
+.canvas-tab.active {
+    background: var(--mui-palette-background-paper);
+    color: var(--mui-palette-text-primary);
+    border-bottom: 2px solid var(--mui-palette-primary-main);
+}
+
+.canvas-tab:hover {
+    background: var(--mui-palette-action-hover);
+}
+
+.canvas-tab-content {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 200px;
+}
+
+.canvas-tab-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
+.canvas-tab-dirty-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--mui-palette-warning-main);
+    flex-shrink: 0;
+}
+
+.canvas-tab-drag-handle {
+    opacity: 0.5;
+    cursor: grab;
+}
+
+.canvas-tab-drag-handle:active {
+    cursor: grabbing;
+}
+
+.canvas-tab.drag-over {
+    border: 2px dashed var(--mui-palette-primary-main);
+    background: var(--mui-palette-action-hover);
+}
+
+.canvas-add-button {
+    margin-left: 8px;
+    background: var(--mui-palette-primary-main);
+    color: var(--mui-palette-primary-contrastText);
+}
+
+.canvas-add-button:hover {
+    background: var(--mui-palette-primary-dark);
+}
+
+.canvas-add-button:disabled {
+    background: var(--mui-palette-action-disabled);
+    color: var(--mui-palette-action-disabled);
+}

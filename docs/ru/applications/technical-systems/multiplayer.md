@@ -91,7 +91,7 @@
 ## Структура (реализована)
 
 ```
-apps/multiplayer-colyseus-srv/base/
+packages/multiplayer-colyseus-srv/base/
 ├── src/
 │   ├── index.ts              # Точка входа сервера
 │   ├── manager.ts            # Менеджер комнат
@@ -113,7 +113,7 @@ apps/multiplayer-colyseus-srv/base/
 ### Разработка
 
 ```bash
-cd apps/multiplayer-colyseus-srv/base
+cd packages/multiplayer-colyseus-srv/base
 pnpm install
 pnpm dev
 ```

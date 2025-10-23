@@ -6,14 +6,14 @@ Esta sección documenta las aplicaciones modulares que extienden la plataforma p
 
 ## Descripción General
 
-El directorio de aplicaciones de Universo Platformo (`apps/`) contiene módulos especializados que implementan las características únicas de la plataforma. Estas aplicaciones trabajan juntas para proporcionar un ecosistema completo para crear agentes de IA, experiencias 3D/AR/VR y gestionar interacciones de usuario.
+El directorio de aplicaciones de Universo Platformo (`packages/`) contiene módulos especializados que implementan las características únicas de la plataforma. Estas aplicaciones trabajan juntas para proporcionar un ecosistema completo para crear agentes de IA, experiencias 3D/AR/VR y gestionar interacciones de usuario.
 
 ## Arquitectura de Aplicaciones
 
 Todas las aplicaciones siguen una estructura modular consistente diseñada para escalabilidad y mantenibilidad:
 
 ```
-apps/
+packages/
 ├── updl/                # Sistema de nodos UPDL para espacios universales 3D/AR/VR
 ├── publish-frt/         # Frontend del sistema de publicación
 ├── publish-srv/         # Backend del sistema de publicación

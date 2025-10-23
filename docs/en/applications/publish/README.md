@@ -155,7 +155,7 @@ The backend service provides data management and API endpoints as a workspace pa
 -   **Publication Management**: API endpoints to create and retrieve publication records
 -   **Flow Data Provider**: Serves raw `flowData` from the database, delegating all UPDL processing to the frontend
 -   **Centralized Types**: Exports shared UPDL and publication-related TypeScript types
--   **Modular and Decoupled**: Fully independent from `packages/server` business logic
+-   **Modular and Decoupled**: Fully independent from `packages/flowise-server` business logic
 -   **Asynchronous Route Initialization**: Prevents race conditions with database connections
 
 ### API Endpoints

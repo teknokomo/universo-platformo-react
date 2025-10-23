@@ -16,7 +16,7 @@ To migrate from the legacy Basic Auth flow, configure Supabase and expose the `/
 
 ### Required environment variables
 
-Add the following variables to `packages/server/.env` (or provide them via CLI flags):
+Add the following variables to `packages/flowise-server/.env` (or provide them via CLI flags):
 
 - `SESSION_SECRET` — Secret string used to sign Express sessions.
 - `SUPABASE_URL` — URL of your Supabase project.
@@ -83,7 +83,7 @@ environment:
 
 ### Git clone
 
-When running from source, add the variables to `packages/server/.env`:
+When running from source, add the variables to `packages/flowise-server/.env`:
 
 ```dotenv
 SESSION_SECRET=super-secret

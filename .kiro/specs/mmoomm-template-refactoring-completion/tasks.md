@@ -28,14 +28,14 @@
 
 -   [x] 3. Rename multiplayer server package
 
-    -   Rename `apps/multiplayer-srv` to `apps/multiplayer-colyseus-srv`
+    -   Rename `packages/multiplayer-srv` to `packages/multiplayer-colyseus-srv`
     -   Update all import references and dependencies
     -   Update package.json name to `@universo/multiplayer-colyseus-srv`
     -   Update documentation and README files
     -   _Requirements: Architecture Decision 2_
 
 -   [x] 4. Create basic template-mmoomm package structure
-    -   Create `apps/template-mmoomm/base/src/playcanvas/` directory structure
+    -   Create `packages/template-mmoomm/base/src/playcanvas/` directory structure
     -   Set up package.json with dual build (CommonJS + ESM)
     -   Create basic index.ts exports for PlayCanvas functionality
     -   Configure TypeScript compilation and build scripts
@@ -71,7 +71,7 @@
     -   Extend BuildOptions interface to include gameMode and multiplayer settings
     -   Save selected mode and Colyseus settings to publication configuration
     -   Load saved settings when reopening publication interface
-    -   Use default values from `packages/server/.env` when settings not configured
+    -   Use default values from `packages/flowise-server/.env` when settings not configured
     -   _Requirements: 5.5, 5.6, 10.4, 10.5_
 
 ### Phase 3: Architecture Refactoring and Code Migration (Week 3)
@@ -115,7 +115,7 @@
     -   Update import paths and dependencies
     -   Ensure all handlers work with new HandlerManager architecture
     -   Remove duplicated handlers from publish-frt after successful migration
-    -   Delete `apps/publish-frt/base/src/builders/templates/mmoomm/playcanvas/PlayCanvasMMOOMMBuilderLegacy.ts`, making sure that this file is not used anywhere. Check that it does not contain the required functionality.
+    -   Delete `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/PlayCanvasMMOOMMBuilderLegacy.ts`, making sure that this file is not used anywhere. Check that it does not contain the required functionality.
     -   _Requirements: 3.3, 8.2_
 
 -   [x] 14. Update main builder to use template package
@@ -136,13 +136,13 @@
     -   Test complete UPDL Flow → Multiplayer → Objects cycle
     -   _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
--   [x] 16. Additional improvements and fixes to the `apps/template-mmoomm` package and its use in singleplayer mode
+-   [x] 16. Additional improvements and fixes to the `packages/template-mmoomm` package and its use in singleplayer mode
 
-    - Нужно создать файлы интернационализации в `apps/template-mmoomm` по аналогии с тем, как это сделано в `apps/publish-frt`, для того, чтобы в `apps/template-mmoomm/base/src/playcanvas/config.ts` и возможно в других местах использовать многоязычную поддержку текстов. Можно для примера посмотреть на старый файл `apps/publish-frt/base/src/builders/templates/mmoomm/playcanvas/config.ts`в нём `name:` и `description:` используют языковые ключи, а не хардкоде текст.
+    - Нужно создать файлы интернационализации в `packages/template-mmoomm` по аналогии с тем, как это сделано в `packages/publish-frt`, для того, чтобы в `packages/template-mmoomm/base/src/playcanvas/config.ts` и возможно в других местах использовать многоязычную поддержку текстов. Можно для примера посмотреть на старый файл `packages/publish-frt/base/src/builders/templates/mmoomm/playcanvas/config.ts`в нём `name:` и `description:` используют языковые ключи, а не хардкоде текст.
 
-    - Исправить, сейчас после рефакторинга, когда пользователь заходит в настройки публикации технологии PlayCanvas, то в поле `Шаблон экспорта` по умолчанию пустой вариант и потом можно выбрать единственный вариант шаблона MMOOMM, это не имеет смысла, так как выбор шаблона экспорта обязательное действие и там должен быть какой-то вариант. До рефакторинга это работало правильно, не было пустого выбора, раз сейчас есть только вариант шаблона MMOOMM он и показывался по умолчанию. Проверь как это раньше было реализовано в `apps/publish-frt` до переноса в отдельный пакет шаблона экспорта MMOOMM.
+    - Исправить, сейчас после рефакторинга, когда пользователь заходит в настройки публикации технологии PlayCanvas, то в поле `Шаблон экспорта` по умолчанию пустой вариант и потом можно выбрать единственный вариант шаблона MMOOMM, это не имеет смысла, так как выбор шаблона экспорта обязательное действие и там должен быть какой-то вариант. До рефакторинга это работало правильно, не было пустого выбора, раз сейчас есть только вариант шаблона MMOOMM он и показывался по умолчанию. Проверь как это раньше было реализовано в `packages/publish-frt` до переноса в отдельный пакет шаблона экспорта MMOOMM.
 
-    - Исправить, в файле `apps/template-mmoomm/base/src/playcanvas/config.ts` указано `version: '0.1.0'`, но пользователь заходит в настройки публикации технологии PlayCanvas, и в поле `Шаблон экспорта` после названия видит версию `1.0.0`.
+    - Исправить, в файле `packages/template-mmoomm/base/src/playcanvas/config.ts` указано `version: '0.1.0'`, но пользователь заходит в настройки публикации технологии PlayCanvas, и в поле `Шаблон экспорта` после названия видит версию `1.0.0`.
 
     - Исправить, полностью сломан функционал одиночного режима. Пользователь в Chatflow http://localhost:3000/uniks/bb0967eb-6924-40aa-b844-1f669b8579f0/chatflows/31dd27c9-8a40-4d68-a20a-e79cceefb164 использует стандартный для нашего теста Flow, вот его сохранённый вариант .cursor/Universo-MMOOMM-Chatflow.json
 
@@ -150,7 +150,7 @@
 
     При переходе по ссылке опубликованного проекта, пользователь видит только один белый бокс по центру экрана (возможно корабль игрока), не видит других объектов и не работает управление кораблём.
 
-    Можно предположить, что полностью сломан функционал обработчиков при переносе функционала шаблона экспорта в отдельное приложение. Нужно провести подробную сверку с резервной копией файлов шаблона экспорта .cursor/publish-frt. Нужно проверить, все ли файлы перенесены из шаблона экспорта MMOOMM .cursor/publish-frt/base/src/builders/templates/mmoomm, сделать точную построчную сверку, сделать сверку по функциям. При необходимости, можно новые созданные файлы в `apps/template-mmoomm` удалить и перекопировать файлы из резервной копии, чтобы точно перенести рабочий функционал, и доработать их, чтобы они работали в новом приложении.
+    Можно предположить, что полностью сломан функционал обработчиков при переносе функционала шаблона экспорта в отдельное приложение. Нужно провести подробную сверку с резервной копией файлов шаблона экспорта .cursor/publish-frt. Нужно проверить, все ли файлы перенесены из шаблона экспорта MMOOMM .cursor/publish-frt/base/src/builders/templates/mmoomm, сделать точную построчную сверку, сделать сверку по функциям. При необходимости, можно новые созданные файлы в `packages/template-mmoomm` удалить и перекопировать файлы из резервной копии, чтобы точно перенести рабочий функционал, и доработать их, чтобы они работали в новом приложении.
     _Requirements: 5.1, 5.2, 5.3
 
 -   [x] 17. Create a spaceship control in multiplayer mode

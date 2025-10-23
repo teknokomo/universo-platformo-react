@@ -64,11 +64,11 @@ if (!userId) return // Response already sent
 
 -   **Languages**: English (base) + Russian (full translation)
 -   **Implementation**: Complete UI text extraction and translation
--   **Files**: `packages/ui/src/i18n/locales/en.json` & `ru.json`
+-   **Files**: `packages/flowise-ui/src/i18n/locales/en.json` & `ru.json`
 
 #### 4. UPDL Nodes & Multi-Technology Export
 
--   **Location**: `apps/` directory (custom application layer)
+-   **Location**: `packages/` directory (custom application layer)
 -   **Purpose**: Universal high-level logic nodes for AR.js and PlayCanvas scene generation
 -   **Integration**: Custom nodes within Flowise canvas system
 -   **Components**: Publisher UI, Builder logic, API integration
@@ -118,6 +118,53 @@ if (!userId) return // Response already sent
 -   **Interface Separation**: Core UPDL interfaces vs simplified integration interfaces
 -   **Data Isolation**: Complete cluster-based data separation with TypeORM Repository pattern
 -   **Future-Ready**: Prepared for plugin extraction and microservices evolution
+
+## Build System Architecture (Updated 2025-10-18)
+
+**Primary Build Tool**: tsdown v0.15.7 (Rolldown + Oxc based)
+
+**Coverage**: 100% of workspace packages using modern build tooling
+- ✅ 15 packages on tsdown (all custom packages)
+- ✅ 0 packages on legacy tsc + tsconfig.esm.json pattern
+- ℹ️ Base Flowise packages use tsc for unbundled output (intentional)
+
+**Build Configuration Pattern**:
+```typescript
+// tsdown.config.ts (standard pattern)
+import { defineConfig } from 'tsdown'
+
+export default defineConfig({
+  entry: { index: './src/index.ts' },
+  format: ['esm', 'cjs'],
+  dts: true,
+  platform: 'neutral', // or 'node' for backend packages
+  clean: true,
+  outDir: 'dist',
+  exports: false, // CRITICAL: manual control of package.json
+  treeshake: true,
+  minify: false
+})
+```
+
+**Output Structure** (dual-format):
+```
+dist/
+├── index.js      # CommonJS bundle
+├── index.mjs     # ES Module bundle
+├── index.d.ts    # TypeScript declarations (CJS)
+└── index.d.mts   # TypeScript declarations (ESM)
+```
+
+**Migration History**:
+- 2025-01-18: Initial tsdown migration (7 packages: spaces-frt, publish-frt, analytics-frt, profile-frt, finance-frt, uniks-frt, updl, utils)
+- 2025-10-18: **Completed migration** (4 packages: auth-frt, auth-srv, template-quiz, types)
+
+**Benefits Achieved**:
+- ⚡ ~50% faster builds vs tsc (Rolldown performance)
+- 🔧 Single configuration file vs 2-3 tsconfig files
+- 📦 Automatic dual-format generation (ESM + CJS)
+- 🌲 Built-in tree-shaking
+- 🎯 Consistent tooling across monorepo
 
 ## UPDL Core System (v0.21.0-alpha)
 
@@ -216,9 +263,9 @@ if (!userId) return // Response already sent
 **Key Implementation Details:**
 
 -   No direct database calls - all operations through Repository pattern
--   Shared DataSource via `getDataSource()` from `packages/server/src/DataSource.ts`
--   Entity registration in central registry `packages/server/src/database/entities/index.ts`
--   Migration registration in `packages/server/src/database/migrations/postgres/index.ts`
+-   Shared DataSource via `getDataSource()` from `packages/flowise-server/src/DataSource.ts`
+-   Entity registration in central registry `packages/flowise-server/src/database/entities/index.ts`
+-   Migration registration in `packages/flowise-server/src/database/migrations/postgres/index.ts`
 -   CASCADE delete relationships for data integrity
 -   UNIQUE constraints on junction tables to prevent duplicates
 

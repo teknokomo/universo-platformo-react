@@ -16,7 +16,7 @@ Frontend console for managing metaverses: creation, configuration, links, publis
 ## Directory structure (expected)
 
 ```txt
-apps/metaverse-frt/base/
+packages/metaverse-frt/base/
   src/
     app/
     components/

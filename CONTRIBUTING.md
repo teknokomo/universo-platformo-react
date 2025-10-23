@@ -28,7 +28,7 @@ Found an issue? [Report it](https://github.com/FlowiseAI/Flowise/issues/new/choo
 
 Not sure what to contribute? Some ideas:
 
--   Create new components from `packages/components`
+-   Create new components from `packages/flowise-components`
 -   Update existing components such as extending functionality, fixing bugs
 -   Add new canvas ideas
 
@@ -86,17 +86,17 @@ Flowise has 3 different modules in a single mono repository.
 
 9. For development:
 
-    - Create `.env` file and specify the `VITE_PORT` (refer to `.env.example`) in `packages/ui`
-    - Create `.env` file and specify the `PORT` (refer to `.env.example`) in `packages/server`
+    - Create `.env` file and specify the `VITE_PORT` (refer to `.env.example`) in `packages/flowise-ui`
+    - Create `.env` file and specify the `PORT` (refer to `.env.example`) in `packages/flowise-server`
     - Run
 
     ```bash
     pnpm dev
     ```
 
-    Any changes made in `packages/ui` or `packages/server` will be reflected on [http://localhost:8080](http://localhost:8080)
+    Any changes made in `packages/flowise-ui` or `packages/flowise-server` will be reflected on [http://localhost:8080](http://localhost:8080)
 
-    For changes made in `packages/components`, run `pnpm build` again to pickup the changes.
+    For changes made in `packages/flowise-components`, run `pnpm build` again to pickup the changes.
 
 10. After making all the changes, run
 
@@ -116,7 +116,7 @@ Flowise has 3 different modules in a single mono repository.
 
 ## 🌱 Env Variables
 
-Flowise support different environment variables to configure your instance. You can specify the following variables in the `.env` file inside `packages/server` folder. Read [more](https://docs.flowiseai.com/environment-variables)
+Flowise support different environment variables to configure your instance. You can specify the following variables in the `.env` file inside `packages/flowise-server` folder. Read [more](https://docs.flowiseai.com/environment-variables)
 
 | Variable                           | Description                                                                      | Type                                             | Default                             |
 | ---------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------- |
@@ -137,7 +137,7 @@ Flowise support different environment variables to configure your instance. You 
 | LOG_LEVEL                          | Different levels of logs                                                         | Enum String: `error`, `info`, `verbose`, `debug` | `info`                              |
 | LOG_JSON_SPACES                    | Spaces to beautify JSON logs                                                     |                                                  | 2                                   |
 | APIKEY_STORAGE_TYPE                | To store api keys on a JSON file or database. Default is `json`                  | Enum String: `json`, `db`                        | `json`                              |
-| APIKEY_PATH                        | Location where api keys are saved when `APIKEY_STORAGE_TYPE` is `json`           | String                                           | `your-path/Flowise/packages/server` |
+| APIKEY_PATH                        | Location where api keys are saved when `APIKEY_STORAGE_TYPE` is `json`           | String                                           | `your-path/Flowise/packages/flowise-server` |
 | TOOL_FUNCTION_BUILTIN_DEP          | NodeJS built-in modules to be used for Tool Function                             | String                                           |                                     |
 | TOOL_FUNCTION_EXTERNAL_DEP         | External modules to be used for Tool Function                                    | String                                           |                                     |
 | DATABASE_TYPE                      | Type of database to store the flowise data                                       | Enum String: `sqlite`, `mysql`, `postgres`       | `sqlite`                            |
@@ -149,7 +149,7 @@ Flowise support different environment variables to configure your instance. You 
 | DATABASE_NAME                      | Database name (When DATABASE_TYPE is not sqlite)                                 | String                                           |                                     |
 | DATABASE_SSL_KEY_BASE64            | Database SSL client cert in base64 (takes priority over DATABASE_SSL)            | Boolean                                          | false                               |
 | DATABASE_SSL                       | Database connection overssl (When DATABASE_TYPE is postgre)                      | Boolean                                          | false                               |
-| SECRETKEY_PATH                     | Location where encryption key (used to encrypt/decrypt credentials) is saved     | String                                           | `your-path/Flowise/packages/server` |
+| SECRETKEY_PATH                     | Location where encryption key (used to encrypt/decrypt credentials) is saved     | String                                           | `your-path/Flowise/packages/flowise-server` |
 | FLOWISE_SECRETKEY_OVERWRITE        | Encryption key to be used instead of the key stored in SECRETKEY_PATH            | String                                           |                                     |
 | POSTHOG_PUBLIC_API_KEY             | PostHog public key to opt-in telemetry                                           | String                                           |                                     |
 | DISABLE_FLOWISE_TELEMETRY          | Turn off telemetry                                                               | Boolean                                          |                                     |

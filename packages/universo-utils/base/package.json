@@ -1,0 +1,47 @@
+{
+    "name": "@universo/utils",
+    "version": "0.1.0",
+    "description": "Shared validators, serialization, delta and net utilities for Universo Platformo",
+    "private": true,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "browser": {
+                "import": "./dist/index.browser.mjs",
+                "require": "./dist/index.browser.js",
+                "types": "./dist/index.browser.d.ts"
+            },
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./ui-utils": {
+            "import": "./dist/ui-utils.mjs",
+            "require": "./dist/ui-utils.js"
+        },
+        "./ui-utils/*": "./src/ui-utils/*"
+    },
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsdown",
+        "build:watch": "tsdown --watch",
+        "dev": "tsc -p tsconfig.json --watch",
+        "lint": "eslint --ext .ts src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/types": "workspace:*",
+        "zod": "3.25.76"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "eslint": "^8.56.0",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "typescript": "^5.8.3",
+        "vitest": "^2.1.4"
+    }
+}

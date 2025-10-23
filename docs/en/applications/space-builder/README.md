@@ -6,8 +6,8 @@ Turn a natural‑language request into a valid Flow graph built from UPDL nodes.
 
 Space Builder consists of two packages:
 
--   `apps/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
--   `apps/space-builder-srv` — API (meta‑prompt, provider call, JSON extraction, Zod validation)
+-   `packages/space-builder-frt` — UI (FAB + MUI Dialog + i18n + hook)
+-   `packages/space-builder-srv` — API (meta‑prompt, provider call, JSON extraction, Zod validation)
 
 The UI supports a three‑step workflow for quiz building (Prepare → Preview → Settings → Generate):
 
@@ -30,7 +30,7 @@ The UI can apply the generated graph in three modes (Creation mode):
 
 ## Environment
 
-Configure in `packages/server/.env`:
+Configure in `packages/flowise-server/.env`:
 
 -   Test mode flags
     -   `SPACE_BUILDER_TEST_MODE=true|false`

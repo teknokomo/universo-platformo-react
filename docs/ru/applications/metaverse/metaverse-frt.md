@@ -16,7 +16,7 @@
 ## Структура каталогов (ожидаемая)
 
 ```txt
-apps/metaverse-frt/base/
+packages/metaverse-frt/base/
   src/
     app/
     components/

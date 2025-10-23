@@ -10,7 +10,7 @@
   - _Requirements: 1.1, 1.7_
 
 - [x] 1.1 Copy existing quiz functionality from publish-frt
-  - Copy all files from `apps/publish-frt/base/src/builders/templates/quiz` to `apps/template-quiz/base/src`
+  - Copy all files from `packages/publish-frt/base/src/builders/templates/quiz` to `packages/template-quiz/base/src`
   - Preserve directory structure and file organization
   - Ensure all handlers, builders, and utilities are included
   - _Requirements: 1.2_
@@ -53,7 +53,7 @@
   - _Requirements: 2.3, 2.5_
 
 - [x] 2.1 Enhance credential resolution in main server
-  - Update resolveCredential function in packages/server/src/routes/index.ts
+  - Update resolveCredential function in packages/flowise-server/src/routes/index.ts
   - Implement proper credential type detection and field extraction
   - Add support for multiple provider credential types (OpenAI, Groq, etc.)
   - Handle decryption errors and provide meaningful error messages

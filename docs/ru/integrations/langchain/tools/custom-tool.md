@@ -64,7 +64,7 @@
 <figure><img src="../../../.gitbook/assets/image (6) (3).png" alt=""><figcaption></figcaption></figure>
 
 * JavaScript функция: Мы будем использовать API [Morning Star](https://rapidapi.com/apidojo/api/morning-star) `/market/v2/get-movers` для получения данных. Сначала вы должны нажать Subscribe to Test, если еще не сделали этого, затем скопировать код и вставить его в JavaScript функцию.
-  * Добавьте `const fetch = require('node-fetch');` в начало для импорта библиотеки. Вы можете импортировать любые встроенные [модули](https://www.w3schools.com/nodejs/ref_modules.asp) NodeJS и [внешние библиотеки](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/src/utils.ts#L289).
+  * Добавьте `const fetch = require('node-fetch');` в начало для импорта библиотеки. Вы можете импортировать любые встроенные [модули](https://www.w3schools.com/nodejs/ref_modules.asp) NodeJS и [внешние библиотеки](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/src/utils.ts#L289).
   * Верните `result` в конце.
 
 <figure><img src="../../../.gitbook/assets/Untitled (4) (1).png" alt=""><figcaption></figcaption></figure>
@@ -116,7 +116,7 @@ try {
 <figure><img src="../../../.gitbook/assets/image (4) (2).png" alt=""><figcaption></figcaption></figure>
 
 * JavaScript функция: Мы будем использовать API [Morning Star](https://rapidapi.com/apidojo/api/morning-star) `/news/list` для получения данных. Сначала вы должны нажать Subscribe to Test, если еще не сделали этого, затем скопировать код и вставить его в JavaScript функцию.
-  * Добавьте `const fetch = require('node-fetch');` в начало для импорта библиотеки. Вы можете импортировать любые встроенные [модули](https://www.w3schools.com/nodejs/ref_modules.asp) NodeJS и [внешние библиотеки](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/src/utils.ts#L289).
+  * Добавьте `const fetch = require('node-fetch');` в начало для импорта библиотеки. Вы можете импортировать любые встроенные [модули](https://www.w3schools.com/nodejs/ref_modules.asp) NodeJS и [внешние библиотеки](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/src/utils.ts#L289).
   * Верните `result` в конце.
 * Далее замените жестко закодированный параметр запроса url performanceId: `0P0000OQN8` на переменную свойства, указанную в схеме ввода: `$performanceId`
 * Вы можете использовать любые свойства, указанные в схеме ввода, как переменные в JavaScript функции, добавив префикс `$` в начало имени переменной.
@@ -457,9 +457,9 @@ query({
 
 ### Импорт внешних зависимостей
 
-Вы можете импортировать любые встроенные [модули](https://www.w3schools.com/nodejs/ref_modules.asp) NodeJS и поддерживаемые [внешние библиотеки](https://github.com/FlowiseAI/Flowise/blob/main/packages/components/src/utils.ts#L289) в функцию.
+Вы можете импортировать любые встроенные [модули](https://www.w3schools.com/nodejs/ref_modules.asp) NodeJS и поддерживаемые [внешние библиотеки](https://github.com/FlowiseAI/Flowise/blob/main/packages/flowise-components/src/utils.ts#L289) в функцию.
 
-1. Для импорта любых неподдерживаемых библиотек вы можете легко добавить новый npm пакет в `package.json` в папке `packages/components`.
+1. Для импорта любых неподдерживаемых библиотек вы можете легко добавить новый npm пакет в `package.json` в папке `packages/flowise-components`.
 
 ```bash
 cd Flowise && cd packages && cd components

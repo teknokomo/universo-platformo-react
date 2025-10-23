@@ -14,7 +14,7 @@ Detailed analysis of the 6 existing applications in Universo Platformo Alpha (v0
 
 ## Application Overview
 
-### 1. UPDL System (`apps/updl/`)
+### 1. UPDL System (`packages/updl/`)
 
 **Current Status**: Production Ready
 **Technology Stack**: React + TypeScript + Custom Node Editor
@@ -48,7 +48,7 @@ interface NodeConnection {
 }
 ```
 
-### 2. Publication System (`apps/publish-frt/`, `apps/publish-srv/`)
+### 2. Publication System (`packages/publish-frt/`, `packages/publish-srv/`)
 
 **Current Status**: Production Ready
 **Technology Stack**: React + Node.js + Template Engine
@@ -80,7 +80,7 @@ interface MMOOMMTemplate extends ExportTemplate {
 }
 ```
 
-### 3. Profile Management (`apps/profile-frt/`, `apps/profile-srv/`)
+### 3. Profile Management (`packages/profile-frt/`, `packages/profile-srv/`)
 
 **Current Status**: Beta
 **Technology Stack**: React + Express.js + Supabase
@@ -114,7 +114,7 @@ interface GameAccount {
 }
 ```
 
-### 4. Analytics System (`apps/analytics-frt/`)
+### 4. Analytics System (`packages/analytics-frt/`)
 
 **Current Status**: Alpha
 **Technology Stack**: React + Chart.js + Supabase
@@ -134,9 +134,9 @@ interface GameAccount {
 ┌─────────────────────────────────────────┐
 │           Flowise Monolith              │
 ├─────────────────────────────────────────┤
-│  apps/updl/        apps/publish-frt/    │
-│  apps/profile-frt/ apps/analytics-frt/  │
-│  apps/publish-srv/ apps/profile-srv/    │
+│  packages/updl/        packages/publish-frt/    │
+│  packages/profile-frt/ packages/analytics-frt/  │
+│  packages/publish-srv/ packages/profile-srv/    │
 ├─────────────────────────────────────────┤
 │         Shared Packages                 │
 │  components/ server/ ui/ api-docs/      │

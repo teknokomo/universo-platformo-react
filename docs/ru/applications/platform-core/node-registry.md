@@ -12,6 +12,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/node-registry-srv/base/
+packages/node-registry-srv/base/
   src/{api,domain,infra}/...
 ```

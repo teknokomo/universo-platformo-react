@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/navigation-frt/base/
-apps/navigation-srv/base/
+packages/navigation-frt/base/
+packages/navigation-srv/base/
 ```

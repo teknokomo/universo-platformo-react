@@ -115,7 +115,7 @@ interface ITemplateBuilder {
 
 ### UI Components
 
-**Важно**: Наши приложения в `apps/` используют React с TypeScript (TSX), но основной фронт Flowise использует React с JavaScript (JSX). Для совместимости создаем JSX-файлы:
+**Важно**: Наши приложения в `packages/` используют React с TypeScript (TSX), но основной фронт Flowise использует React с JavaScript (JSX). Для совместимости создаем JSX-файлы:
 
 ```typescript
 // GameModeSelector.jsx (JSX для совместимости с Flowise)
@@ -145,7 +145,7 @@ interface PlayCanvasPublicationSettingsProps {
 }
 ```
 
-**Архитектурное решение**: Dual build (CommonJS + ESM) в пакетах `apps/` обеспечивает совместимость с основным Flowise UI, который ожидает JSX компоненты.
+**Архитектурное решение**: Dual build (CommonJS + ESM) в пакетах `packages/` обеспечивает совместимость с основным Flowise UI, который ожидает JSX компоненты.
 
 ### Template Package Structure
 
@@ -419,18 +419,18 @@ interface IPerformanceMonitor {
 ### Phase 1: Critical Fixes (Week 1)
 1. Исправление ошибок сборки TypeScript
 2. Обновление Colyseus API до 0.16.x
-3. Переименование `apps/multiplayer-srv` → `apps/multiplayer-colyseus-srv`
+3. Переименование `packages/multiplayer-srv` → `packages/multiplayer-colyseus-srv`
 4. Базовая функциональность template-mmoomm пакета
 
 ### Phase 2: UI Integration (Week 2)
 1. Создание JSX компонентов выбора режима (совместимость с основным Flowise UI)
 2. Интеграция в интерфейс публикации PlayCanvas
-3. Сохранение настроек в главном ENV файле `packages/server/.env`
+3. Сохранение настроек в главном ENV файле `packages/flowise-server/.env`
 
 ### Phase 3: Architecture Refactoring (Week 3)
 1. Рефакторинг PlayCanvasMMOOMMBuilder (цель: <300 строк)
 2. Создание HandlerManager с переиспользованием UPDL обработчиков
-3. Полный перенос MMOOMM функционала в `apps/template-mmoomm/src/playcanvas/`
+3. Полный перенос MMOOMM функционала в `packages/template-mmoomm/src/playcanvas/`
 
 ### Phase 4: Testing and Polish (Week 4)
 1. Комплексное тестирование (важно: полная пересборка `pnpm build` в корне)
@@ -459,7 +459,7 @@ interface ILegacySupport {
 
 ### Environment Configuration
 
-Все глобальные настройки, включая Colyseus, содержатся в главном ENV файле `packages/server/.env`:
+Все глобальные настройки, включая Colyseus, содержатся в главном ENV файле `packages/flowise-server/.env`:
 
 ```bash
 ############################################################################################################
@@ -498,7 +498,7 @@ MULTIPLAYER_SERVER_HOST=localhost
 - **Структура**: PlayCanvas-специфичный код в `src/playcanvas/` для будущего расширения на другие технологии
 
 ### 2. Переименование multiplayer-srv
-- **Решение**: `apps/multiplayer-srv` → `apps/multiplayer-colyseus-srv`
+- **Решение**: `packages/multiplayer-srv` → `packages/multiplayer-colyseus-srv`
 - **Обоснование**: Явное указание на использование Colyseus, подготовка к поддержке других мультиплеерных технологий
 - **Альтернатива**: Создание структуры `/colyseus/` внутри существующего пакета
 
@@ -508,7 +508,7 @@ MULTIPLAYER_SERVER_HOST=localhost
 - **Реализация**: Dual build (CJS/ESM) в пакетах для обеспечения совместимости
 
 ### 4. Централизованная конфигурация
-- **Решение**: Все настройки Colyseus в главном ENV файле `packages/server/.env`
+- **Решение**: Все настройки Colyseus в главном ENV файле `packages/flowise-server/.env`
 - **Обоснование**: Единая точка конфигурации для всех компонентов системы
 - **Преимущества**: Упрощение развертывания и управления настройками
 

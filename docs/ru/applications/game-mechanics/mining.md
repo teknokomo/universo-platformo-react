@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/mining-frt/base/
-apps/mining-srv/base/
+packages/mining-frt/base/
+packages/mining-srv/base/
 ```

@@ -12,12 +12,12 @@ This specification outlines the enhancement of the Space Builder functionality i
 
 #### Acceptance Criteria
 
-1. WHEN the quiz template extraction is complete THEN a new package `apps/template-quiz` SHALL exist with the same structure as `apps/template-mmoomm`
-2. WHEN the basic package structure is created THEN the existing working code SHALL be copied from `apps/publish-frt/base/src/builders/templates/quiz` to preserve functionality and avoid rewriting from scratch
+1. WHEN the quiz template extraction is complete THEN a new package `packages/template-quiz` SHALL exist with the same structure as `packages/template-mmoomm`
+2. WHEN the basic package structure is created THEN the existing working code SHALL be copied from `packages/publish-frt/base/src/builders/templates/quiz` to preserve functionality and avoid rewriting from scratch
 3. WHEN the code is copied THEN it SHALL be adapted to work as an independent package following the template-mmoomm pattern
 4. WHEN the new package is created THEN it SHALL include proper i18n integration following the same pattern as template-mmoomm with namespace `templateQuiz`
-5. WHEN the extraction is complete THEN `apps/publish-frt` SHALL import and use the quiz template from `@universo/template-quiz` package
-6. WHEN the integration is verified and working THEN the original quiz code in `apps/publish-frt/base/src/builders/templates/quiz` SHALL be removed
+5. WHEN the extraction is complete THEN `packages/publish-frt` SHALL import and use the quiz template from `@universo/template-quiz` package
+6. WHEN the integration is verified and working THEN the original quiz code in `packages/publish-frt/base/src/builders/templates/quiz` SHALL be removed
 7. WHEN the package is built THEN it SHALL support dual build system (CommonJS + ESM) like template-mmoomm
 
 ### Requirement 2: Fix Credentials Integration in Space Builder

@@ -1,0 +1,70 @@
+{
+  "name": "@universo/i18n",
+  "version": "1.0.0",
+  "description": "Centralized i18n instance for Universo Platformo",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": true,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./instance": {
+      "types": "./src/instance.ts",
+      "default": "./src/instance.ts"
+    },
+    "./registry": {
+      "types": "./src/registry.ts",
+      "default": "./src/registry.ts"
+    },
+    "./hooks": {
+      "types": "./src/hooks.ts",
+      "default": "./src/hooks.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "i18next": "^23.11.5",
+    "react-i18next": "^14.1.2",
+    "i18next-browser-languagedetector": "^8.0.0"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "i18n",
+    "internationalization",
+    "localization",
+    "universo",
+    "platformo"
+  ],
+  "author": {
+    "name": "Vladimir Levadnij and Teknokomo",
+    "email": "info@universo.pro"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teknokomo/universo-platformo-react.git",
+    "directory": "packages/universo-i18n/base"
+  }
+}

@@ -7,6 +7,6 @@
 ## Структура (ожидаемая)
 
 ```txt
-apps/reputation-frt/base/
-apps/reputation-srv/base/
+packages/reputation-frt/base/
+packages/reputation-srv/base/
 ```

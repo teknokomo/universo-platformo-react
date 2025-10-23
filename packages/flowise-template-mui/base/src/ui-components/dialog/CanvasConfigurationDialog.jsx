@@ -1,0 +1,163 @@
+import PropTypes from 'prop-types'
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useTranslation } from '@universo/i18n/hooks'
+import { Box, Dialog, DialogContent, DialogTitle, Tabs, Tab } from '@mui/material'
+import { tabsClasses } from '@mui/material/Tabs'
+import SpeechToText from '../extended/SpeechToText'
+import Security from '../extended/Security'
+import ChatFeedback from '../extended/ChatFeedback'
+import AnalyseFlow from '../extended/AnalyseFlow'
+import StarterPrompts from '../extended/StarterPrompts'
+import Leads from '../extended/Leads'
+import FollowUpPrompts from '../extended/FollowUpPrompts'
+import FileUpload from '../extended/FileUpload'
+import PostProcessing from '../extended/PostProcessing'
+
+const CANVAS_CONFIGURATION_TABS = [
+    {
+        label: 'security',
+        id: 'security'
+    },
+    {
+        label: 'starterPrompts',
+        id: 'conversationStarters'
+    },
+    {
+        label: 'followUpPrompts',
+        id: 'followUpPrompts'
+    },
+    {
+        label: 'speechToText',
+        id: 'speechToText'
+    },
+    {
+        label: 'chatFeedback',
+        id: 'chatFeedback'
+    },
+    {
+        label: 'analyseChatflow',
+        id: 'analyseChatflow'
+    },
+    {
+        label: 'leads',
+        id: 'leads'
+    },
+    {
+        label: 'fileUpload',
+        id: 'fileUpload'
+    },
+    {
+        label: 'postProcessing',
+        id: 'postProcessing',
+        hideInAgentFlow: true
+    }
+]
+
+function TabPanel(props) {
+    const { children, value, index, ...other } = props
+    return (
+        <div
+            role='tabpanel'
+            hidden={value !== index}
+            id={`canvas-config-tabpanel-${index}`}
+            aria-labelledby={`canvas-config-tab-${index}`}
+            style={{ width: '100%', paddingTop: '1rem' }}
+            {...other}
+        >
+            {value === index && <Box sx={{ p: 1 }}>{children}</Box>}
+        </div>
+    )
+}
+
+TabPanel.propTypes = {
+    children: PropTypes.node,
+    index: PropTypes.number.isRequired,
+    value: PropTypes.number.isRequired
+}
+
+function a11yProps(index) {
+    return {
+        id: `canvas-config-tab-${index}`,
+        'aria-controls': `canvas-config-tabpanel-${index}`
+    }
+}
+
+const CanvasConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel }) => {
+    const portalElement = document.getElementById('portal')
+    const [tabValue, setTabValue] = useState(0)
+    const { t } = useTranslation()
+
+    const filteredTabs = CANVAS_CONFIGURATION_TABS.filter((tab) => !isAgentCanvas || !tab.hideInAgentFlow)
+
+    const component = show ? (
+        <Dialog
+            onClose={onCancel}
+            open={show}
+            fullWidth
+            maxWidth={'lg'}
+            aria-labelledby='alert-dialog-title'
+            aria-describedby='alert-dialog-description'
+        >
+            <DialogTitle sx={{ fontSize: '1.25rem' }} id='alert-dialog-title'>
+                {t('canvas.configuration.title')}
+            </DialogTitle>
+            <DialogContent>
+                <Tabs
+                    sx={{
+                        position: 'relative',
+                        minHeight: '40px',
+                        height: '40px',
+                        [`& .${tabsClasses.scrollButtons}`]: {
+                            '&.Mui-disabled': { opacity: 0.3 }
+                        }
+                    }}
+                    value={tabValue}
+                    onChange={(event, value) => setTabValue(value)}
+                    aria-label='tabs'
+                    variant='scrollable'
+                    scrollButtons='auto'
+                >
+                    {filteredTabs.map((item, index) => (
+                        <Tab
+                            sx={{
+                                minHeight: '40px',
+                                height: '40px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                mb: 1
+                            }}
+                            key={index}
+                            label={t(`canvas.configuration.tabs.${item.label}`)}
+                            {...a11yProps(index)}
+                        ></Tab>
+                    ))}
+                </Tabs>
+                {filteredTabs.map((item, index) => (
+                    <TabPanel key={index} value={tabValue} index={index}>
+                        {item.id === 'security' && <Security dialogProps={dialogProps} />}
+                        {item.id === 'conversationStarters' ? <StarterPrompts dialogProps={dialogProps} /> : null}
+                        {item.id === 'followUpPrompts' ? <FollowUpPrompts dialogProps={dialogProps} /> : null}
+                        {item.id === 'speechToText' ? <SpeechToText dialogProps={dialogProps} /> : null}
+                        {item.id === 'chatFeedback' ? <ChatFeedback dialogProps={dialogProps} /> : null}
+                        {item.id === 'analyseChatflow' ? <AnalyseFlow dialogProps={dialogProps} /> : null}
+                        {item.id === 'leads' ? <Leads dialogProps={dialogProps} /> : null}
+                        {item.id === 'fileUpload' ? <FileUpload dialogProps={dialogProps} /> : null}
+                        {item.id === 'postProcessing' ? <PostProcessing dialogProps={dialogProps} /> : null}
+                    </TabPanel>
+                ))}
+            </DialogContent>
+        </Dialog>
+    ) : null
+
+    return createPortal(component, portalElement)
+}
+
+CanvasConfigurationDialog.propTypes = {
+    show: PropTypes.bool,
+    isAgentCanvas: PropTypes.bool,
+    dialogProps: PropTypes.object,
+    onCancel: PropTypes.func
+}
+
+export default CanvasConfigurationDialog
