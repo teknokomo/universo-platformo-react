@@ -20,7 +20,7 @@
   },
   "files": [
     "dist",
-    "base/src"
+    "src"
   ],
   "scripts": {
     "build": "tsdown",

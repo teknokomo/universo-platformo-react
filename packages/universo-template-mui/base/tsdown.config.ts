@@ -3,7 +3,6 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: {
     index: './src/index.ts',
-    'i18n/index': './src/i18n/index.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist',
@@ -25,6 +24,8 @@ export default defineConfig({
     'notistack',
     '@tanstack/react-query',
     'canvas',  // Native module from transitive dependency
+    '@/utils/genericHelper',  // flowise-ui internal utility (must be resolved by consuming app)
+    '@/views/docstore/DocumentStoreStatus',  // flowise-ui internal component (must be resolved by consuming app)
     /^@ui\//,  // Imports from flowise-ui via @ui alias
     /^@mui\//,
     /^@emotion\//,

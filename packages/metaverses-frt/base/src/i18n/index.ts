@@ -4,10 +4,14 @@ import { registerNamespace } from '@universo/i18n/registry'
 import enMetaverses from './locales/en/metaverses.json'
 import ruMetaverses from './locales/ru/metaverses.json'
 
+// DEBUG: Log module execution
+console.log('[metaverses-frt:i18n] Module loaded, registering metaverses namespace...')
+
 registerNamespace('metaverses', {
     en: enMetaverses,
     ru: ruMetaverses
 })
+console.log('[metaverses-frt:i18n] Registered metaverses namespace')
 
 type LanguageCode = 'en' | 'ru'
 

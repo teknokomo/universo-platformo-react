@@ -4,11 +4,15 @@ import { registerNamespace } from '@universo/i18n/registry'
 import enMainTranslation from '@universo/uniks-frt/src/i18n/locales/en/main.json'
 import ruMainTranslation from '@universo/uniks-frt/src/i18n/locales/ru/main.json'
 
+// DEBUG: Log module execution
+console.log('[uniks-frt:i18n] Module loaded, registering uniks namespace...')
+
 // Register uniks namespace with .uniks subtree (includes menu.uniks inside)
 registerNamespace('uniks', {
   en: enMainTranslation.uniks,
   ru: ruMainTranslation.uniks
 })
+console.log('[uniks-frt:i18n] Registered uniks namespace')
 
 type LanguageCode = 'en' | 'ru'
 

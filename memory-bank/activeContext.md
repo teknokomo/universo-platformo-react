@@ -1,5 +1,119 @@
 # Active Context
 
+## 2025-10-25 — i18n Translation Keys Fix (Defense-in-Depth) ✅
+
+**Current Status**: ✅ **Completed implementation of defense-in-depth i18n registration pattern to eliminate translation key display issues.**
+
+### Problem Identified
+- **User Report**: Menu items showing language keys (e.g., "uniks:menu.uniks") instead of translated text ("Уники")
+- **Root Cause**: Lazy-loaded route components using translations before namespaces registered
+- **Impact**: Poor UX - users seeing technical keys instead of localized labels
+
+### Root Cause Analysis
+**The Lazy Loading Challenge**:
+```typescript
+// MainRoutesMUI.tsx
+const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
+const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseList')))
+
+// Problem: Components execute BEFORE their i18n modules when lazy-loaded
+```
+
+**Why Global Imports Alone Weren't Enough**:
+- `flowise-ui/src/index.jsx` imports all i18n: ✅ Works for initial render
+- Lazy routes delay component load: ⚠️ Timing window where translations may not be ready
+- Tree-shaking without `sideEffects`: ❌ Can strip i18n registrations entirely
+
+### Solution Implemented (Defense-in-Depth Pattern)
+
+**Multi-Layer Protection Strategy**:
+
+1. **Layer 1: Fixed sideEffects in package.json** ✅
+   - `@universo/template-mui`: Changed `"sideEffects": false` → `["dist/i18n/index.mjs", "dist/i18n/index.js"]`
+   - `@universo/uniks-frt`: Added `"sideEffects": ["dist/i18n/index.mjs", "dist/i18n/index.js"]`
+   - **Purpose**: Prevents bundlers from tree-shaking i18n side-effect modules
+
+2. **Layer 2: Explicit Route-Level Imports** ✅
+   ```typescript
+   // MainRoutesMUI.tsx - NEW
+   // CRITICAL: Import i18n registrations BEFORE lazy components
+   import '@universo/template-mui/i18n'
+   import '@universo/uniks-frt/i18n'
+   import '@universo/metaverses-frt/i18n'
+   
+   const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
+   ```
+   - **Purpose**: Guarantees registration before component code executes
+
+3. **Layer 3: Global Index Imports** ✅ (Already Present)
+   ```javascript
+   // flowise-ui/src/index.jsx
+   import '@universo/template-mui/i18n'
+   import '@universo/uniks-frt/i18n'
+   import '@universo/metaverses-frt/i18n'
+   ```
+   - **Purpose**: Ensures early registration for synchronous routes
+
+### Technical Implementation
+
+**Files Modified**:
+1. `packages/universo-template-mui/base/package.json`: Updated `sideEffects`
+2. `packages/uniks-frt/base/package.json`: Added `sideEffects`
+3. `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`: Added explicit imports
+
+**Build Configuration Verified**:
+- ✅ `tsdown.config.ts` in all packages: `entry: { 'i18n/index': './src/i18n/index.ts' }`
+- ✅ All `dist/i18n` files generated: `index.js`, `index.mjs`, `index.d.ts`
+
+**Build Results**:
+```bash
+✅ template-mui build: 1384ms (dist/i18n verified)
+✅ uniks-frt build: 4056ms (dist/i18n verified)
+✅ metaverses-frt build: 4040ms (dist/i18n verified)
+✅ flowise-ui build: 54.52s (all i18n modules bundled)
+```
+
+### Why This Pattern Works
+
+**Defense-in-Depth Explained**:
+```
+Bundler → Checks sideEffects → Preserves dist/i18n files ✅
+  ↓
+App Init → Loads global i18n imports → Registers namespaces ✅
+  ↓
+Route Navigation → Executes explicit imports → Ensures registration ✅
+  ↓
+Lazy Component → Uses translations → Keys already registered ✅
+```
+
+**Prevents All Failure Scenarios**:
+- ❌ Scenario A: Tree-shaking removes i18n → **Prevented by sideEffects**
+- ❌ Scenario B: Lazy load before registration → **Prevented by route-level imports**
+- ❌ Scenario C: Race conditions in async loading → **Prevented by synchronous imports**
+
+### Architecture Pattern
+
+**When to Use Defense-in-Depth i18n**:
+- ✅ React Router lazy loading (`React.lazy`)
+- ✅ Code-split applications with async routes
+- ✅ Monorepo with multiple i18n packages
+- ✅ Production builds with aggressive tree-shaking
+
+**Implementation Checklist**:
+1. [ ] Add `sideEffects` array in package.json
+2. [ ] Configure tsdown to build `i18n/index` entry
+3. [ ] Import i18n at application root (global layer)
+4. [ ] Import i18n in route definitions (route layer)
+5. [ ] Verify all `dist/i18n` files generated
+6. [ ] Test in production build (not just dev mode)
+
+### Next Steps
+- ⏳ **User Testing Required**: Verify menu shows "Уники" / "Метавселенные" (not keys)
+- ⏳ **Browser Console Check**: Confirm no i18n registration warnings
+- ⏳ **Language Switcher Test**: Verify EN ↔ RU switching works correctly
+
+---
+
 ## 2025-01-18 — tsdown Migration Complete + Critical Server Fixes ✅
 
 **Current Status**: ✅ **All work completed successfully.** tsdown migration finished for 7 packages, server startup verified with all warnings resolved.

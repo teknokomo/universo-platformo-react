@@ -36,7 +36,6 @@ export {
 export type { BaseEntityMenuProps, ActionDescriptor, ActionContext, TriggerProps } from './components'
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'
-export * from './i18n'
 
 // Confirm system (imperative confirmation dialogs)
 export { ConfirmContext, ConfirmContextProvider } from './contexts'

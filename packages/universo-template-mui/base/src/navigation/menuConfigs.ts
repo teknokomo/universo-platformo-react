@@ -17,25 +17,25 @@ export interface TemplateMenuItem {
 export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] => [
     {
         id: 'metaverse-board',
-        titleKey: 'board', // Will translate to "Метаверсборд"
+        titleKey: 'menu.metaverseboard',
         url: `/metaverses/${metaverseId}`,
         icon: IconWorld
     },
     {
         id: 'metaverse-entities',
-        titleKey: 'entities', // Will translate to "Сущности"
+        titleKey: 'menu.entities',
         url: `/metaverses/${metaverseId}/entities`,
         icon: IconBoxMultiple
     },
     {
         id: 'metaverse-sections',
-        titleKey: 'sections', // Will translate to "Секции"
+        titleKey: 'menu.sections',
         url: `/metaverses/${metaverseId}/sections`,
         icon: IconHierarchy3
     },
     {
         id: 'metaverse-access',
-        titleKey: 'access', // Will translate to "Управление доступом"
+        titleKey: 'menu.access',
         url: `/metaverses/${metaverseId}/access`,
         icon: IconUsers
     }
@@ -44,31 +44,31 @@ export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] =
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',
-        titleKey: 'uniks',
+        titleKey: 'menu.uniks',
         url: '/uniks',
         icon: IconFiles
     },
     {
         id: 'metaverses',
-        titleKey: 'metaverses',
+        titleKey: 'menu.metaverses',
         url: '/metaverses',
         icon: IconWorld
     },
     {
         id: 'clusters',
-        titleKey: 'clusters',
+        titleKey: 'menu.clusters',
         url: '/clusters',
         icon: IconFolder
     },
     {
         id: 'profile',
-        titleKey: 'profile',
+        titleKey: 'menu.profile',
         url: '/profile',
         icon: IconUser
     },
     {
         id: 'docs',
-        titleKey: 'docs',
+        titleKey: 'menu.docs',
         url: 'https://teknokomo.gitbook.io/up',
         icon: IconFileText,
         external: true,

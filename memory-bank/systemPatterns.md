@@ -1,5 +1,102 @@
 # System Patterns
 
+## i18n Architecture Patterns
+
+### Defense-in-Depth i18n Registration (Best Practice)
+
+**Pattern**: Multi-layer protection to ensure translation namespaces are registered before components use them.
+
+**When to Use**:
+- React Router lazy loading (`React.lazy`)
+- Code-split applications with async routes
+- Monorepo with multiple i18n packages
+- Production builds with aggressive tree-shaking
+
+**Implementation Layers**:
+
+**Layer 1: Package Configuration (Prevent Tree-Shaking)**
+```json
+// package.json
+{
+  "sideEffects": [
+    "dist/i18n/index.mjs",
+    "dist/i18n/index.js"
+  ]
+}
+```
+
+**Layer 2: Build Configuration (Compile i18n Entry)**
+```typescript
+// tsdown.config.ts
+export default defineConfig({
+  entry: {
+    'i18n/index': './src/i18n/index.ts'
+  },
+  format: ['esm', 'cjs'],
+  dts: true
+})
+```
+
+**Layer 3: Global Registration (Application Root)**
+```typescript
+// flowise-ui/src/index.jsx
+import '@universo/i18n'  // Core instance
+import '@universo/template-mui/i18n'
+import '@universo/uniks-frt/i18n'
+import '@universo/metaverses-frt/i18n'
+// ... render App
+```
+
+**Layer 4: Route-Level Registration (Before Lazy Components)**
+```typescript
+// routes/MainRoutesMUI.tsx
+import { lazy } from 'react'
+
+// CRITICAL: Import BEFORE lazy() calls
+import '@universo/template-mui/i18n'
+import '@universo/uniks-frt/i18n'
+import '@universo/metaverses-frt/i18n'
+
+const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
+const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseList')))
+```
+
+**How It Works**:
+1. `sideEffects` array prevents bundlers from removing i18n imports during optimization
+2. Explicit imports at route level guarantee synchronous registration before lazy components load
+3. Global imports provide fallback for non-lazy routes and initial render
+
+**Common Pitfall**:
+```typescript
+// ❌ WRONG - i18n registered too late
+const routes = {
+  element: <Layout />,
+  children: [
+    { path: 'uniks', element: lazy(() => import('UnikList')) }  // May load before i18n ready
+  ]
+}
+import '@universo/uniks-frt/i18n'  // Too late!
+
+// ✅ CORRECT - i18n registered before route definition
+import '@universo/uniks-frt/i18n'  // Registration first
+const routes = {
+  element: <Layout />,
+  children: [
+    { path: 'uniks', element: lazy(() => import('UnikList')) }  // Safe to use translations
+  ]
+}
+```
+
+**Verification Checklist**:
+- [ ] `dist/i18n/index.js` and `index.mjs` exist after build
+- [ ] `sideEffects` array includes i18n files
+- [ ] Global imports at app root (`index.jsx`)
+- [ ] Route-level imports before lazy components
+- [ ] Production build tested (not just dev mode)
+- [ ] Browser console shows no i18n warnings
+
+---
+
 ## UPDL Node Patterns and Visual Programming
 
 ### Key Design Principles
