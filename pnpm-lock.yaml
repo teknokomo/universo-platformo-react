@@ -324,14 +324,14 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  packages/flowise-chatmessage:
+  packages/flowise-chatmessage/base:
     dependencies:
       '@flowise/store':
         specifier: workspace:*
-        version: link:../flowise-store
+        version: link:../../flowise-store/base
       '@flowise/template-mui':
         specifier: workspace:*
-        version: link:../flowise-template-mui/base
+        version: link:../../flowise-template-mui/base
       '@microsoft/fetch-event-source':
         specifier: ^2.0.1
         version: 2.0.1
@@ -346,16 +346,16 @@ importers:
         version: 3.35.0(react@18.3.1)
       '@universo/api-client':
         specifier: workspace:*
-        version: link:../universo-api-client
+        version: link:../../universo-api-client
       '@universo/auth-frt':
         specifier: workspace:*
-        version: link:../auth-frt/base
+        version: link:../../auth-frt/base
       '@universo/i18n':
         specifier: workspace:*
-        version: link:../universo-i18n/base
+        version: link:../../universo-i18n/base
       '@universo/utils':
         specifier: workspace:*
-        version: link:../universo-utils/base
+        version: link:../../universo-utils/base
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -1086,7 +1086,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  packages/flowise-store:
+  packages/flowise-store/base:
     dependencies:
       react:
         specifier: ^18.3.1
@@ -1115,7 +1115,7 @@ importers:
         version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1)
       '@flowise/store':
         specifier: workspace:*
-        version: link:../../flowise-store
+        version: link:../../flowise-store/base
       '@mui/icons-material':
         specifier: ^5.0.3
         version: 5.0.3(@mui/material@5.15.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.26)(react@18.3.1)
@@ -1219,7 +1219,7 @@ importers:
         version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1)
       '@flowise/store':
         specifier: workspace:*
-        version: link:../flowise-store
+        version: link:../flowise-store/base
       '@lezer/highlight':
         specifier: ^1.2.1
         version: 1.2.2
@@ -1913,7 +1913,7 @@ importers:
         version: 3.2.2(react@18.3.1)
       '@flowise/chatmessage':
         specifier: workspace:*
-        version: link:../../flowise-chatmessage
+        version: link:../../flowise-chatmessage/base
       '@mui/material':
         specifier: 5.15.0
         version: 5.15.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

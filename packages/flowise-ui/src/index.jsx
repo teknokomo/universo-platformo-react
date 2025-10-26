@@ -24,7 +24,6 @@ import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
 import '@universo/template-mmoomm/i18n'
 import '@universo/template-quiz/i18n'
-import '@universo/template-mui/i18n'
 
 // style + assets
 import '@flowise/template-mui/assets/scss/style.scss'

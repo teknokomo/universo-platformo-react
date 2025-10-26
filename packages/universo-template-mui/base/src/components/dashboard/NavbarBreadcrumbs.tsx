@@ -29,12 +29,12 @@ export default function NavbarBreadcrumbs() {
     const metaverseName = useMetaverseName(metaverseId)
 
     const menuMap: Record<string, string> = {
-        uniks: 'uniks',
-        metaverses: 'metaverses',
-        clusters: 'clusters',
-        profile: 'profile',
-        docs: 'docs',
-        spaces: 'spaces'
+        uniks: 'menu.uniks',
+        metaverses: 'menu.metaverses',
+        clusters: 'menu.clusters',
+        profile: 'menu.profile',
+        docs: 'menu.docs',
+        spaces: 'menu.spaces'
     }
 
     const segments = location.pathname.split('/').filter(Boolean)
@@ -65,11 +65,11 @@ export default function NavbarBreadcrumbs() {
 
                 // Sub-pages (access, sections, entities)
                 if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
+                    items.push({ label: t('menu.access'), to: location.pathname })
                 } else if (segments[2] === 'sections') {
-                    items.push({ label: t('sections'), to: location.pathname })
+                    items.push({ label: t('menu.sections'), to: location.pathname })
                 } else if (segments[2] === 'entities') {
-                    items.push({ label: t('entities'), to: location.pathname })
+                    items.push({ label: t('menu.entities'), to: location.pathname })
                 }
             }
 

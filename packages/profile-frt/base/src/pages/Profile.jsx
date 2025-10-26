@@ -1,6 +1,6 @@
 // Universo Platformo | User profile page
 import React, { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@universo/i18n/hooks'
 import { useAuth } from '@universo/auth-frt'
 import { MainCard } from '@flowise/template-mui'
 import { Box, TextField, Button, Stack, Alert, Typography, Grid, Paper, Divider } from '@mui/material'

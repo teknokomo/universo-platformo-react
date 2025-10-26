@@ -25,6 +25,10 @@
             "default": "./src/pages/*"
         }
     },
+    "sideEffects": [
+        "dist/i18n/index.mjs",
+        "dist/i18n/index.js"
+    ],
     "files": ["dist", "src"],
     "scripts": {
         "build": "tsdown",

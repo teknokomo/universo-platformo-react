@@ -3,7 +3,9 @@
     "entities": {
       "canvas": "Холст",
       "agent": "Агент",
-      "unik": "Уник"
+      "unik": "Уник",
+      "metaverse": "Метавселенная",
+      "cluster": "Кластер"
     },
     "table": {
       "columns": {

@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown'
 export default defineConfig({
     // Entry point - main export file
     entry: {
-        index: './base/src/index.js',
+        index: './src/index.js',
     },
 
     // Output formats: ESM + CJS for maximum compatibility
@@ -36,7 +36,7 @@ export default defineConfig({
         // Configure path aliases if needed
         resolve: {
             alias: {
-                '@': './base/src',
+                '@': './src',
             },
         },
     },

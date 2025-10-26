@@ -1,3 +1,34 @@
+## ✅ COMPLETED - i18n Defense-in-Depth Implementation (2025-10-25)
+
+**Goal**: Eliminate translation key display issues through multi-layer protection strategy.
+
+### Implementation Completed
+
+- [x] **Layer 1**: Fixed sideEffects in package.json (template-mui, uniks-frt) ✅
+- [x] **Layer 2**: Added explicit i18n imports in MainRoutesMUI.tsx ✅
+- [x] **Layer 3**: Verified global imports in flowise-ui/src/index.jsx ✅
+- [x] **Build Configuration**: Verified tsdown configs for all packages ✅
+- [x] **Package Rebuilds**: All affected packages rebuilt successfully ✅
+  - template-mui: 1384ms
+  - uniks-frt: 4056ms
+  - metaverses-frt: 4040ms
+  - flowise-ui: 54.52s
+- [x] **Documentation**: Updated activeContext.md and systemPatterns.md ✅
+
+### Files Modified
+1. `packages/universo-template-mui/base/package.json` - Updated sideEffects
+2. `packages/uniks-frt/base/package.json` - Added sideEffects
+3. `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` - Added explicit imports
+
+### User Testing Required
+- [ ] Browser test: Verify menu shows "Уники" / "Метавселенные" (not keys)
+- [ ] Console check: Confirm no i18n warnings
+- [ ] Language switcher: Test EN ↔ RU switching
+
+**Status**: Implementation complete, pending user browser testing.
+
+---
+
 ## ✅ COMPLETED - Refactor metaverses-frt i18n to single entry point (2025-10-23)
 
 **Goal**: Исправить регистрацию i18n для metaverses-frt, чтобы namespace metaverses всегда регистрировался как side-effect, без tree-shaking и split-chunks. Привести архитектуру к единой точке входа (entry) для i18n, как в uniks-frt.

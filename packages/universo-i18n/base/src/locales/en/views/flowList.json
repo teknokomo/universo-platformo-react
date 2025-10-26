@@ -3,7 +3,9 @@
     "entities": {
       "canvas": "Canvas",
       "agent": "Agent",
-      "unik": "Unik"
+      "unik": "Unik",
+      "metaverse": "Metaverse",
+      "cluster": "Cluster"
     },
     "table": {
       "columns": {
