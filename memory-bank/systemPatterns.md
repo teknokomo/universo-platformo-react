@@ -20,7 +20,8 @@
 {
   "sideEffects": [
     "dist/i18n/index.mjs",
-    "dist/i18n/index.js"
+    "dist/i18n/index.js",
+    "*.css"
   ]
 }
 ```
@@ -41,9 +42,14 @@ export default defineConfig({
 ```typescript
 // flowise-ui/src/index.jsx
 import '@universo/i18n'  // Core instance
-import '@universo/template-mui/i18n'
+import '@universo/spaces-frt/i18n'
+import '@universo/publish-frt/i18n'
+import '@universo/analytics-frt/i18n'
+import '@universo/profile-frt/i18n'
 import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
+import '@universo/template-mmoomm/i18n'
+import '@universo/template-quiz/i18n'
 // ... render App
 ```
 
@@ -53,7 +59,6 @@ import '@universo/metaverses-frt/i18n'
 import { lazy } from 'react'
 
 // CRITICAL: Import BEFORE lazy() calls
-import '@universo/template-mui/i18n'
 import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
 

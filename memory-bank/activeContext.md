@@ -28,49 +28,54 @@ const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt/pages
 
 **Multi-Layer Protection Strategy**:
 
-1. **Layer 1: Fixed sideEffects in package.json** ✅
-   - `@universo/template-mui`: Changed `"sideEffects": false` → `["dist/i18n/index.mjs", "dist/i18n/index.js"]`
-   - `@universo/uniks-frt`: Added `"sideEffects": ["dist/i18n/index.mjs", "dist/i18n/index.js"]`
-   - **Purpose**: Prevents bundlers from tree-shaking i18n side-effect modules
+1. **Layer 1: Updated sideEffects declarations** ✅
+   - `@universo/template-mui`: Declares `"sideEffects": ["*.css"]` because the template package now only exposes UI assets and no longer ships its own i18n bundle.
+   - `@universo/uniks-frt`, `@universo/metaverses-frt`, `@universo/profile-frt`: Keep `"sideEffects": ["dist/i18n/index.mjs", "dist/i18n/index.js"]` so their namespace registration modules are preserved during tree-shaking.
+   - **Purpose**: Ensure the bundler retains genuine side-effect modules while allowing other code paths to remain tree-shakeable.
 
 2. **Layer 2: Explicit Route-Level Imports** ✅
    ```typescript
    // MainRoutesMUI.tsx - NEW
    // CRITICAL: Import i18n registrations BEFORE lazy components
-   import '@universo/template-mui/i18n'
    import '@universo/uniks-frt/i18n'
    import '@universo/metaverses-frt/i18n'
-   
+
    const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
    ```
-   - **Purpose**: Guarantees registration before component code executes
+   - **Purpose**: Guarantees registration before lazy-loaded route components execute.
 
 3. **Layer 3: Global Index Imports** ✅ (Already Present)
    ```javascript
    // flowise-ui/src/index.jsx
-   import '@universo/template-mui/i18n'
+   import '@universo/i18n'
+   import '@universo/spaces-frt/i18n'
+   import '@universo/publish-frt/i18n'
+   import '@universo/analytics-frt/i18n'
+   import '@universo/profile-frt/i18n'
    import '@universo/uniks-frt/i18n'
    import '@universo/metaverses-frt/i18n'
+   import '@universo/template-mmoomm/i18n'
+   import '@universo/template-quiz/i18n'
    ```
-   - **Purpose**: Ensures early registration for synchronous routes
+   - **Purpose**: Ensures early registration for synchronous routes and shared namespaces.
 
 ### Technical Implementation
 
 **Files Modified**:
-1. `packages/universo-template-mui/base/package.json`: Updated `sideEffects`
-2. `packages/uniks-frt/base/package.json`: Added `sideEffects`
-3. `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`: Added explicit imports
+1. `packages/universo-template-mui/base/package.json`: Declared CSS-only `sideEffects` and removed legacy i18n export path.
+2. `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`: Added explicit namespace imports before lazy routes.
+3. `packages/flowise-ui/src/index.jsx`: Cleaned up template i18n import; kept global registration for domain packages.
 
 **Build Configuration Verified**:
-- ✅ `tsdown.config.ts` in all packages: `entry: { 'i18n/index': './src/i18n/index.ts' }`
-- ✅ All `dist/i18n` files generated: `index.js`, `index.mjs`, `index.d.ts`
+- ✅ `tsdown.config.ts` for i18n-enabled packages (`uniks-frt`, `metaverses-frt`, `profile-frt`) still compile `i18n/index` outputs.
+- ✅ Template package intentionally omits an i18n entry; only UI components are emitted.
 
 **Build Results**:
 ```bash
-✅ template-mui build: 1384ms (dist/i18n verified)
-✅ uniks-frt build: 4056ms (dist/i18n verified)
-✅ metaverses-frt build: 4040ms (dist/i18n verified)
-✅ flowise-ui build: 54.52s (all i18n modules bundled)
+✅ pnpm --filter @universo/template-mui build
+✅ pnpm --filter @universo/uniks-frt build
+✅ pnpm --filter @universo/metaverses-frt build
+✅ pnpm --filter flowise-ui build
 ```
 
 ### Why This Pattern Works
