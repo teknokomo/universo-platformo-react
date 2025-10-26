@@ -1,11 +1,11 @@
 {
   "name": "@flowise/chatmessage",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Chat message components for Flowise - reusable chat interface with streaming, audio recording, and file uploads",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "SEE LICENSE IN LICENSE-Flowise.md",
   "homepage": "https://universo.pro",
   "author": {
-    "name": "Vladimir Levadnij and Teknokomo",
+    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
     "email": "info@universo.pro"
   },
   "main": "dist/index.js",

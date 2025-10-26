@@ -2,6 +2,12 @@
   "name": "@flowise/store",
   "version": "0.1.0",
   "description": "Shared Redux store for Flowise applications",
+  "license": "SEE LICENSE IN LICENSE-Flowise.md",
+  "homepage": "https://universo.pro",
+  "author": {
+    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+    "email": "info@universo.pro"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

@@ -2,6 +2,12 @@
     "name": "flowise-components",
     "version": "2.2.8",
     "description": "Universo Platformo React Components",
+    "license": "SEE LICENSE IN LICENSE-Flowise.md",
+    "homepage": "https://universo.pro",
+    "author": {
+    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+    "email": "info@universo.pro"
+  },
     "main": "dist/src/index.js",
     "module": "dist/src/index.mjs",
     "types": "dist/src/index.d.ts",
@@ -22,12 +28,6 @@
         "nuke": "rimraf dist node_modules .turbo"
     },
     "keywords": [],
-    "homepage": "https://universo.pro",
-    "author": {
-        "name": "Vladimir Levadnij and Teknokomo",
-        "email": "info@universo.pro"
-    },
-    "license": "SEE LICENSE IN LICENSE.md",
     "dependencies": {
         "@apidevtools/json-schema-ref-parser": "^11.7.0",
         "@arizeai/openinference-instrumentation-langchain": "^2.0.0",

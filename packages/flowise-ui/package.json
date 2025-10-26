@@ -1,10 +1,10 @@
 {
   "name": "flowise-ui",
   "version": "2.2.8",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "SEE LICENSE IN LICENSE-Flowise.md",
   "homepage": "https://universo.pro",
   "author": {
-    "name": "Vladimir Levadnij and Teknokomo",
+    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
     "email": "info@universo.pro"
   },
   "dependencies": {

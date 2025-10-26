@@ -20,15 +20,6 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 **Base Platform**: Flowise AI 2.2.8 with enhanced ASSISTANT support
 **Architecture**: 6 working APPs applications with template-first design
 
-### ✅ Completed Milestones
-
-| Version              | Status      | Key Achievements                                                                      |
-| -------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| **0.18.0-pre-alpha** | ✅ COMPLETE | Flowise 2.2.8 upgrade, TypeScript modernization, platform stabilization               |
-| **0.19.0-pre-alpha** | ✅ COMPLETE | High-level UPDL nodes, PlayCanvas integration, template-first architecture            |
-| **0.20.0-alpha**     | ✅ COMPLETE | **Alpha status achieved**, complete UPDL system, production-ready platform            |
-| **0.21.0-alpha**     | ✅ COMPLETE | **Firm Resolve**, memory bank optimization, MMOOMM stabilization, handler refactoring |
-
 ## UPDL Architecture
 
 ### Core Design Principles

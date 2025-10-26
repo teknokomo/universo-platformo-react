@@ -2,6 +2,12 @@
   "name": "@flowise/template-mui",
   "version": "0.1.0",
   "description": "Material-UI component library extracted from Flowise UI (unbundled source pattern)",
+  "license": "SEE LICENSE IN LICENSE-Flowise.md",
+  "homepage": "https://universo.pro",
+  "author": {
+    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+    "email": "info@universo.pro"
+  },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
@@ -101,7 +107,5 @@
     "mui",
     "material-ui",
     "components"
-  ],
-  "author": "Universo Platformo Team",
-  "license": "SEE LICENSE IN LICENSE.md"
+  ]
 }
