@@ -1,8 +1,8 @@
 {
         "compilerOptions": {
-                "target": "ES2019",
-                "module": "CommonJS",
-                "lib": ["ES2019", "DOM"],
+		"target": "ES2019",
+		"module": "ESNext",
+		"lib": ["ES2019", "DOM"],
                 "jsx": "react-jsx",
                 "rootDir": "src",
                 "outDir": "dist",
@@ -11,7 +11,7 @@
                 "esModuleInterop": true,
                 "skipLibCheck": true,
                 "strict": true,
-                "moduleResolution": "Node",
+                "moduleResolution": "bundler",
                 "resolveJsonModule": true,
                 "allowSyntheticDefaultImports": true
         },

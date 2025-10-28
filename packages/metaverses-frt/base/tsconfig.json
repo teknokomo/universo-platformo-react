@@ -1,11 +1,12 @@
 {
     "compilerOptions": {
         "target": "ES2020",
-        "module": "commonjs",
+        "module": "ESNext",
         "lib": ["ES2020", "DOM"],
-        "declaration": true,
+        "declaration": false,
         "sourceMap": true,
         "outDir": "./dist",
+        "rootDir": "./src",
         "strict": true,
         "noImplicitAny": true,
         "noImplicitReturns": true,
@@ -18,7 +19,7 @@
         "jsx": "react-jsx",
         "allowJs": false,
         "baseUrl": "./src",
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "noResolve": false
     },
     "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
