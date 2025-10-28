@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useEffect, useMemo, useState } from 'react'
 import moment from 'moment'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { useDispatch } from 'react-redux'
 
 // material-ui

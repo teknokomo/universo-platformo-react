@@ -9,7 +9,7 @@ import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackba
 import { IconX, IconWand, IconArrowLeft, IconNotebook, IconLanguage, IconMail, IconCode, IconReport, IconWorld } from '@tabler/icons-react'
 import useNotifier from '@flowise/template-mui/hooks/useNotifier'
 import { LoadingButton } from '@mui/lab'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 const getDefaultInstructions = (t) => [
     {

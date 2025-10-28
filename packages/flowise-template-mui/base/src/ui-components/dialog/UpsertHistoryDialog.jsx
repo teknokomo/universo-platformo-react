@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useEffect, useState, forwardRef } from 'react'
 import DatePicker from 'react-datepicker'
 import moment from 'moment/moment'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // MUI
 import {

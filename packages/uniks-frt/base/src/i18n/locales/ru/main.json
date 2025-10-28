@@ -26,8 +26,20 @@
       "addUnik": "Добавить",
       "noUniksFound": "Уники не найдены",
       "addNewUnik": "Добавить новый Уник",
-      "cardView": "Карточки", 
+      "cardView": "Карточки",
       "listView": "Список"
+    },
+    "flowList": {
+      "table": {
+        "columns": {
+          "name": "Название",
+          "spaces": "Пространства",
+          "category": "Категория",
+          "nodes": "Ноды",
+          "lastModified": "Изменено",
+          "actions": "Действия"
+        }
+      }
     }
   }
-} 
+}

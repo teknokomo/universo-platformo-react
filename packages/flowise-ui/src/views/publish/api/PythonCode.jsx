@@ -1,7 +1,7 @@
 // Universo Platformo | API Python Code component
 import * as React from 'react'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { Box, Typography } from '@mui/material'
 
 // Const

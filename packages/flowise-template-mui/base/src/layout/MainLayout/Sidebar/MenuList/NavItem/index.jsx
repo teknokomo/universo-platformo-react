@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { forwardRef, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { getInstance as getI18n } from '@universo/i18n'
 
 // material-ui

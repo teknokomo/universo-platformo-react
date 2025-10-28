@@ -3,7 +3,7 @@ import { Avatar, ButtonBase, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip
 import { styled } from '@mui/material/styles'
 import { useTheme } from '@mui/material/styles'
 import { IconLanguage, IconCheck } from '@tabler/icons-react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import i18n from '@universo/i18n'
 
 // Small badge style for 2-letter language code overlay

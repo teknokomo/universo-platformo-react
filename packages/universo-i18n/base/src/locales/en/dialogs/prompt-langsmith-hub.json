@@ -1,0 +1,19 @@
+{
+  "promptLangsmithHub": {
+    "title": "Langchain Hub",
+    "promptTemplate": "PromptTemplate",
+    "chatPromptTemplate": "ChatPromptTemplate",
+    "model": "Model",
+    "usecase": "Usecase",
+    "language": "Language",
+    "search": "Search",
+    "loadingPrompts": "Please wait....loading Prompts",
+    "noPrompts": "No Available Prompts",
+    "availablePrompts": "Available Prompts",
+    "prompt": "Prompt",
+    "description": "Description",
+    "readme": "Readme",
+    "cancel": "Cancel",
+    "load": "Load"
+  }
+}

@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // material-ui
 import { IconButton } from '@mui/material'

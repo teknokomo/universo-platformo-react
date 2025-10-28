@@ -5,7 +5,7 @@ import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import Chip from '@mui/material/Chip'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
 
 const TagDialog = ({ isOpen, dialogProps, onClose, onSubmit }) => {

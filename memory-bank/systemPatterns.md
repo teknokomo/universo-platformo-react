@@ -949,6 +949,294 @@ const { data, isLoading } = useQuery({
 
 ---
 
+## Universal List Pattern (Reference Implementation)
+
+### Overview
+
+**Pattern**: Standardized approach for list views with server-side pagination, search, and sorting using TanStack Query v5.
+
+**Reference**: `packages/metaverses-frt/base/src/pages/MetaverseList.tsx`
+
+**When to Use**:
+- Any entity list view (Metaverses, Uniks, Spaces, Sections, Entities)
+- Views requiring server-side pagination
+- Search and filtering capabilities
+- Consistent UX across all lists
+
+### Architecture
+
+**Component Layers**:
+1. **usePaginated Hook** (TanStack Query v5) - Server-side pagination, sorting, search
+2. **ViewHeader** (with search) - Top bar with title + search input + action buttons
+3. **PaginationControls** (pagination only) - Pagination info + navigation controls
+4. **FlowListTable / ItemCard Grid** - Data rendering (table or card view)
+
+### Implementation
+
+#### Step 1: Setup usePaginated Hook
+
+```typescript
+import { usePaginated } from '@universo/template-mui'
+import { metaversesQueryKeys } from '../api/queryKeys'
+import * as metaversesApi from '../api/metaverses'
+
+const paginationResult = usePaginated<Metaverse, 'name' | 'created' | 'updated'>({
+    queryKeyFn: metaversesQueryKeys.list,
+    queryFn: metaversesApi.listMetaverses,
+    limit: 20,
+    sortBy: 'updated',
+    sortOrder: 'desc'
+})
+
+const { data: metaverses, isLoading, error, pagination, actions } = paginationResult
+```
+
+#### Step 2: Local Search State (Debounce)
+
+```typescript
+import { useState, useCallback, useEffect } from 'react'
+
+// Local state for debounced search
+const [localSearch, setLocalSearch] = useState('')
+
+// Debounce effect synchronizes with usePaginated
+useEffect(() => {
+    const timer = setTimeout(() => {
+        paginationResult.actions.setSearch(localSearch)
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timer)
+}, [localSearch, paginationResult.actions])
+
+// Handler for ViewHeader search input
+const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setLocalSearch(e.target.value)
+}, [])
+```
+
+#### Step 3: ViewHeader + PaginationControls
+
+```typescript
+import { ViewHeaderMUI as ViewHeader, PaginationControls } from '@universo/template-mui'
+
+<ViewHeader
+    search={true}  // Search in header (top right)
+    searchPlaceholder={t('metaverses.searchPlaceholder')}
+    onSearchChange={handleSearchChange}
+    title={t('metaverses.title')}
+>
+    <ToolbarControls
+        viewToggleEnabled
+        viewMode={view as 'card' | 'list'}
+        onViewModeChange={(mode: string) => handleChange(null, mode)}
+        primaryAction={{
+            label: t('metaverses.addNew'),
+            onClick: handleAddNew,
+            startIcon: <AddRoundedIcon />
+        }}
+    />
+</ViewHeader>
+
+<PaginationControls
+    pagination={paginationResult.pagination}
+    actions={paginationResult.actions}
+    isLoading={paginationResult.isLoading}
+    showSearch={false}  // Search disabled - only pagination
+    namespace="metaverses"
+/>
+```
+
+#### Step 4: Card/List View Rendering
+
+```typescript
+{isLoading && metaverses.length === 0 ? (
+    <SkeletonGrid />
+) : !isLoading && metaverses.length === 0 ? (
+    <EmptyListState image={APIEmptySVG} title={t('metaverses.noMetaversesFound')} />
+) : (
+    <>
+        {view === 'card' ? (
+            <Box sx={{ display: 'grid', gap: gridSpacing, ... }}>
+                {metaverses.map((metaverse) => (
+                    <ItemCard
+                        key={metaverse.id}
+                        data={metaverse}
+                        onClick={() => navigate(`/metaverses/${metaverse.id}`)}
+                        headerAction={<BaseEntityMenu ... />}
+                    />
+                ))}
+            </Box>
+        ) : (
+            <FlowListTable
+                data={metaverses}
+                isLoading={isLoading}
+                customColumns={metaverseColumns}
+                renderActions={(row) => <BaseEntityMenu ... />}
+            />
+        )}
+    </>
+)}
+```
+
+### Backend API Requirements
+
+**Query Parameters**:
+- `limit` (number): Items per page
+- `offset` (number): Pagination offset
+- `sortBy` (string): Sort field (name, created, updated)
+- `sortOrder` ('asc' | 'desc'): Sort direction
+- `search` (string, optional): Search query
+
+**Response Headers**:
+- `X-Pagination-Limit`: Applied limit
+- `X-Pagination-Offset`: Applied offset
+- `X-Pagination-Count`: Items in current response
+- `X-Total-Count`: Total items count
+- `X-Pagination-Has-More`: More pages available (true/false)
+
+**Example Backend Implementation** (packages/metaverses-srv):
+
+```typescript
+// Parse parameters with validation
+const limit = parseIntSafe(req.query.limit, 100, 1, 1000)
+const offset = parseIntSafe(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER)
+const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
+
+// Safe sorting with whitelist
+const ALLOWED_SORT_FIELDS = {
+    name: 'm.name',
+    created: 'm.createdAt',
+    updated: 'm.updatedAt'
+}
+const sortBy = req.query.sortBy in ALLOWED_SORT_FIELDS 
+    ? ALLOWED_SORT_FIELDS[req.query.sortBy]
+    : 'm.updatedAt'
+const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+// Query with search filter (case-insensitive)
+const qb = repo.createQueryBuilder('m')
+if (search) {
+    qb.andWhere('(LOWER(m.name) LIKE :search OR LOWER(m.description) LIKE :search)', {
+        search: `%${search.toLowerCase()}%`
+    })
+}
+qb.orderBy(sortBy, sortOrder).limit(limit).offset(offset)
+
+const items = await qb.getMany()
+const total = await countQb.getCount() // Always calculate total
+
+// Set pagination headers
+res.setHeader('X-Pagination-Limit', limit.toString())
+res.setHeader('X-Pagination-Offset', offset.toString())
+res.setHeader('X-Total-Count', total.toString())
+res.setHeader('X-Pagination-Has-More', (offset + items.length < total).toString())
+
+res.json(items)
+```
+
+### Query Keys Factory Pattern
+
+```typescript
+// packages/metaverses-frt/base/src/api/queryKeys.ts
+export const metaversesQueryKeys = {
+    all: ['metaverses'] as const,
+    lists: () => [...metaversesQueryKeys.all, 'list'] as const,
+    list: (params?: PaginationParams) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metaversesQueryKeys.lists(), normalized] as const
+    },
+    detail: (id: string) => [...metaversesQueryKeys.all, 'detail', id] as const
+}
+```
+
+### Cache Invalidation
+
+```typescript
+import { useQueryClient } from '@tanstack/react-query'
+
+const queryClient = useQueryClient()
+
+// After create/update/delete operations
+await queryClient.invalidateQueries({
+    queryKey: metaversesQueryKeys.lists() // Invalidates all list queries
+})
+```
+
+### UX Features
+
+**Keyboard Shortcuts**:
+- `Ctrl+F` / `Cmd+F` - Focus search input (built into ViewHeader)
+
+**Responsive Layout**:
+- Search visible on desktop (325px width)
+- Hidden on mobile (< sm breakpoint)
+- Card grid responsive (1 column → auto-fill)
+
+**Loading States**:
+- Skeleton grid for initial load
+- Pagination info shows during refetch
+- Smooth transitions between states
+
+### Benefits
+
+- ✅ **Consistent UX**: Same behavior across all list views
+- ✅ **Server-side Performance**: Pagination + search on backend
+- ✅ **Debounced Search**: 300ms delay reduces API calls
+- ✅ **Automatic Caching**: TanStack Query handles cache
+- ✅ **Type Safety**: Generic `usePaginated<T>` with type inference
+- ✅ **Keyboard Shortcuts**: Built-in Ctrl+F / Cmd+F support
+
+### Migration Steps (Existing Lists → Universal Pattern)
+
+1. **Add usePaginated Hook**
+   - Replace `useState` + `useEffect` with `usePaginated`
+   - Remove manual pagination state
+
+2. **Add Local Search State**
+   - `useState('')` for search input
+   - `useEffect` for debounce synchronization
+
+3. **Update ViewHeader**
+   - Enable `search={true}`
+   - Add `onSearchChange={handleSearchChange}`
+
+4. **Update PaginationControls**
+   - Set `showSearch={false}`
+   - Keep only pagination info + controls
+
+5. **Verify Backend API**
+   - Ensure query params support
+   - Verify response headers
+   - Test search filter
+
+6. **Test End-to-End**
+   - Search debounce works
+   - Pagination navigation
+   - Sort changes
+   - CRUD operations + cache invalidation
+
+### Reference Implementations
+
+**Primary**: `packages/metaverses-frt/base/src/pages/MetaverseList.tsx`
+
+**To Migrate**:
+- `packages/uniks-frt/base/src/pages/UnikList.jsx` → Copy MetaverseList pattern
+- `packages/spaces-frt/base/src/pages/SpacesList.tsx` → Apply pattern
+- Other entity lists as needed
+
+**Documentation**:
+- TanStack Query v5: https://tanstack.com/query/latest
+- usePaginated Hook: `packages/universo-template-mui/base/src/hooks/usePaginated.ts`
+- PaginationControls: `packages/universo-template-mui/base/src/components/pagination/PaginationControls.tsx`
+
+---
+
 ## Development Principles
 
 ### Architecture Patterns

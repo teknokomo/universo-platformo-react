@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { Dialog, DialogContent, DialogTitle } from '@mui/material'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { createPortal } from 'react-dom'
 
 // Minimal AboutDialog stub to keep template-mui package self-contained during migration.

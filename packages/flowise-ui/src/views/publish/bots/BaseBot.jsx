@@ -1,7 +1,7 @@
 // Universo Platformo | Base Bot component for all bot types
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import PropTypes from 'prop-types'
 
 // API

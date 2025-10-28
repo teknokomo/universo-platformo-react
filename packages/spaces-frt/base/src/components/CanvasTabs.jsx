@@ -1,6 +1,6 @@
 // English-only comments in source files under memory-bank/ or code. This is code.
 import React, { useState, useRef, useEffect, memo, useCallback } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import {
     Box,
     Tab,

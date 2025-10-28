@@ -63,9 +63,10 @@ export const FlowListTable = ({
     isUnikTable,
     renderActions,
     getRowLink,
-    customColumns
+    customColumns,
+    i18nNamespace = 'flowList'
 }) => {
-    const { t } = useTranslation('flowList', { i18n })
+    const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
 
@@ -133,12 +134,12 @@ export const FlowListTable = ({
                         <TableRow>
                             <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
                                 <TableSortLabel active={orderBy === 'name'} direction={order} onClick={() => handleRequestSort('name')}>
-                                    {t('table.columns.name')}
+                                    {t('flowList.table.columns.name')}
                                 </TableSortLabel>
                             </StyledTableCell>
                             {isUnikTable ? (
                                 <StyledTableCell style={{ width: '55%' }} key='1'>
-                                    {t('table.columns.spaces')}
+                                    {t('flowList.table.columns.spaces')}
                                 </StyledTableCell>
                             ) : columnsToRender ? (
                                 columnsToRender.map((column) => (
@@ -153,10 +154,10 @@ export const FlowListTable = ({
                             ) : (
                                 <>
                                     <StyledTableCell style={{ width: '25%' }} key='1'>
-                                        {t('table.columns.category')}
+                                        {t('flowList.table.columns.category')}
                                     </StyledTableCell>
                                     <StyledTableCell style={{ width: '30%' }} key='2'>
-                                        {t('table.columns.nodes')}
+                                        {t('flowList.table.columns.nodes')}
                                     </StyledTableCell>
                                 </>
                             )}
@@ -166,11 +167,11 @@ export const FlowListTable = ({
                                     direction={order}
                                     onClick={() => handleRequestSort('updatedDate')}
                                 >
-                                    {t('table.columns.lastModified')}
+                                    {t('flowList.table.columns.lastModified')}
                                 </TableSortLabel>
                             </StyledTableCell>
                             <StyledTableCell style={{ width: '10%' }} key='4'>
-                                {t('table.columns.actions')}
+                                {t('flowList.table.columns.actions')}
                             </StyledTableCell>
                         </TableRow>
                     </TableHead>
@@ -379,5 +380,6 @@ FlowListTable.propTypes = {
             align: PropTypes.oneOf(['inherit', 'left', 'center', 'right', 'justify']),
             render: PropTypes.func
         })
-    )
+    ),
+    i18nNamespace: PropTypes.string
 }

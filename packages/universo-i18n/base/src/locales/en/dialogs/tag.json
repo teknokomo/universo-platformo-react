@@ -1,0 +1,9 @@
+{
+  "tag": {
+    "title": "Set Canvas Category Tags",
+    "addTag": "Add a tag",
+    "tagHelp": "Enter a tag and press enter to add it to the list. You can add as many tags as you want.",
+    "cancel": "Cancel",
+    "submit": "Submit"
+  }
+}

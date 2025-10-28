@@ -1,0 +1,20 @@
+{
+  "nvidiaNIM": {
+    "title": "NIM Setup",
+    "steps": {
+      "download": "Download Installer",
+      "pullImage": "Pull Image",
+      "startContainer": "Start Container"
+    },
+    "downloadPrompt": "Would you like to download the NIM installer? Click Next if it has been installed",
+    "model": "Model",
+    "viewLicense": "View License",
+    "pullingImage": "Pulling image...",
+    "startingContainer": "Starting container...",
+    "imageReady": "Image is ready! Click Next to start the container.",
+    "cancel": "Cancel",
+    "next": "Next",
+    "start": "Start",
+    "download": "Download"
+  }
+}

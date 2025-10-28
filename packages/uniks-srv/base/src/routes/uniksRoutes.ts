@@ -1,10 +1,19 @@
 import { Router, Request, Response, RequestHandler, NextFunction } from 'express'
 import { DataSource } from 'typeorm'
 import { z } from 'zod'
+import type { RequestWithDbContext } from '@universo/auth-srv'
 import { Unik } from '../database/entities/Unik'
 import { UnikUser } from '../database/entities/UnikUser'
 import { removeFolderFromStorage } from 'flowise-components'
 import { purgeSpacesForUnik, cleanupCanvasStorage, createSpacesRoutes, type CreateSpacesRoutesOptions } from '@universo/spaces-srv'
+
+/**
+ * Get the appropriate manager for the request (RLS-enabled if available)
+ */
+const getRequestManager = (req: Request, dataSource: DataSource) => {
+    const rlsContext = (req as RequestWithDbContext).dbContext
+    return rlsContext?.manager ?? dataSource.manager
+}
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -18,11 +27,12 @@ const asyncHandler =
         Promise.resolve(fn(req, res)).catch(next)
     }
 
-const getRepositories = (getDataSource: () => DataSource) => {
+const getRepositories = (req: Request, getDataSource: () => DataSource) => {
     const dataSource = getDataSource()
+    const manager = getRequestManager(req, dataSource)
     return {
-        unikRepo: dataSource.getRepository(Unik),
-        membershipRepo: dataSource.getRepository(UnikUser),
+        unikRepo: manager.getRepository(Unik),
+        membershipRepo: manager.getRepository(UnikUser),
         dataSource
     }
 }
@@ -56,7 +66,7 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 return
             }
 
-            const { membershipRepo } = getRepositories(getDataSource)
+            const { membershipRepo } = getRepositories(req, getDataSource)
 
             // Use QueryBuilder to aggregate spaces count per unik in a single query
             const qb = membershipRepo
@@ -80,7 +90,14 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 spacesCount: string
             }>()
 
-            const response = raw.map((row) => ({
+            const response = raw.map((row: {
+                role: string
+                id: string
+                name: string
+                created_at: Date
+                updated_at: Date
+                spacesCount: string
+            }) => ({
                 id: row.id,
                 name: row.name,
                 role: row.role,
@@ -111,7 +128,7 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 return
             }
 
-            const { unikRepo, membershipRepo } = getRepositories(getDataSource)
+            const { unikRepo, membershipRepo } = getRepositories(req, getDataSource)
             const unik = unikRepo.create({ name: parsed.data.name })
             const savedUnik = await unikRepo.save(unik)
 
@@ -137,7 +154,7 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 return
             }
 
-            const { membershipRepo } = getRepositories(getDataSource)
+            const { membershipRepo } = getRepositories(req, getDataSource)
             const ownerMembership = await membershipRepo.findOne({
                 where: { unik_id: parsed.data.unik_id, user_id: ownerId }
             })
@@ -182,7 +199,7 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
     router.get(
         '/:id',
         asyncHandler(async (req: Request, res: Response) => {
-            const { unikRepo } = getRepositories(getDataSource)
+            const { unikRepo } = getRepositories(req, getDataSource)
             const unik = await unikRepo.findOne({ where: { id: req.params.id } })
             if (!unik) {
                 res.status(404).json({ error: 'Unik not found' })
@@ -207,7 +224,7 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 return
             }
 
-            const { unikRepo, membershipRepo } = getRepositories(getDataSource)
+            const { unikRepo, membershipRepo } = getRepositories(req, getDataSource)
             const membership = await membershipRepo.findOne({
                 where: { unik_id: req.params.id, user_id: userId }
             })
@@ -244,7 +261,7 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 return
             }
 
-            const { membershipRepo, dataSource } = getRepositories(getDataSource)
+            const { membershipRepo, dataSource } = getRepositories(req, getDataSource)
             const membership = await membershipRepo.findOne({
                 where: { unik_id: req.params.id, user_id: userId }
             })
@@ -309,6 +326,7 @@ export function createUniksRouter(
 ): Router {
     const router = Router()
 
+    // Apply auth middleware - will use ensureAuthWithRls if passed from flowise-server
     router.use(ensureAuth)
 
     if (!options?.spacesRoutes) {

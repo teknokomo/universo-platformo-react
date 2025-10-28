@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // material-ui
 import { Button, Dialog, DialogContent, DialogTitle, DialogActions, Box, OutlinedInput } from '@mui/material'

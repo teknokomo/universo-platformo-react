@@ -17,6 +17,8 @@
         "actions": "Actions"
       },
       "more_one": "+ {{count}} More",
+      "more_few": "+ {{count}} More",
+      "more_many": "+ {{count}} More",
       "more_other": "+ {{count}} More"
     },
     "menu": {

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@mui/material'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import { JsonEditorInput } from '../json/JsonEditor'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@flowise/store'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 const FormatPromptValuesDialog = ({ show, dialogProps, onChange, onCancel }) => {
     const portalElement = document.getElementById('portal')

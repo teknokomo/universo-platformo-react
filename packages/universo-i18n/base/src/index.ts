@@ -1,14 +1,12 @@
-// Side-effect import: initializes i18n instance on module load
 import { getInstance } from './instance'
 
-// Initialize the global instance immediately
-getInstance()
-
-// Export the instance and utilities
+// Export utilities
 export { getInstance } from './instance'
 export { registerNamespace } from './registry'
-export { useTranslation } from './hooks'
 export type { I18nInstance, NamespaceTranslations } from './types'
 
-// Default export for backwards compatibility
+// Re-export react-i18next hook directly (no wrapper needed)
+export { useTranslation } from 'react-i18next'
+
+// Default export: initialized singleton instance
 export default getInstance()

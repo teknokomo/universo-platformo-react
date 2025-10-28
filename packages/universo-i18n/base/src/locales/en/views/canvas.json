@@ -69,20 +69,6 @@
             "addNew": "Add New Credential",
             "chooseAnOption": "choose an option"
         },
-        "common": {
-            "back": "Back",
-            "delete": "Delete",
-            "edit": "Edit",
-            "save": "Save",
-            "cancel": "Cancel",
-            "close": "Close",
-            "yes": "Yes",
-            "no": "No",
-            "add": "Add",
-            "info": "Info",
-            "expand": "Expand",
-            "refresh": "Refresh"
-        },
         "contextMenu": {
             "viewMessages": "View Messages",
             "viewLeads": "View Leads",

@@ -2,7 +2,7 @@ import logo from '../../assets/images/flowise_logo.png'
 import logoDark from '../../assets/images/flowise_logo_dark.png'
 
 import { useSelector } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // ==============================|| LOGO ||============================== //
 

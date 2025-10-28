@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import PropTypes from 'prop-types'
 import { useSelector } from 'react-redux'
 import { formatDate } from '../utils/formatDate'

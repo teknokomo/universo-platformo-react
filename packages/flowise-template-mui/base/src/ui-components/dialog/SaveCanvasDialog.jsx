@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, OutlinedInput } from '@mui/material'
 import { StyledButton } from '../button/StyledButton'
 

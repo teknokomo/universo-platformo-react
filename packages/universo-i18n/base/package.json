@@ -20,10 +20,6 @@
       "types": "./src/registry.ts",
       "default": "./src/registry.ts"
     },
-    "./hooks": {
-      "types": "./src/hooks.ts",
-      "default": "./src/hooks.ts"
-    },
     "./types": {
       "types": "./src/types.ts",
       "default": "./src/types.ts"

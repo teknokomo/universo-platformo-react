@@ -1,0 +1,15 @@
+{
+  "exportTemplate": {
+    "title": "Export As Template",
+    "name": "Name",
+    "description": "Description",
+    "badge": "Badge",
+    "usecases": "Usecases",
+    "usecaseHelp": "Type a usecase and press enter to add it to the list. You can add as many items as you want.",
+    "nameRequired": "Template Name is mandatory!",
+    "saveSuccess": "Saved as template successfully!",
+    "saveError": "Failed to save as template!",
+    "cancel": "Cancel",
+    "save": "Save Template"
+  }
+}

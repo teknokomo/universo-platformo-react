@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@flowise/store'
 import { SketchPicker } from 'react-color'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { useParams } from 'react-router-dom'
 
 import { Card, Box, Typography, Button, Switch, OutlinedInput, Popover, Stack, IconButton, Tabs, Tab } from '@mui/material'

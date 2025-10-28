@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction, SET_CANVAS } from '@flowise/store'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { useParams } from 'react-router-dom'
 
 import { Box, Typography, Button, FormControl, FormControlLabel, Radio, RadioGroup, Paper, Stack, CircularProgress } from '@mui/material'

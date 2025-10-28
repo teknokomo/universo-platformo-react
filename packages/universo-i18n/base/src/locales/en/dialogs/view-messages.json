@@ -1,0 +1,18 @@
+{
+  "viewMessages": {
+    "export": "Export",
+    "delete": "Delete",
+    "clearChat": "Clear Chat",
+    "deleteAllConfirm": "Are you sure you want to delete all messages?",
+    "softDelete": "Soft Delete",
+    "hardDelete": "Hard Delete",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "noMessages": "No Messages",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "chatType": "Chat Type",
+    "feedback": "Feedback",
+    "search": "Search"
+  }
+}

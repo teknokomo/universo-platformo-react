@@ -1,0 +1,18 @@
+{
+  "viewMessages": {
+    "export": "Экспорт",
+    "delete": "Удалить",
+    "clearChat": "Очистить чат",
+    "deleteAllConfirm": "Вы уверены, что хотите удалить все сообщения?",
+    "softDelete": "Мягкое удаление",
+    "hardDelete": "Жесткое удаление",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "noMessages": "Нет сообщений",
+    "startDate": "Начальная дата",
+    "endDate": "Конечная дата",
+    "chatType": "Тип чата",
+    "feedback": "Отзывы",
+    "search": "Поиск"
+  }
+}

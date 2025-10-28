@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
+import type { RequestWithDbContext } from '@universo/auth-srv'
 import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { Entity } from '../database/entities/Entity'
@@ -9,6 +10,14 @@ import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { AuthUser } from '../database/entities/AuthUser'
 import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole } from './guards'
 import { z } from 'zod'
+
+/**
+ * Get the appropriate manager for the request (RLS-enabled if available)
+ */
+const getRequestManager = (req: Request, dataSource: DataSource) => {
+    const rlsContext = (req as RequestWithDbContext).dbContext
+    return rlsContext?.manager ?? dataSource.manager
+}
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -34,16 +43,17 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             fn(req, res).catch(next)
         }
 
-    const repos = () => {
+    const repos = (req: Request) => {
         const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
         return {
-            metaverseRepo: ds.getRepository(Metaverse),
-            metaverseUserRepo: ds.getRepository(MetaverseUser),
-            entityRepo: ds.getRepository(Entity),
-            linkRepo: ds.getRepository(EntityMetaverse),
-            sectionRepo: ds.getRepository(Section),
-            sectionLinkRepo: ds.getRepository(SectionMetaverse),
-            authUserRepo: ds.getRepository(AuthUser)
+            metaverseRepo: manager.getRepository(Metaverse),
+            metaverseUserRepo: manager.getRepository(MetaverseUser),
+            entityRepo: manager.getRepository(Entity),
+            linkRepo: manager.getRepository(EntityMetaverse),
+            sectionRepo: manager.getRepository(Section),
+            sectionLinkRepo: manager.getRepository(SectionMetaverse),
+            authUserRepo: manager.getRepository(AuthUser)
         }
     }
 
@@ -56,8 +66,8 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
         createdAt: member.created_at
     })
 
-    const loadMembers = async (metaverseId: string) => {
-        const { metaverseUserRepo, authUserRepo } = repos()
+    const loadMembers = async (req: Request, metaverseId: string) => {
+        const { metaverseUserRepo, authUserRepo } = repos(req)
         const members = await metaverseUserRepo.find({
             where: { metaverse_id: metaverseId },
             order: { created_at: 'ASC' }
@@ -116,7 +126,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                 const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
 
                 // Aggregate counts per metaverse in a single query filtered by current user membership
-                const { metaverseRepo } = repos()
+                const { metaverseRepo } = repos(req)
                 const qb = metaverseRepo
                     .createQueryBuilder('m')
                     // Join using entity classes to respect schema mapping and avoid alias parsing issues
@@ -226,7 +236,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
-            const { metaverseRepo, metaverseUserRepo } = repos()
+            const { metaverseRepo, metaverseUserRepo } = repos(req)
 
             try {
                 // Create metaverse
@@ -263,7 +273,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            const { metaverseRepo, sectionLinkRepo, linkRepo } = repos()
+            const { metaverseRepo, sectionLinkRepo, linkRepo } = repos(req)
             const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
 
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
@@ -279,7 +289,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             const role = (membership.role || 'member') as MetaverseRole
             const permissions = ROLE_PERMISSIONS[role]
 
-            const membersPayload = permissions.manageMembers ? await loadMembers(metaverseId) : undefined
+            const membersPayload = permissions.manageMembers ? await loadMembers(req, metaverseId) : undefined
 
             const response: MetaverseDetailsResponse = {
                 id: metaverse.id,
@@ -311,7 +321,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             }
 
             const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
-            const members = await loadMembers(metaverseId)
+            const members = await loadMembers(req, metaverseId)
             const role = (membership.role || 'member') as MetaverseRole
 
             res.json({
@@ -344,7 +354,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             }
 
             const { email, role, comment } = parsed.data
-            const { authUserRepo, metaverseUserRepo } = repos()
+            const { authUserRepo, metaverseUserRepo } = repos(req)
 
             const targetUser = await authUserRepo
                 .createQueryBuilder('user')
@@ -400,7 +410,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             }
 
             const { role, comment } = parsed.data
-            const { metaverseUserRepo, authUserRepo } = repos()
+            const { metaverseUserRepo, authUserRepo } = repos(req)
 
             const membership = await metaverseUserRepo.findOne({
                 where: { id: memberId, metaverse_id: metaverseId }
@@ -436,7 +446,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
 
-            const { metaverseUserRepo } = repos()
+            const { metaverseUserRepo } = repos(req)
             const membership = await metaverseUserRepo.findOne({
                 where: { id: memberId, metaverse_id: metaverseId }
             })
@@ -468,7 +478,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            const { metaverseRepo } = repos()
+            const { metaverseRepo } = repos(req)
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMetaverse')
 
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
@@ -493,7 +503,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            const { metaverseRepo } = repos()
+            const { metaverseRepo } = repos(req)
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMetaverse')
 
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
@@ -518,7 +528,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
 
-            const { linkRepo } = repos()
+            const { linkRepo } = repos(req)
             try {
                 const links = await linkRepo.find({ where: { metaverse: { id: metaverseId } }, relations: ['entity', 'metaverse'] })
                 const entities = links.map((l) => ({ ...l.entity, sortOrder: l.sortOrder }))
@@ -542,7 +552,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
-            const { linkRepo, metaverseRepo, entityRepo } = repos()
+            const { linkRepo, metaverseRepo, entityRepo } = repos(req)
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
             const entity = await entityRepo.findOne({ where: { id: entityId } })
             if (!metaverse || !entity) return res.status(404).json({ error: 'Not found' })
@@ -563,7 +573,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'deleteContent')
-            const { linkRepo } = repos()
+            const { linkRepo } = repos(req)
             const existing = await linkRepo.findOne({ where: { metaverse: { id: metaverseId }, entity: { id: entityId } } })
             if (!existing) return res.status(404).json({ error: 'Link not found' })
             await linkRepo.remove(existing)
@@ -581,7 +591,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'editContent')
-            const { linkRepo } = repos()
+            const { linkRepo } = repos(req)
             for (const it of items) {
                 if (!it?.entityId) continue
                 const link = await linkRepo.findOne({ where: { metaverse: { id: metaverseId }, entity: { id: it.entityId } } })
@@ -608,7 +618,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
 
-            const { sectionLinkRepo } = repos()
+            const { sectionLinkRepo } = repos(req)
             try {
                 const links = await sectionLinkRepo.find({ where: { metaverse: { id: metaverseId } }, relations: ['section', 'metaverse'] })
                 const sections = links.map((l) => l.section)
@@ -634,7 +644,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
             // Ensure the user can access both the metaverse and the section
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
             await ensureSectionAccess(getDataSource(), userId, sectionId)
-            const { metaverseRepo, sectionRepo, sectionLinkRepo } = repos()
+            const { metaverseRepo, sectionRepo, sectionLinkRepo } = repos(req)
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
             if (!metaverse || !section) return res.status(404).json({ error: 'Not found' })

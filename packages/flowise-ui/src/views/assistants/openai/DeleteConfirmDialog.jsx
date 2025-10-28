@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { Button, Dialog, DialogContent, DialogTitle } from '@mui/material'
 import { StyledButton } from '@flowise/template-mui'
 

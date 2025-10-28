@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { useContext, useMemo, useState } from 'react'
 import { version as reactVersion } from 'react'
 import { useSelector } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { useTheme } from '@mui/material/styles'
 import NodeCardWrapper from '@flowise/template-mui/ui-components/cards/NodeCardWrapper'

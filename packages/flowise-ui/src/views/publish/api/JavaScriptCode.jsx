@@ -1,6 +1,6 @@
 // Universo Platformo | JavaScript API code component for AR and Chat
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
 
 // Const

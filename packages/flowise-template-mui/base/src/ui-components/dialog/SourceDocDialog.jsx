@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { Box, Dialog, DialogContent, DialogTitle, Typography } from '@mui/material'
 import ReactJson from 'flowise-react-json-view'
 

@@ -26,8 +26,20 @@
       "addUnik": "Add",
       "noUniksFound": "No Uniks Found",
       "addNewUnik": "Add New Unik",
-      "cardView": "Card View", 
+      "cardView": "Card View",
       "listView": "List View"
+    },
+    "flowList": {
+      "table": {
+        "columns": {
+          "name": "Name",
+          "spaces": "Spaces",
+          "category": "Category",
+          "nodes": "Nodes",
+          "lastModified": "Last Modified",
+          "actions": "Actions"
+        }
+      }
     }
   }
-} 
+}

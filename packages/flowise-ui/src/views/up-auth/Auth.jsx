@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, AuthView } from '@universo/auth-frt'
 import { MainCard } from '@flowise/template-mui'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 const mapSupabaseError = (errorMessage) => {
     if (!errorMessage) return 'auth.unknownError'
