@@ -13,10 +13,7 @@ import useConfirm from '@flowise/template-mui/hooks/useConfirm'
 
 // project imports - from flowise-ui
 import { unikActions } from './unik/unikActions'
-import {
-    enqueueSnackbar as enqueueSnackbarAction,
-    closeSnackbar as closeSnackbarAction
-} from '@flowise/store'
+import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
 import { useDispatch } from 'react-redux'
 import ViewHeader from '@flowise/template-mui/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@flowise/template-mui/ErrorBoundary'
@@ -250,6 +247,7 @@ const UnikList = () => {
                             filterFunction={filterUniks}
                             updateFlowsApi={getAllUniks}
                             setError={setError}
+                            i18nNamespace='uniks'
                             // Custom render override for actions cell for unik rows.
                             renderActions={(row) => (
                                 <BaseEntityMenu

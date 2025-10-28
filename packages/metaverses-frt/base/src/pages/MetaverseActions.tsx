@@ -25,10 +25,10 @@ const notifyError = (ctx: MetaverseActionContext, error: unknown) => {
         error && typeof error === 'object' && 'response' in error && typeof (error as any)?.response?.data?.message === 'string'
             ? (error as any).response.data.message
             : error instanceof Error
-              ? error.message
-              : typeof error === 'string'
-                ? error
-                : fallback
+            ? error.message
+            : typeof error === 'string'
+            ? error
+            : fallback
     const message = candidateMessage && candidateMessage.length > 0 ? candidateMessage : fallback
 
     if (enqueue.length >= 2) {

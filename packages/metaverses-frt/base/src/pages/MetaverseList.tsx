@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, Chip, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -48,6 +48,9 @@ const MetaverseList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('entitiesMetaverseDisplayStyle') || 'card')
 
+    // Local search state for debounce synchronization with usePaginated
+    const [localSearch, setLocalSearch] = useState('')
+
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
@@ -63,6 +66,15 @@ const MetaverseList = () => {
 
     const { data: metaverses, isLoading, error } = paginationResult
 
+    // Debounce effect for search synchronization with usePaginated
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            paginationResult.actions.setSearch(localSearch)
+        }, 300) // 300ms debounce
+
+        return () => clearTimeout(timer)
+    }, [localSearch, paginationResult.actions])
+
     // State for independent ConfirmDeleteDialog (not managed by BaseEntityMenu)
     const [deleteDialogState, setDeleteDialogState] = useState<{
         open: boolean
@@ -71,9 +83,7 @@ const MetaverseList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMetaverseApi = useApi<Metaverse, [string, { name: string; description?: string }]>(
-        metaversesApi.updateMetaverse
-    )
+    const updateMetaverseApi = useApi<Metaverse, [string, { name: string; description?: string }]>(metaversesApi.updateMetaverse)
     const deleteMetaverseApi = useApi<void, [string]>(metaversesApi.deleteMetaverse)
 
     // Memoize images object to prevent unnecessary re-creation on every render
@@ -117,16 +127,15 @@ const MetaverseList = () => {
 
             handleDialogSave()
         } catch (e: unknown) {
-            const responseMessage =
-                e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
             const message =
                 typeof responseMessage === 'string'
                     ? responseMessage
                     : e instanceof Error
-                      ? e.message
-                      : typeof e === 'string'
-                        ? e
-                        : t('common.error', 'Operation failed')
+                    ? e.message
+                    : typeof e === 'string'
+                    ? e
+                    : t('common.error', 'Operation failed')
             setDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to create metaverse', e)
@@ -144,6 +153,11 @@ const MetaverseList = () => {
         localStorage.setItem('entitiesMetaverseDisplayStyle', nextView)
         setView(nextView)
     }
+
+    // Handler for ViewHeader search input
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setLocalSearch(e.target.value)
+    }, [])
 
     const getErrorText = useCallback(
         (err: unknown) => {
@@ -279,7 +293,9 @@ const MetaverseList = () => {
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
-                        search={false}
+                        search={true}
+                        searchPlaceholder={t('metaverses.searchPlaceholder')}
+                        onSearchChange={handleSearchChange}
                         title={t('metaverses.title')}
                     >
                         <ToolbarControls
@@ -296,16 +312,18 @@ const MetaverseList = () => {
                         />
                     </ViewHeader>
 
-                    {/* Pagination Component with Search */}
-                    <Box sx={{ px: { xs: 1.5, md: 2 } }}>
-                        <PaginationControls
-                            pagination={paginationResult.pagination}
-                            actions={paginationResult.actions}
-                            isLoading={paginationResult.isLoading}
-                            searchPlaceholder={t('metaverses.searchPlaceholder')}
-                            namespace="metaverses"
-                        />
-                    </Box>
+                    {/* Pagination Component without Search (search is in ViewHeader) */}
+                    {paginationResult.pagination.totalItems > 0 && (
+                        <Box sx={{ px: { xs: 1.5, md: 2 } }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                showSearch={false}
+                                namespace='metaverses'
+                            />
+                        </Box>
+                    )}
 
                     {isLoading && metaverses.length === 0 ? (
                         view === 'card' ? (
@@ -333,57 +351,57 @@ const MetaverseList = () => {
                                     }}
                                 >
                                     {metaverses.map((metaverse: Metaverse) => {
-                                            // Filter actions based on permissions (same logic as table view)
-                                            const descriptors = metaverseActions.filter((descriptor) => {
-                                                if (descriptor.id === 'edit' || descriptor.id === 'delete') {
-                                                    return metaverse.permissions?.manageMetaverse
-                                                }
-                                                return true
-                                            })
+                                        // Filter actions based on permissions (same logic as table view)
+                                        const descriptors = metaverseActions.filter((descriptor) => {
+                                            if (descriptor.id === 'edit' || descriptor.id === 'delete') {
+                                                return metaverse.permissions?.manageMetaverse
+                                            }
+                                            return true
+                                        })
 
-                                            return (
-                                                <ItemCard
-                                                    key={metaverse.id}
-                                                    data={metaverse}
-                                                    images={images[metaverse.id] || []}
-                                                    onClick={() => goToMetaverse(metaverse)}
-                                                    footerEndContent={
-                                                        metaverse.role ? (
-                                                            <Chip
-                                                                size='small'
-                                                                variant='outlined'
-                                                                color='primary'
-                                                                label={roleLabel(metaverse.role)}
-                                                                sx={{ pointerEvents: 'none' }}
+                                        return (
+                                            <ItemCard
+                                                key={metaverse.id}
+                                                data={metaverse}
+                                                images={images[metaverse.id] || []}
+                                                onClick={() => goToMetaverse(metaverse)}
+                                                footerEndContent={
+                                                    metaverse.role ? (
+                                                        <Chip
+                                                            size='small'
+                                                            variant='outlined'
+                                                            color='primary'
+                                                            label={roleLabel(metaverse.role)}
+                                                            sx={{ pointerEvents: 'none' }}
+                                                        />
+                                                    ) : undefined
+                                                }
+                                                headerAction={
+                                                    descriptors.length > 0 ? (
+                                                        <Box onClick={(e) => e.stopPropagation()}>
+                                                            <BaseEntityMenu<Metaverse, MetaverseData>
+                                                                entity={metaverse}
+                                                                entityKind='metaverse'
+                                                                descriptors={descriptors}
+                                                                namespace='metaverses'
+                                                                i18nInstance={i18n}
+                                                                createContext={createMetaverseContext}
+                                                                renderTrigger={(props: TriggerProps) => (
+                                                                    <IconButton
+                                                                        size='small'
+                                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
+                                                                        {...props}
+                                                                    >
+                                                                        <MoreVertRoundedIcon fontSize='small' />
+                                                                    </IconButton>
+                                                                )}
                                                             />
-                                                        ) : undefined
-                                                    }
-                                                    headerAction={
-                                                        descriptors.length > 0 ? (
-                                                            <Box onClick={(e) => e.stopPropagation()}>
-                                                                <BaseEntityMenu<Metaverse, MetaverseData>
-                                                                    entity={metaverse}
-                                                                    entityKind='metaverse'
-                                                                    descriptors={descriptors}
-                                                                    namespace='metaverses'
-                                                                    i18nInstance={i18n}
-                                                                    createContext={createMetaverseContext}
-                                                                    renderTrigger={(props: TriggerProps) => (
-                                                                        <IconButton
-                                                                            size='small'
-                                                                            sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                                            {...props}
-                                                                        >
-                                                                            <MoreVertRoundedIcon fontSize='small' />
-                                                                        </IconButton>
-                                                                    )}
-                                                                />
-                                                            </Box>
-                                                        ) : null
-                                                    }
-                                                />
-                                            )
-                                        })}
+                                                        </Box>
+                                                    ) : null
+                                                }
+                                            />
+                                        )
+                                    })}
                                 </Box>
                             ) : (
                                 <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
@@ -393,6 +411,7 @@ const MetaverseList = () => {
                                         isLoading={isLoading}
                                         getRowLink={(row: Metaverse) => (row?.id ? `/metaverses/${row.id}` : undefined)}
                                         customColumns={metaverseColumns}
+                                        i18nNamespace='metaverses'
                                         renderActions={(row: Metaverse) => {
                                             const descriptors = metaverseActions.filter((descriptor) => {
                                                 if (descriptor.id === 'edit' || descriptor.id === 'delete') {
@@ -459,17 +478,15 @@ const MetaverseList = () => {
                             enqueueSnackbar(t('metaverses.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
-                                err && typeof err === 'object' && 'response' in err
-                                    ? (err as any)?.response?.data?.message
-                                    : undefined
+                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
                             const message =
                                 typeof responseMessage === 'string'
                                     ? responseMessage
                                     : err instanceof Error
-                                      ? err.message
-                                      : typeof err === 'string'
-                                        ? err
-                                        : t('metaverses.deleteError')
+                                    ? err.message
+                                    : typeof err === 'string'
+                                    ? err
+                                    : t('metaverses.deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
                             setDeleteDialogState({ open: false, metaverse: null })
                         }
