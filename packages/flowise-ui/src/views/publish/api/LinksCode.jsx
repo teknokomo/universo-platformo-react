@@ -1,7 +1,7 @@
 // Universo Platformo | API Links component
 import * as React from 'react'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { Box, Link, Typography, Paper } from '@mui/material'
 import LaunchIcon from '@mui/icons-material/Launch'
 

@@ -23,13 +23,49 @@ import '@universo/i18n'
 ### In React components
 
 ```typescript
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 export const MyComponent = () => {
   const { t } = useTranslation('myNamespace')
   return <div>{t('myKey')}</div>
 }
 ```
+
+### Using Common Translations
+
+The `common` namespace provides universal UI translations that are shared across all packages:
+
+```typescript
+import { useTranslation } from '@universo/i18n'
+
+export const MyComponent = () => {
+  const { t } = useTranslation('myNamespace')
+  
+  return (
+    <div>
+      {/* Access common translations directly */}
+      <button>{t('common.save')}</button>
+      <button>{t('common.cancel')}</button>
+      
+      {/* Use pagination translations with interpolation */}
+      <p>{t('common.pagination.showing', { start: 1, end: 10, total: 100 })}</p>
+      
+      {/* Table column headers */}
+      <th>{t('common.table.actions')}</th>
+      <th>{t('common.table.name')}</th>
+    </div>
+  )
+}
+```
+
+**Available Common Sections:**
+- `common.actions.*` - UI actions (save, cancel, delete, edit, create, add, back, close, invite, refresh, remove)
+- `common.pagination.*` - Pagination (showing, noResults, page, rowsPerPage)
+- `common.table.*` - Table columns (actions, name, description, id, role, sections, entities, added, email)
+- `common.dialog.*` - Dialog labels (title, description, required)
+- `common.list.*` - List states (searchPlaceholder)
+- `common.crud.*` - CRUD operations (nameRequired)
+- `common.saving`, `common.deleting` - Action states
 
 ### Registering namespace from FRT package
 
@@ -70,7 +106,6 @@ i18n.t('translation:key')
 @universo/i18n (core package)
   ├─ instance.ts (singleton + base translations)
   ├─ registry.ts (registerNamespace API)
-  ├─ hooks.ts (useTranslation wrapper)
   └─ locales/ (base translations from flowise-ui)
 
 FRT packages (publish-frt, analytics-frt, etc.)

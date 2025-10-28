@@ -1,0 +1,19 @@
+{
+  "promptLangsmithHub": {
+    "title": "Хаб Langchain",
+    "promptTemplate": "Шаблон подсказок",
+    "chatPromptTemplate": "Шаблон чат-подсказок",
+    "model": "Модель",
+    "usecase": "Сценарий",
+    "language": "Язык",
+    "search": "Поиск",
+    "loadingPrompts": "Пожалуйста, подождите... загрузка подсказок",
+    "noPrompts": "Нет доступных подсказок",
+    "availablePrompts": "Доступные подсказки",
+    "prompt": "Подсказка",
+    "description": "Описание",
+    "readme": "Инструкция",
+    "cancel": "Отмена",
+    "load": "Загрузить"
+  }
+}

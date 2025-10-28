@@ -1,0 +1,8 @@
+{
+  "chatFeedback": {
+    "title": "Отзыв о сообщении",
+    "provideFeedback": "Оставить отзыв",
+    "feedbackPlaceholder": "Введите ваш отзыв здесь...",
+    "submitFeedback": "Отправить отзыв"
+  }
+}

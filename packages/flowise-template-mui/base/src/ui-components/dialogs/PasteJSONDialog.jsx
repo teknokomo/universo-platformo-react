@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
 import { StyledButton } from '../button/StyledButton'
 import { CodeEditor } from '../editor/CodeEditor'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 const PasteJSONDialog = ({ show, onCancel, onConfirm, customization }) => {
     const portalElement = document.getElementById('portal')

@@ -1,0 +1,14 @@
+{
+  "promptGenerator": {
+    "summarize": "Summarize a document",
+    "translate": "Translate the language",
+    "email": "Write me an email",
+    "convertCode": "Convert the code to another language",
+    "research": "Research and generate a report",
+    "planTrip": "Plan a trip",
+    "taskPlaceholder": "Describe your task here",
+    "generate": "Generate",
+    "back": "Back",
+    "apply": "Apply"
+  }
+}

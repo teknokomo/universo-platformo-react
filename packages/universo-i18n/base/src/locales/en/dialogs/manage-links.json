@@ -1,0 +1,12 @@
+{
+  "manageLinks": {
+    "title": "Manage Scraped Links",
+    "fetchLinks": "Fetch Links",
+    "scrapedLinks": "Scraped Links",
+    "clearAll": "Clear All",
+    "emptyState": "Links scraped from the URL will appear here",
+    "fetchSuccess": "Successfully fetched links",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
+}

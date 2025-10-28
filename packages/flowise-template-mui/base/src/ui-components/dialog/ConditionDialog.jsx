@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useState, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // MUI
 import { Button, Dialog, DialogActions, DialogContent } from '@mui/material'

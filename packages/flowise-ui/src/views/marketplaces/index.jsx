@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // material-ui
 import {

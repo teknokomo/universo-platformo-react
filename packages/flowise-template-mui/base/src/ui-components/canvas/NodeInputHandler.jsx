@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { useContext, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Handle, Position, useUpdateNodeInternals } from 'reactflow'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // material-ui
 import { Tabs } from '@mui/base/Tabs'

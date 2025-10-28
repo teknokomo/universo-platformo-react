@@ -6,26 +6,26 @@ import ruMainTranslation from '@universo/uniks-frt/src/i18n/locales/ru/main.json
 
 // Register uniks namespace with .uniks subtree (includes menu.uniks inside)
 registerNamespace('uniks', {
-  en: enMainTranslation.uniks,
-  ru: ruMainTranslation.uniks
+    en: enMainTranslation.uniks,
+    ru: ruMainTranslation.uniks
 })
 
 type LanguageCode = 'en' | 'ru'
 
 interface UniksTranslation {
-  uniks: Record<string, unknown>
+    uniks: Record<string, unknown>
 }
 
 interface TranslationsMap {
-  [key: string]: UniksTranslation
+    [key: string]: UniksTranslation
 }
 
 // Export translations for backwards compatibility
 export const uniksTranslations: TranslationsMap = {
-  en: enMainTranslation,
-  ru: ruMainTranslation
+    en: enMainTranslation,
+    ru: ruMainTranslation
 }
 
 export function getUniksTranslations(language: LanguageCode): UniksTranslation {
-  return uniksTranslations[language] || uniksTranslations.en
+    return uniksTranslations[language] || uniksTranslations.en
 }

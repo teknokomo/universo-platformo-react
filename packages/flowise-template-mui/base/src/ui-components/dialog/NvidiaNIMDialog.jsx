@@ -18,7 +18,7 @@ import axios from 'axios'
 import PropTypes from 'prop-types'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 const NvidiaNIMDialog = ({ open, onClose, onComplete }) => {
     const portalElement = document.getElementById('portal')

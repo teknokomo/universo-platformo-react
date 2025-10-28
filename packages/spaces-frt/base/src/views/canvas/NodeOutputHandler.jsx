@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { Handle, Position, useUpdateNodeInternals } from 'reactflow'
 import { useEffect, useRef, useState, useContext } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // material-ui
 import { useTheme, styled } from '@mui/material/styles'

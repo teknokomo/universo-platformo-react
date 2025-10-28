@@ -1,0 +1,8 @@
+{
+  "chatFeedback": {
+    "title": "Message Feedback",
+    "provideFeedback": "Provide Feedback",
+    "feedbackPlaceholder": "Enter your feedback here...",
+    "submitFeedback": "Submit Feedback"
+  }
+}

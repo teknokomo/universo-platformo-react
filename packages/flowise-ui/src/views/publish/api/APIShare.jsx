@@ -1,7 +1,7 @@
 // Universo Platformo | Component for API integration options
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { Box, Tabs, Tab } from '@mui/material'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'

@@ -1,7 +1,7 @@
 import { useTheme } from '@mui/material'
 import { useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 const DocumentStoreStatus = ({ status, isTableView }) => {
     const theme = useTheme()

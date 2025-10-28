@@ -3,12 +3,6 @@
     "initialGreeting": "Hi there! How can I help?",
     "defaultError": "Oops! There seems to be an error. Please try again.",
     "common": {
-      "save": "Save",
-      "cancel": "Cancel",
-      "delete": "Delete",
-      "edit": "Edit",
-      "add": "Add",
-      "upload": "Upload",
       "send": "Send",
       "record": "Record",
       "stopRecording": "Stop Recording",

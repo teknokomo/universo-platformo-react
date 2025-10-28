@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useSelector } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { Dialog, DialogContent, DialogTitle, Button } from '@mui/material'
 import { ChatMessage } from './ChatMessage'

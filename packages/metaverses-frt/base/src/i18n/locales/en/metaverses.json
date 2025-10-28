@@ -1,17 +1,6 @@
 {
-    "common": {
-        "cardView": "Card View",
-        "listView": "List View",
-        "back": "Back",
-        "backToMetaverses": "Back to Metaverses",
-        "backToSections": "Back to Sections",
-        "cancel": "Cancel",
-        "save": "Save",
-        "saving": "Saving...",
-        "add": "Add",
-        "invite": "Invite"
-    },
-    "menu": {
+    "metaverses": {
+        "menu": {
         "button": "Options",
         "metaverses": "Metaverses",
         "metaverseboard": "Metaverseboard",
@@ -60,25 +49,12 @@
         },
         "dialog": {
             "createTitle": "Create Metaverse",
-            "editTitle": "Edit Metaverse",
-            "title": "Title",
-            "description": "Description",
-            "cancel": "Cancel",
-            "save": "Save",
-            "required": "This field is required"
+            "editTitle": "Edit Metaverse"
         },
         "table": {
             "description": "Description",
             "sections": "Sections",
-            "entities": "Entities",
-            "role": "Role"
-        },
-        "pagination": {
-            "showing": "Showing {{start}} to {{end}} of {{total}} results",
-            "noResults": "No results found",
-            "search": "Search metaverses...",
-            "page": "Page",
-            "rowsPerPage": "Rows per page"
+            "entities": "Entities"
         },
         "access": {
             "title": "Access management",
@@ -114,7 +90,6 @@
                 "email": "Email",
                 "role": "Role",
                 "added": "Added",
-                "actions": "Actions",
                 "remove": "Remove"
             },
             "dialogs": {
@@ -156,12 +131,7 @@
         },
         "dialog": {
             "createTitle": "Create Section",
-            "editTitle": "Edit Section",
-            "title": "Title",
-            "description": "Description",
-            "cancel": "Cancel",
-            "save": "Save",
-            "required": "This field is required"
+            "editTitle": "Edit Section"
         }
     },
     "entities": {
@@ -199,17 +169,23 @@
         "dialog": {
             "createTitle": "Create Entity",
             "editTitle": "Edit Entity",
-            "title": "Title",
-            "description": "Description",
-            "cancel": "Cancel",
-            "save": "Save",
-            "required": "This field is required",
             "section": "Section"
         },
         "table": {
             "id": "ID",
-            "title": "Title",
-            "description": "Description"
+            "title": "Title"
+        }
+    },
+        "flowList": {
+            "table": {
+                "columns": {
+                    "name": "Name",
+                    "spaces": "Spaces",
+                    "category": "Category",
+                    "nodes": "Nodes",
+                    "lastModified": "Last Modified"
+                }
+            }
         }
     }
 }

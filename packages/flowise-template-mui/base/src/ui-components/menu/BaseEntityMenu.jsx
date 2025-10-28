@@ -1,6 +1,6 @@
 // English-only comments as per repository guidelines.
 import React, { useState, Suspense } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import { Menu, MenuItem, Divider, Button } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 

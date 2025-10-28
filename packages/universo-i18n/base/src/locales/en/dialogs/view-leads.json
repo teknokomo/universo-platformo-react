@@ -1,0 +1,11 @@
+{
+  "viewLeads": {
+    "searchPlaceholder": "Search Name or Email or Phone",
+    "export": "Export",
+    "noLeads": "No Leads",
+    "name": "Name",
+    "email": "Email Address",
+    "phone": "Phone",
+    "createdDate": "Created Date"
+  }
+}

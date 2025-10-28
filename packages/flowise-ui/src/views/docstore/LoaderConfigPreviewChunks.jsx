@@ -4,7 +4,7 @@ import { validate as uuidValidate, v4 as uuidv4 } from 'uuid'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import ReactJson from 'flowise-react-json-view'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useContext, useMemo } from 'r
 import ReactFlow, { addEdge, Controls, Background, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
 import './index.css'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'

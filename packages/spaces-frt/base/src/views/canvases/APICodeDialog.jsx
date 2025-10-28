@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import PropTypes from 'prop-types'
-import { useTranslation, Trans } from '@universo/i18n/hooks'
+import { useTranslation, Trans } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 
 import {

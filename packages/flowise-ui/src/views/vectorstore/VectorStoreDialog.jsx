@@ -4,7 +4,7 @@ import { useDispatch } from 'react-redux'
 import { useContext, useState, useEffect } from 'react'
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import {
     Dialog,

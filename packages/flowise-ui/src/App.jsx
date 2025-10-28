@@ -4,7 +4,7 @@ console.info('[app-module] App.jsx module loaded')
 
 import { useSelector } from 'react-redux'
 import { useState, useEffect, useMemo } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline, StyledEngineProvider } from '@mui/material'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { Tabs, Tab, Box, Typography } from '@mui/material'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'

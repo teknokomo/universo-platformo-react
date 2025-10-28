@@ -1,0 +1,6 @@
+{
+  "condition": {
+    "cancelButtonText": "Отмена",
+    "confirmButtonText": "Подтвердить"
+  }
+}

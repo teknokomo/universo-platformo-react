@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import moment from 'moment/moment'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 import { Stack, Button, Box, SwipeableDrawer } from '@mui/material'
 import { IconSquareRoundedChevronsRight } from '@tabler/icons-react'

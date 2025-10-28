@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 import api from '@/api'
 import { Box, Table, TableHead, TableRow, TableCell, TableBody, Button, Checkbox } from '@mui/material'
 

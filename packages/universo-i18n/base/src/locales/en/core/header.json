@@ -1,0 +1,10 @@
+{
+  "header": {
+    "language": {
+      "tooltip": "Language",
+      "menuTitle": "Choose language",
+      "en": "English",
+      "ru": "Russian"
+    }
+  }
+}

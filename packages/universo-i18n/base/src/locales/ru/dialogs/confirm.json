@@ -1,0 +1,7 @@
+{
+  "confirm": {
+    "title": "Подтверждение",
+    "cancelButtonText": "Отмена",
+    "confirmButtonText": "Подтвердить"
+  }
+}

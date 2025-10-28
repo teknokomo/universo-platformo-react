@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { Box, Button, FormControl, ListItem, ListItemAvatar, ListItemText, MenuItem, Select, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
-import { useTranslation } from '@universo/i18n/hooks'
+import { useTranslation } from '@universo/i18n'
 
 // Project Imports
 import { StyledButton } from '../button/StyledButton'
