@@ -1,5 +1,5 @@
 import express from 'express'
-import type { Router as ExpressRouter } from 'express'
+import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
 import apikeyRouter from './apikey'
 import assistantsRouter from './assistants'
 import attachmentsRouter from './attachments'
@@ -46,7 +46,7 @@ import botsRouter from './bots'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
-import { ensureAuth } from '@universo/auth-srv'
+import { ensureAuth, createEnsureAuthWithRls } from '@universo/auth-srv'
 // Universo Platformo | AR.js publishing integration
 import { createPublishRoutes } from '@universo/publish-srv'
 // Universo Platformo | Profile service integration
@@ -69,6 +69,9 @@ import apiKeyService from '../services/apikey'
 import { ensureUnikMembershipResponse } from '../services/access-control'
 
 const router: ExpressRouter = express.Router()
+
+// Create RLS-enabled authentication middleware
+const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -120,11 +123,11 @@ router.use('/verify', verifyRouter)
 router.use('/version', versionRouter)
 router.use('/upsert-history', upsertHistoryRouter)
 router.use('/nvidia-nim', nvidiaNimRouter)
-// Apply ensureAuth middleware to /uniks route (collection operations: list, create)
+// Apply ensureAuthWithRls middleware to /uniks route (collection operations: list, create)
 router.use(
     '/uniks',
     createUniksCollectionRouter(
-        ensureAuth,
+        ensureAuthWithRls,
         () => getDataSource()
     )
 )
@@ -135,7 +138,7 @@ const spacesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: tr
 router.use(
     '/unik',
     createUniksRouter(
-        ensureAuth,
+        ensureAuthWithRls,
         () => getDataSource(),
         flowConfigRouter,
         toolsRouter,
@@ -172,11 +175,11 @@ router.use(
     )
 )
 
-// Apply ensureAuth middleware to /unik route (individual operations: get, update, delete)
+// Apply ensureAuthWithRls middleware to /unik route (individual operations: get, update, delete)
 router.use(
     '/unik',
     createUnikIndividualRouter(
-        ensureAuth,
+        ensureAuthWithRls,
         () => getDataSource()
     )
 )
@@ -192,17 +195,17 @@ const metaversesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders
 router.use(
     '/metaverses',
     metaversesLimiter,
-    createMetaversesRoutes(ensureAuth, () => getDataSource())
+    createMetaversesRoutes(ensureAuthWithRls, () => getDataSource())
 )
 const sectionsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
 router.use(
     '/sections',
     sectionsLimiter,
-    createSectionsRoutes(ensureAuth, () => getDataSource())
+    createSectionsRoutes(ensureAuthWithRls, () => getDataSource())
 )
 router.use(
     '/entities',
-    createEntitiesRouter(ensureAuth, () => getDataSource())
+    createEntitiesRouter(ensureAuthWithRls, () => getDataSource())
 )
 // Universo Platformo | Canvas Streaming
 router.use('/api/v1/canvas-streaming', ensureAuth, canvasStreamingRouter)
@@ -280,6 +283,29 @@ router.use('/publish', createPublishRoutes(getDataSource()))
 // Universo Platformo | Profile Routes (mounted at /profile, full path becomes /api/v1/profile)
 // Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints
 const createProfileRoutesWithAuth = createProfileRoutes as unknown as (dataSource: any, authMiddleware?: any) => ExpressRouter
-router.use('/profile', createProfileRoutesWithAuth(getDataSource(), ensureAuth))
+router.use('/profile', createProfileRoutesWithAuth(getDataSource(), ensureAuthWithRls))
+
+// Global error handler for debugging middleware issues (should be last)
+router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error('[API Error Handler]', {
+        error: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method,
+        timestamp: new Date().toISOString()
+    })
+    
+    // If headers already sent, delegate to default Express error handler
+    if (res.headersSent) {
+        return next(err)
+    }
+    
+    // Send error response
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred',
+        path: req.path
+    })
+})
 
 export default router

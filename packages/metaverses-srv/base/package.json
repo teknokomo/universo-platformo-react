@@ -22,6 +22,7 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@universo/auth-srv": "workspace:*",
         "express": "^4.18.2",
         "typeorm": "^0.3.6",
         "zod": "^3.25.76"

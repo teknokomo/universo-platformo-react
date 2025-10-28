@@ -28,8 +28,10 @@
                 "express": "^4.19.2",
                 "express-rate-limit": "^7.4.0",
                 "express-session": "^1.18.2",
+                "jose": "^5.9.6",
                 "passport": "^0.7.0",
                 "passport-local": "^1.0.0",
+                "typeorm": "^0.3.20",
                 "zod": "^3.23.8"
         },
         "devDependencies": {

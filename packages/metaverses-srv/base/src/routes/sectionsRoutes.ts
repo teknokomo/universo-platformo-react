@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
+import type { RequestWithDbContext } from '@universo/auth-srv'
 import { Section } from '../database/entities/Section'
 import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
@@ -8,6 +9,14 @@ import { Entity } from '../database/entities/Entity'
 import { EntitySection } from '../database/entities/EntitySection'
 import { ensureSectionAccess, ensureMetaverseAccess } from './guards'
 import { z } from 'zod'
+
+/**
+ * Get the appropriate manager for the request (RLS-enabled if available)
+ */
+const getRequestManager = (req: Request, dataSource: DataSource) => {
+    const rlsContext = (req as RequestWithDbContext).dbContext
+    return rlsContext?.manager ?? dataSource.manager
+}
 
 const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
@@ -26,15 +35,16 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             fn(req, res).catch(next)
         }
 
-    const repos = () => {
+    const repos = (req: Request) => {
         const ds = getDataSource()
+        const manager = getRequestManager(req, ds)
         return {
-            sectionRepo: ds.getRepository(Section),
-            metaverseRepo: ds.getRepository(Metaverse),
-            metaverseUserRepo: ds.getRepository(MetaverseUser),
-            sectionMetaverseRepo: ds.getRepository(SectionMetaverse),
-            entityRepo: ds.getRepository(Entity),
-            entitySectionRepo: ds.getRepository(EntitySection)
+            sectionRepo: manager.getRepository(Section),
+            metaverseRepo: manager.getRepository(Metaverse),
+            metaverseUserRepo: manager.getRepository(MetaverseUser),
+            sectionMetaverseRepo: manager.getRepository(SectionMetaverse),
+            entityRepo: manager.getRepository(Entity),
+            entitySectionRepo: manager.getRepository(EntitySection)
         }
     }
 
@@ -45,7 +55,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
-            const { metaverseUserRepo, sectionMetaverseRepo } = repos()
+            const { metaverseUserRepo, sectionMetaverseRepo } = repos(req)
 
             // Get metaverses accessible to user
             const userMetaverses = await metaverseUserRepo.find({
@@ -91,7 +101,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
 
             await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
 
-            const { sectionRepo, metaverseRepo, sectionMetaverseRepo } = repos()
+            const { sectionRepo, metaverseRepo, sectionMetaverseRepo } = repos(req)
 
             // Validate metaverse exists
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
@@ -116,7 +126,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)
-            const { sectionRepo } = repos()
+            const { sectionRepo } = repos(req)
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
             if (!section) return res.status(404).json({ error: 'Section not found' })
             res.json(section)
@@ -146,7 +156,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId, 'editContent')
-            const { sectionRepo } = repos()
+            const { sectionRepo } = repos(req)
 
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
             if (!section) return res.status(404).json({ error: 'Section not found' })
@@ -167,7 +177,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId, 'deleteContent')
-            const { sectionRepo } = repos()
+            const { sectionRepo } = repos(req)
 
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
             if (!section) return res.status(404).json({ error: 'Section not found' })
@@ -185,7 +195,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureSectionAccess(getDataSource(), userId, sectionId)
-            const { sectionRepo, entitySectionRepo } = repos()
+            const { sectionRepo, entitySectionRepo } = repos(req)
 
             // Validate section exists
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
