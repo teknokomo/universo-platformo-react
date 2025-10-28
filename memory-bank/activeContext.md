@@ -1,8 +1,83 @@
 # Active Context
 
-> **Last Updated**: 2025-10-26
+> **Last Updated**: 2025-10-28
 >
 > **Purpose**: This file tracks the current focus of development - what we're actively working on RIGHT NOW. Completed work is in `progress.md`, planned work is in `tasks.md`.
+
+---
+
+## Current Focus: TypeScript Module System Modernization 🔧
+
+**Status**: Partially Complete (Temporary Workaround Applied)
+
+### Task 2: moduleResolution Modernization ✅ (with caveats)
+
+**Completed Actions**:
+1. **Phase 1-2**: Updated 20+ TypeScript configs to modern settings
+   - Frontend packages: `moduleResolution: "bundler"`, `module: "ESNext"`
+   - Backend packages: `moduleResolution: "node16"`, `module: "Node16"`
+   
+2. **Phase 3 (Blocker Discovered)**: ESM Compatibility Issues
+   - `bs58@6.0.0` (publish-srv) and `lunary` (flowise-server) are ESM-first packages
+   - TypeScript's `moduleResolution: "node16"` strictly enforces ESM/CJS boundaries
+   - Caused TS1479 error despite packages having CommonJS exports
+
+3. **Temporary Fix Applied**:
+   - Reverted `publish-srv` and `flowise-server` to `moduleResolution: "node"` + `module: "CommonJS"`
+   - Allows TypeScript compilation to succeed
+   - Node.js runtime correctly loads packages via their CommonJS exports
+   - ✅ **All 30 packages now build successfully**
+
+**Documentation**:
+- Added "Known Issues & Workarounds" sections to:
+  - `packages/publish-srv/base/README.md` (English)
+  - `packages/publish-srv/base/README-RU.md` (Russian)
+- Documented problem, temporary solution, and future migration paths
+
+**Future Migration Needed** (Post-MVP):
+- **Option A (Recommended)**: Migrate entire backend to ESM
+  - Add `"type": "module"` to package.json
+  - Update imports with `.js` extensions
+  - Test TypeORM in ESM mode
+  
+- **Option B (Alternative)**: Use dynamic imports for ESM-only packages
+  - `const bs58 = (await import('bs58')).default`
+  
+- **Option C (Quick Fix)**: Downgrade ESM packages to last CommonJS versions
+  - Not recommended (loses updates/security fixes)
+
+**Related**: See `tasks.md` → Backlog → "ESM Migration Planning"
+
+---
+
+## Current Focus: MetaverseList as Universal List Pattern Reference 🎯
+
+**Status**: Completed (Ready for Replication)
+
+### Universal List Pattern Implementation ✅
+
+**Finalized**: `packages/metaverses-frt/base/src/pages/MetaverseList.tsx`
+
+**Achievements**:
+1. **Fixed UI Regression**: Search moved from PaginationControls back to ViewHeader
+   - ViewHeader now contains search input (top right, as in original design)
+   - PaginationControls only shows pagination info + navigation controls
+   - Debounced search (300ms) synchronized with usePaginated hook
+
+2. **Verified Backend API**: Full pagination support confirmed
+   - Query params: limit, offset, sortBy, sortOrder, search
+   - Response headers: X-Pagination-Limit, X-Pagination-Offset, X-Total-Count, X-Pagination-Has-More
+   - Case-insensitive search filter on name and description
+
+3. **Documented Pattern**: Added "Universal List Pattern" to `systemPatterns.md`
+   - Complete implementation guide with code examples
+   - Backend API requirements specification
+   - Migration steps for existing lists
+   - Reference links to usePaginated, PaginationControls, QueryKeys factory
+
+**Next Phase**: Copy MetaverseList pattern to other entity lists
+- **Primary Target**: UnikList migration (delete old → copy MetaverseList → rename entities)
+- **Secondary Targets**: SpacesList, SectionsList, EntitiesList as needed
 
 ---
 
