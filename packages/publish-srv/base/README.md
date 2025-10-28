@@ -245,3 +245,49 @@ The Flow data scenarios use the shared TypeORM factories and `createFlowDataServ
 If the main server runs behind a reverse proxy (Nginx, Traefik, Kubernetes ingress), ensure Express is configured with `app.set('trust proxy', 1)` (or a stricter value suitable for your topology). This allows rate limiting and IP-dependent features to read the real client IP from `X-Forwarded-For`.
 
 The main server is responsible for this setting; this package only provides route-level middlewares.
+
+## Known Issues & Workarounds
+
+### TypeScript Module Resolution (Temporary Workaround)
+
+**Current Status**: This package uses `moduleResolution: "node"` and `module: "CommonJS"` in `tsconfig.json` as a **temporary workaround** for ESM compatibility issues.
+
+**Problem**: 
+- The `bs58@6.0.0` dependency is an ESM-only package (`"type": "module"` in its package.json)
+- Although it provides a CommonJS export (`src/cjs/index.cjs`), TypeScript's strict `moduleResolution: "node16"` mode refuses to compile `import bs58 from 'bs58'` because it sees the package as ESM-first
+- This causes a TS1479 error: "The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module"
+
+**Current Workaround**:
+- Reverted from modern `moduleResolution: "node16"` to legacy `"node"` mode
+- Reverted from `module: "Node16"` to `"CommonJS"`
+- This allows TypeScript to compile successfully, and Node.js runtime correctly loads `bs58` via its CommonJS export
+
+**Impact**:
+- ⚠️ Legacy module resolution doesn't support package.json subpath exports properly
+- ⚠️ May cause issues if future dependencies use advanced ESM features
+
+**Future Migration Plan**:
+This is a **temporary fix** and should be addressed post-MVP by:
+
+1. **Option A (Recommended)**: Migrate the entire backend to ESM
+   - Add `"type": "module"` to package.json
+   - Update all imports to include `.js` extensions
+   - Update `module: "ES2020"` and keep `moduleResolution: "node16"`
+   - Test TypeORM compatibility in ESM mode
+
+2. **Option B (Alternative)**: Use dynamic imports for ESM-only packages
+   ```typescript
+   // Instead of: import bs58 from 'bs58'
+   const bs58Module = await import('bs58')
+   const bs58 = bs58Module.default
+   ```
+
+3. **Option C (Quick Fix)**: Downgrade `bs58` to v5.0.0 (last CommonJS version)
+   - Loses newer features and security updates
+   - Not recommended for long-term
+
+**Related Packages**: The same workaround was applied to `flowise-server` due to similar issues with the `lunary` package.
+
+**Tracking**: See memory-bank/tasks.md for the ESM migration task in Backlog.
+
+````
