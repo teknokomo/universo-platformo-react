@@ -4,6 +4,7 @@ import { Box, Skeleton, Stack, Chip, Typography, IconButton } from '@mui/materia
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -17,7 +18,7 @@ import {
     SkeletonGrid,
     APIEmptySVG,
     usePaginated,
-    PaginationControls,
+    TablePaginationControls,
     FlowListTable,
     gridSpacing,
     ErrorBoundary,
@@ -42,7 +43,11 @@ type MetaverseData = {
 
 const MetaverseList = () => {
     const navigate = useNavigate()
-    const { t, i18n } = useTranslation('metaverses')
+    // Use metaverses namespace for view-specific keys, roles and access for role/permission labels
+    const { t, i18n } = useTranslation(['metaverses', 'roles', 'access', 'flowList'])
+    // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
+    const { t: tc } = useCommonTranslations()
+    
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
@@ -59,7 +64,7 @@ const MetaverseList = () => {
     const paginationResult = usePaginated<Metaverse, 'name' | 'created' | 'updated'>({
         queryKeyFn: metaversesQueryKeys.list,
         queryFn: metaversesApi.listMetaverses,
-        limit: 20,
+        initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc'
     })
@@ -135,7 +140,7 @@ const MetaverseList = () => {
                     ? e.message
                     : typeof e === 'string'
                     ? e
-                    : t('common.error', 'Operation failed')
+                    : t('errors.saveFailed')
             setDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to create metaverse', e)
@@ -167,18 +172,18 @@ const MetaverseList = () => {
             if (typeof err === 'string') {
                 return err
             }
-            return t('common.error', 'Error')
+            return t('error')
         },
         [t]
     )
 
-    const roleLabel = useCallback((role?: MetaverseRole) => (role ? t(`roles.${role}`) : '—'), [t])
+    const roleLabel = useCallback((role?: MetaverseRole) => (role ? t(`roles:${role}`) : '—'), [t])
 
     const metaverseColumns = useMemo(
         () => [
             {
                 id: 'description',
-                label: t('metaverses.table.description'),
+                label: tc('table.description', 'Description'),
                 width: '26%',
                 align: 'left',
                 render: (row: Metaverse) => (
@@ -195,27 +200,27 @@ const MetaverseList = () => {
             },
             {
                 id: 'role',
-                label: t('metaverses.table.role'),
+                label: tc('table.role', 'Role'),
                 width: '10%',
                 align: 'center',
                 render: (row: Metaverse) => roleLabel(row.role)
             },
             {
                 id: 'sections',
-                label: t('metaverses.table.sections'),
+                label: tc('table.sections', 'Sections'),
                 width: '10%',
                 align: 'center',
                 render: (row: Metaverse) => (typeof row.sectionsCount === 'number' ? row.sectionsCount : '—')
             },
             {
                 id: 'entities',
-                label: t('metaverses.table.entities'),
+                label: tc('table.entities', 'Entities'),
                 width: '10%',
                 align: 'center',
                 render: (row: Metaverse) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
             }
         ],
-        [roleLabel, t]
+        [roleLabel, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -294,36 +299,23 @@ const MetaverseList = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
                         search={true}
-                        searchPlaceholder={t('metaverses.searchPlaceholder')}
+                        searchPlaceholder={t('searchPlaceholder')}
                         onSearchChange={handleSearchChange}
-                        title={t('metaverses.title')}
+                        title={t('title')}
                     >
                         <ToolbarControls
                             viewToggleEnabled
                             viewMode={view as 'card' | 'list'}
                             onViewModeChange={(mode: string) => handleChange(null, mode)}
-                            cardViewTitle={t('common.cardView', 'Card View')}
-                            listViewTitle={t('common.listView', 'List View')}
+                            cardViewTitle={tc('cardView')}
+                            listViewTitle={tc('listView')}
                             primaryAction={{
-                                label: t('metaverses.addNew'),
+                                label: tc('addNew'),
                                 onClick: handleAddNew,
                                 startIcon: <AddRoundedIcon />
                             }}
                         />
                     </ViewHeader>
-
-                    {/* Pagination Component without Search (search is in ViewHeader) */}
-                    {paginationResult.pagination.totalItems > 0 && (
-                        <Box sx={{ px: { xs: 1.5, md: 2 } }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                showSearch={false}
-                                namespace='metaverses'
-                            />
-                        </Box>
-                    )}
 
                     {isLoading && metaverses.length === 0 ? (
                         view === 'card' ? (
@@ -332,7 +324,7 @@ const MetaverseList = () => {
                             <Skeleton variant='rectangular' height={120} />
                         )
                     ) : !isLoading && metaverses.length === 0 ? (
-                        <EmptyListState image={APIEmptySVG} imageAlt='No metaverses' title={t('metaverses.noMetaversesFound')} />
+                        <EmptyListState image={APIEmptySVG} imageAlt='No metaverses' title={t('noMetaversesFound')} />
                     ) : (
                         <>
                             {view === 'card' ? (
@@ -374,7 +366,7 @@ const MetaverseList = () => {
                                                             label={roleLabel(metaverse.role)}
                                                             sx={{ pointerEvents: 'none' }}
                                                         />
-                                                    ) : undefined
+                                                    ) : null
                                                 }
                                                 headerAction={
                                                     descriptors.length > 0 ? (
@@ -411,7 +403,7 @@ const MetaverseList = () => {
                                         isLoading={isLoading}
                                         getRowLink={(row: Metaverse) => (row?.id ? `/metaverses/${row.id}` : undefined)}
                                         customColumns={metaverseColumns}
-                                        i18nNamespace='metaverses'
+                                        i18nNamespace='flowList'
                                         renderActions={(row: Metaverse) => {
                                             const descriptors = metaverseActions.filter((descriptor) => {
                                                 if (descriptor.id === 'edit' || descriptor.id === 'delete') {
@@ -427,7 +419,10 @@ const MetaverseList = () => {
                                                     entity={row}
                                                     entityKind='metaverse'
                                                     descriptors={descriptors}
+                                                    // Use metaverses namespace for action item labels (edit/delete)
+                                                    // but keep the button label from flowList via explicit namespaced key
                                                     namespace='metaverses'
+                                                    menuButtonLabelKey='flowList:menu.button'
                                                     i18nInstance={i18n}
                                                     createContext={createMetaverseContext}
                                                 />
@@ -438,17 +433,28 @@ const MetaverseList = () => {
                             )}
                         </>
                     )}
+
+                    {/* Table Pagination at bottom - only show when there's data */}
+                    {!isLoading && metaverses.length > 0 && (
+                        <TablePaginationControls
+                            pagination={paginationResult.pagination}
+                            actions={paginationResult.actions}
+                            isLoading={paginationResult.isLoading}
+                            rowsPerPageOptions={[10, 20, 50, 100]}
+                            namespace='common'
+                        />
+                    )}
                 </Stack>
             )}
 
             <EntityFormDialog
                 open={isDialogOpen}
-                title={t('metaverses.createMetaverse', 'Create Metaverse')}
-                nameLabel={t('metaverses.name', 'Name')}
-                descriptionLabel={t('metaverses.description', 'Description')}
-                saveButtonText={t('common.save', 'Save')}
-                savingButtonText={t('common.saving', 'Saving')}
-                cancelButtonText={t('common.cancel', 'Cancel')}
+                title={t('createMetaverse', 'Create Metaverse')}
+                nameLabel={tc('fields.name', 'Name')}
+                descriptionLabel={tc('fields.description', 'Description')}
+                saveButtonText={tc('actions.save', 'Save')}
+                savingButtonText={tc('actions.saving', 'Saving...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
                 loading={isCreating}
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
@@ -458,11 +464,11 @@ const MetaverseList = () => {
             {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}
             <ConfirmDeleteDialog
                 open={deleteDialogState.open}
-                title={t('metaverses.confirmDelete')}
-                description={t('metaverses.confirmDeleteDescription', { name: deleteDialogState.metaverse?.name || '' })}
-                confirmButtonText={t('metaverses.delete')}
-                deletingButtonText={t('metaverses.deleting')}
-                cancelButtonText={t('common.cancel')}
+                title={t('confirmDelete')}
+                description={t('confirmDeleteDescription', { name: deleteDialogState.metaverse?.name || '' })}
+                confirmButtonText={tc('actions.delete', 'Delete')}
+                deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
                 onCancel={() => setDeleteDialogState({ open: false, metaverse: null })}
                 onConfirm={async () => {
                     if (deleteDialogState.metaverse) {
@@ -475,7 +481,7 @@ const MetaverseList = () => {
                                 queryKey: metaversesQueryKeys.lists()
                             })
 
-                            enqueueSnackbar(t('metaverses.deleteSuccess'), { variant: 'success' })
+                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
@@ -486,7 +492,7 @@ const MetaverseList = () => {
                                     ? err.message
                                     : typeof err === 'string'
                                     ? err
-                                    : t('metaverses.deleteError')
+                                    : t('deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
                             setDeleteDialogState({ open: false, metaverse: null })
                         }

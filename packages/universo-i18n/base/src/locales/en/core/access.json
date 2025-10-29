@@ -1,0 +1,45 @@
+{
+  "access": {
+    "title": "Access Management",
+    "subtitle": "Manage member roles for \"{{name}}\"",
+    "emailLabel": "User Email",
+    "emailPlaceholder": "user@example.com",
+    "roleLabel": "Role",
+    "inviteButton": "Invite",
+    "refresh": "Refresh",
+    "empty": "No members yet",
+    "notAllowed": "You don't have permission to manage members of this {{entity}}.",
+    "confirm": {
+      "removeTitle": "Remove Member",
+      "removeDescription": "Remove {{email}} from this {{entity}}?",
+      "removeSelfDescription": "You are about to remove your own access. You will lose access to this {{entity}}.",
+      "downgradeTitle": "Change Role",
+      "downgradeDescription": "Changing your role to {{role}} will prevent you from managing access in this {{entity}}.",
+      "confirmButton": "Continue",
+      "cancelButton": "Cancel"
+    },
+    "notifications": {
+      "selfDowngraded": "Your role has been updated, you can no longer manage access in this {{entity}}.",
+      "selfRemoved": "You have removed yourself and lost access to this {{entity}}."
+    },
+    "errors": {
+      "loadFailed": "Failed to load members list",
+      "inviteFailed": "Failed to invite member",
+      "alreadyHasAccess": "User already has access",
+      "updateFailed": "Failed to update member role",
+      "removeFailed": "Failed to remove member"
+    },
+    "table": {
+      "email": "Email",
+      "role": "Role",
+      "added": "Added",
+      "remove": "Remove"
+    },
+    "dialogs": {
+      "inviteTitle": "Invite Member",
+      "editTitle": "Edit Member",
+      "commentLabel": "Comment",
+      "commentPlaceholder": "Optional comment about this member"
+    }
+  }
+}

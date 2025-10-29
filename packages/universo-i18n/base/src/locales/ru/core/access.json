@@ -1,0 +1,45 @@
+{
+  "access": {
+    "title": "Управление доступом",
+    "subtitle": "Управление ролями участников для \"{{name}}\"",
+    "emailLabel": "Email пользователя",
+    "emailPlaceholder": "user@example.com",
+    "roleLabel": "Роль",
+    "inviteButton": "Пригласить",
+    "refresh": "Обновить",
+    "empty": "Пока нет участников",
+    "notAllowed": "У вас нет прав управлять участниками этой {{entity}}.",
+    "confirm": {
+      "removeTitle": "Удалить участника",
+      "removeDescription": "Удалить {{email}} из этой {{entity}}?",
+      "removeSelfDescription": "Вы собираетесь удалить собственный доступ. Вы потеряете доступ к этой {{entity}}.",
+      "downgradeTitle": "Изменение роли",
+      "downgradeDescription": "Изменив свою роль на {{role}}, вы потеряете возможность управлять доступом в этой {{entity}}.",
+      "confirmButton": "Продолжить",
+      "cancelButton": "Отмена"
+    },
+    "notifications": {
+      "selfDowngraded": "Ваша роль обновлена, теперь вы не можете управлять доступом в этой {{entity}}.",
+      "selfRemoved": "Вы удалили себя и потеряли доступ к этой {{entity}}."
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить список участников",
+      "inviteFailed": "Не удалось пригласить участника",
+      "alreadyHasAccess": "Пользователь уже имеет доступ",
+      "updateFailed": "Не удалось обновить роль участника",
+      "removeFailed": "Не удалось удалить участника"
+    },
+    "table": {
+      "email": "Email",
+      "role": "Роль",
+      "added": "Добавлен",
+      "remove": "Удалить"
+    },
+    "dialogs": {
+      "inviteTitle": "Пригласить участника",
+      "editTitle": "Редактировать участника",
+      "commentLabel": "Комментарий",
+      "commentPlaceholder": "Необязательный комментарий об этом участнике"
+    }
+  }
+}

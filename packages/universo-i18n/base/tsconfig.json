@@ -9,7 +9,8 @@
         "skipLibCheck": true,
         "strict": false,
         "resolveJsonModule": true,
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        "types": ["./src/i18next.d.ts"]
     },
     "include": ["src/**/*", "src/**/*.json"]
 }

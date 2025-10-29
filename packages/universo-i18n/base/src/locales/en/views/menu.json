@@ -23,16 +23,6 @@
         "docs": "Help",
         "profile": "Profile",
         "access": "Access management"
-    },
-    "profileMenu": {
-        "export": "Export",
-        "import": "Import",
-        "aboutFlowise": "About Kiberplano",
-        "logout": "Logout",
-        "exportDialog": {
-            "title": "Select Data to Export",
-            "exporting": "Exporting...",
-            "exportingInfo": "Exporting data might takes a while"
-        }
     }
 }
+

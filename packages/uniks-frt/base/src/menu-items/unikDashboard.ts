@@ -46,7 +46,7 @@ const unikDashboard: MenuItem = {
     children: [
         {
             id: 'unik-dashboard',
-            title: 'menu.dashboard',
+            title: 'menu:dashboard',
             type: 'item',
             // Relative URL for the main page of the Unik – will be /uniks/{unikId}
             url: '',
@@ -55,7 +55,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'spaces',
-            title: 'menu.spaces',
+            title: 'menu:spaces',
             type: 'item',
             url: '/spaces',
             icon: icons.IconHierarchy,
@@ -63,7 +63,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'agentflows',
-            title: 'menu.agentflows',
+            title: 'menu:agentflows',
             type: 'item',
             url: '/agentflows',
             icon: icons.IconUsersGroup,
@@ -71,7 +71,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'assistants',
-            title: 'menu.assistants',
+            title: 'menu:assistants',
             type: 'item',
             url: '/assistants',
             icon: icons.IconRobot,
@@ -79,7 +79,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'tools',
-            title: 'menu.tools',
+            title: 'menu:tools',
             type: 'item',
             url: '/tools',
             icon: icons.IconTool,
@@ -87,7 +87,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'credentials',
-            title: 'menu.credentials',
+            title: 'menu:credentials',
             type: 'item',
             url: '/credentials',
             icon: icons.IconLock,
@@ -95,7 +95,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'variables',
-            title: 'menu.variables',
+            title: 'menu:variables',
             type: 'item',
             url: '/variables',
             icon: icons.IconVariable,
@@ -103,7 +103,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'apikey',
-            title: 'menu.apiKeys',
+            title: 'menu:apiKeys',
             type: 'item',
             url: '/apikey',
             icon: icons.IconKey,
@@ -111,7 +111,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'document-stores',
-            title: 'menu.documentStores',
+            title: 'menu:documentStores',
             type: 'item',
             url: '/document-stores',
             icon: icons.IconFiles,
@@ -119,7 +119,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'analytics',
-            title: 'menu.analytics',
+            title: 'menu:analytics',
             type: 'item',
             url: '/analytics',
             icon: icons.IconChartBar,
@@ -127,7 +127,7 @@ const unikDashboard: MenuItem = {
         },
         {
             id: 'templates',
-            title: 'menu.templates',
+            title: 'menu:templates',
             type: 'item',
             url: '/templates',
             icon: icons.IconBuildingStore,

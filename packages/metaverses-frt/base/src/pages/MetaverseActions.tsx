@@ -45,7 +45,7 @@ const notifyError = (ctx: MetaverseActionContext, error: unknown) => {
 export const metaverseActions = [
     {
         id: 'edit',
-        labelKey: 'metaverses.edit',
+        labelKey: 'common:actions.edit',
         icon: <EditIcon />,
         order: 10,
         dialog: {
@@ -57,17 +57,17 @@ export const metaverseActions = [
             buildProps: (ctx: MetaverseActionContext) => ({
                 open: true,
                 mode: 'edit',
-                title: ctx.t('metaverses.editTitle'),
-                nameLabel: ctx.t('metaverses.name'),
-                descriptionLabel: ctx.t('metaverses.description'),
-                saveButtonText: ctx.t('common.save'),
-                savingButtonText: ctx.t('common.saving'),
-                cancelButtonText: ctx.t('common.cancel'),
+                title: ctx.t('editTitle'),
+                nameLabel: ctx.t('common:fields.name'),
+                descriptionLabel: ctx.t('common:fields.description'),
+                saveButtonText: ctx.t('common:actions.save'),
+                savingButtonText: ctx.t('common:actions.saving'),
+                cancelButtonText: ctx.t('common:actions.cancel'),
                 initialName: ctx.entity.name,
                 initialDescription: ctx.entity.description || '',
                 // Show Delete button with outlined style (red border + red text)
                 showDeleteButton: true,
-                deleteButtonText: ctx.t('metaverses.delete'),
+                deleteButtonText: ctx.t('common:actions.delete'),
                 onClose: () => {
                     // BaseEntityMenu handles dialog closing
                 },
@@ -98,7 +98,7 @@ export const metaverseActions = [
     },
     {
         id: 'delete',
-        labelKey: 'metaverses.delete',
+        labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,
         order: 100,
         group: 'danger',
@@ -110,10 +110,10 @@ export const metaverseActions = [
             },
             buildProps: (ctx: MetaverseActionContext) => ({
                 open: true,
-                title: ctx.t('metaverses.confirmDelete'),
-                description: ctx.t('metaverses.confirmDeleteDescription', { name: ctx.entity?.name || '' }),
-                confirmButtonText: ctx.t('metaverses.delete'),
-                cancelButtonText: ctx.t('common.cancel'),
+                title: ctx.t('confirmDelete'),
+                description: ctx.t('confirmDeleteDescription', { name: ctx.entity?.name || '' }),
+                confirmButtonText: ctx.t('common:actions.delete'),
+                cancelButtonText: ctx.t('common:actions.cancel'),
                 onCancel: () => {
                     // BaseEntityMenu handles dialog closing
                 },

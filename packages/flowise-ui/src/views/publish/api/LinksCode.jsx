@@ -10,7 +10,7 @@ import { baseURL } from '@flowise/template-mui'
 
 // Universo Platformo | Component to display API links
 const LinksCode = ({ canvasId }) => {
-    const { t } = useTranslation('canvases')
+    const { t } = useTranslation('chatbot')
 
     // Universo Platformo | Common styles for links
     const linkStyle = {

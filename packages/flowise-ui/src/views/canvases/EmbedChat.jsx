@@ -290,7 +290,7 @@ const EmbedChat = ({ canvasId }) => {
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedChatCheckboxVal, setEmbedChatCheckbox] = useState(false)
-    const { t } = useTranslation('canvases')
+    const { t } = useTranslation('chatbot')
 
     const onCheckBoxEmbedChatChanged = (newVal) => {
         setEmbedChatCheckbox(newVal)
@@ -333,7 +333,7 @@ const EmbedChat = ({ canvasId }) => {
     return (
         <>
             <Typography variant="h5" gutterBottom>
-                {t('embeddingChatbot')}
+                {t('embedding.title')}
             </Typography>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                 <div style={{ flex: 80 }}>

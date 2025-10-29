@@ -105,7 +105,7 @@ const APICodeDialog = ({ show, dialogProps, onCancel }) => {
     const canvasApiKeyId = explicitCanvasApiKeyId ?? canvas?.apikeyid ?? currentCanvas?.apikeyid ?? null
     const apiConfig = currentCanvas?.apiConfig ? JSON.parse((canvas?.apiConfig ?? currentCanvas?.apiConfig) || '{}') : {}
     const overrideConfigStatus = apiConfig?.overrideConfig?.status !== undefined ? apiConfig.overrideConfig.status : false
-    const { t } = useTranslation('canvases')
+    const { t } = useTranslation('chatbot')
     const { t: tPub } = useTranslation('publish')
     const { enqueueSnackbar, closeSnackbar } = useSnackbar()
     const effectiveUnikId = dialogProps?.unikId || contextUnikId || routeUnikId || null

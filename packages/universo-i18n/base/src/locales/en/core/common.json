@@ -10,14 +10,46 @@
     "search": "Search",
     "filter": "Filter",
     "login": "Login",
-    "addNew": "Add New",
+    "addNew": "Add",
     "cardView": "Card View",
     "listView": "List View",
     "add": "Add",
+    "actions": {
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "edit": "Edit",
+      "editing": "Editing...",
+      "create": "Create",
+      "creating": "Creating...",
+      "update": "Update",
+      "updating": "Updating...",
+      "add": "Add",
+      "remove": "Remove",
+      "search": "Search",
+      "filter": "Filter",
+      "refresh": "Refresh",
+      "close": "Close",
+      "submit": "Submit",
+      "confirm": "Confirm",
+      "copy": "Copy",
+      "download": "Download",
+      "upload": "Upload"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "email": "Email",
+      "password": "Password",
+      "title": "Title",
+      "id": "ID"
+    },
     "expand": "Expand",
     "close": "Close",
     "version": "version",
-    "confirm": "Confirm",
+    "confirmAction": "Confirm",
     "refer": "Refer",
     "here": "here",
     "forMoreDetails": "for more details",
@@ -56,7 +88,10 @@
       "showing": "Showing {{start}} to {{end}} of {{total}} results",
       "noResults": "No results found",
       "page": "Page",
-      "rowsPerPage": "Rows per page"
+      "rowsPerPage": "Rows per page",
+      "displayedRows": "{{from}}–{{to}} of {{count}}",
+      "of": "of",
+      "moreThan": "more than"
     },
     "table": {
       "actions": "Actions",
@@ -78,7 +113,29 @@
       "searchPlaceholder": "Search..."
     },
     "crud": {
-      "nameRequired": "Name is required"
+      "nameRequired": "Name is required",
+      "creating": "Creating...",
+      "editing": "Editing...",
+      "saving": "Saving...",
+      "deleting": "Deleting..."
+    },
+    "errors": {
+      "loadFailed": "Failed to load data",
+      "saveFailed": "Failed to save",
+      "deleteFailed": "Failed to delete",
+      "updateFailed": "Failed to update",
+      "createFailed": "Failed to create",
+      "required": "This field is required",
+      "invalidInput": "Invalid input"
+    },
+    "confirm": {
+      "title": "Confirm Action",
+      "cancel": "Cancel",
+      "delete": {
+        "title": "Delete {{entity}}",
+        "description": "This action cannot be undone. {{entity}} \"{{name}}\" and all its data will be permanently deleted.",
+        "confirm": "Delete"
+      }
     }
   }
 }
