@@ -23,7 +23,7 @@ import { TooltipWithParser } from '@flowise/template-mui/ui-components/tooltip/T
 const Configuration = ({ canvasId, unikId: propUnikId, displayMode: propDisplayMode, setDisplayMode: propSetDisplayMode }) => {
     const dispatch = useDispatch()
     const canvas = useSelector((state) => state.canvas.currentCanvas)
-    const { t: tFlow } = useTranslation('canvases')
+    const { t: tFlow } = useTranslation('chatbot')
     const { t: tPub } = useTranslation('publish')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId

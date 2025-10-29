@@ -134,12 +134,12 @@ export const FlowListTable = ({
                         <TableRow>
                             <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
                                 <TableSortLabel active={orderBy === 'name'} direction={order} onClick={() => handleRequestSort('name')}>
-                                    {t('flowList.table.columns.name')}
+                                    {t('table.columns.name')}
                                 </TableSortLabel>
                             </StyledTableCell>
                             {isUnikTable ? (
                                 <StyledTableCell style={{ width: '55%' }} key='1'>
-                                    {t('flowList.table.columns.spaces')}
+                                    {t('table.columns.spaces')}
                                 </StyledTableCell>
                             ) : columnsToRender ? (
                                 columnsToRender.map((column) => (
@@ -154,10 +154,10 @@ export const FlowListTable = ({
                             ) : (
                                 <>
                                     <StyledTableCell style={{ width: '25%' }} key='1'>
-                                        {t('flowList.table.columns.category')}
+                                        {t('table.columns.category')}
                                     </StyledTableCell>
                                     <StyledTableCell style={{ width: '30%' }} key='2'>
-                                        {t('flowList.table.columns.nodes')}
+                                        {t('table.columns.nodes')}
                                     </StyledTableCell>
                                 </>
                             )}
@@ -167,11 +167,11 @@ export const FlowListTable = ({
                                     direction={order}
                                     onClick={() => handleRequestSort('updatedDate')}
                                 >
-                                    {t('flowList.table.columns.lastModified')}
+                                    {t('table.columns.lastModified')}
                                 </TableSortLabel>
                             </StyledTableCell>
                             <StyledTableCell style={{ width: '10%' }} key='4'>
-                                {t('flowList.table.columns.actions')}
+                                {t('table.columns.actions')}
                             </StyledTableCell>
                         </TableRow>
                     </TableHead>

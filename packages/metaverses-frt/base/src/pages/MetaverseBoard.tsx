@@ -72,10 +72,10 @@ const MetaverseBoard = () => {
         <Card sx={{ background: 'transparent', maxWidth: '960px', mx: 'auto', width: '100%' }}>
             <Stack spacing={3} sx={{ p: 2 }}>
                 <ViewHeader
-                    title={metaverse?.name || t('metaverses.detail.title')}
+                    title={metaverse?.name || t('detail.title')}
                     description={
                         metaverse?.description ||
-                        t('metaverses.board.description', 'Здесь будет аналитика и статистика кластера (в разработке)')
+                        t('board.description', 'Здесь будет аналитика и статистика кластера (в разработке)')
                     }
                     search={false}
                 />
@@ -83,10 +83,10 @@ const MetaverseBoard = () => {
                 {/* Main board content */}
                 <Box sx={{ p: 3, textAlign: 'center' }}>
                     <Typography variant='h4' sx={{ mb: 2 }}>
-                        {t('metaverses.board.title', 'Метаверсборд')}
+                        {t('board.title', 'Метаверсборд')}
                     </Typography>
                     <Typography variant='body1' color='text.secondary' sx={{ mb: 3 }}>
-                        {t('metaverses.board.description', 'Здесь будет аналитика и статистика кластера (в разработке)')}
+                        {t('board.description', 'Здесь будет аналитика и статистика кластера (в разработке)')}
                     </Typography>
 
                     <Button variant='outlined' onClick={() => navigate('/metaverses')} sx={{ mt: 2 }}>

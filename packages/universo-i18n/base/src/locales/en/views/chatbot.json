@@ -1,0 +1,71 @@
+{
+    "chatbot": {
+        "invalid": "Invalid Chatbot. Please check your configuration.",
+        "idMissing": "Bot ID not provided",
+        "apiPython": {
+            "title": "Python Code",
+            "description": "Use this Python code to interact with the API"
+        },
+        "apiJavaScript": {
+            "title": "JavaScript Code",
+            "description": "Use this JavaScript code to interact with the API"
+        },
+        "apiLinks": {
+            "title": "API Links",
+            "description": "Use these links to interact with the API",
+            "endpoints": "API Endpoints",
+            "chatEndpointDescription": "Use this endpoint to interact with the chatbot",
+            "documentation": "API Documentation",
+            "documentationDescription": "View the complete API documentation"
+        },
+        "embedding": {
+            "title": "Embedding Chatbot"
+        },
+        "embedBot": {
+            "customization": "Show display settings"
+        },
+        "embedChat": {
+            "pasteHtmlBody": "Paste this anywhere in the <code><body></code> tag of your html file.",
+            "specifyVersion": "You can also specify a",
+            "showConfig": "Show display settings"
+        },
+        "share": {
+            "configSaved": "Chatbot Configuration Saved",
+            "saveError": "Failed to save Chatbot Configuration: {{error}}",
+            "copied": "Copied!",
+            "copyLink": "Copy Link",
+            "openNewTab": "Open New Tab",
+            "makePublic": "Make Public",
+            "makePublicTooltip": "Making public will allow anyone to access the chatbot without username & password",
+            "publicLink": "Chatbot Link",
+            "publicLinkInfo": "Users can access the chatbot through this link",
+            "titleSettings": "Title Settings",
+            "title": "Title",
+            "titlePlaceholder": "Kiberplano-Assistant",
+            "titleAvatarLink": "Title Avatar Link",
+            "titleBackgroundColor": "Title Background Color",
+            "titleTextColor": "Title Text Color",
+            "generalSettings": "General Settings",
+            "welcomeMessage": "Welcome Message",
+            "welcomeMessagePlaceholder": "Hello! This is custom welcome message",
+            "errorMessage": "Error Message",
+            "errorMessagePlaceholder": "This is custom error message",
+            "backgroundColor": "Background Color",
+            "fontSize": "Font Size",
+            "poweredByTextColor": "PoweredBy Text Color",
+            "showAgentMessages": "Show agent reasonings when using Agentflow",
+            "renderHTML": "Render HTML on the chat",
+            "generateNewSession": "Start new session when chatbot link is opened or refreshed",
+            "botMessage": "Bot Message",
+            "userMessage": "User Message",
+            "textColor": "Text Color",
+            "avatarLink": "Avatar Link",
+            "showAvatar": "Show Avatar",
+            "textInput": "Text Input",
+            "textInputPlaceholder": "TextInput Placeholder",
+            "typeQuestion": "Type question..",
+            "textInputSendButtonColor": "TextInput Send Button Color",
+            "saveChanges": "Save Changes"
+        }
+    }
+}

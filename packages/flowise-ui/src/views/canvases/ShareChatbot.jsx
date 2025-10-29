@@ -104,7 +104,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
     const theme = useTheme()
     const canvas = useSelector((state) => state.canvas.currentCanvas)
     const chatbotConfig = canvas?.chatbotConfig ? JSON.parse(canvas.chatbotConfig) : {}
-    const { t } = useTranslation('canvases')
+    const { t } = useTranslation('chatbot')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
     const resolvedSpaceId = canvas?.spaceId || canvas?.space_id || null
@@ -250,7 +250,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('shareChatbot.configSaved'),
+                    message: t('share.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -267,7 +267,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
             const errorMessage =
                 typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: t('shareChatbot.saveError', {
+                message: t('share.saveError', {
                     error: errorMessage || error?.message || 'Unknown error'
                 }),
                 options: {
@@ -294,7 +294,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('shareChatbot.configSaved'),
+                    message: t('share.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -311,7 +311,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
             const errorMessage =
                 typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: t('shareChatbot.saveError', {
+                message: t('share.saveError', {
                     error: errorMessage || error?.message || 'Unknown error'
                 }),
                 options: {
@@ -540,7 +540,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
                     {`${baseURL}/chatbot/${canvasId}`}
                 </Typography>
                 <IconButton
-                    title={t('shareChatbot.copyLink')}
+                    title={t('share.copyLink')}
                     color='success'
                     onClick={(event) => {
                         navigator.clipboard.writeText(`${baseURL}/chatbot/${canvasId}`)
@@ -552,7 +552,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
                 >
                     <IconCopy />
                 </IconButton>
-                <IconButton title={t('shareChatbot.openNewTab')} color='primary' onClick={() => window.open(`${baseURL}/chatbot/${canvasId}`, '_blank')}>
+                <IconButton title={t('share.openNewTab')} color='primary' onClick={() => window.open(`${baseURL}/chatbot/${canvasId}`, '_blank')}>
                     <IconArrowUpRightCircle />
                 </IconButton>
                 <div style={{ flex: 1 }} />
@@ -564,85 +564,85 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
                             onSwitchChange(event.target.checked)
                         }}
                     />
-                    <Typography>{t('shareChatbot.makePublic')}</Typography>
+                    <Typography>{t('share.makePublic')}</Typography>
                     <TooltipWithParser
                         style={{ marginLeft: 10 }}
-                        title={t('shareChatbot.makePublicTooltip')}
+                        title={t('share.makePublicTooltip')}
                     />
                 </div>
             </Stack>
 
             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 3, mt: 2 }} variant='outlined'>
                 <Stack sx={{ mt: 1, mb: 2, alignItems: 'center' }} direction='row' spacing={2}>
-                    <Typography variant='h4'>{t('shareChatbot.titleSettings')}</Typography>
+                    <Typography variant='h4'>{t('share.titleSettings')}</Typography>
                 </Stack>
-                {textField(title, 'title', t('shareChatbot.title'), 'string', t('shareChatbot.titlePlaceholder'))}
+                {textField(title, 'title', t('share.title'), 'string', t('share.titlePlaceholder'))}
                 {textField(
                     titleAvatarSrc,
                     'titleAvatarSrc',
-                    t('shareChatbot.titleAvatarLink'),
+                    t('share.titleAvatarLink'),
                     'string',
                     `https://raw.githubusercontent.com/FlowiseAI/Flowise/main/assets/FloWiseAI_dark.png`
                 )}
-                {colorField(titleBackgroundColor, 'titleBackgroundColor', t('shareChatbot.titleBackgroundColor'))}
-                {colorField(titleTextColor, 'titleTextColor', t('shareChatbot.titleTextColor'))}
+                {colorField(titleBackgroundColor, 'titleBackgroundColor', t('share.titleBackgroundColor'))}
+                {colorField(titleTextColor, 'titleTextColor', t('share.titleTextColor'))}
             </Card>
 
             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 3, mt: 2 }} variant='outlined'>
                 <Stack sx={{ mt: 1, mb: 2, alignItems: 'center' }} direction='row' spacing={2}>
-                    <Typography variant='h4'>{t('shareChatbot.generalSettings')}</Typography>
+                    <Typography variant='h4'>{t('share.generalSettings')}</Typography>
                 </Stack>
-                {textField(welcomeMessage, 'welcomeMessage', t('shareChatbot.welcomeMessage'), 'string', t('shareChatbot.welcomeMessagePlaceholder'))}
-                {textField(errorMessage, 'errorMessage', t('shareChatbot.errorMessage'), 'string', t('shareChatbot.errorMessagePlaceholder'))}
-                {colorField(backgroundColor, 'backgroundColor', t('shareChatbot.backgroundColor'))}
-                {textField(fontSize, 'fontSize', t('shareChatbot.fontSize'), 'number')}
-                {colorField(poweredByTextColor, 'poweredByTextColor', t('shareChatbot.poweredByTextColor'))}
-                {isAgentCanvas && booleanField(showAgentMessages, 'showAgentMessages', t('shareChatbot.showAgentMessages'))}
-                {booleanField(renderHTML, 'renderHTML', t('shareChatbot.renderHTML'))}
+                {textField(welcomeMessage, 'welcomeMessage', t('share.welcomeMessage'), 'string', t('share.welcomeMessagePlaceholder'))}
+                {textField(errorMessage, 'errorMessage', t('share.errorMessage'), 'string', t('share.errorMessagePlaceholder'))}
+                {colorField(backgroundColor, 'backgroundColor', t('share.backgroundColor'))}
+                {textField(fontSize, 'fontSize', t('share.fontSize'), 'number')}
+                {colorField(poweredByTextColor, 'poweredByTextColor', t('share.poweredByTextColor'))}
+                {isAgentCanvas && booleanField(showAgentMessages, 'showAgentMessages', t('share.showAgentMessages'))}
+                {booleanField(renderHTML, 'renderHTML', t('share.renderHTML'))}
                 {isSessionMemory &&
-                    booleanField(generateNewSession, 'generateNewSession', t('shareChatbot.generateNewSession'))}
+                    booleanField(generateNewSession, 'generateNewSession', t('share.generateNewSession'))}
             </Card>
 
             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 3, mt: 2 }} variant='outlined'>
                 <Stack sx={{ mt: 1, mb: 2, alignItems: 'center' }} direction='row' spacing={2}>
-                    <Typography variant='h4'>{t('shareChatbot.botMessage')}</Typography>
+                    <Typography variant='h4'>{t('share.botMessage')}</Typography>
                 </Stack>
-                {colorField(botMessageBackgroundColor, 'botMessageBackgroundColor', t('shareChatbot.backgroundColor'))}
-                {colorField(botMessageTextColor, 'botMessageTextColor', t('shareChatbot.textColor'))}
+                {colorField(botMessageBackgroundColor, 'botMessageBackgroundColor', t('share.backgroundColor'))}
+                {colorField(botMessageTextColor, 'botMessageTextColor', t('share.textColor'))}
                 {textField(
                     botMessageAvatarSrc,
                     'botMessageAvatarSrc',
-                    t('shareChatbot.avatarLink'),
+                    t('share.avatarLink'),
                     'string',
                     `https://raw.githubusercontent.com/zahidkhawaja/langchain-chat-nextjs/main/public/parroticon.png`
                 )}
-                {booleanField(botMessageShowAvatar, 'botMessageShowAvatar', t('shareChatbot.showAvatar'))}
+                {booleanField(botMessageShowAvatar, 'botMessageShowAvatar', t('share.showAvatar'))}
             </Card>
 
             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 3, mt: 2 }} variant='outlined'>
                 <Stack sx={{ mt: 1, mb: 2, alignItems: 'center' }} direction='row' spacing={2}>
-                    <Typography variant='h4'>{t('shareChatbot.userMessage')}</Typography>
+                    <Typography variant='h4'>{t('share.userMessage')}</Typography>
                 </Stack>
-                {colorField(userMessageBackgroundColor, 'userMessageBackgroundColor', t('shareChatbot.backgroundColor'))}
-                {colorField(userMessageTextColor, 'userMessageTextColor', t('shareChatbot.textColor'))}
+                {colorField(userMessageBackgroundColor, 'userMessageBackgroundColor', t('share.backgroundColor'))}
+                {colorField(userMessageTextColor, 'userMessageTextColor', t('share.textColor'))}
                 {textField(
                     userMessageAvatarSrc,
                     'userMessageAvatarSrc',
-                    t('shareChatbot.avatarLink'),
+                    t('share.avatarLink'),
                     'string',
                     `https://raw.githubusercontent.com/zahidkhawaja/langchain-chat-nextjs/main/public/usericon.png`
                 )}
-                {booleanField(userMessageShowAvatar, 'userMessageShowAvatar', t('shareChatbot.showAvatar'))}
+                {booleanField(userMessageShowAvatar, 'userMessageShowAvatar', t('share.showAvatar'))}
             </Card>
 
             <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 3, mt: 2 }} variant='outlined'>
                 <Stack sx={{ mt: 1, mb: 2, alignItems: 'center' }} direction='row' spacing={2}>
-                    <Typography variant='h4'>{t('shareChatbot.textInput')}</Typography>
+                    <Typography variant='h4'>{t('share.textInput')}</Typography>
                 </Stack>
-                {colorField(textInputBackgroundColor, 'textInputBackgroundColor', t('shareChatbot.backgroundColor'))}
-                {colorField(textInputTextColor, 'textInputTextColor', t('shareChatbot.textColor'))}
-                {textField(textInputPlaceholder, 'textInputPlaceholder', t('shareChatbot.textInputPlaceholder'), 'string', t('shareChatbot.typeQuestion'))}
-                {colorField(textInputSendButtonColor, 'textInputSendButtonColor', t('shareChatbot.textInputSendButtonColor'))}
+                {colorField(textInputBackgroundColor, 'textInputBackgroundColor', t('share.backgroundColor'))}
+                {colorField(textInputTextColor, 'textInputTextColor', t('share.textColor'))}
+                {textField(textInputPlaceholder, 'textInputPlaceholder', t('share.textInputPlaceholder'), 'string', t('share.typeQuestion'))}
+                {colorField(textInputSendButtonColor, 'textInputSendButtonColor', t('share.textInputSendButtonColor'))}
             </Card>
 
             <StyledButton
@@ -656,7 +656,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
                 variant='contained'
                 onClick={() => onSave()}
             >
-                {t('shareChatbot.saveChanges')}
+                {t('share.saveChanges')}
             </StyledButton>
             <Popover
                 open={openColorPopOver}
@@ -687,7 +687,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
                 }}
             >
                 <Typography variant='h6' sx={{ pl: 1, pr: 1, color: 'white', background: theme.palette.success.dark }}>
-                    {t('shareChatbot.copied')}
+                    {t('share.copied')}
                 </Typography>
             </Popover>
 

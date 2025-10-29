@@ -46,4 +46,5 @@ export interface PaginationActions {
     previousPage: () => void
     setSearch: (search: string) => void
     setSort: (sortBy: string, sortOrder: 'asc' | 'desc') => void
+    setPageSize: (pageSize: number) => void
 }

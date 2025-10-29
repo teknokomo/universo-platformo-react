@@ -4,11 +4,20 @@ import { registerNamespace } from '@universo/i18n/registry'
 import enMetaverses from './locales/en/metaverses.json'
 import ruMetaverses from './locales/ru/metaverses.json'
 
+// Debug: Log namespace registration
+console.log('[metaverses-i18n] Registering namespace', {
+    namespace: 'metaverses',
+    enKeys: Object.keys(enMetaverses.metaverses),
+    ruKeys: Object.keys(ruMetaverses.metaverses)
+})
+
 // Extract inner object to avoid double-wrapping in i18next namespace
 registerNamespace('metaverses', {
     en: enMetaverses.metaverses,
     ru: ruMetaverses.metaverses
 })
+
+console.log('[metaverses-i18n] Namespace registered successfully')
 
 type LanguageCode = 'en' | 'ru'
 

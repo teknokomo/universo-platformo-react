@@ -5,13 +5,13 @@ import { MainCard } from '@flowise/template-mui'
 import { useTranslation } from '@universo/i18n'
 
 const mapSupabaseError = (errorMessage) => {
-    if (!errorMessage) return 'auth.unknownError'
-    if (errorMessage.includes('Invalid login credentials')) return 'auth.invalidCredentials'
-    if (errorMessage.includes('User already registered')) return 'auth.userAlreadyRegistered'
-    if (errorMessage.includes('Email not confirmed')) return 'auth.emailNotConfirmed'
-    if (errorMessage.includes('Password should be')) return 'auth.passwordRequirements'
-    if (errorMessage.includes('Email is invalid')) return 'auth.invalidEmail'
-    return 'auth.serverError'
+    if (!errorMessage) return 'unknownError'
+    if (errorMessage.includes('Invalid login credentials')) return 'invalidCredentials'
+    if (errorMessage.includes('User already registered')) return 'userAlreadyRegistered'
+    if (errorMessage.includes('Email not confirmed')) return 'emailNotConfirmed'
+    if (errorMessage.includes('Password should be')) return 'passwordRequirements'
+    if (errorMessage.includes('Email is invalid')) return 'invalidEmail'
+    return 'serverError'
 }
 
 const CardSlot = ({ children, sx, ...props }) => (
@@ -37,22 +37,22 @@ const Auth = () => {
 
     const labels = useMemo(
         () => ({
-            welcomeBack: t('auth.welcomeBack'),
-            register: t('auth.register'),
-            email: t('auth.email'),
-            password: t('auth.password'),
-            loginButton: t('auth.loginButton'),
-            registerButton: t('auth.registerButton'),
-            loggingIn: t('auth.loggingIn'),
-            registering: t('auth.registering'),
-            noAccount: t('auth.noAccount'),
-            createAccount: t('auth.registerLink'),
-            haveAccount: t('auth.hasAccount'),
-            loginInstead: t('auth.loginLink'),
-            fieldsRequired: t('auth.fieldsRequired'),
-            successRegister: t('auth.successRegister'),
-            loginSuccess: t('auth.loginSuccess'),
-            loginError: (error) => t('auth.loginError', { error }),
+            welcomeBack: t('welcomeBack'),
+            register: t('register'),
+            email: t('email'),
+            password: t('password'),
+            loginButton: t('loginButton'),
+            registerButton: t('registerButton'),
+            loggingIn: t('loggingIn'),
+            registering: t('registering'),
+            noAccount: t('noAccount'),
+            createAccount: t('registerLink'),
+            haveAccount: t('hasAccount'),
+            loginInstead: t('loginLink'),
+            fieldsRequired: t('fieldsRequired'),
+            successRegister: t('successRegister'),
+            loginSuccess: t('loginSuccess'),
+            loginError: (error) => t('loginError', { error }),
         }),
         [t]
     )

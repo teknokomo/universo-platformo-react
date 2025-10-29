@@ -1,3 +1,6 @@
+// Register i18n namespace (side-effect import must come first)
+import './i18n'
+
 // Main page exports
 export { default as MetaverseList } from './pages/MetaverseList'
 export { default as MetaverseBoard } from './pages/MetaverseBoard'

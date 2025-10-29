@@ -49,8 +49,8 @@ export { gridSpacing } from './constants'
 export { usePaginated } from './hooks/usePaginated'
 export type { UsePaginatedParams, UsePaginatedReturn } from './hooks/usePaginated'
 
-export { PaginationControls } from './components/pagination'
-export type { PaginationControlsProps } from './components/pagination'
+export { PaginationControls, TablePaginationControls } from './components/pagination'
+export type { PaginationControlsProps, TablePaginationControlsProps } from './components/pagination'
 
 // Pagination types
 export type { PaginationParams, PaginationMeta, PaginatedResponse, PaginationState, PaginationActions } from './types/pagination'

@@ -1,191 +1,22 @@
 {
     "metaverses": {
-        "menu": {
-        "button": "Options",
-        "metaverses": "Metaverses",
-        "metaverseboard": "Metaverseboard",
-        "entities": "Entities",
-        "sections": "Sections",
-        "access": "Access"
-    },
-    "metaverses": {
         "title": "Metaverses",
-        "create": "Create Metaverse",
-        "createTitle": "Create Metaverse",
-        "editTitle": "Edit Metaverse",
-        "name": "Name",
-        "description": "Description",
         "searchPlaceholder": "Search metaverses...",
-        "addNew": "Add",
         "noMetaversesFound": "No metaverses found",
-        "edit": "Edit",
-        "delete": "Delete",
-        "deleting": "Deleting...",
-        "confirmDelete": "Delete metaverse?",
-        "confirmDeleteDescription": "This action cannot be undone. Metaverse \"{{name}}\" and all its data will be permanently deleted.",
+        "createMetaverse": "Create Metaverse",
+        "editTitle": "Edit Metaverse",
+        "confirmDelete": "Delete Metaverse?",
+        "confirmDeleteDescription": "Are you sure you want to delete metaverse \"{{name}}\"?",
         "deleteSuccess": "Metaverse deleted successfully",
         "deleteError": "Failed to delete metaverse",
-        "nameRequired": "Name is required",
         "saveError": "Failed to save metaverse",
-        "createMetaverse": "Create Metaverse",
-        "editMetaverse": "Edit Metaverse",
-        "list": {
-            "title": "Metaverses",
-            "searchPlaceholder": "Search metaverses...",
-            "addNew": "Add",
-            "loading": "Loading metaverses...",
-            "error": "Failed to load metaverses",
-            "noMetaversesYet": "No metaverses yet",
-            "id": "ID",
-            "name": "Name"
+        "board": {
+            "title": "Metaverseboard",
+            "description": "Analytics and cluster statistics will be here (in development)"
         },
         "detail": {
-            "info": "Info",
-            "metaverseboard": "Metaverseboard",
-            "entities": "Entities",
-            "sections": "Sections",
-            "loading": "Loading...",
-            "error": "Failed to load metaverse"
-        },
-        "dialog": {
-            "createTitle": "Create Metaverse",
-            "editTitle": "Edit Metaverse"
-        },
-        "table": {
-            "description": "Description",
-            "sections": "Sections",
-            "entities": "Entities"
-        },
-        "access": {
-            "title": "Access management",
-            "subtitle": "Manage member roles for \"{{name}}\"",
-            "emailLabel": "User email",
-            "emailPlaceholder": "user@example.com",
-            "roleLabel": "Role",
-            "inviteButton": "Invite",
-            "refresh": "Refresh",
-            "empty": "No members yet",
-            "notAllowed": "You do not have permission to manage members in this metaverse.",
-            "confirm": {
-                "removeTitle": "Remove member",
-                "removeDescription": "Remove {{email}} from this metaverse?",
-                "removeSelfDescription": "You are about to remove your own access. You will lose access to this metaverse.",
-                "downgradeTitle": "Change role",
-                "downgradeDescription": "Changing your role to {{role}} will remove your ability to manage access in this metaverse.",
-                "confirmButton": "Continue",
-                "cancelButton": "Cancel"
-            },
-            "notifications": {
-                "selfDowngraded": "Your role has been updated and you can no longer manage access in this metaverse.",
-                "selfRemoved": "You removed yourself and lost access to this metaverse."
-            },
-            "errors": {
-                "loadFailed": "Failed to load members",
-                "inviteFailed": "Failed to invite member",
-                "alreadyHasAccess": "User already has access",
-                "updateFailed": "Failed to update member",
-                "removeFailed": "Failed to remove member"
-            },
-            "table": {
-                "email": "Email",
-                "role": "Role",
-                "added": "Added",
-                "remove": "Remove"
-            },
-            "dialogs": {
-                "inviteTitle": "Invite Member",
-                "editTitle": "Edit Member",
-                "commentLabel": "Comment",
-                "commentPlaceholder": "Optional comment about this member"
-            }
-        }
-    },
-    "roles": {
-        "owner": "Owner",
-        "admin": "Admin",
-        "editor": "Editor",
-        "member": "Member"
-    },
-    "sections": {
-        "title": "Sections",
-        "create": "Create Section",
-        "createTitle": "Create Section",
-        "editTitle": "Edit Section",
-        "name": "Name",
-        "description": "Description",
-        "list": {
-            "title": "Sections",
-            "searchPlaceholder": "Search sections...",
-            "addNew": "Add Section",
-            "loading": "Loading sections...",
-            "error": "Failed to load sections",
-            "noSectionsYet": "No sections yet",
-            "id": "ID",
-            "name": "Name"
-        },
-        "detail": {
-            "info": "Info",
-            "entities": "Entities",
-            "loading": "Loading...",
-            "error": "Failed to load section"
-        },
-        "dialog": {
-            "createTitle": "Create Section",
-            "editTitle": "Edit Section"
-        }
-    },
-    "entities": {
-        "title": "Entities",
-        "create": "Create Entity",
-        "createTitle": "Create Entity",
-        "editTitle": "Edit Entity",
-        "name": "Name",
-        "description": "Description",
-        "list": {
-            "title": "Entities",
-            "searchPlaceholder": "Search entities...",
-            "addNew": "Add Entity",
-            "loading": "Loading entities...",
-            "error": "Failed to load entities",
-            "noEntitiesYet": "No entities yet",
-            "id": "ID",
-            "name": "Name"
-        },
-        "detail": {
-            "info": "Info",
-            "revisions": "Revisions",
-            "children": "Children",
-            "loading": "Loading...",
-            "error": "Failed to load entity"
-        },
-        "revisions": {
-            "loading": "Loading revisions...",
-            "error": "Failed to load revisions"
-        },
-        "children": {
-            "loading": "Loading tree...",
-            "error": "Failed to load tree"
-        },
-        "dialog": {
-            "createTitle": "Create Entity",
-            "editTitle": "Edit Entity",
-            "section": "Section"
-        },
-        "table": {
-            "id": "ID",
-            "title": "Title"
-        }
-    },
-        "flowList": {
-            "table": {
-                "columns": {
-                    "name": "Name",
-                    "spaces": "Spaces",
-                    "category": "Category",
-                    "nodes": "Nodes",
-                    "lastModified": "Last Modified"
-                }
-            }
+            "title": "Metaverse Details"
         }
     }
 }
+

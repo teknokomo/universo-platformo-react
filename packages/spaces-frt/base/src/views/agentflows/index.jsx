@@ -77,7 +77,7 @@ const buildImageMap = (items) => {
 const Agentflows = () => {
     const navigate = useNavigate()
     const theme = useTheme()
-    const { t } = useTranslation('canvases')
+    const { t } = useTranslation('chatbot')
     const { unikId } = useParams()
     const location = useLocation()
 

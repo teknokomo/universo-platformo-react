@@ -13,7 +13,7 @@ const dashboard = {
     children: [
         {
             id: 'uniks',
-            title: 'uniks:menu.uniks',
+            title: 'menu:uniks',
             type: 'item',
             url: '/uniks',
             icon: icons.IconFiles,
@@ -21,7 +21,7 @@ const dashboard = {
         },
         {
             id: 'metaverses',
-            title: 'metaverses:menu.metaverses',
+            title: 'menu:metaverses',
             type: 'item',
             url: '/metaverses',
             icon: icons.IconWorld,
@@ -29,7 +29,7 @@ const dashboard = {
         },
         {
             id: 'clusters',
-            title: 'menu.clusters',
+            title: 'menu:clusters',
             type: 'item',
             url: '/clusters',
             icon: icons.IconFolder,
@@ -37,7 +37,7 @@ const dashboard = {
         },
         {
             id: 'profile',
-            title: 'menu.profile',
+            title: 'menu:profile',
             type: 'item',
             url: '/profile',
             icon: icons.IconUser,
@@ -45,7 +45,7 @@ const dashboard = {
         },
         {
             id: 'docs',
-            title: 'menu.docs',
+            title: 'menu:docs',
             type: 'item',
             url: 'https://teknokomo.gitbook.io/up',
             icon: icons.IconFileText,

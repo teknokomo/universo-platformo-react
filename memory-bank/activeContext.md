@@ -81,6 +81,30 @@
 
 ---
 
+## Current Focus: i18n Left Menu Diagnostics 🧭
+
+Status: In Progress
+
+Context:
+- Some users still see raw i18n keys in the left menu, while initialization logs show language resolved to `ru` and namespaces registered.
+- The active renderer for the left menu is Universo `MenuContent` (under `MainLayoutMUI → SideMenu`).
+
+Actions Taken:
+- Added runtime diagnostics to `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx` to log:
+   - current language and resolved language
+   - presence of `menu` namespace bundle
+   - sample results for `t('uniks')` and `t('metaverses')`
+   - per-item translation results
+
+Next Steps:
+- Validate logs in the browser to confirm the translation path and identify mismatches.
+- If unresolved, verify whether legacy Flowise menu is rendered on some routes and adjust accordingly.
+
+Update (2025-10-28):
+- MetaverseList toolbar tooltips, primary action, and dialog buttons switched to `translation:*`; table headers use `metaverses.table.*` with EN fallbacks; BaseEntityMenu wired with `namespace='metaverses'` and `menuButtonLabelKey='flowList:menu.button'`.
+- Confirmed `menu` namespace registration is flat (`menu: menuEn.menu`/`menuRu.menu`) in `@universo/i18n` instance.
+- Full root build succeeded (30/30 tasks). Browser QA pending. Note: Vite reports a non-blocking warning about `Trans` not exported from `@universo/i18n` in APICodeDialog.jsx; track as follow-up.
+
 ## Current Focus: Global Repository Refactoring 🔨
 
 **Status**: In Progress (Multi-Phase Restructuring)

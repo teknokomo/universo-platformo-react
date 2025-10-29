@@ -9,7 +9,7 @@ import { baseURL } from '@flowise/store'
 
 // Universo Platformo | Component to display Python code based on the mode
 const PythonCode = ({ canvasId, apiKey, mode = 'chat' }) => {
-    const { t } = useTranslation('canvases')
+    const { t } = useTranslation('chatbot')
 
     // Universo Platformo | Function to generate Python code for chat without authorization
     const getPythonChatCode = (canvasIdentifier) => {

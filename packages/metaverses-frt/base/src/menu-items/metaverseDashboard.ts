@@ -22,7 +22,7 @@ const metaverseDashboard: MenuItem = {
     children: [
         {
             id: 'metaverseboard',
-            title: 'metaverses:menu.metaverseboard',
+            title: 'menu:metaverseboard',
             type: 'item',
             url: '', // will resolve to /metaverses/:metaverseId
             icon: icons.IconBuildingStore,
@@ -30,7 +30,7 @@ const metaverseDashboard: MenuItem = {
         },
         {
             id: 'entities',
-            title: 'metaverses:menu.entities',
+            title: 'menu:entities',
             type: 'item',
             url: '/entities',
             icon: icons.IconFolder,
@@ -38,7 +38,7 @@ const metaverseDashboard: MenuItem = {
         },
         {
             id: 'sections',
-            title: 'metaverses:menu.sections',
+            title: 'menu:sections',
             type: 'item',
             url: '/sections',
             icon: icons.IconHierarchy,
@@ -46,7 +46,7 @@ const metaverseDashboard: MenuItem = {
         },
         {
             id: 'access',
-            title: 'metaverses:menu.access',
+            title: 'menu:access',
             type: 'item',
             url: '/access',
             icon: icons.IconUsersGroup,

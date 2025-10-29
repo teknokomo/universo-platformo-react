@@ -16,21 +16,21 @@ import { useAuthError } from '@universo/auth-frt'
 const BaseBot = ({ children }) => {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { t } = useTranslation()
+    const { t } = useTranslation('chatbot')
 
     const [canvas, setCanvas] = useState(null)
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    const getPublicCanvasApi = useApi(canvasesApi.getPublicCanvas)
-    const getCanvasApi = useApi(canvasesApi.getCanvasById)
+    const getPublicCanvasApi = useApi(api.canvases.getPublicCanvas)
+    const getCanvasApi = useApi(api.canvases.getCanvasById)
     const { handleAuthError } = useAuthError()
 
     useEffect(() => {
         if (id) {
             getPublicCanvasApi.request(id)
         } else {
-            setError(t('chatbot.idMissing', 'Bot ID not provided'))
+            setError(t('idMissing', 'Bot ID not provided'))
             setLoading(false)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,7 +75,7 @@ const BaseBot = ({ children }) => {
     }
 
     if (!canvas || canvas.apikeyid) {
-        return <p>{t('chatbot.invalid')}</p>
+        return <p>{t('invalid')}</p>
     }
 
     return <>{children(canvas)}</>

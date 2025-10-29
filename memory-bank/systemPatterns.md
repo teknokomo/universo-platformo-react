@@ -2,6 +2,229 @@
 
 ## i18n Architecture Patterns
 
+### Multi-Namespace i18n Pattern (2025-10-28)
+
+**Pattern**: Organize translations into logical namespaces with clear hierarchy: core shared translations (common, roles, access) + feature-specific namespaces (metaverses, flowList).
+
+**Structure**:
+```
+packages/universo-i18n/base/src/locales/
+├── en/
+│   ├── core/                    # Shared across all features
+│   │   ├── common.json          # UI elements, CRUD, errors, pagination
+│   │   ├── roles.json           # Universal roles (owner, admin, member, etc)
+│   │   └── access.json          # Access control (permissions, dialogs)
+│   ├── views/                   # View-specific translations
+│   │   ├── flowList.json        # Generic flow/table list component
+│   │   ├── admin.json           # Admin interface
+│   │   └── ...
+│   ├── dialogs/                 # Dialog-specific translations
+│   └── features/                # Feature-specific translations
+└── ru/                          # Same structure for Russian
+```
+
+**Usage in Components**:
+```typescript
+import { useTranslation } from 'react-i18next'
+import i18n from '@universo/i18n'
+
+// Multi-namespace hook (default namespace first)
+const { t } = useTranslation(['metaverses', 'common', 'roles', 'access', 'flowList'], { i18n })
+
+// Default namespace (no prefix needed)
+t('metaverses.title')                  // → "Metaverses"
+t('metaverses.searchPlaceholder')      // → "Search metaverses..."
+
+// Other namespaces (explicit prefix required)
+t('common:addNew')                     // → "Add New"
+t('common:table.role')                 // → "Role"
+t('roles:owner')                       // → "Owner"
+t('access:permissions.manage')         // → "Manage Access"
+t('flowList:table.columns.name')       // → "Name"
+```
+
+**Key Principles**:
+
+1. **Core Namespace Hierarchy**:
+   - `common.json`: Buttons, labels, CRUD actions, errors, pagination
+   - `roles.json`: Universal user roles (owner, admin, editor, member, viewer)
+   - `access.json`: Access control (permissions, share dialogs, invitations)
+
+2. **Feature Namespaces**:
+   - Feature-specific keys in own package (`metaverses.json`)
+   - Generic component translations in `views/` (`flowList.json` for table lists)
+
+3. **Namespace Registration**:
+   - Core namespaces loaded in `universo-i18n/instance.ts`
+   - Feature namespaces registered via `registerNamespace()` from package i18n modules
+   - Side-effect imports ensure namespace availability before component render
+
+4. **Translation Key Naming**:
+   - Flat structure preferred: `metaverses.createMetaverse` not `metaverses.actions.create`
+   - Shared keys moved to core: `common:addNew` not `metaverses.addNew`
+   - Consistent naming across features for reusability
+
+**FlowListTable Namespace Example**:
+```typescript
+// Component prop determines which namespace to use
+<FlowListTable
+    data={items}
+    i18nNamespace='flowList'  // Uses flowList:table.columns.* keys
+    customColumns={customColumns}
+/>
+
+// Custom columns use their own namespace
+const customColumns = [
+    {
+        id: 'role',
+        label: t('common:table.role'),  // Shared label from common namespace
+        render: (row) => t(`roles:${row.role}`)  // Dynamic role translation
+    }
+]
+```
+
+**Benefits**:
+- ✅ Eliminates translation duplication (DRY principle)
+- ✅ Consistent labels across features (e.g., "Add New", "Role", "Actions")
+- ✅ Easy maintenance (update one common key, all features reflect change)
+- ✅ Type-safe with proper namespace imports
+- ✅ Generic components reusable across features (FlowListTable, PaginationControls)
+
+### JSON Namespace Wrapper Pattern (Critical)
+
+**Pattern**: All translation JSON files use top-level wrapper keys matching the namespace name. During registration in `instance.ts`, these wrappers **must be unwrapped** to avoid double-nesting.
+
+**Critical Rule**: JSON files with wrapper keys MUST be unwrapped during registration, otherwise i18next creates double-nested paths (e.g., `roles.roles.owner` instead of `roles.owner`).
+
+**File Structure**:
+```json
+// packages/universo-i18n/base/src/locales/en/core/roles.json
+{
+  "roles": {           // ← Wrapper key (matches namespace name)
+    "owner": "Owner",
+    "admin": "Admin",
+    "editor": "Editor",
+    "member": "Member",
+    "viewer": "Viewer"
+  }
+}
+```
+
+**Why Wrappers Exist**:
+1. ✅ Self-documenting: Immediately see which namespace the file contains
+2. ✅ Prevents key conflicts when merging translations
+3. ✅ Consistent pattern across all namespaces
+4. ✅ Git-friendly: Merge conflicts are namespace-scoped
+
+**Registration Patterns**:
+
+```typescript
+// ❌ WRONG: Double-nesting (creates roles.roles.owner path)
+resources: {
+  en: {
+    roles: rolesEn  // rolesEn = {roles: {...}}
+  }
+}
+
+// ✅ CORRECT: Unwrap to single-nesting (creates roles.owner path)
+resources: {
+  en: {
+    roles: rolesEn.roles  // Extract inner object
+  }
+}
+
+// Special case: Keys with hyphens require bracket notation
+resources: {
+  en: {
+    'api-keys': apiKeysEn.apiKeys,         // apiKeys.json uses camelCase key
+    'document-store': documentStoreEn.documentStore  // documentStore in JSON
+  }
+}
+
+// Special case: Flat JSON files without wrappers (keep as-is)
+resources: {
+  en: {
+    admin: adminEn,  // admin.json is flat: {title: "...", superAdmin: "..."}
+    translation: {
+      ...commonEn.common,  // Unwrap common
+      ...headerEn.header,  // Unwrap header
+      ...spacesEn,         // Keep flat (no wrapper)
+      ...canvasesEn        // Keep flat (no wrapper)
+    }
+  }
+}
+```
+
+**Feature Package Registration** (already correct pattern):
+```typescript
+// packages/metaverses-frt/base/src/i18n/index.ts
+import { registerNamespace } from '@universo/i18n/registry'
+import enMetaverses from './locales/en/metaverses.json'
+import ruMetaverses from './locales/ru/metaverses.json'
+
+// ✅ CORRECT: Extract inner object before registration
+registerNamespace('metaverses', {
+  en: enMetaverses.metaverses,  // Unwrap {metaverses: {...}}
+  ru: ruMetaverses.metaverses
+})
+```
+
+**Verification Checklist**:
+- ✅ All namespace JSON files in `core/`, `views/`, `dialogs/`, `features/` have wrapper keys
+- ✅ `instance.ts` extracts inner object during registration: `rolesEn.roles`, `flowListEn.flowList`, etc.
+- ✅ Hyphenated namespace names use bracket notation: `apiKeysEn.apiKeys` for `'api-keys'` namespace
+- ✅ Flat JSON files (admin, spaces, canvases) registered without unwrapping
+- ✅ Mixed namespace keys use correct format: camelCase in JSON (`apiKeys`), kebab-case in registration (`'api-keys'`)
+
+**Common Mistakes**:
+```typescript
+// ❌ MISTAKE 1: Using bracket notation instead of dot notation
+'api-keys': apiKeysEn['api-keys']  // Wrong: JSON uses apiKeys not api-keys
+
+// ✅ CORRECT: Use camelCase key from JSON file
+'api-keys': apiKeysEn.apiKeys
+
+// ❌ MISTAKE 2: Assuming JSON key matches namespace name
+'document-store': documentStoreEn['document-store']  // Wrong
+
+// ✅ CORRECT: Check JSON file for actual key name
+'document-store': documentStoreEn.documentStore
+
+// ❌ MISTAKE 3: Unwrapping flat files
+translation: {
+  ...commonEn,  // Wrong: creates translation.common.loading
+  ...headerEn
+}
+
+// ✅ CORRECT: Unwrap files with wrappers
+translation: {
+  ...commonEn.common,  // Creates translation.loading
+  ...headerEn.header
+}
+```
+
+**Testing Namespace Registration**:
+```typescript
+// Add console logs in feature package i18n registration
+console.log('[metaverses-i18n] Registering namespace', {
+  namespace: 'metaverses',
+  enKeys: Object.keys(enMetaverses.metaverses),
+  ruKeys: Object.keys(ruMetaverses.metaverses)
+})
+```
+
+**Expected Browser Console**:
+```
+[metaverses-i18n] Registering namespace {namespace: 'metaverses', enKeys: Array(4), ruKeys: Array(4)}
+[metaverses-i18n] Namespace registered successfully
+```
+
+If translations don't appear, check:
+1. Is side-effect import present? (`import './i18n'` in package index)
+2. Is namespace correctly unwrapped in `instance.ts` or `registerNamespace()`?
+3. Does JSON key name match what's used in registration? (camelCase vs kebab-case)
+4. Are translation keys using correct namespace prefix? (`t('common:save')` for non-default namespaces)
+
 ### Defense-in-Depth i18n Registration (Best Practice)
 
 **Pattern**: Multi-layer protection to ensure translation namespaces are registered before components use them.
@@ -963,17 +1186,23 @@ const { data, isLoading } = useQuery({
 - Search and filtering capabilities
 - Consistent UX across all lists
 
-### Architecture
+### Architecture (Updated 2025-10-28)
 
 **Component Layers**:
-1. **usePaginated Hook** (TanStack Query v5) - Server-side pagination, sorting, search
+1. **usePaginated Hook** (TanStack Query v5) - Server-side pagination, sorting, search, **dynamic pageSize**
 2. **ViewHeader** (with search) - Top bar with title + search input + action buttons
-3. **PaginationControls** (pagination only) - Pagination info + navigation controls
+3. **TablePaginationControls** (MUI pagination) - **Bottom positioned**, rows per page selector + page navigation
 4. **FlowListTable / ItemCard Grid** - Data rendering (table or card view)
+
+**Key Changes from Previous Pattern**:
+- ✅ **Dynamic Page Size**: `usePaginated` now supports `setPageSize()` action
+- ✅ **Bottom Pagination**: `TablePaginationControls` positioned below content (not above)
+- ✅ **MUI Pagination**: Uses Material-UI `TablePagination` for consistent UX
+- ✅ **Multi-Namespace i18n**: Components use multiple namespaces (`common`, `flowList`, feature-specific)
 
 ### Implementation
 
-#### Step 1: Setup usePaginated Hook
+#### Step 1: Setup usePaginated Hook with Dynamic Page Size
 
 ```typescript
 import { usePaginated } from '@universo/template-mui'
@@ -983,12 +1212,15 @@ import * as metaversesApi from '../api/metaverses'
 const paginationResult = usePaginated<Metaverse, 'name' | 'created' | 'updated'>({
     queryKeyFn: metaversesQueryKeys.list,
     queryFn: metaversesApi.listMetaverses,
-    limit: 20,
+    initialLimit: 20,  // NEW: Use initialLimit (or legacy limit param)
     sortBy: 'updated',
     sortOrder: 'desc'
 })
 
 const { data: metaverses, isLoading, error, pagination, actions } = paginationResult
+
+// actions now includes setPageSize(newSize: number)
+// pagination.pageSize is stateful and updates when user changes rows per page
 ```
 
 #### Step 2: Local Search State (Debounce)
@@ -1014,10 +1246,10 @@ const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement | 
 }, [])
 ```
 
-#### Step 3: ViewHeader + PaginationControls
+#### Step 3: ViewHeader (No Pagination)
 
 ```typescript
-import { ViewHeaderMUI as ViewHeader, PaginationControls } from '@universo/template-mui'
+import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 <ViewHeader
     search={true}  // Search in header (top right)
@@ -1030,20 +1262,14 @@ import { ViewHeaderMUI as ViewHeader, PaginationControls } from '@universo/templ
         viewMode={view as 'card' | 'list'}
         onViewModeChange={(mode: string) => handleChange(null, mode)}
         primaryAction={{
-            label: t('metaverses.addNew'),
+            label: t('common:addNew'),
             onClick: handleAddNew,
             startIcon: <AddRoundedIcon />
         }}
     />
 </ViewHeader>
 
-<PaginationControls
-    pagination={paginationResult.pagination}
-    actions={paginationResult.actions}
-    isLoading={paginationResult.isLoading}
-    showSearch={false}  // Search disabled - only pagination
-    namespace="metaverses"
-/>
+{/* NO PaginationControls here - moved to bottom */}
 ```
 
 #### Step 4: Card/List View Rendering
@@ -1070,6 +1296,7 @@ import { ViewHeaderMUI as ViewHeader, PaginationControls } from '@universo/templ
             <FlowListTable
                 data={metaverses}
                 isLoading={isLoading}
+                i18nNamespace='flowList'  // IMPORTANT: Use flowList namespace
                 customColumns={metaverseColumns}
                 renderActions={(row) => <BaseEntityMenu ... />}
             />
@@ -1077,6 +1304,31 @@ import { ViewHeaderMUI as ViewHeader, PaginationControls } from '@universo/templ
     </>
 )}
 ```
+
+#### Step 5: TablePaginationControls (Bottom Position)
+
+```typescript
+import { TablePaginationControls } from '@universo/template-mui'
+
+{/* NEW: Pagination at bottom, only when data exists */}
+{!isLoading && metaverses.length > 0 && (
+    <TablePaginationControls
+        pagination={paginationResult.pagination}
+        actions={paginationResult.actions}
+        isLoading={paginationResult.isLoading}
+        rowsPerPageOptions={[10, 20, 50, 100]}  // Configurable page sizes
+        namespace='common'  // Uses common:pagination.* keys
+    />
+)}
+```
+
+**TablePaginationControls Features**:
+- MUI `TablePagination` component (island design with border-top)
+- Rows per page dropdown (default: 10, 20, 50, 100)
+- Page navigation: First / Previous / Next / Last buttons
+- Display info: "1–20 of 157" with i18n support
+- 0-based (MUI) ↔ 1-based (usePaginated) conversion handled internally
+- Fully localized via `common:pagination.*` keys
 
 ### Backend API Requirements
 
@@ -1168,6 +1420,54 @@ await queryClient.invalidateQueries({
 })
 ```
 
+### i18n Multi-Namespace Pattern
+
+**Component Translation Setup**:
+```typescript
+const { t } = useTranslation(['metaverses', 'common', 'roles', 'access', 'flowList'], { i18n })
+
+// Feature-specific keys (default namespace, no prefix)
+t('metaverses.title')                  // → "Metaverses"
+t('metaverses.noMetaversesFound')      // → "No metaverses found"
+
+// Common UI elements (explicit namespace)
+t('common:addNew')                     // → "Add New"
+t('common:table.role')                 // → "Role"
+t('common:pagination.rowsPerPage')     // → "Rows per page"
+
+// Role translations (explicit namespace)
+t('roles:owner')                       // → "Owner"
+t('roles:admin')                       // → "Administrator"
+
+// FlowListTable uses flowList namespace
+<FlowListTable i18nNamespace='flowList' />
+// Internally: t('flowList:table.columns.name') → "Name"
+```
+
+**Custom Columns with Multi-Namespace**:
+```typescript
+const metaverseColumns = useMemo(
+    () => [
+        {
+            id: 'description',
+            label: t('common:table.description'),  // Shared label
+            render: (row) => row.description || '—'
+        },
+        {
+            id: 'role',
+            label: t('common:table.role'),         // Shared label
+            render: (row) => t(`roles:${row.role}`) // Dynamic role translation
+        },
+        {
+            id: 'sections',
+            label: t('common:table.sections'),     // Shared label
+            render: (row) => row.sectionsCount ?? '—'
+        }
+    ],
+    [t]
+)
+```
+
 ### UX Features
 
 **Keyboard Shortcuts**:
@@ -1177,11 +1477,18 @@ await queryClient.invalidateQueries({
 - Search visible on desktop (325px width)
 - Hidden on mobile (< sm breakpoint)
 - Card grid responsive (1 column → auto-fill)
+- Pagination sticky to bottom
 
 **Loading States**:
 - Skeleton grid for initial load
-- Pagination info shows during refetch
+- Pagination shows during refetch (disabled state)
 - Smooth transitions between states
+
+**Pagination UX**:
+- Bottom position (standard pattern for tables)
+- Rows per page selector: 10 / 20 / 50 / 100
+- First / Previous / Next / Last navigation
+- Display: "1–20 of 157" with full i18n
 
 ### Benefits
 
@@ -1191,12 +1498,16 @@ await queryClient.invalidateQueries({
 - ✅ **Automatic Caching**: TanStack Query handles cache
 - ✅ **Type Safety**: Generic `usePaginated<T>` with type inference
 - ✅ **Keyboard Shortcuts**: Built-in Ctrl+F / Cmd+F support
+- ✅ **Dynamic Page Size**: User-controlled rows per page
+- ✅ **Multi-Namespace i18n**: Reusable translations across features
+- ✅ **Bottom Pagination**: Standard table pagination UX
 
 ### Migration Steps (Existing Lists → Universal Pattern)
 
 1. **Add usePaginated Hook**
    - Replace `useState` + `useEffect` with `usePaginated`
    - Remove manual pagination state
+   - Use `initialLimit` instead of `limit` parameter
 
 2. **Add Local Search State**
    - `useState('')` for search input
@@ -1205,19 +1516,26 @@ await queryClient.invalidateQueries({
 3. **Update ViewHeader**
    - Enable `search={true}`
    - Add `onSearchChange={handleSearchChange}`
+   - Remove old pagination controls from header
 
-4. **Update PaginationControls**
-   - Set `showSearch={false}`
-   - Keep only pagination info + controls
+4. **Add TablePaginationControls**
+   - Position at bottom of content (after card/list view)
+   - Set `namespace='common'`
+   - Configure `rowsPerPageOptions={[10, 20, 50, 100]}`
 
-5. **Verify Backend API**
+5. **Update FlowListTable**
+   - Set `i18nNamespace='flowList'` prop
+   - Ensure custom columns use multi-namespace pattern
+
+6. **Verify Backend API**
    - Ensure query params support
    - Verify response headers
    - Test search filter
 
-6. **Test End-to-End**
+7. **Test End-to-End**
    - Search debounce works
    - Pagination navigation
+   - Rows per page selector
    - Sort changes
    - CRUD operations + cache invalidation
 
@@ -1233,7 +1551,8 @@ await queryClient.invalidateQueries({
 **Documentation**:
 - TanStack Query v5: https://tanstack.com/query/latest
 - usePaginated Hook: `packages/universo-template-mui/base/src/hooks/usePaginated.ts`
-- PaginationControls: `packages/universo-template-mui/base/src/components/pagination/PaginationControls.tsx`
+- TablePaginationControls: `packages/universo-template-mui/base/src/components/pagination/TablePaginationControls.tsx`
+- Multi-Namespace i18n: See "Multi-Namespace i18n Pattern" section above
 
 ---
 

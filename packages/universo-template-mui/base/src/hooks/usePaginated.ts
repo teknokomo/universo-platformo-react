@@ -1,4 +1,4 @@
-import { useQuery, UseQueryResult, QueryKey } from '@tanstack/react-query'
+import { useQuery, UseQueryResult, QueryKey, keepPreviousData } from '@tanstack/react-query'
 import { useMemo, useState, useCallback } from 'react'
 import type { PaginationParams, PaginatedResponse, PaginationState, PaginationActions } from '../types/pagination'
 
@@ -14,9 +14,15 @@ export interface UsePaginatedParams<TSortBy extends string = string> {
     queryFn: (params: PaginationParams) => Promise<PaginatedResponse<any>>
 
     /**
-     * Items per page
+     * Initial items per page (defaults to 20)
+     * @deprecated Use initialLimit instead for clarity
      */
     limit?: number
+
+    /**
+     * Initial items per page (defaults to 20)
+     */
+    initialLimit?: number
 
     /**
      * Initial page number (1-based)
@@ -81,7 +87,8 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     const {
         queryKeyFn,
         queryFn,
-        limit = 20,
+        limit, // deprecated, kept for backward compatibility
+        initialLimit,
         initialPage = 1,
         sortBy = 'updated' as TSortBy,
         sortOrder = 'desc',
@@ -90,24 +97,28 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         staleTime = 5 * 60 * 1000 // 5 minutes default
     } = params
 
+    // Determine initial page size (prefer initialLimit, fallback to limit, default to 20)
+    const initialPageSize = initialLimit ?? limit ?? 20
+
     // Local state for pagination
     const [currentPage, setCurrentPage] = useState(initialPage)
+    const [pageSize, setPageSizeState] = useState(initialPageSize)
     const [searchQuery, setSearchQuery] = useState(initialSearch)
     const [currentSort, setCurrentSort] = useState({ sortBy: sortBy as string, sortOrder })
 
     // Calculate offset from page number
-    const offset = useMemo(() => (currentPage - 1) * limit, [currentPage, limit])
+    const offset = useMemo(() => (currentPage - 1) * pageSize, [currentPage, pageSize])
 
     // Build query params
     const queryParams: PaginationParams = useMemo(
         () => ({
-            limit,
+            limit: pageSize,
             offset,
             sortBy: currentSort.sortBy,
             sortOrder: currentSort.sortOrder,
             search: searchQuery || undefined
         }),
-        [limit, offset, currentSort, searchQuery]
+        [pageSize, offset, currentSort, searchQuery]
     )
 
     // Main query
@@ -116,7 +127,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         queryFn: () => queryFn(queryParams),
         enabled,
         staleTime,
-        placeholderData: (previousData: PaginatedResponse<TData> | undefined) => previousData,
+        placeholderData: keepPreviousData,
         retry: (failureCount: number, error: any) => {
             const status = error?.response?.status
             if ([401, 403, 404].includes(status)) return false
@@ -127,8 +138,8 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     // Pagination calculations
     const totalPages = useMemo(() => {
         if (!query.data) return 0
-        return Math.ceil(query.data.pagination.total / limit)
-    }, [query.data, limit])
+        return Math.ceil(query.data.pagination.total / pageSize)
+    }, [query.data, pageSize])
 
     const hasNextPage = useMemo(() => currentPage < totalPages, [currentPage, totalPages])
     const hasPreviousPage = useMemo(() => currentPage > 1, [currentPage])
@@ -164,11 +175,16 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         setCurrentPage(1) // Reset to first page on sort change
     }, [])
 
+    const setPageSize = useCallback((newPageSize: number) => {
+        setPageSizeState(newPageSize)
+        setCurrentPage(1) // Reset to first page when changing page size
+    }, [])
+
     return {
         data: query.data?.items ?? [],
         pagination: {
             currentPage,
-            pageSize: limit,
+            pageSize,
             totalItems: query.data?.pagination.total ?? 0,
             totalPages,
             hasNextPage,
@@ -182,7 +198,8 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
             nextPage,
             previousPage,
             setSearch,
-            setSort
+            setSort,
+            setPageSize
         }
     }
 }

@@ -1,5 +1,7 @@
 {
-  "title": "Admin Panel",
-  "superAdmin": "Super Admin",
-  "banned": "Banned"
+    "admin": {
+        "title": "Admin Panel",
+        "superAdmin": "Super Admin",
+        "banned": "Banned"
+    }
 } 

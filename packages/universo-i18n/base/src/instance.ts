@@ -12,8 +12,11 @@ import headerRu from './locales/ru/core/header.json'
 import spacesEn from './locales/en/core/spaces.json'
 import spacesRu from './locales/ru/core/spaces.json'
 
-import canvasesEn from './locales/en/core/canvases.json'
-import canvasesRu from './locales/ru/core/canvases.json'
+import rolesEn from './locales/en/core/roles.json'
+import rolesRu from './locales/ru/core/roles.json'
+
+import accessEn from './locales/en/core/access.json'
+import accessRu from './locales/ru/core/access.json'
 
 // Import views
 import adminEn from './locales/en/views/admin.json'
@@ -31,6 +34,9 @@ import authRu from './locales/ru/views/auth.json'
 import canvasEn from './locales/en/views/canvas.json'
 import canvasRu from './locales/ru/views/canvas.json'
 
+import canvasesEn from './locales/en/views/canvases.json'
+import canvasesRu from './locales/ru/views/canvases.json'
+
 import chatmessageEn from './locales/en/views/chatmessage.json'
 import chatmessageRu from './locales/ru/views/chatmessage.json'
 
@@ -45,6 +51,12 @@ import flowListRu from './locales/ru/views/flowList.json'
 
 import menuEn from './locales/en/views/menu.json'
 import menuRu from './locales/ru/views/menu.json'
+
+import profileMenuEn from './locales/en/views/profile-menu.json'
+import profileMenuRu from './locales/ru/views/profile-menu.json'
+
+import chatbotEn from './locales/en/views/chatbot.json'
+import chatbotRu from './locales/ru/views/chatbot.json'
 
 import templatesEn from './locales/en/views/templates.json'
 import templatesRu from './locales/ru/views/templates.json'
@@ -148,111 +160,137 @@ export function getInstance(): typeof i18n {
                 resources: {
                     en: {
                         // Core
-                        translation: {
-                            ...commonEn,
-                            ...headerEn,
-                            ...spacesEn,
-                            ...canvasesEn
-                        },
+                        common: commonEn.common,
+                        header: headerEn.header,
+                        spaces: spacesEn.spaces,
+                        roles: rolesEn.roles,
+                        access: accessEn.access,
                         // Views
-                        admin: adminEn,
-                        'api-keys': apiKeysEn,
-                        assistants: assistantsEn,
-                        auth: authEn,
-                        canvas: canvasEn,
-                        chatmessage: chatmessageEn,
-                        credentials: credentialsEn,
-                        'document-store': documentStoreEn,
-                        flowList: flowListEn,
-                        menu: menuEn,
-                        templates: templatesEn,
-                        tools: toolsEn,
-                        variables: variablesEn,
-                        'vector-store': vectorStoreEn,
+                        admin: adminEn.admin,
+                        'api-keys': apiKeysEn.apiKeys,
+                        assistants: assistantsEn.assistants,
+                        auth: authEn.auth,
+                        canvas: canvasEn.canvas,
+                        canvases: canvasesEn.canvases,
+                        chatmessage: chatmessageEn.chatMessage,
+                        chatbot: chatbotEn.chatbot,
+                        credentials: credentialsEn.credentials,
+                        'document-store': documentStoreEn.documentStore,
+                        flowList: flowListEn.flowList,
+                        menu: menuEn.menu,
+                        'profile-menu': profileMenuEn.profileMenu,
+                        templates: templatesEn.templates,
+                        tools: toolsEn.tools,
+                        variables: variablesEn.variables,
+                        'vector-store': vectorStoreEn.vectorStore,
                         // Dialogs
-                        about: aboutEn,
-                        allowedDomains: allowedDomainsEn,
-                        chatFeedback: chatFeedbackEn,
-                        confirm: confirmEn,
-                        condition: conditionEn,
-                        expandText: expandTextEn,
-                        exportTemplate: exportTemplateEn,
-                        formatPrompt: formatPromptEn,
-                        login: loginEn,
-                        manageLinks: manageLinksEn,
-                        nodeInfo: nodeInfoEn,
-                        nvidiaNIM: nvidiaNIMEn,
-                        promptLangsmithHub: promptLangsmithHubEn,
-                        saveChatflow: saveChatflowEn,
-                        sourceDoc: sourceDocEn,
-                        speechToTextDialog: speechToTextDialogEn,
-                        starterPrompts: starterPromptsEn,
-                        tag: tagEn,
-                        viewLeads: viewLeadsEn,
-                        viewMessages: viewMessagesEn,
-                        saveCanvas: saveCanvasEn,
+                        about: aboutEn.about,
+                        allowedDomains: allowedDomainsEn.allowedDomains,
+                        chatFeedback: chatFeedbackEn.chatFeedback,
+                        confirm: confirmEn.confirm,
+                        condition: conditionEn.condition,
+                        expandText: expandTextEn.expandText,
+                        exportTemplate: exportTemplateEn.exportTemplate,
+                        formatPrompt: formatPromptEn.formatPrompt,
+                        login: loginEn.login,
+                        manageLinks: manageLinksEn.manageLinks,
+                        nodeInfo: nodeInfoEn.nodeInfo,
+                        nvidiaNIM: nvidiaNIMEn.nvidiaNIM,
+                        promptLangsmithHub: promptLangsmithHubEn.promptLangsmithHub,
+                        saveChatflow: saveChatflowEn.saveChatflow,
+                        sourceDoc: sourceDocEn.sourceDoc,
+                        speechToTextDialog: speechToTextDialogEn.speechToText,
+                        starterPrompts: starterPromptsEn.starterPrompts,
+                        tag: tagEn.tag,
+                        viewLeads: viewLeadsEn.viewLeads,
+                        viewMessages: viewMessagesEn.viewMessages,
+                        saveCanvas: saveCanvasEn.saveCanvas,
                         // Features
-                        promptGenerator: promptGeneratorEn,
-                        speechToText: speechToTextEn,
-                        docstore: docstoreEn
+                        promptGenerator: promptGeneratorEn.promptGenerator,
+                        speechToText: speechToTextEn.speechToText,
+                        docstore: docstoreEn.docstore
                     },
                     ru: {
                         // Core
-                        translation: {
-                            ...commonRu,
-                            ...headerRu,
-                            ...spacesRu,
-                            ...canvasesRu
-                        },
+                        common: commonRu.common,
+                        header: headerRu.header,
+                        spaces: spacesRu.spaces,
+                        roles: rolesRu.roles,
+                        access: accessRu.access,
                         // Views
-                        admin: adminRu,
-                        'api-keys': apiKeysRu,
-                        assistants: assistantsRu,
-                        auth: authRu,
-                        canvas: canvasRu,
-                        chatmessage: chatmessageRu,
-                        credentials: credentialsRu,
-                        'document-store': documentStoreRu,
-                        flowList: flowListRu,
-                        menu: menuRu,
-                        templates: templatesRu,
-                        tools: toolsRu,
-                        variables: variablesRu,
-                        'vector-store': vectorStoreRu,
+                        admin: adminRu.admin,
+                        'api-keys': apiKeysRu.apiKeys,
+                        assistants: assistantsRu.assistants,
+                        auth: authRu.auth,
+                        canvas: canvasRu.canvas,
+                        canvases: canvasesRu.canvases,
+                        chatmessage: chatmessageRu.chatMessage,
+                        chatbot: chatbotRu.chatbot,
+                        credentials: credentialsRu.credentials,
+                        'document-store': documentStoreRu.documentStore,
+                        flowList: flowListRu.flowList,
+                        menu: menuRu.menu,
+                        'profile-menu': profileMenuRu.profileMenu,
+                        templates: templatesRu.templates,
+                        tools: toolsRu.tools,
+                        variables: variablesRu.variables,
+                        'vector-store': vectorStoreRu.vectorStore,
                         // Dialogs
-                        about: aboutRu,
-                        allowedDomains: allowedDomainsRu,
-                        chatFeedback: chatFeedbackRu,
-                        confirm: confirmRu,
-                        condition: conditionRu,
-                        expandText: expandTextRu,
-                        exportTemplate: exportTemplateRu,
-                        formatPrompt: formatPromptRu,
-                        login: loginRu,
-                        manageLinks: manageLinksRu,
-                        nodeInfo: nodeInfoRu,
-                        nvidiaNIM: nvidiaNIMRu,
-                        promptLangsmithHub: promptLangsmithHubRu,
-                        saveChatflow: saveChatflowRu,
-                        sourceDoc: sourceDocRu,
-                        speechToTextDialog: speechToTextDialogRu,
-                        starterPrompts: starterPromptsRu,
-                        tag: tagRu,
-                        viewLeads: viewLeadsRu,
-                        viewMessages: viewMessagesRu,
-                        saveCanvas: saveCanvasRu,
+                        about: aboutRu.about,
+                        allowedDomains: allowedDomainsRu.allowedDomains,
+                        chatFeedback: chatFeedbackRu.chatFeedback,
+                        confirm: confirmRu.confirm,
+                        condition: conditionRu.condition,
+                        expandText: expandTextRu.expandText,
+                        exportTemplate: exportTemplateRu.exportTemplate,
+                        formatPrompt: formatPromptRu.formatPrompt,
+                        login: loginRu.login,
+                        manageLinks: manageLinksRu.manageLinks,
+                        nodeInfo: nodeInfoRu.nodeInfo,
+                        nvidiaNIM: nvidiaNIMRu.nvidiaNIM,
+                        promptLangsmithHub: promptLangsmithHubRu.promptLangsmithHub,
+                        saveChatflow: saveChatflowRu.saveChatflow,
+                        sourceDoc: sourceDocRu.sourceDoc,
+                        speechToTextDialog: speechToTextDialogRu.speechToText,
+                        starterPrompts: starterPromptsRu.starterPrompts,
+                        tag: tagRu.tag,
+                        viewLeads: viewLeadsRu.viewLeads,
+                        viewMessages: viewMessagesRu.viewMessages,
+                        saveCanvas: saveCanvasRu.saveCanvas,
                         // Features
-                        promptGenerator: promptGeneratorRu,
-                        speechToText: speechToTextRu,
-                        docstore: docstoreRu
+                        promptGenerator: promptGeneratorRu.promptGenerator,
+                        speechToText: speechToTextRu.speechToText,
+                        docstore: docstoreRu.docstore
                     }
                 },
                 fallbackLng: 'en',
+                defaultNS: 'common',
+                fallbackNS: ['common', 'header', 'spaces'],
+                load: 'languageOnly', // Use only 'ru' instead of 'ru-RU'
                 debug: false,
                 interpolation: {
                     escapeValue: false
                 }
             })
+
+        // CRITICAL: Force language to use only the base code (ru instead of ru-RU)
+        // This is necessary because i18n.language stays as 'ru-RU' even with load: 'languageOnly'
+        const detectedLang = instance.language
+        const baseLang = detectedLang.split('-')[0] // 'ru-RU' -> 'ru'
+        if (detectedLang !== baseLang) {
+            instance.changeLanguage(baseLang)
+        }
+
+        // Debug: log language detection
+        console.log('[i18n-instance] Initialized:', {
+            detectedLanguage: detectedLang,
+            baseLang: baseLang,
+            currentLanguage: instance.language,
+            resolvedLanguage: instance.resolvedLanguage,
+            languages: instance.languages,
+            hasEnCommon: instance.hasResourceBundle('en', 'common'),
+            hasRuCommon: instance.hasResourceBundle('ru', 'common')
+        })
 
         globalThis.__universo_i18n__instance = instance
     }

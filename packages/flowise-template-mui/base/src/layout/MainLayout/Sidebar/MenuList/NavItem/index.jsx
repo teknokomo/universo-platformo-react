@@ -26,6 +26,9 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     const matchesSM = useMediaQuery(theme.breakpoints.down('lg'))
     const location = useLocation()
 
+    // Debug: log every render
+    console.log('[NavItem] Rendering:', { id: item.id, title: item.title, level, navType })
+
     const Icon = item.icon
     const itemIcon = item?.icon ? (
         <Icon stroke={1.5} size='1.3rem' />
@@ -83,38 +86,39 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
 
     // Get translated title from key depending on menu item ID
     const getTranslatedTitle = (id, title) => {
-        // Check if title uses namespace:key format (e.g., "metaverses:menu.metaverseboard")
+        console.log('[NavItem] getTranslatedTitle called:', { id, title })
+        
+        // Check if title uses namespace:key format (e.g., "menu:metaverses")
         if (title && title.includes(':')) {
             const [namespace, key] = title.split(':')
             const i18n = getI18n()
-            return i18n.t(key, { ns: namespace })
-        }
-
-        // First check if the title is already a localization key
-        if (title && title.startsWith('menu.')) {
-            return t(title)
+            const result = i18n.t(key, { ns: namespace })
+            console.log('[NavItem] namespace:key translation:', { namespace, key, result, hasNamespace: i18n.hasResourceBundle('ru', namespace) })
+            return result
         }
 
         // If not, try to find a match for ID in the menu
         const menuKeys = {
-            'unik-dashboard': 'menu.dashboard',
-            spaces: 'menu.spaces',
-            agentflows: 'menu.agentflows',
-            assistants: 'menu.assistants',
-            tools: 'menu.tools',
-            credentials: 'menu.credentials',
-            variables: 'menu.variables',
-            apikey: 'menu.apiKeys',
-            'document-stores': 'menu.documentStores',
-            templates: 'menu.templates',
-            uniks: 'menu.uniks',
-            metaverses: 'menu.metaverses',
-            resources: 'menu.resources',
-            docs: 'menu.docs',
-            profile: 'menu.profile'
+            'unik-dashboard': 'dashboard',
+            spaces: 'spaces',
+            agentflows: 'agentflows',
+            assistants: 'assistants',
+            tools: 'tools',
+            credentials: 'credentials',
+            variables: 'variables',
+            apikey: 'apiKeys',
+            'document-stores': 'documentStores',
+            templates: 'templates',
+            uniks: 'uniks',
+            metaverses: 'metaverses',
+            resources: 'resources',
+            docs: 'docs',
+            profile: 'profile'
         }
 
-        return menuKeys[id] ? t(menuKeys[id]) : title
+        const result = menuKeys[id] ? t(menuKeys[id]) : title
+        console.log('[NavItem] menuKeys fallback:', { id, menuKey: menuKeys[id], result })
+        return result
     }
 
     // active menu item on page load
@@ -179,7 +183,11 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
                         color='inherit'
                         sx={{ my: 0.5 }}
                     >
-                        {getTranslatedTitle(item.id, item.title)}
+                        {(() => {
+                            const translated = getTranslatedTitle(item.id, item.title)
+                            console.log('[NavItem] Rendered title:', { id: item.id, title: item.title, translated })
+                            return translated
+                        })()}
                     </Typography>
                 }
                 secondary={

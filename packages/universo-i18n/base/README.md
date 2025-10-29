@@ -31,6 +31,85 @@ export const MyComponent = () => {
 }
 ```
 
+## TypeScript Type Safety
+
+This package provides **full TypeScript type safety** for all translation keys using i18next's native Module Augmentation feature.
+
+### Core Namespaces (Automatic)
+
+Core namespaces (`common`, `header`, `spaces`, `roles`, `access`) and view namespaces (e.g., `chatbot`, `admin`, `menu`) get automatic type checking:
+
+```typescript
+import { useTranslation } from '@universo/i18n'
+
+export const MyComponent = () => {
+  const { t } = useTranslation('chatbot')
+  
+  // ✅ Valid keys - autocomplete works
+  t('share.title')
+  t('embedBot.customization')
+  
+  // ❌ Compile error - key doesn't exist
+  t('invalidKey')  // TypeScript error: Argument of type '"invalidKey"' is not assignable...
+}
+```
+
+### Feature Package Namespaces (Typed Hooks)
+
+Feature packages (`metaverses-frt`, `uniks-frt`, `publish-frt`) provide typed hooks for their namespaces:
+
+```typescript
+// Instead of this (no type safety):
+import { useTranslation } from '@universo/i18n'
+const { t } = useTranslation('publish')
+
+// Use this (full type safety):
+import { usePublishTranslation } from '@universo/publish-frt/i18n/types'
+const { t } = usePublishTranslation()
+
+// Now you get:
+t('title')        // ✅ Autocomplete + type checking
+t('description')  // ✅ Autocomplete + type checking
+t('wrongKey')     // ❌ TypeScript compile error
+```
+
+**Available typed hooks:**
+- `useMetaversesTranslation()` from `@universo/metaverses-frt/i18n/types`
+- `useUniksTranslation()` from `@universo/uniks-frt/i18n/types`
+- `usePublishTranslation()` from `@universo/publish-frt/i18n/types`
+
+### How It Works
+
+1. **Module Augmentation**: The `src/i18next.d.ts` file extends i18next's `CustomTypeOptions` interface with all namespace types
+2. **JSON Type Imports**: TypeScript infers exact translation key structure from JSON files
+3. **No Runtime Cost**: All type checking happens at compile time - zero performance impact
+4. **IDE Integration**: Full autocomplete support in VS Code, WebStorm, and other TypeScript-aware editors
+
+### Adding New Translation Keys
+
+When you add a new key to a JSON file:
+
+```json
+// packages/universo-i18n/base/locales/en/views/chatbot.json
+{
+  "chatbot": {
+    "share": {
+      "title": "Share Chatbot",
+      "newKey": "My New Translation"  // ← Added this
+    }
+  }
+}
+```
+
+TypeScript automatically picks it up:
+
+```typescript
+const { t } = useTranslation('chatbot')
+t('share.newKey')  // ✅ Immediately available with autocomplete
+```
+
+**No rebuild required** - TypeScript reads the JSON files directly.
+
 ### Using Common Translations
 
 The `common` namespace provides universal UI translations that are shared across all packages:
