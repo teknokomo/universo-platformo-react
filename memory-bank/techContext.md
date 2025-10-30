@@ -316,7 +316,7 @@ dist/
 -   **Libraries**: 
     -   `express-rate-limit@8.2.0` - HTTP rate limiting middleware
     -   `rate-limit-redis@4.2.3` - Distributed storage backend
-    -   `ioredis@5.3.2` - Redis client with connection pooling
+    -   `ioredis@^5.8.2` - Redis client with connection pooling
 -   **Configuration**: Environment variable `REDIS_URL` (optional, falls back to MemoryStore)
 -   **Connection Pattern**: Event-driven (`instance.once('ready')`) with proper cleanup (no polling)
 -   **Cleanup**: Automatic event listener removal prevents memory leaks
