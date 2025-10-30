@@ -7,6 +7,7 @@ import { NodesPool } from '../NodesPool'
 import { CachePool } from '../CachePool'
 import { QueueEvents, QueueEventsListener } from 'bullmq'
 import { AbortControllerPool } from '../AbortControllerPool'
+import { rateLimiting } from '@universo/utils'
 
 interface CustomListener extends QueueEventsListener {
     abort: (args: { id: string }, id: string) => void
@@ -93,6 +94,9 @@ export default class Worker extends BaseCommand {
             const upsertWorker = queueManager.getQueue('upsert').getWorker()
             logger.info(`Shutting down Flowise Upsertion Worker ${this.upsertionWorkerId}...`)
             await upsertWorker.close()
+
+            // Close Redis client used by rate limiters (if any)
+            await rateLimiting.RedisClientManager.close()
         } catch (error) {
             logger.error('There was an error shutting down Flowise Worker...', error)
             await this.failExit()

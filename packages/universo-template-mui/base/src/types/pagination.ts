@@ -35,6 +35,7 @@ export interface PaginationState {
     totalPages: number
     hasNextPage: boolean
     hasPreviousPage: boolean
+    search?: string
 }
 
 /**

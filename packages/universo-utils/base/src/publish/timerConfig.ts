@@ -47,11 +47,7 @@ export const normalizeTimerConfig = (config: Partial<TimerConfig> | null | undef
     }
 }
 
-export const sanitizeTimerInput = (
-    enabled: boolean,
-    limitSeconds: unknown,
-    position: unknown
-): TimerConfig => {
+export const sanitizeTimerInput = (enabled: boolean, limitSeconds: unknown, position: unknown): TimerConfig => {
     return normalizeTimerConfig({
         enabled,
         limitSeconds: typeof limitSeconds === 'number' ? limitSeconds : Number(limitSeconds),

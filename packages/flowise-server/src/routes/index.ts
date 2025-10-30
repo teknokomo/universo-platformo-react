@@ -40,7 +40,7 @@ import verifyRouter from './verify'
 import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-srv'
-import { createMetaversesRoutes, createSectionsRoutes, createEntitiesRouter } from '@universo/metaverses-srv'
+import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -190,23 +190,17 @@ router.use(
 // - /domains (createDomainsRoutes)
 
 // Universo Platformo | Metaverses, Sections, Entities
+// Note: Rate limiters initialized via initializeRateLimiters() in server startup
+// This mounts: /metaverses, /sections, /entities
+// Lazy initialization: router created on first request (after initializeRateLimiters called)
+let metaversesRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!metaversesRouter) {
+        metaversesRouter = createMetaversesServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    metaversesRouter(req, res, next)
+})
 
-const metaversesLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
-router.use(
-    '/metaverses',
-    metaversesLimiter,
-    createMetaversesRoutes(ensureAuthWithRls, () => getDataSource())
-)
-const sectionsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true })
-router.use(
-    '/sections',
-    sectionsLimiter,
-    createSectionsRoutes(ensureAuthWithRls, () => getDataSource())
-)
-router.use(
-    '/entities',
-    createEntitiesRouter(ensureAuthWithRls, () => getDataSource())
-)
 // Universo Platformo | Canvas Streaming
 router.use('/api/v1/canvas-streaming', ensureAuth, canvasStreamingRouter)
 // Universo Platformo | Bots

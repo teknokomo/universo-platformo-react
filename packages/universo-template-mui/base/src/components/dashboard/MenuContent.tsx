@@ -19,7 +19,7 @@ import { rootMenuItems, getMetaverseMenuItems } from '../../navigation/menuConfi
 // ];
 
 export default function MenuContent() {
-  const { t, i18n: i18nInst } = useTranslation('menu', { i18n })
+    const { t, i18n: i18nInst } = useTranslation('menu', { i18n })
     const location = useLocation()
 
     // Check if we're in a metaverse context
@@ -29,24 +29,24 @@ export default function MenuContent() {
     // Use metaverse-specific menu if in metaverse context, otherwise use root menu
     const menuItems = metaverseId ? getMetaverseMenuItems(metaverseId) : rootMenuItems
 
-  // Debug diagnostics for i18n menu resolution
-  try {
-    // eslint-disable-next-line no-console
-    console.log('[MenuContent] i18n status', {
-      lang: i18nInst.language,
-      resolved: i18nInst.resolvedLanguage,
-      hasMenuNs: i18nInst.hasResourceBundle(i18nInst.language, 'menu'),
-      sample_uniks: t('uniks'),
-      sample_metaverses: t('metaverses')
-    })
-  } catch (e) {
-    // noop
-  }
+    // Debug diagnostics for i18n menu resolution
+    try {
+        // eslint-disable-next-line no-console
+        console.log('[MenuContent] i18n status', {
+            lang: i18nInst.language,
+            resolved: i18nInst.resolvedLanguage,
+            hasMenuNs: i18nInst.hasResourceBundle(i18nInst.language, 'menu'),
+            sample_uniks: t('uniks'),
+            sample_metaverses: t('metaverses')
+        })
+    } catch (e) {
+        // noop
+    }
 
     return (
         <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
             <List dense>
-        {menuItems.map((item, index) => {
+                {menuItems.map((item, index) => {
                     const Icon = item.icon
                     const buttonProps = item.external
                         ? { component: 'a', href: item.url, target: item.target ?? '_blank', rel: 'noopener noreferrer' }
@@ -56,24 +56,24 @@ export default function MenuContent() {
                     // This prevents metaverse board from being highlighted when on /entities or /sections
                     const isSelected = !item.external && location.pathname === item.url
 
-          // Debug per-item translation
-          let translated = t(item.titleKey)
-          try {
-            // eslint-disable-next-line no-console
-            console.log('[MenuContent] item', {
-              id: item.id,
-              titleKey: item.titleKey,
-              translated
-            })
-          } catch (e) {
-            // noop
-          }
+                    // Debug per-item translation
+                    let translated = t(item.titleKey)
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.log('[MenuContent] item', {
+                            id: item.id,
+                            titleKey: item.titleKey,
+                            translated
+                        })
+                    } catch (e) {
+                        // noop
+                    }
 
                     return (
                         <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
                             <ListItemButton selected={isSelected} {...buttonProps}>
                                 <ListItemIcon>{<Icon size={20} stroke={1.5} />}</ListItemIcon>
-                <ListItemText primary={translated} />
+                                <ListItemText primary={translated} />
                             </ListItemButton>
                         </ListItem>
                     )

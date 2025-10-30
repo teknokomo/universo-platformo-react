@@ -10,6 +10,14 @@
         "deleteSuccess": "Metaverse deleted successfully",
         "deleteError": "Failed to delete metaverse",
         "saveError": "Failed to save metaverse",
+        "errors": {
+            "connectionFailed": "Connection Failed",
+            "checkConnection": "Please check your network connection and try again",
+            "pleaseTryLater": "Something went wrong. Please try again later"
+        },
+        "actions": {
+            "retry": "Retry"
+        },
         "board": {
             "title": "Metaverseboard",
             "description": "Analytics and cluster statistics will be here (in development)"
@@ -19,4 +27,3 @@
         }
     }
 }
-

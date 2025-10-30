@@ -23,6 +23,7 @@
     "license": "Omsk Open License",
     "dependencies": {
         "@universo/auth-srv": "workspace:*",
+        "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "typeorm": "^0.3.6",
         "zod": "^3.25.76"

@@ -305,6 +305,36 @@ dist/
 -   User-selectable library sources (CDN vs local)
 -   CDN independence for restricted regions
 
+### Rate Limiting Architecture
+
+**Redis-Based Distributed Rate Limiting** - Production-ready DoS protection for multi-instance deployments
+
+**Key Implementation Details:**
+
+-   **Package**: `@universo/utils/rate-limiting` - Universal rate limiter creation
+-   **Pattern**: Singleton Redis client (RedisClientManager) with event-driven connection waiting
+-   **Libraries**: 
+    -   `express-rate-limit@8.2.0` - HTTP rate limiting middleware
+    -   `rate-limit-redis@4.2.3` - Distributed storage backend
+    -   `ioredis@^5.8.2` - Redis client with connection pooling
+-   **Configuration**: Environment variable `REDIS_URL` (optional, falls back to MemoryStore)
+-   **Connection Pattern**: Event-driven (`instance.once('ready')`) with proper cleanup (no polling)
+-   **Cleanup**: Automatic event listener removal prevents memory leaks
+-   **Multi-Instance Support**: Redis store shares counters across replicas (Docker/K8s/PM2)
+-   **Deployment Guide**: See `packages/universo-utils/base/DEPLOYMENT.md` for production setup
+
+**Production Setup**:
+```bash
+# Set REDIS_URL for multi-instance deployments
+REDIS_URL=redis://:password@redis.example.com:6379  # Basic auth
+REDIS_URL=rediss://:password@redis.example.com:6380 # TLS (recommended)
+```
+
+**Documentation**: 
+- Production deployment: `packages/universo-utils/base/DEPLOYMENT.md` (Docker, Kubernetes, PM2)
+- Troubleshooting: Common issues (connection timeout, high 429 errors, memory leaks)
+- Security: TLS encryption, authentication, network isolation
+
 ---
 
 _For system architecture patterns, see [systemPatterns.md](systemPatterns.md). For project overview, see [projectbrief.md](projectbrief.md). For current development status, see [activeContext.md](activeContext.md)._

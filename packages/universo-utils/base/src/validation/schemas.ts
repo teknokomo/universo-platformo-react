@@ -49,7 +49,9 @@ const zEventPayloads = {
     'system.join': z.object({ playerId: z.string(), worldId: z.string() }).strict(),
     'system.leave': z.object({ playerId: z.string(), reason: z.string().optional() }).strict(),
     'combat.hit': z.object({ attacker: z.string(), target: z.string(), amount: z.number(), damageType: z.string().optional() }).strict(),
-    'economy.transfer': z.object({ from: z.string(), to: z.string(), currency: z.string(), amount: z.number(), ref: z.string().optional() }).strict()
+    'economy.transfer': z
+        .object({ from: z.string(), to: z.string(), currency: z.string(), amount: z.number(), ref: z.string().optional() })
+        .strict()
 } as const
 
 const eventSchemas = (Object.keys(zEventPayloads) as (keyof typeof zEventPayloads)[]).map((t) =>
@@ -57,7 +59,10 @@ const eventSchemas = (Object.keys(zEventPayloads) as (keyof typeof zEventPayload
 )
 
 export const schemas = {
-    eventPacket: z.discriminatedUnion('type', eventSchemas as unknown as [typeof eventSchemas[number], ...typeof eventSchemas[number][]]),
+    eventPacket: z.discriminatedUnion(
+        'type',
+        eventSchemas as unknown as [(typeof eventSchemas)[number], ...(typeof eventSchemas)[number][]]
+    ),
     baseIntent: z
         .object({
             seq: z.number().int().nonnegative(),

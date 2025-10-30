@@ -3,7 +3,7 @@ import * as DataSource from '../DataSource'
 import logger from '../utils/logger'
 import { BaseCommand } from './base'
 import { getMultiplayerManager } from '@universo/multiplayer-colyseus-srv'
-import { net } from '@universo/utils'
+import { net, rateLimiting } from '@universo/utils'
 
 export default class Start extends BaseCommand {
     async run(): Promise<void> {
@@ -44,6 +44,9 @@ export default class Start extends BaseCommand {
 
             const serverApp = Server.getInstance()
             if (serverApp) await serverApp.stopApp()
+
+            // Close Redis client used by rate limiters (if any)
+            await rateLimiting.RedisClientManager.close()
         } catch (error) {
             logger.error('There was an error shutting down Flowise...', error)
             await this.failExit()

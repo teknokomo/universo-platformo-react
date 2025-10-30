@@ -8,8 +8,8 @@ export function createTimeSyncEstimator(windowSize = 20, emaAlpha = 0.2) {
         const last = samples[samples.length - 1]
         if (!last) return
         const { tClientSendMs: tCs, tServerRecvMs: tSr, tServerSendMs: tSs, tClientRecvMs: tCr } = last
-        const rtt = (tCr - tCs) - (tSs - tSr)
-        const offset = ((tSr - tCs) + (tSs - tCr)) / 2
+        const rtt = tCr - tCs - (tSs - tSr)
+        const offset = (tSr - tCs + (tSs - tCr)) / 2
         state.rttMs = state.rttMs ? state.rttMs * (1 - emaAlpha) + rtt * emaAlpha : rtt
         const prevOffset = state.offsetMs || offset
         state.offsetMs = prevOffset * (1 - emaAlpha) + offset * emaAlpha

@@ -44,18 +44,25 @@ export const createMockRepository = <T extends object>(): MockRepository<T> => {
 type RepoMap = Record<string, any>
 
 export const createMockDataSource = (repositories: RepoMap, options: { isInitialized?: boolean } = {}) => {
+    const getRepository = jest.fn((entity: any) => {
+        if (typeof entity === 'string') {
+            return repositories[entity]
+        }
+        return repositories[entity?.name] || repositories[entity]
+    })
+
+    const manager: any = {
+        getRepository
+    }
+
     const dataSource: any = {
         isInitialized: options.isInitialized ?? false,
         initialize: jest.fn(async () => {
             dataSource.isInitialized = true
             return dataSource
         }),
-        getRepository: jest.fn((entity: any) => {
-            if (typeof entity === 'string') {
-                return repositories[entity]
-            }
-            return repositories[entity?.name] || repositories[entity]
-        })
+        getRepository,
+        manager
     }
     return dataSource
 }

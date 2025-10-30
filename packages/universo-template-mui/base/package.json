@@ -48,7 +48,8 @@
         "@universo/i18n": "workspace:*",
         "@emotion/react": "catalog:",
         "@emotion/styled": "catalog:",
-        "dayjs": "catalog:"
+        "dayjs": "catalog:",
+        "use-debounce": "^10.0.6"
     },
     "devDependencies": {
         "@types/node": "catalog:",

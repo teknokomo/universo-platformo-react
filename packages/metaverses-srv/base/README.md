@@ -274,6 +274,69 @@ pnpm --filter @universo/metaverses-srv lint
 - Rate limiting is enabled on `/entities`, `/metaverses`, and `/sections` endpoints.
 - HTTP security headers are applied with Helmet (CSP deferred for API-only usage).
 
+### Rate Limiting
+
+The service implements rate limiting to protect against DoS attacks and ensure fair resource usage:
+
+**Current Implementation (Development/Single-Instance)**:
+- Uses `express-rate-limit` with in-memory `MemoryStore`
+- Read operations (GET): 100 requests per 15 minutes per IP
+- Write operations (POST/PUT/DELETE): 60 requests per 15 minutes per IP
+- Separate counters for read vs. write operations
+- Returns HTTP 429 with `Retry-After` header when limit exceeded
+
+**Production Deployment (Multi-Instance)**:
+
+⚠️ **Important**: The default `MemoryStore` is suitable **only for single-server deployments**. In a multi-instance/load-balanced environment, each server maintains its own rate limit counters, which effectively bypasses rate limiting.
+
+**For production multi-instance deployments, use a shared Redis store:**
+
+```typescript
+// Install Redis store
+// pnpm add rate-limit-redis redis
+
+// Update src/middleware/rateLimiter.ts
+import RedisStore from 'rate-limit-redis'
+import { createClient } from 'redis'
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+})
+
+await redisClient.connect()
+
+export const createRateLimiter = (windowMs: number, max: number) => {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new RedisStore({
+      client: redisClient,
+      prefix: 'rate-limit:'
+    }),
+    handler: (req: Request, res: Response) => {
+      res.status(429).json({
+        success: false,
+        error: 'Too many requests, please try again later.',
+        retryAfter: Math.ceil(windowMs / 1000)
+      })
+    }
+  })
+}
+```
+
+**Environment Variables for Redis**:
+```bash
+# Production environment
+REDIS_URL=redis://your-redis-host:6379
+```
+
+**Alternative Stores**:
+- `rate-limit-redis`: Recommended for most production deployments
+- `rate-limit-memcached`: Alternative distributed cache option
+- Custom store: Implement `express-rate-limit` store interface for other backends
+
 ### Database Setup
 The service uses TypeORM with PostgreSQL. Migrations are automatically registered and can be run through the main application's migration system.
 

@@ -1186,17 +1186,22 @@ const { data, isLoading } = useQuery({
 - Search and filtering capabilities
 - Consistent UX across all lists
 
-### Architecture (Updated 2025-10-28)
+### Architecture (Updated 2025-01-29)
 
 **Component Layers**:
 1. **usePaginated Hook** (TanStack Query v5) - Server-side pagination, sorting, search, **dynamic pageSize**
-2. **ViewHeader** (with search) - Top bar with title + search input + action buttons
-3. **TablePaginationControls** (MUI pagination) - **Bottom positioned**, rows per page selector + page navigation
-4. **FlowListTable / ItemCard Grid** - Data rendering (table or card view)
+2. **useDebouncedSearch Hook** (use-debounce library) - **NEW: Reusable debounced search** with cancel/flush/isPending control
+3. **ViewHeader** (with search) - Top bar with title + search input + action buttons
+4. **PaginationControls** (MUI pagination) - **Bottom positioned**, rows per page selector + page navigation
+5. **FlowListTable / ItemCard Grid** - Data rendering (table or card view)
 
 **Key Changes from Previous Pattern**:
+- ✅ **Reusable Debounce Hook**: `useDebouncedSearch` replaces custom setTimeout logic
+- ✅ **Library-Backed**: use-debounce ^10.0.6 (2.6M downloads/week, battle-tested)
+- ✅ **No eslint-disable**: Proper dependency arrays, no exhaustive-deps violations
+- ✅ **Advanced Control**: Cancel, flush, isPending utilities exposed
 - ✅ **Dynamic Page Size**: `usePaginated` now supports `setPageSize()` action
-- ✅ **Bottom Pagination**: `TablePaginationControls` positioned below content (not above)
+- ✅ **Bottom Pagination**: `PaginationControls` positioned below content (not above)
 - ✅ **MUI Pagination**: Uses Material-UI `TablePagination` for consistent UX
 - ✅ **Multi-Namespace i18n**: Components use multiple namespaces (`common`, `flowList`, feature-specific)
 
@@ -1223,38 +1228,42 @@ const { data: metaverses, isLoading, error, pagination, actions } = paginationRe
 // pagination.pageSize is stateful and updates when user changes rows per page
 ```
 
-#### Step 2: Local Search State (Debounce)
+#### Step 2: Debounced Search Hook (NEW Pattern - 2025-01-29)
 
 ```typescript
-import { useState, useCallback, useEffect } from 'react'
+import { useDebouncedSearch } from '@universo/template-mui'
 
-// Local state for debounced search
-const [localSearch, setLocalSearch] = useState('')
+// NEW: Reusable hook with library backing (use-debounce ^10.0.6)
+const { searchValue, handleSearchChange, debounced } = useDebouncedSearch({
+    onSearchChange: paginationResult.actions.setSearch,
+    delay: 300,  // 300ms debounce
+    initialValue: ''
+})
 
-// Debounce effect synchronizes with usePaginated
-useEffect(() => {
-    const timer = setTimeout(() => {
-        paginationResult.actions.setSearch(localSearch)
-    }, 300) // 300ms debounce
-
-    return () => clearTimeout(timer)
-}, [localSearch, paginationResult.actions])
-
-// Handler for ViewHeader search input
-const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setLocalSearch(e.target.value)
-}, [])
+// Advanced control (optional):
+// debounced.cancel()    - Cancel pending debounce
+// debounced.flush()     - Execute immediately
+// debounced.isPending() - Check if debounce is waiting
 ```
 
-#### Step 3: ViewHeader (No Pagination)
+**Benefits Over Custom setTimeout**:
+- ✅ No custom useEffect/useState boilerplate (3 lines → 1 line)
+- ✅ No eslint-disable comments needed (proper dependency arrays)
+- ✅ Battle-tested library (2.6M weekly downloads)
+- ✅ Advanced control: cancel, flush, isPending utilities
+- ✅ Auto-cleanup on unmount (prevents memory leaks)
+- ✅ Reusable across all list views
+
+#### Step 3: ViewHeader (NEW - uses searchValue from hook)
 
 ```typescript
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 <ViewHeader
     search={true}  // Search in header (top right)
+    searchValue={searchValue}  // NEW: Controlled value from useDebouncedSearch
     searchPlaceholder={t('metaverses.searchPlaceholder')}
-    onSearchChange={handleSearchChange}
+    onSearchChange={handleSearchChange}  // NEW: Handler from useDebouncedSearch
     title={t('metaverses.title')}
 >
     <ToolbarControls
@@ -1305,30 +1314,35 @@ import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 )}
 ```
 
-#### Step 5: TablePaginationControls (Bottom Position)
+#### Step 5: PaginationControls (Bottom Position)
 
 ```typescript
-import { TablePaginationControls } from '@universo/template-mui'
+import { PaginationControls } from '@universo/template-mui'
 
 {/* NEW: Pagination at bottom, only when data exists */}
 {!isLoading && metaverses.length > 0 && (
-    <TablePaginationControls
-        pagination={paginationResult.pagination}
-        actions={paginationResult.actions}
-        isLoading={paginationResult.isLoading}
-        rowsPerPageOptions={[10, 20, 50, 100]}  // Configurable page sizes
-        namespace='common'  // Uses common:pagination.* keys
-    />
+    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+        <PaginationControls
+            pagination={paginationResult.pagination}
+            actions={paginationResult.actions}
+            isLoading={paginationResult.isLoading}
+            rowsPerPageOptions={[10, 20, 50, 100]}  // Configurable page sizes
+            namespace='common'  // Uses common:pagination.* keys
+        />
+    </Box>
 )}
 ```
 
-**TablePaginationControls Features**:
+**PaginationControls Features**:
 - MUI `TablePagination` component (island design with border-top)
 - Rows per page dropdown (default: 10, 20, 50, 100)
 - Page navigation: First / Previous / Next / Last buttons
 - Display info: "1–20 of 157" with i18n support
 - 0-based (MUI) ↔ 1-based (usePaginated) conversion handled internally
 - Fully localized via `common:pagination.*` keys
+- Wrapped in Box with negative margin for alignment with content
+- **Mobile responsive**: "Rows per page" label and left spacing hidden on mobile (< 600px) to prevent horizontal scroll and optimize layout
+- **Consistent spacing**: 8px spacing between dropdown, display text, and navigation buttons for visual harmony
 
 ### Backend API Requirements
 
@@ -1478,6 +1492,7 @@ const metaverseColumns = useMemo(
 - Hidden on mobile (< sm breakpoint)
 - Card grid responsive (1 column → auto-fill)
 - Pagination sticky to bottom
+- **Pagination mobile-optimized**: "Rows per page" label and left spacing hidden on mobile (< 600px) for compact layout
 
 **Loading States**:
 - Skeleton grid for initial load
@@ -1507,19 +1522,23 @@ const metaverseColumns = useMemo(
 1. **Add usePaginated Hook**
    - Replace `useState` + `useEffect` with `usePaginated`
    - Remove manual pagination state
-   - Use `initialLimit` instead of `limit` parameter
+   - Use `initialLimit` instead of deprecated `limit` parameter
 
-2. **Add Local Search State**
-   - `useState('')` for search input
-   - `useEffect` for debounce synchronization
+2. **Add useDebouncedSearch Hook** (NEW - 2025-01-29)
+   - Replace custom debounce logic with `useDebouncedSearch` hook
+   - Remove old `useState('')` + `useEffect` setTimeout pattern
+   - Configure `delay: 300` and `onSearchChange` callback
+   - Delete any `// eslint-disable-next-line react-hooks/exhaustive-deps` comments
 
 3. **Update ViewHeader**
    - Enable `search={true}`
-   - Add `onSearchChange={handleSearchChange}`
+   - Add `searchValue={searchValue}` from hook
+   - Add `onSearchChange={handleSearchChange}` from hook
    - Remove old pagination controls from header
 
-4. **Add TablePaginationControls**
+4. **Add PaginationControls**
    - Position at bottom of content (after card/list view)
+   - Wrap in Box with `sx={{ mx: { xs: -1.5, md: -2 } }}` for alignment
    - Set `namespace='common'`
    - Configure `rowsPerPageOptions={[10, 20, 50, 100]}`
 
@@ -1533,11 +1552,30 @@ const metaverseColumns = useMemo(
    - Test search filter
 
 7. **Test End-to-End**
-   - Search debounce works
+   - Search debounce works (300ms delay)
    - Pagination navigation
    - Rows per page selector
    - Sort changes
    - CRUD operations + cache invalidation
+
+**Code Comparison (Old vs New)**:
+```typescript
+// ❌ OLD: Custom debounce with eslint-disable
+const [localSearch, setLocalSearch] = useState('')
+useEffect(() => {
+    const timer = setTimeout(() => {
+        paginationResult.actions.setSearch(localSearch)
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [localSearch])
+
+// ✅ NEW: Reusable hook with library backing
+const { searchValue, handleSearchChange } = useDebouncedSearch({
+    onSearchChange: paginationResult.actions.setSearch,
+    delay: 300
+})
+```
 
 ### Reference Implementations
 
@@ -1551,8 +1589,10 @@ const metaverseColumns = useMemo(
 **Documentation**:
 - TanStack Query v5: https://tanstack.com/query/latest
 - usePaginated Hook: `packages/universo-template-mui/base/src/hooks/usePaginated.ts`
-- TablePaginationControls: `packages/universo-template-mui/base/src/components/pagination/TablePaginationControls.tsx`
+- **useDebouncedSearch Hook**: `packages/universo-template-mui/base/src/hooks/useDebouncedSearch.ts` (NEW - 2025-01-29)
+- PaginationControls: `packages/universo-template-mui/base/src/components/pagination/PaginationControls.tsx`
 - Multi-Namespace i18n: See "Multi-Namespace i18n Pattern" section above
+- use-debounce Library: https://www.npmjs.com/package/use-debounce
 
 ---
 

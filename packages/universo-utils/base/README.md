@@ -17,6 +17,29 @@ Install (workspace):
 
 License: Omsk Open License
 
+## Production Deployment
+
+For production deployment with Redis-based rate limiting, refer to [DEPLOYMENT.md](./DEPLOYMENT.md) for:
+
+-   Redis configuration and connection setup
+-   Docker, Kubernetes, and PM2 deployment examples
+-   Health checks and monitoring
+-   Troubleshooting common issues
+-   Security best practices (TLS, authentication, network isolation)
+
+Quick start: Set `REDIS_URL` environment variable to enable distributed rate limiting:
+
+```bash
+# Local Redis (development)
+REDIS_URL=redis://localhost:6379
+
+# Production with authentication
+REDIS_URL=redis://:password@redis.example.com:6379
+
+# TLS-enabled (recommended)
+REDIS_URL=rediss://:password@redis.example.com:6380
+```
+
 ## Testing
 
 Run Vitest against the workspace package to exercise UPDL serialization helpers:

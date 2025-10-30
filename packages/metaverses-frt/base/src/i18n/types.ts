@@ -6,15 +6,15 @@ import type enMetaverses from './locales/en/metaverses.json'
  * Extends react-i18next Resources with metaverses translations
  */
 declare module 'react-i18next' {
-  interface Resources {
-    metaverses: typeof enMetaverses.metaverses
-  }
+    interface Resources {
+        metaverses: typeof enMetaverses.metaverses
+    }
 }
 
 /**
  * Typed hook for accessing metaverses translations
  * Provides full type safety and autocomplete for all metaverses translation keys
- * 
+ *
  * @example
  * ```typescript
  * const { t } = useMetaversesTranslation()
@@ -25,5 +25,5 @@ declare module 'react-i18next' {
 import { useTranslation } from 'react-i18next'
 
 export function useMetaversesTranslation() {
-  return useTranslation<'metaverses'>('metaverses')
+    return useTranslation<'metaverses'>('metaverses')
 }

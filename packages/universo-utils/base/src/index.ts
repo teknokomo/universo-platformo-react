@@ -9,6 +9,10 @@ export * as updl from './updl'
 export * as publish from './publish'
 export * as env from './env'
 
+// Rate limiting utilities (server-side only)
+// Note: Import from '@universo/utils/rate-limiting' for direct access
+export * as rateLimiting from './rate-limiting'
+
 // Export all net utilities including Node.js-only ensurePortAvailable
 // Browser builds use index.browser.ts which stubs ensurePortAvailable
 import { createTimeSyncEstimator } from './net/timeSync'
