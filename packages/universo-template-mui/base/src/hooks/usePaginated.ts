@@ -15,12 +15,6 @@ export interface UsePaginatedParams<TSortBy extends string = string> {
 
     /**
      * Initial items per page (defaults to 20)
-     * @deprecated Use initialLimit instead for clarity
-     */
-    limit?: number
-
-    /**
-     * Initial items per page (defaults to 20)
      */
     initialLimit?: number
 
@@ -77,7 +71,7 @@ export interface UsePaginatedReturn<TData> {
  * const { data, pagination, isLoading, actions } = usePaginated({
  *   queryKeyFn: (params) => ['metaverses', 'list', params],
  *   queryFn: (params) => metaversesApi.listMetaverses(params),
- *   limit: 20,
+ *   initialLimit: 20,
  *   sortBy: 'updated',
  *   sortOrder: 'desc'
  * })
@@ -87,8 +81,7 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     const {
         queryKeyFn,
         queryFn,
-        limit, // deprecated, kept for backward compatibility
-        initialLimit,
+        initialLimit = 20,
         initialPage = 1,
         sortBy = 'updated' as TSortBy,
         sortOrder = 'desc',
@@ -97,12 +90,9 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
         staleTime = 5 * 60 * 1000 // 5 minutes default
     } = params
 
-    // Determine initial page size (prefer initialLimit, fallback to limit, default to 20)
-    const initialPageSize = initialLimit ?? limit ?? 20
-
     // Local state for pagination
     const [currentPage, setCurrentPage] = useState(initialPage)
-    const [pageSize, setPageSizeState] = useState(initialPageSize)
+    const [pageSize, setPageSizeState] = useState(initialLimit)
     const [searchQuery, setSearchQuery] = useState(initialSearch)
     const [currentSort, setCurrentSort] = useState({ sortBy: sortBy as string, sortOrder })
 
@@ -144,11 +134,20 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     const hasNextPage = useMemo(() => currentPage < totalPages, [currentPage, totalPages])
     const hasPreviousPage = useMemo(() => currentPage > 1, [currentPage])
 
-    // Actions
+    // Actions (optimized with functional updates to minimize dependencies)
     const goToPage = useCallback(
         (page: number) => {
-            const clampedPage = Math.max(1, Math.min(page, totalPages || 1))
-            setCurrentPage(clampedPage)
+            setCurrentPage((prevPage) => {
+                const clampedPage = Math.max(1, Math.min(page, totalPages || 1))
+                // eslint-disable-next-line no-console
+                console.log('[usePaginated] goToPage called', {
+                    requestedPage: page,
+                    clampedPage,
+                    prevPage,
+                    totalPages
+                })
+                return clampedPage
+            })
         },
         [totalPages]
     )
@@ -166,7 +165,11 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     }, [hasPreviousPage])
 
     const setSearch = useCallback((search: string) => {
-        setSearchQuery(search)
+        setSearchQuery((prevSearch) => {
+            // eslint-disable-next-line no-console
+            console.log('[usePaginated] setSearch called', { search, oldSearch: prevSearch })
+            return search
+        })
         setCurrentPage(1) // Reset to first page on search
     }, [])
 
@@ -176,9 +179,26 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     }, [])
 
     const setPageSize = useCallback((newPageSize: number) => {
-        setPageSizeState(newPageSize)
+        setPageSizeState((prevSize) => {
+            // eslint-disable-next-line no-console
+            console.log('[usePaginated] setPageSize called', { newPageSize, oldPageSize: prevSize })
+            return newPageSize
+        })
         setCurrentPage(1) // Reset to first page when changing page size
     }, [])
+
+    // Memoize actions object to prevent unnecessary re-renders
+    const actions = useMemo<PaginationActions>(
+        () => ({
+            goToPage,
+            nextPage,
+            previousPage,
+            setSearch,
+            setSort,
+            setPageSize
+        }),
+        [goToPage, nextPage, previousPage, setSearch, setSort, setPageSize]
+    )
 
     return {
         data: query.data?.items ?? [],
@@ -188,18 +208,12 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
             totalItems: query.data?.pagination.total ?? 0,
             totalPages,
             hasNextPage,
-            hasPreviousPage
+            hasPreviousPage,
+            search: searchQuery
         },
         isLoading: query.isLoading,
         isError: query.isError,
         error: query.error,
-        actions: {
-            goToPage,
-            nextPage,
-            previousPage,
-            setSearch,
-            setSort,
-            setPageSize
-        }
+        actions
     }
 }

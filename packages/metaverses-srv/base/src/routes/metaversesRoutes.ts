@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
+import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
 import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
@@ -33,7 +34,12 @@ const parseIntSafe = (value: any, defaultValue: number, min: number, max: number
 }
 
 // Comments in English only
-export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
+export function createMetaversesRoutes(
+    ensureAuth: RequestHandler,
+    getDataSource: () => DataSource,
+    readLimiter: RateLimitRequestHandler,
+    writeLimiter: RateLimitRequestHandler
+): Router {
     const router = Router({ mergeParams: true })
     router.use(ensureAuth)
 
@@ -99,6 +105,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // GET /metaverses
     router.get(
         '/',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -153,6 +160,8 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                     .addSelect('COUNT(DISTINCT sm.id)', 'sectionsCount')
                     .addSelect('COUNT(DISTINCT em.id)', 'entitiesCount')
                     .addSelect('mu.role', 'role')
+                    // Use window function to get total count in single query (performance optimization)
+                    .addSelect('COUNT(*) OVER()', 'window_total')
                     .groupBy('m.id')
                     .addGroupBy('m.name')
                     .addGroupBy('m.description')
@@ -172,22 +181,12 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
                     sectionsCount: string
                     entitiesCount: string
                     role: MetaverseRole | null
+                    window_total?: string
                 }>()
 
-                // Always calculate total count (critical for pagination)
-                const countQb = metaverseRepo
-                    .createQueryBuilder('m')
-                    .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = m.id')
-                    .where('mu.user_id = :userId', { userId })
-
-                // Apply same search filter to count query
-                if (normalizedSearch) {
-                    countQb.andWhere('(LOWER(m.name) LIKE :search OR LOWER(m.description) LIKE :search)', {
-                        search: `%${normalizedSearch}%`
-                    })
-                }
-
-                const total = await countQb.getCount()
+                // Extract total count from window function (same value in all rows)
+                // Handle edge case: empty result set
+                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) || 0 : 0
 
                 const response = raw.map((row) => {
                     const role = (row.role ?? undefined) as MetaverseRole | undefined
@@ -225,6 +224,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // POST /metaverses
     router.post(
         '/',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             // Debug logs removed to keep production logs clean
 
@@ -266,6 +266,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
     router.get(
         '/:metaverseId',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
@@ -313,6 +314,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
     router.get(
         '/:metaverseId/members',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
@@ -334,6 +336,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
     router.post(
         '/:metaverseId/members',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
@@ -437,6 +440,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
     router.delete(
         '/:metaverseId/members/:memberId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId, memberId } = req.params
             const userId = resolveUserId(req)
@@ -466,6 +470,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
     router.put(
         '/:metaverseId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const { name, description } = req.body || {}
@@ -496,6 +501,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
 
     router.delete(
         '/:metaverseId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
@@ -519,6 +525,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // GET /metaverses/:metaverseId/entities
     router.get(
         '/:metaverseId/entities',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
@@ -547,6 +554,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // POST /metaverses/:metaverseId/entities/:entityId (attach)
     router.post(
         '/:metaverseId/entities/:entityId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId, entityId } = req.params
             const userId = resolveUserId(req)
@@ -568,6 +576,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // DELETE /metaverses/:metaverseId/entities/:entityId (detach)
     router.delete(
         '/:metaverseId/entities/:entityId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId, entityId } = req.params
             const userId = resolveUserId(req)
@@ -584,6 +593,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // POST /metaverses/:metaverseId/entities/reorder { items: [{entityId, sortOrder}] }
     router.post(
         '/:metaverseId/entities/reorder',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const { items } = req.body || {}
@@ -609,6 +619,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // GET /metaverses/:metaverseId/sections
     router.get(
         '/:metaverseId/sections',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
             const userId = resolveUserId(req)
@@ -637,6 +648,7 @@ export function createMetaversesRoutes(ensureAuth: RequestHandler, getDataSource
     // POST /metaverses/:metaverseId/sections/:sectionId (attach)
     router.post(
         '/:metaverseId/sections/:sectionId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId, sectionId } = req.params
             const userId = resolveUserId(req)

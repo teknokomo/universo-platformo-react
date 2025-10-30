@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
+import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
 import { Entity } from '../database/entities/Entity'
 import { Section } from '../database/entities/Section'
@@ -41,7 +42,12 @@ function getRepositories(req: Request, getDataSource: () => DataSource) {
 }
 
 // Main function to create the entities router
-export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
+export function createEntitiesRouter(
+    ensureAuth: RequestHandler,
+    getDataSource: () => DataSource,
+    readLimiter: RateLimitRequestHandler,
+    writeLimiter: RateLimitRequestHandler
+): Router {
     const router = Router({ mergeParams: true })
 
     // All routes in this router require authentication
@@ -59,6 +65,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // GET / (List all entities)
     router.get(
         '/',
+        readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -104,6 +111,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // POST / (Create a new entity)
     router.post(
         '/',
+        writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { entityRepo, sectionRepo, entitySectionRepo, metaverseRepo, entityMetaverseRepo } = getRepositories(req, getDataSource)
             const schema = z.object({
@@ -154,6 +162,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // GET /:entityId (Get a single entity)
     router.get(
         '/:entityId',
+        readLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -170,6 +179,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // PUT /:entityId (Update a entity)
     router.put(
         '/:entityId',
+        writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -189,6 +199,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // DELETE /:entityId (Delete a entity)
     router.delete(
         '/:entityId',
+        writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -205,6 +216,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // PUT /:entityId/section { sectionId }
     router.put(
         '/:entityId/section',
+        writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { entityRepo, sectionRepo, entitySectionRepo } = getRepositories(req, getDataSource)
             const entityId = req.params.entityId
@@ -233,6 +245,7 @@ export function createEntitiesRouter(ensureAuth: RequestHandler, getDataSource: 
     // DELETE /:entityId/section – remove all section links for the entity (simple semantics)
     router.delete(
         '/:entityId/section',
+        writeLimiter,
         asyncHandler(async (req: Request, res: Response) => {
             const { entityRepo, entitySectionRepo } = getRepositories(req, getDataSource)
             const entityId = req.params.entityId

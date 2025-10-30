@@ -18,10 +18,10 @@ import {
     SkeletonGrid,
     APIEmptySVG,
     usePaginated,
-    TablePaginationControls,
+    useDebouncedSearch,
+    PaginationControls,
     FlowListTable,
     gridSpacing,
-    ErrorBoundary,
     ConfirmDialog,
     useConfirm
 } from '@universo/template-mui'
@@ -47,14 +47,11 @@ const MetaverseList = () => {
     const { t, i18n } = useTranslation(['metaverses', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
     const { t: tc } = useCommonTranslations()
-    
+
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('entitiesMetaverseDisplayStyle') || 'card')
-
-    // Local search state for debounce synchronization with usePaginated
-    const [localSearch, setLocalSearch] = useState('')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -71,14 +68,33 @@ const MetaverseList = () => {
 
     const { data: metaverses, isLoading, error } = paginationResult
 
-    // Debounce effect for search synchronization with usePaginated
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            paginationResult.actions.setSearch(localSearch)
-        }, 300) // 300ms debounce
+    // Debounced search hook for search input
+    const { searchValue, handleSearchChange } = useDebouncedSearch({
+        onSearchChange: paginationResult.actions.setSearch,
+        delay: 300
+    })
 
-        return () => clearTimeout(timer)
-    }, [localSearch, paginationResult.actions])
+    // DEBUG: Log pagination state changes for troubleshooting
+    useEffect(() => {
+        // eslint-disable-next-line no-console
+        console.log('[MetaverseList Pagination Debug]', {
+            currentPage: paginationResult.pagination.currentPage,
+            pageSize: paginationResult.pagination.pageSize,
+            totalItems: paginationResult.pagination.totalItems,
+            totalPages: paginationResult.pagination.totalPages,
+            offset: (paginationResult.pagination.currentPage - 1) * paginationResult.pagination.pageSize,
+            search: paginationResult.pagination.search,
+            isLoading: paginationResult.isLoading,
+            searchValue
+        })
+    }, [
+        paginationResult.pagination.currentPage,
+        paginationResult.pagination.pageSize,
+        paginationResult.pagination.totalItems,
+        paginationResult.pagination.search,
+        paginationResult.isLoading,
+        searchValue
+    ])
 
     // State for independent ConfirmDeleteDialog (not managed by BaseEntityMenu)
     const [deleteDialogState, setDeleteDialogState] = useState<{
@@ -158,24 +174,6 @@ const MetaverseList = () => {
         localStorage.setItem('entitiesMetaverseDisplayStyle', nextView)
         setView(nextView)
     }
-
-    // Handler for ViewHeader search input
-    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setLocalSearch(e.target.value)
-    }, [])
-
-    const getErrorText = useCallback(
-        (err: unknown) => {
-            if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string') {
-                return (err as any).message as string
-            }
-            if (typeof err === 'string') {
-                return err
-            }
-            return t('error')
-        },
-        [t]
-    )
 
     const roleLabel = useCallback((role?: MetaverseRole) => (role ? t(`roles:${role}`) : '—'), [t])
 
@@ -292,9 +290,16 @@ const MetaverseList = () => {
             shadow={false}
         >
             {error ? (
-                <ErrorBoundary>
-                    <div>Error: {getErrorText(error)}</div>
-                </ErrorBoundary>
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Connection error'
+                    title={t('errors.connectionFailed')}
+                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    action={{
+                        label: t('actions.retry'),
+                        onClick: () => paginationResult.actions.goToPage(1)
+                    }}
+                />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
@@ -436,13 +441,15 @@ const MetaverseList = () => {
 
                     {/* Table Pagination at bottom - only show when there's data */}
                     {!isLoading && metaverses.length > 0 && (
-                        <TablePaginationControls
-                            pagination={paginationResult.pagination}
-                            actions={paginationResult.actions}
-                            isLoading={paginationResult.isLoading}
-                            rowsPerPageOptions={[10, 20, 50, 100]}
-                            namespace='common'
-                        />
+                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
+                        </Box>
                     )}
                 </Stack>
             )}

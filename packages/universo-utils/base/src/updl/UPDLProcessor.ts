@@ -2,8 +2,6 @@
 // Centralized UPDL processing logic for all packages
 
 import {
-    IUPDLPosition,
-    IUPDLRotation,
     IUPDLObject,
     IUPDLCamera,
     IUPDLLight,
@@ -12,8 +10,7 @@ import {
     IUPDLScene,
     IUPDLMultiScene,
     IReactFlowNode,
-    IReactFlowEdge,
-    UpIntentType
+    IReactFlowEdge
 } from '@universo/types'
 
 /**
@@ -146,12 +143,10 @@ export class UPDLProcessor {
             const actionMap = new Map(actions.map((a) => [a.id, a]))
 
             // Get all node IDs that belong to this scene
-            const sceneNodeIds = new Set(connectedNodes.map(n => n.id))
+            const sceneNodeIds = new Set(connectedNodes.map((n) => n.id))
 
             // Filter edges to only include those connecting nodes within this scene
-            const sceneEdges = edges.filter(edge =>
-                sceneNodeIds.has(edge.source) && sceneNodeIds.has(edge.target)
-            )
+            const sceneEdges = edges.filter((edge) => sceneNodeIds.has(edge.source) && sceneNodeIds.has(edge.target))
 
             // Scene edge processing - detailed logs disabled for production
 
@@ -164,7 +159,9 @@ export class UPDLProcessor {
                     const entity = entityMap.get(targetId)!
                     const component = componentMap.get(sourceId)!
                     entity.components.push(component)
-                    console.log(`[UPDLProcessor] Scene ${currentSpaceId}: Attached component ${component.componentType} to entity ${entity.id}`)
+                    console.log(
+                        `[UPDLProcessor] Scene ${currentSpaceId}: Attached component ${component.componentType} to entity ${entity.id}`
+                    )
                 }
                 // Attach events to entities
                 else if (eventMap.has(sourceId) && entityMap.has(targetId)) {
@@ -275,7 +272,11 @@ export class UPDLProcessor {
         })
 
         const result = Array.from(allRelatedDataNodes)
-        console.log(`[UPDLProcessor] Space ${spaceId}: Found ${result.length} connected data nodes (${result.map(n => `${n.id}:${n.data?.inputs?.dataType}`).join(', ')})`)
+        console.log(
+            `[UPDLProcessor] Space ${spaceId}: Found ${result.length} connected data nodes (${result
+                .map((n) => `${n.id}:${n.data?.inputs?.dataType}`)
+                .join(', ')})`
+        )
         return result
     }
 
@@ -303,14 +304,14 @@ export class UPDLProcessor {
         nodes.forEach((node) => {
             const nodeType = node.data?.name?.toLowerCase()
             if (nodeType === 'component' || nodeType === 'event') {
-                const hasEdgeToEntity = edges.some(e => e.source === node.id && expandIds.has(e.target))
+                const hasEdgeToEntity = edges.some((e) => e.source === node.id && expandIds.has(e.target))
                 if (hasEdgeToEntity) expandIds.add(node.id)
             }
         })
         nodes.forEach((node) => {
             const nodeType = node.data?.name?.toLowerCase()
             if (nodeType === 'action') {
-                const hasEdgeToEvent = edges.some(e => e.source === node.id && expandIds.has(e.target))
+                const hasEdgeToEvent = edges.some((e) => e.source === node.id && expandIds.has(e.target))
                 if (hasEdgeToEvent) expandIds.add(node.id)
             }
         })
@@ -481,8 +482,10 @@ export class UPDLProcessor {
         // Log final entity-component relationships
         entities.forEach((entity) => {
             if (entity.components.length > 0) {
-                console.log(`[UPDLProcessor] Entity ${entity.id} (${entity.entityType}) has ${entity.components.length} components:`,
-                    entity.components.map((c: any) => c.componentType))
+                console.log(
+                    `[UPDLProcessor] Entity ${entity.id} (${entity.entityType}) has ${entity.components.length} components:`,
+                    entity.components.map((c: any) => c.componentType)
+                )
             }
         })
 
@@ -598,9 +601,7 @@ export class UPDLProcessor {
                 }
                 if (parsed.scale) {
                     const sc = parsed.scale
-                    transform.scale = Array.isArray(sc)
-                        ? { x: Number(sc[0]) || 1, y: Number(sc[1]) || 1, z: Number(sc[2]) || 1 }
-                        : sc
+                    transform.scale = Array.isArray(sc) ? { x: Number(sc[0]) || 1, y: Number(sc[1]) || 1, z: Number(sc[2]) || 1 } : sc
                 }
             }
         }
@@ -609,7 +610,10 @@ export class UPDLProcessor {
         let tags: string[] = []
         if (inputs.tags) {
             if (typeof inputs.tags === 'string') {
-                tags = inputs.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean)
+                tags = inputs.tags
+                    .split(',')
+                    .map((tag: string) => tag.trim())
+                    .filter(Boolean)
             } else if (Array.isArray(inputs.tags)) {
                 tags = inputs.tags
             }

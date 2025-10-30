@@ -17,6 +17,11 @@
             "require": "./dist/index.js",
             "types": "./dist/index.d.ts"
         },
+        "./rate-limiting": {
+            "import": "./dist/rate-limiting.mjs",
+            "require": "./dist/rate-limiting.js",
+            "types": "./dist/rate-limiting.d.ts"
+        },
         "./ui-utils": {
             "import": "./dist/ui-utils.mjs",
             "require": "./dist/ui-utils.js"
@@ -34,7 +39,19 @@
     "license": "Omsk Open License",
     "dependencies": {
         "@universo/types": "workspace:*",
+        "express-rate-limit": "catalog:",
+        "rate-limit-redis": "catalog:",
+        "ioredis": "catalog:",
+        "async-mutex": "catalog:",
         "zod": "3.25.76"
+    },
+    "peerDependencies": {
+        "express": "^4.18.0"
+    },
+    "peerDependenciesMeta": {
+        "express": {
+            "optional": true
+        }
     },
     "devDependencies": {
         "@types/node": "^20.11.17",

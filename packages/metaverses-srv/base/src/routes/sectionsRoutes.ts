@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
+import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
 import { Section } from '../database/entities/Section'
 import { Metaverse } from '../database/entities/Metaverse'
@@ -25,7 +26,12 @@ const resolveUserId = (req: Request): string | undefined => {
 }
 
 // Comments in English only
-export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: () => DataSource): Router {
+export function createSectionsRoutes(
+    ensureAuth: RequestHandler,
+    getDataSource: () => DataSource,
+    readLimiter: RateLimitRequestHandler,
+    writeLimiter: RateLimitRequestHandler
+): Router {
     const router = Router({ mergeParams: true })
     router.use(ensureAuth)
 
@@ -51,6 +57,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     // GET /sections
     router.get(
         '/',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
@@ -81,6 +88,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     // POST /sections
     router.post(
         '/',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const schema = z.object({
                 name: z.string().min(1),
@@ -121,6 +129,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     // GET /sections/:sectionId
     router.get(
         '/:sectionId',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
             const userId = resolveUserId(req)
@@ -136,6 +145,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     // PUT /sections/:sectionId
     router.put(
         '/:sectionId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const schema = z
                 .object({
@@ -172,6 +182,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     // DELETE /sections/:sectionId
     router.delete(
         '/:sectionId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
             const userId = resolveUserId(req)
@@ -190,6 +201,7 @@ export function createSectionsRoutes(ensureAuth: RequestHandler, getDataSource: 
     // GET /sections/:sectionId/entities
     router.get(
         '/:sectionId/entities',
+        readLimiter,
         asyncHandler(async (req, res) => {
             const { sectionId } = req.params
             const userId = resolveUserId(req)

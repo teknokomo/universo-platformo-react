@@ -54,7 +54,33 @@ You can also specify the env variables when using `npx`. For example:
 npx flowise start --PORT=3000 --DEBUG=true
 ```
 
-## 📖 Tests
+## � Production Deployment with Rate Limiting
+
+For production deployments with Redis-based rate limiting, refer to the comprehensive guide:
+
+**[Rate Limiting Deployment Guide](../universo-utils/base/DEPLOYMENT.md)**
+
+This guide covers:
+-   Redis configuration and connection setup (`REDIS_URL`)
+-   Docker, Kubernetes, and PM2 deployment examples
+-   Health checks and monitoring
+-   Troubleshooting common issues (connection timeouts, high 429 errors, memory leaks)
+-   Security best practices (TLS, authentication, network isolation)
+
+Quick start: Set `REDIS_URL` environment variable to enable distributed rate limiting across multiple instances:
+
+```bash
+# Development (local Redis)
+REDIS_URL=redis://localhost:6379
+
+# Production with authentication
+REDIS_URL=redis://:your-password@redis.example.com:6379
+
+# TLS-enabled (recommended for production)
+REDIS_URL=rediss://:your-password@redis.example.com:6380
+```
+
+## �📖 Tests
 
 We use [Cypress](https://github.com/cypress-io) for our e2e testing. If you want to run the test suite in dev mode please follow this guide:
 

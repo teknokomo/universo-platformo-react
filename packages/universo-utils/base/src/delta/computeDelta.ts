@@ -14,11 +14,14 @@ function diffComponent(prev?: ComponentSnapshotMap, next?: ComponentSnapshotMap)
     if (prev!.transform || next!.transform) {
         const p = prev!.transform
         const n = next!.transform
-        if (!p || !n ||
+        if (
+            !p ||
+            !n ||
             !eqVec(p.position, n.position) ||
             !eqVec(p.rotation, n.rotation) ||
             ((p.scale || n.scale) && !eqVec(p.scale, n.scale)) ||
-            ((p.velocity || n.velocity) && !eqVec(p.velocity, n.velocity))) {
+            ((p.velocity || n.velocity) && !eqVec(p.velocity, n.velocity))
+        ) {
             patch.transform = n
         }
     }
@@ -65,12 +68,22 @@ export function computeDelta(
             if (prev[id]?.visual && !next[id]?.visual) removedComponents.push('visual')
             if (prev[id]?.health && !next[id]?.health) removedComponents.push('health')
             if (patch || removedComponents.length) {
-                updated.push({ entityId: id, components: patch, removedComponents: removedComponents.length ? removedComponents : undefined })
+                updated.push({
+                    entityId: id,
+                    components: patch,
+                    removedComponents: removedComponents.length ? removedComponents : undefined
+                })
             }
         }
     }
 
     for (const id of prevIds) if (!nextIds.has(id)) removed.push(id)
 
-    return { tick: nextTick, baseTick, added: added.length ? added : undefined, updated: updated.length ? updated : undefined, removed: removed.length ? removed : undefined }
+    return {
+        tick: nextTick,
+        baseTick,
+        added: added.length ? added : undefined,
+        updated: updated.length ? updated : undefined,
+        removed: removed.length ? removed : undefined
+    }
 }

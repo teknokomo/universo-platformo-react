@@ -49,3 +49,9 @@ catalog:
     # Utilities
     dayjs: ^1.11.13
     axios: ^1.7.9
+    
+    # Rate limiting - updated to latest stable
+    express-rate-limit: ^8.2.0
+    rate-limit-redis: ^4.2.3
+    ioredis: ^5.8.2
+    async-mutex: ^0.5.0

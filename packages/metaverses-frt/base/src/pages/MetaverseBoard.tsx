@@ -74,8 +74,7 @@ const MetaverseBoard = () => {
                 <ViewHeader
                     title={metaverse?.name || t('detail.title')}
                     description={
-                        metaverse?.description ||
-                        t('board.description', 'Здесь будет аналитика и статистика кластера (в разработке)')
+                        metaverse?.description || t('board.description', 'Здесь будет аналитика и статистика кластера (в разработке)')
                     }
                     search={false}
                 />
