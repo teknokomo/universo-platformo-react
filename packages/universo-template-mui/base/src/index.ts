@@ -31,9 +31,20 @@ export {
     TemplateMainCard,
     EmptyListState,
     SkeletonGrid,
+    Loader,
+    Loadable,
+    AuthGuard,
+    TooltipWithParser,
     BaseEntityMenu
 } from './components'
-export type { BaseEntityMenuProps, ActionDescriptor, ActionContext, TriggerProps } from './components'
+export type { 
+    BaseEntityMenuProps, 
+    ActionDescriptor, 
+    ActionContext, 
+    TriggerProps, 
+    AuthGuardProps,
+    TooltipWithParserProps
+} from './components'
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'
 

@@ -10,7 +10,8 @@ import MainLayoutMUI from '../layout/MainLayoutMUI'
 import Dashboard from '../views/dashboard/Dashboard'
 import { ErrorBoundary } from '../components'
 
-import { AuthGuard, Loadable } from '@flowise/template-mui'
+// Use local routing components (migrated from @flowise/template-mui)
+import { AuthGuard, Loadable } from '../components/routing'
 
 // Use subpath export that provides default component
 const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
