@@ -1,6 +1,6 @@
 module.exports = {
     preset: 'ts-jest',
-    testEnvironment: 'jsdom',
+    testEnvironment: '@happy-dom/jest-environment',
     roots: ['<rootDir>/src'],
     testMatch: [
         '**/__tests__/**/*.+(ts|tsx|js)',
@@ -27,20 +27,20 @@ module.exports = {
         'lcov',
         'html'
     ],
-    testEnvironmentOptions: {
-        url: 'http://localhost'
+    globals: {
+        'ts-jest': {
+            tsconfig: {
+                jsx: 'react-jsx'
+            }
+        }
     },
-    moduleNameMapping: {
+    moduleNameMapper: {
         // Handle JSON imports
         '\\.(json)$': 'identity-obj-proxy',
         // Handle MUI emotion styles
         '^@emotion/react$': '<rootDir>/node_modules/@emotion/react',
         '^@emotion/styled$': '<rootDir>/node_modules/@emotion/styled',
-        // Mock canvas for jsdom
-        '^canvas$': 'identity-obj-proxy'
-    },
-    // Ignore canvas-related modules
-    transformIgnorePatterns: [
-        'node_modules/(?!(canvas)/)'
-    ]
+        // CSS modules
+        '\\.(css|less|sass|scss)$': 'identity-obj-proxy'
+    }
 };

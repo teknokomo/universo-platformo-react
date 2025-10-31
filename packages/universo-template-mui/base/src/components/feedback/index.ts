@@ -8,6 +8,7 @@
  * This folder contains:
  * - EmptyListState: Shows "no data available" state
  * - SkeletonGrid: Shows "loading data" state (grid layout)
+ * - Loader: Full-width loading indicator (LinearProgress)
  */
 
 export { EmptyListState } from './EmptyListState'
@@ -15,3 +16,5 @@ export type { EmptyListStateProps } from './EmptyListState'
 
 export { SkeletonGrid } from './SkeletonGrid'
 export type { SkeletonGridProps } from './SkeletonGrid'
+
+export { Loader } from './loading'
