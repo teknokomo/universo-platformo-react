@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import { cloneDeep } from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 
 // material-ui

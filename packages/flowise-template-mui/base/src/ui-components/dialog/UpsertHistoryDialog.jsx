@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useEffect, useState, forwardRef } from 'react'
 import DatePicker from 'react-datepicker'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
 import { useTranslation } from '@universo/i18n'
 
 // MUI
@@ -50,6 +51,8 @@ import { baseURL } from '@flowise/template-mui'
 import { useNotifier } from '@flowise/template-mui/hooks'
 import resolveCanvasContext from '@universo/utils/ui-utils/resolveCanvasContext'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
+
+dayjs.extend(advancedFormat)
 
 const DatePickerCustomInput = forwardRef(function DatePickerCustomInput({ value, onClick }, ref) {
     return (

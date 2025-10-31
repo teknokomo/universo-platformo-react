@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useState, useEffect, forwardRef } from 'react'
 import PropTypes from 'prop-types'
 import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
+import localizedFormat from 'dayjs/plugin/localizedFormat'
 import rehypeMathjax from 'rehype-mathjax'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
@@ -72,6 +74,9 @@ import resolveCanvasContext from '../utils/resolveCanvasContext'
 
 // CSS stub: chatmessage/ChatMessage.css
 import 'react-datepicker/dist/react-datepicker.css'
+
+dayjs.extend(advancedFormat)
+dayjs.extend(localizedFormat)
 
 const DatePickerCustomInput = forwardRef(function DatePickerCustomInput({ value, onClick }, ref) {
     return (

@@ -319,10 +319,10 @@ export const convertDateStringToDateObject = (dateString) => {
     if (dateString === undefined || !dateString) return undefined
 
     const date = dayjs(dateString)
-    if (!date.isValid) return undefined
+    if (!date.isValid()) return undefined
 
     // Sat Sep 24 2022 07:30:14
-    return new Date(date.year(), date.month(), date.date(), date.hours(), date.minutes())
+    return new Date(date.year(), date.month(), date.date(), date.hour(), date.minute())
 }
 
 export const getFileName = (fileBase64) => {

@@ -1,5 +1,6 @@
 import * as PropTypes from 'prop-types'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
@@ -60,6 +61,8 @@ import {
 } from '@tabler/icons-react'
 import APIEmptySVG from '@flowise/template-mui/assets/images/api_empty.svg'
 import UploadJSONFileDialog from '@/views/apikey/UploadJSONFileDialog'
+
+dayjs.extend(advancedFormat)
 
 // ==============================|| APIKey ||============================== //
 

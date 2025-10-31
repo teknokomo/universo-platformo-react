@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 
 import { Stack, Button, Box, SwipeableDrawer } from '@mui/material'
