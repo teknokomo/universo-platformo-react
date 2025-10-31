@@ -39,6 +39,8 @@
     "license": "Omsk Open License",
     "dependencies": {
         "@universo/types": "workspace:*",
+        "@universo/i18n": "workspace:*",
+        "dayjs": "catalog:",
         "express-rate-limit": "catalog:",
         "rate-limit-redis": "catalog:",
         "ioredis": "catalog:",

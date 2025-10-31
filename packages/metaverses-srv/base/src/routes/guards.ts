@@ -1,8 +1,12 @@
 import { DataSource } from 'typeorm'
+import { MetaverseRole } from '@universo/types'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { EntitySection } from '../database/entities/EntitySection'
 import { EntityMetaverse } from '../database/entities/EntityMetaverse'
+
+// Re-export MetaverseRole for convenience
+export type { MetaverseRole }
 
 // Comments in English only
 
@@ -35,9 +39,8 @@ export const ROLE_PERMISSIONS = {
         editContent: false,
         deleteContent: false
     }
-} as const
+} as const satisfies Record<MetaverseRole, Record<string, boolean>>
 
-export type MetaverseRole = keyof typeof ROLE_PERMISSIONS
 export type RolePermission = keyof (typeof ROLE_PERMISSIONS)['owner']
 
 export interface MetaverseMembershipContext {

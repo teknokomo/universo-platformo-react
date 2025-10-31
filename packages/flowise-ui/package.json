@@ -51,7 +51,6 @@
     "history": "^5.0.0",
     "html-react-parser": "^3.0.4",
     "lodash": "^4.17.21",
-    "moment": "^2.29.3",
     "notistack": "^2.0.4",
     "prop-types": "^15.7.2",
     "@universo/publish-frt": "workspace:*",

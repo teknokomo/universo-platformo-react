@@ -47,7 +47,7 @@ catalog:
     eslint: ^8.57.1
     
     # Utilities
-    dayjs: ^1.11.13
+    dayjs: ^1.11.18
     axios: ^1.7.9
     
     # Rate limiting - updated to latest stable

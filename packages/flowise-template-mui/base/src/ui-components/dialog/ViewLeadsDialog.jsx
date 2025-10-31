@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useDispatch } from 'react-redux'
 import { useState, useEffect, forwardRef } from 'react'
 import PropTypes from 'prop-types'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 
 // material-ui
@@ -192,7 +192,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
                                         <TableCell>{lead.name}</TableCell>
                                         <TableCell>{lead.email}</TableCell>
                                         <TableCell>{lead.phone}</TableCell>
-                                        <TableCell>{moment(lead.createdDate).format('MMMM Do, YYYY')}</TableCell>
+                                        <TableCell>{dayjs(lead.createdDate).format('MMMM Do, YYYY')}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

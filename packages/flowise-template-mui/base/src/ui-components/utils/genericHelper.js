@@ -1,5 +1,5 @@
 import { uniq } from 'lodash'
-import moment from 'moment'
+import dayjs from 'dayjs'
 
 export const getUniqueNodeId = (nodeData, nodes) => {
     let suffix = 0
@@ -318,7 +318,7 @@ export const isValidConnection = (connection, reactFlowInstance) => {
 export const convertDateStringToDateObject = (dateString) => {
     if (dateString === undefined || !dateString) return undefined
 
-    const date = moment(dateString)
+    const date = dayjs(dateString)
     if (!date.isValid) return undefined
 
     // Sat Sep 24 2022 07:30:14

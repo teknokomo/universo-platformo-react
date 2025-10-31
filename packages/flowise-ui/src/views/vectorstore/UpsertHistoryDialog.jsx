@@ -90,7 +90,7 @@ function UpsertHistoryRow(props) {
                         }}
                     />
                 </TableCell>
-                <TableCell>{moment(props.upsertHistory.date).format('MMMM Do YYYY, h:mm:ss a')}</TableCell>
+                <TableCell>{dayjs(props.upsertHistory.date).format('MMMM Do YYYY, h:mm:ss a')}</TableCell>
                 <TableCell>{props.upsertHistory.result?.numAdded ?? '0'}</TableCell>
                 <TableCell>{props.upsertHistory.result?.numUpdated ?? '0'}</TableCell>
                 <TableCell>{props.upsertHistory.result?.numSkipped ?? '0'}</TableCell>

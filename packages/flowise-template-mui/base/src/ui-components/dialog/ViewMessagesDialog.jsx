@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useState, useEffect, forwardRef } from 'react'
 import PropTypes from 'prop-types'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import rehypeMathjax from 'rehype-mathjax'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
@@ -1046,7 +1046,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                             </div>
                                                         </div>
                                                     }
-                                                    secondary={moment(chatmsg.createdDate).format('MMMM Do YYYY, h:mm:ss a')}
+                                                    secondary={dayjs(chatmsg.createdDate).format('MMMM Do YYYY, h:mm:ss a')}
                                                 />
                                             </ListItem>
                                         </ListItemButton>
@@ -1587,7 +1587,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                             key={index}
                                                             style={{ display: 'flex', justifyContent: 'center', alignContent: 'center' }}
                                                         >
-                                                            {moment(message.message).format('MMMM Do YYYY, h:mm:ss a')}
+                                                            {dayjs(message.message).format('MMMM Do YYYY, h:mm:ss a')}
                                                         </Box>
                                                     )
                                                 }

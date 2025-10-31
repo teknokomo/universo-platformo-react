@@ -1,13 +1,32 @@
-import PropTypes from 'prop-types'
-
-// material-ui
+import React from 'react'
 import { styled } from '@mui/material/styles'
 import { Box, Grid, Typography, useTheme, Card } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
+
+// Generic data interface with common fields
+export interface ItemCardData {
+    iconSrc?: string
+    color?: string
+    templateName?: string
+    name?: string
+    description?: string
+    [key: string]: any
+}
+
+export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
+    data: T
+    images?: any[]
+    onClick?: () => void
+    allowStretch?: boolean
+    footerEndContent?: React.ReactNode
+    headerAction?: React.ReactNode
+    sx?: SxProps<Theme>
+}
 
 // Use Card instead of MainCard for new UI
 const CardWrapper = styled(Card, {
     shouldForwardProp: (prop) => prop !== 'allowStretch'
-})(({ theme, allowStretch }) => ({
+})<{ allowStretch?: boolean }>(({ theme, allowStretch }) => ({
     background: theme.palette.background.paper,
     color: theme.palette.text.primary,
     overflow: 'hidden',
@@ -26,9 +45,17 @@ const CardWrapper = styled(Card, {
     whiteSpace: 'pre-line'
 }))
 
-// ===========================|| CONTRACT CARD ||=========================== //
+// ===========================|| ITEM CARD ||=========================== //
 
-const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndContent = null, headerAction = null, sx = {} }) => {
+export const ItemCard = <T extends ItemCardData = ItemCardData>({
+    data,
+    images,
+    onClick,
+    allowStretch = false,
+    footerEndContent = null,
+    headerAction = null,
+    sx = {}
+}: ItemCardProps<T>): React.ReactElement => {
     const theme = useTheme()
     const imageList = Array.isArray(images) ? images : []
     const hasImages = imageList.length > 0
@@ -180,16 +207,6 @@ const ItemCard = ({ data, images, onClick, allowStretch = false, footerEndConten
             </Box>
         </CardWrapper>
     )
-}
-
-ItemCard.propTypes = {
-    data: PropTypes.object,
-    images: PropTypes.array,
-    onClick: PropTypes.func,
-    allowStretch: PropTypes.bool,
-    footerEndContent: PropTypes.node,
-    headerAction: PropTypes.node,
-    sx: PropTypes.object
 }
 
 export default ItemCard

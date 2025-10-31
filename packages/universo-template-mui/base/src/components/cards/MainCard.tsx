@@ -1,17 +1,31 @@
-import PropTypes from 'prop-types'
-import { forwardRef } from 'react'
-
-// material-ui
+import React, { forwardRef } from 'react'
 import { Card, CardContent, CardHeader, Divider, Typography } from '@mui/material'
+import type { CardProps, SxProps, Theme } from '@mui/material'
 
-// constant
+// Constant
 const headerSX = {
     '& .MuiCardHeader-action': { mr: 0 }
 }
 
+export interface MainCardProps extends Omit<CardProps, 'children' | 'title' | 'content'> {
+    border?: boolean
+    boxShadow?: boolean
+    children?: React.ReactNode
+    content?: boolean
+    contentClass?: string
+    contentSX?: SxProps<Theme>
+    darkTitle?: boolean
+    disableContentPadding?: boolean
+    disableHeader?: boolean
+    secondary?: React.ReactNode
+    shadow?: string | false
+    sx?: SxProps<Theme>
+    title?: React.ReactNode
+}
+
 // ==============================|| CUSTOM MAIN CARD ||============================== //
 
-const MainCard = forwardRef(function MainCard(
+export const MainCard = forwardRef<HTMLDivElement, MainCardProps>(function MainCard(
     {
         boxShadow,
         children,
@@ -72,21 +86,5 @@ const MainCard = forwardRef(function MainCard(
         </Card>
     )
 })
-
-MainCard.propTypes = {
-    border: PropTypes.bool,
-    boxShadow: PropTypes.bool,
-    children: PropTypes.node,
-    content: PropTypes.bool,
-    contentClass: PropTypes.string,
-    contentSX: PropTypes.object,
-    darkTitle: PropTypes.bool,
-    disableContentPadding: PropTypes.bool,
-    disableHeader: PropTypes.bool,
-    secondary: PropTypes.oneOfType([PropTypes.node, PropTypes.string, PropTypes.object]),
-    shadow: PropTypes.string,
-    sx: PropTypes.object,
-    title: PropTypes.oneOfType([PropTypes.node, PropTypes.string, PropTypes.object])
-}
 
 export default MainCard

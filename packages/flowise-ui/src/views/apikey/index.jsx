@@ -132,7 +132,7 @@ function APIKeyRow(props) {
                         </IconButton>
                     )}
                 </StyledTableCell>
-                <StyledTableCell>{moment(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
+                <StyledTableCell>{dayjs(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
                 <StyledTableCell>
                     <IconButton title={t('apiKeys.buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
                         <IconEdit />
@@ -161,7 +161,7 @@ function APIKeyRow(props) {
                                         {props.apiKey.chatFlows.map((flow, index) => (
                                             <TableRow key={index}>
                                                 <StyledTableCell>{flow.flowName}</StyledTableCell>
-                                                <StyledTableCell>{moment(flow.updatedDate).format('MMMM Do, YYYY')}</StyledTableCell>
+                                                <StyledTableCell>{dayjs(flow.updatedDate).format('MMMM Do, YYYY')}</StyledTableCell>
                                                 <StyledTableCell>
                                                     &nbsp;
                                                     {flow.category &&

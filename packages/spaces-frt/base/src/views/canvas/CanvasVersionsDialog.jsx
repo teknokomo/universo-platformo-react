@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useEffect, useMemo, useState } from 'react'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 import { useDispatch } from 'react-redux'
 
@@ -436,7 +436,7 @@ const CanvasVersionsDialog = ({
                   </TableHead>
                   <TableBody>
                     {versions.map((item) => {
-                      const createdAt = item.createdDate ? moment(item.createdDate).format('YYYY-MM-DD HH:mm') : '—'
+                      const createdAt = item.createdDate ? dayjs(item.createdDate).format('YYYY-MM-DD HH:mm') : '—'
                       return (
                         <TableRow key={item.id} hover selected={item.isActive}>
                           <TableCell>

@@ -163,7 +163,7 @@ const VectorStoreConfigure = () => {
 
     const onSelectHistoryDetails = (history) => {
         const props = {
-            title: moment(history.date).format('DD-MMM-YYYY, hh:mm:ss A'),
+            title: dayjs(history.date).format('DD-MMM-YYYY, hh:mm:ss A'),
             numAdded: history.result.numAdded,
             numUpdated: history.result.numUpdated,
             numSkipped: history.result.numSkipped,

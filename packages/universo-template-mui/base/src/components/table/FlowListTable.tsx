@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import PropTypes from 'prop-types'
 import { useSelector } from 'react-redux'
-import { formatDate } from '@flowise/template-mui/hooks/formatDate'
-import { alpha, styled } from '@mui/material/styles'
+import { formatDate } from '@universo/utils'
+import { alpha, styled, Theme } from '@mui/material/styles'
 import {
     Box,
     Chip,
@@ -26,7 +25,7 @@ import i18n from '@universo/i18n'
 import { Link } from 'react-router-dom'
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
-    borderColor: theme.vars?.palette.outline ?? alpha(theme.palette.text.primary, 0.08),
+    borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
 
     [`&.${tableCellClasses.head}`]: {
         color: theme.palette.grey[900]
@@ -44,15 +43,50 @@ const StyledTableRow = styled(TableRow)(() => ({
     }
 }))
 
-const getLocalStorageKeyName = (name, isAgentCanvas) => {
+// Generic data interface - requires at least id and name
+export interface FlowListTableData {
+    id: string
+    name?: string
+    templateName?: string
+    updatedDate?: string
+    updated_at?: string
+    updatedAt?: string
+    updatedOn?: string
+    [key: string]: any
+}
+
+// Column definition with generic type support
+export interface TableColumn<T extends FlowListTableData> {
+    id: string
+    label?: React.ReactNode
+    width?: string | number
+    align?: 'inherit' | 'left' | 'center' | 'right' | 'justify'
+    render?: (row: T, index: number) => React.ReactNode
+}
+
+export interface FlowListTableProps<T extends FlowListTableData = FlowListTableData> {
+    data?: T[]
+    images?: Record<string, any[]>
+    isLoading?: boolean
+    filterFunction?: (row: T) => boolean
+    updateFlowsApi?: any
+    setError?: (error: any) => void
+    isAgentCanvas?: boolean
+    isUnikTable?: boolean
+    renderActions?: (row: T) => React.ReactNode
+    getRowLink?: (row: T) => string | undefined
+    customColumns?: TableColumn<T>[]
+    i18nNamespace?: string
+}
+
+const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean): string => {
     if (isAgentCanvas) {
         return `agentcanvas_${name}`
     }
-
     return `canvaslist_${name}`
 }
 
-export const FlowListTable = ({
+export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     data,
     images,
     isLoading,
@@ -65,32 +99,35 @@ export const FlowListTable = ({
     getRowLink,
     customColumns,
     i18nNamespace = 'flowList'
-}) => {
+}: FlowListTableProps<T>): React.ReactElement => {
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
-    const customization = useSelector((state) => state.customization)
+    const customization = useSelector((state: any) => state.customization)
 
     const localStorageKeyOrder = getLocalStorageKeyName('order', isAgentCanvas)
     const localStorageKeyOrderBy = getLocalStorageKeyName('orderBy', isAgentCanvas)
 
-    const [order, setOrder] = useState(localStorage.getItem(localStorageKeyOrder) || 'desc')
-    const [orderBy, setOrderBy] = useState(localStorage.getItem(localStorageKeyOrderBy) || 'updatedDate')
+    const [order, setOrder] = useState<'asc' | 'desc'>((localStorage.getItem(localStorageKeyOrder) as 'asc' | 'desc') || 'desc')
+    const [orderBy, setOrderBy] = useState<string>(localStorage.getItem(localStorageKeyOrderBy) || 'updatedDate')
 
-    const handleRequestSort = (property) => {
+    const handleRequestSort = (property: string) => {
         const isAsc = orderBy === property && order === 'asc'
-        const newOrder = isAsc ? 'desc' : 'asc'
+        const newOrder: 'asc' | 'desc' = isAsc ? 'desc' : 'asc'
         setOrder(newOrder)
         setOrderBy(property)
         localStorage.setItem(localStorageKeyOrder, newOrder)
         localStorage.setItem(localStorageKeyOrderBy, property)
     }
 
-    const resolveUpdatedDate = (item) => item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
+    const resolveUpdatedDate = (item: T): string | undefined => 
+        item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
 
     const sortedData = data
         ? [...data].sort((a, b) => {
               if (orderBy === 'name') {
-                  return order === 'asc' ? (a.name || '').localeCompare(b.name || '') : (b.name || '').localeCompare(a.name || '')
+                  return order === 'asc' 
+                      ? (a.name || '').localeCompare(b.name || '') 
+                      : (b.name || '').localeCompare(a.name || '')
               }
               if (orderBy === 'updatedDate') {
                   const dateA = resolveUpdatedDate(a)
@@ -103,7 +140,7 @@ export const FlowListTable = ({
           })
         : []
 
-    const buildEntityLink = (row) => {
+    const buildEntityLink = (row: T): string | undefined => {
         if (typeof getRowLink === 'function') {
             return getRowLink(row)
         }
@@ -115,7 +152,7 @@ export const FlowListTable = ({
         return `/${isAgentCanvas ? 'agentcanvas' : 'canvas'}/${row.id}`
     }
 
-    const borderColor = theme.vars?.palette.outline ?? alpha(theme.palette.text.primary, 0.08)
+    const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
 
     const activeFilter = typeof filterFunction === 'function' ? filterFunction : () => true
 
@@ -243,7 +280,7 @@ export const FlowListTable = ({
                                             {isUnikTable ? (
                                                 <StyledTableCell key='1'>
                                                     <Typography sx={{ fontSize: 14 }}>
-                                                        {row.spacesCount != null ? row.spacesCount : 0}
+                                                        {(row as any).spacesCount != null ? (row as any).spacesCount : 0}
                                                     </Typography>
                                                 </StyledTableCell>
                                             ) : columnsToRender ? (
@@ -264,10 +301,10 @@ export const FlowListTable = ({
                                                             }}
                                                         >
                                                             &nbsp;
-                                                            {row.category &&
-                                                                row.category
+                                                            {(row as any).category &&
+                                                                (row as any).category
                                                                     .split(';')
-                                                                    .map((tag, tagIndex) => (
+                                                                    .map((tag: string, tagIndex: number) => (
                                                                         <Chip
                                                                             key={tagIndex}
                                                                             label={tag}
@@ -277,7 +314,7 @@ export const FlowListTable = ({
                                                         </div>
                                                     </StyledTableCell>
                                                     <StyledTableCell key='2'>
-                                                        {images[row.id] && (
+                                                        {images && images[row.id] && (
                                                             <Box
                                                                 sx={{
                                                                     display: 'flex',
@@ -288,7 +325,7 @@ export const FlowListTable = ({
                                                             >
                                                                 {images[row.id]
                                                                     .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
-                                                                    .map((img) => (
+                                                                    .map((img: any) => (
                                                                         <Box
                                                                             key={img}
                                                                             sx={{
@@ -342,7 +379,7 @@ export const FlowListTable = ({
                                                     ) : (
                                                         <FlowListMenu
                                                             isAgentCanvas={isAgentCanvas}
-                                                            canvas={row}
+                                                            canvas={row as any}
                                                             setError={setError}
                                                             updateFlowsApi={updateFlowsApi}
                                                         />
@@ -361,25 +398,4 @@ export const FlowListTable = ({
     )
 }
 
-FlowListTable.propTypes = {
-    data: PropTypes.array,
-    images: PropTypes.object,
-    isLoading: PropTypes.bool,
-    filterFunction: PropTypes.func,
-    updateFlowsApi: PropTypes.object,
-    setError: PropTypes.func,
-    isAgentCanvas: PropTypes.bool,
-    isUnikTable: PropTypes.bool,
-    renderActions: PropTypes.func,
-    getRowLink: PropTypes.func,
-    customColumns: PropTypes.arrayOf(
-        PropTypes.shape({
-            id: PropTypes.string.isRequired,
-            label: PropTypes.node,
-            width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-            align: PropTypes.oneOf(['inherit', 'left', 'center', 'right', 'justify']),
-            render: PropTypes.func
-        })
-    ),
-    i18nNamespace: PropTypes.string
-}
+export default FlowListTable

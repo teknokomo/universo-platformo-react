@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from '@universo/i18n'
 
@@ -360,10 +360,10 @@ const Credentials = () => {
                                                             </Box>
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(credential.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
+                                                            {dayjs(credential.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(credential.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
+                                                            {dayjs(credential.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
                                                             <IconButton title='Edit' color='primary' onClick={() => edit(credential)}>
