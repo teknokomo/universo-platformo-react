@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Chip, Typography, IconButton } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -23,7 +23,8 @@ import {
     FlowListTable,
     gridSpacing,
     ConfirmDialog,
-    useConfirm
+    useConfirm,
+    RoleChip
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
@@ -175,8 +176,6 @@ const MetaverseList = () => {
         setView(nextView)
     }
 
-    const roleLabel = useCallback((role?: MetaverseRole) => (role ? t(`roles:${role}`) : '—'), [t])
-
     const metaverseColumns = useMemo(
         () => [
             {
@@ -201,7 +200,7 @@ const MetaverseList = () => {
                 label: tc('table.role', 'Role'),
                 width: '10%',
                 align: 'center',
-                render: (row: Metaverse) => roleLabel(row.role)
+                render: (row: Metaverse) => (row.role ? <RoleChip role={row.role} /> : '—')
             },
             {
                 id: 'sections',
@@ -218,7 +217,7 @@ const MetaverseList = () => {
                 render: (row: Metaverse) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
             }
         ],
-        [roleLabel, tc]
+        [tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -362,17 +361,7 @@ const MetaverseList = () => {
                                                 data={metaverse}
                                                 images={images[metaverse.id] || []}
                                                 onClick={() => goToMetaverse(metaverse)}
-                                                footerEndContent={
-                                                    metaverse.role ? (
-                                                        <Chip
-                                                            size='small'
-                                                            variant='outlined'
-                                                            color='primary'
-                                                            label={roleLabel(metaverse.role)}
-                                                            sx={{ pointerEvents: 'none' }}
-                                                        />
-                                                    ) : null
-                                                }
+                                                footerEndContent={metaverse.role ? <RoleChip role={metaverse.role} /> : null}
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>

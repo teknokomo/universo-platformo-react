@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from '@universo/i18n'
 import PropTypes from 'prop-types'
 import { useSelector } from 'react-redux'
-import { formatDate } from '../utils/formatDate'
+import { formatDate } from '@universo/utils'
 import { styled } from '@mui/material/styles'
 import {
     Box,

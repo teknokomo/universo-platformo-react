@@ -26,6 +26,234 @@
 
 ---
 
+### 2025-01-31: Phase 3 - JSX → TypeScript Component Migrations ✅
+
+**What**: Completed migration of three core Material-UI components from JSX to TypeScript with generic types, forwardRef patterns, and proper type exports.
+
+**Context**: Part of Phase 3 (JSX → TypeScript Migrations) of the JSX→TSX migration and role system centralization plan. Focuses on foundational UI components in `packages/universo-template-mui` that are reused across multiple applications.
+
+**Implementation Details**:
+
+**Phase 3.1: ItemCard Migration** (Completed)
+- **Created**: `packages/universo-template-mui/base/src/components/cards/ItemCard.tsx` (230 lines)
+- **Deleted**: `ItemCard.jsx`, `ItemCard.d.ts`
+- **Generic Type**: `<T extends ItemCardData>` with default parameter
+- **Exported Types**: `ItemCardData`, `ItemCardProps<T>`
+- **Build**: SUCCESS (1130ms)
+- **Key Features**:
+  - Reusable across entity types (Metaverses, Uniks, Spaces)
+  - Type-safe data property access
+  - Optional props with proper typing: `onClick`, `allowStretch`, `footerEndContent`, `headerAction`, `sx`
+  - Styled component with Theme typing
+
+**Phase 3.2: MainCard Migration** (Completed)
+- **Created**: `packages/universo-template-mui/base/src/components/cards/MainCard.tsx` (94 lines)
+- **Deleted**: `MainCard.jsx`, `MainCard.d.ts`
+- **Pattern**: ForwardRef with explicit ref and props types
+- **Exported Types**: `MainCardProps`
+- **Build**: SUCCESS (1190ms)
+- **Key Features**:
+  - `forwardRef<HTMLDivElement, MainCardProps>` with proper typing
+  - Extends `Omit<CardProps, 'children' | 'title' | 'content'>` to avoid property conflicts
+  - Named function for React DevTools: `forwardRef(function MainCard(...) {...})`
+- **Issues Fixed**:
+  1. `Record<string, any>` incompatible with `ReactNode` → Removed from union types
+  2. `title` property conflict with CardProps → Added to Omit
+  3. `content` property conflict → Added to Omit
+  4. Export pattern issue → Changed to `export { default as TemplateMainCard }`
+
+**Phase 3.3: FlowListTable Migration** (Completed)
+- **Created**: `packages/universo-template-mui/base/src/components/table/FlowListTable.tsx` (389 lines)
+- **Deleted**: `FlowListTable.jsx`
+- **Generic Type**: `<T extends FlowListTableData>` for table rows
+- **Exported Types**: `FlowListTableData`, `TableColumn<T>`, `FlowListTableProps<T>`
+- **Build**: SUCCESS (1242ms)
+- **Key Features**:
+  - Generic table column interface with typed render function: `render?: (row: T, index: number) => React.ReactNode`
+  - Support for custom columns via `customColumns?: TableColumn<T>[]` prop
+  - Conditional rendering: `isUnikTable` vs `customColumns` vs default mode
+  - Redux integration: `useSelector((state: any) => state.customization)`
+  - React Router Link integration for navigation
+  - Sortable columns with localStorage persistence: `order`, `orderBy`
+  - i18n multi-namespace support: `i18nNamespace` prop
+- **Issues Fixed**:
+  1. `theme.vars.palette.outline` type error → `(theme as any).vars?.palette?.outline` with type assertion
+  2. Incorrect formatDate import → Changed to `@flowise/template-mui/hooks`
+  3. Created `formatDate.d.ts` for TypeScript type definitions
+
+**Additional Files Created**:
+- `packages/flowise-template-mui/base/src/hooks/formatDate.d.ts` - TypeScript declarations for formatDate utility function
+
+**Index Exports Updated**:
+- `packages/universo-template-mui/base/src/index.ts` - Added ItemCard type exports
+- `packages/universo-template-mui/base/src/components/index.ts` - Added MainCardProps and FlowListTable type exports
+
+**Full Workspace Build**: SUCCESS (3m 35s)
+- All 30 packages built without errors
+- Zero TypeScript compilation errors
+- Dual CJS/ESM outputs generated successfully
+- Type declarations available to consuming packages
+
+**TypeScript Patterns Established**:
+
+1. **Generic Component Pattern**:
+   ```typescript
+   export interface ItemCardData {
+       iconSrc?: string
+       name?: string
+       [key: string]: any
+   }
+   export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
+       data: T
+       onClick?: () => void
+   }
+   export const ItemCard = <T extends ItemCardData = ItemCardData>({...}: ItemCardProps<T>): React.ReactElement
+   ```
+
+2. **ForwardRef Pattern**:
+   ```typescript
+   export interface MainCardProps extends Omit<CardProps, 'children' | 'title' | 'content'> {
+       border?: boolean
+       children?: React.ReactNode
+   }
+   export const MainCard = forwardRef<HTMLDivElement, MainCardProps>(function MainCard({...}, ref) {...})
+   ```
+
+3. **Generic Table Column Pattern**:
+   ```typescript
+   export interface TableColumn<T extends FlowListTableData> {
+       id: string
+       label?: React.ReactNode
+       render?: (row: T, index: number) => React.ReactNode
+   }
+   export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
+       customColumns,
+       ...
+   }: FlowListTableProps<T>): React.ReactElement
+   ```
+
+4. **MUI Theme Type Extension**:
+   ```typescript
+   // Type assertion for custom theme properties
+   const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
+   ```
+
+**Migration Metrics**:
+- Lines migrated: 230 + 94 + 389 = 713 lines of TypeScript
+- Build times: 1130ms + 1190ms + 1242ms = 3562ms (individual builds)
+- Full workspace build: 3m 35s
+- TypeScript errors: 5 encountered, 5 fixed
+- Files deleted: 4 (.jsx and .d.ts pairs)
+- Type definitions created: 1 (formatDate.d.ts)
+
+**Benefits Achieved**:
+- ✅ Type-safe component props with autocomplete
+- ✅ Generic types for reusability across entity types
+- ✅ Proper forwardRef typing for ref-forwarding components
+- ✅ MUI theme compatibility maintained
+- ✅ Dual CJS/ESM build working
+- ✅ Zero TypeScript compilation errors
+- ✅ Type exports available to consuming packages
+
+**Next Steps** (Phase 4):
+- [ ] Update systemPatterns.md with TypeScript migration patterns (COMPLETED)
+- [ ] Update progress.md with Phase 3 completion (COMPLETED)
+- [ ] Update tasks.md with final status (PENDING)
+- [ ] Consider migrating additional JSX components if needed
+
+**Documentation**:
+- systemPatterns.md: Added "TypeScript Migration Patterns" section with all patterns and examples
+- progress.md: This entry
+
+---
+
+### 2025-10-31: Phase 2.2 - RoleChip Integration in MetaverseList ✅
+
+**What**: Replaced inline Material-UI `Chip` components with centralized `RoleChip` in MetaverseList view.
+
+**Context**: Part of Phase 2 (RoleChip Component) of JSX→TSX migration and role system centralization plan.
+
+**Implementation Details**:
+
+**Files Modified** (1 file):
+- `packages/metaverses-frt/base/src/pages/MetaverseList.tsx`
+
+**Changes Applied**:
+
+1. **Import Updated**:
+   ```typescript
+   // Added RoleChip to imports
+   import {
+     // ... existing imports
+     RoleChip
+   } from '@universo/template-mui'
+   ```
+
+2. **Table View (Column Renderer)**:
+   ```typescript
+   // BEFORE:
+   render: (row: Metaverse) => roleLabel(row.role)
+   
+   // AFTER:
+   render: (row: Metaverse) => (row.role ? <RoleChip role={row.role} /> : '—')
+   ```
+
+3. **Card View (Footer Content)**:
+   ```typescript
+   // BEFORE:
+   footerEndContent={
+     metaverse.role ? (
+       <Chip
+         size='small'
+         variant='outlined'
+         color='primary'
+         label={roleLabel(metaverse.role)}
+         sx={{ pointerEvents: 'none' }}
+       />
+     ) : null
+   }
+   
+   // AFTER:
+   footerEndContent={metaverse.role ? <RoleChip role={metaverse.role} /> : null}
+   ```
+
+4. **Cleanup**:
+   - Removed unused `Chip` import from MUI
+   - Removed unused `roleLabel` callback function
+   - Cleaned up `metaverseColumns` useMemo dependencies (removed `roleLabel`, kept only `tc`)
+
+**Build Verification**:
+- ✅ Full workspace build: **30/30 packages successful** (2m 41s)
+- ✅ No TypeScript errors
+- ✅ metaverses-frt built successfully (3495ms)
+- ✅ flowise-ui built successfully (50.29s)
+
+**Benefits**:
+
+| Aspect | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Code duplication | Manual Chip + color mapping | Centralized RoleChip | ✅ DRY principle |
+| i18n integration | Manual `t(\`roles:${role}\`)` | Automatic in RoleChip | ✅ Simplified |
+| Visual consistency | Varied implementations | Uniform design | ✅ Consistent UX |
+| Maintenance | Update multiple places | Update once in RoleChip | ✅ Single source |
+| Lines of code | 11 lines (card view) | 1 line | ✅ 90% reduction |
+
+**Component Features Used**:
+- ✅ Automatic i18n translation (roles namespace)
+- ✅ Color mapping (owner→error, admin→warning, editor→info, member→default)
+- ✅ Consistent size='small' styling
+- ✅ Generic type support (`BaseRole` from @universo/types)
+
+**Next Steps**:
+- [ ] Browser QA: Verify role chips render correctly in both table and card views
+- [ ] Verify color variants: owner (red), admin (orange), editor (blue), member (gray)
+- [ ] Test language switching EN/RU for role labels
+- [ ] Proceed to Phase 3.1: ItemCard.jsx → ItemCard.tsx migration
+
+**Pattern Established**: Universal role badge component ready for reuse in other views (UnikList, etc.)
+
+---
+
 ### 2025-10-30: Event-Driven Redis Connection + Rate Limiting Deployment Guide ✅
 
 **What**: Fixed polling inefficiency in RedisClientManager and created comprehensive production deployment guide.

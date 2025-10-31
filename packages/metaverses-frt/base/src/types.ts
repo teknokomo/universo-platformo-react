@@ -1,4 +1,4 @@
-export type MetaverseRole = 'owner' | 'admin' | 'editor' | 'member'
+export type { MetaverseRole } from '@universo/types'
 
 export type MetaverseAssignableRole = Exclude<MetaverseRole, 'owner'>
 

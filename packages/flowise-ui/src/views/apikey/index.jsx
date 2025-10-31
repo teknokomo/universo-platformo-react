@@ -1,5 +1,6 @@
 import * as PropTypes from 'prop-types'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
@@ -60,6 +61,8 @@ import {
 } from '@tabler/icons-react'
 import APIEmptySVG from '@flowise/template-mui/assets/images/api_empty.svg'
 import UploadJSONFileDialog from '@/views/apikey/UploadJSONFileDialog'
+
+dayjs.extend(advancedFormat)
 
 // ==============================|| APIKey ||============================== //
 
@@ -132,7 +135,7 @@ function APIKeyRow(props) {
                         </IconButton>
                     )}
                 </StyledTableCell>
-                <StyledTableCell>{moment(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
+                <StyledTableCell>{dayjs(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
                 <StyledTableCell>
                     <IconButton title={t('apiKeys.buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
                         <IconEdit />
@@ -161,7 +164,7 @@ function APIKeyRow(props) {
                                         {props.apiKey.chatFlows.map((flow, index) => (
                                             <TableRow key={index}>
                                                 <StyledTableCell>{flow.flowName}</StyledTableCell>
-                                                <StyledTableCell>{moment(flow.updatedDate).format('MMMM Do, YYYY')}</StyledTableCell>
+                                                <StyledTableCell>{dayjs(flow.updatedDate).format('MMMM Do, YYYY')}</StyledTableCell>
                                                 <StyledTableCell>
                                                     &nbsp;
                                                     {flow.category &&

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useParams } from 'react-router-dom'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 
 // material-ui
@@ -355,10 +355,10 @@ const Variables = () => {
                                                             />
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(variable.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
+                                                            {dayjs(variable.updatedDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
-                                                            {moment(variable.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
+                                                            {dayjs(variable.createdDate).format('MMMM Do, YYYY HH:mm:ss')}
                                                         </StyledTableCell>
                                                         <StyledTableCell>
                                                             <IconButton title='Edit' color='primary' onClick={() => edit(variable)}>

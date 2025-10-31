@@ -37,6 +37,10 @@ export type { BaseEntityMenuProps, ActionDescriptor, ActionContext, TriggerProps
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'
 
+// Chips
+export { RoleChip } from './components/chips'
+export type { RoleChipProps } from './components/chips'
+
 // Confirm system (imperative confirmation dialogs)
 export { ConfirmContext, ConfirmContextProvider } from './contexts'
 export { useConfirm } from './hooks/useConfirm'
@@ -77,7 +81,9 @@ export {
 } from './assets'
 
 // Card components
-export { default as ItemCard } from './components/cards/ItemCard'
+export { ItemCard } from './components/cards/ItemCard'
+export type { ItemCardProps, ItemCardData } from './components/cards/ItemCard'
+export { default } from './components/cards/ItemCard'
 
 // Navigation system exports
 export * from './navigation'

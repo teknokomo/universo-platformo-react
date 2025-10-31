@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { ICommonObject } from 'flowise-components'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import fs from 'fs'
 import path from 'path'
 import logger from './logger'
@@ -66,7 +66,7 @@ export const getAPIKeys = async (): Promise<ICommonObject[]> => {
                 keyName,
                 apiKey,
                 apiSecret,
-                createdAt: moment().format('DD-MMM-YY'),
+                createdAt: dayjs().format('DD-MMM-YY'),
                 id: randomBytes(16).toString('hex')
             }
         ]
@@ -90,7 +90,7 @@ export const addAPIKey = async (keyName: string): Promise<ICommonObject[]> => {
             keyName,
             apiKey,
             apiSecret,
-            createdAt: moment().format('DD-MMM-YY'),
+            createdAt: dayjs().format('DD-MMM-YY'),
             id: randomBytes(16).toString('hex')
         }
     ]

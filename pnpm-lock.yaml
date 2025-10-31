@@ -34,7 +34,7 @@ catalogs:
       specifier: ^0.5.0
       version: 0.5.0
     dayjs:
-      specifier: ^1.11.13
+      specifier: ^1.11.18
       version: 1.11.18
     eslint:
       specifier: ^8.57.1
@@ -699,9 +699,6 @@ importers:
       meilisearch:
         specifier: ^0.41.0
         version: 0.41.0(encoding@0.1.13)
-      moment:
-        specifier: ^2.29.3
-        version: 2.30.1
       mongodb:
         specifier: 6.3.0
         version: 6.3.0(socks@2.8.7)
@@ -973,9 +970,6 @@ importers:
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
-      moment:
-        specifier: ^2.29.3
-        version: 2.30.1
       moment-timezone:
         specifier: ^0.5.34
         version: 0.5.48
@@ -1167,9 +1161,6 @@ importers:
       framer-motion:
         specifier: ^10.16.4
         version: 10.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      moment:
-        specifier: ^2.29.4
-        version: 2.30.1
       prop-types:
         specifier: ^15.8.1
         version: 15.8.1
@@ -1349,9 +1340,6 @@ importers:
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
-      moment:
-        specifier: ^2.29.3
-        version: 2.30.1
       notistack:
         specifier: ^2.0.4
         version: 2.0.8(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@5.15.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2382,12 +2370,18 @@ importers:
 
   packages/universo-utils/base:
     dependencies:
+      '@universo/i18n':
+        specifier: workspace:*
+        version: link:../../universo-i18n/base
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      dayjs:
+        specifier: 'catalog:'
+        version: 1.11.18
       express:
         specifier: ^4.18.0
         version: 4.21.2
@@ -6798,7 +6792,6 @@ packages:
   '@rolldown/binding-linux-x64-gnu@1.0.0-beta.43':
     resolution: {integrity: sha512-BgynXKMjeaX4AfWLARhOKDetBOOghnSiVRjAHVvhiAaDXgdQN8e65mSmXRiVoVtD3cHXx/cfU8Gw0p0K+qYKVQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [x64]
     os: [linux]
 
   '@rolldown/binding-linux-x64-gnu@1.0.0-beta.45':
@@ -20980,7 +20973,7 @@ snapshots:
   '@colyseus/redis-driver@0.16.1(@colyseus/schema@3.0.64)(@pm2/io@6.1.0)':
     dependencies:
       '@colyseus/core': 0.16.22(@colyseus/schema@3.0.64)(@pm2/io@6.1.0)
-      ioredis: 5.8.1
+      ioredis: 5.8.2
     transitivePeerDependencies:
       - '@colyseus/schema'
       - '@pm2/io'

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -487,7 +487,7 @@ const Analytics = () => {
                                                     </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Typography variant='body2'>
-                                                            {moment(row.createdDate).format('DD.MM.YYYY HH:mm')}
+                                                            {dayjs(row.createdDate).format('DD.MM.YYYY HH:mm')}
                                                         </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>

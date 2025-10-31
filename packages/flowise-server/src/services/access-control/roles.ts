@@ -5,18 +5,13 @@
  * to prevent authorization bypass through typos.
  */
 
-export const UNIK_ROLES = ['owner', 'admin', 'editor', 'member'] as const
-export type UnikRole = typeof UNIK_ROLES[number]
+import { UnikRole, ROLE_HIERARCHY, getRoleLevel, hasRequiredRole as baseHasRequiredRole } from '@universo/types'
 
-/**
- * Role hierarchy for comparison (higher number = more permissions)
- */
-export const ROLE_HIERARCHY: Record<UnikRole, number> = {
-    owner: 4,
-    admin: 3,
-    editor: 2,
-    member: 1
-}
+// Re-export for convenience
+export type { UnikRole }
+export { ROLE_HIERARCHY, getRoleLevel }
+
+export const UNIK_ROLES = ['owner', 'admin', 'editor', 'member'] as const
 
 /**
  * Check if actual role meets one of the allowed roles
@@ -26,14 +21,7 @@ export const ROLE_HIERARCHY: Record<UnikRole, number> = {
  * @returns true if access should be granted
  */
 export function hasRequiredRole(actual: UnikRole, allowed: UnikRole[] = []): boolean {
-    if (!allowed.length) return true // No role restrictions
-    
-    // Check if user has one of the explicitly allowed roles
-    if (allowed.includes(actual)) return true
-    
-    // Check if user has a higher role than any of the allowed roles (role hierarchy)
-    const actualLevel = ROLE_HIERARCHY[actual]
-    return allowed.some(allowedRole => actualLevel > ROLE_HIERARCHY[allowedRole])
+    return baseHasRequiredRole(actual, allowed)
 }
 
 /**
@@ -52,6 +40,4 @@ export function isValidUnikRole(role: string): role is UnikRole {
  * @param role - Role to get level for
  * @returns Numeric level (higher = more permissions)
  */
-export function getRoleLevel(role: UnikRole): number {
-    return ROLE_HIERARCHY[role]
-}
+// Exported via re-export at top of file

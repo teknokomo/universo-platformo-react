@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
 import { useTranslation } from '@universo/i18n'
 
 import { Stack, Button, Box, SwipeableDrawer } from '@mui/material'
@@ -56,7 +56,7 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
                             upsertHistory.map((history, index) => (
                                 <TimelineItem key={index}>
                                     <TimelineOppositeContent>
-                                        {moment(history.date).format('DD-MMM-YYYY, hh:mm:ss A')}
+                                        {dayjs(history.date).format('DD-MMM-YYYY, hh:mm:ss A')}
                                     </TimelineOppositeContent>
                                     <TimelineSeparator style={{ marginTop: 5 }}>
                                         <TimelineDot />

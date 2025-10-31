@@ -11,6 +11,9 @@ export * as env from './env'
 export { UPDLProcessor } from './updl/UPDLProcessor'
 export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from './env'
 
+// Date formatting utilities (UI-only)
+export { formatDate, formatRange } from './ui-utils/formatDate'
+
 // Explicit imports to avoid pulling in Node "net" dependency when bundling for the browser.
 import { createTimeSyncEstimator } from './net/timeSync'
 import { updateSeqState, reconcileAck } from './net/sequencing'

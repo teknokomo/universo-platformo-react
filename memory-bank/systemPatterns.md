@@ -1619,3 +1619,307 @@ const { searchValue, handleSearchChange } = useDebouncedSearch({
 ---
 
 _For detailed application structure and development guidelines, see [packages/README.md](../packages/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._
+
+---
+
+## TypeScript Migration Patterns (2025-01-31)
+
+### Generic Component Pattern
+
+**Purpose**: Create reusable components with type-safe generic data structures
+
+**Pattern**: Generic type parameter with extends constraint
+```typescript
+export interface ItemCardData {
+    iconSrc?: string
+    color?: string
+    templateName?: string
+    name?: string
+    description?: string
+    [key: string]: any  // Allow additional properties
+}
+
+export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
+    data: T
+    images?: any[]
+    onClick?: () => void
+    allowStretch?: boolean
+    footerEndContent?: React.ReactNode
+    headerAction?: React.ReactNode
+    sx?: SxProps<Theme>
+}
+
+export const ItemCard = <T extends ItemCardData = ItemCardData>({
+    data,
+    images,
+    onClick,
+    ...rest
+}: ItemCardProps<T>): React.ReactElement => {
+    // Component implementation
+}
+```
+
+**Benefits**:
+- ✅ Type inference for specific data structures
+- ✅ Autocomplete for data properties
+- ✅ Reusable across multiple entity types (Metaverses, Uniks, Spaces)
+- ✅ Default generic parameter for simple usage
+
+**Usage Examples**:
+```typescript
+// Simple usage (uses default ItemCardData)
+<ItemCard data={metaverse} onClick={() => navigate(`/metaverses/${metaverse.id}`)} />
+
+// Type-safe usage with custom data type
+interface MetaverseData extends ItemCardData {
+    sectionsCount: number
+    role: BaseRole
+}
+
+<ItemCard<MetaverseData>
+    data={metaverse}
+    onClick={() => navigate(`/metaverses/${metaverse.id}`)}
+    footerEndContent={<Chip label={`${metaverse.sectionsCount} sections`} />}
+/>
+```
+
+### ForwardRef Pattern with TypeScript
+
+**Purpose**: Create ref-forwarding components with proper TypeScript typing
+
+**Pattern**: forwardRef with explicit ref and props types
+```typescript
+export interface MainCardProps extends Omit<CardProps, 'children' | 'title' | 'content'> {
+    border?: boolean
+    boxShadow?: boolean
+    children?: React.ReactNode
+    content?: boolean
+    contentSX?: SxProps<Theme>
+    darkTitle?: boolean
+    disableContentPadding?: boolean
+    disableHeader?: boolean
+    secondary?: React.ReactNode
+    shadow?: string | false
+    title?: React.ReactNode
+}
+
+export const MainCard = forwardRef<HTMLDivElement, MainCardProps>(
+    function MainCard({ children, border, boxShadow, ...rest }, ref) {
+        return <Card ref={ref} {...rest}>{children}</Card>
+    }
+)
+```
+
+**Key Points**:
+- ✅ Use `Omit<CardProps, 'conflictingProp'>` to exclude conflicting properties
+- ✅ Explicit function name in forwardRef for React DevTools
+- ✅ Separate type and component exports
+- ✅ Ref type matches underlying DOM element
+
+**Common Pitfalls**:
+```typescript
+// ❌ WRONG: Union with Record<string, any> causes ReactNode conflict
+interface Props {
+    title?: React.ReactNode | Record<string, any>  // Error!
+}
+
+// ✅ CORRECT: Remove Record<string, any> from union
+interface Props {
+    title?: React.ReactNode
+}
+
+// ❌ WRONG: Property conflict with base interface
+interface Props extends CardProps {
+    content?: boolean  // Error: CardProps.content is string | undefined
+}
+
+// ✅ CORRECT: Exclude conflicting properties with Omit
+interface Props extends Omit<CardProps, 'content'> {
+    content?: boolean
+}
+```
+
+### Generic Table Column Pattern
+
+**Purpose**: Type-safe table columns with custom render functions
+
+**Pattern**: Generic column interface with render callback
+```typescript
+export interface FlowListTableData {
+    id: string
+    name?: string
+    templateName?: string
+    updatedDate?: string
+    updated_at?: string
+    updatedAt?: string
+    updatedOn?: string
+    [key: string]: any
+}
+
+export interface TableColumn<T extends FlowListTableData> {
+    id: string
+    label?: React.ReactNode
+    width?: string | number
+    align?: 'inherit' | 'left' | 'center' | 'right' | 'justify'
+    render?: (row: T, index: number) => React.ReactNode
+}
+
+export interface FlowListTableProps<T extends FlowListTableData = FlowListTableData> {
+    data?: T[]
+    customColumns?: TableColumn<T>[]
+    renderActions?: (row: T) => React.ReactNode
+    // ... other props
+}
+
+export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
+    data,
+    customColumns,
+    ...rest
+}: FlowListTableProps<T>): React.ReactElement => {
+    // Table implementation
+}
+```
+
+**Benefits**:
+- ✅ Type-safe column definitions
+- ✅ Autocomplete in render functions
+- ✅ Flexible row data structure
+- ✅ Reusable across different entity types
+
+**Usage Example**:
+```typescript
+interface MetaverseRow extends FlowListTableData {
+    description?: string
+    role: BaseRole
+    sectionsCount: number
+}
+
+const metaverseColumns: TableColumn<MetaverseRow>[] = [
+    {
+        id: 'description',
+        label: t('common:table.description'),
+        render: (row) => row.description || '—'  // row is MetaverseRow
+    },
+    {
+        id: 'role',
+        label: t('common:table.role'),
+        render: (row) => <RoleChip role={row.role} />  // Type-safe access
+    },
+    {
+        id: 'sections',
+        label: t('common:table.sections'),
+        render: (row) => row.sectionsCount ?? '—'  // Type-safe property
+    }
+]
+
+<FlowListTable<MetaverseRow>
+    data={metaverses}
+    customColumns={metaverseColumns}
+/>
+```
+
+### MUI Theme Type Extension Pattern
+
+**Purpose**: Use custom MUI theme properties without TypeScript errors
+
+**Pattern**: Type assertion for non-standard theme properties
+```typescript
+import { alpha, styled, Theme } from '@mui/material/styles'
+
+// Custom theme property not in MUI types
+const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+    borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
+    // ... other styles
+}))
+```
+
+**Why This Works**:
+- MUI v6 uses CSS variables system with `theme.vars`
+- Standard TypeScript types don't include all CSS variable properties
+- `as any` type assertion bypasses type checking for custom properties
+- Fallback ensures graceful degradation if property doesn't exist
+
+**Alternative (Type Declaration)**:
+```typescript
+// For frequently used custom properties, extend the Theme interface
+declare module '@mui/material/styles' {
+    interface PaletteVars {
+        outline?: string
+    }
+}
+
+// Then use without type assertion
+const borderColor = theme.vars?.palette.outline ?? alpha(theme.palette.text.primary, 0.08)
+```
+
+### Migration Checklist
+
+**Phase 1: Type Definitions**
+- [ ] Create TypeScript interfaces for component props
+- [ ] Define generic type parameters with extends constraints
+- [ ] Add proper JSDoc comments for complex types
+- [ ] Export types from component files
+
+**Phase 2: Component Migration**
+- [ ] Rename `.jsx` → `.tsx`
+- [ ] Add type annotations to props destructuring
+- [ ] Replace `PropTypes` with TypeScript interfaces
+- [ ] Fix MUI theme type issues with appropriate patterns
+- [ ] Handle forwardRef with explicit types
+
+**Phase 3: Build Configuration**
+- [ ] Add TypeScript compilation to build pipeline
+- [ ] Update package.json exports to include type declarations
+- [ ] Verify dual CJS/ESM build output
+- [ ] Test type imports in consuming packages
+
+**Phase 4: Integration Testing**
+- [ ] Build package in isolation (`pnpm --filter <package> build`)
+- [ ] Verify consuming packages can import types
+- [ ] Run full workspace build (`pnpm build`)
+- [ ] Check for any TypeScript errors in dependents
+
+**Phase 5: Documentation**
+- [ ] Update package README with TypeScript usage examples
+- [ ] Document generic type parameters
+- [ ] Add JSDoc comments for exported functions
+- [ ] Update systemPatterns.md with migration notes
+
+### Migration Results (2025-01-31)
+
+**Migrated Components** (packages/universo-template-mui):
+1. **ItemCard.jsx → ItemCard.tsx** (230 lines)
+   - Generic type: `<T extends ItemCardData>`
+   - Exported types: `ItemCardData`, `ItemCardProps<T>`
+   - Build: SUCCESS (1130ms)
+
+2. **MainCard.jsx → MainCard.tsx** (94 lines)
+   - ForwardRef pattern with proper typing
+   - Omit conflicts: `Omit<CardProps, 'children' | 'title' | 'content'>`
+   - Exported types: `MainCardProps`
+   - Build: SUCCESS (1190ms)
+
+3. **FlowListTable.jsx → FlowListTable.tsx** (389 lines)
+   - Generic type: `<T extends FlowListTableData>`
+   - Custom columns: `TableColumn<T>[]`
+   - Exported types: `FlowListTableData`, `TableColumn<T>`, `FlowListTableProps<T>`
+   - MUI theme fix: `(theme as any).vars?.palette?.outline`
+   - Build: SUCCESS (1242ms)
+
+**Created Type Definitions**:
+- `packages/flowise-template-mui/base/src/hooks/formatDate.d.ts` - TypeScript declarations for formatDate utility
+
+**Full Workspace Build**: SUCCESS (3m 35s, all 30 packages)
+
+**Key Achievements**:
+- ✅ Zero TypeScript errors
+- ✅ Dual CJS/ESM builds working
+- ✅ Type exports available to consumers
+- ✅ Generic patterns reusable across entity types
+- ✅ MUI theme compatibility maintained
+
+---
+
+_For detailed application structure and development guidelines, see [packages/README.md](../packages/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._

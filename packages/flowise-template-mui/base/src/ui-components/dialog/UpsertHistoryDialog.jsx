@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useEffect, useState, forwardRef } from 'react'
 import DatePicker from 'react-datepicker'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
 import { useTranslation } from '@universo/i18n'
 
 // MUI
@@ -51,6 +52,8 @@ import { useNotifier } from '@flowise/template-mui/hooks'
 import resolveCanvasContext from '@universo/utils/ui-utils/resolveCanvasContext'
 import { enqueueSnackbar as enqueueSnackbarAction, closeSnackbar as closeSnackbarAction } from '@flowise/store'
 
+dayjs.extend(advancedFormat)
+
 const DatePickerCustomInput = forwardRef(function DatePickerCustomInput({ value, onClick }, ref) {
     return (
         <ListItemButton style={{ borderRadius: 15, border: '1px solid #e0e0e0' }} onClick={onClick} ref={ref}>
@@ -90,7 +93,7 @@ function UpsertHistoryRow(props) {
                         }}
                     />
                 </TableCell>
-                <TableCell>{moment(props.upsertHistory.date).format('MMMM Do YYYY, h:mm:ss a')}</TableCell>
+                <TableCell>{dayjs(props.upsertHistory.date).format('MMMM Do YYYY, h:mm:ss a')}</TableCell>
                 <TableCell>{props.upsertHistory.result?.numAdded ?? '0'}</TableCell>
                 <TableCell>{props.upsertHistory.result?.numUpdated ?? '0'}</TableCell>
                 <TableCell>{props.upsertHistory.result?.numSkipped ?? '0'}</TableCell>

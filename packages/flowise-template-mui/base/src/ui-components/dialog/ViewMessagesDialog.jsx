@@ -2,7 +2,9 @@ import { createPortal } from 'react-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useState, useEffect, forwardRef } from 'react'
 import PropTypes from 'prop-types'
-import moment from 'moment'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
+import localizedFormat from 'dayjs/plugin/localizedFormat'
 import rehypeMathjax from 'rehype-mathjax'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
@@ -72,6 +74,9 @@ import resolveCanvasContext from '../utils/resolveCanvasContext'
 
 // CSS stub: chatmessage/ChatMessage.css
 import 'react-datepicker/dist/react-datepicker.css'
+
+dayjs.extend(advancedFormat)
+dayjs.extend(localizedFormat)
 
 const DatePickerCustomInput = forwardRef(function DatePickerCustomInput({ value, onClick }, ref) {
     return (
@@ -1046,7 +1051,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                             </div>
                                                         </div>
                                                     }
-                                                    secondary={moment(chatmsg.createdDate).format('MMMM Do YYYY, h:mm:ss a')}
+                                                    secondary={dayjs(chatmsg.createdDate).format('MMMM Do YYYY, h:mm:ss a')}
                                                 />
                                             </ListItem>
                                         </ListItemButton>
@@ -1587,7 +1592,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                                             key={index}
                                                             style={{ display: 'flex', justifyContent: 'center', alignContent: 'center' }}
                                                         >
-                                                            {moment(message.message).format('MMMM Do YYYY, h:mm:ss a')}
+                                                            {dayjs(message.message).format('MMMM Do YYYY, h:mm:ss a')}
                                                         </Box>
                                                     )
                                                 }
