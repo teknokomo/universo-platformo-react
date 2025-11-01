@@ -1,392 +1,382 @@
-# Profile Frontend (profile-frt)
+# @universo/profile-frt
 
-Frontend module for user profile management and authentication in Universo Platformo.
+> 🏗️ **Modern Package** - TypeScript-first architecture with dual build system (CJS + ESM)
 
-## Project Structure
+React frontend for user profile management and authentication in Universo Platformo.
 
-The project follows a unified structure for applications in the monorepo:
+## Package Information
+
+- **Version**: 0.1.0
+- **Type**: Frontend React Package (TypeScript)
+- **Status**: ✅ Active Development
+- **Architecture**: Modern with dual build system (CJS + ESM)
+
+## Key Features
+
+### User Profile Management
+- **Profile Data**: Display and edit user nickname, first name, last name
+- **Email Updates**: Secure email address changes through Supabase auth
+- **Password Management**: Secure password updates with current password verification
+- **Real-time Validation**: Client-side form validation with immediate feedback
+
+### Security & Authentication
+- **JWT Token Integration**: Bearer token authentication with automatic refresh
+- **Current Password Verification**: Required verification before password changes
+- **Secure API Communication**: All requests authenticated and encrypted
+- **Input Validation**: Comprehensive client-side and server-side validation
+
+### User Experience
+- **Internationalization**: Multi-language support (English/Russian)
+- **Responsive Design**: Mobile-friendly Material-UI components
+- **Loading States**: Visual indicators for all asynchronous operations
+- **Error Handling**: Comprehensive error messages with localization
+- **Success Feedback**: Clear confirmation messages for successful operations
+
+## Installation
+
+```bash
+# Install from workspace root
+pnpm install
+
+# Build the package
+pnpm --filter @universo/profile-frt build
+```
+
+## File Structure
 
 ```
 packages/profile-frt/base/
+├── src/
+│   ├── i18n/              # Internationalization
+│   │   └── locales/       # Language files (en, ru)
+│   ├── pages/             # React page components
+│   │   ├── Profile.jsx    # Main profile management component
+│   │   └── __tests__/     # Component tests
+│   └── index.ts           # Package exports
+├── dist/                  # Compiled output (CJS, ESM, types)
 ├── package.json
 ├── tsconfig.json
-├── gulpfile.ts
-└── src/
-   ├── i18n/                # Localization
-   │  └── locales/          # Language files (en, ru)
-   ├── pages/               # Page components
-   │  └── Profile.jsx       # Main profile management page
-   └── index.ts             # Entry point
+├── tsdown.config.ts       # Build configuration
+├── vitest.config.ts       # Test configuration
+├── README.md              # This file
+└── README-RU.md           # Russian documentation
 ```
 
-## Features
+## Usage
 
--   **Email Update**: Change user email address through Supabase auth system
--   **Secure Password Update**: Change user password with current password verification
--   **Authentication Integration**: JWT token-based authentication with Supabase
--   **Form Validation**: Client-side validation for email and password formats with password confirmation
--   **Error Handling**: Comprehensive error messages and user feedback with full internationalization
--   **Internationalization**: Multi-language support (English/Russian) including server error translation
--   **Security Features**: Current password verification, bcrypt hashing, minimum password requirements
--   **Responsive Design**: Mobile-friendly user interface
+### Basic Component Integration
+```tsx
+import { ProfilePage } from '@universo/profile-frt'
 
-## Authentication Architecture
-
-### Frontend Authentication Flow
-
-The Profile component handles user authentication and profile updates through a secure token-based system:
-
-1. **Token Storage**: JWT tokens stored in localStorage
-2. **API Communication**: All requests include Authorization header with Bearer token
-3. **Error Handling**: Graceful handling of authentication failures and validation errors
-4. **User Feedback**: Real-time status updates during profile operations
-
-### Backend Integration
-
-The frontend communicates with the backend through REST API endpoints:
-
-#### Email Update Endpoint
-
-```
-PUT /api/v1/auth/email
-Headers: Authorization: Bearer <jwt_token>
-Body: { "email": "new@example.com" }
-```
-
-#### Password Update Endpoint
-
-```
-PUT /api/v1/auth/password
-Headers: Authorization: Bearer <jwt_token>
-Body: {
-    "currentPassword": "oldpassword123",
-    "newPassword": "newpassword123"
+// Use in your React application
+function UserProfileRoute() {
+  return <ProfilePage />
 }
 ```
 
-### Supabase Integration
+### With Router Integration
+```tsx
+import { Routes, Route } from 'react-router-dom'
+import { ProfilePage } from '@universo/profile-frt'
 
-The profile management system uses Supabase authentication with custom SQL functions for secure user data updates.
-
-#### SQL Functions in Database
-
-The authentication system uses SQL functions with `SECURITY DEFINER` privileges to update user data:
-
-**Email Update Function:**
-
-```sql
-CREATE OR REPLACE FUNCTION update_user_email(user_id uuid, new_email text)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-    UPDATE auth.users SET email = new_email WHERE id = user_id;
-END;
-$$;
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/profile" element={<ProfilePage />} />
+    </Routes>
+  )
+}
 ```
 
-**Password Verification Function:**
+### Authentication Required
+```tsx
+import { ProfilePage } from '@universo/profile-frt'
+import { useAuth } from '@universo/auth-frt'
 
-```sql
-CREATE OR REPLACE FUNCTION verify_user_password(password text)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    user_id uuid;
-BEGIN
-    user_id := auth.uid();
-
-    RETURN EXISTS (
-        SELECT id
-        FROM auth.users
-        WHERE id = user_id
-        AND encrypted_password = crypt(password::text, auth.users.encrypted_password)
-    );
-END;
-$$;
+function ProtectedProfile() {
+  const { user, isAuthenticated } = useAuth()
+  
+  if (!isAuthenticated) {
+    return <div>Please log in to view your profile</div>
+  }
+  
+  return <ProfilePage />
+}
 ```
 
-**Secure Password Update Function:**
+## API Integration
 
-```sql
-CREATE OR REPLACE FUNCTION change_user_password_secure(
-    current_password text,
-    new_password text
-)
-RETURNS json
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    user_id uuid;
-    is_valid_password boolean;
-BEGIN
-    -- Get current user ID
-    user_id := auth.uid();
+### Profile Data Endpoints
+```http
+# Get user profile
+GET /api/v1/profile/:userId
+Authorization: Bearer <jwt_token>
 
-    -- Verify current password
-    SELECT verify_user_password(current_password) INTO is_valid_password;
+# Update profile information
+PUT /api/v1/profile/:userId
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 
-    IF NOT is_valid_password THEN
-        RAISE EXCEPTION 'Current password is incorrect';
-    END IF;
-
-    -- Update password
-    UPDATE auth.users
-    SET encrypted_password = crypt(new_password, gen_salt('bf'))
-    WHERE id = user_id;
-
-    RETURN json_build_object('success', true, 'message', 'Password updated successfully');
-END;
-$$;
+{
+  "nickname": "newNickname",
+  "first_name": "John",
+  "last_name": "Doe"
+}
 ```
 
-#### Backend Implementation
+### Authentication Endpoints
+```http
+# Update user email
+PUT /api/v1/auth/email
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 
-The backend controllers use these SQL functions via Supabase RPC calls:
+{
+  "email": "new@example.com"
+}
 
+# Update user password
+PUT /api/v1/auth/password
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "currentPassword": "oldPassword123",
+  "newPassword": "newSecurePassword456"
+}
+```
+
+### Response Handling
 ```typescript
-// Email update
-const { error } = await supabase.rpc('update_user_email', {
-    user_id: userId,
-    new_email: email
-})
+// API response handling with proper error management
+const handleApiResponse = async (response: Response) => {
+  const data = await response.json()
+  
+  if (!response.ok) {
+    throw new Error(data.error || data.message || 'Operation failed')
+  }
+  
+  return data
+}
 
-// Secure password update with current password verification
-const { data, error } = await supabase.rpc('change_user_password_secure', {
-    current_password: currentPassword,
-    new_password: newPassword
-})
+// Example usage
+try {
+  const response = await fetch('/api/v1/profile/123', {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  const result = await handleApiResponse(response)
+  console.log('Profile data:', result.data)
+} catch (error) {
+  console.error('Profile fetch failed:', error.message)
+}
 ```
 
-## Database Migration
+## Component Architecture
 
-The profile management system now has its own dedicated migration structure, maintaining proper separation of concerns between profile functionality and other system components.
-
-### Profile Service Migration
-
-The profile system uses a dedicated migration `packages/profile-srv/base/src/database/migrations/postgres/1741277504477-AddProfile.ts` that includes:
-
--   **Profile table schema**: Complete user profile data structure
--   **Row Level Security (RLS) policies**: Secure access control for profile data
--   **User profile SQL functions**: Authentication and profile management functions
--   **Database triggers**: Automatic profile creation on user registration
-
-### Integration with Main Platform
-
-The profile service integrates with the main Flowise platform through:
-
--   **Entity Integration**: Profile entities are automatically included in the main database schema
--   **Migration System**: Profile migrations are integrated into the PostgreSQL migration system
--   **Shared Authentication**: Uses the same Supabase authentication system as the main platform
-
-## User Interface
-
-### Profile Management Form
-
-The Profile component provides an intuitive interface for user account management:
-
--   **Email Section**: Current email display with update form
--   **Password Section**: Secure password change form
--   **Validation**: Real-time form validation with error messages
--   **Feedback**: Success/error notifications for all operations
--   **Loading States**: Visual indicators during API operations
+### Profile Page Structure
+```tsx
+// Main Profile component structure
+const Profile = () => {
+  // State management
+  const [profile, setProfile] = useState({
+    nickname: '',
+    first_name: '',
+    last_name: ''
+  })
+  
+  // Authentication integration
+  const { user, getAccessToken } = useAuth()
+  const { t } = useTranslation('profile')
+  
+  // Form sections
+  return (
+    <MainCard title={t('title')}>
+      <ProfileSection />
+      <EmailSection />
+      <PasswordSection />
+    </MainCard>
+  )
+}
+```
 
 ### Form Validation
-
-Client-side validation includes:
-
--   **Email Format**: Valid email address format checking
--   **Password Requirements**: Minimum length (6+ characters) and strength validation
--   **Current Password Verification**: Required verification of current password before changes
--   **Password Confirmation**: New password confirmation to prevent typos
--   **Required Fields**: Prevention of empty form submissions
--   **Error Display**: Clear error messages for invalid inputs with full internationalization
-
-## Usage Examples
-
-### Basic Profile Update Flow
-
-Here's a typical user interaction flow for updating profile information:
-
-```javascript
-// 1. User opens profile page
-// 2. Current email is displayed automatically
-// 3. User enters new email and submits form
-
-const updateEmail = async (newEmail) => {
-    const token = localStorage.getItem('token')
-    const response = await fetch('/api/v1/auth/email', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ email: newEmail })
-    })
-
-    if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to update email')
-    }
-
-    // Success feedback to user
-    return await response.json()
+```typescript
+// Client-side validation logic
+const validateProfile = (data) => {
+  const errors = {}
+  
+  if (!data.nickname?.trim()) {
+    errors.nickname = 'Nickname is required'
+  }
+  
+  if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
+    errors.email = 'Invalid email format'
+  }
+  
+  if (data.newPassword && data.newPassword.length < 6) {
+    errors.password = 'Password must be at least 6 characters'
+  }
+  
+  return { isValid: Object.keys(errors).length === 0, errors }
 }
 ```
-
-### Error Handling Example
-
-```javascript
-try {
-    await updateEmail('new@example.com')
-    setSuccess('Email updated successfully!')
-} catch (error) {
-    setError(`Failed to update email: ${error.message}`)
-}
-```
-
-## API Architecture
-
-### Authentication Headers
-
-All API requests include proper authentication:
-
-```javascript
-const token = localStorage.getItem('token')
-const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`
-}
-```
-
-### Error Handling
-
-Comprehensive error handling for various scenarios:
-
--   **401 Unauthorized**: Invalid or expired tokens
--   **400 Bad Request**: Validation errors or missing data
--   **500 Server Error**: Database or system errors
--   **Network Errors**: Connection issues and timeouts
-
-### Response Processing
-
-All API responses are processed with proper error checking:
-
-```javascript
-const response = await fetch(url, { method, headers, body })
-const data = await response.json()
-
-if (!response.ok) {
-    throw new Error(data.error || 'Operation failed')
-}
-```
-
-## Security Features
-
-### Token-Based Authentication
-
--   **JWT Tokens**: Secure token-based authentication
--   **Token Validation**: Server-side token verification
--   **Automatic Expiry**: Token expiration handling
--   **Secure Storage**: localStorage with proper cleanup
--   **Current Password Verification**: Required verification before password changes
--   **Server Error Translation**: Automatic mapping of server errors to localized messages
-
-### SQL Function Security
-
--   **SECURITY DEFINER**: Elevated privileges for database operations
--   **Input Validation**: Protection against SQL injection
--   **User Isolation**: Operations limited to authenticated user's data
--   **Audit Trail**: All operations logged for security monitoring
-
-### Password Security
-
--   **Bcrypt Hashing**: Industry-standard password hashing
--   **Salt Generation**: Unique salts for each password
--   **Secure Transmission**: HTTPS-only password transmission
--   **No Plain Text**: Passwords never stored in plain text
 
 ## Development
 
-### Setup
+### Prerequisites
+- Node.js 18+
+- pnpm 8+
+- TypeScript 5+
 
+### Available Scripts
 ```bash
-pnpm install
+# Development
+pnpm build              # Build for production (dual CJS/ESM)
+pnpm build:watch        # Build in watch mode
+pnpm dev                # Development with TypeScript watch
+
+# Testing
+pnpm test               # Run Vitest test suite
+pnpm lint               # Run ESLint
+
+# Type checking
+pnpm type-check         # TypeScript compilation check
 ```
 
-### Development Mode
+### Build System
+This package uses `tsdown` for dual-build output:
+- **CommonJS**: `dist/index.js` (for legacy compatibility)
+- **ES Modules**: `dist/index.mjs` (for modern bundlers)
+- **Types**: `dist/index.d.ts` (TypeScript declarations)
 
+### Development Workflow
 ```bash
-pnpm --filter profile-frt dev
+# Start development mode
+pnpm --filter @universo/profile-frt dev
+
+# In another terminal, run tests
+pnpm --filter @universo/profile-frt test
+
+# Build for production
+pnpm --filter @universo/profile-frt build
 ```
 
-### Building
+## Testing
 
-```bash
-pnpm --filter profile-frt build
+### Test Structure
+```
+src/
+├── pages/
+│   ├── Profile.jsx
+│   └── __tests__/
+│       └── Profile.test.tsx
+└── setupTests.ts
 ```
 
-### Build Process
+### Testing Approach
+```typescript
+// Example component test
+import { render, screen, fireEvent } from '@testing-library/react'
+import { Profile } from '../Profile'
 
-1. **TypeScript Compilation**: Compiles TypeScript files to JavaScript
-2. **Gulp Tasks**: Copies static assets (JSON, CSS, etc.) to dist folder
+describe('Profile Component', () => {
+  test('renders profile form fields', () => {
+    render(<Profile />)
+    
+    expect(screen.getByLabelText(/nickname/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument()
+  })
+  
+  test('validates required fields', async () => {
+    render(<Profile />)
+    
+    const submitButton = screen.getByRole('button', { name: /update/i })
+    fireEvent.click(submitButton)
+    
+    expect(await screen.findByText(/nickname is required/i)).toBeInTheDocument()
+  })
+})
+```
 
-## Dependencies
+### Running Tests
+```bash
+pnpm test                    # Run all tests
+pnpm test -- --watch         # Watch mode
+pnpm test -- --coverage      # With coverage report
+```
 
-The application uses minimal dependencies for optimal performance:
+## Security Considerations
 
--   **React 18**: Modern React for component development
--   **TypeScript**: Type safety and enhanced development experience
--   **Build Tools**: Gulp for asset management, rimraf for cleanup
+### Authentication Flow
+- **JWT Token Management**: Automatic token refresh and validation
+- **Secure API Communication**: All requests use HTTPS with Bearer tokens
+- **Current Password Verification**: Required for password changes
+- **Input Sanitization**: Client-side validation prevents XSS attacks
 
-## Integration with Main Platform
+### Data Protection
+- **Sensitive Data Handling**: Passwords never stored in component state
+- **Secure Transmission**: All data encrypted in transit
+- **User Isolation**: Each user can only access their own profile data
+- **Error Information**: Error messages don't leak sensitive system information
 
-The profile frontend integrates seamlessly with the main Flowise platform:
+## Integration Requirements
 
--   **Consistent Authentication**: Uses same JWT token system as main platform
--   **Shared API Base**: Leverages existing backend infrastructure
--   **Modular Architecture**: Independent deployment and development
--   **Theme Consistency**: Follows main platform design guidelines
+### Required Dependencies
+```typescript
+// Required peer dependencies
+import { useAuth } from '@universo/auth-frt'
+import { useTranslation } from '@universo/i18n'
+import { MainCard } from '@flowise/template-mui'
+```
 
-## Current Limitations
+### Environment Configuration
+```bash
+# Required API endpoints
+REACT_APP_API_BASE_URL=https://api.example.com
+REACT_APP_PROFILE_ENDPOINT=/api/v1/profile
+REACT_APP_AUTH_ENDPOINT=/api/v1/auth
+```
 
--   **Single User Context**: Currently designed for individual user management
--   **Basic Validation**: Limited client-side validation rules
--   **No Avatar Support**: Profile pictures not yet implemented
+## Configuration
 
-## Future Enhancements
+### TypeScript Configuration
+The package uses strict TypeScript configuration:
+- Strict null checks enabled
+- No implicit any types
+- Strict function types
+- All compiler strict options enabled
 
--   **Profile Pictures**: Avatar upload and management
--   **Extended Validation**: Advanced password strength requirements
--   **User Preferences**: Additional profile settings and preferences
--   **Social Login**: Integration with social authentication providers
--   **Two-Factor Authentication**: Enhanced security options
--   **Profile History**: Audit log for profile changes
+### Build Configuration
+```typescript
+// tsdown.config.ts
+export default {
+  entry: ['src/index.ts'],
+  format: ['cjs', 'esm'],
+  dts: true,
+  sourcemap: true,
+  clean: true
+}
+```
 
-## Recent Updates (June 2025)
+## Contributing
 
-### Profile Architecture Improvements
+### Code Style
+- Follow ESLint configuration
+- Use TypeScript for new components
+- Follow React best practices
+- Write comprehensive tests
 
-1. **Nickname & Email Display** – The frontend now correctly fetches and displays the user nickname from the `profiles` table alongside the authenticated email.
-2. **Secure Password Flow** – Password-change requests are forwarded to a new backend endpoint (`PUT /api/v1/auth/password`) that validates the current password through a secure Supabase SQL function.
-3. **Token Handling** – All profile operations create an Authorization header with the JWT token retrieved from `AuthProvider.getAccessToken()`.
-4. **Error Feedback** – The component surfaces precise error messages (e.g. _Current password is incorrect_) returned by the backend.
+### Pull Request Process
+1. Create feature branch from `main`
+2. Implement changes with tests
+3. Update documentation
+4. Submit PR with description
 
-### Why Indexes Were Added in `Profile.ts`
-
-The backend `Profile` entity now includes two explicit indexes:
-
-| Index                   | Column     | Purpose                                                                                                               |
-| ----------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
-| `idx_profiles_user_id`  | `user_id`  | Guarantees a one-to-one relationship between `auth.users` and `public.profiles`, and accelerates look-ups by user id. |
-| `idx_profiles_nickname` | `nickname` | Enforces nickname uniqueness and supports fast availability checks when users choose or change their nickname.        |
-
-These indexes greatly reduce query latency for profile retrieval and nickname availability checks that are executed by the frontend during initial page load and nickname validation.
+## Related Packages
+- [`@universo/profile-srv`](../profile-srv/base/README.md) - Backend profile service
+- [`@universo/auth-frt`](../auth-frt/base/README.md) - Authentication frontend
+- [`@universo/i18n`](../universo-i18n/base/README.md) - Internationalization
 
 ---
-
-_Universo Platformo | Profile Frontend Module_
+*Part of [Universo Platformo](../../../README.md) - A comprehensive metaverse management platform*

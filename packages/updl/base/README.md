@@ -1,6 +1,25 @@
-# UPDL (Universal Platform Definition Language)
+# @universo/updl
 
-Node definitions system for creating universal 3D/AR/VR spaces in Flowise.
+> 🌐 UPDL (Universal Platform Definition Language) - Node definitions system for creating universal 3D/AR/VR spaces
+
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/updl` |
+| **Version** | See `package.json` |
+| **Type** | TypeScript-first (Flowise Node Definitions) |
+| **Build** | ES module with resources |
+| **Purpose** | Node definitions system for creating universal 3D/AR/VR spaces |
+
+## 🚀 Key Features
+
+- 🌐 **Universal Platform Definition Language** - Unified way to describe 3D spaces
+- 🎯 **7 Core Nodes** - Space, Entity, Component, Event, Action, Data, Universo
+- 🔗 **Flowise Integration** - Seamless integration via NodesPool mechanism
+- 🎨 **Technology Support** - AR.js, PlayCanvas and others via publication system
+- 🌍 **Internationalization** - Full i18n support
+- ⚡ **TypeScript-first** - Complete interface typing
 
 ## Description
 
@@ -10,10 +29,10 @@ UPDL provides a set of specialized node definitions for the Flowise editor, allo
 
 UPDL is a pure node definitions module that integrates seamlessly with Flowise:
 
--   **Node Definitions Only**: Contains only Flowise node class definitions.
--   **No Export Logic**: All space building and export functionality is handled by the publication system.
--   **Clean Integration**: Loads into Flowise via the `NodesPool` mechanism from the `dist/nodes` directory.
--   **Minimal Dependencies**: Only contains dependencies required for node definitions.
+- **Node Definitions Only**: Contains only Flowise node class definitions
+- **No Export Logic**: All space building and export functionality is handled by the publication system
+- **Clean Integration**: Loads into Flowise via the `NodesPool` mechanism from the `dist/nodes` directory
+- **Minimal Dependencies**: Only contains dependencies required for node definitions
 
 ## Structure
 
@@ -118,6 +137,25 @@ This module is intentionally focused **only on node definitions**:
 -   **No State Management**: Nodes are stateless definitions.
 
 This clean separation ensures optimal architecture and maintainability.
+
+## Contributing
+
+When contributing to this package:
+
+1. Follow TypeScript best practices
+2. Adhere to the 7 core UPDL node types
+3. Add tests for new node definitions or connectors
+4. Update OpenAPI specifications for node interfaces
+5. Update both EN and RU documentation
+6. Follow the project's coding standards
+
+## Related Documentation
+
+- [Main Apps Documentation](../README.md)
+- [Publishing Frontend](../publish-frt/base/README.md)
+- [Space Builder](../space-builder-frt/base/README.md)
+- [Template MMOOMM](../template-mmoomm/base/README.md)
+- [Flowise Documentation](https://docs.flowiseai.com/)
 
 ---
 

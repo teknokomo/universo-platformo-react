@@ -1,23 +1,33 @@
-# Uniks Server (uniks-srv)
+# @universo/uniks-srv
 
-Backend workspace package for workspace management functionality in the Universo Platformo ecosystem.
+> 🏢 Backend workspace package for workspace management functionality in the Universo Platformo ecosystem
+
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/uniks-srv` |
+| **Version** | See `package.json` |
+| **Type** | Node.js Backend Service |
+| **Build** | TypeScript with TypeORM |
+| **Purpose** | Workspace management API with role-based access control |
 
 > Q3 2025 Update: Migrated to dedicated Postgres schema `uniks` with RLS, expanded role model (`owner|admin|editor|member`), Passport.js + Supabase hybrid session auth, and TypeORM Repository pattern replacing legacy Supabase REST usage.
+
+## 🚀 Key Features
+
+- 🏢 **Workspace CRUD**: TypeORM repositories, schema-qualified (`uniks.uniks`)
+- 👥 **Member Management**: Role-based with strict union types
+- 🎭 **Expanded Roles**: `owner`, `admin`, `editor`, `member` (replaces legacy owner/member)
+- 🔐 **Hybrid Authentication**: Passport.js session + Supabase token validation
+- 🛡️ **RLS Enforcement**: Postgres Row Level Security policies scoped by membership
+- ⚡ **Per-Request Membership Cache**: Avoids redundant lookups in request lifecycle
+- 🔒 **Secure Routing**: Centralized access guard service
+- 🎯 **Type Safety**: Strict TypeScript enums & runtime guards
 
 ## Overview
 
 The Uniks Server is a backend workspace package (`@universo/uniks-srv`) that provides workspace management functionality. It handles workspace CRUD operations, member management, and integrates with the main Flowise server to provide workspace-specific routing.
-
-## Key Features
-
-- **Workspace CRUD**: TypeORM repositories, schema-qualified (`uniks.uniks`)
-- **Member Management**: Role-based with strict union types
-- **Expanded Roles**: `owner`, `admin`, `editor`, `member` (replaces legacy owner/member)
-- **Hybrid Authentication**: Passport.js session + Supabase token validation
-- **RLS Enforcement**: Postgres Row Level Security policies scoped by membership
-- **Per-Request Membership Cache**: Avoids redundant lookups in request lifecycle
-- **Secure Routing**: Centralized access guard service
-- **Type Safety**: Strict TypeScript enums & runtime guards
 
 ## Structure
 

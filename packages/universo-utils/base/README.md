@@ -1,19 +1,56 @@
 # @universo-platformo/utils
 
+> 🛠️ Utilities shared across frontend and backend for validation, serialization, ECS deltas, time synchronization, and network utilities in Universo Platformo
+
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo-platformo/utils` |
+| **Version** | See `package.json` |
+| **Type** | TypeScript-first (Utilities) |
+| **Build** | ES module with types |
+| **Purpose** | Shared utilities for validation, serialization, and network operations |
+
+## 🚀 Key Features
+
+- 📋 **Zod Schemas** - For networking DTOs (Intent/Ack/Snapshot/Delta/Event)
+- 📝 **UPDL Schemas** - Passthrough schema handling
+- 🔄 **Deterministic Serialization** - Safe JSON parsing
+- 🔨 **Lightweight Hashing** - Fast hashing algorithms
+- ⚡ **ECS Delta Operations** - Compute and apply deltas
+- ⏰ **Time Synchronization** - NTP-like estimator
+- 🌐 **Network Utilities** - seq/ack helpers, port utilities
+
+## Description
+
 Utilities shared across frontend and backend for validation, serialization, ECS deltas, time synchronization, and network utilities in Universo Platformo.
 
--   Scope: Zod schemas for networking DTOs (Intent/Ack/Snapshot/Delta/Event), UPDL schemas (passthrough), deterministic serialization and safe JSON parsing, lightweight hashing, ECS delta compute/apply, time sync estimator (NTP-like), seq/ack helpers, network port utilities.
--   Out of scope: Node-only or browser-only utilities, framework-specific helpers, crypto-grade hashing/encryption, heavy IO operations.
+### Scope:
+- Zod schemas for networking DTOs (Intent/Ack/Snapshot/Delta/Event)
+- UPDL schemas (passthrough)
+- Deterministic serialization and safe JSON parsing
+- Lightweight hashing
+- ECS delta compute/apply
+- Time sync estimator (NTP-like)
+- seq/ack helpers
+- Network port utilities
 
-Compatibility rules:
+### Out of scope:
+- Node-only or browser-only utilities
+- Framework-specific helpers
+- Crypto-grade hashing/encryption
+- Heavy IO operations
 
--   Keep public APIs backward compatible; extend with new functions/options instead of breaking changes.
--   Add new fields as optional/defaulted to preserve schema compatibility.
--   Import from the package root only (no deep imports).
+## Compatibility Rules
 
-Install (workspace):
+- **Keep public APIs backward compatible**; extend with new functions/options instead of breaking changes
+- **Add new fields as optional/defaulted** to preserve schema compatibility
+- **Import from the package root only** (no deep imports)
 
--   This package lives at `packages/universo-utils/base` and is consumed via `workspace:*` by other packages in the monorepo.
+## Install (workspace)
+
+This package lives at `packages/universo-utils/base` and is consumed via `workspace:*` by other packages in the monorepo.
 
 License: Omsk Open License
 
@@ -77,3 +114,24 @@ Creates an NTP-like time synchronization estimator for client-server time coordi
 **`updateSeqState()` and `reconcileAck()`**
 
 Helpers for managing sequence numbers and acknowledgments in networked applications.
+
+## Contributing
+
+When contributing to this package:
+
+1. Follow TypeScript best practices
+2. Add tests for all utility functions
+3. Document functions with JSDoc comments
+4. Update both EN and RU documentation
+5. Follow the project's coding standards
+6. Ensure utilities are pure functions when possible
+
+## Related Documentation
+
+- [Main Apps Documentation](../README.md)
+- [Universo Types](../universo-types/base/README.md)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+
+---
+
+_Universo Platformo | Utils Package_

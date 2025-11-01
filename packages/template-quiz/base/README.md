@@ -1,23 +1,34 @@
-# Template Quiz
+# @universo/template-quiz
 
-Quiz template system for AR.js and other 3D technologies in Universo Platformo.
+> 🎯 Quiz template system for AR.js and other 3D technologies in Universo Platformo
+
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/template-quiz` |
+| **Version** | See `package.json` |
+| **Type** | TypeScript-first (AR/Quiz Template) |
+| **Build** | Dual build (CommonJS + ESM) |
+| **Purpose** | Interactive AR quiz generation from UPDL data |
 
 See also: Creating New packages/Packages (best practices)
 
 - ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
+
+## 🚀 Key Features
+
+- 🎯 **AR.js Integration**: Generate AR experiences with marker tracking
+- ❓ **Interactive Quizzes**: Multiple-choice questions with visual feedback
+- 🎬 **Multi-scene Support**: Complex quiz flows with multiple questions
+- 🏆 **Points System**: Optional scoring and feedback system
+- 📧 **Lead Collection**: Collect user information (name, email, phone)
+- 📊 **Analytics Integration**: Track user interactions and quiz performance
+- 🏗️ **High-level UPDL Nodes**: Modern Entity+Component architecture
+
 ## Overview
 
-This package provides a modular quiz template system that generates interactive AR experiences using AR.js technology. It supports multi-scene quizzes, point systems, lead collection, and analytics.
-
-## Features
-
--   **AR.js Integration**: Generate AR experiences with marker tracking
--   **Interactive Quizzes**: Support for multiple-choice questions with visual feedback
--   **Multi-scene Support**: Create complex quiz flows with multiple questions
--   **Points System**: Optional scoring and feedback system
--   **Lead Collection**: Collect user information (name, email, phone)
--   **Analytics Integration**: Track user interactions and quiz performance
--   **High-level UPDL Nodes**: Uses modern Entity+Component architecture
+This package provides a modular quiz template system that generates interactive AR experiences using AR.js technology. It supports multi-scene quizzes with point systems, lead collection, and analytics integration.
 
 ## Installation
 
@@ -27,27 +38,17 @@ pnpm add @universo/template-quiz
 
 ### Dependencies
 
-This package uses centralized UPDL processing from the Universo Platformo ecosystem:
-
--   `@universo-platformo/utils` - Centralized UPDLProcessor and validation utilities
--   `@universo-platformo/types` - Shared UPDL type definitions and interfaces
-
-These dependencies are automatically installed and provide consistent UPDL processing across all template packages.
+-   `@universo-platformo/utils` - Centralized UPDLProcessor and validation
+-   `@universo-platformo/types` - Shared UPDL type definitions
 
 ## Usage
 
-### Basic Usage
+### Basic Example
 
 ```typescript
-import { ARJSQuizBuilder, getQuizTemplateConfig } from '@universo/template-quiz'
+import { ARJSQuizBuilder } from '@universo/template-quiz'
 
-// Create builder instance
 const builder = new ARJSQuizBuilder()
-
-// Get template configuration
-const config = getQuizTemplateConfig()
-
-// Build AR.js HTML from flow data
 const html = await builder.build(flowData, {
     markerType: 'preset',
     markerValue: 'hiro',
@@ -56,76 +57,35 @@ const html = await builder.build(flowData, {
 })
 ```
 
-### Template Configuration
+### Build Options
 
 ```typescript
-import { getQuizTemplateConfig } from '@universo/template-quiz'
-
-const config = getQuizTemplateConfig()
-// Returns:
-// {
-//   id: 'quiz-arjs',
-//   name: 'templateQuiz.name',
-//   description: 'templateQuiz.description',
-//   version: '1.0.0',
-//   technology: 'arjs',
-//   i18nNamespace: 'templateQuiz',
-//   supportedNodes: ['Space', 'Entity', 'Component', 'Event', 'Action', 'Data', 'Universo'],
-//   features: ['multiScene', 'pointsSystem', 'leadCollection', 'analytics'],
-//   defaults: { ... }
-// }
-```
-
-### Internationalization
-
-```typescript
-import { templateQuizTranslations, getTemplateQuizTranslations } from '@universo/template-quiz'
-
-// Get all translations
-const allTranslations = templateQuizTranslations
-
-// Get translations for specific language
-const enTranslations = getTemplateQuizTranslations('en')
-const ruTranslations = getTemplateQuizTranslations('ru')
+interface BuildOptions {
+    markerType?: 'preset' | 'pattern'      // AR marker type
+    markerValue?: string                   // Marker identifier
+    includeStartCollectName?: boolean      // Enable lead collection
+    includeEndScore?: boolean              // Show final score
+    arDisplayType?: 'marker' | 'wallpaper' // AR display mode
+}
 ```
 
 ## Architecture
 
 ### Supported UPDL Nodes
 
-The template uses high-level UPDL nodes only:
+Uses high-level UPDL architecture:
 
--   **Space**: Quiz scenes and environments
+-   **Space**: Quiz scenes
 -   **Entity**: Answer buttons and interactive elements
--   **Component**: Render components for visual elements
--   **Event**: User interaction events (clicks, selections)
--   **Action**: Navigation and scoring actions
--   **Data**: Quiz questions, answers, and state
--   **Universo**: Analytics and system integration
+-   **Component**: Visual rendering
+-   **Event**: User interactions
+-   **Action**: Navigation and scoring
+-   **Data**: Questions, answers, state
+-   **Universo**: Analytics integration
 
-### Build Options
-
-```typescript
-interface BuildOptions {
-    markerType?: 'preset' | 'pattern'
-    markerValue?: string
-    includeStartCollectName?: boolean
-    includeEndScore?: boolean
-    generateAnswerGraphics?: boolean
-    canvasId?: string
-    arDisplayType?: 'marker' | 'wallpaper'
-}
-```
-
-## Data Types
-
-### Quiz Plan Structure
+### Quiz Data Structure
 
 ```typescript
-interface QuizPlan {
-    items: QuizItem[]
-}
-
 interface QuizItem {
     question: string
     answers: QuizAnswer[]
@@ -135,70 +95,18 @@ interface QuizAnswer {
     text: string
     isCorrect: boolean
     pointsValue?: number
-    enablePoints?: boolean
 }
 ```
 
 ## Development
 
-### Debug Logging
-
-The generated quiz runtime uses a silent-by-default logging system.
-
-Key points:
-
-- All verbose scene / object / points / flow logs are wrapped with a lightweight `dbg()` helper.
-- Two-layer flag system:
-    - Build-time constant: `const QUIZ_DEBUG = false;` (change in source if you need a permanently verbose build).
-    - Runtime mutable state: internal `QUIZ_DEBUG_STATE` controlled through a public API.
-- Public API:
-    - `window.setQuizDebug(true)` – enables verbose logging after the quiz iframe/script has loaded.
-    - `window.setQuizDebug(false)` – disables it again.
-- When disabled, only absolutely critical errors (unexpected exceptions) surface via `console.error`.
-
-Runtime categories (enabled only when debug ON):
-
-- `[MultiSceneQuiz]` – scene transitions, question numbering
-- `[PointsManager]` – point increments / resets
-- `[LeadCollection]` – (non-sensitive) data collection flow & save attempts
-- `[QuizResults]` – result screen context, final score diagnostics
-
-Production-visible (still suppressed when debug OFF unless an error):
-
-- Lead save attempt/success are now also suppressed unless debug ON; to audit saving turn debug ON prior to completion if needed.
-
-Example (in browser DevTools console):
-
-```js
-// Enable verbose quiz diagnostics
-window.setQuizDebug(true)
-
-// Later disable
-window.setQuizDebug(false)
-```
-
-If you need to pre-enable debug for all users of a particular build, modify the constant in `DataHandler.generateMultiSceneScript` before building.
-
-### Building
+### Build Commands
 
 ```bash
-# Build all formats (CommonJS + ESM + Types)
-pnpm build
-
-# Build specific format
-pnpm build:cjs    # CommonJS
-pnpm build:esm    # ES Modules
-pnpm build:types  # TypeScript declarations
-
-# Development mode
-pnpm dev
-```
-
-### Linting
-
-```bash
-pnpm lint
-pnpm lint:fix
+pnpm build         # Full build (CJS + ESM + types)
+pnpm build:cjs     # CommonJS only
+pnpm build:esm     # ES modules only
+pnpm lint          # Run linter
 ```
 
 ### Testing
@@ -218,10 +126,27 @@ This package is designed to integrate with:
 -   **Publish System**: Template registry and deployment
 -   **i18n System**: Multi-language support
 
+## Contributing
+
+When contributing to this package:
+
+1. Follow TypeScript best practices
+2. Ensure AR.js compatibility
+3. Add tests for new quiz features
+4. Update both EN and RU documentation
+5. Follow the project's coding standards
+
+## Related Documentation
+
+- [Main Apps Documentation](../README.md)
+- [UPDL Node Definitions](../updl/base/README.md)
+- [Publishing Frontend](../publish-frt/base/README.md)
+- [AR.js Documentation](https://ar-js-org.github.io/AR.js-Docs/)
+
 ## License
 
 MIT License - see LICENSE file for details.
 
-## Contributing
+---
 
-Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
+_Universo Platformo | Quiz Template_

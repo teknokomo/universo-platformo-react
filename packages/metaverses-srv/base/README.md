@@ -1,16 +1,21 @@
-# Metaverses Service (metaverses-srv)
+# @universo/metaverses-srv
 
-Backend service for managing metaverses, sections, and entities with complete data isolation and validation in the Universo Platformo ecosystem.
+> 🏗️ **Modern Package** - TypeScript-first architecture with Express.js and TypeORM
 
-## Overview
+Backend service for managing metaverses, sections, and entities with complete data isolation and validation.
 
-The Metaverses Service implements a three-tier architecture (Metaverses → Sections → Entities) with strict data isolation, comprehensive validation, and secure relationship management. All operations ensure data integrity through TypeORM Repository pattern and PostgreSQL constraints.
+## Package Information
 
-## Architecture
+- **Version**: 0.1.0
+- **Type**: Backend Service Package (TypeScript)
+- **Status**: ✅ Active Development
+- **Architecture**: Modern with Express.js + TypeORM
 
-### Entity Relationships
+## Key Features
+
+### Three-Tier Architecture
 - **Metaverses**: Independent organizational units with complete data isolation
-- **Sections**: Logical groupings within metaverses (mandatory metaverse association)
+- **Sections**: Logical groupings within metaverses (mandatory metaverse association)  
 - **Entities**: Individual assets within sections (mandatory section association)
 - **Junction Tables**: Many-to-many relationships with CASCADE delete and UNIQUE constraints
 
@@ -19,35 +24,137 @@ The Metaverses Service implements a three-tier architecture (Metaverses → Sect
 - Mandatory associations prevent orphaned entities
 - Idempotent operations for relationship management
 - Comprehensive input validation with clear error messages
+- Application-level authorization with metaverse/section/entity guards
+- Rate limiting protection against DoS attacks
 
-## API Endpoints
+### Database Integration
+- TypeORM Repository pattern for all data operations
+- PostgreSQL with JSONB support for metadata
+- Automated migrations through central registry
+- CASCADE delete relationships with UNIQUE constraints
 
-### Metaverses
-- `GET /metaverses` – List all metaverses
-- `POST /metaverses` – Create a metaverse
-- `GET /metaverses/:id` – Get metaverse details
-- `PUT /metaverses/:id` – Update metaverse
-- `DELETE /metaverses/:id` – Delete metaverse (CASCADE deletes sections/entities)
-- `GET /metaverses/:id/sections` – Get sections in metaverse
-- `POST /metaverses/:id/sections/:sectionId` – Link section to metaverse (idempotent)
-- `GET /metaverses/:id/entities` – Get entities in metaverse
-- `POST /metaverses/:id/entities/:entityId` – Link entity to metaverse (idempotent)
+## Installation
 
-### Sections
-- `GET /sections` – List all sections
-- `POST /sections` – Create section (requires metaverseId)
-- `GET /sections/:id` – Get section details
-- `PUT /sections/:id` – Update section
-- `DELETE /sections/:id` – Delete section (CASCADE deletes entities)
-- `GET /sections/:id/entities` – Get entities in section
-- `POST /sections/:id/entities/:entityId` – Link entity to section (idempotent)
+```bash
+# Install from workspace root
+pnpm install
 
-### Entities
-- `GET /entities` – List all entities
-- `POST /entities` – Create entity (requires sectionId, optional metaverseId)
-- `GET /entities/:id` – Get entity details
-- `PUT /entities/:id` – Update entity
-- `DELETE /entities/:id` – Delete entity
+# Build the package
+pnpm --filter @universo/metaverses-srv build
+```
+
+## Usage
+
+### Express Router Integration
+```typescript
+import express from 'express'
+import { metaversesRouter } from '@universo/metaverses-srv'
+
+const app = express()
+
+// Mount metaverses routes
+app.use('/api/metaverses', metaversesRouter)
+app.use('/api/sections', sectionsRouter) 
+app.use('/api/entities', entitiesRouter)
+
+app.listen(3000)
+```
+
+### TypeORM Setup
+```typescript
+import { getDataSource } from '@universo/metaverses-srv/database'
+import { Metaverse, Section, Entity } from '@universo/metaverses-srv/entities'
+
+// Initialize database connection
+const dataSource = await getDataSource()
+
+// Use repositories
+const metaverseRepo = dataSource.getRepository(Metaverse)
+const metaverses = await metaverseRepo.find()
+```
+
+## API Reference
+
+### Metaverses Endpoints
+```http
+GET    /metaverses                      # List all metaverses
+POST   /metaverses                      # Create metaverse
+GET    /metaverses/:id                  # Get metaverse details  
+PUT    /metaverses/:id                  # Update metaverse
+DELETE /metaverses/:id                  # Delete metaverse (CASCADE)
+
+# Metaverse relationships
+GET    /metaverses/:id/sections         # Get sections in metaverse
+POST   /metaverses/:id/sections/:sectionId  # Link section (idempotent)
+GET    /metaverses/:id/entities         # Get entities in metaverse
+POST   /metaverses/:id/entities/:entityId   # Link entity (idempotent)
+```
+
+### Sections Endpoints
+```http
+GET    /sections                        # List all sections
+POST   /sections                        # Create section (requires metaverseId)
+GET    /sections/:id                    # Get section details
+PUT    /sections/:id                    # Update section
+DELETE /sections/:id                    # Delete section (CASCADE)
+
+# Section relationships
+GET    /sections/:id/entities           # Get entities in section
+POST   /sections/:id/entities/:entityId # Link entity (idempotent)
+```
+
+### Entities Endpoints
+```http
+GET    /entities                        # List all entities
+POST   /entities                        # Create entity (requires sectionId)
+GET    /entities/:id                    # Get entity details
+PUT    /entities/:id                    # Update entity
+DELETE /entities/:id                    # Delete entity
+```
+
+### Request/Response Examples
+
+#### Create Metaverse
+```http
+POST /metaverses
+Content-Type: application/json
+
+{
+  "name": "Gaming Universe",
+  "description": "Virtual gaming worlds and assets"
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Gaming Universe", 
+    "description": "Virtual gaming worlds and assets",
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+#### Create Entity with Section Association
+```http
+POST /entities
+Content-Type: application/json
+
+{
+  "name": "Player Avatar",
+  "description": "3D character model",
+  "sectionId": "660e8400-e29b-41d4-a716-446655440001",
+  "metaverseId": "550e8400-e29b-41d4-a716-446655440000",
+  "metadata": {
+    "model": "character.fbx",
+    "animations": ["idle", "walk", "run"]
+  }
+}
+```
 
 ## Data Model
 
@@ -112,89 +219,88 @@ export class Entity {
 }
 ```
 
-### Junction Tables (Many-to-Many Relationships)
-
+### Junction Tables
 ```typescript
+// Many-to-many relationship tables with CASCADE delete
 @Entity({ name: 'entities_metaverses' })
 export class EntityMetaverse {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
   @ManyToOne(() => Entity, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'entity_id' })
   entity: Entity
 
   @ManyToOne(() => Metaverse, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'metaverse_id' })
   metaverse: Metaverse
 
   @CreateDateColumn()
   createdAt: Date
-
+  
   // UNIQUE constraint on (entity_id, metaverse_id)
 }
 
 @Entity({ name: 'entities_sections' })
 export class EntitySection {
-  @PrimaryGeneratedColumn('uuid')
-  id: string
-
-  @ManyToOne(() => Entity, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'entity_id' })
-  entity: Entity
-
-  @ManyToOne(() => Section, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'section_id' })
-  section: Section
-
-  @CreateDateColumn()
-  createdAt: Date
-
-  // UNIQUE constraint on (entity_id, section_id)
+  // Similar structure for entity-section relationships
 }
 
-@Entity({ name: 'sections_metaverses' })
+@Entity({ name: 'sections_metaverses' })  
 export class SectionMetaverse {
-  @PrimaryGeneratedColumn('uuid')
-  id: string
-
-  @ManyToOne(() => Section, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'section_id' })
-  section: Section
-
-  @ManyToOne(() => Metaverse, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'metaverse_id' })
-  metaverse: Metaverse
-
-  @CreateDateColumn()
-  createdAt: Date
-
-  // UNIQUE constraint on (section_id, metaverse_id)
+  // Similar structure for section-metaverse relationships
 }
 ```
 
-## Validation Rules
+## Validation & Business Rules
 
-### Entity Creation
-- `name` is required (non-empty string)
-- `sectionId` is required and must reference existing section
-- `metaverseId` is optional but if provided must reference existing metaverse
-- Atomic creation of entity-section relationship
-- Atomic creation of entity-metaverse relationship (if metaverseId provided)
+### Input Validation
+```typescript
+import { z } from 'zod'
 
-### Section Creation
-- `name` is required (non-empty string)
-- `metaverseId` is required and must reference existing metaverse
-- Atomic creation of section-metaverse relationship
+// Entity validation schema
+const createEntitySchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  sectionId: z.string().uuid('Valid section ID required'),
+  metaverseId: z.string().uuid().optional(),
+  metadata: z.record(z.any()).optional()
+})
 
-### Metaverse Creation
-- `name` is required (non-empty string)
-- No additional constraints
+// Section validation schema  
+const createSectionSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  metaverseId: z.string().uuid('Valid metaverse ID required')
+})
 
-## Database Structure
+// Metaverse validation schema
+const createMetaverseSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional()
+})
+```
 
+### Business Rules
+- **Entity Creation**: Requires valid `sectionId`, optional `metaverseId`
+- **Section Creation**: Requires valid `metaverseId` for association
+- **Metaverse Creation**: Standalone entity, no dependencies
+- **Atomic Operations**: All relationship creations are transactional
+- **CASCADE Deletes**: Deleting parent entities removes all children
+- **Uniqueness**: Junction tables prevent duplicate relationships
+
+## Database Schema
+
+### Migration Integration
+```typescript
+// migrations are auto-registered through central system
+import { metaverseMigrations } from '@universo/metaverses-srv/migrations'
+
+// Entity registration in flowise-server
+export * from '@universo/metaverses-srv/entities'
+```
+
+### Core Tables Structure
 ```sql
--- Core tables
+-- Core entities with UUID primary keys
 CREATE TABLE metaverses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
@@ -203,46 +309,13 @@ CREATE TABLE metaverses (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE sections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE entities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  metadata JSONB,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Junction tables with CASCADE delete and UNIQUE constraints
-CREATE TABLE entities_metaverses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-  metaverse_id UUID NOT NULL REFERENCES metaverses(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(entity_id, metaverse_id)
-);
-
+-- Junction tables with CASCADE and UNIQUE constraints
 CREATE TABLE entities_sections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
   section_id UUID NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(entity_id, section_id)
-);
-
-CREATE TABLE sections_metaverses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  section_id UUID NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
-  metaverse_id UUID NOT NULL REFERENCES metaverses(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(section_id, metaverse_id)
+  UNIQUE(entity_id, section_id)  -- Prevents duplicates
 );
 ```
 
@@ -250,103 +323,152 @@ CREATE TABLE sections_metaverses (
 
 ### Prerequisites
 - Node.js 18+
-- PNPM package manager
-- PostgreSQL database
+- pnpm 8+
+- PostgreSQL 15+
+- TypeScript 5+
 
-### Commands
+### Available Scripts
 ```bash
-# Install dependencies (from project root)
-pnpm install
+# Development
+pnpm build              # Compile TypeScript
+pnpm dev                # Development with watch mode
+pnpm clean              # Clean dist directory
 
-# Build the service
-pnpm --filter @universo/metaverses-srv build
+# Testing  
+pnpm test               # Run Jest test suite
+pnpm test:watch         # Run tests in watch mode
 
-# Run tests
-pnpm --filter @universo/metaverses-srv test
-
-# Lint code
-pnpm --filter @universo/metaverses-srv lint
+# Code Quality
+pnpm lint               # Run ESLint
+pnpm type-check         # TypeScript compilation check
 ```
 
-### Security Notes
-- Application-level authorization is strictly enforced in all routes via metaverse/section/entity guards to prevent IDOR and cross-metaverse leaks.
-- Database RLS policies are provisioned as defense-in-depth, but when connecting via TypeORM they are not active unless request JWT context is propagated; do not rely on RLS alone.
-- Rate limiting is enabled on `/entities`, `/metaverses`, and `/sections` endpoints.
-- HTTP security headers are applied with Helmet (CSP deferred for API-only usage).
+### Project Structure
+```
+src/
+├── controllers/        # Route controllers
+│   ├── metaverses.ts   # Metaverse CRUD operations
+│   ├── sections.ts     # Section management
+│   └── entities.ts     # Entity operations
+├── database/           # Database layer
+│   ├── entities/       # TypeORM entities
+│   ├── migrations/     # Database migrations
+│   └── repositories/   # Custom repositories
+├── middleware/         # Express middleware
+│   ├── auth.ts         # Authentication
+│   ├── validation.ts   # Request validation
+│   └── rateLimiter.ts  # Rate limiting
+├── routes/             # Express routes
+├── services/           # Business logic
+├── types/              # TypeScript definitions
+└── index.ts           # Package exports
+```
 
-### Rate Limiting
-
-The service implements rate limiting to protect against DoS attacks and ensure fair resource usage:
-
-**Current Implementation (Development/Single-Instance)**:
-- Uses `express-rate-limit` with in-memory `MemoryStore`
-- Read operations (GET): 100 requests per 15 minutes per IP
-- Write operations (POST/PUT/DELETE): 60 requests per 15 minutes per IP
-- Separate counters for read vs. write operations
-- Returns HTTP 429 with `Retry-After` header when limit exceeded
-
-**Production Deployment (Multi-Instance)**:
-
-⚠️ **Important**: The default `MemoryStore` is suitable **only for single-server deployments**. In a multi-instance/load-balanced environment, each server maintains its own rate limit counters, which effectively bypasses rate limiting.
-
-**For production multi-instance deployments, use a shared Redis store:**
-
+### Testing Strategy
 ```typescript
-// Install Redis store
-// pnpm add rate-limit-redis redis
-
-// Update src/middleware/rateLimiter.ts
-import RedisStore from 'rate-limit-redis'
-import { createClient } from 'redis'
-
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
+// Unit tests for services
+describe('MetaverseService', () => {
+  test('creates metaverse with valid data', async () => {
+    const metaverse = await metaverseService.create({
+      name: 'Test Universe',
+      description: 'Test description'
+    })
+    expect(metaverse.name).toBe('Test Universe')
+  })
 })
 
-await redisClient.connect()
-
-export const createRateLimiter = (windowMs: number, max: number) => {
-  return rateLimit({
-    windowMs,
-    max,
-    standardHeaders: true,
-    legacyHeaders: false,
-    store: new RedisStore({
-      client: redisClient,
-      prefix: 'rate-limit:'
-    }),
-    handler: (req: Request, res: Response) => {
-      res.status(429).json({
-        success: false,
-        error: 'Too many requests, please try again later.',
-        retryAfter: Math.ceil(windowMs / 1000)
-      })
-    }
+// Integration tests for controllers
+describe('POST /metaverses', () => {
+  test('returns 201 with valid payload', async () => {
+    const response = await request(app)
+      .post('/metaverses')
+      .send({ name: 'Test Universe' })
+    expect(response.status).toBe(201)
   })
-}
+})
 ```
 
-**Environment Variables for Redis**:
-```bash
-# Production environment
-REDIS_URL=redis://your-redis-host:6379
+## Security & Production
+
+### Rate Limiting
+```typescript
+// Development: in-memory store
+const rateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true
+})
+
+// Production: Redis store recommended
+const redisStore = new RedisStore({
+  client: redisClient,
+  prefix: 'rate-limit:'
+})
 ```
 
-**Alternative Stores**:
-- `rate-limit-redis`: Recommended for most production deployments
-- `rate-limit-memcached`: Alternative distributed cache option
-- Custom store: Implement `express-rate-limit` store interface for other backends
+### Authentication & Authorization
+- Application-level authorization with metaverse/section/entity guards
+- Prevents IDOR (Insecure Direct Object Reference) attacks
+- Cross-metaverse access prevention
+- JWT token validation for protected routes
 
-### Database Setup
-The service uses TypeORM with PostgreSQL. Migrations are automatically registered and can be run through the main application's migration system.
+### Database Security
+- TypeORM parameterized queries prevent SQL injection
+- Database RLS policies as defense-in-depth
+- CASCADE delete constraints maintain referential integrity
+- UNIQUE constraints prevent duplicate relationships
+
+## Configuration
 
 ### Environment Variables
-Configure database connection through the main application's environment configuration.
+```bash
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/universo
+DATABASE_SSL=false
 
-## Related Documentation
-- [Metaverses Frontend Application](../../../packages/metaverses-frt/base/README.md)
-- [Metaverses Application Docs](../../../docs/en/applications/metaverses/README.md)
+# Rate Limiting
+REDIS_URL=redis://localhost:6379
+
+# Security
+JWT_SECRET=your-secret-key
+CORS_ORIGIN=http://localhost:3000
+```
+
+### TypeScript Configuration
+- Strict mode enabled
+- ES2022 target with Node.js 18 compatibility
+- Path mapping for clean imports
+- Declaration files generated for library usage
+
+## Deployment
+
+### Docker Support
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN pnpm install --prod
+COPY dist/ ./dist/
+EXPOSE 3000
+CMD ["node", "dist/index.js"]
+```
+
+### Health Checks
+```typescript
+// Health endpoint for load balancers
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version
+  })
+})
+```
+
+## Related Packages
+- [`@universo/metaverses-frt`](../metaverses-frt/base/README.md) - Frontend client
+- [`@universo/auth-srv`](../auth-srv/base/README.md) - Authentication service
+- [`@universo/utils`](../universo-utils/base/README.md) - Shared utilities
 
 ---
-
-**Universo Platformo | Metaverses Backend Service**
+*Part of [Universo Platformo](../../../README.md) - A comprehensive metaverse management platform*

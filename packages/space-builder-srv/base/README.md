@@ -1,6 +1,8 @@
-# Space Builder Server (BACKEND)
+# Space Builder Server (@universo/space-builder-srv)
 
-Backend API for prompt-to-flow generation in Universo Platformo (Spaces/Chatflow).
+> 🧬 **TypeScript-first** | Modern Express.js backend for AI-powered UPDL generation
+
+Backend API for prompt-to-flow generation in Universo Platformo с детерминированным билдером и мультипровайдерной поддержкой ИИ.
 
 ## Endpoints
 

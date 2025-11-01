@@ -919,6 +919,33 @@ In the current architecture:
                                                  └────────────────┘
 ```
 
+## Technology Requirements
+
+**Core Platform:**
+- **Node.js**: >=18.15.0 <19.0.0 || ^20 (LTS versions required for production)
+- **PNPM**: >=9 (package manager for monorepo)
+- **Flowise AI**: 2.2.8 (base visual programming platform)
+
+**Build Tools:**
+- **TypeScript**: Strict mode enabled across all packages
+- **tsdown**: v0.15.7 (Rolldown + Oxc based bundler for custom packages)
+- **Turborepo**: Efficient monorepo build orchestration
+
+**Frontend:**
+- **React**: Core UI library (version managed by Flowise)
+- **Material-UI (MUI)**: v6 with ColorScheme API for dark mode support
+- **React Flow**: Node-based visual editor infrastructure
+
+**Backend:**
+- **Express**: Node.js web framework
+- **TypeORM**: 0.3.20+ for database access (PostgreSQL only)
+- **Supabase**: Authentication and database backend
+
+**Development:**
+- **ESLint**: Code quality enforcement
+- **Prettier**: Code formatting
+- **i18next**: Internationalization (EN/RU support)
+
 ## Development Guidelines
 
 1. **Modularity:** Keep each application self-contained with clear interfaces

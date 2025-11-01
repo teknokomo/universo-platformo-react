@@ -1,28 +1,48 @@
 # @universo/template-mmoomm
 
-MMOOMM template system for generating PlayCanvas applications with single-player and multiplayer support.
+> 🎮 MMOOMM система шаблонов для генерации приложений PlayCanvas с поддержкой одиночной и многопользовательской игры
+
+## Информация о пакете
+
+| Поле | Значение |
+|------|----------|
+| **Имя пакета** | `@universo/template-mmoomm` |
+| **Версия** | Смотрите `package.json` |
+| **Тип** | TypeScript-first (шаблон игры) |
+| **Сборка** | Двойная сборка (CommonJS + ESM) |
+| **Назначение** | Генерация приложений PlayCanvas из данных UPDL |
 
 См. также: Создание новых приложений/пакетов (рекомендации)
 
 - ../../../docs/ru/universo-platformo/shared-guides/creating-apps.md
-## Features
 
-- Dual Mode Support: Single-player and multiplayer (Colyseus) game modes
-- UPDL Integration: Process UPDL flow data into game objects
-- Modular Architecture: Separate builders and handlers per mode
-- TypeScript Support: Dual build (CommonJS + ESM)
-- PlayCanvas Integration: Full PlayCanvas applications
-- Render Component: Colors and primitives taken from UPDL Component(Render)
+## 🚀 Ключевые возможности
 
-## Installation
+- 🎮 **Поддержка двух режимов**: Одиночная игра и многопользовательская игра (Colyseus)
+- 🔄 **Интеграция UPDL**: Обработка данных потока UPDL в игровые объекты
+- 📦 **Модульная архитектура**: Отдельные билдеры и обработчики для каждого режима
+- 🎨 **Компонент рендера**: Цвета и примитивы из UPDL Component(Render)
+- ⚡ **TypeScript поддержка**: Полная типизация и двойная сборка
+- 🎪 **Интеграция PlayCanvas**: Полнофункциональные приложения PlayCanvas
+
+## Установка
 
 ```bash
 pnpm add @universo/template-mmoomm
 ```
 
-## Usage
+### Зависимости
 
-### Basic Usage
+Этот пакет использует централизованную обработку UPDL из экосистемы Universo Platformo:
+
+- `@universo-platformo/utils` - Централизованный UPDLProcessor и утилиты валидации
+- `@universo-platformo/types` - Общие определения типов и интерфейсы UPDL
+
+Эти зависимости устанавливаются автоматически и обеспечивают консистентную обработку UPDL во всех пакетах шаблонов.
+
+## Использование
+
+### Базовое использование
 
 ```typescript
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
@@ -33,7 +53,7 @@ const html = await builder.build(flowData, {
 })
 ```
 
-### Multiplayer Mode
+### Многопользовательский режим
 
 ```typescript
 import { PlayCanvasMMOOMMBuilder } from '@universo/template-mmoomm'
@@ -49,17 +69,17 @@ const html = await builder.build(flowData, {
 })
 ```
 
-### Notes on Component(Render)
+### Примечания по Component(Render)
 
-- `componentType` is case-insensitive and normalized to lower case (e.g. `Render` or `render`).
-- Color can be specified as:
-  - hex string: `#00ff00` or `#0f0` or `#aabbccdd` (RGBA),
-  - object: `{ r, g, b }` in 0..1 or 0..255,
-  - via `props.color` or `props.material.color`.
-- When Component(Render) is attached to an Entity, its material has priority and default entity materials are not applied.
-- In multiplayer, ship color is also taken from Component(Render) through `networkEntities.visual.color`.
+- `componentType` не чувствителен к регистру и нормализуется в нижний регистр (например, `Render` или `render`).
+- Цвет может быть указан как:
+  - hex строка: `#00ff00` или `#0f0` или `#aabbccdd` (RGBA),
+  - объект: `{ r, g, b }` в диапазоне 0..1 или 0..255,
+  - через `props.color` или `props.material.color`.
+- Когда Component(Render) прикреплен к Entity, его материал имеет приоритет, и материалы entity по умолчанию не применяются.
+- В многопользовательском режиме цвет корабля также берется из Component(Render) через `networkEntities.visual.color`.
 
-## Architecture
+## Архитектура
 
 ```
 src/
@@ -72,9 +92,9 @@ src/
 └── index.ts
 ```
 
-## Development
+## Разработка
 
-### Building
+### Сборка
 
 ```bash
 pnpm build
@@ -82,3 +102,34 @@ pnpm build:cjs
 pnpm build:esm
 pnpm build:types
 ```
+
+### Тестирование
+
+```bash
+pnpm --filter @universo/template-mmoomm test
+```
+
+Автоматические проверки Vitest контролируют определение режима PlayCanvas, обеспечивая корректную работу потоков сбора лидов в многопользовательском режиме, как описано выше.
+
+## Вклад в разработку
+
+При вкладе в этот пакет:
+
+1. Следуйте лучшим практикам TypeScript
+2. Обеспечьте совместимость с шаблонами PlayCanvas
+3. Добавляйте тесты для новых билдеров или компонентов
+4. Обновляйте документацию EN и RU
+5. Следуйте стандартам кодирования проекта
+
+## Связанная документация
+
+- [Документация основных приложений](../README-RU.md)
+- [Определения узлов UPDL](../updl/base/README-RU.md)
+- [Publishing Frontend](../publish-frt/base/README-RU.md)
+- [Конструктор пространств](../space-builder-frt/base/README-RU.md)
+- [Документация PlayCanvas](https://developer.playcanvas.com/)
+
+---
+
+_Universo Platformo | Шаблон MMOOMM_
+

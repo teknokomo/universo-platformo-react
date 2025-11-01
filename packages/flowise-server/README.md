@@ -1,149 +1,298 @@
-<!-- markdownlint-disable MD030 -->
+# Flowise Server
 
-# Flowise - Low-Code LLM apps builder
+🚨 **LEGACY CODE WARNING** 🚨  
+This package is part of the legacy Flowise architecture and is scheduled for removal/refactoring after the Universo Platformo migration is complete (estimated Q2 2026). New features should be developed in the modern `@universo/*` packages instead.
 
-![Flowise](https://github.com/FlowiseAI/Flowise/blob/main/images/flowise.gif?raw=true)
+## Overview
 
-Drag & drop UI to build your customized LLM flow
+The main backend server for Universo Platformo, providing the foundational Express-based REST API, database management, and authentication services. This package serves as the central hub for all Flowise functionality and integrates with the modern `@universo/*` service packages.
 
-## ⚡Quick Start
+## Package Information
 
-1. Install Flowise
-    ```bash
-    npm install -g flowise
-    ```
-2. Start Flowise
+- **Package**: `flowise`
+- **Version**: `2.2.8` (frozen legacy version)
+- **Type**: Backend Server (Legacy)
+- **Framework**: Express.js + TypeORM + OCLIF CLI
+- **Database**: PostgreSQL via Supabase
+- **Authentication**: Passport.js + JWT + Supabase integration
 
-    ```bash
-    npx flowise start
-    ```
+## Key Features
 
-3. Open [http://localhost:3000](http://localhost:3000)
+### 🎯 Core Server Functionality
+- **Express API Server**: Complete REST API with rate limiting and middleware
+- **Database Management**: TypeORM integration with PostgreSQL and Supabase
+- **Authentication System**: Passport.js sessions with JWT token verification
+- **Entity Registry**: Centralized TypeORM entity and migration management
+- **Queue Management**: Redis-based job queue for background processing
+- **Metrics & Telemetry**: Prometheus and OpenTelemetry integration
 
-## 🔒 Authentication
+### 🔐 Security Features
+- **CSRF Protection**: Token-based CSRF protection using `csurf`
+- **Rate Limiting**: Express rate limiting with Redis backend
+- **XSS Protection**: Request sanitization middleware
+- **Session Management**: Secure cookie-based sessions
+- **API Key Validation**: Multi-layer authentication with fallback to API keys
 
-Universo Platformo now relies on Passport.js sessions backed by Supabase. Add the following variables to `packages/flowise-server/.env` (or provide them via CLI flags) to enable the built-in login flow exposed at `/api/v1/auth`:
+### 🏗️ Architecture Integration
+- **Modern Service Integration**: Imports and uses `@universo/*` packages
+- **Flowise Node System**: Integration with legacy `flowise-components` and `flowise-ui`
+- **Multiplayer Support**: Colyseus multiplayer server integration
+- **Canvas System**: Integration with `@universo/spaces-srv` for flow execution
 
+## CLI Commands (OCLIF)
+
+### Basic Commands
+```bash
+# Start the server
+pnpm start
+
+# Start in development mode
+pnpm dev
+
+# List all available commands
+pnpm flowise --help
+
+# User management
+pnpm user                              # List all users
+pnpm user --email admin@example.com --password newpass  # Reset password
 ```
-SESSION_SECRET=replace-with-strong-secret
-SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_ANON_KEY=public-anon-key
-SUPABASE_JWT_SECRET=service-jwt-secret
-```
 
-Optional cookie hardening:
+### Environment Variables
+```bash
+# Core Configuration
+PORT=3000
+HOST=localhost
+NODE_ENV=production
 
-```
+# Database (Supabase)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_JWT_SECRET=your-jwt-secret
+
+# Session Management
+SESSION_SECRET=your-strong-secret
 SESSION_COOKIE_NAME=up.session
 SESSION_COOKIE_MAXAGE=86400000
 SESSION_COOKIE_SAMESITE=lax
 SESSION_COOKIE_SECURE=false
-SESSION_COOKIE_PARTITIONED=false
+
+# Rate Limiting
+REDIS_URL=redis://localhost:6379
+
+# File Handling
+FLOWISE_FILE_SIZE_LIMIT=50mb
+
+# Metrics (Optional)
+ENABLE_METRICS=true
+METRICS_PROVIDER=prometheus
 ```
 
-- Use `SESSION_COOKIE_PARTITIONED=true` when deploying behind cross-site iframes in Chrome Privacy Sandbox.
-- Setting `SESSION_COOKIE_SAMESITE=none` automatically forces `SESSION_COOKIE_SECURE=true`.
+## Architecture Components
 
-## 🌱 Env Variables
+### Main Server (`src/index.ts`)
+- **App Class**: Central application management
+- **Database Initialization**: TypeORM setup and migrations
+- **Middleware Stack**: Authentication, CORS, rate limiting, session management
+- **Route Registration**: API v1 routes and authentication endpoints
 
-Flowise support different environment variables to configure your instance. You can specify the following variables in the `.env` file inside `packages/flowise-server` folder. Read [more](https://github.com/FlowiseAI/Flowise/blob/main/CONTRIBUTING.md#-env-variables)
+### Authentication System
+- **JWT Verification**: Supabase JWT token validation
+- **Session Management**: Passport.js + express-session
+- **Multi-tier Auth**: Session tokens → Bearer tokens → API keys
+- **CSRF Protection**: Cross-site request forgery protection
 
-You can also specify the env variables when using `npx`. For example:
+### Database Layer
+- **Entity Registry**: Central registration in `src/database/entities/index.ts`
+- **Migration Registry**: PostgreSQL migrations in `src/database/migrations/postgres/index.ts`
+- **TypeORM Integration**: Full repository pattern implementation
+- **Supabase Connection**: Direct PostgreSQL connection via Supabase
+
+### CLI Framework (OCLIF)
+- **Commands Directory**: `src/commands/` contains all CLI implementations
+- **Base Command**: Shared functionality in `src/commands/base.ts`
+- **Start Command**: Main server startup in `src/commands/start.ts`
+- **User Management**: User CRUD operations for authentication
+
+## Dependencies
+
+### Core Framework Dependencies
+```json
+{
+  "express": "^4.18.2",
+  "@oclif/core": "^3.18.1",
+  "typeorm": "^0.3.20",
+  "passport": "^0.7.0",
+  "express-session": "^1.17.3"
+}
+```
+
+### Universo Integration Dependencies
+```json
+{
+  "@universo/auth-srv": "workspace:*",
+  "@universo/spaces-srv": "workspace:*",
+  "@universo/metaverses-srv": "workspace:*",
+  "@universo/multiplayer-colyseus-srv": "workspace:*",
+  "@universo/utils": "workspace:*"
+}
+```
+
+### AI & LangChain Dependencies
+```json
+{
+  "langchain": "~0.1.25",
+  "@langchain/core": "~0.1.52",
+  "llamaindex": "^0.1.12",
+  "chromadb": "^1.8.1"
+}
+```
+
+## File Structure
 
 ```
-npx flowise start --PORT=3000 --DEBUG=true
+packages/flowise-server/
+├── bin/                    # OCLIF CLI executables
+│   ├── run                 # Main CLI entry point
+│   ├── run.cmd            # Windows CLI wrapper
+│   ├── dev                # Development CLI entry
+│   └── dev.cmd            # Windows dev wrapper
+├── src/
+│   ├── commands/          # OCLIF command implementations
+│   │   ├── base.ts        # Base command class
+│   │   ├── start.ts       # Server start command
+│   │   └── user.ts        # User management commands
+│   ├── database/          # Database layer
+│   │   ├── entities/      # TypeORM entity registry
+│   │   └── migrations/    # Migration registry
+│   ├── middlewares/       # Express middleware
+│   ├── routes/           # API route definitions
+│   ├── utils/            # Utility functions
+│   ├── metrics/          # Metrics providers
+│   ├── queue/            # Queue management
+│   ├── DataSource.ts     # TypeORM data source
+│   ├── Interface.ts      # Type definitions
+│   └── index.ts          # Main server application
+├── cypress/              # E2E testing with Cypress
+├── .env.example         # Environment variables template
+├── package.json         # Package configuration
+└── README.md           # This file
 ```
 
-## � Production Deployment with Rate Limiting
+## Legacy Status & Migration Plan
+
+### Current State (2024)
+- ✅ **Functional**: Fully operational legacy server
+- ✅ **Integrated**: Successfully integrated with modern `@universo/*` packages
+- ✅ **Secured**: Updated authentication system with Supabase integration
+- ⚠️ **Frozen**: Version locked at 2.2.8, no new major features
+
+### Migration Timeline
+- **Q1 2025**: Continue modernization of `@universo/*` packages
+- **Q2 2025**: Begin gradual migration of server functionality
+- **Q3 2025**: Deprecation warnings and migration documentation
+- **Q4 2025**: Feature freeze and migration preparation
+- **Q1 2026**: Begin server refactoring
+- **Q2 2026**: Complete migration and legacy removal
+
+### Replacement Strategy
+1. **API Layer**: Migrate to modern Express setup in new `@universo/server` package
+2. **Database Layer**: Retain TypeORM patterns but modernize entity management
+3. **Authentication**: Keep Supabase integration but simplify middleware stack
+4. **CLI Tools**: Migrate essential commands to new package structure
+5. **Queue System**: Modernize background job processing
+
+## Testing
+
+### E2E Testing with Cypress
+```bash
+# Install Cypress
+./node_modules/.bin/cypress install
+
+# Build project first
+pnpm build
+
+# Run E2E tests
+pnpm run e2e
+
+# Open Cypress GUI (development only)
+pnpm run cypress:open
+```
+
+### Test Structure
+- **Cypress Tests**: Located in `cypress/` directory
+- **Support Files**: Custom commands and utilities in `cypress/support/`
+- **Integration Tests**: Full flow testing for API endpoints
+
+## Development
+
+### Local Development
+```bash
+# Install dependencies
+pnpm install
+
+# Start in development mode
+pnpm dev
+
+# Build project
+pnpm build
+
+# Start production server
+pnpm start
+```
+
+### Adding New Features (Legacy Package)
+⚠️ **Important**: This is legacy code. New features should be developed in modern `@universo/*` packages when possible.
+
+If you must add features to this legacy package:
+1. Follow existing patterns and architecture
+2. Ensure compatibility with modern packages
+3. Add appropriate deprecation notices
+4. Document migration path for the feature
+
+## Rate Limiting & Production Deployment
 
 For production deployments with Redis-based rate limiting, refer to the comprehensive guide:
 
 **[Rate Limiting Deployment Guide](../universo-utils/base/DEPLOYMENT.md)**
 
 This guide covers:
--   Redis configuration and connection setup (`REDIS_URL`)
--   Docker, Kubernetes, and PM2 deployment examples
--   Health checks and monitoring
--   Troubleshooting common issues (connection timeouts, high 429 errors, memory leaks)
--   Security best practices (TLS, authentication, network isolation)
+- Redis configuration and connection setup (`REDIS_URL`)
+- Docker, Kubernetes, and PM2 deployment examples
+- Health checks and monitoring
+- Troubleshooting common issues
 
-Quick start: Set `REDIS_URL` environment variable to enable distributed rate limiting across multiple instances:
+## Integration Points
 
-```bash
-# Development (local Redis)
-REDIS_URL=redis://localhost:6379
+### Modern Package Integration
+- **Authentication**: Uses `@universo/auth-srv` for Passport.js configuration
+- **Spaces**: Integrates `@universo/spaces-srv` for canvas flow execution
+- **Metaverses**: Uses `@universo/metaverses-srv` for rate limiter initialization
+- **Multiplayer**: Coordinates with `@universo/multiplayer-colyseus-srv`
+- **Utils**: Leverages `@universo/utils` for networking and rate limiting
 
-# Production with authentication
-REDIS_URL=redis://:your-password@redis.example.com:6379
+### Legacy Package Dependencies
+- **UI**: Serves static files from `flowise-ui` package
+- **Components**: Integrates with `flowise-components` node system
+- **Templates**: Uses `flowise-template-mui` for UI components
 
-# TLS-enabled (recommended for production)
-REDIS_URL=rediss://:your-password@redis.example.com:6380
-```
+## Documentation
 
-## �📖 Tests
+- **API Documentation**: See `/docs/en/api-reference/` for REST API details
+- **Deployment Guides**: Check `/docs/en/getting-started/` for setup instructions
+- **Migration Guides**: Refer to `/docs/en/migration-guide/` for version updates
 
-We use [Cypress](https://github.com/cypress-io) for our e2e testing. If you want to run the test suite in dev mode please follow this guide:
+## Contributing
 
-```sh
-cd Flowise/packages/flowise-server
-pnpm install
-./node_modules/.bin/cypress install
-pnpm build
-#Only for writting new tests on local dev -> pnpm run cypress:open
-pnpm run e2e
-```
+⚠️ **Legacy Package Notice**: This package is in maintenance mode. For new contributions:
+1. Consider if the feature belongs in a modern `@universo/*` package instead
+2. Follow existing code patterns if changes are necessary
+3. Add appropriate tests for any modifications
+4. Document the migration path for new features
 
-## 📖 Documentation
+## License
 
-[Flowise Docs](https://docs.flowiseai.com/)
+Apache License Version 2.0 - See the [LICENSE](../../LICENSE) file for details.
 
-## 🌐 Self Host
+---
 
--   [AWS](https://docs.flowiseai.com/deployment/aws)
--   [Azure](https://docs.flowiseai.com/deployment/azure)
--   [Digital Ocean](https://docs.flowiseai.com/deployment/digital-ocean)
--   [GCP](https://docs.flowiseai.com/deployment/gcp)
--   <details>
-      <summary>Others</summary>
-
-    -   [Railway](https://docs.flowiseai.com/deployment/railway)
-
-        [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/pn4G8S?referralCode=WVNPD9)
-
-    -   [Render](https://docs.flowiseai.com/deployment/render)
-
-        [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://docs.flowiseai.com/deployment/render)
-
-    -   [HuggingFace Spaces](https://docs.flowiseai.com/deployment/hugging-face)
-
-        <a href="https://huggingface.co/spaces/FlowiseAI/Flowise"><img src="https://huggingface.co/datasets/huggingface/badges/raw/main/open-in-hf-spaces-sm.svg" alt="HuggingFace Spaces"></a>
-
-    -   [Elestio](https://elest.io/open-source/flowiseai)
-
-        [![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/flowiseai)
-
-    -   [Sealos](https://cloud.sealos.io/?openapp=system-template%3FtemplateName%3Dflowise)
-
-        [![](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://cloud.sealos.io/?openapp=system-template%3FtemplateName%3Dflowise)
-
-    -   [RepoCloud](https://repocloud.io/details/?app_id=29)
-
-        [![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploy.png)](https://repocloud.io/details/?app_id=29)
-
-      </details>
-
-## ☁️ Flowise Cloud
-
-[Get Started with Flowise Cloud](https://flowiseai.com/)
-
-## 🙋 Support
-
-Feel free to ask any questions, raise problems, and request new features in [discussion](https://github.com/FlowiseAI/Flowise/discussions)
-
-## 🙌 Contributing
-
-See [contributing guide](https://github.com/FlowiseAI/Flowise/blob/master/CONTRIBUTING.md). Reach out to us at [Discord](https://discord.gg/jbaHfsRVBW) if you have any questions or issues.
-
-## 📄 License
-
-Source code in this repository is made available under the Apache License Version 2.0.
+**Migration Support**: If you need help migrating features from this legacy package to modern alternatives, please refer to the migration documentation or create an issue for guidance.

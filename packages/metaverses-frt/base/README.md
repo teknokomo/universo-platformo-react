@@ -1,184 +1,384 @@
-# Metaverses Frontend (metaverses-frt)
+# Metaverses Frontend
 
-Frontend application for managing metaverses, sections, and entities in the Universo Platformo ecosystem.
+✨ **Modern Package** - Part of the new Universo Platformo architecture
 
 ## Overview
 
-The Metaverses Frontend provides comprehensive UI workflows for managing the three-tier architecture of Metaverses → Sections → Entities. Users can organize entities within section contexts, maintain strict data isolation by metaverses, and manage hierarchical entity compositions with full validation and security.
+Frontend application for managing metaverses, sections, and entities in the Universo Platformo ecosystem. The Metaverses Frontend provides comprehensive UI workflows for managing the three-tier architecture of Metaverses → Sections → Entities with complete data isolation and security.
+
+## Package Information
+
+- **Package**: `@universo/metaverses-frt`
+- **Version**: `0.1.0`
+- **Type**: React Frontend Package (Modern)
+- **Framework**: React 18 + TypeScript + Material-UI
+- **Build System**: tsdown (dual build - CJS + ESM)
+- **Testing**: Vitest + React Testing Library
 
 ## Key Features
 
-- **Metaverse Management**: Create and manage entity metaverses with isolated data contexts
-- **Section Management**: Organize sections within metaverses with automatic metaverse association
-- **Entity Management**: Create and manage entities with mandatory section association
-- **Data Isolation**: Complete data separation between metaverses - entities and sections from metaverse A are never visible in metaverse B
-- **Contextual Navigation**: Metaverse-aware navigation with breadcrumbs and sidebar context preservation
-- **Validation & Security**: Frontend and backend validation ensuring no orphaned entities or sections
-- **Internationalization**: English and Russian translations with i18next namespace support
-- **Material-UI Integration**: Consistent UI components with proper required field indicators
+### 🌍 Metaverse Management
+- **Hierarchical Organization**: Three-tier architecture (Metaverses → Sections → Entities)
+- **Complete Data Isolation**: Entities and sections from different metaverses are completely separated
+- **Role-Based Access**: User roles and permissions for metaverse access control
+- **Context-Aware Navigation**: Metaverse-aware routing with breadcrumbs and sidebar preservation
+
+### 🎨 User Interface
+- **Material-UI Integration**: Consistent UI components with modern design system
+- **Responsive Design**: Optimized for desktop and mobile experiences
+- **Table & Grid Views**: Flexible data presentation with pagination and search
+- **Dialog Forms**: Modal forms for creating and editing entities
+
+### 🔧 Technical Features
+- **TypeScript-First**: Full TypeScript implementation with strict typing
+- **React Query Integration**: Advanced data fetching and caching
+- **Internationalization**: English and Russian translations with i18next
+- **Form Validation**: Comprehensive validation with error handling
+- **API Integration**: RESTful API client with authentication
+
+## Installation & Setup
+
+### Prerequisites
+```bash
+# System requirements
+Node.js >= 18.0.0
+PNPM >= 8.0.0
+```
+
+### Installation
+```bash
+# Install dependencies
+pnpm install
+
+# Build the package
+pnpm --filter @universo/metaverses-frt build
+
+# Run in development mode
+pnpm --filter @universo/metaverses-frt dev
+```
+
+### Integration
+```tsx
+// Import components in your React application
+import { MetaverseList, MetaverseBoard, metaversesDashboard } from '@universo/metaverses-frt'
+
+// Import i18n resources
+import { metaversesTranslations } from '@universo/metaverses-frt'
+
+// Use in routes
+<Route path="/metaverses" element={<MetaverseList />} />
+<Route path="/metaverses/:id/board" element={<MetaverseBoard />} />
+```
 
 ## Architecture
 
 ### Three-Tier Entity Model
-- **Metaverses**: Top-level organizational units that provide complete data isolation
-- **Sections**: Logical groupings within metaverses (e.g., "Web Services", "Mobile Apps")
-- **Entities**: Individual assets that belong to specific sections within metaverses
+- **Metaverses**: Top-level organizational units providing complete data isolation
+- **Sections**: Logical groupings within metaverses (e.g., "Web Services", "Mobile Apps")  
+- **Entities**: Individual assets belonging to specific sections within metaverses
 
-### Data Isolation
-- Entities and sections from different metaverses are completely isolated
+### Data Isolation Strategy
+- Complete separation between metaverses - no cross-metaverse visibility
 - All operations maintain metaverse context through URL routing
-- No cross-metaverse data visibility or operations possible
+- Frontend and backend validation preventing orphaned entities
+- Role-based access control for metaverse permissions
 
-## Structure
+## Usage
 
-```
-src/
-├── api/              # API client functions
-│   ├── metaverses.ts   # Metaverse CRUD and section management
-│   ├── sections.ts    # Section CRUD operations
-│   ├── entities.ts  # Entity CRUD operations
-│   └── index.ts      # API exports
-├── components/       # Reusable UI components
-│   └── index.ts      # Component exports
-├── hooks/            # Custom React hooks
-│   └── index.ts      # Hook exports
-├── i18n/             # Internationalization
-│   ├── locales/      # Language translations (en, ru)
-│   └── index.ts      # i18n configuration
-├── pages/            # Main page components
-│   ├── MetaverseDetail.tsx    # Metaverse detail with sections/entities tabs
-│   ├── SectionDetail.tsx     # Section detail within metaverse context
-│   ├── SectionDialog.tsx     # Create/edit section dialog
-│   └── EntityDialog.tsx   # Create/edit entity dialog
-├── menu-items/       # Navigation menu configuration
-│   └── metaverseDashboard.ts
-├── types/            # TypeScript type definitions
-│   └── index.ts
-└── index.ts          # Package exports
+### Basic Components
+```tsx
+import { MetaverseList, MetaverseBoard } from '@universo/metaverses-frt'
+
+// Metaverse listing with management capabilities
+function MetaversesPage() {
+  return <MetaverseList />
+}
+
+// Metaverse dashboard and analytics
+function MetaverseBoardPage() {
+  return <MetaverseBoard />
+}
 ```
 
-## Key Components
+### API Integration
+```tsx
+import { useApi } from '@universo/metaverses-frt/hooks'
+import * as metaversesApi from '@universo/metaverses-frt/api'
 
-### MetaverseDetail.tsx
-Main metaverse management interface with tabbed navigation:
-- **Overview**: Metaverse information and statistics
-- **Sections**: List of sections within the metaverse with create/edit capabilities
-- **Entities**: List of entities within the metaverse with create/edit capabilities
-- **Metaverseboard**: Metaverse-specific dashboard and analytics
+function MetaverseData() {
+  const { data: metaverses, isLoading } = useApi(
+    metaversesApi.getMetaverses
+  )
+  
+  if (isLoading) return <div>Loading...</div>
+  return <div>{metaverses?.length} metaverses found</div>
+}
+```
 
-Features metaverse-aware breadcrumb navigation and maintains metaverse context throughout all operations.
+### Menu Integration
+```tsx
+import { metaversesDashboard } from '@universo/metaverses-frt'
 
-### SectionDetail.tsx
-Section detail view within metaverse context:
-- Displays section information and associated entities
-- Maintains metaverse context in navigation and breadcrumbs
-- Provides access to section-specific entity management
+// Add to navigation menu
+const menuItems = [
+  ...otherMenuItems,
+  metaversesDashboard
+]
+```
 
-### EntityDialog.tsx
-Modal form for creating/editing entities with strict validation:
-- **Mandatory Section Selection**: Section selection is required with no empty option
-- **Metaverse Context**: When opened in metaverse context, shows only sections from that metaverse
-- **Validation**: Frontend validation prevents submission without section selection
-- **Material-UI Integration**: Proper required field indicators and error states
+## File Structure
 
-### SectionDialog.tsx
-Modal form for creating/editing sections:
-- **Metaverse Association**: Automatically links new sections to current metaverse
-- **Validation**: Prevents creation of sections without metaverse association
-- **Context Awareness**: Operates within metaverse context for proper data isolation
+```
+packages/metaverses-frt/base/
+├── src/
+│   ├── api/              # API client functions
+│   │   ├── metaverses.ts   # Metaverse CRUD operations
+│   │   ├── sections.ts     # Section management
+│   │   ├── entities.ts     # Entity operations
+│   │   └── queryKeys.ts    # React Query keys
+│   ├── hooks/            # Custom React hooks
+│   │   ├── useApi.ts       # API integration hook
+│   │   └── index.ts        # Hook exports
+│   ├── i18n/             # Internationalization
+│   │   ├── locales/        # Language files (en, ru)
+│   │   │   ├── en.json     # English translations
+│   │   │   └── ru.json     # Russian translations
+│   │   └── index.ts        # i18n configuration
+│   ├── pages/            # Main page components
+│   │   ├── MetaverseList.tsx   # Main listing component
+│   │   ├── MetaverseBoard.tsx  # Dashboard component
+│   │   └── MetaverseActions.ts # Action definitions
+│   ├── menu-items/       # Navigation configuration
+│   │   └── metaverseDashboard.ts
+│   ├── types/            # TypeScript definitions
+│   │   ├── index.ts        # Main type exports
+│   │   └── types.ts        # Type definitions
+│   ├── utils/            # Utility functions
+│   └── index.ts          # Package exports
+├── dist/                 # Compiled output (CJS, ESM, types)
+├── package.json
+├── tsconfig.json
+├── tsdown.config.ts      # Build configuration
+├── vitest.config.ts      # Test configuration
+├── README.md             # This file
+└── README-RU.md          # Russian documentation
+```
+
+## Core Components
+
+### MetaverseList
+Main component for displaying and managing metaverses:
+
+```tsx
+import { MetaverseList } from '@universo/metaverses-frt'
+
+// Features:
+// - Paginated table view with search functionality
+// - Create, edit, delete operations
+// - Role-based access control
+// - Responsive design with Material-UI
+// - Internationalization support
+```
+
+### MetaverseBoard  
+Dashboard component for metaverse analytics:
+
+```tsx
+import { MetaverseBoard } from '@universo/metaverses-frt'
+
+// Features:
+// - Metaverse-specific dashboard
+// - Analytics and statistics
+// - Interactive data visualization
+// - Context-aware navigation
+```
 
 ## API Integration
 
+### Basic API Operations
+```typescript
+import * as metaversesApi from '@universo/metaverses-frt/api'
+
+// Get all metaverses
+const metaverses = await metaversesApi.getMetaverses()
+
+// Get specific metaverse
+const metaverse = await metaversesApi.getMetaverse(id)
+
+// Create new metaverse
+const newMetaverse = await metaversesApi.createMetaverse({
+  name: 'My Metaverse',
+  description: 'Metaverse description'
+})
+
+// Update metaverse
+const updated = await metaversesApi.updateMetaverse(id, data)
+
+// Delete metaverse
+await metaversesApi.deleteMetaverse(id)
+```
+
 ### Metaverse-Scoped Operations
 ```typescript
-// Get sections for a specific metaverse
-const sections = await getMetaverseSections(metaverseId)
+// Get sections for specific metaverse
+const sections = await metaversesApi.getMetaverseSections(metaverseId)
 
-// Get entities for a specific metaverse
-const entities = await getMetaverseEntities(metaverseId)
+// Get entities for specific metaverse  
+const entities = await metaversesApi.getMetaverseEntities(metaverseId)
 
 // Link section to metaverse
-await addSectionToMetaverse(metaverseId, sectionId)
+await metaversesApi.addSectionToMetaverse(metaverseId, sectionId)
 ```
 
-### Entity Creation with Validation
+### React Query Integration
 ```typescript
-// Create entity with mandatory section association
-const entity = await createEntity({
-  name: 'My Entity',
-  description: 'Entity description',
-  sectionId: 'required-section-id',  // Mandatory
-  metaverseId: 'optional-metaverse-id' // Optional for metaverse context
-})
-```
+import { useQuery } from '@tanstack/react-query'
+import { metaversesQueryKeys } from '@universo/metaverses-frt/api'
 
-### Section Creation with Metaverse Context
-```typescript
-// Create section with mandatory metaverse association
-const section = await createSection({
-  name: 'My Section',
-  description: 'Section description',
-  metaverseId: 'required-metaverse-id'  // Mandatory
-})
+function useMetaverses() {
+  return useQuery({
+    queryKey: metaversesQueryKeys.all,
+    queryFn: metaversesApi.getMetaverses
+  })
+}
 ```
 
 ## Development
 
 ### Prerequisites
 - Node.js 18+
-- PNPM package manager
+- pnpm 8+
+- TypeScript 5+
 
-### Commands
+### Available Scripts
 ```bash
-# Install dependencies (from project root)
-pnpm install
+# Development
+pnpm dev              # Start development server
+pnpm build            # Build for production (dual CJS/ESM)
+pnpm build:watch      # Build in watch mode
 
-# Build the application
-pnpm --filter @universo/metaverses-frt build
+# Testing
+pnpm test             # Run Vitest test suite
+pnpm test:watch       # Run tests in watch mode
+pnpm test:coverage    # Generate coverage report
 
-# Run tests
-pnpm --filter @universo/metaverses-frt test
-
-# Lint sources
-pnpm --filter @universo/metaverses-frt lint
+# Code Quality
+pnpm lint             # Run ESLint
+pnpm lint:fix         # Fix ESLint issues
+pnpm type-check       # TypeScript type checking
 ```
 
-### Development Notes
-- All operations maintain metaverse context through URL routing (`/metaverses/:metaverseId/...`)
-- Section selection is mandatory for entity creation with proper validation
-- Material-UI components use proper `required` attributes for form validation
-- i18next namespace `entities` is used for all translations
+### Build System
+This package uses `tsdown` for dual-build output:
+- **CommonJS**: `dist/index.js` (for legacy compatibility)
+- **ES Modules**: `dist/index.mjs` (for modern bundlers)
+- **Types**: `dist/index.d.ts` (TypeScript declarations)
 
-### Security Notes
-- API authentication currently uses a bearer token from `localStorage` (see `src/api/apiClient.ts`). This is acceptable for development but exposes token to XSS.
-- Recommended migration path is HTTP‑only secure cookies with CSRF protection and strict CSP.
+### Development Guidelines
 
-## Routing Structure
+#### Architecture Patterns
+- **Three-tier Model**: Metaverses → Sections → Entities
+- **Data Isolation**: Strict context boundaries between metaverses
+- **React Query**: Centralized data fetching and caching
+- **Material-UI**: Consistent component library usage
 
-The application uses nested routing to maintain metaverse context:
-
+#### Context Management
+```typescript
+// Always maintain metaverse context
+const metaverseContext = useMetaverseContext()
+const sections = useSections(metaverseContext.id)
 ```
-/metaverses/:metaverseId                    # Metaverse detail (overview tab)
-/metaverses/:metaverseId/sections           # Sections tab
-/metaverses/:metaverseId/entities         # Entities tab
-/metaverses/:metaverseId/metaverseboard      # Metaverseboard tab
-/metaverses/:metaverseId/sections/:sectionId # Section detail within metaverse
+
+#### Form Validation
+```typescript
+// Mandatory field validation
+const entitySchema = z.object({
+  name: z.string().min(1),
+  sectionId: z.string().min(1), // Required - no empty option
+  description: z.string().optional()
+})
 ```
 
-All routes maintain metaverse context in breadcrumbs and sidebar navigation.
+## Testing
 
-## Data Isolation & Security
+### Test Structure
+```
+src/
+├── __tests__/
+│   ├── components/
+│   ├── hooks/
+│   ├── api/
+│   └── utils/
+└── vitest.config.ts
+```
 
-- **Complete Metaverse Isolation**: Entities and sections from metaverse A are never visible in metaverse B
-- **Mandatory Associations**: Entities must be associated with sections, sections must be associated with metaverses
-- **Frontend Validation**: Form validation prevents creation of orphaned entities
-- **Backend Validation**: Server-side validation ensures data integrity
-- **Context Preservation**: Navigation maintains metaverse context throughout user journey
+### Testing Approach
+```typescript
+// Component testing with React Testing Library
+import { render, screen } from '@testing-library/react'
+import { MetaverseList } from '../MetaverseList'
 
-## Related Documentation
-- [Metaverses Backend Service](../../../packages/metaverses-srv/base/README.md)
-- [Metaverses Application Docs](../../../docs/en/applications/metaverses/README.md)
+test('renders metaverse list', () => {
+  render(<MetaverseList />)
+  expect(screen.getByText('Metaverses')).toBeInTheDocument()
+})
+```
+
+### Running Tests
+```bash
+pnpm test                    # Run all tests
+pnpm test:watch              # Watch mode
+pnpm test:coverage           # With coverage
+pnpm test -- --reporter=verbose  # Verbose output
+```
+
+## Configuration
+
+### Environment Variables
+```bash
+# API Configuration
+VITE_API_URL=http://localhost:3000
+VITE_API_VERSION=v1
+
+# Authentication
+VITE_AUTH_ENABLED=true
+VITE_AUTH_PROVIDER=supabase
+```
+
+### TypeScript Configuration
+The package uses strict TypeScript configuration:
+- Strict null checks enabled
+- No implicit any types
+- Strict function types
+- All compiler strict options enabled
+
+## Contributing
+
+### Code Style
+- Follow ESLint configuration
+- Use Prettier for formatting
+- Prefer TypeScript over JavaScript
+- Use functional components with hooks
+
+### Pull Request Process
+1. Create feature branch from `main`
+2. Implement changes with tests
+3. Update documentation
+4. Run full test suite
+5. Submit PR with description
+
+### Commit Convention
+Follow conventional commits:
+```bash
+feat(metaverses): add search functionality
+fix(api): handle empty response
+docs(readme): update installation guide
+```
+
+## Related Packages
+- [`@universo/metaverses-srv`](../metaverses-srv/base/README.md) - Backend service
+- [`@universo/template-mui`](../universo-template-mui/base/README.md) - UI components
+- [`@universo/types`](../universo-types/base/README.md) - Shared types
 
 ---
-
-**Universo Platformo | Metaverses Frontend Application**
+*Part of [Universo Platformo](../../../README.md) - A comprehensive metaverse management platform*

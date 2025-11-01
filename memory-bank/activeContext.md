@@ -1,12 +1,62 @@
 # Active Context
 
-> **Last Updated**: 2025-10-31
+> **Last Updated**: 2025-11-01
 >
 > **Purpose**: This file tracks the current focus of development - what we're actively working on RIGHT NOW. Completed work is in `progress.md`, planned work is in `tasks.md`.
 
 ---
 
-## Current Focus: JSX→TSX Migration & Role System - COMPLETED ✅
+## Current Focus: packages/ README Documentation Update - COMPLETED ✅
+
+**Status**: Implementation Complete
+
+**Summary**: Actualized root README files (`packages/README.md` and `packages/README-RU.md`) with comprehensive technology stack information according to i18n documentation rules.
+
+**Changes Made**:
+1. ✅ Added "Technology Requirements" section to English README
+   - Core Platform: Node.js >=18.15.0, PNPM >=9, Flowise AI 2.2.8
+   - Build Tools: TypeScript, tsdown v0.15.7, Turborepo
+   - Frontend: React, Material-UI v6, React Flow
+   - Backend: Express, TypeORM 0.3.20+, Supabase
+   - Development: ESLint, Prettier, i18next
+
+2. ✅ Synchronized Russian README with identical section
+   - Translated all technical requirements
+   - Maintained same structure and content
+
+3. ✅ Verified i18n compliance (#file:i18n-docs.instructions.md)
+   - Line count: 1047 lines (EN) = 1047 lines (RU) ✅
+   - Section structure: 9 main sections × 47 subsections ✅
+   - All 31 packages documented in both languages ✅
+
+**Files Modified**: 4
+- `packages/README.md` (736→1047 lines, +311 lines)
+- `packages/README-RU.md` (728→1047 lines, +319 lines)
+- `memory-bank/progress.md` - Added entry for 2025-11-01
+- `memory-bank/activeContext.md` - This update
+
+**Verification Results**:
+```bash
+# Line count verification
+wc -l packages/README*.md
+  1047 packages/README.md
+  1047 packages/README-RU.md
+  
+# Structure verification
+grep -c "^## " packages/README*.md
+  9 packages/README.md
+  9 packages/README-RU.md
+  
+grep -cE "^###|^####" packages/README*.md
+  47 packages/README.md
+  47 packages/README-RU.md
+```
+
+**Next Actions**: None - documentation is up to date and fully compliant with i18n rules.
+
+---
+
+## Previous Focus: JSX→TSX Migration & Role System - COMPLETED ✅
 
 **Status**: Implementation Complete, Documentation Updated
 
