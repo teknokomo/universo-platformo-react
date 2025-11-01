@@ -1,5 +1,5 @@
 // Universo Platformo | Chat Bot Embed implementation
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 // Project import
 import BaseBotEmbed from './BaseBotEmbed'
@@ -247,12 +247,7 @@ const codeGenerators = {
 
 const ChatBotEmbed = ({ canvasId }) => {
     return (
-        <BaseBotEmbed
-            canvasId={canvasId}
-            title='Chat Bot Embed'
-            codeGenerators={codeGenerators}
-            defaultThemeConfig={defaultThemeConfig}
-        />
+        <BaseBotEmbed canvasId={canvasId} title='Chat Bot Embed' codeGenerators={codeGenerators} defaultThemeConfig={defaultThemeConfig} />
     )
 }
 

@@ -1,5 +1,6 @@
 import { getCurrentUrlIds } from '../common'
 import { getPublishApiClient } from '../client'
+import type { TechnologyType } from '../../types'
 
 const client = () => getPublishApiClient()
 
@@ -9,7 +10,7 @@ export interface PublishLinkRecord {
     id: string
     unikId: string
     spaceId: string | null
-    technology: string
+    technology: TechnologyType
     versionGroupId: string | null
     targetCanvasId: string | null
     targetVersionUuid: string | null

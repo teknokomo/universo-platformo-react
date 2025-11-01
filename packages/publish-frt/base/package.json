@@ -18,15 +18,16 @@
             "require": "./dist/i18n/index.js"
         },
         "./src/hooks/useAutoSave": "./src/hooks/useAutoSave.ts",
+        "./hooks/publication": "./src/hooks/publication/index.ts",
         "./src/components": "./src/components/index.ts",
         "./src/components/*": "./src/components/*",
         "./src/features/dialog": "./src/features/dialog/index.ts",
         "./src/features/chatbot": "./src/features/chatbot/index.ts",
         "./src/features/chatbot/embed": "./src/features/chatbot/embed/index.ts",
         "./src/features/api": "./src/features/api/index.ts",
-        "./src/features/arjs/ARJSPublisher": "./src/features/arjs/ARJSPublisher.jsx",
+        "./src/features/arjs/ARJSPublisher": "./src/features/arjs/ARJSPublisher.tsx",
         "./src/features/arjs/ARJSExporter": "./src/features/arjs/ARJSExporter.jsx",
-        "./src/features/playcanvas/PlayCanvasPublisher": "./src/features/playcanvas/PlayCanvasPublisher.jsx",
+        "./src/features/playcanvas/PlayCanvasPublisher": "./src/features/playcanvas/PlayCanvasPublisher.tsx",
         "./src/hooks": "./src/hooks/index.ts",
         "./src/types/gameMode.types": "./src/types/gameMode.types.ts",
         "./src/types/publication.types": "./src/types/publication.types.ts",
@@ -43,6 +44,11 @@
             "default": "./src/assets/*"
         }
     },
+    "sideEffects": [
+        "dist/i18n/index.mjs",
+        "dist/i18n/index.js",
+        "*.css"
+    ],
     "scripts": {
         "clean": "rimraf dist",
         "build": "tsdown",
@@ -62,8 +68,8 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@mui/material": "catalog:",
         "@tanstack/react-query": "^5.90.3",
-        "@universo/i18n": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "@universo/publish-srv": "workspace:*",
@@ -75,7 +81,8 @@
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-qr-code": "^2.0.18",
-        "typescript": "^5.4.5"
+        "react-router-dom": "^6.22.0",
+        "typescript": "catalog:"
     },
     "devDependencies": {
         "@testing-library/jest-dom": "^6.4.5",

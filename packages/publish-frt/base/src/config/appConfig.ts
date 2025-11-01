@@ -1,7 +1,7 @@
 // Universo Platformo | Centralized Application Configuration
 // Manages all environment-based settings for the publish-frt application
 
-import { DEFAULT_LIBRARY_CONFIG, LibraryConfig } from '../types/library.types'
+import { DEFAULT_LIBRARY_CONFIG, LibraryConfig } from '../types'
 
 // Universo Platformo | Extend Window interface for debug utilities
 declare global {

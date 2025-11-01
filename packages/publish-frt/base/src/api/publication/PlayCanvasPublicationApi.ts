@@ -2,8 +2,7 @@
 // PlayCanvas-specific publication functionality
 
 import { PublicationApi } from './PublicationApi'
-import type { DemoMode } from '../../types/publication.types'
-import type { GameMode, ColyseusSettings } from '../../types/gameMode.types'
+import type { DemoMode, GameMode, ColyseusSettings } from '../../types'
 
 // Local interface to avoid server dependencies
 interface ILibraryConfig {

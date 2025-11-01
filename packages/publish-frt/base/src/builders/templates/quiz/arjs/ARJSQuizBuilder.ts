@@ -95,7 +95,7 @@ export class ARJSQuizBuilder extends AbstractTemplateBuilder {
     /**
      * Check if this builder can handle the flow data
      */
-    canHandle(flowData: IFlowData): boolean {
+    canHandle(_flowData: IFlowData): boolean {
         // Quiz template can handle any flow data with questions/answers
         return true
     }

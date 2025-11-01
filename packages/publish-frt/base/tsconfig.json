@@ -1,66 +1,38 @@
 {
     "compilerOptions": {
         "target": "ES2020",
-        "module": "ESNext",
-        "lib": [
-            "ES2020",
-            "DOM"
-        ],
+        "module": "commonjs",
+        "lib": ["ES2020", "DOM"],
         "declaration": true,
         "sourceMap": true,
-        "rootDir": "./src",
         "outDir": "./dist",
         "strict": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "skipLibCheck": true,
-        "allowJs": true,
-        "jsx": "react",
-        "baseUrl": ".",
+        "allowJs": false,
+        "jsx": "react-jsx",
+        "baseUrl": "./src",
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "paths": {
-            "*": [
-                "*"
-            ],
-            "../common/*": [
-                "../common/*"
-            ],
-            "@universo/publish-srv": [
-                "../../publish-srv/base/src"
-            ],
-            "@universo/publish-srv/*": [
-                "../../publish-srv/base/src/*"
-            ],
-            "@universo-platformo/utils": [
-                "../../universo-utils/base/src"
-            ],
-            "@universo-platformo/utils/*": [
-                "../../universo-utils/base/src/*"
-            ],
-            "@universo-platformo/types": [
-                "../../universo-types/base/src"
-            ],
-            "@universo-platformo/types/*": [
-                "../../universo-types/base/src/*"
-            ],
-            "@universo/template-mmoomm": [
-                "../../template-mmoomm/base/dist/index.d.ts"
-            ],
-            "@universo/template-quiz": [
-                "../../template-quiz/base/dist/index.d.ts"
-            ]
+            "@universo/publish-srv": ["../../publish-srv/base/src"],
+            "@universo/publish-srv/*": ["../../publish-srv/base/src/*"],
+            "@universo-platformo/utils": ["../../universo-platformo-utils/base/src"],
+            "@universo-platformo/utils/*": ["../../universo-platformo-utils/base/src/*"],
+            "@universo-platformo/types": ["../../universo-platformo-types/base/src"],
+            "@universo-platformo/types/*": ["../../universo-platformo-types/base/src/*"],
+            "@universo/template-mmoomm": ["../../template-mmoomm/base/dist/index.d.ts"],
+            "@universo/template-quiz": ["../../template-quiz/base/dist/index.d.ts"]
         },
-        "moduleResolution": "bundler"
+        "moduleResolution": "node",
+        "noResolve": false
     },
-    "include": [
-        "src/**/*"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist",
-        "**/*.test.ts",
-        "**/*.test.tsx"
-    ]
+    "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
+    "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx", "../../../packages/flowise-ui/**/*"]
 }

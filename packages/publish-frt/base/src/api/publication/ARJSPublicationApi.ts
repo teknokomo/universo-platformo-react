@@ -13,8 +13,8 @@ interface ILibraryConfig {
 export interface ARJSPublicationSettings {
     isPublic: boolean
     projectTitle: string
-    markerType: string
-    markerValue: string
+    markerType?: string
+    markerValue?: string
     generationMode: string
     templateId?: string
     libraryConfig?: ILibraryConfig

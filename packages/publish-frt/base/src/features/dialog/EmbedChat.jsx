@@ -9,7 +9,7 @@ import { CopyBlock, atomOneDark } from 'react-code-blocks'
 import { CheckboxInput } from '@flowise/template-mui/ui-components/checkbox/Checkbox'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 function TabPanel(props) {
     const { children, value, index, ...other } = props
@@ -290,7 +290,7 @@ const EmbedChat = ({ canvasId }) => {
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedChatCheckboxVal, setEmbedChatCheckbox] = useState(false)
-    const { t } = useTranslation('chatbot')
+    const { t } = useTranslation('canvases')
 
     const onCheckBoxEmbedChatChanged = (newVal) => {
         setEmbedChatCheckbox(newVal)
@@ -332,8 +332,8 @@ const EmbedChat = ({ canvasId }) => {
 
     return (
         <>
-            <Typography variant="h5" gutterBottom>
-                {t('embedding.title')}
+            <Typography variant='h5' gutterBottom>
+                {t('embeddingChatbot')}
             </Typography>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                 <div style={{ flex: 80 }}>

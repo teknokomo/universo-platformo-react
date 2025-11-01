@@ -21,7 +21,7 @@ interface PublicationLinksProps {
     technology: 'arjs' | 'playcanvas'
 }
 
-export const PublicationLinks: React.FC<PublicationLinksProps> = ({ links, technology }) => {
+export const PublicationLinks: React.FC<PublicationLinksProps> = ({ links, technology: _technology }) => {
     const { t } = useTranslation('publish')
     const [copied, setCopied] = useState<string | null>(null)
 

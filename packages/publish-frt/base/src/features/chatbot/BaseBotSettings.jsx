@@ -12,19 +12,18 @@ import { useTheme } from '@mui/material/styles'
 
 // Project import
 import { StyledButton } from '@flowise/template-mui/ui-components/button/StyledButton'
-import { TooltipWithParser } from '@flowise/template-mui/ui-components/tooltip/TooltipWithParser'
 
 // Icons
 import { IconX, IconCopy, IconArrowUpRightCircle } from '@tabler/icons-react'
 
 // API
-import canvasesApi from '@/api/canvases'
+import { api } from '@universo/api-client'
 
 // utils
 import useNotifier from '@flowise/template-mui/hooks/useNotifier'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 // ==============================|| Base Bot Settings ||============================== //
 
@@ -44,7 +43,7 @@ const BaseBotSettings = ({
     const theme = useTheme()
     const canvas = useSelector((state) => state.canvas.currentCanvas)
     const botConfig = canvas[configKey] ?? defaultConfig
-    const { t } = useTranslation('chatbot')
+    const { t } = useTranslation('canvases')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
 
@@ -116,7 +115,7 @@ const BaseBotSettings = ({
 
             console.log('Сохраняем конфигурацию:', updateData)
 
-            const saveResp = await canvasesApi.updateCanvas(unikId, canvasId, updateData)
+            const saveResp = await api.canvases.updateCanvas(unikId, canvasId, updateData)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t(`canvases.${updateTranslationKey}.configSaved`),
@@ -204,7 +203,7 @@ const BaseBotSettings = ({
 
             console.log('Данные для обновления:', updateData)
 
-            const saveResp = await canvasesApi.updateCanvas(unikId, canvasId, updateData)
+            const saveResp = await api.canvases.updateCanvas(unikId, canvasId, updateData)
             if (saveResp.data) {
                 enqueueSnackbar({
                     message: t(`canvases.${updateTranslationKey}.configSaved`),

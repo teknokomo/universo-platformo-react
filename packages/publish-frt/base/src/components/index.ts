@@ -6,6 +6,9 @@ export { default as PublicationLink } from './PublicationLink'
 export { default as TemplateSelect } from './TemplateSelect'
 export { default as GameModeSelector } from './GameModeSelector'
 export { default as ColyseusSettings } from './ColyseusSettings'
+export { default as QRCodeSection } from './QRCodeSection'
 
-// Re-export types (only from TypeScript components)
-export type { GenerationMode, Technology } from './GenerationModeSelect'
+// Shared reusable components
+export * from './shared'
+
+// Note: Types are exported from '../types' to avoid conflicts

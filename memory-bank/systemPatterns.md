@@ -2024,4 +2024,139 @@ if (getRoleLevel(managerRole) <= getRoleLevel(targetRole)) {
 
 ---
 
+## JSX→TSX Migration Pattern (2025-10-31)
+
+**Pattern**: Migrate legacy JSX components with PropTypes to modern TypeScript with generics for full type safety and IDE support.
+
+**Before** (Legacy Pattern - Deprecated):
+```javascript
+// ItemCard.jsx
+import PropTypes from 'prop-types'
+
+function ItemCard({ title, data, onClick }) {
+    // ... implementation
+}
+
+ItemCard.propTypes = {
+    title: PropTypes.node,
+    data: PropTypes.object,
+    onClick: PropTypes.func
+}
+
+export default ItemCard
+```
+
+**After** (Modern Pattern - Recommended):
+```typescript
+// ItemCard.tsx
+import React from 'react'
+
+// Generic data interface with common fields
+export interface ItemCardData {
+    id: string
+    name?: string
+    [key: string]: any
+}
+
+export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
+    title?: React.ReactNode
+    data: T
+    onClick?: (data: T) => void
+    sx?: SxProps<Theme>
+}
+
+export function ItemCard<T extends ItemCardData = ItemCardData>({
+    title,
+    data,
+    onClick,
+    sx
+}: ItemCardProps<T>): React.ReactElement {
+    const handleClick = () => {
+        if (onClick && data) {
+            onClick(data)
+        }
+    }
+
+    return (
+        <Card onClick={handleClick} sx={sx}>
+            {title && <CardHeader title={title} />}
+            <CardContent>{/* ... */}</CardContent>
+        </Card>
+    )
+}
+```
+
+**Key Improvements**:
+
+1. **Generic Types** - Full type safety for data parameter:
+   ```typescript
+   // Usage with custom data type
+   interface MetaverseData extends ItemCardData {
+       sectionsCount: number
+       entitiesCount: number
+   }
+   
+   <ItemCard<MetaverseData>
+       data={metaverse}
+       onClick={(data) => {
+           // `data` is typed as MetaverseData
+           console.log(data.sectionsCount)
+       }}
+   />
+   ```
+
+2. **No Runtime Overhead** - PropTypes checked at runtime, TypeScript types stripped after compilation:
+   ```typescript
+   // ✅ NEW: Compile-time type checking (zero runtime cost)
+   <ItemCard data={{ id: '1', name: 'Test' }} />
+   
+   // ❌ OLD: PropTypes validation runs on every render
+   ItemCard.propTypes = { /* ... */ }
+   ```
+
+3. **MUI Theme Integration** - Proper `SxProps` typing for theme-aware styles:
+   ```typescript
+   export interface ItemCardProps<T> {
+       sx?: SxProps<Theme>  // Full autocomplete for theme properties
+   }
+   ```
+
+4. **forwardRef Pattern** - For components needing ref forwarding (e.g., MainCard):
+   ```typescript
+   export const MainCard = React.forwardRef<HTMLDivElement, MainCardProps>(
+       function MainCard({ children, title, ...others }, ref) {
+           return <Card ref={ref} {...others}>{/* ... */}</Card>
+       }
+   )
+   
+   MainCard.displayName = 'MainCard'  // DevTools friendly
+   ```
+
+**Migration Checklist**:
+
+- [x] Rename `.jsx` → `.tsx`
+- [x] Replace `PropTypes` with TypeScript interfaces
+- [x] Add generic type parameters where data is passed
+- [x] Update MUI imports to use `type` keyword: `import type { SxProps, Theme } from '@mui/material'`
+- [x] Use `React.ReactNode` instead of `PropTypes.node`
+- [x] Use `React.ReactElement` for component return types
+- [x] Add `forwardRef` if component accepts `ref` prop
+- [x] Export both component and props interface
+- [x] Delete `.d.ts` type declaration files (no longer needed)
+
+**Benefits**:
+- ✅ Full IDE autocomplete for props
+- ✅ Compile-time type checking (no runtime errors)
+- ✅ Generic types for reusability
+- ✅ No runtime PropTypes overhead
+- ✅ Better refactoring support (find all references, rename symbol)
+- ✅ Tree-shaking friendly (unused props removed)
+
+**Migrated Components** (3):
+- `ItemCard.tsx` - Generic card with icon, title, description, footer
+- `MainCard.tsx` - Main content wrapper with header, divider, content
+- `FlowListTable.tsx` - Generic table with sorting, columns, actions (402 LOC)
+
+---
+
 _For detailed application structure and development guidelines, see [packages/README.md](../packages/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._

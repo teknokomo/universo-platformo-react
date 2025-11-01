@@ -15,8 +15,8 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; spaceI
         const result: { unikId?: string; canvasId?: string; spaceId?: string } = {}
 
         // Extract the unikId - support both new singular '/unik/' and legacy '/uniks/' patterns
-        const unikSingularMatch = pathname.match(/\/unik\/([^\/]+)/)
-        const unikLegacyMatch = pathname.match(/\/uniks\/([^\/]+)/)
+        const unikSingularMatch = pathname.match(/\/unik\/([^/]+)/)
+        const unikLegacyMatch = pathname.match(/\/uniks\/([^/]+)/)
         if (unikSingularMatch && unikSingularMatch[1]) {
             result.unikId = unikSingularMatch[1]
         } else if (unikLegacyMatch && unikLegacyMatch[1]) {
@@ -24,13 +24,13 @@ export const getCurrentUrlIds = (): { unikId?: string; canvasId?: string; spaceI
         }
 
         // Extract the canvasId (new structure)
-        const canvasMatch = pathname.match(/\/canvas\/([^\/]+)/)
+        const canvasMatch = pathname.match(/\/canvas\/([^/]+)/)
         if (canvasMatch && canvasMatch[1]) {
             result.canvasId = canvasMatch[1]
         }
 
         // Extract the spaceId (new structure)
-        const spaceMatch = pathname.match(/\/space\/([^\/]+)/)
+        const spaceMatch = pathname.match(/\/space\/([^/]+)/)
         if (spaceMatch && spaceMatch[1]) {
             result.spaceId = spaceMatch[1]
         }

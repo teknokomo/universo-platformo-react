@@ -1,30 +1,6 @@
 ---
 description: 'Safely pull updates (fork/upstream aware), stash-first, resolve conflicts via memory-bank context, no auto-stage, merge-only by default'
-tools:
-    [
-        'edit',
-        'runNotebooks',
-        'search',
-        'runCommands',
-        'runTasks',
-        'usages',
-        'vscodeAPI',
-        'think',
-        'problems',
-        'changes',
-        'testFailure',
-        'openSimpleBrowser',
-        'fetch',
-        'githubRepo',
-        'todos',
-        'rube',
-        'dbclient-getDatabases',
-        'dbclient-getTables',
-        'dbclient-executeQuery',
-        'copilotCodingAgent',
-        'activePullRequest',
-        'openPullRequest'
-    ]
+tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'rube/*', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'extensions', 'todos']
 ---
 
 This mode automates pulling changes from GitHub into the current local repository while preserving unfinished work and resolving conflicts safely—without committing or pushing anything. Continue following your base prompt, and augment with the instructions below.

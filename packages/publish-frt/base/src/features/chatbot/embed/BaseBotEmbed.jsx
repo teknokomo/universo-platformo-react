@@ -54,16 +54,11 @@ const customStringify = (obj) => {
         .join('\n')
 }
 
-const BaseBotEmbed = ({
-    canvasId,
-    title,
-    codeGenerators,
-    defaultThemeConfig
-}) => {
+const BaseBotEmbed = ({ canvasId, title, codeGenerators, defaultThemeConfig }) => {
     const codes = ['Popup Html', 'Fullpage Html', 'Popup React', 'Fullpage React']
     const [value, setValue] = useState(0)
     const [embedCheckboxVal, setEmbedCheckbox] = useState(false)
-    const { t } = useTranslation('chatbot')
+    const { t } = useTranslation('canvases')
 
     const onCheckBoxEmbedChanged = (newVal) => {
         setEmbedCheckbox(newVal)
@@ -75,7 +70,7 @@ const BaseBotEmbed = ({
 
     const getCode = (codeLang) => {
         if (!codeGenerators) return ''
-        
+
         switch (codeLang) {
             case 'Popup Html':
                 return codeGenerators.popupHtml(canvasId)
@@ -92,7 +87,7 @@ const BaseBotEmbed = ({
 
     const getCodeCustomization = (codeLang) => {
         if (!codeGenerators) return ''
-        
+
         switch (codeLang) {
             case 'Popup Html':
                 return codeGenerators.popupHtmlCustomization(canvasId)
@@ -117,7 +112,7 @@ const BaseBotEmbed = ({
                 </Tabs>
             </Box>
             <Box sx={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
-                <Typography sx={{ fontSize: '0.875rem' }}>{t('embedBot.customization')}</Typography>
+                <Typography sx={{ fontSize: '0.875rem' }}>{t('canvases.embedBot.customization')}</Typography>
                 <CheckboxInput
                     label={''}
                     defaultValue={embedCheckboxVal}
@@ -157,4 +152,4 @@ BaseBotEmbed.propTypes = {
     defaultThemeConfig: PropTypes.object
 }
 
-export default BaseBotEmbed 
+export default BaseBotEmbed

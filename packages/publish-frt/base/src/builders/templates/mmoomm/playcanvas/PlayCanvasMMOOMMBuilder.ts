@@ -63,25 +63,25 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
 
     /**
      * Get required libraries for MMOOMM template
-     * @param options Build options (unused for PlayCanvas, always returns same libraries)
+     * @param _options Build options (unused for PlayCanvas, always returns same libraries)
      */
-    getRequiredLibraries(options?: BuildOptions): string[] {
+    getRequiredLibraries(_options?: BuildOptions): string[] {
         return this.templateBuilder.getRequiredLibraries()
     }
 
     /**
      * Convert publish-frt BuildOptions to template package format
      */
-    private convertBuildOptions(options?: BuildOptions): any {
-        if (!options) {
+    private convertBuildOptions(_options?: BuildOptions): any {
+        if (!_options) {
             return {}
         }
 
         // Map publish-frt options to template package options
         return {
-            gameMode: options.gameMode || 'singleplayer',
-            multiplayer: options.multiplayer,
-            ...options
+            gameMode: _options.gameMode || 'singleplayer',
+            multiplayer: _options.multiplayer,
+            ..._options
         }
     }
 
@@ -109,7 +109,7 @@ export class PlayCanvasMMOOMMBuilder extends AbstractTemplateBuilder {
     /**
      * Wrap script with basic HTML structure
      */
-    private wrapWithHTML(script: string, options?: BuildOptions): string {
+    private wrapWithHTML(script: string, _options?: BuildOptions): string {
         return `<!DOCTYPE html>
 <html lang="en">
 <head>

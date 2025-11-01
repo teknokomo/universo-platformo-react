@@ -1,5 +1,5 @@
-// Universo Platformo | Base builder for all platforms
-// Abstract base class that all platform builders must extend
+// Universo Platformo | Base builder abstract class
+// Provides common functionality for all builders
 
 import { IUPDLSpace } from '@universo/types'
 import { BuildResult, BuildOptions, BuilderConfig, ValidationResult } from './types'

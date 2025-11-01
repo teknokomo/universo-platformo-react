@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders, screen, waitFor } from '@testing/frontend'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-import ARJSPublisher from '../ARJSPublisher.jsx'
+import ARJSPublisher from '../ARJSPublisher.tsx'
 
 const {
     mockGetCurrentUrlIds,
@@ -16,24 +16,22 @@ const {
     mockGetGlobalSettings,
     mockCreateGroupLink,
     mockPublishClient
-} = vi.hoisted(
-    () => ({
-        mockGetCurrentUrlIds: vi.fn(() => ({ flowId: 'flow-123', unikId: 'unik-42' })),
-        mockLoadARJSSettings: vi.fn(async () => ({ projectTitle: 'Demo Project', isPublic: false })),
-        mockSaveARJSSettings: vi.fn(async () => undefined),
-        mockPublish: vi.fn(async () => ({ publicationId: 'pub-123' })),
-        mockGetGlobalSettings: vi.fn(async () => ({ data: { success: true, data: {} } })),
-        mockCreateGroupLink: vi.fn(async () => ({ id: 'link-123', baseSlug: 'abc123def456' })),
-        mockPublishClient: {
-            get: vi.fn(async () => ({ data: {} })),
-            post: vi.fn(),
-            put: vi.fn(),
-            delete: vi.fn(),
-            defaults: { headers: { common: {} } },
-            interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }
-        }
-    })
-)
+} = vi.hoisted(() => ({
+    mockGetCurrentUrlIds: vi.fn(() => ({ flowId: 'flow-123', unikId: 'unik-42' })),
+    mockLoadARJSSettings: vi.fn(async () => ({ projectTitle: 'Demo Project', isPublic: false })),
+    mockSaveARJSSettings: vi.fn(async () => undefined),
+    mockPublish: vi.fn(async () => ({ publicationId: 'pub-123' })),
+    mockGetGlobalSettings: vi.fn(async () => ({ data: { success: true, data: {} } })),
+    mockCreateGroupLink: vi.fn(async () => ({ id: 'link-123', baseSlug: 'abc123def456' })),
+    mockPublishClient: {
+        get: vi.fn(async () => ({ data: {} })),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+        defaults: { headers: { common: {} } },
+        interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }
+    }
+}))
 
 vi.mock('../../../api', async (importOriginal) => {
     const actual = await importOriginal()
