@@ -47,6 +47,8 @@
         "**/*.test.ts",
         "**/*.test.tsx",
         "**/*.spec.ts",
-        "**/*.spec.tsx"
+        "**/*.spec.tsx",
+        "**/setupTests.ts",
+        "**/__tests__/**"
     ]
 }

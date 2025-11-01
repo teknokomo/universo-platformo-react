@@ -33,7 +33,9 @@
         "build": "tsdown && tsc --emitDeclarationOnly",
         "dev": "tsdown --watch",
         "lint": "eslint --ext .ts,.tsx,.jsx src/",
-        "test": "jest"
+        "test": "NODE_OPTIONS='--require ./jest-canvas-mock.js' jest",
+        "test:coverage": "NODE_OPTIONS='--require ./jest-canvas-mock.js' jest --coverage",
+        "test:watch": "NODE_OPTIONS='--require ./jest-canvas-mock.js' jest --watch"
     },
     "dependencies": {
         "@flowise/template-mui": "workspace:*",

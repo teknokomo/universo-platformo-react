@@ -17,7 +17,7 @@ module.exports = {
   moduleNameMapper: {
     '^@testing/backend/(.*)$': path.join(__dirname, '$1'),
     '^@/(.*)$': '<rootDir>/src/$1'
-  },
+  ],
   collectCoverageFrom: [
     '<rootDir>/src/**/*.{ts,tsx}',
     '!<rootDir>/src/**/*.d.ts',
@@ -26,10 +26,10 @@ module.exports = {
   ],
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text', 'lcov', 'cobertura'],
-  globals: {
-    'ts-jest': {
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
       tsconfig: path.join(repoRoot, 'tsconfig.json'),
       isolatedModules: true
-    }
+    }]
   }
 }
