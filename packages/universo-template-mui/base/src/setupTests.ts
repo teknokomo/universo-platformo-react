@@ -10,7 +10,7 @@ jest.mock('@universo/i18n', () => ({
 }))
 
 jest.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string) => `translated.${key}`
+    useTranslation: (namespace?: string) => ({
+        t: (key: string) => `${namespace ? namespace + '.' : ''}${key}`
     })
 }))

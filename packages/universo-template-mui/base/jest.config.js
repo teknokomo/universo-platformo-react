@@ -43,8 +43,11 @@ module.exports = {
         }
     },
     moduleNameMapper: {
+        // Handle JSON imports
         '\\.(json)$': 'identity-obj-proxy',
         '^@emotion/react$': '<rootDir>/node_modules/@emotion/react',
-        '^@emotion/styled$': '<rootDir>/node_modules/@emotion/styled'
+        '^@emotion/styled$': '<rootDir>/node_modules/@emotion/styled',
+        // CSS modules
+        '\\.(css|less|sass|scss)$': 'identity-obj-proxy'
     }
 };
