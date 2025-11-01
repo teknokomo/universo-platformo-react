@@ -113,6 +113,8 @@ export function useAutoSave<T>({
         // until we know whether new changes arrived during the save.
         hasUnsavedChangesRef.current = false
 
+        let saveFailed = false
+
         try {
             await latestOnSaveRef.current(latestDataRef.current)
             const hasQueuedChanges = pendingSaveRef.current || hasUnsavedChangesRef.current
@@ -133,6 +135,7 @@ export function useAutoSave<T>({
             }, 2000)
         } catch (error) {
             console.error('useAutoSave: save failed', error)
+            saveFailed = true
             setStatus('error')
             setHasUnsavedChanges(true)
         } finally {
@@ -140,7 +143,7 @@ export function useAutoSave<T>({
 
             if (!enabled) {
                 pendingSaveRef.current = false
-            } else if (pendingSaveRef.current || hasUnsavedChangesRef.current) {
+            } else if (!saveFailed && (pendingSaveRef.current || hasUnsavedChangesRef.current)) {
                 pendingSaveRef.current = false
                 triggerSave()
             }

@@ -202,7 +202,8 @@ export const PublishVersionSection: React.FC<PublishVersionSectionProps> = ({
         )
     }
 
-    const showVersionGroupNotice = !loading && !inferredVersionGroupId
+    const showVersionGroupNotice =
+        !loading && (inferredVersionGroupId == null || inferredVersionGroupId === '')
 
     return (
         <>

@@ -5,6 +5,7 @@ import React, { useReducer, useEffect, useRef, useCallback, useMemo, useState } 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Box, Typography, TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Snackbar } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material/Select'
 
 // API imports
 import {
@@ -23,7 +24,7 @@ import { normalizeTimerConfig, sanitizeTimerInput } from '../../utils/timerConfi
 import { isValidBase58 } from '../../utils/base58Validator'
 
 // Type imports
-import type { LibrarySource, MarkerType } from '../../types'
+import type { ARDisplayType, CameraUsage, LibrarySource, MarkerType, WallpaperType } from '../../types'
 
 // Component imports
 import GenerationModeSelect from '../../components/GenerationModeSelect'
@@ -697,9 +698,10 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                         <InputLabel>{t('arjs.cameraUsage.label')}</InputLabel>
                         <Select
                             value={state.cameraUsage}
-                            onChange={(e) => {
-                                dispatch({ type: 'SET_CAMERA_USAGE', payload: e.target.value as any })
-                                if (e.target.value === 'none' && state.arDisplayType === 'marker') {
+                            onChange={(event: SelectChangeEvent<CameraUsage>) => {
+                                const value = event.target.value as CameraUsage
+                                dispatch({ type: 'SET_CAMERA_USAGE', payload: value })
+                                if (value === 'none' && state.arDisplayType === 'marker') {
                                     dispatch({ type: 'SET_AR_DISPLAY_TYPE', payload: 'wallpaper' })
                                 }
                             }}
@@ -717,7 +719,9 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                             <InputLabel>{t('arjs.displayType.label')}</InputLabel>
                             <Select
                                 value={state.arDisplayType}
-                                onChange={(e) => dispatch({ type: 'SET_AR_DISPLAY_TYPE', payload: e.target.value as any })}
+                                onChange={(event: SelectChangeEvent<ARDisplayType>) => {
+                                    dispatch({ type: 'SET_AR_DISPLAY_TYPE', payload: event.target.value as ARDisplayType })
+                                }}
                                 label={t('arjs.displayType.label')}
                                 disabled={!!state.publishedUrl}
                             >
@@ -746,7 +750,9 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                             <InputLabel>{t('arjs.wallpaper.label')}</InputLabel>
                             <Select
                                 value={state.wallpaperType}
-                                onChange={(e) => dispatch({ type: 'SET_WALLPAPER_TYPE', payload: e.target.value as any })}
+                                onChange={(event: SelectChangeEvent<WallpaperType>) => {
+                                    dispatch({ type: 'SET_WALLPAPER_TYPE', payload: event.target.value as WallpaperType })
+                                }}
                                 label={t('arjs.wallpaper.label')}
                                 disabled={!!state.publishedUrl}
                             >

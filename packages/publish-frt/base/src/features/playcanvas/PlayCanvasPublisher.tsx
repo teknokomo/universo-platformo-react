@@ -238,8 +238,7 @@ const PlayCanvasPublisherComponent: React.FC<PlayCanvasPublisherProps> = ({ flow
         queryClient.invalidateQueries({ queryKey: publishQueryKeys.linksByTechnology('playcanvas'), exact: false })
     }, [queryClient])
 
-    const handlePublicToggle = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const nextValue = event.target.checked
+    const handlePublicToggle = async (nextValue: boolean) => {
         const previousValue = isPublic
         const previousRecords = publishLinkRecords
 
@@ -432,7 +431,7 @@ const PlayCanvasPublisherComponent: React.FC<PlayCanvasPublisherProps> = ({ flow
                 <ColyseusSettings settings={colyseusSettings} onChange={setColyseusSettings} visible={gameMode === 'multiplayer'} />
 
                 {/* Make Public Toggle */}
-                <PublicationToggle checked={isPublic} onChange={(checked) => handlePublicToggle({ target: { checked } } as any)} />
+                <PublicationToggle checked={isPublic} onChange={handlePublicToggle} />
 
                 {/* Publication Links - New Component */}
                 {isPublic && publishLinkRecords.length > 0 && <PublicationLinks links={publishLinkRecords} technology='playcanvas' />}
