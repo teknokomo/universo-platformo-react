@@ -17,7 +17,7 @@ module.exports = {
   moduleNameMapper: {
     '^@testing/backend/(.*)$': path.join(__dirname, '$1'),
     '^@/(.*)$': '<rootDir>/src/$1'
-  ],
+  },
   collectCoverageFrom: [
     '<rootDir>/src/**/*.{ts,tsx}',
     '!<rootDir>/src/**/*.d.ts',
