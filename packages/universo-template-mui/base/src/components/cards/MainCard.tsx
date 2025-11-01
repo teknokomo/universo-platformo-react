@@ -47,11 +47,10 @@ export const MainCard = forwardRef<HTMLDivElement, MainCardProps>(function MainC
     },
     ref
 ) {
-    const otherProps = { ...others, border: border === false ? undefined : border }
     return (
         <Card
             ref={ref}
-            {...otherProps}
+            {...others}
             sx={{
                 background: 'transparent',
                 boxShadow: shadow === false ? 'none' : undefined,

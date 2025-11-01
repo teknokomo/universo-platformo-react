@@ -1922,4 +1922,106 @@ const borderColor = theme.vars?.palette.outline ?? alpha(theme.palette.text.prim
 
 ---
 
+## Universal Role System Pattern (2025-01-19)
+
+**Pattern**: Centralized role types in `@universo/types` with reusable RoleChip component for consistent UI representation.
+
+**Structure**:
+```
+packages/
+├── universo-types/base/src/common/roles.ts     # Single source of truth
+├── universo-template-mui/base/src/
+│   └── components/chips/RoleChip.tsx          # Reusable UI component
+└── metaverses-frt, metaverses-srv, flowise-server
+    └── Import role types from @universo/types
+```
+
+**Core Types** (`@universo/types`):
+```typescript
+// Base role hierarchy (used by all entity types)
+export const BASE_ROLES = ['owner', 'admin', 'editor', 'member'] as const
+export type BaseRole = typeof BASE_ROLES[number]
+
+export const ROLE_HIERARCHY: Record<BaseRole, number> = {
+    owner: 4, admin: 3, editor: 2, member: 1
+}
+
+// Entity-specific role types
+export type MetaverseRole = BaseRole
+export type UnikRole = BaseRole
+export type SectionRole = Exclude<BaseRole, 'owner'>
+export type EntityRole = 'viewer' | 'editor'
+
+// Utilities
+export function getRoleLevel(role: BaseRole): number
+export function hasRequiredRole(actual: BaseRole, allowed: BaseRole[]): boolean
+export function canManageRole(managerRole: BaseRole, targetRole: BaseRole): boolean
+```
+
+**RoleChip Component** (`@universo/template-mui`):
+```typescript
+import { RoleChip } from '@universo/template-mui'
+
+<RoleChip role={member.role} size="small" />
+```
+
+**Color Mapping**:
+- `owner` → `error` (red) - Highest permission level
+- `admin` → `warning` (orange) - Administrative access
+- `editor` → `info` (blue) - Content editing rights
+- `member` → `default` (grey) - Basic access
+
+**i18n Integration**: Uses `roles` namespace from `@universo/i18n`:
+```json
+// en/core/roles.json
+{
+  "owner": "Owner",
+  "admin": "Administrator",
+  "editor": "Editor",
+  "member": "Member"
+}
+```
+
+**Usage Examples**:
+
+1. **Frontend Display**:
+```typescript
+import { useTranslation } from 'react-i18next'
+import { RoleChip } from '@universo/template-mui'
+import type { MetaverseRole } from '@universo/types'
+
+<TableCell>
+  <RoleChip role={row.role} />
+</TableCell>
+```
+
+2. **Backend Permission Checks**:
+```typescript
+import { hasRequiredRole, getRoleLevel } from '@universo/types'
+
+// Check if user has required role
+if (!hasRequiredRole(userRole, ['admin', 'owner'])) {
+  throw new ForbiddenError()
+}
+
+// Compare role levels
+if (getRoleLevel(managerRole) <= getRoleLevel(targetRole)) {
+  throw new Error('Cannot manage role at same or higher level')
+}
+```
+
+**Benefits**:
+- ✅ Zero role type duplication across packages
+- ✅ Consistent color mapping throughout UI
+- ✅ Type-safe role comparisons and checks
+- ✅ i18n support out of the box
+- ✅ Single source of truth for role hierarchy
+
+**Affected Packages** (3):
+- `@universo/types` - Core role definitions
+- `@universo/template-mui` - RoleChip UI component
+- `@universo/metaverses-frt`, `@universo/metaverses-srv`, `flowise-server` - Role type imports
+
+---
+
 _For detailed application structure and development guidelines, see [packages/README.md](../packages/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._

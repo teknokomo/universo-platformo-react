@@ -26,10 +26,10 @@ module.exports = {
   ],
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text', 'lcov', 'cobertura'],
-  globals: {
-    'ts-jest': {
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
       tsconfig: path.join(repoRoot, 'tsconfig.json'),
       isolatedModules: true
-    }
+    }]
   }
 }

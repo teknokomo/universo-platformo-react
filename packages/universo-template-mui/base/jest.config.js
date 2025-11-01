@@ -1,25 +1,29 @@
 module.exports = {
     preset: 'ts-jest',
-    testEnvironment: '@happy-dom/jest-environment',
+    testEnvironment: 'jsdom',
     roots: ['<rootDir>/src'],
     testMatch: [
         '**/__tests__/**/*.+(ts|tsx|js)',
         '**/*.(test|spec).+(ts|tsx|js)'
     ],
     transform: {
-        '^.+\\.(ts|tsx)$': 'ts-jest'
+        '^.+\\.(ts|tsx)$': ['ts-jest', {
+            tsconfig: {
+                jsx: 'react-jsx'
+            }
+        }]
     },
     collectCoverageFrom: [
         'src/**/*.{ts,tsx}',
         '!src/**/*.d.ts',
         '!src/__tests__/**/*',
-        '!src/templates/**/*' // Exclude copied MUI templates from coverage
+        '!src/templates/**/*'
     ],
     setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
     testPathIgnorePatterns: [
         '/node_modules/',
         '/dist/',
-        '/templates/' // Ignore MUI template tests
+        '/templates/'
     ],
     coverageDirectory: 'coverage',
     coverageReporters: [
@@ -27,17 +31,20 @@ module.exports = {
         'lcov',
         'html'
     ],
-    globals: {
-        'ts-jest': {
-            tsconfig: {
-                jsx: 'react-jsx'
-            }
+    testEnvironmentOptions: {
+        customExportConditions: [''],
+    },
+    coverageThreshold: {
+        global: {
+            branches: 50,
+            functions: 50,
+            lines: 50,
+            statements: 50
         }
     },
     moduleNameMapper: {
         // Handle JSON imports
         '\\.(json)$': 'identity-obj-proxy',
-        // Handle MUI emotion styles
         '^@emotion/react$': '<rootDir>/node_modules/@emotion/react',
         '^@emotion/styled$': '<rootDir>/node_modules/@emotion/styled',
         // CSS modules

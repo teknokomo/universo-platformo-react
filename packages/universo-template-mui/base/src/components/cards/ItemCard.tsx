@@ -173,9 +173,9 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                                         flexWrap: 'wrap'
                                     }}
                                 >
-                                    {imageList.slice(0, imageList.length > 3 ? 3 : imageList.length).map((img) => (
+                                    {imageList.slice(0, imageList.length > 3 ? 3 : imageList.length).map((img, index) => (
                                         <Box
-                                            key={img}
+                                            key={`${img}-${index}`}
                                             sx={{
                                                 width: 30,
                                                 height: 30,

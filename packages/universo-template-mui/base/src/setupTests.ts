@@ -1,8 +1,5 @@
 import '@testing-library/jest-dom'
 
-import '@testing-library/jest-dom'
-import 'jest-canvas-mock'
-
 // Mock i18n to avoid runtime errors
 jest.mock('@universo/i18n', () => ({
     __esModule: true,
