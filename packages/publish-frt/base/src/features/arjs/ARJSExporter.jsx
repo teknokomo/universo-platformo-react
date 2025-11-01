@@ -1,11 +1,11 @@
 // Universo Platformo | AR.js Exporter (Demo)
 // Demo component for AR.js export (only for UI display)
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 // MUI components
-import { Button, Box, Typography, Card, CardContent, Alert, Paper, Snackbar, Link } from '@mui/material'
+import { Button, Box, Typography, Card, CardContent, Alert, Paper, Snackbar } from '@mui/material'
 
 // Icons
 import { IconCopy, IconDownload } from '@tabler/icons-react'

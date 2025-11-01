@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -27,9 +27,15 @@ import GameModeSelector from '../../components/GameModeSelector'
 import ColyseusSettings from '../../components/ColyseusSettings'
 import { PublicationLinks } from '../../components/PublicationLinks'
 import { PublishVersionSection } from '../../components/PublishVersionSection'
-import { PlayCanvasPublicationApi, PublishLinksApi, PublicationApi, getCurrentUrlIds, getPublishApiClient, publishQueryKeys } from '../../api'
-import { DEFAULT_DEMO_MODE } from '../../types/publication.types'
-import { isValidBase58 } from '../../utils/base58Validator'
+import {
+    PlayCanvasPublicationApi,
+    PublishLinksApi,
+    PublicationApi,
+    getCurrentUrlIds,
+    getPublishApiClient,
+    publishQueryKeys
+} from '../../api'
+import { DEFAULT_DEMO_MODE } from '../../types'
 import { FieldNormalizer } from '../../utils/fieldNormalizer'
 import { useAutoSave } from '../../hooks'
 
@@ -303,7 +309,7 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
 
             try {
                 const links = await PublishLinksApi.listLinks({ technology: 'playcanvas' })
-                const relevantLinks = links.filter(link => {
+                const relevantLinks = links.filter((link) => {
                     if (link.targetType !== 'group') {
                         return false
                     }
@@ -324,7 +330,7 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
                     return
                 }
 
-                await Promise.all(relevantLinks.map(link => PublishLinksApi.deleteLink(link.id)))
+                await Promise.all(relevantLinks.map((link) => PublishLinksApi.deleteLink(link.id)))
                 setSnackbar({ open: true, message: t('notifications.publicationRemoved') })
             } catch (error) {
                 console.error('[PlayCanvasPublisher] Error removing publication:', error)
@@ -454,10 +460,10 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
                             autoSaveStatus === 'saving'
                                 ? t('common.saving')
                                 : autoSaveStatus === 'saved'
-                                  ? t('common.saved')
-                                  : autoSaveStatus === 'error'
-                                    ? t('common.saveError')
-                                    : ''
+                                ? t('common.saved')
+                                : autoSaveStatus === 'error'
+                                ? t('common.saveError')
+                                : ''
                         }
                     />
 
@@ -541,7 +547,7 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
                             }}
                         >
                             <Typography variant='body2' color='info.dark'>
-                                ℹ️ Version publishing is only available for active canvas versions. This appears to be an inactive version. 
+                                ℹ️ Version publishing is only available for active canvas versions. This appears to be an inactive version.
                                 Please switch to the active version to enable version publishing features.
                             </Typography>
                         </Box>

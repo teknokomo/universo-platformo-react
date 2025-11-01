@@ -1,16 +1,15 @@
 // Universo Platformo | API Links component
-import * as React from 'react'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
 import { Box, Link, Typography, Paper } from '@mui/material'
 import LaunchIcon from '@mui/icons-material/Launch'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 // Universo Platformo | Component to display API links
 const LinksCode = ({ canvasId }) => {
-    const { t } = useTranslation('chatbot')
+    const { t } = useTranslation('canvases')
 
     // Universo Platformo | Common styles for links
     const linkStyle = {

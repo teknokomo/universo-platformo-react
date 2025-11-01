@@ -12,7 +12,7 @@ import { Box, Typography, Button, FormControl, FormControlLabel, Radio, RadioGro
 import { IconX } from '@tabler/icons-react'
 
 // API
-import canvasesApi from '@/api/canvases'
+import { api } from '@universo/api-client'
 
 // utils
 import useNotifier from '@flowise/template-mui/hooks/useNotifier'
@@ -23,7 +23,7 @@ import { TooltipWithParser } from '@flowise/template-mui/ui-components/tooltip/T
 const Configuration = ({ canvasId, unikId: propUnikId, displayMode: propDisplayMode, setDisplayMode: propSetDisplayMode }) => {
     const dispatch = useDispatch()
     const canvas = useSelector((state) => state.canvas.currentCanvas)
-    const { t: tFlow } = useTranslation('chatbot')
+    const { t: tFlow } = useTranslation('canvases')
     const { t: tPub } = useTranslation('publish')
     const { unikId: paramsUnikId } = useParams()
     const unikId = propUnikId || paramsUnikId
@@ -69,7 +69,7 @@ const Configuration = ({ canvasId, unikId: propUnikId, displayMode: propDisplayM
                 setIsLoading(true)
                 setError(null)
 
-                const res = await canvasesApi.getCanvas(unikId, canvasId, { spaceId: resolvedSpaceId })
+                const res = await api.canvases.getCanvas(unikId, canvasId, { spaceId: resolvedSpaceId })
 
                 if (res.data) {
                     dispatch({ type: SET_CANVAS, canvas: res.data })
@@ -234,8 +234,12 @@ const Configuration = ({ canvasId, unikId: propUnikId, displayMode: propDisplayM
                             disabled
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5' color='text.disabled'>{tPub('technologies.babylonjs')}</Typography>
-                                    <Typography variant='caption' color='text.disabled'>({tPub('general.comingSoon')})</Typography>
+                                    <Typography variant='h5' color='text.disabled'>
+                                        {tPub('technologies.babylonjs')}
+                                    </Typography>
+                                    <Typography variant='caption' color='text.disabled'>
+                                        ({tPub('general.comingSoon')})
+                                    </Typography>
                                     <TooltipWithParser title={tPub('technologies.babylonjsDescription')}>
                                         <Box
                                             sx={{
@@ -263,8 +267,12 @@ const Configuration = ({ canvasId, unikId: propUnikId, displayMode: propDisplayM
                             disabled
                             label={
                                 <Stack direction='row' spacing={1} alignItems='center'>
-                                    <Typography variant='h5' color='text.disabled'>{tPub('technologies.aframevr')}</Typography>
-                                    <Typography variant='caption' color='text.disabled'>({tPub('general.comingSoon')})</Typography>
+                                    <Typography variant='h5' color='text.disabled'>
+                                        {tPub('technologies.aframevr')}
+                                    </Typography>
+                                    <Typography variant='caption' color='text.disabled'>
+                                        ({tPub('general.comingSoon')})
+                                    </Typography>
                                     <TooltipWithParser title={tPub('technologies.aframevrDescription')}>
                                         <Box
                                             sx={{

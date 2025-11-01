@@ -1,22 +1,26 @@
 // Universo Platformo | Colyseus Settings Component
-// JSX component for Flowise compatibility - configures Colyseus server settings
+// TypeScript component for configuring Colyseus server settings
 
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-    Box,
-    TextField,
-    Typography,
-    Collapse,
-    FormHelperText
-} from '@mui/material'
+import { Box, TextField, Typography, Collapse, FormHelperText } from '@mui/material'
+import type { ColyseusSettingsProps } from '../types'
+
+/**
+ * Validation error state
+ */
+interface ValidationErrors {
+    serverHost?: string
+    serverPort?: string
+    roomName?: string
+}
 
 /**
  * Validates server host format
- * @param {string} host - Server host to validate
- * @returns {boolean} - True if valid
+ * @param host - Server host to validate
+ * @returns True if valid
  */
-const isValidHost = (host) => {
+const isValidHost = (host: string): boolean => {
     if (!host || host.trim() === '') return false
 
     // Allow localhost
@@ -33,19 +37,19 @@ const isValidHost = (host) => {
 
 /**
  * Validates port number
- * @param {number} port - Port number to validate
- * @returns {boolean} - True if valid
+ * @param port - Port number to validate
+ * @returns True if valid
  */
-const isValidPort = (port) => {
+const isValidPort = (port: number): boolean => {
     return !isNaN(port) && port >= 1 && port <= 65535
 }
 
 /**
  * Validates room name format
- * @param {string} roomName - Room name to validate
- * @returns {boolean} - True if valid
+ * @param roomName - Room name to validate
+ * @returns True if valid
  */
-const isValidRoomName = (roomName) => {
+const isValidRoomName = (roomName: string): boolean => {
     if (!roomName || roomName.trim() === '') return false
     // Allow alphanumeric characters, underscores, and hyphens
     const roomNameRegex = /^[a-zA-Z0-9_-]+$/
@@ -56,7 +60,7 @@ const isValidRoomName = (roomName) => {
  * Colyseus Settings Component
  * Provides configuration fields for Colyseus server connection with validation
  */
-const ColyseusSettings = ({
+const ColyseusSettings: React.FC<ColyseusSettingsProps> = ({
     settings = {
         serverHost: 'localhost',
         serverPort: 2567,
@@ -66,11 +70,11 @@ const ColyseusSettings = ({
     visible = false
 }) => {
     const { t } = useTranslation('publish')
-    const [errors, setErrors] = useState({})
+    const [errors, setErrors] = useState<ValidationErrors>({})
 
     // Validate settings when they change
     useEffect(() => {
-        const newErrors = {}
+        const newErrors: ValidationErrors = {}
 
         if (!isValidHost(settings.serverHost)) {
             newErrors.serverHost = t('playcanvas.colyseusSettings.errors.invalidHost')
@@ -87,7 +91,7 @@ const ColyseusSettings = ({
         setErrors(newErrors)
     }, [settings, t])
 
-    const handleHostChange = (event) => {
+    const handleHostChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
         const newHost = event.target.value
         onChange({
             ...settings,
@@ -95,15 +99,15 @@ const ColyseusSettings = ({
         })
     }
 
-    const handlePortChange = (event) => {
+    const handlePortChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
         const port = parseInt(event.target.value, 10)
         onChange({
             ...settings,
-            serverPort: isNaN(port) ? '' : port
+            serverPort: isNaN(port) ? 0 : port
         })
     }
 
-    const handleRoomNameChange = (event) => {
+    const handleRoomNameChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
         const newRoomName = event.target.value
         onChange({
             ...settings,
@@ -114,7 +118,7 @@ const ColyseusSettings = ({
     return (
         <Collapse in={visible}>
             <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                     {t('playcanvas.colyseusSettings.title')}
                 </Typography>
 
@@ -123,9 +127,9 @@ const ColyseusSettings = ({
                     label={t('playcanvas.colyseusSettings.serverHost')}
                     value={settings.serverHost}
                     onChange={handleHostChange}
-                    margin="normal"
-                    variant="outlined"
-                    placeholder="localhost"
+                    margin='normal'
+                    variant='outlined'
+                    placeholder='localhost'
                     error={!!errors.serverHost}
                     helperText={errors.serverHost || t('playcanvas.colyseusSettings.hostHelp')}
                 />
@@ -133,12 +137,12 @@ const ColyseusSettings = ({
                 <TextField
                     fullWidth
                     label={t('playcanvas.colyseusSettings.serverPort')}
-                    type="number"
+                    type='number'
                     value={settings.serverPort}
                     onChange={handlePortChange}
-                    margin="normal"
-                    variant="outlined"
-                    placeholder="2567"
+                    margin='normal'
+                    variant='outlined'
+                    placeholder='2567'
                     error={!!errors.serverPort}
                     helperText={errors.serverPort || t('playcanvas.colyseusSettings.portHelp')}
                     inputProps={{
@@ -152,16 +156,14 @@ const ColyseusSettings = ({
                     label={t('playcanvas.colyseusSettings.roomName')}
                     value={settings.roomName}
                     onChange={handleRoomNameChange}
-                    margin="normal"
-                    variant="outlined"
-                    placeholder="mmoomm_room"
+                    margin='normal'
+                    variant='outlined'
+                    placeholder='mmoomm_room'
                     error={!!errors.roomName}
                     helperText={errors.roomName || t('playcanvas.colyseusSettings.roomNameHelp')}
                 />
 
-                <FormHelperText sx={{ mt: 1 }}>
-                    {t('playcanvas.colyseusSettings.description')}
-                </FormHelperText>
+                <FormHelperText sx={{ mt: 1 }}>{t('playcanvas.colyseusSettings.description')}</FormHelperText>
             </Box>
         </Collapse>
     )

@@ -2,23 +2,28 @@
 // Converts SVG elements to PNG images with high quality and error handling
 
 /**
- * Converts an SVG element to PNG data URL with configurable options
- * @param {SVGElement} svgElement - The SVG element to convert
- * @param {Object} options - Conversion options
- * @param {number} options.width - Output width in pixels (default: 512)
- * @param {number} options.height - Output height in pixels (default: 512)
- * @param {number} options.quality - PNG quality 0-1 (default: 1.0)
- * @param {string} options.backgroundColor - Background color (default: 'white')
- * @returns {Promise<string>} Promise resolving to PNG data URL
- * @throws {Error} If conversion fails
+ * Options for SVG to PNG conversion
  */
-export async function convertSvgToPng(svgElement, options = {}) {
-    const {
-        width = 512,
-        height = 512,
-        quality = 1.0,
-        backgroundColor = 'white'
-    } = options
+interface ConversionOptions {
+    /** Output width in pixels (default: 512) */
+    width?: number
+    /** Output height in pixels (default: 512) */
+    height?: number
+    /** PNG quality 0-1 (default: 1.0) */
+    quality?: number
+    /** Background color (default: 'white') */
+    backgroundColor?: string
+}
+
+/**
+ * Converts an SVG element to PNG data URL with configurable options
+ * @param svgElement - The SVG element to convert
+ * @param options - Conversion options
+ * @returns Promise resolving to PNG data URL
+ * @throws Error if conversion fails
+ */
+export async function convertSvgToPng(svgElement: SVGElement, options: ConversionOptions = {}): Promise<string> {
+    const { width = 512, height = 512, quality = 1.0, backgroundColor = 'white' } = options
 
     // Validate input
     if (!svgElement || svgElement.tagName !== 'svg') {
@@ -42,8 +47,8 @@ export async function convertSvgToPng(svgElement, options = {}) {
         const img = new Image()
         img.src = svgUrl
 
-        await new Promise((resolve, reject) => {
-            img.onload = resolve
+        await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve()
             img.onerror = () => reject(new Error('Failed to load SVG image'))
         })
 
@@ -51,7 +56,7 @@ export async function convertSvgToPng(svgElement, options = {}) {
         const canvas = document.createElement('canvas')
         canvas.width = width
         canvas.height = height
-        
+
         const ctx = canvas.getContext('2d')
         if (!ctx) {
             throw new Error('Failed to get canvas context')
@@ -70,24 +75,25 @@ export async function convertSvgToPng(svgElement, options = {}) {
 
         // Step 4: Convert to PNG data URL
         const pngDataUrl = canvas.toDataURL('image/png', quality)
-        
+
         // Clean up
         canvas.width = 0
         canvas.height = 0
 
         return pngDataUrl
     } catch (error) {
-        throw new Error(`SVG to PNG conversion failed: ${error.message}`)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new Error(`SVG to PNG conversion failed: ${errorMessage}`)
     }
 }
 
 /**
  * Downloads a data URL as a file
- * @param {string} dataUrl - The data URL to download
- * @param {string} filename - The filename for the downloaded file
- * @throws {Error} If download fails
+ * @param dataUrl - The data URL to download
+ * @param filename - The filename for the downloaded file
+ * @throws Error if download fails
  */
-export function downloadDataUrl(dataUrl, filename) {
+export function downloadDataUrl(dataUrl: string, filename: string): void {
     if (!dataUrl || typeof dataUrl !== 'string') {
         throw new Error('Invalid data URL provided')
     }
@@ -108,23 +114,24 @@ export function downloadDataUrl(dataUrl, filename) {
         link.click()
         document.body.removeChild(link)
     } catch (error) {
-        throw new Error(`File download failed: ${error.message}`)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new Error(`File download failed: ${errorMessage}`)
     }
 }
 
 /**
  * Generates a filename for QR code download
- * @param {string} url - The URL encoded in the QR code
- * @param {string} extension - File extension (default: 'png')
- * @returns {string} Generated filename
+ * @param url - The URL encoded in the QR code
+ * @param extension - File extension (default: 'png')
+ * @returns Generated filename
  */
-export function generateQRCodeFilename(url, extension = 'png') {
+export function generateQRCodeFilename(url: string, extension: string = 'png'): string {
     try {
         // Extract domain from URL for filename
         const urlObj = new URL(url)
         const domain = urlObj.hostname.replace(/^www\./, '')
         const timestamp = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-        
+
         return `qr-code-${domain}-${timestamp}.${extension}`
     } catch {
         // Fallback for invalid URLs
@@ -135,12 +142,12 @@ export function generateQRCodeFilename(url, extension = 'png') {
 
 /**
  * Complete QR code download workflow
- * @param {SVGElement} svgElement - SVG element containing QR code
- * @param {string} originalUrl - Original URL encoded in QR code
- * @param {Object} options - Conversion options
- * @returns {Promise<void>}
+ * @param svgElement - SVG element containing QR code
+ * @param originalUrl - Original URL encoded in QR code
+ * @param options - Conversion options
+ * @returns Promise that resolves when download is complete
  */
-export async function downloadQRCode(svgElement, originalUrl, options = {}) {
+export async function downloadQRCode(svgElement: SVGElement, originalUrl: string, options: ConversionOptions = {}): Promise<void> {
     try {
         // Convert SVG to PNG with high quality
         const pngDataUrl = await convertSvgToPng(svgElement, {
@@ -157,6 +164,7 @@ export async function downloadQRCode(svgElement, originalUrl, options = {}) {
         // Download the file
         downloadDataUrl(pngDataUrl, filename)
     } catch (error) {
-        throw new Error(`QR code download failed: ${error.message}`)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        throw new Error(`QR code download failed: ${errorMessage}`)
     }
 }

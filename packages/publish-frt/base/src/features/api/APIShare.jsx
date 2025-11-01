@@ -1,24 +1,17 @@
 // Universo Platformo | Component for API integration options
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { useTranslation } from 'react-i18next'
 
 import { Box, Tabs, Tab } from '@mui/material'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 function TabPanel(props) {
     const { children, value, index, ...other } = props
     return (
-        <div
-            role='tabpanel'
-            hidden={value !== index}
-            id={`api-tabpanel-${index}`}
-            aria-labelledby={`api-tab-${index}`}
-            {...other}
-        >
+        <div role='tabpanel' hidden={value !== index} id={`api-tabpanel-${index}`} aria-labelledby={`api-tab-${index}`} {...other}>
             {value === index && <Box sx={{ p: 1 }}>{children}</Box>}
         </div>
     )
@@ -84,7 +77,6 @@ const curlCode = (canvasId) => {
 
 const APIShare = ({ canvasId, unikId }) => {
     const [value, setValue] = useState(0)
-    const { t } = useTranslation('chatbot')
 
     const handleChange = (event, newValue) => {
         setValue(newValue)
@@ -119,10 +111,10 @@ const APIShare = ({ canvasId, unikId }) => {
     return (
         <Box sx={{ width: '100%' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={value} onChange={handleChange} aria-label="API code tabs">
-                    <Tab label="Python" {...a11yProps(0)} />
-                    <Tab label="JavaScript" {...a11yProps(1)} />
-                    <Tab label="cURL" {...a11yProps(2)} />
+                <Tabs value={value} onChange={handleChange} aria-label='API code tabs'>
+                    <Tab label='Python' {...a11yProps(0)} />
+                    <Tab label='JavaScript' {...a11yProps(1)} />
+                    <Tab label='cURL' {...a11yProps(2)} />
                 </Tabs>
             </Box>
             {['Python', 'JavaScript', 'cURL'].map((codeLang, index) => (
@@ -145,4 +137,4 @@ APIShare.propTypes = {
     unikId: PropTypes.string
 }
 
-export default APIShare 
+export default APIShare

@@ -35,6 +35,8 @@ export default defineConfig({
         'react-dom',
         'typeorm',
         /^@universo\//,
+        /^@mui\//,
+        'react-router-dom',
     ],
     
     // Preserve JSX automatic runtime (React 17+ style)
@@ -45,5 +47,35 @@ export default defineConfig({
                 '@': './src',
             },
         },
+    },
+    
+    // Copy static assets after build
+    onSuccess: async () => {
+        const fs = await import('fs')
+        const path = await import('path')
+        
+        const copyDir = (src: string, dest: string) => {
+            if (!fs.existsSync(dest)) {
+                fs.mkdirSync(dest, { recursive: true })
+            }
+            const entries = fs.readdirSync(src, { withFileTypes: true })
+            for (const entry of entries) {
+                const srcPath = path.join(src, entry.name)
+                const destPath = path.join(dest, entry.name)
+                if (entry.isDirectory()) {
+                    copyDir(srcPath, destPath)
+                } else {
+                    fs.copyFileSync(srcPath, destPath)
+                }
+            }
+        }
+        
+        // Copy assets if they exist
+        const assetsSrc = 'src/assets'
+        if (fs.existsSync(assetsSrc)) {
+            copyDir(assetsSrc, 'dist/assets')
+            // eslint-disable-next-line no-console
+            console.log('[publish-frt] Assets copied to dist/assets')
+        }
     },
 })

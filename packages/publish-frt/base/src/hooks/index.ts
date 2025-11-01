@@ -1,2 +1,6 @@
-export { useAutoSave } from '@universo/publish-frt/src/hooks/useAutoSave'
-export type { UseAutoSaveOptions, UseAutoSaveReturn, AutoSaveStatus } from '@universo/publish-frt/src/hooks/useAutoSave'
+// Auto-save hook
+export { useAutoSave } from './useAutoSave'
+export type { UseAutoSaveOptions, UseAutoSaveReturn, AutoSaveStatus } from './useAutoSave'
+
+// Publication hooks
+export * from './publication'

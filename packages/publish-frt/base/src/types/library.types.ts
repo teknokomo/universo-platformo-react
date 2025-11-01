@@ -1,9 +1,11 @@
 // Universo Platformo | Library Configuration Types
 // LOCAL: Define constants directly to avoid runtime dependency on publish-srv
 
-import type { ILibrarySource as _ILibrarySource, ILibraryConfig as _ILibraryConfig } from '@universo/publish-srv'
+import type { ILibraryConfig as _ILibraryConfig } from '@universo/publish-srv'
 
-export type LibrarySource = _ILibrarySource
+// Library source type - matches server definition
+export type LibrarySource = 'official' | 'kiberplano'
+
 export type LibraryConfig = _ILibraryConfig
 
 // Default library configuration (kept in sync with server constants)

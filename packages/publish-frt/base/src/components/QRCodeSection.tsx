@@ -4,26 +4,36 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import QRCode from 'react-qr-code'
-import {
-    Box,
-    Typography,
-    Switch,
-    FormControlLabel,
-    CircularProgress,
-    Alert,
-    Paper,
-    Button,
-    Snackbar
-} from '@mui/material'
+import { Box, Typography, Switch, FormControlLabel, CircularProgress, Alert, Paper, Button, Snackbar } from '@mui/material'
 import { Download as DownloadIcon } from '@mui/icons-material'
 import { downloadQRCode } from '../utils/svgToPng'
 
 /**
- * Validates if the provided URL is safe for QR code generation
- * @param {string} url - URL to validate
- * @returns {boolean} - Whether the URL is valid
+ * Props for QRCodeSection component
  */
-const isValidUrl = (url) => {
+interface QRCodeSectionProps {
+    /** The URL to generate QR code for */
+    publishedUrl: string | null | undefined
+    /** Whether the component is disabled */
+    disabled?: boolean
+    /** Callback when QR code toggle changes */
+    onToggle?: (enabled: boolean) => void
+}
+
+/**
+ * Snackbar state
+ */
+interface SnackbarState {
+    open: boolean
+    message: string
+}
+
+/**
+ * Validates if the provided URL is safe for QR code generation
+ * @param url - URL to validate
+ * @returns Whether the URL is valid
+ */
+const isValidUrl = (url: string): boolean => {
     try {
         const urlObj = new URL(url)
         return urlObj.protocol === 'http:' || urlObj.protocol === 'https:'
@@ -35,24 +45,15 @@ const isValidUrl = (url) => {
 /**
  * QR Code Section Component
  * Displays a toggle to generate QR code for publication URLs
- * 
- * @param {Object} props - Component props
- * @param {string} props.publishedUrl - The URL to generate QR code for
- * @param {boolean} props.disabled - Whether the component is disabled
- * @param {function} props.onToggle - Callback when QR code toggle changes
  */
-const QRCodeSection = ({ 
-    publishedUrl, 
-    disabled = false,
-    onToggle = () => {} 
-}) => {
+const QRCodeSection: React.FC<QRCodeSectionProps> = ({ publishedUrl, disabled = false, onToggle = () => {} }) => {
     const { t } = useTranslation('publish')
-    const [showQRCode, setShowQRCode] = useState(false)
-    const [isGenerating, setIsGenerating] = useState(false)
-    const [isDownloading, setIsDownloading] = useState(false)
-    const [error, setError] = useState(null)
-    const [snackbar, setSnackbar] = useState({ open: false, message: '' })
-    const qrCodeRef = useRef(null)
+    const [showQRCode, setShowQRCode] = useState<boolean>(false)
+    const [isGenerating, setIsGenerating] = useState<boolean>(false)
+    const [isDownloading, setIsDownloading] = useState<boolean>(false)
+    const [error, setError] = useState<string | null>(null)
+    const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: '' })
+    const qrCodeRef = useRef<HTMLDivElement>(null)
 
     // Reset state when URL changes
     useEffect(() => {
@@ -62,11 +63,11 @@ const QRCodeSection = ({
         }
     }, [publishedUrl])
 
-    const handleToggleQRCode = async (checked) => {
+    const handleToggleQRCode = async (checked: boolean): Promise<void> => {
         if (!publishedUrl) return
-        
+
         setError(null)
-        
+
         if (checked) {
             // Validate URL before generating QR code
             if (!isValidUrl(publishedUrl)) {
@@ -77,7 +78,7 @@ const QRCodeSection = ({
             setIsGenerating(true)
             try {
                 // Simulate generation delay for better UX
-                await new Promise(resolve => setTimeout(resolve, 300))
+                await new Promise((resolve) => setTimeout(resolve, 300))
                 setShowQRCode(true)
                 onToggle(true)
             } catch (err) {
@@ -92,7 +93,7 @@ const QRCodeSection = ({
         }
     }
 
-    const handleDownloadQRCode = async () => {
+    const handleDownloadQRCode = async (): Promise<void> => {
         if (!qrCodeRef.current || !publishedUrl) return
 
         setIsDownloading(true)
@@ -107,7 +108,7 @@ const QRCodeSection = ({
 
             // Download QR code using utility function
             await downloadQRCode(svgElement, publishedUrl)
-            
+
             // Show success notification
             setSnackbar({ open: true, message: t('qrCode.downloadSuccess') })
         } catch (err) {
@@ -121,7 +122,7 @@ const QRCodeSection = ({
     /**
      * Handle snackbar close
      */
-    const handleSnackbarClose = () => {
+    const handleSnackbarClose = (): void => {
         setSnackbar({ ...snackbar, open: false })
     }
 
@@ -139,15 +140,17 @@ const QRCodeSection = ({
                             onChange={(e) => handleToggleQRCode(e.target.checked)}
                             disabled={disabled || isGenerating}
                             color='primary'
+                            inputProps={{
+                                'aria-label': t('qrCode.toggle'),
+                                role: 'switch'
+                            }}
                         />
-                        {isGenerating && (
-                            <CircularProgress size={20} sx={{ ml: 1 }} />
-                        )}
+                        {isGenerating && <CircularProgress size={20} sx={{ ml: 1 }} aria-label={t('common.loading', 'Loading...')} />}
                     </Box>
                 }
                 label={t('qrCode.toggle')}
-                sx={{ 
-                    width: '100%', 
+                sx={{
+                    width: '100%',
                     m: 0,
                     '& .MuiFormControlLabel-label': {
                         width: '100%',
@@ -156,14 +159,14 @@ const QRCodeSection = ({
                 }}
                 labelPlacement='start'
             />
-            
+
             <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
                 {t('qrCode.description')}
             </Typography>
 
             {/* Error Display */}
             {error && (
-                <Alert severity='error' sx={{ mt: 2 }}>
+                <Alert severity='error' sx={{ mt: 2 }} role='alert' aria-live='assertive'>
                     {error}
                 </Alert>
             )}
@@ -174,12 +177,12 @@ const QRCodeSection = ({
                     <Typography variant='body2' gutterBottom>
                         {t('qrCode.scanInstruction')}
                     </Typography>
-                    <Paper 
+                    <Paper
                         ref={qrCodeRef}
-                        elevation={1} 
-                        sx={{ 
-                            display: 'inline-block', 
-                            p: 2, 
+                        elevation={1}
+                        sx={{
+                            display: 'inline-block',
+                            p: 2,
                             bgcolor: 'white',
                             borderRadius: 1
                         }}
@@ -193,7 +196,7 @@ const QRCodeSection = ({
                             style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
                         />
                     </Paper>
-                    
+
                     {/* Download Button */}
                     <Box sx={{ mt: 2 }}>
                         <Button
@@ -202,20 +205,16 @@ const QRCodeSection = ({
                             onClick={handleDownloadQRCode}
                             disabled={isDownloading || disabled}
                             size='small'
+                            aria-label={isDownloading ? t('qrCode.downloading') : t('qrCode.download')}
                         >
                             {isDownloading ? t('qrCode.downloading') : t('qrCode.download')}
                         </Button>
                     </Box>
                 </Box>
             )}
-            
+
             {/* Success Notification */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={3000}
-                onClose={handleSnackbarClose}
-                message={snackbar.message}
-            />
+            <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={handleSnackbarClose} message={snackbar.message} />
         </Box>
     )
 }

@@ -20,8 +20,8 @@ export default mergeConfig(
         '@universo/template-quiz': path.resolve(__dirname, '../../template-quiz/base/src'),
         '@universo/template-mmoomm': path.resolve(__dirname, '../../template-mmoomm/base/src'),
         '@universo/publish-srv': path.resolve(__dirname, '../../publish-srv/base/src'),
-        '@universo/utils': path.resolve(__dirname, '../../universo-utils/base/src'),
-        '@universo/types': path.resolve(__dirname, '../../universo-types/base/src'),
+        '@universo-platformo/utils': path.resolve(__dirname, '../../universo-platformo-utils/base/src'),
+        '@universo-platformo/types': path.resolve(__dirname, '../../universo-platformo-types/base/src'),
       },
     },
     test: {

@@ -1,5 +1,5 @@
 // Universo Platformo | Chat Bot Settings implementation
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { FormControlLabel, Switch } from '@mui/material'
 import Grid from '@mui/material/Grid'
@@ -65,8 +65,7 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, canvasId: propCanvasI
             let existingConfig = {}
             if (canvas?.chatbotConfig) {
                 try {
-                    existingConfig =
-                        typeof canvas.chatbotConfig === 'string' ? JSON.parse(canvas.chatbotConfig) : canvas.chatbotConfig
+                    existingConfig = typeof canvas.chatbotConfig === 'string' ? JSON.parse(canvas.chatbotConfig) : canvas.chatbotConfig
                 } catch (parseError) {
                     console.warn('Failed to parse existing chatbotConfig, using empty object:', parseError)
                     existingConfig = {}
@@ -362,7 +361,7 @@ const ChatBotSettings = ({ isSessionMemory, isAgentCanvas, canvasId: propCanvasI
             formatConfig={formatConfig}
             renderFields={renderFields}
             defaultConfig={defaultConfig}
-            updateTranslationKey='share'
+            updateTranslationKey='shareChatbot'
             onTextChanged={handleTextChange}
             onBooleanChanged={handleBooleanChange}
             onColorChanged={handleColorChange}

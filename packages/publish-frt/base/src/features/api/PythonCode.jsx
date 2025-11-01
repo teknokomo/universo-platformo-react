@@ -1,15 +1,14 @@
 // Universo Platformo | API Python Code component
-import * as React from 'react'
 import PropTypes from 'prop-types'
 import { useTranslation } from 'react-i18next'
 import { Box, Typography } from '@mui/material'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 // Universo Platformo | Component to display Python code based on the mode
 const PythonCode = ({ canvasId, apiKey, mode = 'chat' }) => {
-    const { t } = useTranslation('chatbot')
+    const { t } = useTranslation('canvases')
 
     // Universo Platformo | Function to generate Python code for chat without authorization
     const getPythonChatCode = (canvasIdentifier) => {
@@ -108,9 +107,7 @@ print(result)
     // Universo Platformo | Determine which code to show based on mode and apiKey presence
     const generateCode = () => {
         if (apiKey) {
-            return mode === 'chat'
-                ? getPythonChatCodeWithAuth(canvasId, apiKey)
-                : getPythonARCodeWithAuth(canvasId, apiKey)
+            return mode === 'chat' ? getPythonChatCodeWithAuth(canvasId, apiKey) : getPythonARCodeWithAuth(canvasId, apiKey)
         } else {
             return mode === 'chat' ? getPythonChatCode(canvasId) : getPythonARCode(canvasId)
         }

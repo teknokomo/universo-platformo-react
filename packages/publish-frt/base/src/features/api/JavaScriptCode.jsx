@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { CopyBlock, atomOneDark } from 'react-code-blocks'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 // Universo Platformo | Plain JavaScript code for chat
 const getJavaScriptChatCode = (canvasId) => {

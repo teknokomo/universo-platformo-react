@@ -1,18 +1,26 @@
 // Publish module i18n (TypeScript version)
 // English comments only inside code
 
-import { registerNamespace } from '@universo/i18n/registry'
 import enMainTranslation from './locales/en/main.json'
 import ruMainTranslation from './locales/ru/main.json'
 
-// Register publish namespace with global i18n instance
-registerNamespace('publish', {
-    en: enMainTranslation.publish,
-    ru: ruMainTranslation.publish
-})
-
-// Export translations for use in spaces-frt i18nInstance.js
-export const publishTranslations = {
-    en: { publish: enMainTranslation.publish },
-    ru: { publish: ruMainTranslation.publish }
+export type PublishNamespace = {
+    publish: Record<string, any>
 }
+
+export type PublishTranslations = Record<string, PublishNamespace>
+
+export const publishTranslations: PublishTranslations = {
+    en: {
+        publish: enMainTranslation.publish
+    },
+    ru: {
+        publish: ruMainTranslation.publish
+    }
+}
+
+export function getPublishTranslations(language: string): Record<string, any> {
+    return publishTranslations[language]?.publish || publishTranslations.en.publish
+}
+
+export default publishTranslations

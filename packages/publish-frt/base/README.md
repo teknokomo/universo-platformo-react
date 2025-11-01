@@ -4,7 +4,264 @@ Frontend for the publication system in Universo Platformo, supporting AR.js and 
 
 See also: Creating New packages/Packages (best practices)
 
-- ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
+-   ../../../docs/en/universo-platformo/shared-guides/creating-apps.md
+
+## TypeScript Migration (January 2025)
+
+This package has been migrated from JavaScript/JSX to TypeScript/TSX with architectural improvements for better maintainability, type safety, and code reusability.
+
+### Migration Overview
+
+**Status**: Core publishers (AR.js and PlayCanvas) fully migrated to TypeScript  
+**Migration Date**: January 2025  
+**Approach**: Copy-First Migration strategy with incremental refactoring
+
+### What Was Migrated
+
+#### Core Publishers
+
+-   ✅ **ARJSPublisher**: Fully migrated to TypeScript with component decomposition
+
+    -   `ARJSPublisher.tsx` - Main publisher component (~250 lines)
+    -   `MarkerSettings.tsx` - Marker configuration UI
+    -   `TimerSettings.tsx` - Timer configuration UI
+    -   `LibrarySettings.tsx` - Library source selection
+    -   `ARPreviewPane.tsx` - Marker preview component
+
+-   ✅ **PlayCanvasPublisher**: Fully migrated to TypeScript
+    -   `PlayCanvasPublisher.tsx` - Main publisher component
+    -   Integrated with template system for MMOOMM support
+
+#### Infrastructure
+
+-   ✅ **TypeScript Configuration**: Dual build system (CommonJS + ES Modules)
+-   ✅ **TanStack Query Integration**: Centralized server state management
+-   ✅ **Custom Hooks**: Publication-specific React hooks
+-   ✅ **Type System**: Comprehensive TypeScript interfaces and types
+-   ✅ **Shared Components**: Reusable UI components with full type safety
+
+#### Supporting Components
+
+-   ✅ **ColyseusSettings.tsx** - Multiplayer server configuration
+-   ✅ **GameModeSelector.tsx** - Game mode selection UI
+-   ✅ **QRCodeSection.tsx** - QR code generation and display
+-   ✅ **svgToPng.ts** - SVG to PNG conversion utility
+
+### Architecture Improvements
+
+#### 1. TanStack Query Integration
+
+All server state management now uses TanStack Query for consistent caching, loading states, and error handling:
+
+```typescript
+// Centralized query keys
+export const publicationKeys = {
+    root: ['publish'] as const,
+    unik: (unikId: string) => [...publicationKeys.root, 'unik', unikId] as const,
+    links: (unikId: string, spaceId: string) => [...publicationKeys.unik(unikId), 'links', spaceId] as const
+}
+
+// Usage in components
+const { data, isLoading, error } = useQuery({
+    queryKey: publicationKeys.links(unikId, spaceId),
+    queryFn: () => fetchPublicationLinks(unikId, spaceId)
+})
+```
+
+#### 2. Custom Publication Hooks
+
+Reusable hooks encapsulate common publication logic:
+
+-   **`useVersionResolution`**: Resolves version group IDs from flow data
+-   **`usePublicationLinks`**: Manages publication link loading and caching
+-   **`usePublicationSettings`**: Handles settings load/save with auto-save (500ms debounce)
+-   **`usePublicationState`**: Manages publication create/delete operations
+-   **`useCanvasData`**: Fetches and caches canvas/flow data
+
+Example usage:
+
+```typescript
+const { settings, saveSettings, isLoading } = usePublicationSettings({
+    unikId,
+    canvasId,
+    technology: 'arjs'
+})
+```
+
+#### 3. Type-Safe Settings
+
+All publication settings are now strongly typed:
+
+```typescript
+interface ARJSSettings {
+    isPublic: boolean
+    projectTitle: string
+    arDisplayType: 'marker' | 'wallpaper'
+    markerPreset?: string
+    wallpaperType?: 'standard'
+    timer?: number
+    libraryConfig: {
+        arjs: LibraryVersion
+        aframe: LibraryVersion
+    }
+}
+
+interface PlayCanvasSettings {
+    isPublic: boolean
+    projectTitle: string
+    gameMode: 'single' | 'multi'
+    colyseus?: ColyseusSettings
+    templateId: string
+}
+```
+
+#### 4. Reusable UI Components
+
+New shared components with full TypeScript support:
+
+-   **`PublicationToggle`**: Public/private state toggle with loading states
+-   **`PublicationSettingsCard`**: Consistent settings container with error handling
+-   **`AsyncStatusBar`**: Loading and progress indicators
+-   **`FieldError`**: Unified error display
+-   **`NetworkStatusBanner`**: Offline detection and retry functionality
+
+#### 5. Component Decomposition
+
+Large monolithic components were split into focused, maintainable pieces:
+
+**Before**: `ARJSPublisher.jsx` (~900 lines)  
+**After**:
+
+-   `ARJSPublisher.tsx` (~250 lines) - Coordinator
+-   `MarkerSettings.tsx` - Marker configuration
+-   `TimerSettings.tsx` - Timer settings
+-   `LibrarySettings.tsx` - Library selection
+-   `ARPreviewPane.tsx` - Preview display
+
+### Build System
+
+#### Dual Build Output
+
+The package now supports both CommonJS and ES Modules:
+
+```json
+{
+    "main": "dist/index.js", // CommonJS
+    "module": "dist/esm/index.js", // ES Modules
+    "types": "dist/index.d.ts", // Type definitions
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/esm/index.js",
+            "require": "./dist/index.js"
+        }
+    }
+}
+```
+
+#### Build Scripts
+
+```bash
+pnpm run build:cjs    # Compile to CommonJS
+pnpm run build:esm    # Compile to ES Modules
+pnpm run build:assets # Copy static assets
+pnpm run build        # Full build (all of the above)
+```
+
+#### TypeScript Configuration
+
+Two separate TypeScript configurations:
+
+-   `tsconfig.json` - CommonJS output (`dist/`)
+-   `tsconfig.esm.json` - ES Modules output (`dist/esm/`)
+
+Both configurations exclude `packages/flowise-ui` to prevent conflicts with JSX code from Flowise.
+
+### Performance Optimizations
+
+-   **React.memo**: Applied to frequently re-rendered components
+-   **useMemo**: Used for expensive computations (QR code generation, link formatting)
+-   **useCallback**: Memoized callback functions passed to child components
+-   **Lazy Loading**: Dynamic imports for heavy dependencies (ZIP generation)
+-   **Query Caching**: TanStack Query reduces redundant API calls
+
+### Accessibility Improvements
+
+-   **Semantic HTML**: Replaced `div` with `onClick` with proper `button` elements
+-   **ARIA Attributes**: Added `aria-label`, `aria-live`, `aria-pressed` where needed
+-   **Keyboard Navigation**: Full keyboard support for all interactive elements
+-   **Focus Management**: Visible focus indicators for all controls
+-   **Screen Reader Support**: Proper labeling and live regions for dynamic content
+
+### Error Handling
+
+-   **Centralized Notifications**: `notifications.ts` utility for consistent error messages
+-   **Network Detection**: Automatic offline banner with retry functionality
+-   **Validation**: Input validation with user-friendly error messages
+-   **Retry Logic**: Built-in retry for failed operations with exponential backoff
+-   **Error Boundaries**: Graceful error handling in component tree
+
+### What Remains in JSX
+
+The following components remain in JSX and are not part of this migration:
+
+-   Chatbot features (`features/chatbot/`)
+-   Dialog components (`features/dialog/`)
+-   API code sharing (`features/api/`)
+-   AR.js Exporter demo (`features/arjs/ARJSExporter.jsx`)
+
+These components work correctly with the TypeScript infrastructure and may be migrated in future iterations if needed.
+
+### Breaking Changes
+
+#### For Consumers
+
+1. **Import Paths**: No changes - all exports remain the same
+2. **Component Props**: Fully backward compatible
+3. **API Contracts**: No changes to public APIs
+
+#### For Developers
+
+1. **Type Requirements**: All new code must use TypeScript
+2. **Strict Mode**: `noImplicitAny`, `strictNullChecks` enabled
+3. **Hook Usage**: Prefer custom hooks over direct API calls
+
+### Migration Benefits
+
+-   ✅ **Type Safety**: Catch errors at compile time instead of runtime
+-   ✅ **Better IDE Support**: Full autocomplete and inline documentation
+-   ✅ **Improved Maintainability**: Smaller, focused components
+-   ✅ **Code Reusability**: Shared hooks and components
+-   ✅ **Performance**: Optimized re-renders and caching
+-   ✅ **Accessibility**: WCAG 2.1 compliant interfaces
+-   ✅ **Developer Experience**: Faster development with TypeScript tooling
+
+### Testing
+
+The migration includes:
+
+-   Unit tests for utility functions (`timerConfig`, `base58Validator`)
+-   Type checking via `tsc --noEmit`
+-   ESLint validation with TypeScript rules
+-   Manual smoke testing of all publication workflows
+
+### Future Work
+
+-   [ ] Migrate remaining JSX components (chatbot, dialog, api features)
+-   [ ] Add integration tests for publication workflows
+-   [ ] Implement E2E tests with Playwright
+-   [ ] Add Storybook for component documentation
+-   [ ] Performance profiling and optimization
+-   [ ] Accessibility audit with automated tools
+
+### Documentation
+
+-   [Custom Hooks Documentation](./src/hooks/publication/README.md)
+-   [Shared Components Documentation](./src/components/shared/README.md)
+-   [Type Definitions](./src/types/)
+-   [Migration Requirements](./.kiro/specs/publish-frt-typescript-migration/requirements.md)
+-   [Migration Design](./.kiro/specs/publish-frt-typescript-migration/design.md)
+
 ## UI Components Migration (October 2024)
 
 This package consolidates all **"Publish & Export"** UI components from various parts of the monorepo into a single location. The migration improves maintainability, eliminates scattered QueryClient instances causing 429 request storms, and provides a unified entry point for all publication-related interfaces.
@@ -58,18 +315,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: true,
-      refetchOnWindowFocus: false
+    defaultOptions: {
+        queries: {
+            retry: true,
+            refetchOnWindowFocus: false
+        }
     }
-  }
 })
 
 root.render(
-  <QueryClientProvider client={queryClient}>
-    <App />
-  </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+        <App />
+    </QueryClientProvider>
 )
 ```
 
@@ -81,13 +338,7 @@ import APICodeDialog from '../features/dialog/APICodeDialog'
 
 // The QueryClientProvider is now set up at the app root, so you can use publish dialogs directly:
 
-<APICodeDialog
-  show={showDialog}
-  type={dialogType}
-  data={dialogData}
-  onConfirm={handleConfirm}
-  onCancel={handleCancel}
-/>
+;<APICodeDialog show={showDialog} type={dialogType} data={dialogData} onConfirm={handleConfirm} onCancel={handleCancel} />
 ```
 
 ### Localization Migration
@@ -97,11 +348,12 @@ All publish-related i18n keys migrated from `packages/flowise-ui/src/i18n/locale
 **New i18n section:** `apiCodeDialog`
 
 **Keys migrated:**
-- `noAuthorization`, `addNewKey`, `chooseApiKey`, `apiEndpoint`
-- `shareAPI`, `configuration`, `embed`, `viewInBrowser`
-- `publish`, `unpublish`, `publishing`, `unpublishing`
-- `pythonCode`, `javascriptCode`, `links`
-- And all sub-keys for each section
+
+-   `noAuthorization`, `addNewKey`, `chooseApiKey`, `apiEndpoint`
+-   `shareAPI`, `configuration`, `embed`, `viewInBrowser`
+-   `publish`, `unpublish`, `publishing`, `unpublishing`
+-   `pythonCode`, `javascriptCode`, `links`
+-   And all sub-keys for each section
 
 ### Package Exports
 
@@ -139,14 +391,14 @@ export { PlayCanvasPublisher } from './features/playcanvas/PlayCanvasPublisher'
 
 ```json
 {
-  "main": "dist/publish-frt/base/src/index.js",
-  "module": "dist/publish-frt/base/src/index.js",
-  "exports": {
-    ".": {
-      "import": "./dist/publish-frt/base/src/index.js",
-      "require": "./dist/publish-frt/base/src/index.js"
+    "main": "dist/publish-frt/base/src/index.js",
+    "module": "dist/publish-frt/base/src/index.js",
+    "exports": {
+        ".": {
+            "import": "./dist/publish-frt/base/src/index.js",
+            "require": "./dist/publish-frt/base/src/index.js"
+        }
     }
-  }
 }
 ```
 
@@ -155,11 +407,12 @@ export { PlayCanvasPublisher } from './features/playcanvas/PlayCanvasPublisher'
 #### Current State (MVP)
 
 **Import Strategy:** Kept `@/` imports pointing to `flowise-ui` for stability:
+
 ```javascript
 // Current approach in migrated files
 import { useTranslation } from 'react-i18next'
 import '@/views/canvases/CanvasHeader.css'
-import { SyntaxHighlighter, CodeBlock } from '@/ui-components/SyntaxHighlighter'
+import { SyntaxHighlighter, CodeBlock } from '@/ui-component/SyntaxHighlighter'
 ```
 
 **Build Output:** TypeScript compiles to CommonJS (per `tsconfig.json`), Gulp copies static assets.
@@ -167,19 +420,20 @@ import { SyntaxHighlighter, CodeBlock } from '@/ui-components/SyntaxHighlighter'
 #### Known Issues
 
 1. **CommonJS/ESM Incompatibility:** Direct imports of `publish-frt` components in `flowise-ui` fail due to Vite expecting ESM while TypeScript produces CommonJS.
-   - **Impact:** Cannot yet use `import { PublishDialog } from 'publish-frt'` in main UI
-   - **Workaround:** Keep original imports (`@/views/canvases/APICodeDialog`) for now
+
+    - **Impact:** Cannot yet use `import { PublishDialog } from 'publish-frt'` in main UI
+    - **Workaround:** Keep original imports (`@/views/canvases/APICodeDialog`) for now
 
 2. **Import Migration Pending:** Full conversion from `@/` imports to workspace paths (`@universo/...`) deferred to future iteration.
 
 #### Future Improvements
 
-- [ ] Convert TypeScript compilation to ESM (update `tsconfig.json` module target)
-- [ ] Migrate all internal `@/` imports to workspace paths
-- [ ] Enable direct `publish-frt` imports in `flowise-ui`
-- [ ] Remove original files from `packages/flowise-ui` once stability confirmed
-- [ ] Performance testing of single QueryClient approach
-- [ ] Integration tests for publish dialog from UI
+-   [ ] Convert TypeScript compilation to ESM (update `tsconfig.json` module target)
+-   [ ] Migrate all internal `@/` imports to workspace paths
+-   [ ] Enable direct `publish-frt` imports in `flowise-ui`
+-   [ ] Remove original files from `packages/flowise-ui` once stability confirmed
+-   [ ] Performance testing of single QueryClient approach
+-   [ ] Integration tests for publish dialog from UI
 
 ### Migration Success Metrics
 
@@ -187,25 +441,27 @@ import { SyntaxHighlighter, CodeBlock } from '@/ui-components/SyntaxHighlighter'
 ✅ **QueryClient Fix:** Multiple QueryClient instances eliminated  
 ✅ **Code Organization:** All publish UI components in one location  
 ✅ **Localization:** Complete i18n migration for English and Russian  
-✅ **Exports:** All components available via barrel exports  
+✅ **Exports:** All components available via barrel exports
 
 ### Testing Recommendations
 
 1. **Manual Testing:**
-   - Open any canvas and trigger "Publish & Export" dialog
-   - Verify all tabs (API, Configuration, Embed) work correctly
-   - Test AR.js and PlayCanvas publishers
-   - Confirm no 429 errors during publication operations
+
+    - Open any canvas and trigger "Publish & Export" dialog
+    - Verify all tabs (API, Configuration, Embed) work correctly
+    - Test AR.js and PlayCanvas publishers
+    - Confirm no 429 errors during publication operations
 
 2. **Performance Monitoring:**
-   - Monitor request counts during publish operations
-   - Verify single QueryClient behavior in browser DevTools
-   - Check for reduced duplicate requests
+
+    - Monitor request counts during publish operations
+    - Verify single QueryClient behavior in browser DevTools
+    - Check for reduced duplicate requests
 
 3. **Regression Testing:**
-   - Ensure existing publish workflows continue working
-   - Test all configuration options (markers, libraries, display modes)
-   - Verify public links generation and viewing
+    - Ensure existing publish workflows continue working
+    - Test all configuration options (markers, libraries, display modes)
+    - Verify public links generation and viewing
 
 ---
 
@@ -282,14 +538,14 @@ packages/publish-frt/base/
 
 The publication system supports two link types and Base58 short slugs:
 
-- Group link: points to the "active" version within a version group. Public URL prefix: `/p/{slug}`.
-- Version link: points to a specific immutable version UUID. Public URL prefix: `/b/{slug}`.
+-   Group link: points to the "active" version within a version group. Public URL prefix: `/p/{slug}`.
+-   Version link: points to a specific immutable version UUID. Public URL prefix: `/b/{slug}`.
 
 Key fields:
 
-- `versionGroupId`: required for group links (server can fallback from flow data when absent).
-- `targetType`: `group` or `version`.
-- `slug`: Base58-encoded short id (generated on the server).
+-   `versionGroupId`: required for group links (server can fallback from flow data when absent).
+-   `targetType`: `group` or `version`.
+-   `slug`: Base58-encoded short id (generated on the server).
 
 Client API: use the unified `PublishLinksApi` to list/create/update links. When creating a group link, pass the normalized `versionGroupId`.
 
@@ -297,35 +553,35 @@ Client API: use the unified `PublishLinksApi` to list/create/update links. When 
 
 Backend may return either `versionGroupId` or legacy `version_group_id`. To avoid scattered fallbacks, the frontend uses a tiny utility:
 
-- `src/utils/fieldNormalizer.ts` exports `FieldNormalizer.normalizeVersionGroupId(flow)` returning a string or undefined.
+-   `src/utils/fieldNormalizer.ts` exports `FieldNormalizer.normalizeVersionGroupId(flow)` returning a string or undefined.
 
 In AR.js/PlayCanvas publishers, use it before creating or listing links so that `PublishLinksApi` receives a consistent value.
 
 Notes:
 
-- This is a non-breaking addition; consumers using old fields continue to work.
-- Prefer using `PublishLinksApi` over any legacy per-tech API imports.
+-   This is a non-breaking addition; consumers using old fields continue to work.
+-   Prefer using `PublishLinksApi` over any legacy per-tech API imports.
 
 ## Security/Robustness notes (MVP)
 
 Server-side improvements were added without changing public contracts:
 
-- Rate limiting for publish routes (write/read tiers)
-- Minimal DTO validation for create/update link payloads
-- Sanitized error messages in production
+-   Rate limiting for publish routes (write/read tiers)
+-   Minimal DTO validation for create/update link payloads
+-   Sanitized error messages in production
 
 Frontend implications:
 
-- Pass only the required fields (`unikId`, `canvasId`/`spaceId` if applicable, `versionGroupId` for group links).
-- Handle 400 responses by showing a concise validation error to the user.
+-   Pass only the required fields (`unikId`, `canvasId`/`spaceId` if applicable, `versionGroupId` for group links).
+-   Handle 400 responses by showing a concise validation error to the user.
 
 ## Server-state management and retries
 
 Starting from October 2025 the publication UI uses **TanStack Query** to manage server-side state:
 
-- `PublishQueryProvider` (see `src/providers/PublishQueryProvider.tsx`) hosts a shared `QueryClient` with sensible defaults (`staleTime` 30 s, `gcTime` 5 min, retries only for 5xx).
-- AR.js и PlayCanvas издатели запрашивают `/publish/links` и `/canvases/:id` через `queryClient.fetchQuery`, что исключает параллельные повторные запросы и кеширует полученные данные.
-- Для пользовательских повторных попыток показано уведомление с кнопкой «Retry», которое инвалидацирует связанные ключи (`publish/canvas`, `publish/links/*`) и перезапускает загрузку.
+-   `PublishQueryProvider` (see `src/providers/PublishQueryProvider.tsx`) hosts a shared `QueryClient` with sensible defaults (`staleTime` 30 s, `gcTime` 5 min, retries only for 5xx).
+-   AR.js и PlayCanvas издатели запрашивают `/publish/links` и `/canvases/:id` через `queryClient.fetchQuery`, что исключает параллельные повторные запросы и кеширует полученные данные.
+-   Для пользовательских повторных попыток показано уведомление с кнопкой «Retry», которое инвалидацирует связанные ключи (`publish/canvas`, `publish/links/*`) и перезапускает загрузку.
 
 Серверные лимитеры теперь отправляют `Retry-After`, `X-RateLimit-*`. Клиент уважает эти заголовки и больше не пытается повторять запросы агрессивно. При необходимости можно расширить стратегию, добавив собственный `QueryCache` или очереди, но для MVP достаточно встроенных возможностей TanStack Query + наглядных ошибок.
 

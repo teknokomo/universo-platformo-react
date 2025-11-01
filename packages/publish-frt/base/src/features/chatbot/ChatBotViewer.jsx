@@ -1,11 +1,11 @@
 // Universo Platformo | Chat Bot Viewer implementation
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { FullPageChat } from 'flowise-embed-react'
 import BaseBot from './BaseBot'
 import PropTypes from 'prop-types'
 
 // Const
-import { baseURL } from '@flowise/store'
+import { baseURL } from '@flowise/template-mui'
 
 // ==============================|| Chat Bot Viewer ||============================== //
 

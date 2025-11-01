@@ -2,16 +2,16 @@ import type { QueryClient } from '@tanstack/react-query'
 
 /**
  * Query Key Factory for Publish API
- * 
+ *
  * Centralized query key management following TanStack Query best practices.
- * 
+ *
  * Benefits:
  * - Type normalization (string/number → string) prevents cache mismatches
  * - Easy cache invalidation with helper functions
  * - Hierarchical structure for granular invalidation
  * - TypeScript autocomplete support
  * - Prevents accidental key collisions
- * 
+ *
  * @example
  * ```typescript
  * // Using in queries
@@ -19,7 +19,7 @@ import type { QueryClient } from '@tanstack/react-query'
  *   queryKey: publishQueryKeys.linksByVersion('arjs', flowId, versionGroupId),
  *   queryFn: fetchLinks
  * })
- * 
+ *
  * // Invalidating cache
  * invalidatePublishQueries.linksByTechnology(queryClient, 'arjs')
  * ```
@@ -119,7 +119,7 @@ export const publishQueryKeys = {
 
 /**
  * Helper functions for cache invalidation
- * 
+ *
  * These functions make it easy to invalidate related queries after mutations.
  * Use queryClient.invalidateQueries() to trigger refetch for matching queries.
  */
