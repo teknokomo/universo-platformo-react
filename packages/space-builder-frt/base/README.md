@@ -1,15 +1,70 @@
-# Space Builder Frontend (FRONTEND)
+# Space Builder Frontend (@universo/space-builder-frt)
 
-Frontend UI components for prompt-to-flow generation in Universo Platformo (Spaces/Chatflow).
+> 🧬 **TypeScript-first** | Modern React frontend for AI-powered UPDL flow generation
 
-## Overview
+Frontend UI components for prompt-to-flow generation in Universo Platformo с детерминированным билдером и мультипровайдерной поддерыжкой ИИ.
 
-This package provides reusable React components:
+## Package Information
 
--   SpaceBuilderFab: floating action button to open the generator dialog
--   SpaceBuilderDialog: modal to type a request; model selection moved to a gear-button modal
--   Hook `useSpaceBuilder` to call the backend API (`/api/v1/space-builder/prepare`, `/api/v1/space-builder/revise`, `/api/v1/space-builder/generate`)
--   I18n helper `registerSpaceBuilderI18n` to merge translations (EN/RU) into the host app
+| Property          | Value                   |
+| ----------------- | ----------------------- |
+| **Version**       | `0.1.0`                 |
+| **Package Type**  | Workspace Package       |
+| **Status**        | ✅ Active Development   |
+
+### Key Features
+- 🤖 AI-powered prompt-to-flow generation with multi-provider support
+- 🎯 Deterministic UPDL builder for stable, hallucination-free results
+- 🔧 Configurable test mode with server-side provider management
+- 🌐 Full i18n support (EN/RU) with translation helpers
+- ⚙️ Reusable React components for space building UI
+- 🔄 Comprehensive API integration with revision capabilities
+
+## Core Components
+
+### SpaceBuilderFab
+Floating action button component to trigger space generation dialog:
+```tsx
+import { SpaceBuilderFab } from '@universo/space-builder-frt'
+
+function MyCanvas() {
+  return (
+    <div>
+      <SpaceBuilderFab onGenerate={handleGenerate} />
+    </div>
+  )
+}
+```
+
+### SpaceBuilderDialog  
+Modal dialog for prompt input and AI model selection:
+```tsx
+import { SpaceBuilderDialog } from '@universo/space-builder-frt'
+
+function GeneratorInterface() {
+  return (
+    <SpaceBuilderDialog
+      open={isOpen}
+      onClose={() => setIsOpen(false)}
+      onGenerate={handleGenerate}
+    />
+  )
+}
+```
+
+### useSpaceBuilder Hook
+React hook for backend API integration:
+```tsx
+import { useSpaceBuilder } from '@universo/space-builder-frt'
+
+function SpaceGenerator() {
+  const { prepare, revise, generate, isLoading } = useSpaceBuilder()
+  
+  const handleGenerate = async (prompt: string) => {
+    const result = await generate(prompt)
+    console.log('Generated UPDL:', result.updlFlow)
+  }
+}
 
 ## Deterministic builder (stable output)
 

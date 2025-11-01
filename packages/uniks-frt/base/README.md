@@ -1,21 +1,31 @@
-# Uniks Frontend (uniks-frt)
+# @universo/uniks-frt
 
-Frontend application for workspace management functionality in the Universo Platformo ecosystem.
+> 🏢 Frontend application for workspace management functionality in the Universo Platformo ecosystem
+
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/uniks-frt` |
+| **Version** | See `package.json` |
+| **Type** | React Frontend Application |
+| **Build** | TypeScript-first with Material-UI |
+| **Purpose** | Workspace management interface with role-based access control |
 
 > Q3 2025 Update: Interface aligned with new backend architecture (schema `uniks`, expanded roles `owner/admin/editor/member`, Passport.js + Supabase hybrid auth, membership-based access control).
+
+## 🚀 Key Features
+
+- 🏢 **Workspace Management**: Create, edit, delete (role-gated)
+- 👥 **Member Management**: Add/remove & view roles (live constraints)
+- 🎭 **Expanded Role Awareness**: UI reacts to `owner/admin/editor/member`
+- 📱 **Responsive UI**: Material-UI component system
+- 🌍 **Internationalization**: English & Russian parity
+- 🔗 **Navigation Integration**: Unified platform routing
 
 ## Overview
 
 The Uniks Frontend application provides a user-friendly interface for creating, managing, and organizing workspaces. It offers workspace listing, creation, editing, and member management capabilities with full internationalization support.
-
-## Key Features
-
-- **Workspace Management**: Create, edit, delete (role-gated)
-- **Member Management**: Add/remove & view roles (live constraints)
-- **Expanded Role Awareness**: UI reacts to `owner/admin/editor/member`
-- **Responsive UI**: Material-UI system
-- **Internationalization**: English & Russian parity
-- **Navigation Integration**: Unified platform routing
 
 ## Structure
 
@@ -145,7 +155,6 @@ The application communicates with the backend through shared platform API utilit
 - Role derivation -> conditional UI rendering
 - Session state (Passport.js) + identity (Supabase) consumption
 
-## Contributing
 ## Testing
 
 Role-aware UI behavior should be covered by component tests (e.g. action buttons hidden for `member` but visible for `admin`). Suggested areas:
@@ -163,7 +172,9 @@ pnpm --filter @universo/uniks-frt test
 
 If a test harness is not yet present, add one under `src/__tests__/` using React Testing Library.
 
-When contributing:
+## Contributing
+
+When contributing to this package:
 
 1. Preserve role-based conditional rendering (avoid hard-coded role names)
 2. Maintain i18n parity (EN/RU) — no untranslated strings

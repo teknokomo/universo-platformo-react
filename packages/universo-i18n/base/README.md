@@ -1,8 +1,18 @@
 # @universo/i18n
 
-Centralized i18n instance for Universo Platformo monorepo.
+> 🌍 Centralized i18n instance for Universo Platformo monorepo
 
-## Features
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/i18n` |
+| **Version** | See `package.json` |
+| **Type** | TypeScript-first (Internationalization) |
+| **Build** | ES module with types |
+| **Purpose** | Unified translation system with full type safety |
+
+## 🚀 Key Features
 
 - ✅ **Single global instance** - Prevents multiple i18next instances
 - ✅ **TypeScript first** - Full type safety
@@ -215,3 +225,26 @@ The following namespaces are included by default:
 - `flowList` - Flow lists
 
 FRT packages add their own namespaces dynamically.
+
+## Contributing
+
+When contributing to this package:
+
+1. Follow TypeScript best practices and maintain strict typing
+2. Keep EN and RU translations synchronized
+3. Update namespace types when adding new translation keys
+4. Test typed hooks with real components
+5. Update both EN and RU documentation
+6. Follow the project's coding standards
+
+## Related Documentation
+
+- [Main Apps Documentation](../README.md)
+- [Flowise UI](../flowise-ui/base/README.md)
+- [i18next Documentation](https://www.i18next.com/)
+- [react-i18next Documentation](https://react.i18next.com/)
+
+---
+
+_Universo Platformo | i18n Package_
+

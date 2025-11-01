@@ -1,8 +1,18 @@
 # @universo/api-client
 
-TypeScript API client for Universo Platformo. Centralized, type-safe client for all backend API calls.
+> 🚀 TypeScript API client for Universo Platformo
 
-## Features
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/api-client` |
+| **Version** | See `package.json` |
+| **Type** | TypeScript-first (API Client) |
+| **Build** | Dual build (CommonJS + ESM) |
+| **Purpose** | Centralized, type-safe client for all backend API calls |
+
+## 🚀 Key Features
 
 - ✅ **TypeScript** - Full type safety for API requests and responses
 - ✅ **Class-based API** - Modern, extensible architecture
@@ -106,6 +116,24 @@ import { api } from '@/api/client' // or create instance
 const canvases = await api.canvases.getCanvases(unikId, spaceId)
 // Response is already unwrapped (.data)
 ```
+
+## Contributing
+
+When contributing to this package:
+
+1. Follow TypeScript best practices and maintain strict typing
+2. Add tests for new API methods or clients
+3. Update both EN and RU documentation
+4. Ensure backward compatibility with existing integrations
+5. Follow the project's coding standards
+
+## Related Documentation
+
+- [Main Apps Documentation](../README.md)
+- [Publishing Frontend](../publish-frt/base/README.md)
+- [Universo Types](../universo-types/README.md)
+- [AR.js Documentation](https://ar-js-org.github.io/AR.js-Docs/)
+- [PlayCanvas API Reference](https://api.playcanvas.com/)
 
 ## License
 

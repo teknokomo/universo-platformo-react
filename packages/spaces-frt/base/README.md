@@ -1,6 +1,24 @@
-# @universo/spaces-frt
+# Spaces Frontend (@universo/spaces-frt)
+
+> 🧬 **TypeScript-first** | Modern React frontend for Spaces/Canvases management
 
 Frontend for Spaces/Canvases. Extracted and refactored from Flowise UI with minimal coupling.
+
+## Package Information
+
+| Property          | Value                   |
+| ----------------- | ----------------------- |
+| **Version**       | `0.1.0`                 |
+| **Package Type**  | Workspace Package       |
+| **Status**        | ✅ Active Development   |
+
+### Key Features
+- 🎨 ReactFlow-based visual canvas editor
+- 📱 Responsive MUI Material Design interface
+- 🔄 JWT authentication with automatic refresh
+- 📂 Sortable canvas tabs with drag-and-drop
+- 🔌 Modular architecture for easy integration
+- 📦 Dual build system (CJS/ESM) for compatibility
 
 ## Tech Stack
 - React 18, React Router
@@ -28,7 +46,6 @@ pnpm --filter @universo/spaces-frt build     # produces dist/cjs, dist/esm, dist
 pnpm --filter @universo/spaces-frt test      # Vitest + testing-library setup
 pnpm --filter @universo/spaces-frt lint
 ```
-
 ### TypeScript packaging
 - `tsconfig.json` — emits CommonJS bundle (`dist/cjs`)
 - `tsconfig.esm.json` — emits ES Module bundle (`dist/esm`)

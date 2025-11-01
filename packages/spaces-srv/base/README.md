@@ -1,6 +1,24 @@
-# Spaces Service
+# Spaces Service (@universo/spaces-srv)
+
+> 🧬 **TypeScript-first** | Modern Express.js backend for Spaces and Canvases management
 
 Backend service for Spaces domain in Universo Platformo. This service manages Spaces (formerly Chatflows) and their associated Canvases in a multi-canvas architecture.
+
+## Package Information
+
+| Property          | Value                   |
+| ----------------- | ----------------------- |
+| **Version**       | `0.1.0`                 |
+| **Package Type**  | Workspace Package       |
+| **Status**        | ✅ Active Development   |
+
+### Key Features
+- 🗂️ Multi-canvas architecture with space-canvas relationships
+- 📊 PostgreSQL database with TypeORM integration
+- 🛡️ Row Level Security (RLS) with Supabase authentication
+- 🔄 Canvas ordering and reordering capabilities
+- 🏢 Integration with Unik workspace system
+- 📦 RESTful API for spaces and canvases management
 
 ## Overview
 

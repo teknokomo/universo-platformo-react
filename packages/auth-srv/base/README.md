@@ -1,15 +1,20 @@
-# @universo/auth-srv
+# Authentication Service (@universo/auth-srv)
 
-Passport.js + Supabase session toolkit powering Universo Platformo server authentication. The module now ships as a dual ESM/CJS library and is mounted inside `packages/flowise-server` at `/api/v1/auth`.
+Production-grade authentication service powering Universo Platformo's server-side authentication. Built with Passport.js + Supabase and ships as a dual ESM/CJS library. Mounted inside `packages/flowise-server` at `/api/v1/auth`.
 
-## Features
+## Overview
 
-- Passport LocalStrategy with Supabase as identity provider
-- Express-session cookie storage (HttpOnly, configurable SameSite/Secure)
-- CSRF protection via `csurf` and `X-CSRF-Token`
-- Login rate limiting (1 minute window, 10 attempts)
-- Automatic Supabase access-token refresh with single-flight locking
-- **Row Level Security (RLS) Integration** - JWT context propagation to PostgreSQL via QueryRunner
+This package provides a comprehensive backend authentication solution that combines Passport.js session management with Supabase identity services and advanced Row Level Security (RLS) integration for PostgreSQL. Designed as a secure, scalable authentication layer for multi-tenant applications.
+
+## Key Features
+
+- **Passport.js Integration**: LocalStrategy with Supabase as identity provider
+- **Session Management**: Express-session with HttpOnly cookies and configurable security settings
+- **CSRF Protection**: Built-in CSRF tokens via `csurf` middleware with `X-CSRF-Token` headers
+- **Rate Limiting**: Login attempt protection (10 attempts per minute window)
+- **Token Management**: Automatic Supabase access-token refresh with single-flight locking
+- **Row Level Security (RLS)**: Advanced JWT context propagation to PostgreSQL via TypeORM QueryRunner
+- **Production Security**: Cookie security, session regeneration, and comprehensive error handling
 
 ## Endpoints (mounted under `/api/v1/auth`)
 
@@ -105,20 +110,268 @@ CREATE POLICY "Users can only access their own data" ON uniks
 - JWT verification is done once per request (cached in req.dbContext)
 - Session variables are transaction-scoped (LOCAL) for isolation
 
-## Environment
+## Core Components
+
+### Authentication Middleware
+- **ensureAuth**: Basic authentication validation
+- **ensureAuthenticated**: Session validation middleware
+- **ensureAndRefresh**: Automatic token refresh middleware  
+- **createEnsureAuthWithRls**: Advanced RLS-enabled authentication middleware
+
+### Session Services
+- **Passport Configuration**: LocalStrategy with Supabase user verification
+- **Session Management**: Token storage, refresh logic, and cleanup
+- **CSRF Protection**: Token generation and validation
+- **Rate Limiting**: Configurable login attempt protection
+
+### RLS Integration
+- **JWT Verification**: Secure token validation using `jose` library
+- **Context Propagation**: PostgreSQL session variable management
+- **QueryRunner Lifecycle**: Automatic resource cleanup and connection pooling
+- **Request Context**: Per-request database manager attachment
+
+## Development
+
+### Prerequisites
+- Node.js 18+
+- PNPM workspace environment
+- Access to Supabase project credentials
+- PostgreSQL database with RLS policies (for RLS features)
+
+### Commands
+```bash
+# Install dependencies (from project root)
+pnpm install
+
+# Build package (dual CJS/ESM output)
+pnpm --filter @universo/auth-srv build
+
+# Development mode with watch
+pnpm --filter @universo/auth-srv dev
+
+# Lint TypeScript
+pnpm --filter @universo/auth-srv lint
+```
+
+### Build Output
+- **CommonJS**: `dist/index.js` + `dist/index.d.ts`
+- **ES Modules**: `dist/index.mjs` + `dist/index.d.ts`
+- **TypeScript**: Full type definitions included
+
+## Environment Configuration
 
 Consumed by `packages/flowise-server`. Required variables:
 
-- `SESSION_SECRET`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_JWT_SECRET` - Used for JWT verification in RLS context
-- Optional cookie tuning: `SESSION_COOKIE_NAME`, `SESSION_COOKIE_MAXAGE`, `SESSION_COOKIE_SAMESITE`, `SESSION_COOKIE_SECURE`
+### Required Variables
+- `SESSION_SECRET` - Secret key for session signing and encryption
+- `SUPABASE_URL` - Supabase project URL for authentication
+- `SUPABASE_ANON_KEY` - Supabase anonymous public key
+- `SUPABASE_JWT_SECRET` - JWT secret for token verification in RLS context
 
-## Build
+### Optional Cookie Configuration
+- `SESSION_COOKIE_NAME` - Custom session cookie name (default: 'connect.sid')
+- `SESSION_COOKIE_MAXAGE` - Session expiration time in milliseconds
+- `SESSION_COOKIE_SAMESITE` - SameSite cookie attribute ('strict', 'lax', 'none')
+- `SESSION_COOKIE_SECURE` - Secure cookie flag for HTTPS environments
 
+### Example Environment Setup
 ```bash
-pnpm --filter @universo/auth-srv build
+# .env
+SESSION_SECRET=your-strong-secret-key-here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_JWT_SECRET=your-jwt-secret-key
+
+# Optional production settings
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=strict
+SESSION_COOKIE_MAXAGE=86400000
 ```
 
-Outputs CommonJS build to `dist/` and ESM build to `dist/esm/`.
+## Integration Examples
+
+### Basic Authentication Setup
+```typescript
+// server.ts
+import express from 'express'
+import session from 'express-session'
+import csurf from 'csurf'
+import rateLimit from 'express-rate-limit'
+import { createAuthRouter, passport } from '@universo/auth-srv'
+
+const app = express()
+
+// Session configuration
+app.use(session({
+    secret: process.env.SESSION_SECRET!,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}))
+
+// Passport setup
+app.use(passport.initialize())
+app.use(passport.session())
+
+// CSRF and rate limiting
+const csrfProtection = csurf({ cookie: false })
+const loginLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10 // 10 attempts
+})
+
+// Mount auth routes
+app.use('/api/v1/auth', createAuthRouter(csrfProtection, loginLimiter))
+```
+
+### RLS-Enabled Route Protection
+```typescript
+// routes/index.ts
+import { createEnsureAuthWithRls } from '@universo/auth-srv'
+import { getDataSource } from '../DataSource'
+
+// Create RLS middleware
+const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
+
+// Apply to database routes
+router.use('/uniks', ensureAuthWithRls, uniksRouter)
+router.use('/metaverses', ensureAuthWithRls, metaversesRouter)
+router.use('/profile', ensureAuthWithRls, profileRouter)
+```
+
+### Service Layer with RLS
+```typescript
+// services/uniksService.ts
+import type { Request } from 'express'
+import type { RequestWithDbContext } from '@universo/auth-srv'
+import { getDataSource } from '../DataSource'
+
+function getRequestManager(req: Request) {
+    const rlsContext = (req as RequestWithDbContext).dbContext
+    return rlsContext?.manager ?? getDataSource().manager
+}
+
+export async function getUserUniks(req: Request) {
+    const manager = getRequestManager(req)
+    const unikRepo = manager.getRepository(Unik)
+    
+    // RLS policies automatically filter by user
+    return await unikRepo.find({
+        relations: ['users', 'sections']
+    })
+}
+```
+
+## Security Considerations
+
+### Session Security
+- **HttpOnly Cookies**: Prevents XSS attacks via client-side cookie access
+- **Secure Flag**: Ensures cookies only sent over HTTPS in production
+- **SameSite Protection**: Prevents CSRF attacks via cookie SameSite attribute
+- **Session Regeneration**: New session ID on login to prevent session fixation
+
+### CSRF Protection
+- **Token-based**: CSRF tokens required for state-changing operations
+- **Header Validation**: `X-CSRF-Token` header validation on protected routes
+- **Session-bound**: CSRF tokens tied to user session for security
+
+### Rate Limiting
+- **Login Protection**: Configurable limits on login attempts per IP
+- **Sliding Window**: Time-based rate limiting with automatic reset
+- **Customizable**: Adjustable window size and attempt limits
+
+### JWT Security
+- **Secret Verification**: JWT tokens verified using `SUPABASE_JWT_SECRET`
+- **Expiration Handling**: Automatic token refresh before expiration
+- **Single-flight Refresh**: Prevents concurrent refresh requests
+- **Secure Storage**: Access tokens stored in session, not client-side
+
+## Migration Guide
+
+### From Basic Authentication
+If migrating from simple authentication to RLS-enabled authentication:
+
+1. **Update Middleware**: Replace `ensureAuth` with `createEnsureAuthWithRls`
+2. **Service Layer**: Use `getRequestManager()` instead of direct DataSource
+3. **Database Policies**: Create appropriate RLS policies in PostgreSQL
+4. **Environment**: Add `SUPABASE_JWT_SECRET` to environment variables
+
+### Migration Steps
+```typescript
+// Before: Basic authentication
+router.use('/api/uniks', ensureAuth, uniksRouter)
+
+// After: RLS-enabled authentication  
+const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
+router.use('/api/uniks', ensureAuthWithRls, uniksRouter)
+```
+
+## Testing
+
+### Unit Testing
+```typescript
+// Mock authentication middleware for testing
+const mockEnsureAuth = (req: any, res: any, next: any) => {
+    req.user = { id: 'test-user-id' }
+    req.session = { tokens: { access: 'mock-token' } }
+    next()
+}
+
+// Test RLS context application
+describe('RLS Context', () => {
+    it('should apply PostgreSQL session variables', async () => {
+        const runner = mockQueryRunner()
+        await applyRlsContext(runner, mockJwtToken)
+        
+        expect(runner.query).toHaveBeenCalledWith(
+            "SET LOCAL role = 'authenticated'"
+        )
+        expect(runner.query).toHaveBeenCalledWith(
+            "SELECT set_config('request.jwt.claims', $1::text, true)",
+            [expect.stringContaining('"sub":"test-user-id"')]
+        )
+    })
+})
+```
+
+## Performance Optimization
+
+### QueryRunner Management
+- **Per-request Pools**: Each request gets dedicated QueryRunner from connection pool
+- **Automatic Cleanup**: QueryRunner released on request completion (finish/close)
+- **Error Recovery**: Proper cleanup even on request errors or timeouts
+- **Connection Reuse**: Pool management prevents connection exhaustion
+
+### Caching Strategy
+- **Session Cache**: In-memory session storage for frequently accessed user data
+- **Token Refresh**: Smart refresh logic minimizes unnecessary Supabase API calls
+- **Single-flight**: Prevents duplicate refresh requests for same user
+
+### Resource Management
+```typescript
+// Automatic cleanup example
+res.once('finish', cleanup)
+res.once('close', cleanup)
+
+const cleanup = async () => {
+    if (!runner.isReleased) {
+        await runner.release()
+    }
+    delete req.dbContext
+}
+```
+
+## Related Documentation
+
+- [Authentication Frontend](../../auth-frt/base/README.md)
+- [RLS Integration Pattern](../../../memory-bank/rls-integration-pattern.md)
+- [Flowise Server Integration](../../flowise-server/README.md)
+- [TypeORM Data Access](../../../docs/en/universo-platformo/database.md)
+
+---
+
+**Universo Platformo | Authentication Service Package**

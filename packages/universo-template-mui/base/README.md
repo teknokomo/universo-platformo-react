@@ -1,6 +1,26 @@
-# MUI Dashboard Template (universo-template-mui)
+# @universo/template-mui
 
-Material-UI Dashboard template adapted for the Universo Platformo ecosystem, providing a modern and responsive user interface.
+> 🎨 Material-UI Dashboard template adapted for the Universo Platformo ecosystem
+
+## Package Information
+
+| Field | Value |
+|-------|-------|
+| **Package Name** | `@universo/template-mui` |
+| **Version** | See `package.json` |
+| **Type** | React UI Template |
+| **Build** | TypeScript with Material-UI v6 |
+| **Purpose** | Modern and responsive dashboard interface |
+
+## 🚀 Key Features
+
+- 🎨 **Modern Design** - Material Design 3 with dark/light theme support
+- 📱 **Responsive Layout** - Mobile-first responsive design
+- 🌍 **Internationalization** - Built-in support for multiple languages
+- 🧭 **Navigation System** - Dynamic breadcrumbs and sidebar navigation
+- 🎯 **Theme Customization** - Extensive MUI theme customizations
+- ⚡ **Type Safety** - Full TypeScript support
+- 🔗 **Router Integration** - Full React Router v6 integration
 
 ## Recent Changes (2025-01-25)
 
@@ -20,13 +40,7 @@ Material-UI Dashboard template adapted for the Universo Platformo ecosystem, pro
 
 ## Overview
 
-The MUI Dashboard Template provides a comprehensive dashboard interface built on Material-UI v6, featuring:
-
-- **Modern Design**: Material Design 3 with dark/light theme support
-- **Responsive Layout**: Mobile-first responsive design
-- **Internationalization**: Built-in support for multiple languages
-- **Navigation System**: Dynamic breadcrumbs and sidebar navigation
-- **Theme Customization**: Extensive MUI theme customizations
+The MUI Dashboard Template provides a comprehensive dashboard interface built on Material-UI v6.
 
 ## Components
 

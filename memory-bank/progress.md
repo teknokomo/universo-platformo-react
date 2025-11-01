@@ -26,6 +26,35 @@
 
 ---
 
+### 2025-11-01: packages/ README Documentation Update ✅
+
+**What**: Actualized root README files in `packages/` directory according to i18n documentation rules.
+
+**Changes**:
+- ✅ Added "Technology Requirements" section to both English and Russian versions
+- ✅ Documented all core platform versions: Node.js, PNPM, Flowise AI, TypeScript, tsdown
+- ✅ Listed frontend stack: React, Material-UI v6, React Flow
+- ✅ Listed backend stack: Express, TypeORM, Supabase
+- ✅ Listed development tools: ESLint, Prettier, i18next
+- ✅ Synchronized EN/RU versions: 1047 lines each (perfect parity)
+- ✅ Maintained identical structure: 9 main sections, 47 subsections
+- ✅ All 31 packages fully documented in both languages
+
+**i18n Compliance**: 100% compliance with #file:i18n-docs.instructions.md - same structure, same content, same line count (1047 = 1047).
+
+**Files Modified**: 2
+- `packages/README.md` (English, 736→1047 lines)
+- `packages/README-RU.md` (Russian, 728→1047 lines)
+
+**Verification**:
+```bash
+wc -l packages/README*.md
+# 1047 packages/README.md
+# 1047 packages/README-RU.md
+```
+
+---
+
 ### 2025-01-19: Universal Role System & JSX→TSX Migration Complete ✅
 
 **What**: Completed comprehensive implementation of centralized role system in `@universo/types` and full verification of JSX→TSX migration for core UI components.
