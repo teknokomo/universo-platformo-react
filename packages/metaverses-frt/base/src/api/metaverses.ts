@@ -1,5 +1,4 @@
-import { AxiosResponse } from 'axios'
-import apiClient from './apiClient'
+import apiClient, { extractPaginationMeta } from './apiClient'
 import {
     Metaverse,
     Section,
@@ -8,21 +7,8 @@ import {
     MetaverseMembersResponse,
     MetaverseAssignableRole,
     PaginationParams,
-    PaginatedResponse,
-    PaginationMeta
+    PaginatedResponse
 } from '../types'
-
-// Helper function to extract pagination metadata from response headers
-function extractPaginationMeta(response: AxiosResponse): PaginationMeta {
-    const headers = response.headers
-    return {
-        limit: parseInt(headers['x-pagination-limit'] || '100', 10),
-        offset: parseInt(headers['x-pagination-offset'] || '0', 10),
-        count: parseInt(headers['x-pagination-count'] || '0', 10),
-        total: parseInt(headers['x-total-count'] || '0', 10),
-        hasMore: headers['x-pagination-has-more'] === 'true'
-    }
-}
 
 // Updated listMetaverses with pagination support
 export const listMetaverses = async (params?: PaginationParams): Promise<PaginatedResponse<Metaverse>> => {

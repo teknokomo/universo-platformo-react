@@ -11,6 +11,7 @@ import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { AuthUser } from '../database/entities/AuthUser'
 import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole, assertNotOwner } from './guards'
 import { z } from 'zod'
+import { parseIntSafe } from '../utils'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -24,13 +25,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-// Parse pagination parameters with validation
-const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
-    const parsed = parseInt(String(value || ''), 10)
-    if (!Number.isFinite(parsed)) return defaultValue
-    return Math.max(min, Math.min(max, parsed))
 }
 
 // Comments in English only
@@ -186,7 +180,7 @@ export function createMetaversesRoutes(
 
                 // Extract total count from window function (same value in all rows)
                 // Handle edge case: empty result set
-                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) || 0 : 0
+                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
 
                 const response = raw.map((row) => {
                     const role = (row.role ?? undefined) as MetaverseRole | undefined

@@ -8,8 +8,9 @@ import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { Entity } from '../database/entities/Entity'
 import { EntitySection } from '../database/entities/EntitySection'
-import { ensureSectionAccess, ensureMetaverseAccess } from './guards'
+import { ensureSectionAccess, ensureMetaverseAccess, ensureEntityAccess } from './guards'
 import { z } from 'zod'
+import { parseIntSafe, escapeLikeWildcards } from '../utils'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -23,13 +24,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-// Parse pagination parameters with validation
-const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
-    const parsed = parseInt(String(value || ''), 10)
-    if (!Number.isFinite(parsed)) return defaultValue
-    return Math.max(min, Math.min(max, parsed))
 }
 
 // Comments in English only
@@ -75,7 +69,8 @@ export function createSectionsRoutes(
 
                 // Parse search parameter
                 const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
-                const normalizedSearch = search.toLowerCase()
+                const escapedSearch = escapeLikeWildcards(search)
+                const normalizedSearch = escapedSearch.toLowerCase()
 
                 // Safe sorting with whitelist
                 const ALLOWED_SORT_FIELDS = {
@@ -141,7 +136,7 @@ export function createSectionsRoutes(
 
                 // Extract total count from window function (same value in all rows)
                 // Handle edge case: empty result set
-                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) || 0 : 0
+                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
 
                 const response = raw.map((row) => ({
                     id: row.id,
@@ -346,6 +341,9 @@ export function createSectionsRoutes(
 
             // Ensure user has createContent permission for the section
             await ensureSectionAccess(getDataSource(), userId, sectionId, 'createContent')
+
+            // SECURITY: Ensure user has access to the entity before attaching
+            await ensureEntityAccess(getDataSource(), userId, entityId)
 
             const { sectionRepo, entityRepo, entitySectionRepo } = repos(req)
 
