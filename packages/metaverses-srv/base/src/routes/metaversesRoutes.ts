@@ -180,7 +180,7 @@ export function createMetaversesRoutes(
 
                 // Extract total count from window function (same value in all rows)
                 // Handle edge case: empty result set
-                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
+                const total = raw.length > 0 ? (Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) || 0) : 0
 
                 const response = raw.map((row) => {
                     const role = (row.role ?? undefined) as MetaverseRole | undefined

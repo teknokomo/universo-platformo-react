@@ -76,7 +76,7 @@ export function createEntitiesRouter(
                 // Parse search parameter
                 const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
                 const escapedSearch = escapeLikeWildcards(search)
-                const normalizedSearch = escapedSearch.toLowerCase()
+                // Note: No toLowerCase() needed - SQL LOWER() handles case-insensitive search
 
                 // Safe sorting with whitelist
                 const ALLOWED_SORT_FIELDS = {
@@ -107,9 +107,9 @@ export function createEntitiesRouter(
                     .where('mu.user_id = :userId', { userId })
 
                 // Add search filter if provided
-                if (normalizedSearch) {
+                if (escapedSearch) {
                     qb.andWhere('(LOWER(e.name) LIKE :search OR LOWER(e.description) LIKE :search)', {
-                        search: `%${normalizedSearch}%`
+                        search: `%${escapedSearch}%`
                     })
                 }
 
