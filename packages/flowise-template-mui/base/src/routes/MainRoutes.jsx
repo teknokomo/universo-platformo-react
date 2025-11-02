@@ -4,7 +4,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 // project imports
 import MainLayout from '../layout/MainLayout'
 import MinimalLayout from '../layout/MinimalLayout'
-import { Loadable } from '@flowise/template-mui'
+import Loadable from '../ui-components/loading/Loadable'
 import AuthGuard from './AuthGuard'
 
 // Universo Platformo | Universal Public Flow Viewer
