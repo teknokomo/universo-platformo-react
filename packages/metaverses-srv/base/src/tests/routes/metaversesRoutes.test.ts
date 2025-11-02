@@ -527,7 +527,7 @@ describe('Metaverses Routes', () => {
         // Note: Rate limiting tests use mock limiters since we test the integration,
         // not the actual rate limiting library functionality.
         // The real rate limiting is tested via integration tests with actual Redis.
-        
+
         it('should allow requests within read limit (integration test with mock)', async () => {
             const { dataSource, metaverseRepo } = buildDataSource()
             const mockQB = metaverseRepo.createQueryBuilder()
@@ -544,7 +544,7 @@ describe('Metaverses Routes', () => {
             for (let i = 0; i < 5; i++) {
                 await request(app).get('/metaverses').expect(200)
             }
-            
+
             // All requests should pass with mock limiter
         })
 

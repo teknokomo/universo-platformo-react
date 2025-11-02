@@ -22,6 +22,10 @@ catalog:
     '@types/react': ^18.3.18
     '@types/react-dom': ^18.3.5
     
+    # React Router - updated to latest for React 18 compatibility
+    react-router: ^6.28.0
+    react-router-dom: ^6.28.0
+    
     # Build tools and bundlers
     tsdown: ^0.15.7
     vite: ^5.4.19

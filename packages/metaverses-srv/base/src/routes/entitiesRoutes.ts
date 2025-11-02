@@ -26,6 +26,13 @@ const resolveUserId = (req: Request): string | undefined => {
     return user.id ?? user.sub ?? user.user_id ?? user.userId
 }
 
+// Parse pagination parameters with validation
+const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
+    const parsed = parseInt(String(value || ''), 10)
+    if (!Number.isFinite(parsed)) return defaultValue
+    return Math.max(min, Math.min(max, parsed))
+}
+
 // Helper to get repositories from the data source
 function getRepositories(req: Request, getDataSource: () => DataSource) {
     const dataSource = getDataSource()
@@ -41,7 +48,7 @@ function getRepositories(req: Request, getDataSource: () => DataSource) {
     }
 }
 
-// Main function to create the entities router
+// Comments in English only
 export function createEntitiesRouter(
     ensureAuth: RequestHandler,
     getDataSource: () => DataSource,
@@ -60,9 +67,7 @@ export function createEntitiesRouter(
         }
     }
 
-    // --- Entity CRUD (flat, no categories) ---
-
-    // GET / (List all entities)
+    // GET / - List all entities with pagination, search, sorting
     router.get(
         '/',
         readLimiter,
@@ -70,41 +75,106 @@ export function createEntitiesRouter(
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
-            const { metaverseUserRepo, sectionMetaverseRepo, entitySectionRepo } = getRepositories(req, getDataSource)
+            try {
+                const limit = parseIntSafe(req.query.limit, 100, 1, 1000)
+                const offset = parseIntSafe(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER)
 
-            // Get metaverses accessible to user
-            const userMetaverses = await metaverseUserRepo.find({
-                where: { user_id: userId }
-            })
-            const metaverseIds = userMetaverses.map((uc) => uc.metaverse_id)
+                // Parse search parameter
+                const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
+                const normalizedSearch = search.toLowerCase()
 
-            if (metaverseIds.length === 0) {
-                return res.json([])
+                // Safe sorting with whitelist
+                const ALLOWED_SORT_FIELDS = {
+                    name: 'e.name',
+                    created: 'e.createdAt',
+                    updated: 'e.updatedAt'
+                } as const
+
+                const sortBy =
+                    typeof req.query.sortBy === 'string' && req.query.sortBy in ALLOWED_SORT_FIELDS
+                        ? ALLOWED_SORT_FIELDS[req.query.sortBy as keyof typeof ALLOWED_SORT_FIELDS]
+                        : 'e.updatedAt'
+
+                const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+                // Get entities accessible to user through section membership
+                const { entityRepo } = getRepositories(req, getDataSource)
+                const qb = entityRepo
+                    .createQueryBuilder('e')
+                    // Join with entity-section link
+                    .innerJoin(EntitySection, 'es', 'es.entity_id = e.id')
+                    // Join with section
+                    .innerJoin(Section, 's', 's.id = es.section_id')
+                    // Join with section-metaverse link
+                    .innerJoin(SectionMetaverse, 'sm', 'sm.section_id = s.id')
+                    // Join with metaverse user to filter by user access
+                    .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id')
+                    .where('mu.user_id = :userId', { userId })
+
+                // Add search filter if provided
+                if (normalizedSearch) {
+                    qb.andWhere('(LOWER(e.name) LIKE :search OR LOWER(e.description) LIKE :search)', {
+                        search: `%${normalizedSearch}%`
+                    })
+                }
+
+                qb.select([
+                    'e.id as id',
+                    'e.name as name',
+                    'e.description as description',
+                    'e.createdAt as created_at',
+                    'e.updatedAt as updated_at'
+                ])
+                    // Use window function to get total count in single query (performance optimization)
+                    .addSelect('COUNT(*) OVER()', 'window_total')
+                    .groupBy('e.id')
+                    .addGroupBy('e.name')
+                    .addGroupBy('e.description')
+                    .addGroupBy('e.createdAt')
+                    .addGroupBy('e.updatedAt')
+                    .orderBy(sortBy, sortOrder)
+                    .limit(limit)
+                    .offset(offset)
+
+                const raw = await qb.getRawMany<{
+                    id: string
+                    name: string
+                    description: string | null
+                    created_at: Date
+                    updated_at: Date
+                    window_total?: string
+                }>()
+
+                // Extract total count from window function (same value in all rows)
+                // Handle edge case: empty result set
+                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) || 0 : 0
+
+                const response = raw.map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    description: row.description ?? undefined,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at
+                }))
+
+                // Add pagination metadata headers for client awareness
+                const hasMore = offset + raw.length < total
+                res.setHeader('X-Pagination-Limit', limit.toString())
+                res.setHeader('X-Pagination-Offset', offset.toString())
+                res.setHeader('X-Pagination-Count', raw.length.toString())
+                res.setHeader('X-Total-Count', total.toString())
+                res.setHeader('X-Pagination-Has-More', hasMore.toString())
+
+                res.json(response)
+            } catch (error) {
+                console.error('[ERROR] GET /entities failed:', error)
+                res.status(500).json({
+                    error: 'Internal server error',
+                    details: error instanceof Error ? error.message : String(error)
+                })
             }
-
-            // Get sections from user's metaverses
-            const sectionMetaverses = await sectionMetaverseRepo.find({
-                where: metaverseIds.map((metaverseId) => ({ metaverse: { id: metaverseId } })),
-                relations: ['section']
-            })
-            const sectionIds = sectionMetaverses.map((dc) => dc.section.id)
-
-            if (sectionIds.length === 0) {
-                return res.json([])
-            }
-
-            // Get entities from user's sections
-            const entitySections = await entitySectionRepo.find({
-                where: sectionIds.map((sectionId) => ({ section: { id: sectionId } })),
-                relations: ['entity']
-            })
-
-            const entities = entitySections.map((rd) => rd.entity)
-
-            // Remove duplicates
-            const uniqueEntities = entities.filter((entity, index, self) => index === self.findIndex((r) => r.id === entity.id))
-
-            res.json(uniqueEntities)
         })
     )
 
@@ -130,32 +200,42 @@ export function createEntitiesRouter(
             // Verify access to the section
             await ensureSectionAccess(getDataSource(), userId, sectionId, 'createContent')
 
-            // Validate section exists
-            const section = await sectionRepo.findOne({ where: { id: sectionId } })
-            if (!section) return res.status(400).json({ error: 'Invalid sectionId' })
+            try {
+                // Validate section exists
+                const section = await sectionRepo.findOne({ where: { id: sectionId } })
+                if (!section) return res.status(400).json({ error: 'Invalid sectionId' })
 
-            const entity = entityRepo.create({ name, description })
-            await entityRepo.save(entity)
+                const entity = entityRepo.create({ name, description })
+                await entityRepo.save(entity)
 
-            // Create mandatory entity-section link
-            const entitySectionLink = entitySectionRepo.create({ entity, section })
-            await entitySectionRepo.save(entitySectionLink)
+                // Create mandatory entity-section link
+                const entitySectionLink = entitySectionRepo.create({ entity, section })
+                await entitySectionRepo.save(entitySectionLink)
 
-            // Optional metaverse link for atomic create-in-metaverse flow
-            if (metaverseId) {
-                // Verify access to the metaverse
-                await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
+                // Optional metaverse link for atomic create-in-metaverse flow
+                if (metaverseId) {
+                    // Verify access to the metaverse
+                    await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
 
-                const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
-                if (!metaverse) return res.status(400).json({ error: 'Invalid metaverseId' })
-                const exists = await entityMetaverseRepo.findOne({ where: { metaverse: { id: metaverseId }, entity: { id: entity.id } } })
-                if (!exists) {
-                    const link = entityMetaverseRepo.create({ metaverse, entity })
-                    await entityMetaverseRepo.save(link)
+                    const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
+                    if (!metaverse) return res.status(400).json({ error: 'Invalid metaverseId' })
+                    const exists = await entityMetaverseRepo.findOne({
+                        where: { metaverse: { id: metaverseId }, entity: { id: entity.id } }
+                    })
+                    if (!exists) {
+                        const link = entityMetaverseRepo.create({ metaverse, entity })
+                        await entityMetaverseRepo.save(link)
+                    }
                 }
-            }
 
-            res.status(201).json(entity)
+                res.status(201).json(entity)
+            } catch (error) {
+                console.error('POST /entities - Error:', error)
+                res.status(500).json({
+                    error: 'Failed to create entity',
+                    details: error instanceof Error ? error.message : String(error)
+                })
+            }
         })
     )
 

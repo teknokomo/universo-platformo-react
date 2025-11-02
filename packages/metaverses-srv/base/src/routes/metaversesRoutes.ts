@@ -9,7 +9,7 @@ import { EntityMetaverse } from '../database/entities/EntityMetaverse'
 import { Section } from '../database/entities/Section'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { AuthUser } from '../database/entities/AuthUser'
-import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole } from './guards'
+import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole, assertNotOwner } from './guards'
 import { z } from 'zod'
 
 /**
@@ -423,9 +423,7 @@ export function createMetaversesRoutes(
                 return res.status(404).json({ error: 'Membership not found' })
             }
 
-            if ((membership.role || 'member') === 'owner') {
-                return res.status(400).json({ error: 'Owner role cannot be modified' })
-            }
+            assertNotOwner(membership, 'modify')
 
             membership.role = role
             if (comment !== undefined) {
@@ -459,9 +457,7 @@ export function createMetaversesRoutes(
                 return res.status(404).json({ error: 'Membership not found' })
             }
 
-            if ((membership.role || 'member') === 'owner') {
-                return res.status(400).json({ error: 'Owner cannot be removed' })
-            }
+            assertNotOwner(membership, 'remove')
 
             await metaverseUserRepo.remove(membership)
             res.status(204).send()

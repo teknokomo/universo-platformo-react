@@ -174,3 +174,21 @@ export async function ensureEntityAccess(
 
     return { membership: allowedMembership, metaverseId: allowedMembership.metaverse_id, viaMetaverseIds: uniqueMetaverseIds }
 }
+
+/**
+ * Throws an error if the user is the metaverse owner.
+ * Owners cannot be modified or removed to preserve access control integrity.
+ *
+ * @param membership - The MetaverseUser membership to check
+ * @param operation - The operation type: 'modify' (default) or 'remove'
+ * @throws Error with status 400 if the user is an owner
+ */
+export function assertNotOwner(membership: MetaverseUser, operation: 'modify' | 'remove' = 'modify'): void {
+    const role = (membership.role || 'member') as MetaverseRole
+    if (role === 'owner') {
+        const message = operation === 'remove' ? 'Owner cannot be removed from metaverse' : 'Owner role cannot be modified'
+        const err: any = new Error(message)
+        err.status = 400
+        throw err
+    }
+}

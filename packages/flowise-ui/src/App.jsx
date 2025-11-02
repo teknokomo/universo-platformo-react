@@ -5,6 +5,7 @@ console.info('[app-module] App.jsx module loaded')
 import { useSelector } from 'react-redux'
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from '@universo/i18n'
+import { useAuth } from '@universo/auth-frt'
 
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline, StyledEngineProvider } from '@mui/material'
@@ -21,8 +22,15 @@ import NavigationScroll from '@flowise/template-mui/layout/NavigationScroll'
 // ==============================|| APP ||============================== //
 
 const App = () => {
+    const { user } = useAuth()
+    
     // eslint-disable-next-line no-console
-    console.info('[app-init] render start')
+    console.info('[app-init] render start', {
+        hasUser: !!user,
+        userId: user?.id,
+        timestamp: Date.now()
+    })
+    
     const { i18n } = useTranslation()
     const [i18nInitialized, setI18nInitialized] = useState(false)
     const customization = useSelector((state) => state.customization)

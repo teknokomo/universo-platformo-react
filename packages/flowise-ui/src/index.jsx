@@ -88,12 +88,45 @@ const routerConfig = {
 // eslint-disable-next-line no-console
 console.info('[bootstrap-router]', routerConfig)
 
+// Wrap in StrictMode only in development (production double-render causes Router context issues)
+const AppWrapper = process.env.NODE_ENV === 'development' ? React.StrictMode : React.Fragment
+
+// eslint-disable-next-line no-console
+console.info('[bootstrap-wrapper]', {
+    nodeEnv: process.env.NODE_ENV,
+    isStrictMode: AppWrapper === React.StrictMode,
+    isFragment: AppWrapper === React.Fragment,
+    wrapperName: AppWrapper.name || AppWrapper.displayName || 'unknown'
+})
+
+// Router wrapper with lifecycle logging
+function RouterWrapper({ children, basename }) {
+    React.useEffect(() => {
+        const timestamp = Date.now()
+        // eslint-disable-next-line no-console
+        console.info('[BrowserRouter] MOUNTED', { basename, timestamp })
+        return () => {
+            // eslint-disable-next-line no-console
+            console.error('[BrowserRouter] UNMOUNTED - THIS SHOULD NEVER HAPPEN!', { 
+                basename, 
+                timestamp, 
+                duration: Date.now() - timestamp 
+            })
+        }
+    }, [basename])
+    
+    // eslint-disable-next-line no-console
+    console.info('[BrowserRouter] rendering', { basename, hasChildren: !!children })
+    
+    return React.createElement(BrowserRouter, { basename }, children)
+}
+
 root.render(
-    <React.StrictMode>
+    <AppWrapper>
         <BootstrapErrorBoundary>
             <QueryClientProvider client={queryClient}>
                 <Provider store={store}>
-                    <BrowserRouter basename={routerConfig.basename}>
+                    <RouterWrapper basename={routerConfig.basename}>
                         <SnackbarProvider>
                             <ConfirmContextProvider>
                                 <ReactFlowContext>
@@ -103,13 +136,13 @@ root.render(
                                 </ReactFlowContext>
                             </ConfirmContextProvider>
                         </SnackbarProvider>
-                    </BrowserRouter>
+                    </RouterWrapper>
                 </Provider>
                 {/* React Query DevTools - only in development */}
                 {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />}
             </QueryClientProvider>
         </BootstrapErrorBoundary>
-    </React.StrictMode>
+    </AppWrapper>
 )
 
 // eslint-disable-next-line no-console

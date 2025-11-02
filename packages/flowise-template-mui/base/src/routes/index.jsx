@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react'
-import { useRoutes } from 'react-router-dom'
+import React, { useEffect, useContext } from 'react'
+import { useRoutes, UNSAFE_RouteContext as RouteContext } from 'react-router-dom'
 // eslint-disable-next-line no-console
 console.info('[theme-routes-module] loaded')
 
@@ -15,6 +15,20 @@ import { MainRoutesMUI } from '@universo/template-mui'
 // ==============================|| ROUTING RENDER ||============================== //
 
 export default function ThemeRoutes() {
+    // Track component lifecycle
+    useEffect(() => {
+        const timestamp = Date.now()
+        // eslint-disable-next-line no-console
+        console.info('[ThemeRoutes] Component MOUNTED', { timestamp })
+        return () => {
+            // eslint-disable-next-line no-console
+            console.warn('[ThemeRoutes] Component UNMOUNTED', { timestamp, duration: Date.now() - timestamp })
+        }
+    }, [])
+    
+    // eslint-disable-next-line no-console
+    console.info('[ThemeRoutes] Component rendering - BEFORE useRoutes')
+    
     const routeTree = [AuthRoutes, MainRoutesMUI, MainRoutes, CanvasRoutes, ChatbotRoutes, PublicFlowRoutes]
     const sanitizedRoutes = routeTree.filter(Boolean)
 
@@ -63,5 +77,27 @@ export default function ThemeRoutes() {
         })
     }
 
-    return useRoutes(wrappedRoutes)
+    // eslint-disable-next-line no-console
+    console.info('[ThemeRoutes] Calling useRoutes with', wrappedRoutes.length, 'routes')
+    
+    // DEBUG: Check Router context before calling useRoutes
+    const routeContext = useContext(RouteContext)
+    // eslint-disable-next-line no-console
+    console.info('[ThemeRoutes] Router context:', {
+        hasContext: !!routeContext,
+        context: routeContext ? 'present' : 'NULL'
+    })
+    
+    let routing
+    try {
+        routing = useRoutes(wrappedRoutes)
+        // eslint-disable-next-line no-console
+        console.info('[ThemeRoutes] useRoutes() success')
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('[ThemeRoutes] useRoutes() error:', error)
+        throw error
+    }
+
+    return routing
 }

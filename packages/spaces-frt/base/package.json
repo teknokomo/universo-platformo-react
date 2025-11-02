@@ -53,7 +53,7 @@
     "react-dom": "^18.2.0",
     "reactflow": "^11.5.6",
     "react-redux": "^8.0.5",
-    "react-router-dom": "~6.3.0",
+    "react-router-dom": "catalog:",
     "@mui/material": "5.15.0",
     "@tabler/icons-react": "^3.30.0",
     "react-perfect-scrollbar": "^1.5.8"
