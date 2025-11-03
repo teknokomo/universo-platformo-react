@@ -23,7 +23,7 @@
     "license": "Omsk Open License",
     "dependencies": {
         "express": "^4.18.2",
-        "typeorm": "^0.3.6",
+        "typeorm": "catalog:",
         "typescript": "^5.4.5",
         "@universo/publish-srv": "workspace:*",
         "@supabase/supabase-js": "^2.39.0",

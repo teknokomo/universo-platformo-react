@@ -10,7 +10,8 @@ import { Entity } from '../database/entities/Entity'
 import { EntitySection } from '../database/entities/EntitySection'
 import { ensureSectionAccess, ensureMetaverseAccess, ensureEntityAccess } from './guards'
 import { z } from 'zod'
-import { parseIntSafe, escapeLikeWildcards } from '../utils'
+import { validateListQuery } from '../schemas/queryParams'
+import { escapeLikeWildcards } from '../utils'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -64,13 +65,11 @@ export function createSectionsRoutes(
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             try {
-                const limit = parseIntSafe(req.query.limit, 100, 1, 1000)
-                const offset = parseIntSafe(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER)
+                // Validate and parse query parameters with Zod
+                const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
 
                 // Parse search parameter
-                const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
-                const escapedSearch = escapeLikeWildcards(search)
-                // Note: No toLowerCase() needed - SQL LOWER() handles case-insensitive search
+                const escapedSearch = search ? escapeLikeWildcards(search) : ''
 
                 // Safe sorting with whitelist
                 const ALLOWED_SORT_FIELDS = {
@@ -79,12 +78,8 @@ export function createSectionsRoutes(
                     updated: 's.updatedAt'
                 } as const
 
-                const sortBy =
-                    typeof req.query.sortBy === 'string' && req.query.sortBy in ALLOWED_SORT_FIELDS
-                        ? ALLOWED_SORT_FIELDS[req.query.sortBy as keyof typeof ALLOWED_SORT_FIELDS]
-                        : 's.updatedAt'
-
-                const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+                const sortByField = ALLOWED_SORT_FIELDS[sortBy]
+                const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
                 // Get sections accessible to user through metaverse membership
                 const { sectionRepo } = repos(req)
@@ -100,9 +95,14 @@ export function createSectionsRoutes(
 
                 // Add search filter if provided
                 if (escapedSearch) {
-                    qb.andWhere('(LOWER(s.name) LIKE :search OR LOWER(s.description) LIKE :search)', {
-                        search: `%${escapedSearch}%`
-                    })
+                    // Use PostgreSQL full-text search with GIN indexes for better performance
+                    qb.andWhere(
+                        `(
+                            to_tsvector('english', s.name) @@ plainto_tsquery('english', :search) OR
+                            to_tsvector('english', COALESCE(s.description, '')) @@ plainto_tsquery('english', :search)
+                        )`,
+                        { search: escapedSearch }
+                    )
                 }
 
                 qb.select([
@@ -120,7 +120,7 @@ export function createSectionsRoutes(
                     .addGroupBy('s.description')
                     .addGroupBy('s.createdAt')
                     .addGroupBy('s.updatedAt')
-                    .orderBy(sortBy, sortOrder)
+                    .orderBy(sortByField, sortDirection)
                     .limit(limit)
                     .offset(offset)
 
@@ -159,6 +159,16 @@ export function createSectionsRoutes(
 
                 res.json(response)
             } catch (error) {
+                // Handle Zod validation errors
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({
+                        error: 'Invalid query parameters',
+                        details: error.errors.map((e) => ({
+                            field: e.path.join('.'),
+                            message: e.message
+                        }))
+                    })
+                }
                 console.error('[ERROR] GET /sections failed:', error)
                 res.status(500).json({
                     error: 'Internal server error',
