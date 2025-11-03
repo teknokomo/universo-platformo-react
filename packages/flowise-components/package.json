@@ -5,9 +5,9 @@
     "license": "SEE LICENSE IN LICENSE-Flowise.md",
     "homepage": "https://universo.pro",
     "author": {
-    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
-    "email": "info@universo.pro"
-  },
+        "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+        "email": "info@universo.pro"
+    },
     "main": "dist/src/index.js",
     "module": "dist/src/index.mjs",
     "types": "dist/src/index.d.ts",
@@ -143,7 +143,7 @@
         "replicate": "^0.31.1",
         "sanitize-filename": "^1.6.3",
         "srt-parser-2": "^1.2.3",
-        "typeorm": "^0.3.6",
+        "typeorm": "0.3.20",
         "weaviate-ts-client": "^1.1.0",
         "winston": "^3.9.0",
         "ws": "^8.18.0",

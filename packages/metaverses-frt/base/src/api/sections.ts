@@ -1,7 +1,23 @@
-import apiClient from './apiClient'
-import { Section, Entity } from '../types'
+import apiClient, { extractPaginationMeta } from './apiClient'
+import { Section, Entity, PaginationParams, PaginatedResponse } from '../types'
 
-export const listSections = () => apiClient.get<Section[]>('/sections')
+// Updated listSections with pagination support
+export const listSections = async (params?: PaginationParams): Promise<PaginatedResponse<Section>> => {
+    const response = await apiClient.get<Section[]>('/sections', {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search
+        }
+    })
+
+    return {
+        items: response.data,
+        pagination: extractPaginationMeta(response)
+    }
+}
 
 export const getSection = (id: string) => apiClient.get<Section>(`/sections/${id}`)
 
@@ -14,6 +30,9 @@ export const deleteSection = (id: string) => apiClient.delete<void>(`/sections/$
 
 // Section-Entity relationships
 export const getSectionEntities = (sectionId: string) => apiClient.get<Entity[]>(`/sections/${sectionId}/entities`)
+
+export const addEntityToSection = (sectionId: string, entityId: string) =>
+    apiClient.post<void>(`/sections/${sectionId}/entities/${entityId}`)
 
 export const assignEntityToSection = (entityId: string, sectionId: string) =>
     apiClient.put<void>(`/entities/${entityId}/section`, { sectionId })

@@ -1,5 +1,103 @@
 # System Patterns
 
+## Source-Only Package PeerDependencies Pattern (CRITICAL)
+
+**Pattern**: All source-only packages (unbundled, consumed directly as source code) MUST declare React framework hooks and routing libraries as peerDependencies to prevent module duplication and context isolation issues.
+
+**Context**: Modern monorepo with Vite bundler aggressively code-splits across package boundaries. When a source-only package imports from a library but doesn't declare it as peerDependency, Vite creates separate module chunks with isolated instances.
+
+**Critical Rule**: Any package with `"build": "echo 'No build needed for source-only package'"` that imports from framework libraries MUST declare those libraries in peerDependencies.
+
+**Required peerDependencies for UI Packages**:
+```json
+{
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "~6.3.0",      // If using routing hooks (useLocation, useNavigate, etc)
+    "react-redux": "^8.0.0",           // If using Redux hooks (useSelector, useDispatch)
+    "@tanstack/react-query": "^5.0.0"  // If using Query hooks (useQuery, useMutation)
+  }
+}
+```
+
+**Example Problem** (2025-11-02 Critical Bug):
+```javascript
+// packages/flowise-template-mui/base/src/layout/NavigationScroll.jsx
+import { useLocation } from 'react-router-dom'  // ← Imports router hook
+
+// packages/flowise-template-mui/base/package.json (BEFORE FIX - WRONG)
+{
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+    // ❌ Missing react-router-dom!
+  }
+}
+
+// Result: Vite creates separate chunk for NavigationScroll
+// → Separate react-router-dom instance
+// → Isolated Router context
+// → useLocation() fails: "must be used in a Router"
+```
+
+**Correct Implementation**:
+```json
+// packages/flowise-template-mui/base/package.json (AFTER FIX - CORRECT)
+{
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "~6.3.0"  // ✅ Added
+  }
+}
+```
+
+**Why This Matters**:
+1. **Vite Module Resolution**: Vite uses peerDependencies to determine which modules should be shared vs isolated
+2. **React Context Sharing**: React contexts (Router, Redux Store, Query Client) only work within same module instance
+3. **Bundle Size**: Missing peerDeps = duplicate libraries in bundle
+4. **Type Safety**: peerDependencies enable proper TypeScript module resolution
+
+**Detection Checklist**:
+```bash
+# Find all source-only packages
+grep -l "No build needed" packages/*/base/package.json
+
+# For each source-only package, check for framework imports
+grep -r "from 'react-router-dom'" packages/PACKAGE/base/src/
+grep -r "from 'react-redux'" packages/PACKAGE/base/src/
+grep -r "from '@tanstack/react-query'" packages/PACKAGE/base/src/
+
+# Verify peerDependencies declaration
+cat packages/PACKAGE/base/package.json | grep -A5 peerDependencies
+```
+
+**Common Symptoms of Missing peerDependency**:
+- Runtime errors: "useX must be used in a Y" (e.g., useLocation in Router)
+- Multiple instances of same library in Vite dev tools
+- Context values undefined despite correct provider setup
+- Hooks returning stale or incorrect values
+
+**Verification After Fix**:
+```bash
+# 1. Clear all caches
+rm -rf packages/*/build/ packages/*/node_modules/.vite/
+
+# 2. Reinstall dependencies
+pnpm install
+
+# 3. Rebuild consuming package
+pnpm --filter consuming-package build
+
+# 4. Check browser console (should be no context errors)
+# 5. Verify single module instance in Network tab
+```
+
+**Pattern Established**: Always declare framework hooks as peerDependencies in source-only packages. This is CRITICAL for proper module sharing in monorepo architecture.
+
+---
+
 ## i18n Architecture Patterns
 
 ### Multi-Namespace i18n Pattern (2025-10-28)

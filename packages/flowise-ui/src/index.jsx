@@ -47,34 +47,19 @@ if (typeof window !== 'undefined' && typeof window.require === 'undefined') {
         }
 
         const error = new Error(`Unsupported browser require invoked for "${moduleId}"`)
-        console.error('[ui-debug] window.require called', { moduleId, stack: error.stack })
         throw error
     }
 }
 
-// eslint-disable-next-line no-console
-console.info('[bootstrap-env]', {
-    nodeEnv: process.env.NODE_ENV,
-    publicUrl: process.env.PUBLIC_URL,
-})
-
 const container = document.getElementById('root')
 
 if (!container) {
-    // eslint-disable-next-line no-console
-    console.error('[bootstrap-error]', { message: 'Root container #root not found' })
     throw new Error('Root container #root not found')
 }
-
-// eslint-disable-next-line no-console
-console.info('[bootstrap-container]', { found: Boolean(container) })
 
 const root = createRoot(container)
 
 // Universo Platformo | initialize UPDL builders
-// eslint-disable-next-line no-console
-console.time('[bootstrap-render]')
-
 setupBuilders()
 
 // Create global QueryClient instance (following TanStack Query v5 best practices)
@@ -85,15 +70,42 @@ const routerConfig = {
     basename: (typeof window !== 'undefined' && window.__APP_BASEPATH__) || process.env.PUBLIC_URL || '/',
 }
 
-// eslint-disable-next-line no-console
-console.info('[bootstrap-router]', routerConfig)
+/**
+ * React StrictMode Wrapper - Development Only
+ * 
+ * **Why conditional StrictMode?**
+ * React.StrictMode intentionally double-renders components in development to detect side effects.
+ * However, this causes Router context loss in production builds, breaking navigation after auth state changes.
+ * 
+ * **Issue Details:**
+ * - StrictMode in production → BrowserRouter unmounts/remounts → Router context becomes null
+ * - Manifests as: "useRoutes() must be called within a Router" error after successful authentication
+ * - Related: https://github.com/remix-run/react-router/issues/7870
+ * 
+ * **Solution:**
+ * - Development: Use React.StrictMode to catch side effects and unsafe patterns
+ * - Production: Use React.Fragment (no-op wrapper) to prevent double-render issues
+ * 
+ * **Benefits:**
+ * - ✅ Development: Full StrictMode debugging capabilities
+ * - ✅ Production: Stable Router context, no performance penalty
+ * - ✅ Best practice: StrictMode should be development-only per React documentation
+ * 
+ * @see https://react.dev/reference/react/StrictMode#strictmode
+ */
+const AppWrapper = process.env.NODE_ENV === 'development' ? React.StrictMode : React.Fragment
+
+// Simple Router wrapper without logging
+function RouterWrapper({ children, basename }) {
+    return React.createElement(BrowserRouter, { basename }, children)
+}
 
 root.render(
-    <React.StrictMode>
+    <AppWrapper>
         <BootstrapErrorBoundary>
             <QueryClientProvider client={queryClient}>
                 <Provider store={store}>
-                    <BrowserRouter basename={routerConfig.basename}>
+                    <RouterWrapper basename={routerConfig.basename}>
                         <SnackbarProvider>
                             <ConfirmContextProvider>
                                 <ReactFlowContext>
@@ -103,20 +115,11 @@ root.render(
                                 </ReactFlowContext>
                             </ConfirmContextProvider>
                         </SnackbarProvider>
-                    </BrowserRouter>
+                    </RouterWrapper>
                 </Provider>
                 {/* React Query DevTools - only in development */}
                 {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />}
             </QueryClientProvider>
         </BootstrapErrorBoundary>
-    </React.StrictMode>
+    </AppWrapper>
 )
-
-// eslint-disable-next-line no-console
-console.timeEnd('[bootstrap-render]')
-
-// Schedule a post-render tick to see if React reached commit phase
-setTimeout(() => {
-    // eslint-disable-next-line no-console
-    console.info('[bootstrap-post-render] first tick')
-}, 0)

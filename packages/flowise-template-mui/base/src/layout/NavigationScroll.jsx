@@ -5,8 +5,7 @@ import { useLocation } from 'react-router-dom'
 // ==============================|| NAVIGATION SCROLL TO TOP ||============================== //
 
 const NavigationScroll = ({ children }) => {
-    const location = useLocation()
-    const { pathname } = location
+    const { pathname } = useLocation()
 
     useEffect(() => {
         window.scrollTo({

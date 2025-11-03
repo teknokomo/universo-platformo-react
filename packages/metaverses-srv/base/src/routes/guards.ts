@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm'
+import createError from 'http-errors'
 import { MetaverseRole } from '@universo/types'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
@@ -57,9 +58,15 @@ export function assertPermission(membership: MetaverseUser, permission: RolePerm
     const role = (membership.role || 'member') as MetaverseRole
     const allowed = ROLE_PERMISSIONS[role]?.[permission]
     if (!allowed) {
-        const err: any = new Error('Forbidden for this role')
-        err.status = 403
-        throw err
+        console.warn('[SECURITY] Permission denied', {
+            timestamp: new Date().toISOString(),
+            userId: membership.user_id,
+            metaverseId: membership.metaverse_id,
+            action: permission,
+            userRole: role,
+            reason: 'insufficient_permissions'
+        })
+        throw createError(403, 'Forbidden for this role')
     }
 }
 
@@ -71,9 +78,14 @@ export async function ensureMetaverseAccess(
 ): Promise<MetaverseMembershipContext> {
     const membership = await getMetaverseMembership(ds, userId, metaverseId)
     if (!membership) {
-        const err: any = new Error('Access denied to this metaverse')
-        err.status = 403
-        throw err
+        console.warn('[SECURITY] Permission denied', {
+            timestamp: new Date().toISOString(),
+            userId,
+            metaverseId,
+            action: permission || 'access',
+            reason: 'not_member'
+        })
+        throw createError(403, 'Access denied to this metaverse')
     }
     if (permission) {
         assertPermission(membership, permission)
@@ -94,9 +106,14 @@ export async function ensureSectionAccess(
     const sectionMetaverseRepo = ds.getRepository(SectionMetaverse)
     const sectionMetaverse = await sectionMetaverseRepo.findOne({ where: { section: { id: sectionId } }, relations: ['metaverse'] })
     if (!sectionMetaverse) {
-        const err: any = new Error('Section not found')
-        err.status = 404
-        throw err
+        console.warn('[SECURITY] Permission denied', {
+            timestamp: new Date().toISOString(),
+            userId,
+            sectionId,
+            action: permission || 'access',
+            reason: 'section_not_found'
+        })
+        throw createError(404, 'Section not found')
     }
 
     const context = await ensureMetaverseAccess(ds, userId, sectionMetaverse.metaverse.id, permission)
@@ -132,18 +149,28 @@ export async function ensureEntityAccess(
     if (metaverseIds.length === 0) {
         const explicitLinks = await metaverseLinkRepo.find({ where: { entity: { id: entityId } }, relations: ['metaverse'] })
         if (explicitLinks.length === 0) {
-            const err: any = new Error('Entity not found')
-            err.status = 404
-            throw err
+            console.warn('[SECURITY] Permission denied', {
+                timestamp: new Date().toISOString(),
+                userId,
+                entityId,
+                action: permission || 'access',
+                reason: 'entity_not_found'
+            })
+            throw createError(404, 'Entity not found')
         }
         metaverseIds = explicitLinks.map((link) => link.metaverse.id)
     }
 
     const uniqueMetaverseIds = Array.from(new Set(metaverseIds))
     if (uniqueMetaverseIds.length === 0) {
-        const err: any = new Error('Access denied to this entity')
-        err.status = 403
-        throw err
+        console.warn('[SECURITY] Permission denied', {
+            timestamp: new Date().toISOString(),
+            userId,
+            entityId,
+            action: permission || 'access',
+            reason: 'no_metaverse_links'
+        })
+        throw createError(403, 'Access denied to this entity')
     }
 
     const membershipRepo = ds.getRepository(MetaverseUser)
@@ -154,9 +181,15 @@ export async function ensureEntityAccess(
     })
 
     if (memberships.length === 0) {
-        const err: any = new Error('Access denied to this entity')
-        err.status = 403
-        throw err
+        console.warn('[SECURITY] Permission denied', {
+            timestamp: new Date().toISOString(),
+            userId,
+            entityId,
+            metaverseIds: uniqueMetaverseIds,
+            action: permission || 'access',
+            reason: 'not_member'
+        })
+        throw createError(403, 'Access denied to this entity')
     }
 
     if (!permission) {
@@ -167,10 +200,33 @@ export async function ensureEntityAccess(
         (membership) => ROLE_PERMISSIONS[(membership.role || 'member') as MetaverseRole]?.[permission]
     )
     if (!allowedMembership) {
-        const err: any = new Error('Forbidden for this role')
-        err.status = 403
-        throw err
+        console.warn('[SECURITY] Permission denied', {
+            timestamp: new Date().toISOString(),
+            userId,
+            entityId,
+            metaverseIds: uniqueMetaverseIds,
+            action: permission,
+            userRoles: memberships.map((m) => m.role || 'member'),
+            reason: 'insufficient_permissions'
+        })
+        throw createError(403, 'Forbidden for this role')
     }
 
     return { membership: allowedMembership, metaverseId: allowedMembership.metaverse_id, viaMetaverseIds: uniqueMetaverseIds }
+}
+
+/**
+ * Throws an error if the user is the metaverse owner.
+ * Owners cannot be modified or removed to preserve access control integrity.
+ *
+ * @param membership - The MetaverseUser membership to check
+ * @param operation - The operation type: 'modify' (default) or 'remove'
+ * @throws HTTP 400 error if the user is an owner
+ */
+export function assertNotOwner(membership: MetaverseUser, operation: 'modify' | 'remove' = 'modify'): void {
+    const role = (membership.role || 'member') as MetaverseRole
+    if (role === 'owner') {
+        const message = operation === 'remove' ? 'Owner cannot be removed from metaverse' : 'Owner role cannot be modified'
+        throw createError(400, message)
+    }
 }

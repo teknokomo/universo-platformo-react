@@ -44,6 +44,8 @@ export interface Section {
     description?: string
     createdAt: string
     updatedAt: string
+    // Optional aggregated counter provided by backend list endpoint
+    entitiesCount?: number
 }
 
 export interface Entity {

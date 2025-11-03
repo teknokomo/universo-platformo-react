@@ -1,7 +1,23 @@
-import apiClient from './apiClient'
-import { Entity } from '../types'
+import apiClient, { extractPaginationMeta } from './apiClient'
+import { Entity, PaginationParams, PaginatedResponse } from '../types'
 
-export const listEntities = () => apiClient.get<Entity[]>('/entities')
+// Updated listEntities with pagination support
+export const listEntities = async (params?: PaginationParams): Promise<PaginatedResponse<Entity>> => {
+    const response = await apiClient.get<Entity[]>('/entities', {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search
+        }
+    })
+
+    return {
+        items: response.data,
+        pagination: extractPaginationMeta(response)
+    }
+}
 
 export const getEntity = (entityId: string) => apiClient.get<Entity>(`/entities/${entityId}`)
 

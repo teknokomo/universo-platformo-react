@@ -9,8 +9,9 @@ import { EntityMetaverse } from '../database/entities/EntityMetaverse'
 import { Section } from '../database/entities/Section'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { AuthUser } from '../database/entities/AuthUser'
-import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole } from './guards'
+import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole, assertNotOwner } from './guards'
 import { z } from 'zod'
+import { validateListQuery } from '../schemas/queryParams'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -24,13 +25,6 @@ const resolveUserId = (req: Request): string | undefined => {
     const user = (req as any).user
     if (!user) return undefined
     return user.id ?? user.sub ?? user.user_id ?? user.userId
-}
-
-// Parse pagination parameters with validation
-const parseIntSafe = (value: any, defaultValue: number, min: number, max: number): number => {
-    const parsed = parseInt(String(value || ''), 10)
-    if (!Number.isFinite(parsed)) return defaultValue
-    return Math.max(min, Math.min(max, parsed))
 }
 
 // Comments in English only
@@ -111,12 +105,11 @@ export function createMetaversesRoutes(
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
             try {
-                const limit = parseIntSafe(req.query.limit, 100, 1, 1000)
-                const offset = parseIntSafe(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER)
+                // Validate and parse query parameters with Zod
+                const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
 
                 // Parse search parameter
-                const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
-                const normalizedSearch = search.toLowerCase()
+                const normalizedSearch = search ? search.toLowerCase() : ''
 
                 // Safe sorting with whitelist
                 const ALLOWED_SORT_FIELDS = {
@@ -125,12 +118,8 @@ export function createMetaversesRoutes(
                     updated: 'm.updatedAt'
                 } as const
 
-                const sortBy =
-                    typeof req.query.sortBy === 'string' && req.query.sortBy in ALLOWED_SORT_FIELDS
-                        ? ALLOWED_SORT_FIELDS[req.query.sortBy as keyof typeof ALLOWED_SORT_FIELDS]
-                        : 'm.updatedAt'
-
-                const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+                const sortByField = ALLOWED_SORT_FIELDS[sortBy]
+                const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
                 // Aggregate counts per metaverse in a single query filtered by current user membership
                 const { metaverseRepo } = repos(req)
@@ -168,7 +157,7 @@ export function createMetaversesRoutes(
                     .addGroupBy('m.createdAt')
                     .addGroupBy('m.updatedAt')
                     .addGroupBy('mu.role')
-                    .orderBy(sortBy, sortOrder)
+                    .orderBy(sortByField, sortDirection)
                     .limit(limit)
                     .offset(offset)
 
@@ -215,6 +204,16 @@ export function createMetaversesRoutes(
 
                 res.json(response)
             } catch (error) {
+                // Handle Zod validation errors
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({
+                        error: 'Invalid query parameters',
+                        details: error.errors.map((e) => ({
+                            field: e.path.join('.'),
+                            message: e.message
+                        }))
+                    })
+                }
                 console.error('[ERROR] GET /metaverses failed:', error)
                 res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) })
             }
@@ -394,6 +393,7 @@ export function createMetaversesRoutes(
 
     router.patch(
         '/:metaverseId/members/:memberId',
+        writeLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId, memberId } = req.params
             const userId = resolveUserId(req)
@@ -423,9 +423,7 @@ export function createMetaversesRoutes(
                 return res.status(404).json({ error: 'Membership not found' })
             }
 
-            if ((membership.role || 'member') === 'owner') {
-                return res.status(400).json({ error: 'Owner role cannot be modified' })
-            }
+            assertNotOwner(membership, 'modify')
 
             membership.role = role
             if (comment !== undefined) {
@@ -459,9 +457,7 @@ export function createMetaversesRoutes(
                 return res.status(404).json({ error: 'Membership not found' })
             }
 
-            if ((membership.role || 'member') === 'owner') {
-                return res.status(400).json({ error: 'Owner cannot be removed' })
-            }
+            assertNotOwner(membership, 'remove')
 
             await metaverseUserRepo.remove(membership)
             res.status(204).send()

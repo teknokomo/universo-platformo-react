@@ -5,9 +5,9 @@
     "license": "SEE LICENSE IN LICENSE-Flowise.md",
     "homepage": "https://universo.pro",
     "author": {
-    "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
-    "email": "info@universo.pro"
-  },
+        "name": "HenryHeng | Vladimir Levadnij and Teknokomo",
+        "email": "info@universo.pro"
+    },
     "main": "dist/index",
     "types": "dist/index.d.ts",
     "bin": {
@@ -75,7 +75,6 @@
         "@opentelemetry/semantic-conventions": "1.27.0",
         "@types/lodash": "^4.14.202",
         "@types/uuid": "^9.0.7",
-        "@universo/utils": "workspace:*",
         "@universo/auth-srv": "workspace:*",
         "@universo/metaverses-srv": "workspace:*",
         "@universo/multiplayer-colyseus-srv": "workspace:*",
@@ -84,6 +83,7 @@
         "@universo/space-builder-srv": "workspace:*",
         "@universo/spaces-srv": "workspace:*",
         "@universo/uniks-srv": "workspace:*",
+        "@universo/utils": "workspace:*",
         "async-mutex": "^0.4.0",
         "axios": "1.7.9",
         "bull-board": "^2.1.3",
@@ -124,7 +124,7 @@
         "s3-streamlogger": "^1.11.0",
         "sanitize-html": "^2.11.0",
         "sqlite3": "^5.1.6",
-        "typeorm": "^0.3.6",
+        "typeorm": "catalog:",
         "uuid": "^9.0.1",
         "winston": "^3.9.0"
     },

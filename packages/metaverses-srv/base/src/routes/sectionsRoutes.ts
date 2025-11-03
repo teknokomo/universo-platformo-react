@@ -8,8 +8,10 @@ import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { Entity } from '../database/entities/Entity'
 import { EntitySection } from '../database/entities/EntitySection'
-import { ensureSectionAccess, ensureMetaverseAccess } from './guards'
+import { ensureSectionAccess, ensureMetaverseAccess, ensureEntityAccess } from './guards'
 import { z } from 'zod'
+import { validateListQuery } from '../schemas/queryParams'
+import { escapeLikeWildcards } from '../utils'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -54,7 +56,7 @@ export function createSectionsRoutes(
         }
     }
 
-    // GET /sections
+    // GET /sections - with pagination, search, sorting
     router.get(
         '/',
         readLimiter,
@@ -62,26 +64,117 @@ export function createSectionsRoutes(
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
 
-            const { metaverseUserRepo, sectionMetaverseRepo } = repos(req)
+            try {
+                // Validate and parse query parameters with Zod
+                const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
 
-            // Get metaverses accessible to user
-            const userMetaverses = await metaverseUserRepo.find({
-                where: { user_id: userId }
-            })
-            const metaverseIds = userMetaverses.map((uc) => uc.metaverse_id)
+                // Parse search parameter
+                const escapedSearch = search ? escapeLikeWildcards(search) : ''
 
-            if (metaverseIds.length === 0) {
-                return res.json([])
+                // Safe sorting with whitelist
+                const ALLOWED_SORT_FIELDS = {
+                    name: 's.name',
+                    created: 's.createdAt',
+                    updated: 's.updatedAt'
+                } as const
+
+                const sortByField = ALLOWED_SORT_FIELDS[sortBy]
+                const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+                // Get sections accessible to user through metaverse membership
+                const { sectionRepo } = repos(req)
+                const qb = sectionRepo
+                    .createQueryBuilder('s')
+                    // Join with section-metaverse link
+                    .innerJoin(SectionMetaverse, 'sm', 'sm.section_id = s.id')
+                    // Join with metaverse user to filter by user access
+                    .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id')
+                    // Left join with entity-section to count entities
+                    .leftJoin(EntitySection, 'es', 'es.section_id = s.id')
+                    .where('mu.user_id = :userId', { userId })
+
+                // Add search filter if provided
+                if (escapedSearch) {
+                    // Use PostgreSQL full-text search with GIN indexes for better performance
+                    qb.andWhere(
+                        `(
+                            to_tsvector('english', s.name) @@ plainto_tsquery('english', :search) OR
+                            to_tsvector('english', COALESCE(s.description, '')) @@ plainto_tsquery('english', :search)
+                        )`,
+                        { search: escapedSearch }
+                    )
+                }
+
+                qb.select([
+                    's.id as id',
+                    's.name as name',
+                    's.description as description',
+                    's.createdAt as created_at',
+                    's.updatedAt as updated_at'
+                ])
+                    .addSelect('COUNT(DISTINCT es.id)', 'entitiesCount')
+                    // Use window function to get total count in single query (performance optimization)
+                    .addSelect('COUNT(*) OVER()', 'window_total')
+                    .groupBy('s.id')
+                    .addGroupBy('s.name')
+                    .addGroupBy('s.description')
+                    .addGroupBy('s.createdAt')
+                    .addGroupBy('s.updatedAt')
+                    .orderBy(sortByField, sortDirection)
+                    .limit(limit)
+                    .offset(offset)
+
+                const raw = await qb.getRawMany<{
+                    id: string
+                    name: string
+                    description: string | null
+                    created_at: Date
+                    updated_at: Date
+                    entitiesCount: string
+                    window_total?: string
+                }>()
+
+                // Extract total count from window function (same value in all rows)
+                // Handle edge case: empty result set
+                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
+
+                const response = raw.map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    description: row.description ?? undefined,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    entitiesCount: parseInt(row.entitiesCount || '0', 10) || 0
+                }))
+
+                // Add pagination metadata headers for client awareness
+                const hasMore = offset + raw.length < total
+                res.setHeader('X-Pagination-Limit', limit.toString())
+                res.setHeader('X-Pagination-Offset', offset.toString())
+                res.setHeader('X-Pagination-Count', raw.length.toString())
+                res.setHeader('X-Total-Count', total.toString())
+                res.setHeader('X-Pagination-Has-More', hasMore.toString())
+
+                res.json(response)
+            } catch (error) {
+                // Handle Zod validation errors
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({
+                        error: 'Invalid query parameters',
+                        details: error.errors.map((e) => ({
+                            field: e.path.join('.'),
+                            message: e.message
+                        }))
+                    })
+                }
+                console.error('[ERROR] GET /sections failed:', error)
+                res.status(500).json({
+                    error: 'Internal server error',
+                    details: error instanceof Error ? error.message : String(error)
+                })
             }
-
-            // Get sections from user's metaverses
-            const sectionMetaverses = await sectionMetaverseRepo.find({
-                where: metaverseIds.map((metaverseId) => ({ metaverse: { id: metaverseId } })),
-                relations: ['section']
-            })
-
-            const sections = sectionMetaverses.map((dc) => dc.section)
-            res.json(sections)
         })
     )
 
@@ -111,18 +204,26 @@ export function createSectionsRoutes(
 
             const { sectionRepo, metaverseRepo, sectionMetaverseRepo } = repos(req)
 
-            // Validate metaverse exists
-            const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
-            if (!metaverse) return res.status(400).json({ error: 'Invalid metaverseId' })
+            try {
+                // Validate metaverse exists
+                const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
+                if (!metaverse) return res.status(400).json({ error: 'Invalid metaverseId' })
 
-            const entity = sectionRepo.create({ name, description })
-            const saved = await sectionRepo.save(entity)
+                const entity = sectionRepo.create({ name, description })
+                const saved = await sectionRepo.save(entity)
 
-            // Create mandatory section-metaverse link
-            const sectionMetaverseLink = sectionMetaverseRepo.create({ section: saved, metaverse })
-            await sectionMetaverseRepo.save(sectionMetaverseLink)
+                // Create mandatory section-metaverse link
+                const sectionMetaverseLink = sectionMetaverseRepo.create({ section: saved, metaverse })
+                await sectionMetaverseRepo.save(sectionMetaverseLink)
 
-            res.status(201).json(saved)
+                res.status(201).json(saved)
+            } catch (error) {
+                console.error('POST /sections - Error:', error)
+                res.status(500).json({
+                    error: 'Failed to create section',
+                    details: error instanceof Error ? error.message : String(error)
+                })
+            }
         })
     )
 
@@ -134,11 +235,27 @@ export function createSectionsRoutes(
             const { sectionId } = req.params
             const userId = resolveUserId(req)
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+
             await ensureSectionAccess(getDataSource(), userId, sectionId)
-            const { sectionRepo } = repos(req)
+
+            const { sectionRepo, entitySectionRepo } = repos(req)
+
             const section = await sectionRepo.findOne({ where: { id: sectionId } })
             if (!section) return res.status(404).json({ error: 'Section not found' })
-            res.json(section)
+
+            // Get entities count for this section
+            const entitiesCount = await entitySectionRepo.count({ where: { section: { id: sectionId } } })
+
+            const response = {
+                id: section.id,
+                name: section.name,
+                description: section.description ?? undefined,
+                createdAt: section.createdAt,
+                updatedAt: section.updatedAt,
+                entitiesCount
+            }
+
+            res.json(response)
         })
     )
 
@@ -220,6 +337,44 @@ export function createSectionsRoutes(
             })
             const entities = links.map((link) => link.entity)
             res.json(entities)
+        })
+    )
+
+    // POST /sections/:sectionId/entities/:entityId (attach entity to section)
+    router.post(
+        '/:sectionId/entities/:entityId',
+        writeLimiter,
+        asyncHandler(async (req, res) => {
+            const { sectionId, entityId } = req.params
+            const userId = resolveUserId(req)
+            if (!userId) return res.status(401).json({ error: 'User not authenticated' })
+
+            // Ensure user has createContent permission for the section
+            await ensureSectionAccess(getDataSource(), userId, sectionId, 'createContent')
+
+            // SECURITY: Ensure user has access to the entity before attaching
+            await ensureEntityAccess(getDataSource(), userId, entityId)
+
+            const { sectionRepo, entityRepo, entitySectionRepo } = repos(req)
+
+            // Validate section exists
+            const section = await sectionRepo.findOne({ where: { id: sectionId } })
+            if (!section) return res.status(404).json({ error: 'Section not found' })
+
+            // Validate entity exists
+            const entity = await entityRepo.findOne({ where: { id: entityId } })
+            if (!entity) return res.status(404).json({ error: 'Entity not found' })
+
+            // Check if link already exists (idempotent)
+            const existing = await entitySectionRepo.findOne({
+                where: { section: { id: sectionId }, entity: { id: entityId } }
+            })
+            if (existing) return res.status(200).json(existing)
+
+            // Create new link
+            const link = entitySectionRepo.create({ section, entity })
+            const saved = await entitySectionRepo.save(link)
+            res.status(201).json(saved)
         })
     )
 

@@ -33,7 +33,7 @@ import type { TriggerProps } from '@universo/template-mui'
 import { useApi } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
 import { metaversesQueryKeys } from '../api/queryKeys'
-import { Metaverse, MetaverseRole } from '../types'
+import { Metaverse } from '../types'
 import metaverseActions from './MetaverseActions'
 
 // Type for metaverse update/create data
