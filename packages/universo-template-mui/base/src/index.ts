@@ -37,11 +37,11 @@ export {
     TooltipWithParser,
     BaseEntityMenu
 } from './components'
-export type { 
-    BaseEntityMenuProps, 
-    ActionDescriptor, 
-    ActionContext, 
-    TriggerProps, 
+export type {
+    BaseEntityMenuProps,
+    ActionDescriptor,
+    ActionContext,
+    TriggerProps,
     AuthGuardProps,
     TooltipWithParserProps
 } from './components'

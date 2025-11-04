@@ -2,6 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
+import type { MetaverseRole } from '@universo/types'
 import { Entity } from '../database/entities/Entity'
 import { Section } from '../database/entities/Section'
 import { EntitySection } from '../database/entities/EntitySection'
@@ -9,7 +10,7 @@ import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { EntityMetaverse } from '../database/entities/EntityMetaverse'
-import { ensureMetaverseAccess, ensureSectionAccess, ensureEntityAccess } from './guards'
+import { ensureMetaverseAccess, ensureSectionAccess, ensureEntityAccess, ROLE_PERMISSIONS } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards } from '../utils'
@@ -101,16 +102,24 @@ export function createEntitiesRouter(
                     .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id')
                     .where('mu.user_id = :userId', { userId })
 
-                // Add search filter if provided
+                // Add search filter if provided (hybrid approach for better UX)
                 if (escapedSearch) {
-                    // Use PostgreSQL full-text search with GIN indexes for better performance
-                    qb.andWhere(
-                        `(
-                            to_tsvector('english', e.name) @@ plainto_tsquery('english', :search) OR
-                            to_tsvector('english', COALESCE(e.description, '')) @@ plainto_tsquery('english', :search)
-                        )`,
-                        { search: escapedSearch }
-                    )
+                    if (escapedSearch.length < 3) {
+                        // Simple LIKE for short queries (1-2 chars) - works instantly
+                        qb.andWhere(
+                            '(LOWER(e.name) LIKE :search OR LOWER(COALESCE(e.description, \'\')) LIKE :search)',
+                            { search: `%${escapedSearch.toLowerCase()}%` }
+                        )
+                    } else {
+                        // Full-text search for longer queries (3+ chars) - uses GIN indexes for performance
+                        qb.andWhere(
+                            `(
+                                to_tsvector('english', e.name) @@ plainto_tsquery('english', :search) OR
+                                to_tsvector('english', COALESCE(e.description, '')) @@ plainto_tsquery('english', :search)
+                            )`,
+                            { search: escapedSearch }
+                        )
+                    }
                 }
 
                 qb.select([
@@ -118,7 +127,8 @@ export function createEntitiesRouter(
                     'e.name as name',
                     'e.description as description',
                     'e.createdAt as created_at',
-                    'e.updatedAt as updated_at'
+                    'e.updatedAt as updated_at',
+                    'mu.role as user_role'
                 ])
                     // Use window function to get total count in single query (performance optimization)
                     .addSelect('COUNT(*) OVER()', 'window_total')
@@ -127,6 +137,7 @@ export function createEntitiesRouter(
                     .addGroupBy('e.description')
                     .addGroupBy('e.createdAt')
                     .addGroupBy('e.updatedAt')
+                    .addGroupBy('mu.role')
                     .orderBy(sortByField, sortDirection)
                     .limit(limit)
                     .offset(offset)
@@ -137,6 +148,7 @@ export function createEntitiesRouter(
                     description: string | null
                     created_at: Date
                     updated_at: Date
+                    user_role: string | null
                     window_total?: string
                 }>()
 
@@ -144,15 +156,22 @@ export function createEntitiesRouter(
                 // Handle edge case: empty result set
                 const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
 
-                const response = raw.map((row) => ({
-                    id: row.id,
-                    name: row.name,
-                    description: row.description ?? undefined,
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
-                    createdAt: row.created_at,
-                    updatedAt: row.updated_at
-                }))
+                const response = raw.map((row) => {
+                    const role = (row.user_role || 'member') as MetaverseRole
+                    const permissions = ROLE_PERMISSIONS[role]
+
+                    return {
+                        id: row.id,
+                        name: row.name,
+                        description: row.description ?? undefined,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        createdAt: row.created_at,
+                        updatedAt: row.updated_at,
+                        role,
+                        permissions
+                    }
+                })
 
                 // Add pagination metadata headers for client awareness
                 const hasMore = offset + raw.length < total

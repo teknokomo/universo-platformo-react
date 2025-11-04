@@ -25,6 +25,7 @@
         "dist/i18n/index.mjs",
         "dist/i18n/index.js"
     ],
+    "files": ["dist", "src"],
     "scripts": {
         "clean": "rimraf dist",
         "build": "tsdown",
@@ -46,6 +47,7 @@
         "@mui/material": "5.15.0",
         "@mui/x-tree-view": "^6.0.0",
         "@tabler/icons-react": "^3.30.0",
+        "@universo/auth-frt": "workspace:*",
         "@universo/template-mui": "workspace:*",
         "react": "catalog:",
         "react-i18next": "catalog:",

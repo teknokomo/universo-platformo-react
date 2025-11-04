@@ -14,6 +14,10 @@ export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
 
+// API error handling utilities
+export * as api from './api/error-handlers'
+export * from './api/error-handlers'
+
 // Explicit imports to avoid pulling in Node "net" dependency when bundling for the browser.
 import { createTimeSyncEstimator } from './net/timeSync'
 import { updateSeqState, reconcileAck } from './net/sequencing'

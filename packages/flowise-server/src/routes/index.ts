@@ -198,7 +198,11 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     if (!metaversesRouter) {
         metaversesRouter = createMetaversesServiceRoutes(ensureAuthWithRls, () => getDataSource())
     }
-    metaversesRouter(req, res, next)
+    if (metaversesRouter) {
+        metaversesRouter(req, res, next)
+    } else {
+        next()
+    }
 })
 
 // Universo Platformo | Canvas Streaming

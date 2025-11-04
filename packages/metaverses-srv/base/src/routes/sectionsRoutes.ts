@@ -2,13 +2,14 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
+import type { MetaverseRole } from '@universo/types'
 import { Section } from '../database/entities/Section'
 import { Metaverse } from '../database/entities/Metaverse'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { Entity } from '../database/entities/Entity'
 import { EntitySection } from '../database/entities/EntitySection'
-import { ensureSectionAccess, ensureMetaverseAccess, ensureEntityAccess } from './guards'
+import { ensureSectionAccess, ensureMetaverseAccess, ensureEntityAccess, ROLE_PERMISSIONS } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards } from '../utils'
@@ -93,16 +94,24 @@ export function createSectionsRoutes(
                     .leftJoin(EntitySection, 'es', 'es.section_id = s.id')
                     .where('mu.user_id = :userId', { userId })
 
-                // Add search filter if provided
+                // Add search filter if provided (hybrid approach for better UX)
                 if (escapedSearch) {
-                    // Use PostgreSQL full-text search with GIN indexes for better performance
-                    qb.andWhere(
-                        `(
-                            to_tsvector('english', s.name) @@ plainto_tsquery('english', :search) OR
-                            to_tsvector('english', COALESCE(s.description, '')) @@ plainto_tsquery('english', :search)
-                        )`,
-                        { search: escapedSearch }
-                    )
+                    if (escapedSearch.length < 3) {
+                        // Simple LIKE for short queries (1-2 chars) - works instantly
+                        qb.andWhere(
+                            '(LOWER(s.name) LIKE :search OR LOWER(COALESCE(s.description, \'\')) LIKE :search)',
+                            { search: `%${escapedSearch.toLowerCase()}%` }
+                        )
+                    } else {
+                        // Full-text search for longer queries (3+ chars) - uses GIN indexes for performance
+                        qb.andWhere(
+                            `(
+                                to_tsvector('english', s.name) @@ plainto_tsquery('english', :search) OR
+                                to_tsvector('english', COALESCE(s.description, '')) @@ plainto_tsquery('english', :search)
+                            )`,
+                            { search: escapedSearch }
+                        )
+                    }
                 }
 
                 qb.select([
@@ -110,7 +119,8 @@ export function createSectionsRoutes(
                     's.name as name',
                     's.description as description',
                     's.createdAt as created_at',
-                    's.updatedAt as updated_at'
+                    's.updatedAt as updated_at',
+                    'mu.role as user_role'
                 ])
                     .addSelect('COUNT(DISTINCT es.id)', 'entitiesCount')
                     // Use window function to get total count in single query (performance optimization)
@@ -120,6 +130,7 @@ export function createSectionsRoutes(
                     .addGroupBy('s.description')
                     .addGroupBy('s.createdAt')
                     .addGroupBy('s.updatedAt')
+                    .addGroupBy('mu.role')
                     .orderBy(sortByField, sortDirection)
                     .limit(limit)
                     .offset(offset)
@@ -130,6 +141,7 @@ export function createSectionsRoutes(
                     description: string | null
                     created_at: Date
                     updated_at: Date
+                    user_role: string | null
                     entitiesCount: string
                     window_total?: string
                 }>()
@@ -138,16 +150,23 @@ export function createSectionsRoutes(
                 // Handle edge case: empty result set
                 const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) : 0
 
-                const response = raw.map((row) => ({
-                    id: row.id,
-                    name: row.name,
-                    description: row.description ?? undefined,
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
-                    createdAt: row.created_at,
-                    updatedAt: row.updated_at,
-                    entitiesCount: parseInt(row.entitiesCount || '0', 10) || 0
-                }))
+                const response = raw.map((row) => {
+                    const role = (row.user_role || 'member') as MetaverseRole
+                    const permissions = ROLE_PERMISSIONS[role]
+
+                    return {
+                        id: row.id,
+                        name: row.name,
+                        description: row.description ?? undefined,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        createdAt: row.created_at,
+                        updatedAt: row.updated_at,
+                        entitiesCount: parseInt(row.entitiesCount || '0', 10) || 0,
+                        role,
+                        permissions
+                    }
+                })
 
                 // Add pagination metadata headers for client awareness
                 const hasMore = offset + raw.length < total

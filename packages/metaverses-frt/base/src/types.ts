@@ -1,4 +1,6 @@
-export type { MetaverseRole } from '@universo/types'
+import type { MetaverseRole } from '@universo/types'
+
+export type { MetaverseRole }
 
 export type MetaverseAssignableRole = Exclude<MetaverseRole, 'owner'>
 
@@ -46,6 +48,8 @@ export interface Section {
     updatedAt: string
     // Optional aggregated counter provided by backend list endpoint
     entitiesCount?: number
+    role?: MetaverseRole
+    permissions?: MetaversePermissions
 }
 
 export interface Entity {
@@ -54,6 +58,8 @@ export interface Entity {
     description?: string
     createdAt: string
     updatedAt: string
+    role?: MetaverseRole
+    permissions?: MetaversePermissions
 }
 
 export type UseApi = <T, TArgs extends any[] = any[]>(

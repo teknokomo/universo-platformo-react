@@ -12,9 +12,7 @@ describe('useDebouncedSearch', () => {
     describe('Initial State', () => {
         it('should initialize with empty string by default', () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             expect(result.current.searchValue).toBe('')
         })
@@ -35,9 +33,7 @@ describe('useDebouncedSearch', () => {
     describe('Debounce Timing', () => {
         it('should debounce search changes with default 300ms delay', async () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             // Simulate user typing
             act(() => {
@@ -96,9 +92,7 @@ describe('useDebouncedSearch', () => {
 
         it('should cancel previous debounce on rapid typing', async () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             // Type "t"
             act(() => {
@@ -150,9 +144,7 @@ describe('useDebouncedSearch', () => {
     describe('Input Change Handler', () => {
         it('should update local state immediately', () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             act(() => {
                 result.current.handleSearchChange({
@@ -185,9 +177,7 @@ describe('useDebouncedSearch', () => {
     describe('Direct Setter', () => {
         it('should update search value programmatically', () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             act(() => {
                 result.current.setSearchValue('programmatic value')
@@ -198,9 +188,7 @@ describe('useDebouncedSearch', () => {
 
         it('should debounce programmatic changes', async () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             act(() => {
                 result.current.setSearchValue('programmatic')
@@ -221,9 +209,7 @@ describe('useDebouncedSearch', () => {
     describe('Debounced Utilities', () => {
         it('should provide cancel utility', () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             act(() => {
                 result.current.handleSearchChange({
@@ -247,9 +233,7 @@ describe('useDebouncedSearch', () => {
 
         it('should provide flush utility', async () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             act(() => {
                 result.current.handleSearchChange({
@@ -270,9 +254,7 @@ describe('useDebouncedSearch', () => {
 
         it('should provide isPending utility', () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             // Initially not pending
             expect(result.current.debounced.isPending()).toBe(false)
@@ -300,9 +282,7 @@ describe('useDebouncedSearch', () => {
     describe('Cleanup on Unmount', () => {
         it('should cancel pending debounce on unmount', () => {
             const mockOnSearchChange = jest.fn()
-            const { result, unmount } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result, unmount } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             act(() => {
                 result.current.handleSearchChange({
@@ -326,9 +306,7 @@ describe('useDebouncedSearch', () => {
     describe('Integration Scenarios', () => {
         it('should work with multiple rapid changes followed by cancel', () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             // Rapid typing
             ;['t', 'te', 'tes', 'test'].forEach((value) => {
@@ -356,9 +334,7 @@ describe('useDebouncedSearch', () => {
 
         it('should work with multiple changes followed by flush', async () => {
             const mockOnSearchChange = jest.fn()
-            const { result } = renderHook(() =>
-                useDebouncedSearch({ onSearchChange: mockOnSearchChange })
-            )
+            const { result } = renderHook(() => useDebouncedSearch({ onSearchChange: mockOnSearchChange }))
 
             // Multiple changes
             act(() => {

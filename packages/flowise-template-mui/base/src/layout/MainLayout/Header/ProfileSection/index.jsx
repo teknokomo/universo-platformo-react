@@ -184,8 +184,11 @@ const ProfileSection = () => {
 
     const navigate = useNavigate()
 
-    const importAllApi = useApi(api.exportimport.importData)
-    const exportAllApi = useApi(api.exportimport.exportData)
+    // Note: use correct casing for API group 'exportImport' from @universo/api-client
+    // Added defensive logging to help diagnose undefined access at runtime
+    console.log('[ProfileSection] exportImport API available:', !!api?.exportImport)
+    const importAllApi = useApi(api?.exportImport?.importData)
+    const exportAllApi = useApi(api?.exportImport?.exportData)
     const prevOpen = useRef(open)
 
     // ==============================|| Snackbar ||============================== //

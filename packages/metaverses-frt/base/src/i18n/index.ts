@@ -1,17 +1,16 @@
 // Universo Platformo | Metaverses module i18n
-// Register metaverses namespace with global i18n instance (side-effect)
+// Register consolidated metaverses namespace (includes sections, entities, members)
 import { registerNamespace } from '@universo/i18n/registry'
 import enMetaverses from './locales/en/metaverses.json'
 import ruMetaverses from './locales/ru/metaverses.json'
 
 // Debug: Log namespace registration
-console.log('[metaverses-i18n] Registering namespace', {
+console.log('[metaverses-i18n] Registering consolidated metaverses namespace', {
     namespace: 'metaverses',
-    enKeys: Object.keys(enMetaverses.metaverses),
-    ruKeys: Object.keys(ruMetaverses.metaverses)
+    includes: ['sections', 'entities', 'members']
 })
 
-// Extract inner object to avoid double-wrapping in i18next namespace
+// Register single consolidated namespace
 registerNamespace('metaverses', {
     en: enMetaverses.metaverses,
     ru: ruMetaverses.metaverses

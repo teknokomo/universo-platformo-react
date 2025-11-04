@@ -35,3 +35,6 @@ export { getApiBaseURL, getUIBaseURL, getEnv, isDevelopment, isProduction } from
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
+
+// API error handling utilities
+export * from './api/error-handlers'

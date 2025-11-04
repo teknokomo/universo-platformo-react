@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -9,7 +9,6 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 
 // project imports
-// Use the new template-mui ItemCard (JS component) for consistency with Uniks
 import {
     TemplateMainCard as MainCard,
     ItemCard,
@@ -23,51 +22,63 @@ import {
     FlowListTable,
     gridSpacing,
     ConfirmDialog,
-    useConfirm,
-    RoleChip
+    useConfirm
 } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
 import { useApi } from '../hooks/useApi'
-import * as metaversesApi from '../api/metaverses'
-import { metaversesQueryKeys } from '../api/queryKeys'
-import { Metaverse } from '../types'
-import metaverseActions from './MetaverseActions'
+import * as sectionsApi from '../api/sections'
+import { sectionsQueryKeys } from '../api/queryKeys'
+import { Section } from '../types'
+import sectionActions from './SectionActions'
 
-// Type for metaverse update/create data
-type MetaverseData = {
+// Type for section update/create data
+type SectionData = {
     name: string
     description?: string
 }
 
-const MetaverseList = () => {
+const SectionList = () => {
     const navigate = useNavigate()
-    // Use metaverses namespace for view-specific keys, roles and access for role/permission labels
-    const { t, i18n } = useTranslation(['metaverses', 'roles', 'access', 'flowList'])
-    // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
+    const { metaverseId } = useParams<{ metaverseId: string }>()
+    // Use metaverses namespace with sections subkey
+    const { t, i18n } = useTranslation(['metaverses', 'common', 'flowList'])
+    // Use common namespace for table headers and common actions
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('entitiesMetaverseDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('entitiesSectionDisplayStyle') || 'card')
+
+    // Validate metaverseId from URL
+    if (!metaverseId) {
+        return (
+            <EmptyListState
+                image={APIEmptySVG}
+                imageAlt='Invalid metaverse'
+                title={t('metaverses:errors.invalidMetaverse')}
+                description={t('metaverses:errors.pleaseSelectMetaverse')}
+            />
+        )
+    }
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
 
-    // Use paginated hook for metaverses list
-    const paginationResult = usePaginated<Metaverse, 'name' | 'created' | 'updated'>({
-        queryKeyFn: metaversesQueryKeys.list,
-        queryFn: metaversesApi.listMetaverses,
+    // Use paginated hook for sections list
+    const paginationResult = usePaginated<Section, 'name' | 'created' | 'updated'>({
+        queryKeyFn: sectionsQueryKeys.list,
+        queryFn: sectionsApi.listSections,
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc'
     })
 
-    const { data: metaverses, isLoading, error } = paginationResult
+    const { data: sections, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
     const { searchValue, handleSearchChange } = useDebouncedSearch({
@@ -78,7 +89,7 @@ const MetaverseList = () => {
     // DEBUG: Log pagination state changes for troubleshooting
     useEffect(() => {
         // eslint-disable-next-line no-console
-        console.log('[MetaverseList Pagination Debug]', {
+        console.log('[SectionList Pagination Debug]', {
             currentPage: paginationResult.pagination.currentPage,
             pageSize: paginationResult.pagination.pageSize,
             totalItems: paginationResult.pagination.totalItems,
@@ -97,29 +108,29 @@ const MetaverseList = () => {
         searchValue
     ])
 
-    // State for independent ConfirmDeleteDialog (not managed by BaseEntityMenu)
+    // State for independent ConfirmDeleteDialog
     const [deleteDialogState, setDeleteDialogState] = useState<{
         open: boolean
-        metaverse: Metaverse | null
-    }>({ open: false, metaverse: null })
+        section: Section | null
+    }>({ open: false, section: null })
 
     const { confirm } = useConfirm()
 
-    const updateMetaverseApi = useApi<Metaverse, [string, { name: string; description?: string }]>(metaversesApi.updateMetaverse)
-    const deleteMetaverseApi = useApi<void, [string]>(metaversesApi.deleteMetaverse)
+    const updateSectionApi = useApi<Section, [string, { name: string; description?: string }]>(sectionsApi.updateSection)
+    const deleteSectionApi = useApi<void, [string]>(sectionsApi.deleteSection)
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
         const imagesMap: Record<string, any[]> = {}
-        if (Array.isArray(metaverses)) {
-            metaverses.forEach((metaverse) => {
-                if (metaverse?.id) {
-                    imagesMap[metaverse.id] = []
+        if (Array.isArray(sections)) {
+            sections.forEach((section) => {
+                if (section?.id) {
+                    imagesMap[section.id] = []
                 }
             })
         }
         return imagesMap
-    }, [metaverses])
+    }, [sections])
 
     const handleAddNew = () => {
         setDialogOpen(true)
@@ -133,18 +144,19 @@ const MetaverseList = () => {
         setDialogOpen(false)
     }
 
-    const handleCreateMetaverse = async (data: { name: string; description?: string }) => {
+    const handleCreateSection = async (data: { name: string; description?: string }) => {
         setDialogError(null)
         setCreating(true)
         try {
-            await metaversesApi.createMetaverse({
+            await sectionsApi.createSection({
                 name: data.name,
-                description: data.description
+                description: data.description,
+                metaverseId: metaverseId
             })
 
-            // Invalidate cache to refetch metaverses list
+            // Invalidate cache to refetch sections list
             await queryClient.invalidateQueries({
-                queryKey: metaversesQueryKeys.lists()
+                queryKey: sectionsQueryKeys.lists()
             })
 
             handleDialogSave()
@@ -157,33 +169,33 @@ const MetaverseList = () => {
                     ? e.message
                     : typeof e === 'string'
                     ? e
-                    : t('errors.saveFailed')
+                    : t('sections.saveError')
             setDialogError(message)
             // eslint-disable-next-line no-console
-            console.error('Failed to create metaverse', e)
+            console.error('Failed to create section', e)
         } finally {
             setCreating(false)
         }
     }
 
-    const goToMetaverse = (metaverse: any) => {
-        navigate(`/metaverses/${metaverse.id}`)
+    const goToSection = (section: Section) => {
+        navigate(`/sections/${section.id}`)
     }
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('entitiesMetaverseDisplayStyle', nextView)
+        localStorage.setItem('entitiesSectionDisplayStyle', nextView)
         setView(nextView)
     }
 
-    const metaverseColumns = useMemo(
+    const sectionColumns = useMemo(
         () => [
             {
                 id: 'description',
                 label: tc('table.description', 'Description'),
-                width: '26%',
+                width: '50%',
                 align: 'left',
-                render: (row: Metaverse) => (
+                render: (row: Section) => (
                     <Typography
                         sx={{
                             fontSize: 14,
@@ -196,48 +208,32 @@ const MetaverseList = () => {
                 )
             },
             {
-                id: 'role',
-                label: tc('table.role', 'Role'),
-                width: '10%',
-                align: 'center',
-                render: (row: Metaverse) => (row.role ? <RoleChip role={row.role} /> : '—')
-            },
-            {
-                id: 'sections',
-                label: tc('table.sections', 'Sections'),
-                width: '10%',
-                align: 'center',
-                render: (row: Metaverse) => (typeof row.sectionsCount === 'number' ? row.sectionsCount : '—')
-            },
-            {
                 id: 'entities',
                 label: tc('table.entities', 'Entities'),
-                width: '10%',
+                width: '20%',
                 align: 'center',
-                render: (row: Metaverse) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
+                render: (row: Section) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
             }
         ],
         [tc]
     )
 
-    // Removed N+1 counts loading; counts are provided by backend list response
-
-    const createMetaverseContext = useCallback(
+    const createSectionContext = useCallback(
         (baseContext: any) => ({
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateMetaverseApi.request(id, patch)
+                    await updateSectionApi.request(id, patch)
                     // Invalidate cache after update
                     await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.lists()
+                        queryKey: sectionsQueryKeys.lists()
                     })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteMetaverseApi.request(id)
+                    await deleteSectionApi.request(id)
                     // Invalidate cache after delete
                     await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.lists()
+                        queryKey: sectionsQueryKeys.lists()
                     })
                 }
             },
@@ -245,7 +241,7 @@ const MetaverseList = () => {
                 refreshList: async () => {
                     // Explicit cache invalidation
                     await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.lists()
+                        queryKey: sectionsQueryKeys.lists()
                     })
                 },
                 confirm: async (spec: any) => {
@@ -271,12 +267,12 @@ const MetaverseList = () => {
                     }
                 },
                 // Helper to open ConfirmDeleteDialog independently from BaseEntityMenu
-                openDeleteDialog: (metaverse: Metaverse) => {
-                    setDeleteDialogState({ open: true, metaverse })
+                openDeleteDialog: (section: Section) => {
+                    setDeleteDialogState({ open: true, section })
                 }
             }
         }),
-        [confirm, deleteMetaverseApi, enqueueSnackbar, queryClient, updateMetaverseApi]
+        [confirm, deleteSectionApi, enqueueSnackbar, queryClient, updateSectionApi]
     )
 
     return (
@@ -303,9 +299,9 @@ const MetaverseList = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
                         search={true}
-                        searchPlaceholder={t('searchPlaceholder')}
+                        searchPlaceholder={t('sections.searchPlaceholder')}
                         onSearchChange={handleSearchChange}
-                        title={t('title')}
+                        title={t('sections.title')}
                     >
                         <ToolbarControls
                             viewToggleEnabled
@@ -321,14 +317,14 @@ const MetaverseList = () => {
                         />
                     </ViewHeader>
 
-                    {isLoading && metaverses.length === 0 ? (
+                    {isLoading && sections.length === 0 ? (
                         view === 'card' ? (
                             <SkeletonGrid />
                         ) : (
                             <Skeleton variant='rectangular' height={120} />
                         )
-                    ) : !isLoading && metaverses.length === 0 ? (
-                        <EmptyListState image={APIEmptySVG} imageAlt='No metaverses' title={t('noMetaversesFound')} />
+                    ) : !isLoading && sections.length === 0 ? (
+                        <EmptyListState image={APIEmptySVG} imageAlt='No sections' title={t('sections.noSectionsFound')} />
                     ) : (
                         <>
                             {view === 'card' ? (
@@ -346,32 +342,38 @@ const MetaverseList = () => {
                                         alignContent: 'start'
                                     }}
                                 >
-                                    {metaverses.map((metaverse: Metaverse) => {
-                                        // Filter actions based on permissions (same logic as table view)
-                                        const descriptors = metaverseActions.filter((descriptor) => {
+                                    {sections.map((section: Section) => {
+                                        // Filter actions based on permissions
+                                        const descriptors = sectionActions.filter((descriptor) => {
                                             if (descriptor.id === 'edit' || descriptor.id === 'delete') {
-                                                return metaverse.permissions?.manageMetaverse
+                                                return section.permissions?.editContent
                                             }
                                             return true
                                         })
 
                                         return (
                                             <ItemCard
-                                                key={metaverse.id}
-                                                data={metaverse}
-                                                images={images[metaverse.id] || []}
-                                                onClick={() => goToMetaverse(metaverse)}
-                                                footerEndContent={metaverse.role ? <RoleChip role={metaverse.role} /> : null}
+                                                key={section.id}
+                                                data={section}
+                                                images={images[section.id] || []}
+                                                onClick={() => goToSection(section)}
+                                                footerEndContent={
+                                                    typeof section.entitiesCount === 'number' ? (
+                                                        <Typography variant='caption' color='text.secondary'>
+                                                            {t('metaverses:sections.entityCount', { count: section.entitiesCount })}
+                                                        </Typography>
+                                                    ) : null
+                                                }
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<Metaverse, MetaverseData>
-                                                                entity={metaverse}
-                                                                entityKind='metaverse'
+                                                            <BaseEntityMenu<Section, SectionData>
+                                                                entity={section}
+                                                                entityKind='section'
                                                                 descriptors={descriptors}
                                                                 namespace='metaverses'
                                                                 i18nInstance={i18n}
-                                                                createContext={createMetaverseContext}
+                                                                createContext={createSectionContext}
                                                                 renderTrigger={(props: TriggerProps) => (
                                                                     <IconButton
                                                                         size='small'
@@ -392,16 +394,16 @@ const MetaverseList = () => {
                             ) : (
                                 <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
                                     <FlowListTable
-                                        data={metaverses}
+                                        data={sections}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: Metaverse) => (row?.id ? `/metaverses/${row.id}` : undefined)}
-                                        customColumns={metaverseColumns}
+                                        getRowLink={(row: Section) => (row?.id ? `/sections/${row.id}` : undefined)}
+                                        customColumns={sectionColumns}
                                         i18nNamespace='flowList'
-                                        renderActions={(row: Metaverse) => {
-                                            const descriptors = metaverseActions.filter((descriptor) => {
+                                        renderActions={(row: Section) => {
+                                            const descriptors = sectionActions.filter((descriptor) => {
                                                 if (descriptor.id === 'edit' || descriptor.id === 'delete') {
-                                                    return row.permissions?.manageMetaverse
+                                                    return row.permissions?.editContent
                                                 }
                                                 return true
                                             })
@@ -409,16 +411,14 @@ const MetaverseList = () => {
                                             if (!descriptors.length) return null
 
                                             return (
-                                                <BaseEntityMenu<Metaverse, MetaverseData>
+                                                <BaseEntityMenu<Section, SectionData>
                                                     entity={row}
-                                                    entityKind='metaverse'
+                                                    entityKind='section'
                                                     descriptors={descriptors}
-                                                    // Use metaverses namespace for action item labels (edit/delete)
-                                                    // but keep the button label from flowList via explicit namespaced key
                                                     namespace='metaverses'
                                                     menuButtonLabelKey='flowList:menu.button'
                                                     i18nInstance={i18n}
-                                                    createContext={createMetaverseContext}
+                                                    createContext={createSectionContext}
                                                 />
                                             )
                                         }}
@@ -429,7 +429,7 @@ const MetaverseList = () => {
                     )}
 
                     {/* Table Pagination at bottom - only show when there's data */}
-                    {!isLoading && metaverses.length > 0 && (
+                    {!isLoading && sections.length > 0 && (
                         <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
                             <PaginationControls
                                 pagination={paginationResult.pagination}
@@ -445,7 +445,7 @@ const MetaverseList = () => {
 
             <EntityFormDialog
                 open={isDialogOpen}
-                title={t('createMetaverse', 'Create Metaverse')}
+                title={t('sections.createSection', 'Create Section')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
                 saveButtonText={tc('actions.save', 'Save')}
@@ -454,30 +454,30 @@ const MetaverseList = () => {
                 loading={isCreating}
                 error={dialogError || undefined}
                 onClose={handleDialogClose}
-                onSave={handleCreateMetaverse}
+                onSave={handleCreateSection}
             />
 
             {/* Independent ConfirmDeleteDialog for Delete button in edit dialog */}
             <ConfirmDeleteDialog
                 open={deleteDialogState.open}
-                title={t('confirmDelete')}
-                description={t('confirmDeleteDescription', { name: deleteDialogState.metaverse?.name || '' })}
+                title={t('sections.confirmDelete')}
+                description={t('sections.confirmDeleteDescription', { name: deleteDialogState.section?.name || '' })}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                onCancel={() => setDeleteDialogState({ open: false, metaverse: null })}
+                onCancel={() => setDeleteDialogState({ open: false, section: null })}
                 onConfirm={async () => {
-                    if (deleteDialogState.metaverse) {
+                    if (deleteDialogState.section) {
                         try {
-                            await deleteMetaverseApi.request(deleteDialogState.metaverse.id)
-                            setDeleteDialogState({ open: false, metaverse: null })
+                            await deleteSectionApi.request(deleteDialogState.section.id)
+                            setDeleteDialogState({ open: false, section: null })
 
-                            // Invalidate cache to refetch metaverses list
+                            // Invalidate cache to refetch sections list
                             await queryClient.invalidateQueries({
-                                queryKey: metaversesQueryKeys.lists()
+                                queryKey: sectionsQueryKeys.lists()
                             })
 
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
+                            enqueueSnackbar(t('sections.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
@@ -488,9 +488,9 @@ const MetaverseList = () => {
                                     ? err.message
                                     : typeof err === 'string'
                                     ? err
-                                    : t('deleteError')
+                                    : t('sections.deleteError')
                             enqueueSnackbar(message, { variant: 'error' })
-                            setDeleteDialogState({ open: false, metaverse: null })
+                            setDeleteDialogState({ open: false, section: null })
                         }
                     }
                 }}
@@ -501,4 +501,4 @@ const MetaverseList = () => {
     )
 }
 
-export default MetaverseList
+export default SectionList

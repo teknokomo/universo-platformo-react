@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
 import { formatDate } from '@universo/utils'
-import { alpha, styled, Theme } from '@mui/material/styles'
+import { alpha, styled } from '@mui/material/styles'
 import {
     Box,
     Chip,
@@ -119,15 +119,12 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
         localStorage.setItem(localStorageKeyOrderBy, property)
     }
 
-    const resolveUpdatedDate = (item: T): string | undefined => 
-        item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
+    const resolveUpdatedDate = (item: T): string | undefined => item?.updatedDate || item?.updated_at || item?.updatedAt || item?.updatedOn
 
     const sortedData = data
         ? [...data].sort((a, b) => {
               if (orderBy === 'name') {
-                  return order === 'asc' 
-                      ? (a.name || '').localeCompare(b.name || '') 
-                      : (b.name || '').localeCompare(a.name || '')
+                  return order === 'asc' ? (a.name || '').localeCompare(b.name || '') : (b.name || '').localeCompare(a.name || '')
               }
               if (orderBy === 'updatedDate') {
                   const dateA = resolveUpdatedDate(a)
