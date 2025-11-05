@@ -6,7 +6,225 @@
 
 ---
 
-## Current Focus: React StrictMode Production Bug - COMPLETED ✅ (2025-11-02)
+## Current Focus: Metaverses Module - Backend Error Handling Enhancement ✅ (2025-11-03)
+
+**Status**: Implementation Complete, Ready for Browser QA
+
+**Summary**: Implemented user-friendly error messages for member invitation failures with proper i18n support and contextual information. Added specific error handling for "user not found" and "user already exists" scenarios with email interpolation. Cleaned up debug logging added during investigation phase.
+
+**Previous Session Context**: User discovered 404 error when adding members was due to testing with wrong email (obokral@narod.ru vs correct obokral@narod.ru in database). Root cause: Frontend showed generic error instead of specific context.
+
+**What Was Completed**:
+
+### Error Translation Keys (Session 4, Step 1) ✅
+
+1. **EN metaverses.json**:
+   - `"inviteSuccess": "Member added successfully"`
+   - `"inviteError": "Failed to add member"`
+   - `"userNotFound": "User with email \"{{email}}\" not found. Please check the email address."`
+   - `"userAlreadyMember": "User with email \"{{email}}\" already has access to this metaverse."`
+
+2. **RU metaverses.json**:
+   - Same 4 keys translated to Russian
+   - `"userNotFound"`: "Пользователь с email \"{{email}}\" не найден. Пожалуйста, проверьте адрес."
+   - `"userAlreadyMember"`: "Пользователь с email \"{{email}}\" уже имеет доступ к этой метавселенной."
+
+### Frontend Error Handling (Session 4, Step 2) ✅
+
+3. **MetaverseMembers.tsx**:
+   - Enhanced `handleInviteMember` catch block with detailed status code checking
+   - Check for 404 + "User not found" → show userNotFound message with email
+   - Check for 409 + "METAVERSE_MEMBER_EXISTS" code → show userAlreadyMember message
+   - Graceful fallback to generic inviteError message for unknown errors
+   - Uses i18n interpolation: `t('userNotFound', { email: data.email })`
+
+### Debug Logging Cleanup (Session 4, Step 3) ✅
+
+4. **metaversesRoutes.ts**:
+   - Removed ~20 console.log statements from POST /:metaverseId/members handler
+   - Kept POST handler logic clean and production-ready
+   - Kept only essential error logging (console.error)
+
+5. **flowise-server/src/routes/index.ts**:
+   - Removed 2 console.log lines from metaverses router middleware
+   - Removed: `console.log('[Metaverses Router Middleware] ...')`
+   - Removed: `console.log('[Metaverses Router] Creating router for first time')`
+
+6. **metaverses-srv/base/src/routes/index.ts**:
+   - Removed 3 lines of logging middleware
+   - Removed: `console.log('[createMetaversesServiceRoutes] Mounting sub-routers')`
+   - Removed: `console.log('[Metaverses Service Router] ...')`
+
+### Build Verification (Session 4, Step 4) ✅
+
+7. **metaverses-frt**: ✅ SUCCESS (tsdown, 3.6s)
+8. **metaverses-srv**: ✅ SUCCESS (TypeScript, 0 errors)
+9. **flowise**: ✅ SUCCESS (TypeScript, 0 errors)
+
+**Technical Solutions**:
+
+1. **Backend API Error Codes**: Uses HTTP status codes (404, 409, 201) + optional error code field (`METAVERSE_MEMBER_EXISTS`)
+2. **Frontend Error Parsing**: Checks both `response.status` and `response.data.error/code` for contextual messages
+3. **i18n Interpolation**: Uses `{{email}}` placeholder in translation strings for dynamic content
+
+**Files Modified**: 6 total
+- Frontend: 3 files (metaverses.json EN/RU, MetaverseMembers.tsx)
+- Backend: 3 files (metaversesRoutes.ts, 2 router index files)
+
+**User Experience Improvements**:
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| Add non-existent user | ❌ Generic error | ✅ "User with email \"test@example.com\" not found. Please check the email address." |
+| Add existing member | ❌ Generic error | ✅ "User with email \"user@example.com\" already has access to this metaverse." |
+| Successful addition | ✅ Generic success | ✅ "Member added successfully" |
+
+**Browser Testing Required**:
+```bash
+# Start server
+pnpm start
+
+# Test scenarios:
+# 1. Go to /metaverses/:id/access (members list)
+# 2. Click "Add" button → invite dialog opens
+# 3. Enter non-existent email (e.g., test123@nonexistent.com)
+# 4. Submit → should show error: "User with email \"test123@nonexistent.com\" not found. Please check the email address."
+# 5. Enter email of existing member (e.g., obokral@narod.ru)
+# 6. Submit → should show error: "User with email \"obokral@narod.ru\" already has access to this metaverse."
+# 7. Enter valid email from Supabase auth.users (e.g., 580-39-39@mail.ru)
+# 8. Submit → should show success: "Member added successfully"
+# 9. Switch to RU locale → repeat tests, verify Russian messages
+# 10. Check console → should NOT see any "[POST /:metaverseId/members]" or "[Metaverses Router]" debug logs
+```
+
+**Expected Console Output**:
+- ✅ 0 debug logs from backend routes
+- ✅ Only essential logs: server startup, RLS context application
+- ❌ No "[POST /:metaverseId/members] Handler called"
+- ❌ No "[Metaverses Router Middleware]"
+
+**Next Steps**:
+1. User performs browser testing with above scenarios
+2. User verifies error messages display correctly in dialog (not just snackbar)
+3. User verifies both EN and RU translations work
+4. If any issues found → report back for further investigation
+5. If all tests pass → consider this task complete ✅
+
+**What Was Completed**:
+
+### Backend Enhancements (3 endpoints modified) ✅
+
+1. **Members Pagination** (`packages/metaverses-srv/base/src/routes/metaversesRoutes.ts`):
+   - Modified loadMembers() to accept PaginationParams: `{ limit, offset, sortBy, sortOrder, search }`
+   - Implemented QueryBuilder with `.skip()`, `.take()`, `.getManyAndCount()`
+   - Returns `{ members: MetaverseMember[], total: number }`
+   - GET endpoint uses validateListQuery, returns X-Pagination headers
+
+2. **Sections Permissions** (`packages/metaverses-srv/base/src/routes/sectionsRoutes.ts`):
+   - Added `mu.role as user_role` to SELECT, `mu.role` to GROUP BY
+   - Response mapping: `role = row.user_role || 'member'`, `permissions = ROLE_PERMISSIONS[role]`
+
+3. **Entities Permissions** (`packages/metaverses-srv/base/src/routes/entitiesRoutes.ts`):
+   - Same pattern as sectionsRoutes.ts
+
+### Frontend Infrastructure (8 files created) ✅
+
+4. **MemberFormDialog Component** (226 lines):
+   - Email validation, role dropdown (admin/editor/member), optional comment
+   - Self-action warning Alert (severity='warning')
+   - Exported from `@universo/template-mui/components/dialogs`
+
+5. **i18n Files**:
+   - Created 6 JSON files (sections/entities/members × EN/RU)
+   - Registered 4 namespaces in metaverses-frt/i18n/index.ts
+   - Keys: title, searchPlaceholder, create/edit/delete actions, table columns, warnings
+
+### Frontend Components (6 files created) ✅
+
+6. **SectionList** (490 lines):
+   - usePaginated with sectionsQueryKeys.list
+   - Columns: description (50%), entities (20%)
+   - Card view: ItemCard with entitiesCount in footer
+   - Permissions filter: `section.permissions?.editContent`
+
+7. **EntityList** (476 lines):
+   - Simplified version (entities are leaf nodes)
+   - Single column: description (60%)
+   - Same architecture pattern as SectionList
+
+8. **MetaverseMembers** (577 lines):
+   - Most complex: owner protection, canManageRole checks, self-action warnings
+   - Columns: email (40%), role (20%), added (25%)
+   - Uses `useAuth()` for current user context
+   - MemberFormDialog with selfActionWarning prop
+
+### Routing & Build (2 phases) ✅
+
+9. **MainRoutesMUI.tsx**:
+   - Added 3 lazy imports with `@ts-expect-error` annotations (source-only packages)
+   - Routes: /sections, /entities, /metaverses/:id/members
+
+10. **Build Verification**:
+    - metaverses-frt: ✅ dist/i18n built (13.53 kB)
+    - universo-template-mui: ✅ dist/index.mjs (261.82 kB)
+    - Full workspace: ✅ 30/30 packages successful
+
+**Technical Solutions**:
+
+1. **TypeScript Build Errors**: Added `@ts-expect-error` for source-only imports (resolved at runtime by bundler)
+2. **Type Export Pattern**: Split `export type { MetaverseRole }` into separate import+export
+3. **Package Configuration**: Added `"files": ["dist", "src"]` to metaverses-frt
+
+**Files Modified**: 22 total
+- Backend: 3 route files
+- Frontend types: 1 file
+- Infrastructure: 8 files (MemberFormDialog + i18n)
+- API layer: 2 files
+- Components: 6 files (3 lists + 3 actions)
+- Routing: 1 file
+- Config: 1 file
+
+**Code Metrics**:
+- Total: ~1800 LOC added
+- Components: 1543 lines (490 + 476 + 577)
+- Infrastructure: 226 lines (MemberFormDialog)
+- Supporting: ~30 lines (action descriptors)
+
+**Browser Testing Required**:
+```bash
+# Start server
+pnpm start
+
+# Test URLs:
+# http://localhost:3000/sections
+# http://localhost:3000/entities
+# http://localhost:3000/metaverses/{id}/members
+
+# Verify:
+# - Card/Table view toggles
+# - Pagination (navigation, rows per page)
+# - Search (300ms debounce)
+# - CRUD operations (create/edit/delete)
+# - Permissions filtering
+# - Language switching EN ↔ RU
+# - Self-action warnings (MetaverseMembers)
+```
+
+**Expected Outcomes**:
+- ✅ All 3 list views load without errors
+- ✅ Card/Table toggles persist in localStorage
+- ✅ Pagination works (offset-based backend queries)
+- ✅ Search filters results (case-insensitive)
+- ✅ Actions filtered by permissions (editContent, manageMembers)
+- ✅ Owner role protected from modification/removal
+- ✅ Self-action warnings display in MemberFormDialog
+- ✅ Translations work in both EN and RU
+
+**Pattern Established**: Universal List Pattern successfully replicated across 3 entity types. Ready for migration of other views (UnikList, SpacesList, etc.).
+
+---
+
+## Previous Focus: React StrictMode Production Bug - COMPLETED ✅ (2025-11-02)
 
 **Status**: Implementation Complete, Awaiting Final Browser Verification
 

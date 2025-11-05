@@ -24,7 +24,19 @@ export const metaversesQueryKeys = {
 
     detail: (id: string) => [...metaversesQueryKeys.all, 'detail', id] as const,
 
-    members: (id: string) => [...metaversesQueryKeys.detail(id), 'members'] as const
+    members: (id: string) => [...metaversesQueryKeys.detail(id), 'members'] as const,
+
+    membersList: (id: string, params?: PaginationParams) => {
+        // Normalize params to ensure consistent cache keys
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'created',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined
+        }
+        return [...metaversesQueryKeys.members(id), 'list', normalized] as const
+    }
 }
 
 /**

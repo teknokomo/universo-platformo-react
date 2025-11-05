@@ -13,10 +13,14 @@
         "errors": {
             "connectionFailed": "Ошибка подключения",
             "checkConnection": "Пожалуйста, проверьте подключение к сети и попробуйте снова",
-            "pleaseTryLater": "Что-то пошло не так. Пожалуйста, попробуйте позже"
+            "pleaseTryLater": "Что-то пошло не так. Пожалуйста, попробуйте позже",
+            "invalidMetaverse": "Неверная метавселенная",
+            "pleaseSelectMetaverse": "Пожалуйста, выберите метавселенную из списка"
         },
         "actions": {
-            "retry": "Повторить"
+            "retry": "Повторить",
+            "edit": "Редактировать",
+            "delete": "Удалить"
         },
         "board": {
             "title": "Метаверсборд",
@@ -24,6 +28,98 @@
         },
         "detail": {
             "title": "Детали метавселенной"
+        },
+        "table": {
+            "description": "Описание",
+            "role": "Роль",
+            "sections": "Секции",
+            "entities": "Сущности"
+        },
+        "sections": {
+            "title": "Секции",
+            "searchPlaceholder": "Поиск секций...",
+            "noSectionsFound": "Секции не найдены",
+            "createSection": "Создать секцию",
+            "editTitle": "Редактировать секцию",
+            "confirmDelete": "Удалить секцию?",
+            "confirmDeleteDescription": "Вы уверены, что хотите удалить секцию \"{{name}}\"? Все сущности в этой секции также будут удалены.",
+            "deleteSuccess": "Секция успешно удалена",
+            "deleteError": "Не удалось удалить секцию",
+            "saveError": "Не удалось сохранить секцию",
+            "entityCount_one": "{{count}} сущность",
+            "entityCount_few": "{{count}} сущности",
+            "entityCount_many": "{{count}} сущностей",
+            "entityCount_other": "{{count}} сущностей",
+            "actions": {
+                "edit": "Редактировать секцию",
+                "delete": "Удалить секцию"
+            },
+            "table": {
+                "description": "Описание",
+                "entities": "Сущности"
+            }
+        },
+        "entities": {
+            "title": "Сущности",
+            "searchPlaceholder": "Поиск сущностей...",
+            "noEntitiesFound": "Сущности не найдены",
+            "createEntity": "Создать сущность",
+            "editTitle": "Редактировать сущность",
+            "confirmDelete": "Удалить сущность?",
+            "confirmDeleteDescription": "Вы уверены, что хотите удалить сущность \"{{name}}\"?",
+            "deleteSuccess": "Сущность успешно удалена",
+            "deleteError": "Не удалось удалить сущность",
+            "saveError": "Не удалось сохранить сущность",
+            "sectionLabel": "Секция",
+            "noSectionsAvailable": "Нет доступных секций",
+            "sectionRequired": "Секция обязательна",
+            "actions": {
+                "edit": "Редактировать сущность",
+                "delete": "Удалить сущность"
+            },
+            "table": {
+                "description": "Описание"
+            }
+        },
+        "members": {
+            "title": "Доступ",
+            "searchPlaceholder": "Поиск участников...",
+            "noMembersFound": "Участники не найдены",
+            "inviteMember": "Добавить",
+            "editTitle": "Редактировать участника",
+            "confirmRemove": "Удалить участника?",
+            "confirmRemoveDescription": "Вы уверены, что хотите удалить участника \"{{email}}\"?",
+            "removeSuccess": "Участник успешно удален",
+            "removeError": "Не удалось удалить участника",
+            "saveError": "Не удалось сохранить участника",
+            "inviteSuccess": "Участник успешно добавлен",
+            "inviteError": "Не удалось добавить участника",
+            "userNotFound": "Пользователь с email \"{{email}}\" не найден. Пожалуйста, проверьте адрес электронной почты.",
+            "userAlreadyMember": "Пользователь с email \"{{email}}\" уже имеет доступ к этой метавселенной.",
+            "emailLabel": "Email",
+            "roleLabel": "Роль",
+            "commentLabel": "Комментарий (необязательно)",
+            "commentPlaceholder": "Добавьте заметку об этом участнике...",
+            "selfActionWarning": "Вы изменяете свой собственный доступ. Будьте осторожны!",
+            "roles": {
+                "admin": "Админ",
+                "editor": "Редактор",
+                "member": "Участник"
+            },
+            "validation": {
+                "emailRequired": "Email обязателен",
+                "emailInvalid": "Неверный формат email",
+                "roleRequired": "Роль обязательна"
+            },
+            "actions": {
+                "edit": "Редактировать участника",
+                "remove": "Удалить участника"
+            },
+            "table": {
+                "email": "Email",
+                "role": "Роль",
+                "added": "Добавлен"
+            }
         }
     }
 }

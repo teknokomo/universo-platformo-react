@@ -31,5 +31,6 @@
         "vitest": "catalog:"
     },
     "dependencies": {
+        "zod": "catalog:"
     }
 }

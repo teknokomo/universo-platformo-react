@@ -39,50 +39,44 @@ export interface TooltipWithParserProps {
 
 /**
  * Tooltip component with HTML parsing support for Universo Platformo
- * 
+ *
  * Displays an Info icon that shows a tooltip with HTML content when hovered.
  * Automatically adapts to light/dark theme using MUI theme inheritance.
- * 
+ *
  * **IMPORTANT**: This component does NOT use Redux for dark mode detection.
  * Instead, it relies on MUI's ColorScheme API (v6+) with `color: 'inherit'`.
  * The icon color automatically adapts to the current theme.palette.mode.
- * 
+ *
  * @example Basic usage
  * ```tsx
  * import { TooltipWithParser } from '@universo/template-mui'
- * 
- * <TooltipWithParser 
- *   title="<strong>Important:</strong> This field is required" 
+ *
+ * <TooltipWithParser
+ *   title="<strong>Important:</strong> This field is required"
  * />
  * ```
- * 
+ *
  * @example Custom placement and size
  * ```tsx
- * <TooltipWithParser 
+ * <TooltipWithParser
  *   title="<em>Tip:</em> Click to expand"
  *   placement="top"
  *   iconSize={20}
  * />
  * ```
- * 
+ *
  * @example Custom icon styles
  * ```tsx
- * <TooltipWithParser 
+ * <TooltipWithParser
  *   title="Help text"
  *   sx={{ color: 'primary.main' }}
  * />
  * ```
  */
-export const TooltipWithParser: React.FC<TooltipWithParserProps> = ({ 
-    title, 
-    sx,
-    placement = 'right',
-    iconSize = 15,
-    maxWidth = 300
-}) => {
+export const TooltipWithParser: React.FC<TooltipWithParserProps> = ({ title, sx, placement = 'right', iconSize = 15, maxWidth = 300 }) => {
     return (
-        <Tooltip 
-            title={parse(title)} 
+        <Tooltip
+            title={parse(title)}
             placement={placement}
             componentsProps={{
                 tooltip: {
@@ -90,12 +84,12 @@ export const TooltipWithParser: React.FC<TooltipWithParserProps> = ({
                 }
             }}
         >
-            <IconButton 
-                sx={{ 
-                    height: iconSize, 
-                    width: iconSize, 
-                    ml: 2, 
-                    mt: -0.5 
+            <IconButton
+                sx={{
+                    height: iconSize,
+                    width: iconSize,
+                    ml: 2,
+                    mt: -0.5
                 }}
             >
                 <Info

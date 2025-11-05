@@ -4,7 +4,6 @@ import {
     Section,
     Entity,
     MetaverseMember,
-    MetaverseMembersResponse,
     MetaverseAssignableRole,
     PaginationParams,
     PaginatedResponse
@@ -55,7 +54,23 @@ export const getMetaverseSections = (metaverseId: string) => apiClient.get<Secti
 export const addSectionToMetaverse = (metaverseId: string, sectionId: string) =>
     apiClient.post<void>(`/metaverses/${metaverseId}/sections/${sectionId}`)
 
-export const listMetaverseMembers = (metaverseId: string) => apiClient.get<MetaverseMembersResponse>(`/metaverses/${metaverseId}/members`)
+// Updated listMetaverseMembers with pagination support (matches backend changes)
+export const listMetaverseMembers = async (metaverseId: string, params?: PaginationParams): Promise<PaginatedResponse<MetaverseMember>> => {
+    const response = await apiClient.get<MetaverseMember[]>(`/metaverses/${metaverseId}/members`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            sortBy: params?.sortBy,
+            sortOrder: params?.sortOrder,
+            search: params?.search
+        }
+    })
+
+    return {
+        items: response.data,
+        pagination: extractPaginationMeta(response)
+    }
+}
 
 export const inviteMetaverseMember = (metaverseId: string, data: { email: string; role: MetaverseAssignableRole; comment?: string }) =>
     apiClient.post<MetaverseMember>(`/metaverses/${metaverseId}/members`, data)

@@ -66,19 +66,58 @@ export function createMetaversesRoutes(
         createdAt: member.created_at
     })
 
-    const loadMembers = async (req: Request, metaverseId: string) => {
+    const loadMembers = async (
+        req: Request,
+        metaverseId: string,
+        params?: { limit?: number; offset?: number; sortBy?: string; sortOrder?: string; search?: string }
+    ): Promise<{ members: ReturnType<typeof mapMember>[]; total: number }> => {
         const { metaverseUserRepo, authUserRepo } = repos(req)
-        const members = await metaverseUserRepo.find({
-            where: { metaverse_id: metaverseId },
-            order: { created_at: 'ASC' }
-        })
+
+        // Build query with optional pagination and search
+        const qb = metaverseUserRepo
+            .createQueryBuilder('mu')
+            .where('mu.metaverse_id = :metaverseId', { metaverseId })
+
+        if (params) {
+            const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
+
+            // Search by email - need to join with AuthUser
+            if (search) {
+                const escapedSearch = search.toLowerCase()
+                qb.innerJoin(AuthUser, 'u', 'u.id = mu.user_id').andWhere('LOWER(u.email) LIKE :search', {
+                    search: `%${escapedSearch}%`
+                })
+            }
+
+            // Sorting
+            const ALLOWED_SORT_FIELDS: Record<string, string> = {
+                created: 'mu.created_at',
+                role: 'mu.role'
+            }
+            const sortField = ALLOWED_SORT_FIELDS[sortBy] || 'mu.created_at'
+            const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+            qb.orderBy(sortField, sortDirection).skip(offset).take(limit)
+        } else {
+            // Default order when no params
+            qb.orderBy('mu.created_at', 'ASC')
+        }
+
+        // Get members and total count
+        const [members, total] = await qb.getManyAndCount()
+
+        // Load emails for all members
         const userIds = members.map((member) => member.user_id)
         const users = userIds.length ? await authUserRepo.find({ where: { id: In(userIds) } }) : []
         const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
-        return members.map((member) => mapMember(member, usersMap.get(member.user_id) ?? null))
+
+        return {
+            members: members.map((member) => mapMember(member, usersMap.get(member.user_id) ?? null)),
+            total
+        }
     }
 
-    type MembersList = Awaited<ReturnType<typeof loadMembers>>
+    type MembersList = Awaited<ReturnType<typeof loadMembers>>['members']
     type RolePermissions = (typeof ROLE_PERMISSIONS)[MetaverseRole]
 
     interface MetaverseDetailsResponse {
@@ -289,7 +328,7 @@ export function createMetaversesRoutes(
             const role = (membership.role || 'member') as MetaverseRole
             const permissions = ROLE_PERMISSIONS[role]
 
-            const membersPayload = permissions.manageMembers ? await loadMembers(req, metaverseId) : undefined
+            const membersPayload = permissions.manageMembers ? (await loadMembers(req, metaverseId)).members : undefined
 
             const response: MetaverseDetailsResponse = {
                 id: metaverse.id,
@@ -322,14 +361,22 @@ export function createMetaversesRoutes(
             }
 
             const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
-            const members = await loadMembers(req, metaverseId)
+
+            // Add pagination support
+            const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = validateListQuery(req.query)
+
+            const { members, total } = await loadMembers(req, metaverseId, { limit, offset, sortBy, sortOrder, search })
             const role = (membership.role || 'member') as MetaverseRole
 
-            res.json({
-                members,
-                role,
-                permissions: ROLE_PERMISSIONS[role]
-            })
+            // Return paginated response structure
+            const hasMore = offset + members.length < total
+            res.setHeader('X-Pagination-Limit', limit.toString())
+            res.setHeader('X-Pagination-Offset', offset.toString())
+            res.setHeader('X-Pagination-Count', members.length.toString())
+            res.setHeader('X-Total-Count', total.toString())
+            res.setHeader('X-Pagination-Has-More', hasMore.toString())
+
+            res.json(members)
         })
     )
 

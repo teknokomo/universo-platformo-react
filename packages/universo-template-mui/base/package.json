@@ -52,7 +52,9 @@
         "@emotion/styled": "catalog:",
         "dayjs": "catalog:",
         "html-react-parser": "^5.1.10",
-        "use-debounce": "^10.0.6"
+        "use-debounce": "^10.0.6",
+        "react-hook-form": "catalog:",
+        "@hookform/resolvers": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

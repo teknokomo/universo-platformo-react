@@ -18,6 +18,12 @@ const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList'
 
 const MetaverseList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseList')))
 const MetaverseBoard = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const SectionList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/SectionList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const EntityList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/EntityList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseMembers')))
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frt (package deleted)
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile.jsx')))
@@ -69,8 +75,57 @@ const MainRoutesMUI = {
                             <MetaverseBoard />
                         </AuthGuard>
                     )
+                },
+                {
+                    path: ':metaverseId/members',
+                    element: (
+                        <AuthGuard>
+                            <MetaverseMembers />
+                        </AuthGuard>
+                    )
+                },
+                // Aliases and nested lists inside a specific metaverse
+                {
+                    path: ':metaverseId/entities',
+                    element: (
+                        <AuthGuard>
+                            <EntityList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':metaverseId/sections',
+                    element: (
+                        <AuthGuard>
+                            <SectionList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':metaverseId/access',
+                    element: (
+                        <AuthGuard>
+                            <MetaverseMembers />
+                        </AuthGuard>
+                    )
                 }
             ]
+        },
+        {
+            path: 'sections',
+            element: (
+                <AuthGuard>
+                    <SectionList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'entities',
+            element: (
+                <AuthGuard>
+                    <EntityList />
+                </AuthGuard>
+            )
         },
         {
             path: 'profile',
