@@ -62,9 +62,9 @@ describe('RoleChip', () => {
     })
 
     describe('Style Variants', () => {
-        it('should render outlined variant by default', () => {
+        it('should render filled variant by default', () => {
             const { container } = render(<RoleChip role='owner' />)
-            const chip = container.querySelector('.MuiChip-outlined')
+            const chip = container.querySelector('.MuiChip-filled')
             expect(chip).toBeInTheDocument()
         })
 
