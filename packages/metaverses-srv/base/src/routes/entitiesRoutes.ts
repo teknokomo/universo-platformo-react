@@ -1,5 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { DataSource } from 'typeorm'
+import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
 import type { MetaverseRole } from '@universo/types'
@@ -41,6 +41,66 @@ function getRepositories(req: Request, getDataSource: () => DataSource) {
         metaverseUserRepo: manager.getRepository(MetaverseUser),
         sectionMetaverseRepo: manager.getRepository(SectionMetaverse),
         entityMetaverseRepo: manager.getRepository(EntityMetaverse)
+    }
+}
+
+/**
+ * Auto-sync entity-metaverse links based on section-metaverse relationships
+ * Ensures entities_metaverses table always reflects which metaverses contain this entity
+ * through its sections
+ */
+async function syncEntityMetaverseLinks(entityId: string, repos: ReturnType<typeof getRepositories>) {
+    const { entitySectionRepo, sectionMetaverseRepo, entityMetaverseRepo, entityRepo } = repos
+
+    // Find all sections this entity belongs to
+    const entitySections = await entitySectionRepo.find({
+        where: { entity: { id: entityId } },
+        relations: ['section']
+    })
+
+    const sectionIds = entitySections.map((es) => es.section.id)
+
+    if (sectionIds.length === 0) {
+        // Entity has no sections - remove all metaverse links
+        await entityMetaverseRepo.delete({ entity: { id: entityId } })
+        return
+    }
+
+    // Find all metaverses these sections belong to
+    const sectionMetaverses = await sectionMetaverseRepo.find({
+        where: { section: { id: In(sectionIds) } },
+        relations: ['metaverse']
+    })
+
+    // Get unique metaverse IDs
+    const metaverseIds = [...new Set(sectionMetaverses.map((sm) => sm.metaverse.id))]
+
+    // Get current entity-metaverse links
+    const currentLinks = await entityMetaverseRepo.find({
+        where: { entity: { id: entityId } },
+        relations: ['metaverse']
+    })
+
+    const currentMetaverseIds = new Set(currentLinks.map((link) => link.metaverse.id))
+
+    // Add missing links
+    const entity = await entityRepo.findOne({ where: { id: entityId } })
+    if (!entity) return
+
+    for (const metaverseId of metaverseIds) {
+        if (!currentMetaverseIds.has(metaverseId)) {
+            const link = entityMetaverseRepo.create({
+                entity: { id: entityId },
+                metaverse: { id: metaverseId }
+            })
+            await entityMetaverseRepo.save(link)
+        }
+    }
+
+    // Remove obsolete links
+    const obsoleteLinks = currentLinks.filter((link) => !metaverseIds.includes(link.metaverse.id))
+    if (obsoleteLinks.length > 0) {
+        await entityMetaverseRepo.remove(obsoleteLinks)
     }
 }
 
@@ -102,24 +162,11 @@ export function createEntitiesRouter(
                     .innerJoin(MetaverseUser, 'mu', 'mu.metaverse_id = sm.metaverse_id')
                     .where('mu.user_id = :userId', { userId })
 
-                // Add search filter if provided (hybrid approach for better UX)
+                // Add search filter if provided
                 if (escapedSearch) {
-                    if (escapedSearch.length < 3) {
-                        // Simple LIKE for short queries (1-2 chars) - works instantly
-                        qb.andWhere(
-                            '(LOWER(e.name) LIKE :search OR LOWER(COALESCE(e.description, \'\')) LIKE :search)',
-                            { search: `%${escapedSearch.toLowerCase()}%` }
-                        )
-                    } else {
-                        // Full-text search for longer queries (3+ chars) - uses GIN indexes for performance
-                        qb.andWhere(
-                            `(
-                                to_tsvector('english', e.name) @@ plainto_tsquery('english', :search) OR
-                                to_tsvector('english', COALESCE(e.description, '')) @@ plainto_tsquery('english', :search)
-                            )`,
-                            { search: escapedSearch }
-                        )
-                    }
+                    qb.andWhere("(LOWER(e.name) LIKE :search OR LOWER(COALESCE(e.description, '')) LIKE :search)", {
+                        search: `%${escapedSearch.toLowerCase()}%`
+                    })
                 }
 
                 qb.select([
@@ -236,7 +283,11 @@ export function createEntitiesRouter(
                 const entitySectionLink = entitySectionRepo.create({ entity, section })
                 await entitySectionRepo.save(entitySectionLink)
 
-                // Optional metaverse link for atomic create-in-metaverse flow
+                // CRITICAL: Auto-sync entity-metaverse links based on section-metaverse links
+                // This ensures entitiesCount is always accurate in metaverse dashboard
+                await syncEntityMetaverseLinks(entity.id, getRepositories(req, getDataSource))
+
+                // Optional explicit metaverse link (kept for backwards compatibility)
                 if (metaverseId) {
                     // Verify access to the metaverse
                     await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'createContent')
@@ -342,6 +393,10 @@ export function createEntitiesRouter(
 
             const link = entitySectionRepo.create({ entity, section })
             const saved = await entitySectionRepo.save(link)
+
+            // Auto-sync entity-metaverse links after adding section
+            await syncEntityMetaverseLinks(entityId, getRepositories(req, getDataSource))
+
             res.status(201).json(saved)
         })
     )
@@ -363,6 +418,10 @@ export function createEntitiesRouter(
             if (links.length === 0) return res.status(404).json({ error: 'No section links found' })
 
             await entitySectionRepo.remove(links)
+
+            // Auto-sync entity-metaverse links after removing sections
+            await syncEntityMetaverseLinks(entityId, getRepositories(req, getDataSource))
+
             res.status(204).send()
         })
     )

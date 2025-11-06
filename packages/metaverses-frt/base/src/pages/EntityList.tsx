@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, Autocomplete, TextField, CircularProgress } from '@mui/material'
+import { Box, Skeleton, Stack, Typography, IconButton, FormControl, InputLabel, Select, MenuItem, FormHelperText, CircularProgress } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -207,7 +207,7 @@ const EntityList = () => {
                 id: 'description',
                 label: tc('table.description', 'Description'),
                 width: '60%',
-                align: 'left',
+                align: 'left' as const,
                 render: (row: Entity) => (
                     <Typography
                         sx={{
@@ -456,35 +456,26 @@ const EntityList = () => {
                 onSave={handleCreateEntity}
                 initialExtraValues={{ sectionId: selectedSection?.id || '' }}
                 extraFields={({ values, setValue, isLoading }) => (
-                    <Autocomplete
-                        value={sectionsData?.items?.find((s) => s.id === values.sectionId) || null}
-                        onChange={(_, newValue) => {
-                            setValue('sectionId', newValue?.id || '')
-                            setSelectedSection(newValue)
-                        }}
-                        options={sectionsData?.items || []}
-                        getOptionLabel={(option) => option.name}
-                        loading={sectionsLoading}
-                        disabled={isLoading}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                label={t('entities:sectionLabel', 'Section')}
-                                required
-                                error={!values.sectionId}
-                                helperText={!values.sectionId ? t('entities:errors.sectionRequired', 'Section is required') : ''}
-                                InputProps={{
-                                    ...params.InputProps,
-                                    endAdornment: (
-                                        <>
-                                            {sectionsLoading ? <CircularProgress color='inherit' size={20} /> : null}
-                                            {params.InputProps.endAdornment}
-                                        </>
-                                    )
-                                }}
-                            />
-                        )}
-                    />
+                    <FormControl fullWidth required error={!values.sectionId}>
+                        <InputLabel>{t('entities.sectionLabel', 'Section')}</InputLabel>
+                        <Select
+                            value={values.sectionId || ''}
+                            onChange={(e) => {
+                                setValue('sectionId', e.target.value)
+                                setSelectedSection(sectionsData?.items?.find((s) => s.id === e.target.value) || null)
+                            }}
+                            disabled={isLoading || sectionsLoading}
+                            label={t('entities.sectionLabel', 'Section')}
+                            endAdornment={sectionsLoading ? <CircularProgress color='inherit' size={20} sx={{ mr: 2 }} /> : null}
+                        >
+                            {sectionsData?.items?.map((section) => (
+                                <MenuItem key={section.id} value={section.id}>
+                                    {section.name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                        <FormHelperText>{!values.sectionId ? t('entities.errors.sectionRequired', 'Section is required') : ''}</FormHelperText>
+                    </FormControl>
                 )}
             />
 

@@ -94,24 +94,11 @@ export function createSectionsRoutes(
                     .leftJoin(EntitySection, 'es', 'es.section_id = s.id')
                     .where('mu.user_id = :userId', { userId })
 
-                // Add search filter if provided (hybrid approach for better UX)
+                // Add search filter if provided
                 if (escapedSearch) {
-                    if (escapedSearch.length < 3) {
-                        // Simple LIKE for short queries (1-2 chars) - works instantly
-                        qb.andWhere(
-                            '(LOWER(s.name) LIKE :search OR LOWER(COALESCE(s.description, \'\')) LIKE :search)',
-                            { search: `%${escapedSearch.toLowerCase()}%` }
-                        )
-                    } else {
-                        // Full-text search for longer queries (3+ chars) - uses GIN indexes for performance
-                        qb.andWhere(
-                            `(
-                                to_tsvector('english', s.name) @@ plainto_tsquery('english', :search) OR
-                                to_tsvector('english', COALESCE(s.description, '')) @@ plainto_tsquery('english', :search)
-                            )`,
-                            { search: escapedSearch }
-                        )
-                    }
+                    qb.andWhere("(LOWER(s.name) LIKE :search OR LOWER(COALESCE(s.description, '')) LIKE :search)", {
+                        search: `%${escapedSearch.toLowerCase()}%`
+                    })
                 }
 
                 qb.select([

@@ -74,9 +74,7 @@ export function createMetaversesRoutes(
         const { metaverseUserRepo, authUserRepo } = repos(req)
 
         // Build query with optional pagination and search
-        const qb = metaverseUserRepo
-            .createQueryBuilder('mu')
-            .where('mu.metaverse_id = :metaverseId', { metaverseId })
+        const qb = metaverseUserRepo.createQueryBuilder('mu').where('mu.metaverse_id = :metaverseId', { metaverseId })
 
         if (params) {
             const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
@@ -128,6 +126,7 @@ export function createMetaversesRoutes(
         updatedAt: Date
         sectionsCount: number
         entitiesCount: number
+        membersCount: number
         role: MetaverseRole
         permissions: RolePermissions
         members?: MembersList
@@ -312,7 +311,7 @@ export function createMetaversesRoutes(
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            const { metaverseRepo, sectionLinkRepo, linkRepo } = repos(req)
+            const { metaverseRepo, metaverseUserRepo, sectionLinkRepo, linkRepo } = repos(req)
             const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
 
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
@@ -320,9 +319,10 @@ export function createMetaversesRoutes(
                 return res.status(404).json({ error: 'Metaverse not found' })
             }
 
-            const [sectionsCount, entitiesCount] = await Promise.all([
+            const [sectionsCount, entitiesCount, membersCount] = await Promise.all([
                 sectionLinkRepo.count({ where: { metaverse: { id: metaverseId } } }),
-                linkRepo.count({ where: { metaverse: { id: metaverseId } } })
+                linkRepo.count({ where: { metaverse: { id: metaverseId } } }),
+                metaverseUserRepo.count({ where: { metaverse_id: metaverseId } })
             ])
 
             const role = (membership.role || 'member') as MetaverseRole
@@ -338,6 +338,7 @@ export function createMetaversesRoutes(
                 updatedAt: metaverse.updatedAt,
                 sectionsCount,
                 entitiesCount,
+                membersCount,
                 role,
                 permissions
             }

@@ -6,109 +6,171 @@
 
 ---
 
-## Current Focus: Metaverses Module - Backend Error Handling Enhancement ✅ (2025-11-03)
+## Current Focus: MetaverseBoard Grid Spacing Debug 🔍 (2025-11-05)
 
-**Status**: Implementation Complete, Ready for Browser QA
+**Status**: Diagnostic Logs Added, Awaiting Browser Testing
 
-**Summary**: Implemented user-friendly error messages for member invitation failures with proper i18n support and contextual information. Added specific error handling for "user not found" and "user already exists" scenarios with email interpolation. Cleaned up debug logging added during investigation phase.
+**Problem**: Grid spacing={2} не создаёт визуальные gaps между cards в MetaverseBoardGrid.tsx. Пользователь видит карточки, касающиеся друг друга без горизонтальных отступов.
 
-**Previous Session Context**: User discovered 404 error when adding members was due to testing with wrong email (obokral@narod.ru vs correct obokral@narod.ru in database). Root cause: Frontend showed generic error instead of specific context.
+**Diagnostic Logs Added** (2025-11-05):
+
+**Files Modified** (2):
+1. ✅ `packages/metaverses-frt/base/src/components/dashboard/MetaverseBoardGrid.tsx`:
+   - Added useEffect with DOM inspection
+   - Refs: `outerBoxRef`, `gridContainerRef`
+   - Logs: outer Box styles (width, padding, overflow), Grid container (display, gap, gridTemplateColumns), first Grid item (width, margin, padding)
+   - Checks: MUI Grid spacing class presence
+
+2. ✅ `packages/metaverses-frt/base/src/pages/MetaverseBoard.tsx`:
+   - Added useEffect with parent container inspection
+   - Refs: `stackRef`, `viewHeaderBoxRef`
+   - Logs: Stack container (width, padding, gap), ViewHeader Box wrapper (padding, width)
+
+**Build Status**: ✅ metaverses-frt rebuilt successfully (3.8s)
+
+**Next Step**: User runs `pnpm start`, navigates to metaverse board, shares console logs for analysis.
+
+---
+
+## Previous Focus: MetaverseBoard Dashboard Implementation ✅ (2025-11-05)
+
+**Status**: Implementation Complete (Grid Spacing Issue Discovered)
+
+**Summary**: Transformed MetaverseBoard.tsx from stub into fully functional dashboard with real-time statistics (sections/entities/members counts), documentation resources, and demo charts (activity/resources). Modern TanStack Query integration, proper error handling, responsive MUI Grid layout.
+
+**Previous Session Context**: User requested dashboard similar to universo-template-mui/Dashboard.tsx with 3 stat cards, 1 documentation banner, and 2 demo charts. Table explicitly excluded from MVP scope. User wants to see real metrics from backend (not mocked data).
 
 **What Was Completed**:
 
-### Error Translation Keys (Session 4, Step 1) ✅
+### Phase 1-2: Backend & Types (20 minutes) ✅
 
-1. **EN metaverses.json**:
-   - `"inviteSuccess": "Member added successfully"`
-   - `"inviteError": "Failed to add member"`
-   - `"userNotFound": "User with email \"{{email}}\" not found. Please check the email address."`
-   - `"userAlreadyMember": "User with email \"{{email}}\" already has access to this metaverse."`
+1. **Backend Extension** (metaversesRoutes.ts):
+   - Added `membersCount: number` to MetaverseDetailsResponse interface
+   - Extended GET /:metaverseId to include `metaverseUserRepo.count()` in Promise.all
+   - Zero additional latency (parallel query execution)
+   - TypeScript compilation clean
 
-2. **RU metaverses.json**:
-   - Same 4 keys translated to Russian
-   - `"userNotFound"`: "Пользователь с email \"{{email}}\" не найден. Пожалуйста, проверьте адрес."
-   - `"userAlreadyMember"`: "Пользователь с email \"{{email}}\" уже имеет доступ к этой метавселенной."
+2. **Frontend Types** (types.ts):
+   - Added `membersCount?: number` to Metaverse interface (optional field)
+   - Consistent with sectionsCount/entitiesCount pattern
 
-### Frontend Error Handling (Session 4, Step 2) ✅
+### Phase 3: i18n Keys (15 minutes) ✅
 
-3. **MetaverseMembers.tsx**:
-   - Enhanced `handleInviteMember` catch block with detailed status code checking
-   - Check for 404 + "User not found" → show userNotFound message with email
-   - Check for 409 + "METAVERSE_MEMBER_EXISTS" code → show userAlreadyMember message
-   - Graceful fallback to generic inviteError message for unknown errors
-   - Uses i18n interpolation: `t('userNotFound', { email: data.email })`
+3. **EN metaverses.json**: Added ~22 keys
+   - `board.overview`, `board.defaultDescription`, `board.loading`, `board.error`
+   - `board.stats.sections/entities/members.*` (title/interval/description for each)
+   - `board.documentation.*` (title/description/button)
+   - `board.charts.activity/resources.*` (title/description)
 
-### Debug Logging Cleanup (Session 4, Step 3) ✅
+4. **RU metaverses.json**: Mirrored EN structure with Russian translations
+   - Proper pluralization: "Секции", "Сущности", "Участники"
+   - Contextual descriptions for all stats cards
 
-4. **metaversesRoutes.ts**:
-   - Removed ~20 console.log statements from POST /:metaverseId/members handler
-   - Kept POST handler logic clean and production-ready
-   - Kept only essential error logging (console.error)
+### Phase 4: Dashboard Components (90 minutes) ✅
 
-5. **flowise-server/src/routes/index.ts**:
-   - Removed 2 console.log lines from metaverses router middleware
-   - Removed: `console.log('[Metaverses Router Middleware] ...')`
-   - Removed: `console.log('[Metaverses Router] Creating router for first time')`
+5. **Created dashboard/ directory** with 5 files:
+   - `StatCard.tsx` (92 LOC): Simplified from demo, removed trend/Chip, optional SparkLineChart
+   - `HighlightedCard.tsx` (45 LOC): Documentation banner with GitBook link, i18n, responsive button
+   - `SessionsChart.tsx` (180 LOC): LineChart with stacked area gradients, demo data marked "DEMO DATA - In Development"
+   - `PageViewsBarChart.tsx` (95 LOC): BarChart with stacked bars, demo data marked "DEMO DATA - In Development"
+   - `index.ts`: Barrel export for all components
 
-6. **metaverses-srv/base/src/routes/index.ts**:
-   - Removed 3 lines of logging middleware
-   - Removed: `console.log('[createMetaversesServiceRoutes] Mounting sub-routers')`
-   - Removed: `console.log('[Metaverses Service Router] ...')`
+6. **Design Patterns**:
+   - All text via i18n (no hardcoded strings)
+   - Demo data clearly marked in JSDoc comments
+   - SparkLineChart optional in StatCard (no trend/Chip)
+   - GitBook link opens in new window with security flags (noopener, noreferrer)
 
-### Build Verification (Session 4, Step 4) ✅
+### Phase 5: TanStack Query Hook (30 minutes) ✅
 
-7. **metaverses-frt**: ✅ SUCCESS (tsdown, 3.6s)
-8. **metaverses-srv**: ✅ SUCCESS (TypeScript, 0 errors)
-9. **flowise**: ✅ SUCCESS (TypeScript, 0 errors)
+7. **useMetaverseDetails.ts** (63 LOC):
+   - Uses metaversesQueryKeys.detail(id) for cache consistency
+   - Configuration: 5min staleTime, 3 retry attempts, refetchOnWindowFocus: false
+   - Type-safe: UseMetaverseDetailsOptions interface, UseMetaverseDetailsResult export
+   - JSDoc documentation with usage example
+   - Modern TanStack Query v5 pattern
 
-**Technical Solutions**:
+### Phase 6-7: Grid & Page (60 minutes) ✅
 
-1. **Backend API Error Codes**: Uses HTTP status codes (404, 409, 201) + optional error code field (`METAVERSE_MEMBER_EXISTS`)
-2. **Frontend Error Parsing**: Checks both `response.status` and `response.data.error/code` for contextual messages
-3. **i18n Interpolation**: Uses `{{email}}` placeholder in translation strings for dynamic content
+8. **MetaverseBoardGrid.tsx** (80 LOC):
+   - MUI Grid layout: 4 cards (3 stats + 1 docs) in row on desktop
+   - 2 charts side-by-side on desktop, stacked on tablet/mobile
+   - Real data: sectionsCount, entitiesCount, membersCount from metaverse prop
+   - Responsive breakpoints: xs={12}, sm={6}, lg={3} for cards
+   - MaxWidth 1700px, spacing={2}, columns={12}
 
-**Files Modified**: 6 total
-- Frontend: 3 files (metaverses.json EN/RU, MetaverseMembers.tsx)
-- Backend: 3 files (metaversesRoutes.ts, 2 router index files)
+9. **MetaverseBoard.tsx** (100 LOC):
+   - Replaced legacy useApi/useState pattern with useMetaverseDetails hook
+   - Three UI states: Loading (CircularProgress), Error (EmptyListState + Alert), Success (ViewHeader + MetaverseBoardGrid)
+   - Navigation: ArrowBackRoundedIcon button to /metaverses
+   - Error handling: Displays error message + retry button
+   - Proper i18n for all states
 
-**User Experience Improvements**:
+### Phase 8: Build Verification (10 minutes) ✅
 
-| Scenario | Before | After |
-|----------|--------|-------|
-| Add non-existent user | ❌ Generic error | ✅ "User with email \"test@example.com\" not found. Please check the email address." |
-| Add existing member | ❌ Generic error | ✅ "User with email \"user@example.com\" already has access to this metaverse." |
-| Successful addition | ✅ Generic success | ✅ "Member added successfully" |
+10. **Build Results**:
+    - metaverses-srv: SUCCESS (TypeScript 0 errors)
+    - metaverses-frt: SUCCESS (tsdown 4.9s)
+    - Added missing i18n keys: `board.defaultDescription`, `board.overview`
+    - All packages compile cleanly
 
-**Browser Testing Required**:
+**Files Modified**: 18 total
+- Backend: `metaversesRoutes.ts`
+- Types: `types.ts`
+- i18n: `locales/{en,ru}/metaverses.json` (2 files)
+- Components: 6 files in `components/dashboard/`
+- Hooks: `api/useMetaverseDetails.ts`
+- Pages: `pages/MetaverseBoard.tsx`
+
+**Browser Testing Checklist**:
 ```bash
-# Start server
-pnpm start
+# Start development server
+pnpm dev
 
 # Test scenarios:
-# 1. Go to /metaverses/:id/access (members list)
-# 2. Click "Add" button → invite dialog opens
-# 3. Enter non-existent email (e.g., test123@nonexistent.com)
-# 4. Submit → should show error: "User with email \"test123@nonexistent.com\" not found. Please check the email address."
-# 5. Enter email of existing member (e.g., obokral@narod.ru)
-# 6. Submit → should show error: "User with email \"obokral@narod.ru\" already has access to this metaverse."
-# 7. Enter valid email from Supabase auth.users (e.g., 580-39-39@mail.ru)
-# 8. Submit → should show success: "Member added successfully"
-# 9. Switch to RU locale → repeat tests, verify Russian messages
-# 10. Check console → should NOT see any "[POST /:metaverseId/members]" or "[Metaverses Router]" debug logs
+# 1. Navigate to /metaverses (list page)
+# 2. Click on any metaverse card → should navigate to detail page
+# 3. Click "Board" tab (or navigate to /metaverses/:id/board)
+# 4. Verify loading state appears briefly (CircularProgress + "Loading dashboard...")
+# 5. Verify 3 StatCards display correct counts:
+#    - Sections: Should match count from /metaverses/:id/sections API
+#    - Entities: Should match count from /metaverses/:id/entities API
+#    - Members: Should match count from /metaverses/:id/members API
+# 6. Click "View Docs" button → should open https://teknokomo.gitbook.io/up in new tab
+# 7. Verify 2 charts render without errors (SessionsChart, PageViewsBarChart)
+# 8. Test error state:
+#    - Open DevTools Network tab → throttle to Offline
+#    - Refresh page
+#    - Should see EmptyListState + Alert with error message + "Back to Metaverses" button
+# 9. Test responsive layout:
+#    - Desktop (>1200px): 4 cards in row, 2 charts side-by-side
+#    - Tablet (600-1200px): 2 cards per row, 2 charts side-by-side
+#    - Mobile (<600px): 1 card per row, charts stacked
+# 10. Test translations:
+#     - Click language switcher (EN ↔ RU)
+#     - Verify all text updates (stat titles, intervals, descriptions, buttons)
+#     - Russian: "Секции", "Сущности", "Участники", "Изучить документацию"
+#     - English: "Sections", "Entities", "Members", "Explore Documentation"
+# 11. Check console:
+#     - Zero errors
+#     - Zero warnings
+#     - TanStack Query devtools (optional): verify cache key metaverses:detail:<id>
 ```
 
-**Expected Console Output**:
-- ✅ 0 debug logs from backend routes
-- ✅ Only essential logs: server startup, RLS context application
-- ❌ No "[POST /:metaverseId/members] Handler called"
-- ❌ No "[Metaverses Router Middleware]"
+**Expected Behavior**:
+- ✅ Page loads in ~1-2 seconds (TanStack Query caching)
+- ✅ Real counts match backend data (no mocked values)
+- ✅ Charts render smoothly with demo data (clearly marked as WIP)
+- ✅ Error state is user-friendly (not technical stack trace)
+- ✅ Back button works correctly
+- ✅ All translations display correctly (EN/RU)
+- ✅ Responsive layout adapts to screen size
 
 **Next Steps**:
-1. User performs browser testing with above scenarios
-2. User verifies error messages display correctly in dialog (not just snackbar)
-3. User verifies both EN and RU translations work
-4. If any issues found → report back for further investigation
-5. If all tests pass → consider this task complete ✅
+1. User performs browser QA with above checklist
+2. If issues found → report back with screenshots/console logs
+3. If all tests pass → mark task complete in tasks.md
+4. Future improvement: Replace demo chart data when analytics service ready (marked with TODO in JSDoc comments)
 
 **What Was Completed**:
 
