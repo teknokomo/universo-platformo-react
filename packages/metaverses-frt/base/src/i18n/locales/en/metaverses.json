@@ -20,11 +20,50 @@
         "actions": {
             "retry": "Retry",
             "edit": "Edit",
-            "delete": "Delete"
+            "delete": "Delete",
+            "backToList": "Back to Metaverses"
         },
         "board": {
             "title": "Metaverseboard",
-            "description": "Analytics and cluster statistics will be here (in development)"
+            "description": "Analytics and cluster statistics will be here (in development)",
+            "defaultDescription": "Metaverse analytics and statistics",
+            "overview": "Overview",
+            "stats": {
+                "sections": {
+                    "title": "Sections",
+                    "interval": "All time",
+                    "description": "Total sections in this metaverse"
+                },
+                "entities": {
+                    "title": "Entities",
+                    "interval": "All time",
+                    "description": "Total entities across all sections"
+                },
+                "members": {
+                    "title": "Members",
+                    "interval": "All time",
+                    "description": "Users with access to this metaverse"
+                }
+            },
+            "documentation": {
+                "title": "Explore Documentation",
+                "description": "Learn about metaverse features, APIs, and best practices",
+                "button": "View Docs"
+            },
+            "charts": {
+                "activity": {
+                    "title": "User Activity",
+                    "interval": "Last 30 days",
+                    "description": "Activity metrics (demo data - in development)"
+                },
+                "resources": {
+                    "title": "Resources",
+                    "interval": "Last 6 months",
+                    "description": "Resource usage (demo data - in development)"
+                }
+            },
+            "loading": "Loading dashboard...",
+            "error": "Failed to load dashboard data"
         },
         "detail": {
             "title": "Metaverse Details"
@@ -70,7 +109,9 @@
             "saveError": "Failed to save entity",
             "sectionLabel": "Section",
             "noSectionsAvailable": "No sections available",
-            "sectionRequired": "Section is required",
+            "errors": {
+                "sectionRequired": "Section is required"
+            },
             "actions": {
                 "edit": "Edit Entity",
                 "delete": "Delete Entity"

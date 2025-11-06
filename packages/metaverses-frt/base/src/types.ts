@@ -33,9 +33,10 @@ export interface Metaverse {
     description?: string
     createdAt: string
     updatedAt: string
-    // Optional aggregated counters provided by backend list endpoint
+    // Optional aggregated counters provided by backend
     sectionsCount?: number
     entitiesCount?: number
+    membersCount?: number
     role?: MetaverseRole
     permissions?: MetaversePermissions
 }

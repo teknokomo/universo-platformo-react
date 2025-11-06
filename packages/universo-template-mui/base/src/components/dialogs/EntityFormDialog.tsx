@@ -73,14 +73,21 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // Only reset form when dialog opens, not when initialExtraValues change
     useEffect(() => {
         if (open) {
             setName(initialName)
             setDescription(initialDescription)
-            setExtraValues(normalizedInitialExtraValues)
             setFieldErrors({})
         }
-    }, [open, initialName, initialDescription, normalizedInitialExtraValues])
+    }, [open, initialName, initialDescription])
+    
+    // Set initial extra values only on first open
+    useEffect(() => {
+        if (open) {
+            setExtraValues(normalizedInitialExtraValues)
+        }
+    }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleExtraValueChange = (fieldName: string, value: any) => {
         setExtraValues((prev) => ({ ...prev, [fieldName]: value }))

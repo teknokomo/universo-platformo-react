@@ -87,7 +87,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                                 textOverflow: 'ellipsis',
                                 overflow: 'hidden',
                                 flex: 1,
-                                maxWidth: 'calc(100vh - 100px)'
+                                maxWidth: '100%'
                             }}
                             variant='h1'
                         >
@@ -105,7 +105,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                                     textOverflow: 'ellipsis',
                                     overflow: 'hidden',
                                     flex: 1,
-                                    maxWidth: 'calc(100vh - 100px)'
+                                    maxWidth: '100%'
                                 }}
                             >
                                 {description}
