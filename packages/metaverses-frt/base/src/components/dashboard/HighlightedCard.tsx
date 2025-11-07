@@ -24,9 +24,7 @@ export default function HighlightedCard() {
                 <Typography component='h2' variant='subtitle2' gutterBottom sx={{ fontWeight: '600' }}>
                     {t('board.documentation.title')}
                 </Typography>
-                <Typography sx={{ color: 'text.secondary', mb: 2 }}>
-                    {t('board.documentation.description')}
-                </Typography>
+                <Typography sx={{ color: 'text.secondary', mb: 2 }}>{t('board.documentation.description')}</Typography>
                 <Button
                     variant='contained'
                     size='small'

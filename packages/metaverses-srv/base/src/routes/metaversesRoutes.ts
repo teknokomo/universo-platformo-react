@@ -9,6 +9,7 @@ import { EntityMetaverse } from '../database/entities/EntityMetaverse'
 import { Section } from '../database/entities/Section'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { AuthUser } from '../database/entities/AuthUser'
+import { Profile } from '@universo/profile-srv'
 import { ensureMetaverseAccess, ensureSectionAccess, ROLE_PERMISSIONS, MetaverseRole, assertNotOwner } from './guards'
 import { z } from 'zod'
 import { validateListQuery } from '../schemas/queryParams'
@@ -57,10 +58,11 @@ export function createMetaversesRoutes(
         }
     }
 
-    const mapMember = (member: MetaverseUser, email: string | null) => ({
+    const mapMember = (member: MetaverseUser, email: string | null, nickname: string | null) => ({
         id: member.id,
         userId: member.user_id,
         email,
+        nickname,
         role: (member.role || 'member') as MetaverseRole,
         comment: member.comment,
         createdAt: member.created_at
@@ -71,47 +73,67 @@ export function createMetaversesRoutes(
         metaverseId: string,
         params?: { limit?: number; offset?: number; sortBy?: string; sortOrder?: string; search?: string }
     ): Promise<{ members: ReturnType<typeof mapMember>[]; total: number }> => {
-        const { metaverseUserRepo, authUserRepo } = repos(req)
+        const { metaverseUserRepo } = repos(req)
+        const ds = getDataSource()
 
-        // Build query with optional pagination and search
-        const qb = metaverseUserRepo.createQueryBuilder('mu').where('mu.metaverse_id = :metaverseId', { metaverseId })
+        try {
+            // Build base query WITHOUT JOINs to avoid TypeORM alias parsing issues for cross-schema tables
+            const qb = metaverseUserRepo.createQueryBuilder('mu').where('mu.metaverse_id = :metaverseId', { metaverseId })
 
-        if (params) {
-            const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
+            if (params) {
+                const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = params
 
-            // Search by email - need to join with AuthUser
-            if (search) {
-                const escapedSearch = search.toLowerCase()
-                qb.innerJoin(AuthUser, 'u', 'u.id = mu.user_id').andWhere('LOWER(u.email) LIKE :search', {
-                    search: `%${escapedSearch}%`
-                })
+                // Search by email OR nickname via EXISTS subqueries (no joins)
+                if (search) {
+                    const escapedSearch = search.toLowerCase()
+                    qb.andWhere(
+                        `(
+                            EXISTS (SELECT 1 FROM auth.users u WHERE u.id = mu.user_id AND LOWER(u.email) LIKE :search)
+                         OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.user_id = mu.user_id AND LOWER(p.nickname) LIKE :search)
+                        )`,
+                        { search: `%${escapedSearch}%` }
+                    )
+                }
+
+                // Sorting (support created, role, email, nickname). Email/nickname via subselect expressions
+                const ALLOWED_SORT_FIELDS: Record<string, string> = {
+                    created: 'mu.created_at',
+                    role: 'mu.role',
+                    email: '(SELECT u.email FROM auth.users u WHERE u.id = mu.user_id)',
+                    nickname: '(SELECT p.nickname FROM public.profiles p WHERE p.user_id = mu.user_id)'
+                }
+                const sortExpr = ALLOWED_SORT_FIELDS[sortBy] || 'mu.created_at'
+                const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+                qb.orderBy(sortExpr, sortDirection).skip(offset).take(limit)
+            } else {
+                // Default order when no params
+                qb.orderBy('mu.created_at', 'ASC')
             }
 
-            // Sorting
-            const ALLOWED_SORT_FIELDS: Record<string, string> = {
-                created: 'mu.created_at',
-                role: 'mu.role'
+            // Get members and total count
+            const [members, total] = await qb.getManyAndCount()
+
+            // Extract email and nickname from joined data
+            const userIds = members.map((member) => member.user_id)
+
+            // Load users and profiles data
+            const users = userIds.length ? await ds.manager.find(AuthUser, { where: { id: In(userIds) } }) : []
+            const profiles = userIds.length ? await ds.manager.find(Profile, { where: { user_id: In(userIds) } }) : []
+
+            const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
+            const profilesMap = new Map(profiles.map((profile) => [profile.user_id, profile.nickname]))
+
+            const result = {
+                members: members.map((member) =>
+                    mapMember(member, usersMap.get(member.user_id) ?? null, profilesMap.get(member.user_id) ?? null)
+                ),
+                total
             }
-            const sortField = ALLOWED_SORT_FIELDS[sortBy] || 'mu.created_at'
-            const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
-
-            qb.orderBy(sortField, sortDirection).skip(offset).take(limit)
-        } else {
-            // Default order when no params
-            qb.orderBy('mu.created_at', 'ASC')
-        }
-
-        // Get members and total count
-        const [members, total] = await qb.getManyAndCount()
-
-        // Load emails for all members
-        const userIds = members.map((member) => member.user_id)
-        const users = userIds.length ? await authUserRepo.find({ where: { id: In(userIds) } }) : []
-        const usersMap = new Map(users.map((user) => [user.id, user.email ?? null]))
-
-        return {
-            members: members.map((member) => mapMember(member, usersMap.get(member.user_id) ?? null)),
-            total
+            return result
+        } catch (error) {
+            console.error('[loadMembers] ERROR', error)
+            throw error
         }
     }
 
@@ -306,12 +328,14 @@ export function createMetaversesRoutes(
         readLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
+
             const userId = resolveUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
             const { metaverseRepo, metaverseUserRepo, sectionLinkRepo, linkRepo } = repos(req)
+
             const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
 
             const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
@@ -356,18 +380,17 @@ export function createMetaversesRoutes(
         readLimiter,
         asyncHandler(async (req, res) => {
             const { metaverseId } = req.params
+
             const userId = resolveUserId(req)
             if (!userId) {
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
+            await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
 
             // Add pagination support
             const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = validateListQuery(req.query)
-
             const { members, total } = await loadMembers(req, metaverseId, { limit, offset, sortBy, sortOrder, search })
-            const role = (membership.role || 'member') as MetaverseRole
 
             // Return paginated response structure
             const hasMore = offset + members.length < total
@@ -396,7 +419,7 @@ export function createMetaversesRoutes(
             const schema = z.object({
                 email: z.string().email(),
                 role: memberRoleSchema,
-                comment: z.string().optional()
+                comment: z.string().trim().max(500).optional().or(z.literal(''))
             })
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) {
@@ -435,7 +458,11 @@ export function createMetaversesRoutes(
             })
             const saved = await metaverseUserRepo.save(membership)
 
-            res.status(201).json(mapMember(saved, targetUser.email ?? null))
+            // Load nickname from profiles table
+            const ds = getDataSource()
+            const profile = await ds.manager.findOne(Profile, { where: { user_id: targetUser.id } })
+
+            res.status(201).json(mapMember(saved, targetUser.email ?? null, profile?.nickname ?? null))
         })
     )
 
@@ -453,7 +480,7 @@ export function createMetaversesRoutes(
 
             const schema = z.object({
                 role: memberRoleSchema,
-                comment: z.string().optional()
+                comment: z.string().trim().max(500).optional().or(z.literal(''))
             })
             const parsed = schema.safeParse(req.body || {})
             if (!parsed.success) {
@@ -480,7 +507,11 @@ export function createMetaversesRoutes(
             const saved = await metaverseUserRepo.save(membership)
             const authUser = await authUserRepo.findOne({ where: { id: membership.user_id } })
 
-            res.json(mapMember(saved, authUser?.email ?? null))
+            // Load nickname from profiles table
+            const ds = getDataSource()
+            const profile = await ds.manager.findOne(Profile, { where: { user_id: membership.user_id } })
+
+            res.json(mapMember(saved, authUser?.email ?? null, profile?.nickname ?? null))
         })
     )
 

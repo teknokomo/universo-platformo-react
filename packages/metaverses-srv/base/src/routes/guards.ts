@@ -1,6 +1,9 @@
 import { DataSource } from 'typeorm'
-import createError from 'http-errors'
+import * as httpErrors from 'http-errors'
 import { MetaverseRole } from '@universo/types'
+
+// Handle both ESM and CJS imports
+const createError = (httpErrors as any).default || httpErrors
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { EntitySection } from '../database/entities/EntitySection'

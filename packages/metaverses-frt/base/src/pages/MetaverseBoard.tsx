@@ -21,7 +21,12 @@ const MetaverseBoard = () => {
     const { t } = useTranslation('metaverses')
 
     // Fetch metaverse details with TanStack Query
-    const { data: metaverse, isLoading, error, isError } = useMetaverseDetails(metaverseId || '', {
+    const {
+        data: metaverse,
+        isLoading,
+        error,
+        isError
+    } = useMetaverseDetails(metaverseId || '', {
         enabled: Boolean(metaverseId)
     })
 
@@ -42,7 +47,7 @@ const MetaverseBoard = () => {
     // Error state
     if (isError || !metaverse) {
         const errorMessage = error instanceof Error ? error.message : t('board.error', 'Failed to load metaverse data')
-        
+
         return (
             <Stack spacing={3} sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%', p: 2 }}>
                 <EmptyListState
@@ -64,9 +69,7 @@ const MetaverseBoard = () => {
             <Box sx={{ px: { xs: 1.5, md: 2 } }}>
                 <ViewHeader
                     title={metaverse.name}
-                    description={
-                        metaverse.description || t('board.defaultDescription', 'Metaverse analytics and statistics')
-                    }
+                    description={metaverse.description || t('board.defaultDescription', 'Metaverse analytics and statistics')}
                     search={false}
                 />
             </Box>

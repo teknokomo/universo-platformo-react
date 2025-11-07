@@ -53,18 +53,6 @@ const SectionList = () => {
     const [isDialogOpen, setDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('entitiesSectionDisplayStyle') || 'card')
 
-    // Validate metaverseId from URL
-    if (!metaverseId) {
-        return (
-            <EmptyListState
-                image={APIEmptySVG}
-                imageAlt='Invalid metaverse'
-                title={t('metaverses:errors.invalidMetaverse')}
-                description={t('metaverses:errors.pleaseSelectMetaverse')}
-            />
-        )
-    }
-
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
     const [dialogError, setDialogError] = useState<string | null>(null)
@@ -75,7 +63,8 @@ const SectionList = () => {
         queryFn: sectionsApi.listSections,
         initialLimit: 20,
         sortBy: 'updated',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        enabled: !!metaverseId
     })
 
     const { data: sections, isLoading, error } = paginationResult
@@ -103,6 +92,7 @@ const SectionList = () => {
         paginationResult.pagination.currentPage,
         paginationResult.pagination.pageSize,
         paginationResult.pagination.totalItems,
+        paginationResult.pagination.totalPages,
         paginationResult.pagination.search,
         paginationResult.isLoading,
         searchValue
@@ -131,62 +121,6 @@ const SectionList = () => {
         }
         return imagesMap
     }, [sections])
-
-    const handleAddNew = () => {
-        setDialogOpen(true)
-    }
-
-    const handleDialogClose = () => {
-        setDialogOpen(false)
-    }
-
-    const handleDialogSave = () => {
-        setDialogOpen(false)
-    }
-
-    const handleCreateSection = async (data: { name: string; description?: string }) => {
-        setDialogError(null)
-        setCreating(true)
-        try {
-            await sectionsApi.createSection({
-                name: data.name,
-                description: data.description,
-                metaverseId: metaverseId
-            })
-
-            // Invalidate cache to refetch sections list
-            await queryClient.invalidateQueries({
-                queryKey: sectionsQueryKeys.lists()
-            })
-
-            handleDialogSave()
-        } catch (e: unknown) {
-            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
-            const message =
-                typeof responseMessage === 'string'
-                    ? responseMessage
-                    : e instanceof Error
-                    ? e.message
-                    : typeof e === 'string'
-                    ? e
-                    : t('sections.saveError')
-            setDialogError(message)
-            // eslint-disable-next-line no-console
-            console.error('Failed to create section', e)
-        } finally {
-            setCreating(false)
-        }
-    }
-
-    const goToSection = (section: Section) => {
-        navigate(`/sections/${section.id}`)
-    }
-
-    const handleChange = (_event: any, nextView: string | null) => {
-        if (nextView === null) return
-        localStorage.setItem('entitiesSectionDisplayStyle', nextView)
-        setView(nextView)
-    }
 
     const sectionColumns = useMemo(
         () => [
@@ -274,6 +208,74 @@ const SectionList = () => {
         }),
         [confirm, deleteSectionApi, enqueueSnackbar, queryClient, updateSectionApi]
     )
+
+    // Validate metaverseId from URL AFTER all hooks
+    if (!metaverseId) {
+        return (
+            <EmptyListState
+                image={APIEmptySVG}
+                imageAlt='Invalid metaverse'
+                title={t('metaverses:errors.invalidMetaverse')}
+                description={t('metaverses:errors.pleaseSelectMetaverse')}
+            />
+        )
+    }
+
+    const handleAddNew = () => {
+        setDialogOpen(true)
+    }
+
+    const handleDialogClose = () => {
+        setDialogOpen(false)
+    }
+
+    const handleDialogSave = () => {
+        setDialogOpen(false)
+    }
+
+    const handleCreateSection = async (data: { name: string; description?: string }) => {
+        setDialogError(null)
+        setCreating(true)
+        try {
+            await sectionsApi.createSection({
+                name: data.name,
+                description: data.description,
+                metaverseId: metaverseId
+            })
+
+            // Invalidate cache to refetch sections list
+            await queryClient.invalidateQueries({
+                queryKey: sectionsQueryKeys.lists()
+            })
+
+            handleDialogSave()
+        } catch (e: unknown) {
+            const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
+            const message =
+                typeof responseMessage === 'string'
+                    ? responseMessage
+                    : e instanceof Error
+                    ? e.message
+                    : typeof e === 'string'
+                    ? e
+                    : t('sections.saveError')
+            setDialogError(message)
+            // eslint-disable-next-line no-console
+            console.error('Failed to create section', e)
+        } finally {
+            setCreating(false)
+        }
+    }
+
+    const goToSection = (section: Section) => {
+        navigate(`/sections/${section.id}`)
+    }
+
+    const handleChange = (_event: any, nextView: string | null) => {
+        if (nextView === null) return
+        localStorage.setItem('entitiesSectionDisplayStyle', nextView)
+        setView(nextView)
+    }
 
     return (
         <MainCard

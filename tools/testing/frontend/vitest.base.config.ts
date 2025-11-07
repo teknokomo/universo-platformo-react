@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'happy-dom', // Changed from 'jsdom' to avoid canvas.node dependency
     setupFiles: [path.join(frontendTestingDir, 'setupTests.ts')],
   },
 })

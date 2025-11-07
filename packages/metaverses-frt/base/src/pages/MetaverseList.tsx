@@ -92,6 +92,7 @@ const MetaverseList = () => {
         paginationResult.pagination.currentPage,
         paginationResult.pagination.pageSize,
         paginationResult.pagination.totalItems,
+        paginationResult.pagination.totalPages,
         paginationResult.pagination.search,
         paginationResult.isLoading,
         searchValue

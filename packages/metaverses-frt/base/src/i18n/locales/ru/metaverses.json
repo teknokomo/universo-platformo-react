@@ -150,7 +150,8 @@
             "validation": {
                 "emailRequired": "Email обязателен",
                 "emailInvalid": "Неверный формат email",
-                "roleRequired": "Роль обязательна"
+                "roleRequired": "Роль обязательна",
+                "commentCharacterCount": "{{count}}/{{max}} символов (после обрезки)"
             },
             "actions": {
                 "edit": "Редактировать участника",
@@ -158,6 +159,8 @@
             },
             "table": {
                 "email": "Email",
+                "nickname": "Никнейм",
+                "comment": "Комментарий",
                 "role": "Роль",
                 "added": "Добавлен"
             }

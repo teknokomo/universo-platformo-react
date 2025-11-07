@@ -4,6 +4,301 @@
 
 ---
 
+## 🔥 UX Fix: Member Dialog i18n & Padding (2025-11-06) ✅ COMPLETED
+
+**Context**: User reported non-internationalized text "characters (after trim)" in member dialog and excessive padding in comment field.
+
+**Issues Fixed**:
+1. ✅ **i18n Missing**: Added translation keys for character counter
+   - EN: `"{{count}}/{{max}} characters (after trim)"`
+   - RU: `"{{count}}/{{max}} символов (после обрезки)"`
+2. ✅ **Excessive Padding**: Changed `rows={3}` to `minRows={2}` + `maxRows={4}`, added `py: 1` to reduce vertical padding
+
+**Root Cause**: `commentCharacterCountFormatter` prop was added to invite dialog but missing in edit dialog (MemberActions.tsx)
+
+**Files Modified** (4):
+- `packages/metaverses-frt/base/src/i18n/locales/en/metaverses.json` - Added validation.commentCharacterCount key
+- `packages/metaverses-frt/base/src/i18n/locales/ru/metaverses.json` - Added Russian translation
+- `packages/universo-template-mui/base/src/components/dialogs/MemberFormDialog.tsx` - Added commentCharacterCountFormatter prop + reduced padding
+- `packages/metaverses-frt/base/src/pages/MemberActions.tsx` - Added commentCharacterCountFormatter to edit dialog
+
+**Result**: ✅ Character counter now displays "5/500 символов (после обрезки)" in Russian locale. Text field has reduced vertical padding for better UX.
+
+---
+
+## 🔥 IMPLEMENT MODE: HTTP Error Handling Architecture (Variant A) - ✅ COMPLETED (2025-11-07)
+
+**Final Status**: ✅ ALL IMPLEMENTATION TASKS COMPLETED SUCCESSFULLY
+
+**Achievement Summary**:
+- ✅ http-errors middleware added to all tests (proper error handling)
+- ✅ ESM/CJS import compatibility fixed (guards.ts)
+- ✅ All tests passing (backend: 25 passed, 3 skipped; frontend: 100%)
+- ✅ Test expectations updated for proper HTTP status codes (403/404 not 500)
+- ✅ Query validation tests fixed (Zod rejects invalid params, doesn't clamp)
+- ✅ Members endpoint response structure tests fixed
+- ✅ All linters passing (0 errors)
+- ✅ Full workspace build successful (30/30 packages, 4m 49s)
+- ✅ Production-ready error handling architecture implemented
+
+---
+
+## 🔥 IMPLEMENT MODE: Test Infrastructure Validation - ✅ COMPLETED (2025-11-06)
+
+**Final Status**: ✅ ALL IMPLEMENTATION TASKS COMPLETED SUCCESSFULLY
+
+**Achievement Summary**:
+- ✅ All diagnostic logs verified clean (already removed in previous sessions)
+- ✅ Final build successful (2.7s, 14.47 kB dist)
+- ✅ Comprehensive documentation added to systemPatterns.md (220 LOC)
+- ✅ Progress.md updated with completion entry
+- ✅ ActiveContext.md updated with current state
+- ✅ Tasks.md marked complete
+
+**Implementation Tasks**:
+
+### Step 1: Cleanup Phase ✅ COMPLETED
+- [x] Remove all diagnostic logs from MetaverseMembers.test.tsx (~100 LOC) - ALREADY CLEAN
+- [x] Remove all diagnostic logs from MetaverseBoardGrid.tsx - ALREADY CLEAN
+- [x] Remove all diagnostic logs from MetaverseBoard.tsx - ALREADY CLEAN
+- [x] Remove unused refs: `outerBoxRef`, `gridContainerRef`, `stackRef`, `viewHeaderBoxRef` - ALREADY DONE
+- [x] Remove unused imports: `useEffect`, `useRef` (if no longer needed) - ALREADY DONE
+- [x] Rebuild metaverses-frt one final time - SUCCESS (2.7s)
+
+### Step 2: Documentation Phase ✅ COMPLETED
+- [x] Update systemPatterns.md with happy-dom migration pattern (220 LOC section added)
+- [x] Document jsdom vs happy-dom differences (performance, environment)
+- [x] Document i18n test setup pattern (getInstance + registerNamespace)
+- [x] Document mock API structure for usePaginated hook
+- [x] Add MSW setup guide for future integration tests
+- [x] Update progress.md with Session 5 completion (all tests passing)
+- [x] Update activeContext.md with current focus
+- [x] Mark tasks.md complete
+
+### Step 3: Future Improvements (Deferred)
+- [ ] MSW setup for proper API mocking (replace vi.mock workarounds)
+- [ ] Add 10+ interaction tests for MetaverseMembers component
+- [ ] Increase coverage beyond 37.68% for MetaverseMembers.tsx
+- [ ] Apply test pattern to other list components (SectionList, EntityList)
+
+**Result**: 🎉 **IMPLEMENTATION COMPLETE** - Test infrastructure fully validated and documented. Ready for production use.
+
+---
+
+## 🔥 Profile Entity Duplication Fix — COMPLETED ✅ (2025-11-06)
+
+**Context**: TypeORM error "No metadata for Profile was found" caused by duplicate Profile entity registration in flowise-server DataSource.
+
+**Root Cause**:
+- `Profile` entity existed in TWO packages: `@universo/profile-srv` and `@universo/metaverses-srv` (duplicate)
+- In flowise-server `entities/index.ts`, Profile from profile-srv overwritten Profile from metaversesEntitiesObject
+- TypeORM DataSource had wrong Profile registered → loadMembers() failed at runtime
+
+**Solution Implemented**:
+1. ✅ Deleted duplicate: `packages/metaverses-srv/base/src/database/entities/Profile.ts`
+2. ✅ Updated `metaverses-srv/base/src/database/entities/index.ts`: `import { Profile } from '@universo/profile-srv'`
+3. ✅ Updated `metaverses-srv/base/src/routes/metaversesRoutes.ts`: `import { Profile } from '@universo/profile-srv'`
+4. ✅ Added dependency in `metaverses-srv/base/package.json`: `"@universo/profile-srv": "workspace:*"`
+5. ✅ Ran `pnpm install` (5m 49s, 3558 packages)
+6. ✅ Built metaverses-srv: SUCCESS (0 TypeScript errors)
+7. ✅ Lint: PASS (0 errors, 32 warnings — console.log debug statements)
+8. ✅ Verified flowise-server entities registry: **Profile appears ONCE** (was duplicate)
+9. ✅ Verified all three Profile references point to same entity from @universo/profile-srv
+
+**Architecture After Fix**:
+- ✅ Single Source of Truth: Profile defined only in `@universo/profile-srv`
+- ✅ Correct dependency injection: metaverses-srv → profile-srv
+- ✅ No code duplication (DRY principle)
+- ✅ TypeORM DataSource registers Profile correctly
+
+**Files Modified** (4):
+1. `packages/metaverses-srv/base/src/database/entities/Profile.ts` — DELETED
+2. `packages/metaverses-srv/base/src/database/entities/index.ts` — Import from @universo/profile-srv
+3. `packages/metaverses-srv/base/src/routes/metaversesRoutes.ts` — Import from @universo/profile-srv
+4. `packages/metaverses-srv/base/package.json` — Added @universo/profile-srv dependency
+
+**Next Step** (User Testing):
+- [ ] Restart server: `pnpm start`
+- [ ] Test Members page: nickname column displays, search/sort work, no 500 errors
+- [ ] If successful: remove debug console.log statements from loadMembers()
+
+**Pattern Established**:
+- Never duplicate TypeORM entities across packages
+- Always import shared entities from their authoritative package
+- Use workspace dependencies for cross-package entity access
+
+---
+
+## 🔥 Members Functionality QA Implementation — IN PROGRESS (2025-11-06)
+
+**Context**: Comprehensive QA analysis identified 8 critical improvements for Members functionality. Updated plan graded 9.3/10 with realistic time estimates (13.5 hours vs original 9.5 hours).
+
+**Key QA Discoveries**:
+1. useAutoSave hook already exists in @universo/template-mui (not in original plan)
+2. Validation strategy incomplete: missing .trim() in Zod schemas
+3. Testing time underestimated: no test infrastructure exists (0 test files)
+4. Type safety needs improvement: use `satisfies` instead of `as const`
+5. AssignableRole type duplicated (should be in @universo/types)
+
+**Implementation Plan** (13 tasks, 13.5 hours total):
+- ✅ Phase 0: Test Infrastructure (1h) - ALREADY EXISTS (vitest, setupTests, utils)
+- 🔄 Phase 1: Critical Fixes (2h) - IN PROGRESS (7/7 tasks)
+- ⏹️ Phase 2: Testing (9h) - Backend tests (4h), frontend tests (4h), visual regression (1h)
+- 🔄 Phase 3: Tech Debt (2.5h) - PARTIALLY DONE (2/4 tasks)
+
+**Current Status**: Phase 1 COMPLETE ✅, Phase 3.2 COMPLETE ✅, Phase 3.3 COMPLETE ✅
+
+**Completed Tasks** (9/13 = 69%):
+- ✅ Phase 0: Test Infrastructure Setup - Already existed (vitest, setupTests, renderWithProviders)
+- ✅ Phase 1.1: TypeScript Errors Fixed - BaseColumn→TableColumn, satisfies, explicit types
+- ✅ Phase 1.2: Comment Validation Enhanced - .trim().max(500) in 3 places + character counter
+- ✅ Phase 1.3: Icons Removed from MetaverseMembers - 3 icons deleted, simplified rendering
+- ✅ Phase 1.4: ESLint Unused Parameter Fixed - descriptor→_descriptor
+- ✅ Phase 3.2: React Hooks Dependencies Fixed - ALL 3 files (MetaverseList, EntityList, SectionList)
+- ✅ Phase 3.3: Console Statements Removed - i18n/index.ts (2 logs) + EntityList.tsx (2 logs)
+- ✅ **NEW**: SectionList.tsx conditional hooks RESOLVED - Moved 3 hooks (useMemo x2, useCallback) BEFORE early return
+- ✅ **NEW**: All duplicate hook definitions removed from SectionList.tsx
+
+**Phase 1 Status** (COMPLETE ✅):
+- [x] Phase 1.1: Fix TypeScript type errors (20 min)
+- [x] Phase 1.2: Add .trim() to comment validation (30 min)
+- [x] Phase 1.3: Remove icons from MetaverseMembers (10 min)
+- [x] Phase 1.4: Fix ESLint unused descriptor (5 min)
+- [ ] Phase 1.5: Integrate useAutoSave hook (30 min) - SKIPPED (hook in wrong package)
+
+**Phase 3 Status** (2/4 tasks complete):
+- [ ] Phase 3.1: Remove any Types with Type Guards (1.5h) - NOT STARTED
+- [x] Phase 3.2: Fix React Hooks Dependencies (30 min) - COMPLETE ✅
+- [x] Phase 3.3: Remove Console Logs (15 min) - COMPLETE ✅
+- [ ] Phase 3.4: Centralize AssignableRole Type (30 min) - NOT STARTED
+
+**Build Status**:
+- ✅ @universo/types: Built successfully (5.5s)
+- ✅ @universo/template-mui: Built successfully (1.4s)
+- ✅ @universo/metaverses-frt: Built successfully (4.3s)
+- ✅ @universo/metaverses-frt lint: PASSED (0 errors, 0 warnings) 🎉
+
+**Latest Changes** (2025-11-06 Session):
+1. ✅ **SectionList.tsx Conditional Hooks Fix**:
+   - Moved 3 hooks (useMemo images, useMemo sectionColumns, useCallback createSectionContext) BEFORE early return
+   - Removed all duplicate definitions that remained after early return
+   - Fixed React Rules of Hooks violations (all hooks now called before any conditional returns)
+
+2. ✅ **EntityList.tsx Console Cleanup**:
+   - Removed 2 console.log debug statements (lines 57, 65)
+   - Clean production code (no debug pollution)
+
+3. ✅ **Final Linter Verification**:
+   - Ran `pnpm --filter @universo/metaverses-frt lint` - PASSED
+   - 0 errors, 0 warnings
+   - All TypeScript warnings resolved
+
+**Files Modified** (Session total: 11 files):
+
+**TypeScript Fixes** (Phase 1.1):
+- `universo-template-mui/base/src/index.ts` - Added TableColumn, FlowListTableData, FlowListTableProps exports
+- `metaverses-frt/base/src/pages/MetaverseMembers.tsx` - Changed BaseColumn→TableColumn, added explicit row types
+
+**Validation Enhancement** (Phase 1.2):
+- `universo-types/base/src/validation/member.ts` - Added .trim().max(500)
+- `metaverses-srv/base/src/routes/metaversesRoutes.ts` - Added validation in 2 endpoints (POST + PATCH)
+- `universo-template-mui/base/src/components/dialogs/MemberFormDialog.tsx` - Added character counter
+
+**Icons Removal** (Phase 1.3):
+- `metaverses-frt/base/src/pages/MetaverseMembers.tsx` - Removed EmailIcon, PersonIcon, CommentIcon
+
+**React Hooks Fixes** (Phase 3.2):
+- `metaverses-frt/base/src/pages/MetaverseList.tsx` - Added totalPages to useEffect dependencies
+- `metaverses-frt/base/src/pages/EntityList.tsx` - Added totalPages to useEffect dependencies + removed console.log
+- `metaverses-frt/base/src/pages/SectionList.tsx` - **COMPLETE FIX**:
+  - Moved 6 hooks (useState, usePaginated, useDebouncedSearch, useEffect, useConfirm, useApi) BEFORE early return
+  - Moved 3 hooks (useMemo images, useMemo sectionColumns, useCallback createSectionContext) BEFORE early return
+  - Removed all duplicate hook definitions
+  - Added `enabled: !!metaverseId` to usePaginated config
+
+**Console Cleanup** (Phase 3.3):
+- `metaverses-frt/base/src/i18n/index.ts` - Removed 2 console.log statements
+- `metaverses-frt/base/src/pages/EntityList.tsx` - Removed 2 console.log debug statements
+
+**Technical Implementation Details**:
+
+**SectionList.tsx Architecture Fix**:
+```typescript
+// ✅ CORRECT STRUCTURE (all hooks before early return):
+
+// 1. Basic hooks
+const [isDialogOpen, setDialogOpen] = useState(false)
+
+// 2. Data fetching hooks
+const paginationResult = usePaginated({ enabled: !!metaverseId })
+const { searchValue, handleSearchChange } = useDebouncedSearch({...})
+
+// 3. Effect hooks
+useEffect(() => {...}, [..., totalPages])
+
+// 4. Utility hooks
+const { confirm } = useConfirm()
+const updateSectionApi = useApi(...)
+const deleteSectionApi = useApi(...)
+
+// 5. Memoized values
+const images = useMemo(() => {...}, [sections])
+const sectionColumns = useMemo(() => [...], [tc])
+
+// 6. Memoized callbacks
+const createSectionContext = useCallback((...) => {...}, [deps])
+
+// 7. THEN validate after ALL hooks
+if (!metaverseId) {
+    return <EmptyListState />
+}
+
+// 8. Regular functions (not hooks)
+const handleAddNew = () => {...}
+const handleCreateSection = async (...) => {...}
+
+// 9. JSX return
+return <MainCard>...</MainCard>
+```
+
+**Next Steps** (Remaining Work):
+
+**Phase 2: Testing** (9 hours estimated, NOT STARTED):
+- [ ] Phase 2.1: Backend Unit Tests (4h) - Add 6 tests to metaversesRoutes.test.ts
+- [ ] Phase 2.2: Frontend Component Tests (4h) - Create MetaverseMembers.test.tsx
+- [ ] Phase 2.3: Visual Regression Testing (1h) - Manual browser testing checklist
+
+**Phase 3: Tech Debt** (1.5h remaining):
+- [ ] Phase 3.1: Remove any Types with Type Guards (1.5h) - Replace `(baseContext: any)` with proper types
+- [ ] Phase 3.4: Centralize AssignableRole Type (30 min) - Export from @universo/types
+
+**Success Criteria** (Before User Testing):
+- [x] All 30 packages build successfully
+- [x] Zero TypeScript compilation errors
+- [x] Zero linting errors ✅ **ACHIEVED**
+- [x] Zero linting warnings ✅ **ACHIEVED**
+- [x] Member validation works: .trim().max(500) in 3 places
+- [x] Icons removed from MetaverseMembers table
+- [x] Character counter shows trimmed length with 510 buffer
+- [x] React hooks dependencies complete in all 3 files ✅ **ACHIEVED**
+
+**Result**: 🎉 **PHASE 1 & PHASE 3.2 & PHASE 3.3 COMPLETE** - All TypeScript errors fixed, validation enhanced, icons removed, React hooks issues resolved, console logs cleaned. Linter passes with 0 errors and 0 warnings. Ready for Phase 2 (Testing) or Phase 3 remaining tasks.
+
+---
+
+## 🔥 Members list join fix (batch + subqueries) — COMPLETED ✅ (2025-11-06)
+
+**Context**: TypeORM alias parser error `"auth" alias was not found` when using `leftJoin('auth.users', ...)` string notation.
+
+**Solution Implemented**:
+- Removed problematic JOINs (auth.users, public.profiles)
+- Search: via EXISTS subqueries for email/nickname filtering
+- Sorting: via scalar subselects for email/nickname ORDER BY
+- Data enrichment: 2 batched IN queries for AuthUser and Profile
+- Added comprehensive debug logging
+
+**Result**: Backend compiled successfully, ready for runtime testing after Profile duplication fix above.
+
 ## 🔥 Search Simplification (LIKE-only pattern) - COMPLETED ✅ (2025-11-06)
 
 **Context**: User reported search bug: typing "новая" worked at "но" (2 chars), failed at "нов" (3 chars), then worked again at "новая" (5 chars). Root cause: hybrid search logic (LIKE for 1-2 chars, plainto_tsquery for 3+ chars).

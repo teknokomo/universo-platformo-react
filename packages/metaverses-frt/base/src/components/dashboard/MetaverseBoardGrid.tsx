@@ -40,10 +40,8 @@ export default function MetaverseBoardGrid({ metaverse }: MetaverseBoardGridProp
     // Use current entity count as trend data (shows actual value in chart)
     const entitiesCount = metaverse.entitiesCount ?? 0
     const entitiesData = Array(30).fill(entitiesCount)
-    
-    const membersData = [
-        2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-    ]
+
+    const membersData = [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
     return (
         <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -105,11 +103,7 @@ export default function MetaverseBoardGrid({ metaverse }: MetaverseBoardGridProp
 
             {/* Back Button */}
             <Box display='flex' justifyContent='center' sx={{ mt: 2 }}>
-                <Button 
-                    variant='text' 
-                    startIcon={<ArrowBackRoundedIcon />}
-                    onClick={() => navigate('/metaverses')}
-                >
+                <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/metaverses')}>
                     {t('actions.backToList', 'Back to Metaverses')}
                 </Button>
             </Box>

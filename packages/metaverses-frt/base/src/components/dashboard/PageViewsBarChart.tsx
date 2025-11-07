@@ -19,11 +19,7 @@ export default function PageViewsBarChart() {
     const theme = useTheme()
     const { t } = useTranslation('metaverses')
 
-    const colorPalette = [
-        theme.palette.primary.light,
-        theme.palette.primary.main,
-        theme.palette.primary.dark
-    ]
+    const colorPalette = [theme.palette.primary.light, theme.palette.primary.main, theme.palette.primary.dark]
 
     return (
         <Card variant='outlined' sx={{ width: '100%' }}>

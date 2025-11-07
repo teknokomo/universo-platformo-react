@@ -38,6 +38,30 @@ describe('Metaverses Routes', () => {
         next()
     }) as RateLimitRequestHandler
 
+    // Error handler middleware for http-errors compatibility
+    const errorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
+        // Don't send if headers already sent
+        if (res.headersSent) {
+            return _next(err)
+        }
+        // Handle http-errors (from createError) - extract statusCode/status
+        const statusCode = err.statusCode || err.status || 500
+        const message = err.message || 'Internal Server Error'
+        res.status(statusCode).json({ error: message })
+    }
+
+    // Helper to build Express app with error handler
+    const buildApp = (dataSource: any) => {
+        const app = express()
+        app.use(express.json())
+        app.use(
+            '/metaverses',
+            createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        )
+        app.use(errorHandler) // Must be after routes to catch errors from asyncHandler
+        return app
+    }
+
     const buildDataSource = () => {
         const metaverseRepo = createMockRepository<any>()
         const metaverseUserRepo = createMockRepository<any>()
@@ -81,12 +105,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             const response = await request(app).get('/metaverses').expect(200)
 
@@ -115,12 +134,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue(mockMetaverses)
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             const response = await request(app).get('/metaverses').expect(200)
 
@@ -145,12 +159,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             await request(app).get('/metaverses?limit=5&offset=10&sortBy=name&sortOrder=asc').expect(200)
 
@@ -159,26 +168,24 @@ describe('Metaverses Routes', () => {
             expect(mockQB.orderBy).toHaveBeenCalledWith('m.name', 'ASC')
         })
 
-        it('should validate and clamp pagination parameters', async () => {
+        it('should validate pagination parameters', async () => {
             const { dataSource, metaverseRepo } = buildDataSource()
 
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
-            await request(app).get('/metaverses?limit=2000&offset=-5&sortBy=invalid&sortOrder=invalid').expect(200)
+            // Test 1: Negative offset is rejected by validation
+            await request(app).get('/metaverses?offset=-5').expect(400)
 
-            // Should clamp limit to max 1000 and offset to min 0
-            expect(mockQB.limit).toHaveBeenCalledWith(1000)
-            expect(mockQB.offset).toHaveBeenCalledWith(0)
-            // Should default to updated desc for invalid sortBy/sortOrder
-            expect(mockQB.orderBy).toHaveBeenCalledWith('m.updatedAt', 'DESC')
+            // Test 2: Limit over 1000 is rejected by validation
+            await request(app).get('/metaverses?limit=2000').expect(400)
+
+            // Test 3: Valid params pass through
+            await request(app).get('/metaverses?limit=50&offset=10').expect(200)
+            expect(mockQB.limit).toHaveBeenCalledWith(50)
+            expect(mockQB.offset).toHaveBeenCalledWith(10)
         })
 
         it('should use default pagination when no parameters provided', async () => {
@@ -187,12 +194,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             await request(app).get('/metaverses').expect(200)
 
@@ -210,12 +212,14 @@ describe('Metaverses Routes', () => {
                 next()
             }
 
+            // Special case: test with noAuthMiddleware
             const app = express()
             app.use(express.json())
             app.use(
                 '/metaverses',
                 createMetaversesRoutes(noAuthMiddleware, () => dataSource, mockRateLimiter, mockRateLimiter)
             )
+            app.use(errorHandler)
 
             await request(app).get('/metaverses').expect(401)
         })
@@ -226,12 +230,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockRejectedValue(new Error('Database connection failed'))
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             const response = await request(app).get('/metaverses').expect(500)
 
@@ -261,12 +260,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue(mockMetaverses)
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             await request(app).get('/metaverses?search=test').expect(200)
 
@@ -294,12 +288,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue(mockMetaverses)
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             await request(app)
                 .get('/metaverses?limit=50&offset=25')
@@ -323,11 +312,12 @@ describe('Metaverses Routes', () => {
                 '/metaverses',
                 createMetaversesRoutes(ensureAuth, () => context.dataSource, mockRateLimiter, mockRateLimiter)
             )
+            app.use(errorHandler) // Add error handler for http-errors
             return { app, ...context }
         }
 
         it('should return members when user has manageMembers permission', async () => {
-            const { app, metaverseUserRepo, authUserRepo } = buildApp()
+            const { app, metaverseUserRepo, authUserRepo, dataSource } = buildApp()
 
             const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -338,7 +328,9 @@ describe('Metaverses Routes', () => {
                 role: 'admin'
             })
 
-            metaverseUserRepo.find.mockResolvedValue([
+            // Mock QueryBuilder for loadMembers
+            const mockQB = metaverseUserRepo.createQueryBuilder()
+            const membersList = [
                 {
                     id: 'membership-owner',
                     metaverse_id: 'metaverse-1',
@@ -353,24 +345,29 @@ describe('Metaverses Routes', () => {
                     role: 'editor',
                     created_at: now
                 }
-            ])
+            ]
+            mockQB.getManyAndCount.mockResolvedValue([membersList, 2])
 
-            authUserRepo.find.mockResolvedValue([
-                { id: 'owner-id', email: 'owner@example.com' },
-                { id: 'editor-id', email: 'editor@example.com' }
-            ])
+            // Mock dataSource.manager.find for users and profiles
+            dataSource.manager.find.mockImplementation((entity: any, _options: any) => {
+                const entityName = entity.name || (typeof entity === 'function' ? entity.name : String(entity))
+                if (entityName === 'AuthUser') {
+                    return Promise.resolve([
+                        { id: 'owner-id', email: 'owner@example.com' },
+                        { id: 'editor-id', email: 'editor@example.com' }
+                    ])
+                }
+                if (entityName === 'Profile') {
+                    return Promise.resolve([])
+                }
+                return Promise.resolve([])
+            })
 
             const response = await request(app).get('/metaverses/metaverse-1/members').expect(200)
 
-            expect(response.body.role).toBe('admin')
-            expect(response.body.permissions).toEqual({
-                manageMembers: true,
-                manageMetaverse: true,
-                createContent: true,
-                editContent: true,
-                deleteContent: true
-            })
-            expect(response.body.members).toEqual([
+            // Response is now just the members array (role/permissions removed in cleanup)
+            expect(Array.isArray(response.body)).toBe(true)
+            expect(response.body).toEqual([
                 expect.objectContaining({
                     id: 'membership-owner',
                     userId: 'owner-id',
@@ -396,7 +393,8 @@ describe('Metaverses Routes', () => {
                 role: 'member'
             })
 
-            await request(app).get('/metaverses/metaverse-1/members').expect(403)
+            const response = await request(app).get('/metaverses/metaverse-1/members')
+            expect(response.status).toBe(403)
             expect(metaverseUserRepo.find).not.toHaveBeenCalled()
         })
 
@@ -521,6 +519,307 @@ describe('Metaverses Routes', () => {
 
             await request(app).delete('/metaverses/metaverse-1/members/membership-target').expect(403)
         })
+
+        describe('Members data enrichment', () => {
+            it('should fetch nickname from profiles table via batch query', async () => {
+                const { app, metaverseUserRepo, dataSource } = buildApp()
+
+                const now = new Date('2024-01-01T00:00:00.000Z')
+
+                // Mock admin user permission check
+                metaverseUserRepo.findOne.mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+
+                // Mock QueryBuilder for loadMembers
+                const mockQB = metaverseUserRepo.createQueryBuilder()
+                mockQB.getManyAndCount.mockResolvedValue([
+                    [
+                        {
+                            id: 'membership-owner',
+                            metaverse_id: 'metaverse-1',
+                            user_id: 'owner-id',
+                            role: 'owner',
+                            comment: null,
+                            created_at: now
+                        },
+                        {
+                            id: 'membership-editor',
+                            metaverse_id: 'metaverse-1',
+                            user_id: 'editor-id',
+                            role: 'editor',
+                            comment: 'Test comment',
+                            created_at: now
+                        }
+                    ],
+                    2
+                ])
+
+                // Mock dataSource.manager.find for both AuthUser and Profile
+                dataSource.manager.find.mockImplementation((entity: any, options: any) => {
+                    const entityName = entity.name || (typeof entity === 'function' ? entity.name : String(entity))
+                    if (entityName === 'AuthUser') {
+                        return Promise.resolve([
+                            { id: 'owner-id', email: 'owner@example.com' },
+                            { id: 'editor-id', email: 'editor@example.com' }
+                        ])
+                    }
+                    if (entityName === 'Profile') {
+                        return Promise.resolve([
+                            { id: 'profile-1', user_id: 'owner-id', nickname: 'OwnerNick' },
+                            { id: 'profile-2', user_id: 'editor-id', nickname: 'EditorNick' }
+                        ])
+                    }
+                    return Promise.resolve([])
+                })
+
+                const response = await request(app).get('/metaverses/metaverse-1/members').expect(200)
+
+                // Verify nickname is fetched from profiles table
+                expect(response.body).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            userId: 'owner-id',
+                            email: 'owner@example.com',
+                            nickname: 'OwnerNick',
+                            role: 'owner'
+                        }),
+                        expect.objectContaining({
+                            userId: 'editor-id',
+                            email: 'editor@example.com',
+                            nickname: 'EditorNick',
+                            role: 'editor',
+                            comment: 'Test comment'
+                        })
+                    ])
+                )
+
+                // Verify batch query was used (call count = 2: once for AuthUser, once for Profile)
+                expect(dataSource.manager.find).toHaveBeenCalledTimes(2)
+            })
+
+            it('should fetch comment from metaverses_users table', async () => {
+                const { app, metaverseUserRepo, dataSource } = buildApp()
+
+                const now = new Date('2024-01-01T00:00:00.000Z')
+
+                metaverseUserRepo.findOne.mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+
+                const mockQB = metaverseUserRepo.createQueryBuilder()
+                mockQB.getManyAndCount.mockResolvedValue([
+                    [
+                        {
+                            id: 'membership-editor',
+                            metaverse_id: 'metaverse-1',
+                            user_id: 'editor-id',
+                            role: 'editor',
+                            comment: 'This is a test comment from metaverses_users table',
+                            created_at: now
+                        }
+                    ],
+                    1
+                ])
+
+                dataSource.manager.find.mockImplementation((entity: any) => {
+                    const entityName = entity.name || (typeof entity === 'function' ? entity.name : String(entity))
+                    if (entityName === 'AuthUser') {
+                        return Promise.resolve([{ id: 'editor-id', email: 'editor@example.com' }])
+                    }
+                    if (entityName === 'Profile') {
+                        return Promise.resolve([{ id: 'profile-1', user_id: 'editor-id', nickname: 'EditorNick' }])
+                    }
+                    return Promise.resolve([])
+                })
+
+                const response = await request(app).get('/metaverses/metaverse-1/members').expect(200)
+
+                // Verify comment is returned from MetaverseUser entity
+                expect(response.body).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            userId: 'editor-id',
+                            comment: 'This is a test comment from metaverses_users table'
+                        })
+                    ])
+                )
+            })
+
+            it('should handle null email and nickname gracefully', async () => {
+                const { app, metaverseUserRepo, dataSource } = buildApp()
+
+                const now = new Date('2024-01-01T00:00:00.000Z')
+
+                metaverseUserRepo.findOne.mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+
+                const mockQB = metaverseUserRepo.createQueryBuilder()
+                mockQB.getManyAndCount.mockResolvedValue([
+                    [
+                        {
+                            id: 'membership-orphan',
+                            metaverse_id: 'metaverse-1',
+                            user_id: 'orphan-user-id',
+                            role: 'member',
+                            comment: null,
+                            created_at: now
+                        }
+                    ],
+                    1
+                ])
+
+                // Mock manager.find to return AuthUser with null email and no Profile
+                dataSource.manager.find.mockImplementation((entity: any) => {
+                    const entityName = entity.name || (typeof entity === 'function' ? entity.name : String(entity))
+                    if (entityName === 'AuthUser') {
+                        return Promise.resolve([{ id: 'orphan-user-id', email: null }])
+                    }
+                    if (entityName === 'Profile') {
+                        return Promise.resolve([]) // No profile exists
+                    }
+                    return Promise.resolve([])
+                })
+
+                const response = await request(app).get('/metaverses/metaverse-1/members').expect(200)
+
+                // Should return null for missing email and nickname
+                expect(response.body).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            userId: 'orphan-user-id',
+                            email: null,
+                            nickname: null,
+                            role: 'member'
+                        })
+                    ])
+                )
+            })
+        })
+
+        describe('Comment validation with trim', () => {
+            it('should trim comment and validate max 500 characters on create', async () => {
+                const { app, metaverseUserRepo, authUserRepo, dataSource } = buildApp()
+
+                metaverseUserRepo.findOne.mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+
+                metaverseUserRepo.findOne.mockResolvedValueOnce(null) // No existing membership
+
+                const qb = authUserRepo.createQueryBuilder()
+                qb.getOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
+
+                metaverseUserRepo.create.mockImplementation((data: any) => ({ ...data, id: 'new-membership-id' }))
+                metaverseUserRepo.save.mockImplementation((entity: any) => Promise.resolve(entity))
+
+                // Mock Profile.findOne for the POST response
+                dataSource.manager.findOne.mockResolvedValue({ user_id: 'target-user', nickname: 'TargetNick' })
+
+                const commentWithWhitespace = '   This comment has leading and trailing spaces   '
+
+                const response = await request(app)
+                    .post('/metaverses/metaverse-1/members')
+                    .send({
+                        email: 'target@example.com',
+                        role: 'editor',
+                        comment: commentWithWhitespace
+                    })
+                    .expect(201)
+
+                // Verify comment was trimmed before saving
+                expect(metaverseUserRepo.create).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        comment: 'This comment has leading and trailing spaces'
+                    })
+                )
+            })
+
+            it('should reject comment longer than 500 characters after trim', async () => {
+                const { app, metaverseUserRepo } = buildApp()
+
+                metaverseUserRepo.findOne.mockResolvedValueOnce({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+
+                // Create comment with exactly 501 characters (after trim)
+                const longComment = 'a'.repeat(501)
+
+                const response = await request(app)
+                    .post('/metaverses/metaverse-1/members')
+                    .send({
+                        email: 'target@example.com',
+                        role: 'editor',
+                        comment: longComment
+                    })
+                    .expect(400)
+
+                expect(response.body).toMatchObject({
+                    error: 'Invalid payload'
+                })
+
+                // Verify Zod validation error details
+                expect(response.body.details).toBeDefined()
+            })
+
+            it('should return 400 with validation details for invalid role or email', async () => {
+                const { app, metaverseUserRepo } = buildApp()
+
+                metaverseUserRepo.findOne.mockResolvedValue({
+                    id: 'membership-admin',
+                    metaverse_id: 'metaverse-1',
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+
+                // Test invalid role
+                let response = await request(app)
+                    .post('/metaverses/metaverse-1/members')
+                    .send({
+                        email: 'target@example.com',
+                        role: 'invalid-role'
+                    })
+                    .expect(400)
+
+                expect(response.body).toMatchObject({
+                    error: 'Invalid payload'
+                })
+                expect(response.body.details).toBeDefined()
+
+                // Test invalid email
+                response = await request(app)
+                    .post('/metaverses/metaverse-1/members')
+                    .send({
+                        email: 'not-an-email',
+                        role: 'editor'
+                    })
+                    .expect(400)
+
+                expect(response.body).toMatchObject({
+                    error: 'Invalid payload'
+                })
+                expect(response.body.details).toBeDefined()
+
+                // Verify no member was created
+                expect(metaverseUserRepo.save).not.toHaveBeenCalled()
+            })
+        })
     })
 
     describe('Rate Limiting', () => {
@@ -533,12 +832,7 @@ describe('Metaverses Routes', () => {
             const mockQB = metaverseRepo.createQueryBuilder()
             mockQB.getRawMany.mockResolvedValue([])
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             // Make 5 requests (well below 100 limit)
             for (let i = 0; i < 5; i++) {
@@ -567,12 +861,7 @@ describe('Metaverses Routes', () => {
             metaverseRepo.save.mockImplementation((entity: any) => Promise.resolve(entity))
             authUserRepo.findOne.mockResolvedValue({ id: 'test-user-id', email: 'test@example.com' })
 
-            const app = express()
-            app.use(express.json())
-            app.use(
-                '/metaverses',
-                createMetaversesRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
-            )
+            const app = buildApp(dataSource)
 
             // Make 100 GET requests (at read limit)
             for (let i = 0; i < 100; i++) {

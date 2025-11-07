@@ -23,6 +23,12 @@ export type UnikRole = BaseRole
 export type SectionRole = Exclude<BaseRole, 'owner'> // Sections don't have separate owners
 export type EntityRole = 'viewer' | 'editor' // Entities have simpler roles
 
+/**
+ * Roles that can be assigned to new members (excludes 'owner' which is automatically assigned at creation)
+ * Used in invite dialogs and role management UI
+ */
+export type AssignableRole = Exclude<BaseRole, 'owner'>
+
 // Role permission interfaces
 export interface BasePermissions {
     manageMembers: boolean

@@ -22,9 +22,12 @@ export const createMockRepository = <T extends object>(): MockRepository<T> => {
         orderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         offset: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([]),
         getOne: jest.fn().mockResolvedValue(null),
         getMany: jest.fn().mockResolvedValue([]),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
         getSql: jest.fn().mockReturnValue('SELECT * FROM mock'),
         getParameters: jest.fn().mockReturnValue({})
     }
@@ -52,7 +55,9 @@ export const createMockDataSource = (repositories: RepoMap, options: { isInitial
     })
 
     const manager: any = {
-        getRepository
+        getRepository,
+        find: jest.fn().mockResolvedValue([]),
+        findOne: jest.fn().mockResolvedValue(null)
     }
 
     const dataSource: any = {

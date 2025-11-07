@@ -148,7 +148,8 @@
             "validation": {
                 "emailRequired": "Email is required",
                 "emailInvalid": "Invalid email format",
-                "roleRequired": "Role is required"
+                "roleRequired": "Role is required",
+                "commentCharacterCount": "{{count}}/{{max}} characters (after trim)"
             },
             "actions": {
                 "edit": "Edit Member",
@@ -156,6 +157,8 @@
             },
             "table": {
                 "email": "Email",
+                "nickname": "Nickname",
+                "comment": "Comment",
                 "role": "Role",
                 "added": "Added"
             }

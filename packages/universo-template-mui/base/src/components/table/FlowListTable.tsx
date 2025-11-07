@@ -166,47 +166,58 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         }}
                     >
                         <TableRow>
-                            <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
-                                <TableSortLabel active={orderBy === 'name'} direction={order} onClick={() => handleRequestSort('name')}>
-                                    {t('table.columns.name')}
-                                </TableSortLabel>
-                            </StyledTableCell>
-                            {isUnikTable ? (
-                                <StyledTableCell style={{ width: '55%' }} key='1'>
-                                    {t('table.columns.spaces')}
-                                </StyledTableCell>
-                            ) : columnsToRender ? (
-                                columnsToRender.map((column) => (
-                                    <StyledTableCell
-                                        key={column.id}
-                                        style={{ width: column.width || '25%' }}
-                                        align={column.align || 'left'}
-                                    >
-                                        {column.label}
-                                    </StyledTableCell>
-                                ))
+                            {columnsToRender ? (
+                                <>
+                                    {columnsToRender.map((column) => (
+                                        <StyledTableCell
+                                            key={column.id}
+                                            style={{ width: column.width || '25%' }}
+                                            align={column.align || 'left'}
+                                        >
+                                            {column.label}
+                                        </StyledTableCell>
+                                    ))}
+                                    {renderActions && (
+                                        <StyledTableCell style={{ width: '10%' }} key='actions'>
+                                            {t('table.columns.actions')}
+                                        </StyledTableCell>
+                                    )}
+                                </>
                             ) : (
                                 <>
-                                    <StyledTableCell style={{ width: '25%' }} key='1'>
-                                        {t('table.columns.category')}
+                                    <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
+                                        <TableSortLabel active={orderBy === 'name'} direction={order} onClick={() => handleRequestSort('name')}>
+                                            {t('table.columns.name')}
+                                        </TableSortLabel>
                                     </StyledTableCell>
-                                    <StyledTableCell style={{ width: '30%' }} key='2'>
-                                        {t('table.columns.nodes')}
+                                    {isUnikTable ? (
+                                        <StyledTableCell style={{ width: '55%' }} key='1'>
+                                            {t('table.columns.spaces')}
+                                        </StyledTableCell>
+                                    ) : (
+                                        <>
+                                            <StyledTableCell style={{ width: '25%' }} key='1'>
+                                                {t('table.columns.category')}
+                                            </StyledTableCell>
+                                            <StyledTableCell style={{ width: '30%' }} key='2'>
+                                                {t('table.columns.nodes')}
+                                            </StyledTableCell>
+                                        </>
+                                    )}
+                                    <StyledTableCell style={{ width: '14%' }} key='3'>
+                                        <TableSortLabel
+                                            active={orderBy === 'updatedDate'}
+                                            direction={order}
+                                            onClick={() => handleRequestSort('updatedDate')}
+                                        >
+                                            {t('table.columns.lastModified')}
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell style={{ width: '10%' }} key='4'>
+                                        {t('table.columns.actions')}
                                     </StyledTableCell>
                                 </>
                             )}
-                            <StyledTableCell style={{ width: '14%' }} key='3'>
-                                <TableSortLabel
-                                    active={orderBy === 'updatedDate'}
-                                    direction={order}
-                                    onClick={() => handleRequestSort('updatedDate')}
-                                >
-                                    {t('table.columns.lastModified')}
-                                </TableSortLabel>
-                            </StyledTableCell>
-                            <StyledTableCell style={{ width: '10%' }} key='4'>
-                                {t('table.columns.actions')}
-                            </StyledTableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -256,37 +267,53 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
 
                                     return (
                                         <StyledTableRow key={index}>
-                                            <StyledTableCell key='0'>
-                                                <Typography
-                                                    sx={{
-                                                        fontSize: 14,
-                                                        fontWeight: 500,
-                                                        wordBreak: 'break-word',
-                                                        overflowWrap: 'break-word'
-                                                    }}
-                                                >
-                                                    {linkTarget ? (
-                                                        <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
-                                                            {displayName}
-                                                        </Link>
-                                                    ) : (
-                                                        displayName
+                                            {columnsToRender ? (
+                                                <>
+                                                    {columnsToRender.map((column) => (
+                                                        <StyledTableCell key={column.id} align={column.align || 'left'}>
+                                                            {column.render ? column.render(row, index) : null}
+                                                        </StyledTableCell>
+                                                    ))}
+                                                    {renderActions && (
+                                                        <StyledTableCell key='actions'>
+                                                            <Stack
+                                                                direction={{ xs: 'column', sm: 'row' }}
+                                                                spacing={1}
+                                                                justifyContent='center'
+                                                                alignItems='center'
+                                                            >
+                                                                {renderActions(row)}
+                                                            </Stack>
+                                                        </StyledTableCell>
                                                     )}
-                                                </Typography>
-                                            </StyledTableCell>
-                                            {isUnikTable ? (
-                                                <StyledTableCell key='1'>
-                                                    <Typography sx={{ fontSize: 14 }}>
-                                                        {(row as any).spacesCount != null ? (row as any).spacesCount : 0}
-                                                    </Typography>
-                                                </StyledTableCell>
-                                            ) : columnsToRender ? (
-                                                columnsToRender.map((column) => (
-                                                    <StyledTableCell key={column.id} align={column.align || 'left'}>
-                                                        {column.render ? column.render(row, index) : null}
-                                                    </StyledTableCell>
-                                                ))
+                                                </>
                                             ) : (
+                                                <>
+                                                    <StyledTableCell key='0'>
+                                                        <Typography
+                                                            sx={{
+                                                                fontSize: 14,
+                                                                fontWeight: 500,
+                                                                wordBreak: 'break-word',
+                                                                overflowWrap: 'break-word'
+                                                            }}
+                                                        >
+                                                            {linkTarget ? (
+                                                                <Link to={linkTarget} style={{ color: '#2196f3', textDecoration: 'none' }}>
+                                                                    {displayName}
+                                                                </Link>
+                                                            ) : (
+                                                                displayName
+                                                            )}
+                                                        </Typography>
+                                                    </StyledTableCell>
+                                                    {isUnikTable ? (
+                                                        <StyledTableCell key='1'>
+                                                            <Typography sx={{ fontSize: 14 }}>
+                                                                {(row as any).spacesCount != null ? (row as any).spacesCount : 0}
+                                                            </Typography>
+                                                        </StyledTableCell>
+                                                    ) : (
                                                 <>
                                                     <StyledTableCell key='1'>
                                                         <div
@@ -363,26 +390,28 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                     </StyledTableCell>
                                                 </>
                                             )}
-                                            <StyledTableCell key='3'>{formatDate(normalizedUpdatedDate, 'full')}</StyledTableCell>
-                                            <StyledTableCell key='4'>
-                                                <Stack
-                                                    direction={{ xs: 'column', sm: 'row' }}
-                                                    spacing={1}
-                                                    justifyContent='center'
-                                                    alignItems='center'
-                                                >
-                                                    {renderActions ? (
-                                                        renderActions(row)
-                                                    ) : (
-                                                        <FlowListMenu
-                                                            isAgentCanvas={isAgentCanvas}
-                                                            canvas={row as any}
-                                                            setError={setError}
-                                                            updateFlowsApi={updateFlowsApi}
-                                                        />
-                                                    )}
-                                                </Stack>
-                                            </StyledTableCell>
+                                                    <StyledTableCell key='3'>{formatDate(normalizedUpdatedDate, 'full')}</StyledTableCell>
+                                                    <StyledTableCell key='4'>
+                                                        <Stack
+                                                            direction={{ xs: 'column', sm: 'row' }}
+                                                            spacing={1}
+                                                            justifyContent='center'
+                                                            alignItems='center'
+                                                        >
+                                                            {renderActions ? (
+                                                                renderActions(row)
+                                                            ) : (
+                                                                <FlowListMenu
+                                                                    isAgentCanvas={isAgentCanvas}
+                                                                    canvas={row as any}
+                                                                    setError={setError}
+                                                                    updateFlowsApi={updateFlowsApi}
+                                                                />
+                                                            )}
+                                                        </Stack>
+                                                    </StyledTableCell>
+                                                </>
+                                            )}
                                         </StyledTableRow>
                                     )
                                 })}
