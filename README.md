@@ -182,6 +182,8 @@ Each implementation shares the same core concepts and goals while leveraging the
 
 ### Installation
 
+0. ATTENTION! Due to the fact that a global refactoring of the project is currently underway, the current version of the project is very unstable. For simple testing of the functionality, use the release [0.31.0 Alpha](https://github.com/teknokomo/universo-platformo-react/releases/tag/0.31.0-alpha)
+
 1. Clone the repository
 
     ```bash
@@ -273,7 +275,7 @@ This project is being implemented under the Omsk Open License (Basic modificatio
 
 The Omsk Open License is similar to the MIT license, but includes additional "Basic Provisions" aimed at creating a meaningful and secure public domain while protecting traditional values.
 
-Packages `packages/flowise-*` are part of the [Flowise] project(https://github.com/FlowiseAI/Flowise ), the code is licensed under Apache License Version 2.0, see the license text and information about the authors inside these packages. These packages are scheduled for removal when their functionality is transferred to the main structure of the project.
+Packages `packages/flowise-*` are part of the [Flowise](https://github.com/FlowiseAI/Flowise), the code is licensed under Apache License Version 2.0, see the license text and information about the authors inside these packages. These packages are scheduled for removal when their functionality is transferred to the main structure of the project.
 
 AI agents are actively used in the development of this project, which are trained on a variety of other projects / code of various free source projects, and Universo Platformo React uses many libraries and large projects such as Flowise, which are gradually being replaced by their own code. 
 

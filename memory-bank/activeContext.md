@@ -6,49 +6,71 @@
 
 ---
 
-## Current Focus: Member Dialog Textarea Padding Fix Complete ✅ (2025-11-07)
+## Current Focus: HTTP Error Handling Architecture Complete ✅ (2025-11-07)
 
 **Status**: Implementation Mode - All Tasks Completed Successfully
 
-**Summary**: Fixed excessive left padding in comment textarea by migrating to MUI v6 `slotProps.htmlInput` API pattern. Replaced deprecated `inputProps` + incorrect CSS targeting with modern approach that directly styles the HTML textarea element.
+**Summary**: Implemented proper architectural solution (Variant A) for error handling. Added http-errors middleware to tests, fixed ESM/CJS import compatibility in guards.ts, updated all test expectations for proper HTTP status codes (403/404 instead of 500). All 25 backend tests passing, all frontend tests passing, production build successful.
 
 **What Was Completed**:
 
-### Implementation Phase ✅
-- **File Modified**: `packages/universo-template-mui/base/src/components/dialogs/MemberFormDialog.tsx`
-- **Change**: Replaced `inputProps` + `sx={{ '& .MuiInputBase-root': { py: 1 } }}` with `slotProps.htmlInput`
-- **Code Pattern**:
+### Phase 1: Error Handler Middleware ✅
+- Created errorHandler function in metaversesRoutes.test.ts
+- 4-parameter signature: `(err, _req, res, _next) => {...}`
+- Extracts statusCode from err.statusCode || err.status || 500
+- Returns JSON: `{ error: message }`
+- Created buildApp() helper with routes → errorHandler order
+- Applied to all 12+ test instances
+
+### Phase 2: ESM/CJS Compatibility Fix ✅
+- **File**: `packages/metaverses-srv/base/src/routes/guards.ts`
+- **Problem**: `import createError from 'http-errors'` → "(0, http_errors_1.default) is not a function"
+- **Solution**: Changed to namespace import:
   ```typescript
-  <TextField
-      multiline
-      slotProps={{
-          htmlInput: {
-              maxLength: 510,
-              style: { padding: '8px 14px' }  // Direct textarea styling
-          }
-      }}
-      sx={{ borderRadius: 1 }}
-  />
+  import * as httpErrors from 'http-errors'
+  const createError = (httpErrors as any).default || httpErrors
   ```
+- **Result**: Fixed all 4 failing permission tests
+
+### Phase 3: Test Expectations Updated ✅
+- **Members endpoint test**: Removed role/permissions checks (deleted in cleanup)
+- **Pagination test**: Changed expectations to expect(400) for invalid params (Zod rejects, doesn't clamp)
+- **Permission tests**: All now correctly expect 403 (not 500)
+- **QueryBuilder mocks**: Added getManyAndCount + manager.find mocks
 
 ### Build Verification ✅
-- ✅ universo-template-mui build: SUCCESS (1176ms)
-- ✅ metaverses-frt build: SUCCESS (3676ms)
-- ✅ metaverses-frt tests: SUCCESS (5/5 passing, 52s)
-- ✅ Prettier formatting: Applied automatically
-- ✅ Zero TypeScript errors
-- ✅ Zero linting errors
+- ✅ Backend tests: 25 passed, 3 skipped (Redis rate limiting)
+- ✅ Frontend tests: All passing (100%)
+- ✅ Backend lint: 0 errors, 3 warnings (acceptable unused vars)
+- ✅ Frontend lint: 0 errors, 0 warnings
+- ✅ Full workspace build: 30/30 packages successful (4m 49s)
 
-### Technical Solution ✅
-**MUI v6 Architecture** (3 Styling Levels):
-1. Root Level: TextField component (outer container)
-2. Input Level: OutlinedInput wrapper (input container)
-3. HTML Level: `<textarea>` element (actual text input) ← **Fixed!**
+### Architecture Pattern Established ✅
+**Express Error Handling**:
+```typescript
+// Routes: throw createError(statusCode, message)
+router.get('/:id', asyncHandler(async (req, res) => {
+    const { membership } = await ensureMetaverseAccess(...)  // Throws 403
+    res.json(data)
+}))
 
-**Why Previous Approach Failed**:
-- `sx={{ '& .MuiInputBase-root': { py: 1 } }}` only affected container vertical padding
-- Textarea element has separate internal padding controlled by MUI theme
-- Placeholder rendered correctly because it has no padding
+// Middleware: extract statusCode, return JSON
+const errorHandler = (err, _req, res, _next) => {
+    const statusCode = err.statusCode || err.status || 500
+    res.status(statusCode).json({ error: err.message })
+}
+```
+
+**Test Infrastructure**:
+```typescript
+const buildApp = (dataSource) => {
+    const app = express()
+    app.use(express.json())
+    app.use('/metaverses', createMetaversesRoutes(...))
+    app.use(errorHandler)  // CRITICAL: Must be after routes
+    return app
+}
+```
 - Typed text showed excessive padding due to textarea's default styles
 
 **MUI v6 Best Practice**:

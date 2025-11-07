@@ -59,7 +59,7 @@ const memberActions = [
                 roleLabel: ctx.t('members.roleLabel'),
                 commentLabel: ctx.t('members.commentLabel'),
                 commentPlaceholder: ctx.t('members.commentPlaceholder'),
-                commentCharacterCountFormatter: (count: number, max: number) => 
+                commentCharacterCountFormatter: (count: number, max: number) =>
                     ctx.t('members.validation.commentCharacterCount', { count, max }),
                 saveButtonText: ctx.t('common:actions.save'),
                 savingButtonText: ctx.t('common:actions.saving'),

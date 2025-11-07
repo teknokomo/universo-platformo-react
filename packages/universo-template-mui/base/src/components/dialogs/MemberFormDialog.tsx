@@ -225,10 +225,15 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                                             helperText={fieldErrors.comment?.message || characterCountText}
                                             slotProps={{
                                                 htmlInput: {
-                                                    maxLength: 510 // Buffer to allow whitespace before trim
+                                                    maxLength: 510 // Buffer allows whitespace before trim. Real-time validation
+                                                                       // below shows error when trimmed length exceeds 500.
                                                 }
                                             }}
                                             sx={{
+                                            // !important is required here because MUI theme applies padding: 16.5px 14px
+                                            // to .MuiInputBase-root container. We need padding: 0 on container and explicit
+                                            // padding on textarea only. slotProps.htmlInput.style was tested but did not work
+                                            // (see PR #528 history - 5 attempts). Current solution is user-validated.
                                                 borderRadius: 1,
                                                 '& .MuiInputBase-root': {
                                                     padding: 0

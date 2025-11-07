@@ -111,7 +111,6 @@ export function createMetaversesRoutes(
                 qb.orderBy('mu.created_at', 'ASC')
             }
 
-
             // Get members and total count
             const [members, total] = await qb.getManyAndCount()
 
@@ -335,52 +334,44 @@ export function createMetaversesRoutes(
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            try {
-                const { metaverseRepo, metaverseUserRepo, sectionLinkRepo, linkRepo } = repos(req)
+            const { metaverseRepo, metaverseUserRepo, sectionLinkRepo, linkRepo } = repos(req)
 
-                const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
+            const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId)
 
-                const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
-                if (!metaverse) {
-                    return res.status(404).json({ error: 'Metaverse not found' })
-                }
-
-                const [sectionsCount, entitiesCount, membersCount] = await Promise.all([
-                    sectionLinkRepo.count({ where: { metaverse: { id: metaverseId } } }),
-                    linkRepo.count({ where: { metaverse: { id: metaverseId } } }),
-                    metaverseUserRepo.count({ where: { metaverse_id: metaverseId } })
-                ])
-
-                const role = (membership.role || 'member') as MetaverseRole
-                const permissions = ROLE_PERMISSIONS[role]
-
-                const membersPayload = permissions.manageMembers ? (await loadMembers(req, metaverseId)).members : undefined
-
-                const response: MetaverseDetailsResponse = {
-                    id: metaverse.id,
-                    name: metaverse.name,
-                    description: metaverse.description ?? undefined,
-                    createdAt: metaverse.createdAt,
-                    updatedAt: metaverse.updatedAt,
-                    sectionsCount,
-                    entitiesCount,
-                    membersCount,
-                    role,
-                    permissions
-                }
-
-                if (membersPayload) {
-                    response.members = membersPayload
-                }
-
-                res.json(response)
-            } catch (error) {
-                console.error('[GET /:metaverseId] ERROR:', error)
-                res.status(500).json({
-                    error: 'Failed to get metaverse details',
-                    details: error instanceof Error ? error.message : String(error)
-                })
+            const metaverse = await metaverseRepo.findOne({ where: { id: metaverseId } })
+            if (!metaverse) {
+                return res.status(404).json({ error: 'Metaverse not found' })
             }
+
+            const [sectionsCount, entitiesCount, membersCount] = await Promise.all([
+                sectionLinkRepo.count({ where: { metaverse: { id: metaverseId } } }),
+                linkRepo.count({ where: { metaverse: { id: metaverseId } } }),
+                metaverseUserRepo.count({ where: { metaverse_id: metaverseId } })
+            ])
+
+            const role = (membership.role || 'member') as MetaverseRole
+            const permissions = ROLE_PERMISSIONS[role]
+
+            const membersPayload = permissions.manageMembers ? (await loadMembers(req, metaverseId)).members : undefined
+
+            const response: MetaverseDetailsResponse = {
+                id: metaverse.id,
+                name: metaverse.name,
+                description: metaverse.description ?? undefined,
+                createdAt: metaverse.createdAt,
+                updatedAt: metaverse.updatedAt,
+                sectionsCount,
+                entitiesCount,
+                membersCount,
+                role,
+                permissions
+            }
+
+            if (membersPayload) {
+                response.members = membersPayload
+            }
+
+            res.json(response)
         })
     )
 
@@ -395,32 +386,21 @@ export function createMetaversesRoutes(
                 return res.status(401).json({ error: 'User not authenticated' })
             }
 
-            try {
-                const { membership } = await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
+            await ensureMetaverseAccess(getDataSource(), userId, metaverseId, 'manageMembers')
 
-                // Add pagination support
-                const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = validateListQuery(req.query)
+            // Add pagination support
+            const { limit = 100, offset = 0, sortBy = 'created', sortOrder = 'desc', search } = validateListQuery(req.query)
+            const { members, total } = await loadMembers(req, metaverseId, { limit, offset, sortBy, sortOrder, search })
 
-                const { members, total } = await loadMembers(req, metaverseId, { limit, offset, sortBy, sortOrder, search })
+            // Return paginated response structure
+            const hasMore = offset + members.length < total
+            res.setHeader('X-Pagination-Limit', limit.toString())
+            res.setHeader('X-Pagination-Offset', offset.toString())
+            res.setHeader('X-Pagination-Count', members.length.toString())
+            res.setHeader('X-Total-Count', total.toString())
+            res.setHeader('X-Pagination-Has-More', hasMore.toString())
 
-                const role = (membership.role || 'member') as MetaverseRole
-
-                // Return paginated response structure
-                const hasMore = offset + members.length < total
-                res.setHeader('X-Pagination-Limit', limit.toString())
-                res.setHeader('X-Pagination-Offset', offset.toString())
-                res.setHeader('X-Pagination-Count', members.length.toString())
-                res.setHeader('X-Total-Count', total.toString())
-                res.setHeader('X-Pagination-Has-More', hasMore.toString())
-
-                res.json(members)
-            } catch (error) {
-                console.error('[GET /:metaverseId/members] ERROR:', error)
-                res.status(500).json({
-                    error: 'Failed to get members',
-                    details: error instanceof Error ? error.message : String(error)
-                })
-            }
+            res.json(members)
         })
     )
 

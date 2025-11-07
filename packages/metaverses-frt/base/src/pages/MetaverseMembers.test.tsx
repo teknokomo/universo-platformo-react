@@ -1,12 +1,13 @@
+import { vi } from 'vitest'
 // Mock rehype/remark libraries to prevent jsdom 20.0.3 from loading
 // rehype-mathjax 4.0.3 has jsdom 20.0.3 as a direct dependency
-vi.mock('rehype-mathjax', () => ({ default: () => () => {} }));
-vi.mock('rehype-raw', () => ({ default: () => () => {} }));
-vi.mock('remark-gfm', () => ({ default: () => () => {} }));
-vi.mock('remark-math', () => ({ default: () => () => {} }));
+vi.mock('rehype-mathjax', () => ({ default: () => () => {} }))
+vi.mock('rehype-raw', () => ({ default: () => () => {} }))
+vi.mock('remark-gfm', () => ({ default: () => () => {} }))
+vi.mock('remark-math', () => ({ default: () => () => {} }))
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -14,9 +15,7 @@ import { SnackbarProvider } from 'notistack'
 import { I18nextProvider } from 'react-i18next'
 
 import MetaverseMembers from './MetaverseMembers'
-import { AuthProvider } from '@universo/auth-frt'
 import * as metaversesApi from '../api/metaverses'
-import type { MetaverseMember } from '../types'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metaversesEn from '../i18n/locales/en/metaverses.json'
@@ -48,16 +47,16 @@ vi.mock('@universo/utils', () => ({
     isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
     isApiError: vi.fn((error: any) => !!error?.response),
     getApiBaseURL: vi.fn(() => 'http://localhost:3000')
-}));
+}))
 
 // Mock markdown components that require rehype/remark (which pull jsdom)
 vi.mock('@flowise/template-mui', async () => {
-    const actual = await vi.importActual<any>('@flowise/template-mui');
+    const actual = await vi.importActual<any>('@flowise/template-mui')
     return {
         ...actual,
         InputHintDialog: vi.fn(() => null)
-    };
-});
+    }
+})
 
 // Initialize i18n using the global instance and register metaverses namespace
 const i18n = getI18nInstance()
@@ -85,7 +84,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/metaverses/test
                     <I18nextProvider i18n={i18n}>
                         <MemoryRouter initialEntries={[route]}>
                             <Routes>
-                                <Route path="/metaverses/:metaverseId/members" element={ui} />
+                                <Route path='/metaverses/:metaverseId/members' element={ui} />
                             </Routes>
                         </MemoryRouter>
                     </I18nextProvider>
@@ -134,7 +133,7 @@ describe('MetaverseMembers', () => {
 
             // Verify toolbar is rendered
             expect(container.querySelector('.MuiToolbar-root')).toBeInTheDocument()
-            
+
             // Verify search input
             expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument()
         })
@@ -154,10 +153,17 @@ describe('MetaverseMembers', () => {
     describe('Loading state', () => {
         it('should display skeleton loader while fetching members', () => {
             vi.mocked(metaversesApi.listMetaverseMembers).mockImplementation(
-                () => new Promise((resolve) => setTimeout(() => resolve({
-                    data: [],
-                    pagination: { total: 0, limit: 20, offset: 0, count: 0, hasMore: false }
-                } as any), 1000))
+                () =>
+                    new Promise((resolve) =>
+                        setTimeout(
+                            () =>
+                                resolve({
+                                    data: [],
+                                    pagination: { total: 0, limit: 20, offset: 0, count: 0, hasMore: false }
+                                } as any),
+                            1000
+                        )
+                    )
             )
 
             const { container } = renderWithProviders(<MetaverseMembers />)

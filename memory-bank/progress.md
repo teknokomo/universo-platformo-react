@@ -26,6 +26,86 @@
 
 ---
 
+### 2025-11-07: HTTP Error Handling Architecture Implementation (Variant A) ✅
+
+**What**: Implemented proper architectural solution for error handling - added http-errors middleware to tests, fixed ESM/CJS compatibility, updated all test expectations for proper HTTP status codes (403/404 instead of 500).
+
+**Context**: After removing try/catch blocks from metaversesRoutes.ts (bot recommendation), 6 tests failed with "expected 403 Forbidden, got 500 Internal Server Error". Root cause: tests lacked error handler middleware to process http-errors properly.
+
+**Implementation Summary**:
+
+**Phase 1: Error Handler Middleware Added to Tests** ✅
+- Created errorHandler middleware function (4 parameters signature)
+- Extracts statusCode from err.statusCode || err.status || 500
+- Returns proper JSON response: { error: message }
+- Created buildApp() helper: app.use(routes) → app.use(errorHandler)
+- Applied to all 12+ test instances in metaversesRoutes.test.ts
+
+**Phase 2: ESM/CJS Import Compatibility Fixed** ✅
+- **Problem**: `import createError from 'http-errors'` → "(0, http_errors_1.default) is not a function" in Jest
+- **Root Cause**: TypeScript default import transpilation issue in CommonJS environment
+- **Solution**: Changed guards.ts import pattern:
+  ```typescript
+  import * as httpErrors from 'http-errors'
+  const createError = (httpErrors as any).default || httpErrors
+  ```
+- **Result**: Fixed all 4 failing permission tests
+
+**Phase 3: Test Expectations Updated** ✅
+- **"should return members" test**:
+  - Removed checks for response.body.role/permissions (deleted in cleanup)
+  - Changed to expect array directly: `expect(Array.isArray(response.body)).toBe(true)`
+  - Added QueryBuilder.getManyAndCount mock
+  - Added dataSource.manager.find mock for AuthUser/Profile entities
+- **"should validate pagination parameters" test** (renamed from "should validate and clamp"):
+  - Fixed expectations: Zod REJECTS invalid params (doesn't clamp)
+  - Test 1: offset=-5 → expect(400) Bad Request
+  - Test 2: limit=2000 → expect(400) Bad Request
+  - Test 3: Valid params pass through
+- **Permission tests**: All now correctly return 403 (was 500)
+
+**Phase 4: Build Verification** ✅
+- Backend tests: 25 passed, 3 skipped (Redis rate limiting tests)
+- Frontend tests: All passing (100% coverage)
+- Backend lint: 0 errors, 3 warnings (unused variables - acceptable)
+- Frontend lint: 0 errors, 0 warnings
+- Full workspace build: 30/30 packages successful (4m 49s)
+
+**Architecture Pattern Established**:
+```typescript
+// Express error handling pattern:
+router.get('/:id', asyncHandler(async (req, res) => {
+    const { membership } = await ensureMetaverseAccess(getDataSource(), userId, id)
+    // If ensureMetaverseAccess throws createError(403), asyncHandler.catch(next) passes to middleware
+    // Error middleware extracts statusCode and returns proper 403 (not 500)
+    res.json(data)
+}))
+
+// Test infrastructure:
+const errorHandler = (err, _req, res, _next) => {
+    const statusCode = err.statusCode || err.status || 500
+    const message = err.message || 'Internal Server Error'
+    res.status(statusCode).json({ error: message })
+}
+
+const buildApp = (dataSource) => {
+    const app = express()
+    app.use(express.json())
+    app.use('/metaverses', createMetaversesRoutes(...))
+    app.use(errorHandler)  // CRITICAL: Must be after routes
+    return app
+}
+```
+
+**Files Modified** (3):
+1. `packages/metaverses-srv/base/src/routes/guards.ts` - Fixed createError import for ESM/CJS compatibility
+2. `packages/metaverses-srv/base/src/tests/routes/metaversesRoutes.test.ts` - Added errorHandler + buildApp helper, updated 5 tests
+3. `packages/metaverses-frt/base/src/pages/MemberActions.tsx` - Applied prettier formatting (minor)
+
+**Result**: ✅ Proper HTTP error codes (403/404) now returned correctly. All tests passing. asyncHandler + http-errors + Express error middleware pattern fully functional. Production-ready error handling architecture.
+
+---
+
 ### 2025-11-07: Member Dialog Textarea Padding Fix - MUI v6 Migration ✅
 
 **What**: Fixed excessive left padding in comment textarea by migrating to MUI v6 `slotProps.htmlInput` API, eliminating incorrect CSS targeting pattern.
