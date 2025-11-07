@@ -43,7 +43,10 @@ export type {
     ActionContext,
     TriggerProps,
     AuthGuardProps,
-    TooltipWithParserProps
+    TooltipWithParserProps,
+    TableColumn,
+    FlowListTableData,
+    FlowListTableProps
 } from './components'
 // Re-export dialogs (EntityFormDialog, ConfirmDialog, etc.) so consumers can import from '@universo/template-mui'
 export * from './components/dialogs'

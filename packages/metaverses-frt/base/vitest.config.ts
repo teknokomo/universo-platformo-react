@@ -10,6 +10,7 @@ const srcDir = path.resolve(__dirname, 'src')
 const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 
+// Merge with baseConfig (now uses happy-dom from base)
 export default mergeConfig(
   baseConfig,
   defineConfig({
@@ -34,5 +35,5 @@ export default mergeConfig(
       include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
       jsx: 'automatic',
     },
-  }),
+  })
 )

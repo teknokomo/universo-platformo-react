@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -9,6 +9,7 @@ import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo/auth-frt'
 import { canManageRole } from '@universo/types'
+import type { MetaverseRole } from '@universo/types'
 import { extractAxiosError, isHttpStatus, isApiError } from '@universo/utils'
 
 // project imports
@@ -28,9 +29,9 @@ import {
     useConfirm,
     RoleChip
 } from '@universo/template-mui'
+import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@universo/template-mui'
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import type { TriggerProps, AssignableRole } from '@universo/template-mui'
 
 import { useApi } from '../hooks/useApi'
 import * as metaversesApi from '../api/metaverses'
@@ -43,6 +44,35 @@ type MemberData = {
     email: string
     role: AssignableRole
     comment?: string
+}
+
+/**
+ * Type guard to check if data is MemberFormData
+ */
+function isMemberFormData(data: unknown): data is MemberData {
+    if (!data || typeof data !== 'object') return false
+    const d = data as Record<string, unknown>
+    return (
+        typeof d.email === 'string' &&
+        typeof d.role === 'string' &&
+        ['admin', 'editor', 'member'].includes(d.role) &&
+        (d.comment === undefined || typeof d.comment === 'string')
+    )
+}
+
+/**
+ * Confirm dialog specification with support for translation keys
+ */
+interface ConfirmSpec {
+    title?: string
+    titleKey?: string
+    description?: string
+    descriptionKey?: string
+    confirmButtonName?: string
+    confirmKey?: string
+    cancelButtonName?: string
+    cancelKey?: string
+    interpolate?: Record<string, string | number>
 }
 
 const MetaverseMembers = () => {
@@ -73,34 +103,10 @@ const MetaverseMembers = () => {
     const { data: members, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
-
-    // DEBUG: Log pagination state changes for troubleshooting
-    useEffect(() => {
-        // eslint-disable-next-line no-console
-        console.log('[MetaverseMembers Pagination Debug]', {
-            metaverseId,
-            currentPage: paginationResult.pagination.currentPage,
-            pageSize: paginationResult.pagination.pageSize,
-            totalItems: paginationResult.pagination.totalItems,
-            totalPages: paginationResult.pagination.totalPages,
-            offset: (paginationResult.pagination.currentPage - 1) * paginationResult.pagination.pageSize,
-            search: paginationResult.pagination.search,
-            isLoading: paginationResult.isLoading,
-            searchValue
-        })
-    }, [
-        metaverseId,
-        paginationResult.pagination.currentPage,
-        paginationResult.pagination.pageSize,
-        paginationResult.pagination.totalItems,
-        paginationResult.pagination.search,
-        paginationResult.isLoading,
-        searchValue
-    ])
 
     // State for independent ConfirmDeleteDialog
     const [removeDialogState, setRemoveDialogState] = useState<{
@@ -162,7 +168,7 @@ const MetaverseMembers = () => {
             enqueueSnackbar(t('inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = t('metaverses:members.inviteError')
-            
+
             // Use type-safe axios error utilities
             if (isHttpStatus(error, 404)) {
                 message = t('metaverses:members.userNotFound', { email: data.email })
@@ -173,7 +179,7 @@ const MetaverseMembers = () => {
                 const apiError = extractAxiosError(error)
                 message = apiError.message || message
             }
-            
+
             // Error: show error message but DON'T close dialog
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
@@ -183,71 +189,111 @@ const MetaverseMembers = () => {
         }
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: React.MouseEvent<HTMLElement>, nextView: string | null) => {
         if (nextView === null) return
         localStorage.setItem('metaverseMembersDisplayStyle', nextView)
         setView(nextView)
     }
 
-    const memberColumns = useMemo(
-        () => [
-            {
-                id: 'email',
-                label: t('table.email'),
-                width: '40%',
-                align: 'left',
-                render: (row: MetaverseMember) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word'
-                        }}
-                    >
-                        {row.email || '—'}
-                    </Typography>
-                )
-            },
-            {
-                id: 'role',
-                label: t('table.role'),
-                width: '20%',
-                align: 'left',
-                render: (row: MetaverseMember) => <RoleChip role={row.role} size='small' />
-            },
-            {
-                id: 'added',
-                label: t('table.added'),
-                width: '25%',
-                align: 'left',
-                render: (row: MetaverseMember) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            color: 'text.secondary'
-                        }}
-                    >
-                        {new Date(row.createdAt).toLocaleDateString()}
+    const memberColumns = [
+        {
+            id: 'email',
+            label: t('members.table.email'),
+            width: '25%',
+            align: 'left',
+            render: (row: MetaverseMember) => {
+                if (!row.email) return null
+                return <Typography variant='body2'>{row.email}</Typography>
+            }
+        },
+        {
+            id: 'nickname',
+            label: t('members.table.nickname'),
+            width: '20%',
+            align: 'left',
+            render: (row: MetaverseMember) => {
+                if (!row.nickname) return null
+                return <Typography variant='body2'>{row.nickname}</Typography>
+            }
+        },
+        {
+            id: 'comment',
+            label: t('members.table.comment'),
+            width: '25%',
+            align: 'left',
+            render: (row: MetaverseMember) => {
+                if (!row.comment) return null
+                return (
+                    <Typography variant='body2' noWrap sx={{ maxWidth: 200 }}>
+                        {row.comment}
                     </Typography>
                 )
             }
-        ],
-        [t]
-    )
+        },
+        {
+            id: 'role',
+            label: t('members.table.role'),
+            width: '15%',
+            align: 'center',
+            render: (row: MetaverseMember) => {
+                const roleKey = (row.role || 'member') as MetaverseRole
+                return <RoleChip role={roleKey} />
+            }
+        },
+        {
+            id: 'added',
+            label: t('members.table.added'),
+            width: '15%',
+            align: 'left',
+            render: (row: MetaverseMember) => {
+                if (!row.createdAt) return null
+                return <Typography variant='body2'>{new Date(row.createdAt).toLocaleDateString()}</Typography>
+            }
+        }
+    ] satisfies TableColumn<MetaverseMember>[]
 
     const createMemberContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: Partial<ActionContext<MetaverseMember, MemberData>>): ActionContext<MetaverseMember, MemberData> => ({
             ...baseContext,
+            entity: baseContext.entity!,
+            entityKind: 'member',
+            t: baseContext.t!,
             api: {
-                updateMemberRole: async (id: string, patch: any) => {
+                updateMemberRole: async (id: string, patch: MemberData) => {
                     if (!metaverseId) return
+                    // Validate patch data
+                    if (!isMemberFormData(patch)) {
+                        throw new Error('Invalid member data format')
+                    }
                     await updateMemberRoleApi.request(metaverseId, id, patch)
                     // Invalidate cache after update
                     await queryClient.invalidateQueries({
                         queryKey: metaversesQueryKeys.members(metaverseId)
                     })
                 },
+                updateEntity: async (id: string, data: MemberData) => {
+                    // Alias for updateMemberRole to match ActionContext API expectation
+                    if (!metaverseId) return
+                    // Validate data
+                    if (!isMemberFormData(data)) {
+                        throw new Error('Invalid member data format')
+                    }
+                    await updateMemberRoleApi.request(metaverseId, id, data)
+                    // Invalidate cache after update
+                    await queryClient.invalidateQueries({
+                        queryKey: metaversesQueryKeys.members(metaverseId)
+                    })
+                },
                 removeMember: async (id: string) => {
+                    if (!metaverseId) return
+                    await removeMemberApi.request(metaverseId, id)
+                    // Invalidate cache after remove
+                    await queryClient.invalidateQueries({
+                        queryKey: metaversesQueryKeys.members(metaverseId)
+                    })
+                },
+                deleteEntity: async (id: string) => {
+                    // Alias for removeMember to match ActionContext API expectation
                     if (!metaverseId) return
                     await removeMemberApi.request(metaverseId, id)
                     // Invalidate cache after remove
@@ -264,17 +310,17 @@ const MetaverseMembers = () => {
                         queryKey: metaversesQueryKeys.members(metaverseId)
                     })
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: ConfirmSpec) => {
                     // Support both direct strings and translation keys
                     const confirmed = await confirm({
-                        title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
-                        description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
+                        title: spec.titleKey ? baseContext.t!(spec.titleKey, spec.interpolate) : spec.title || '',
+                        description: spec.descriptionKey ? baseContext.t!(spec.descriptionKey, spec.interpolate) : spec.description,
                         confirmButtonName: spec.confirmKey
-                            ? baseContext.t(spec.confirmKey)
-                            : spec.confirmButtonName || baseContext.t('confirm.remove.confirm'),
+                            ? baseContext.t!(spec.confirmKey)
+                            : spec.confirmButtonName || baseContext.t!('confirm.remove.confirm'),
                         cancelButtonName: spec.cancelKey
-                            ? baseContext.t(spec.cancelKey)
-                            : spec.cancelButtonName || baseContext.t('confirm.remove.cancel')
+                            ? baseContext.t!(spec.cancelKey)
+                            : spec.cancelButtonName || baseContext.t!('confirm.remove.cancel')
                     })
                     return confirmed
                 },
@@ -389,7 +435,7 @@ const MetaverseMembers = () => {
                                 >
                                     {members.map((member: MetaverseMember) => {
                                         // Filter actions based on permissions and owner protection
-                                        const descriptors = memberActions.filter((descriptor) => {
+                                        const descriptors = memberActions.filter((_descriptor) => {
                                             // Owner role cannot be edited or removed
                                             if (member.role === 'owner') {
                                                 return false
@@ -409,7 +455,7 @@ const MetaverseMembers = () => {
                                                 data={{
                                                     ...member,
                                                     name: member.email || t('noEmail'),
-                                                    description: member.comment || undefined
+                                                    description: [member.nickname, member.comment].filter(Boolean).join('\n') || undefined
                                                 }}
                                                 images={images[member.id] || []}
                                                 onClick={undefined}
@@ -507,6 +553,7 @@ const MetaverseMembers = () => {
                 roleLabel={t('members.roleLabel')}
                 commentLabel={t('members.commentLabel')}
                 commentPlaceholder={t('members.commentPlaceholder')}
+                commentCharacterCountFormatter={(count, max) => t('members.validation.commentCharacterCount', { count, max })}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}

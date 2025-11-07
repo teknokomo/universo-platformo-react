@@ -1,13 +1,5 @@
 import apiClient, { extractPaginationMeta } from './apiClient'
-import {
-    Metaverse,
-    Section,
-    Entity,
-    MetaverseMember,
-    MetaverseAssignableRole,
-    PaginationParams,
-    PaginatedResponse
-} from '../types'
+import { Metaverse, Section, Entity, MetaverseMember, MetaverseAssignableRole, PaginationParams, PaginatedResponse } from '../types'
 
 // Updated listMetaverses with pagination support
 export const listMetaverses = async (params?: PaginationParams): Promise<PaginatedResponse<Metaverse>> => {

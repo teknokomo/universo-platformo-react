@@ -21,7 +21,7 @@ export const roleSchema = z.enum(['admin', 'editor', 'member'], {
 export const memberFormSchema = z.object({
     email: emailSchema,
     role: roleSchema,
-    comment: z.string().optional()
+    comment: z.string().trim().max(500, 'Comment must be 500 characters or less').optional().or(z.literal(''))
 })
 
 /**

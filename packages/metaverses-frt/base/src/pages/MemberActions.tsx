@@ -59,6 +59,8 @@ const memberActions = [
                 roleLabel: ctx.t('members.roleLabel'),
                 commentLabel: ctx.t('members.commentLabel'),
                 commentPlaceholder: ctx.t('members.commentPlaceholder'),
+                commentCharacterCountFormatter: (count: number, max: number) => 
+                    ctx.t('members.validation.commentCharacterCount', { count, max }),
                 saveButtonText: ctx.t('common:actions.save'),
                 savingButtonText: ctx.t('common:actions.saving'),
                 cancelButtonText: ctx.t('common:actions.cancel'),
@@ -75,7 +77,7 @@ const memberActions = [
                 },
                 onSave: async (data: MemberData) => {
                     try {
-                        await ctx.api?.updateEntity?.(ctx.entity.user_id, data)
+                        await ctx.api?.updateEntity?.(ctx.entity.id, data)
                         await ctx.helpers?.refreshList?.()
                     } catch (error: unknown) {
                         notifyError(ctx, error)
@@ -105,7 +107,7 @@ const memberActions = [
                 onCancel: () => {},
                 onConfirm: async () => {
                     try {
-                        await ctx.api?.deleteEntity?.(ctx.entity.user_id)
+                        await ctx.api?.deleteEntity?.(ctx.entity.id)
                         await ctx.helpers?.refreshList?.()
                     } catch (error: unknown) {
                         notifyError(ctx, error)

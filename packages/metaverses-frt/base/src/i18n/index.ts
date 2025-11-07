@@ -4,19 +4,11 @@ import { registerNamespace } from '@universo/i18n/registry'
 import enMetaverses from './locales/en/metaverses.json'
 import ruMetaverses from './locales/ru/metaverses.json'
 
-// Debug: Log namespace registration
-console.log('[metaverses-i18n] Registering consolidated metaverses namespace', {
-    namespace: 'metaverses',
-    includes: ['sections', 'entities', 'members']
-})
-
 // Register single consolidated namespace
 registerNamespace('metaverses', {
     en: enMetaverses.metaverses,
     ru: ruMetaverses.metaverses
 })
-
-console.log('[metaverses-i18n] Namespace registered successfully')
 
 type LanguageCode = 'en' | 'ru'
 

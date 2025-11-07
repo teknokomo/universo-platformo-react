@@ -269,9 +269,14 @@ We welcome contributions to Universo Platformo React! Please follow these steps:
 
 ## License
 
-This project uses dual licensing:
+This project is being implemented under the Omsk Open License (Basic modification). Individual packages in `packages/` may have a different license, please check the license in each individual package.
 
--   **Original Flowise Code (packages/ directory)**: Licensed under the [Apache License Version 2.0](LICENSE-Flowise.md)
--   **Universo Platformo Extensions (packages/ directory)**: Licensed under the Omsk Open License
+The Omsk Open License is similar to the MIT license, but includes additional "Basic Provisions" aimed at creating a meaningful and secure public domain while protecting traditional values.
 
-The Omsk Open License is similar to the MIT license but includes additional "Basic Provisions" aimed at creating a meaningful and safe public domain while protecting traditional values.
+Packages `packages/flowise-*` are part of the [Flowise] project(https://github.com/FlowiseAI/Flowise ), the code is licensed under Apache License Version 2.0, see the license text and information about the authors inside these packages. These packages are scheduled for removal when their functionality is transferred to the main structure of the project.
+
+AI agents are actively used in the development of this project, which are trained on a variety of other projects / code of various free source projects, and Universo Platformo React uses many libraries and large projects such as Flowise, which are gradually being replaced by their own code. 
+
+If you believe that some code in this repository violates your copyrights, please create an Issue in which describe this problem, specify which code violates your rights, show the original author's code and evidence that this code itself is not a copy of another code, describe your suggestions for resolving the problem (attribution, code replacement, etc.). 
+
+In any case, thank you for your participation and contribution to the development of free source code, which directly or indirectly influenced the possibility of creating Universo Platformo React!

@@ -98,6 +98,207 @@ pnpm --filter consuming-package build
 
 ---
 
+## Testing Environment Pattern: jsdom → happy-dom Migration (2025-11-06)
+
+**Pattern**: Use Happy-DOM instead of jsdom for React component tests to eliminate native dependencies and improve performance.
+
+**Context**: After migrating from jsdom to happy-dom, test execution time dropped from ~2-5s to ~566ms for environment initialization, with zero native dependency conflicts.
+
+### Problem with jsdom
+
+**Issues**:
+- **Native Dependencies**: Requires `canvas.node` binary, causing installation/build issues
+- **Performance**: ~2-5 seconds environment initialization overhead
+- **Version Conflicts**: rehype-mathjax 4.0.3 depends on jsdom 20.0.3, conflicts with Jest's jsdom
+- **Module Resolution**: Complex peer dependency chains
+
+**Symptoms**:
+```bash
+# Error during test execution:
+Error: Cannot find module 'canvas'
+  at packages/universo-template-mui/node_modules/jsdom/lib/jsdom/utils.js:12
+
+# Installation warnings:
+canvas@2.11.2 install script failed (native compilation)
+```
+
+### Solution: Happy-DOM
+
+**Benefits**:
+- ✅ **Zero Native Dependencies**: Pure JavaScript, no C++ bindings
+- ✅ **4-9x Faster**: 566ms vs 2-5s environment initialization
+- ✅ **No Canvas Issues**: Built-in canvas API mock
+- ✅ **Full DOM API**: Compatible with @testing-library/react
+
+**Configuration**:
+
+```javascript
+// jest.config.js
+module.exports = {
+    preset: 'ts-jest',
+    testEnvironment: '@happy-dom/jest-environment',  // ← Key change
+    setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+    moduleNameMapper: {
+        '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
+        '@emotion/react': '<rootDir>/node_modules/@emotion/react',
+        '@emotion/styled': '<rootDir>/node_modules/@emotion/styled'
+    },
+    globals: {
+        'ts-jest': {
+            tsconfig: { jsx: 'react-jsx' }
+        }
+    }
+}
+```
+
+**Dependencies**:
+```json
+{
+  "devDependencies": {
+    "@happy-dom/jest-environment": "^20.0.10",
+    "ts-jest": "^29.2.5",
+    "identity-obj-proxy": "^3.0.0"
+  }
+}
+```
+
+**NO LONGER NEEDED** (remove from package.json):
+```json
+{
+  "devDependencies": {
+    "jest-canvas-mock": "^2.5.2",  // ❌ Not needed with happy-dom
+    "canvas": "^2.11.2"             // ❌ Not needed with happy-dom
+  }
+}
+```
+
+### Mock Strategy for rehype/remark
+
+**Problem**: rehype-mathjax, rehype-raw, remark-gfm, remark-math all depend on jsdom 20.0.3.
+
+**Solution**: Mock these libraries before component import:
+
+```typescript
+// At TOP of test file (before any imports!)
+vi.mock('rehype-mathjax', () => ({ default: () => () => {} }));
+vi.mock('rehype-raw', () => ({ default: () => () => {} }));
+vi.mock('remark-gfm', () => ({ default: () => () => {} }));
+vi.mock('remark-math', () => ({ default: () => () => {} }));
+
+import { describe, it, expect } from 'vitest'
+import { render } from '@testing-library/react'
+// ... rest of test
+```
+
+**Why This Works**:
+- Vitest processes mocks before loading modules
+- Prevents rehype/remark from loading jsdom dependency
+- Components that use markdown parsers work fine (parsers mocked out)
+
+### i18n Test Setup Pattern
+
+**Problem**: Tests showed translation keys (e.g., "members.email") instead of translated text ("Email").
+
+**Root Cause**: Component uses global `getInstance()` + `registerNamespace()`, but test used local `i18n.init()`.
+
+**Solution**: Use real translation files with global i18n instance:
+
+```typescript
+// setupTests.ts (global setup)
+import { getInstance } from '@universo/i18n/instance'
+import { registerNamespace } from '@universo/i18n/registry'
+import metaversesEn from '../i18n/locales/en/metaverses.json'
+import metaversesRu from '../i18n/locales/ru/metaverses.json'
+
+const i18n = getInstance()
+registerNamespace('metaverses', {
+    en: metaversesEn.metaverses,
+    ru: metaversesRu.metaverses
+})
+
+// Component test file
+import { I18nextProvider } from 'react-i18next'
+import { getInstance as getI18nInstance } from '@universo/i18n/instance'
+
+const i18n = getI18nInstance()
+
+const renderWithProviders = (ui: React.ReactElement) => {
+    return render(
+        <I18nextProvider i18n={i18n}>
+            {ui}
+        </I18nextProvider>
+    )
+}
+```
+
+**Why This Works**:
+- ✅ Uses same i18n instance as production code
+- ✅ Translations load from actual JSON files (no manual duplication)
+- ✅ Tests verify real translation keys (catches missing translations)
+
+### Mock API Structure for usePaginated
+
+**Problem**: `usePaginated` hook expects specific response structure, tests failed with `Cannot read properties of undefined (reading 'total')`.
+
+**Solution**: Match exact API response format:
+
+```typescript
+// Correct mock structure
+vi.mocked(api.listItems).mockResolvedValue({
+    data: ItemType[],              // Array of items
+    pagination: {
+        total: number,             // Total count
+        limit: number,             // Page size
+        offset: number,            // Current offset
+        count: number,             // Items in current page
+        hasMore: boolean           // Pagination flag
+    }
+} as any)
+
+// WRONG (causes TypeError):
+vi.mocked(api.listItems).mockResolvedValue({
+    items: [],                     // ❌ Wrong key
+    total: 0                       // ❌ Flat structure
+})
+```
+
+**Why This Matters**:
+- `usePaginated` accesses `query.data.pagination.total` (nested structure)
+- Flat structure or wrong keys → runtime TypeError
+- Mock must match production API contract exactly
+
+### Performance Comparison
+
+| Metric | jsdom | happy-dom | Improvement |
+|--------|-------|-----------|-------------|
+| Environment init | 2-5s | 566ms | **4-9x faster** |
+| Test execution (5 tests) | 523ms | 523ms | Same |
+| Total overhead | ~38s | ~38s | Same (transform + collect) |
+| Native dependencies | Yes (canvas.node) | **No** | ✅ Eliminated |
+| Installation issues | Frequent | **Never** | ✅ Reliable |
+
+### Migration Checklist
+
+When migrating tests from jsdom to happy-dom:
+
+- [ ] Install `@happy-dom/jest-environment`
+- [ ] Update `jest.config.js` testEnvironment
+- [ ] Remove `jest-canvas-mock` dependency
+- [ ] Remove `canvas` dependency
+- [ ] Add rehype/remark mocks at top of test files
+- [ ] Update i18n setup to use `getInstance()` + `registerNamespace()`
+- [ ] Verify mock API responses match `{ data: [], pagination: {...} }` structure
+- [ ] Run tests: `pnpm test`
+- [ ] Verify 0 canvas errors, 0 jsdom warnings
+
+### Result
+
+✅ **Achieved**: 5/5 tests passing, 566ms environment init, 0 native dependencies, 37.68% coverage for MetaverseMembers.tsx
+
+**Pattern Established**: All future React component tests should use happy-dom for reliable, fast execution without native dependency issues.
+
+---
+
 ## i18n Architecture Patterns
 
 ### Multi-Namespace i18n Pattern (2025-10-28)

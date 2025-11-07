@@ -1,6 +1,18 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Skeleton, Stack, Typography, IconButton, FormControl, InputLabel, Select, MenuItem, FormHelperText, CircularProgress } from '@mui/material'
+import {
+    Box,
+    Skeleton,
+    Stack,
+    Typography,
+    IconButton,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormHelperText,
+    CircularProgress
+} from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -41,17 +53,7 @@ type EntityData = {
     description?: string
 }
 
-// DEBUG: Log module loading
-console.log('[EntityList] Module loaded', {
-    hasEntityActions: !!entityActions,
-    entityActionsType: typeof entityActions,
-    entityActionsIsArray: Array.isArray(entityActions),
-    entityActionsLength: Array.isArray(entityActions) ? entityActions.length : 'N/A'
-})
-
 const EntityList = () => {
-    console.log('[EntityList] Component render started')
-    
     const navigate = useNavigate()
     // Use entities namespace for view-specific keys
     const { t, i18n } = useTranslation(['metaverses', 'common', 'flowList'])
@@ -108,6 +110,7 @@ const EntityList = () => {
         paginationResult.pagination.currentPage,
         paginationResult.pagination.pageSize,
         paginationResult.pagination.totalItems,
+        paginationResult.pagination.totalPages,
         paginationResult.pagination.search,
         paginationResult.isLoading,
         searchValue
@@ -474,7 +477,9 @@ const EntityList = () => {
                                 </MenuItem>
                             ))}
                         </Select>
-                        <FormHelperText>{!values.sectionId ? t('entities.errors.sectionRequired', 'Section is required') : ''}</FormHelperText>
+                        <FormHelperText>
+                            {!values.sectionId ? t('entities.errors.sectionRequired', 'Section is required') : ''}
+                        </FormHelperText>
                     </FormControl>
                 )}
             />

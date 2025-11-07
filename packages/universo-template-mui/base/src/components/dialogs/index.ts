@@ -7,4 +7,7 @@ export type { ConfirmDeleteDialogProps } from './ConfirmDeleteDialog'
 export { ConfirmDialog } from './ConfirmDialog'
 
 export { MemberFormDialog } from './MemberFormDialog'
-export type { MemberFormDialogProps, AssignableRole } from './MemberFormDialog'
+export type { MemberFormDialogProps } from './MemberFormDialog'
+
+// Re-export AssignableRole from @universo/types for convenience
+export type { AssignableRole } from '@universo/types'

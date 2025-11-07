@@ -2,9 +2,7 @@ import React, { useEffect } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, MenuItem, Alert } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { memberFormSchema, type MemberFormData } from '@universo/types'
-
-export type AssignableRole = 'admin' | 'editor' | 'member'
+import { memberFormSchema, type MemberFormData, type AssignableRole } from '@universo/types'
 
 export interface MemberFormDialogProps {
     open: boolean
@@ -15,6 +13,8 @@ export interface MemberFormDialogProps {
     roleLabel: string
     commentLabel?: string
     commentPlaceholder?: string
+    /** Function to format character count text, receives current count and max length */
+    commentCharacterCountFormatter?: (count: number, max: number) => string
     saveButtonText?: string
     savingButtonText?: string
     cancelButtonText?: string
@@ -49,6 +49,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
     roleLabel,
     commentLabel = 'Comment (optional)',
     commentPlaceholder = 'Add a note about this member...',
+    commentCharacterCountFormatter,
     saveButtonText = 'Save',
     savingButtonText,
     cancelButtonText = 'Cancel',
@@ -123,7 +124,9 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
     const isLoading = loading || isSubmitting
 
     const handleClose = () => {
-        if (!isLoading) onClose()
+        if (isLoading) return
+        reset()
+        onClose()
     }
 
     return (
@@ -199,19 +202,44 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
                             <Controller
                                 name='comment'
                                 control={control}
-                                render={({ field }) => (
-                                    <TextField
-                                        {...field}
-                                        label={commentLabel}
-                                        placeholder={commentPlaceholder}
-                                        fullWidth
-                                        disabled={isLoading}
-                                        variant='outlined'
-                                        multiline
-                                        rows={3}
-                                        sx={{ borderRadius: 1 }}
-                                    />
-                                )}
+                                render={({ field }) => {
+                                    const trimmedLength = (field.value || '').trim().length
+                                    const maxLength = 500
+                                    const isOverLimit = trimmedLength > maxLength
+                                    const characterCountText = commentCharacterCountFormatter
+                                        ? commentCharacterCountFormatter(trimmedLength, maxLength)
+                                        : `${trimmedLength}/${maxLength} characters (after trim)`
+
+                                    return (
+                                        <TextField
+                                            {...field}
+                                            label={commentLabel}
+                                            placeholder={commentPlaceholder}
+                                            fullWidth
+                                            disabled={isLoading}
+                                            variant='outlined'
+                                            multiline
+                                            minRows={2}
+                                            maxRows={4}
+                                            error={isOverLimit || !!fieldErrors.comment}
+                                            helperText={fieldErrors.comment?.message || characterCountText}
+                                            slotProps={{
+                                                htmlInput: {
+                                                    maxLength: 510 // Buffer to allow whitespace before trim
+                                                }
+                                            }}
+                                            sx={{
+                                                borderRadius: 1,
+                                                '& .MuiInputBase-root': {
+                                                    padding: 0
+                                                },
+                                                '& .MuiInputBase-input': {
+                                                    padding: '8px 14px !important'
+                                                }
+                                            }}
+                                        />
+                                    )
+                                }}
                             />
                         )}
                     </Box>
