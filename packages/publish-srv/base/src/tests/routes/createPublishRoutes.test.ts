@@ -75,7 +75,7 @@ describe('createPublishRoutes', () => {
 
     it('инициализирует DataSource перед обработкой запросов', async () => {
         const initialize = jest.fn(async () => undefined)
-        const { app, dataSource } = buildApp({ isInitialized: false, initialize })
+        const { app } = buildApp({ isInitialized: false, initialize })
 
         const response = await request(app).post('/arjs').send({ canvasId: 'canvas-1' })
 
