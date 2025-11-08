@@ -1,8 +1,3 @@
-openapi: 3.1.0
-info:
-  title: Spaces Paths
-  version: 1.0.0
-
 paths:
   /unik/{unikId}/spaces:
     parameters:

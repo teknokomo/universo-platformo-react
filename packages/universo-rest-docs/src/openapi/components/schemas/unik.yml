@@ -1,0 +1,94 @@
+openapi: 3.1.0
+info:
+  title: Unik Schemas
+  version: 1.0.0
+
+components:
+  schemas:
+    Unik:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+        - updatedAt
+        - isActive
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique Unik identifier
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Unik name
+          example: "My Production Unik"
+        description:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Unik description (optional)
+          example: "Main Unik for production Uniks"
+        isActive:
+          type: boolean
+          default: true
+          description: Soft delete flag (future feature)
+          example: true
+        spacesCount:
+          type: integer
+          description: Number of spaces in this Unik (aggregated, read-only)
+          example: 5
+        role:
+          type: string
+          description: Current user's role in this Unik
+          enum: [owner, admin, editor, member]
+          example: "owner"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-15T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-01-20T14:30:00Z"
+    
+    CreateUnik:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Unik name
+          example: "My New Unik"
+        description:
+          type: string
+          maxLength: 1000
+          description: Optional Unik description
+          example: "Unik for AR experiments"
+    
+    UpdateUnik:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Updated Unik name
+          example: "Renamed Unik"
+        description:
+          type: string
+          maxLength: 1000
+          description: Updated description
+          example: "Updated description"
+    
+    UnikListResponse:
+      type: array
+      description: Array of Unik objects (Universal List Pattern with headers)
+      items:
+        $ref: '#/components/schemas/Unik'

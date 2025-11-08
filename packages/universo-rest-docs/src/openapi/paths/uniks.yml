@@ -1,0 +1,335 @@
+paths:
+  /uniks:
+    get:
+      tags:
+        - Uniks
+      summary: List user Uniks
+      description: |
+        Returns paginated list of Uniks owned by authenticated user.
+        
+        **RLS Behavior**: Only user's own Uniks are returned.
+        
+        **Use Cases**:
+        - Dashboard Unik list
+        - Unik selector in UI
+        - API client Unik discovery
+      operationId: listUniks
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/Limit'
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/Offset'
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/SortBy'
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/SortOrder'
+      responses:
+        '200':
+          description: Unik list successfully retrieved
+          headers:
+            X-Pagination-Limit:
+              schema:
+                type: integer
+              description: Items per page limit
+              example: 50
+            X-Pagination-Offset:
+              schema:
+                type: integer
+              description: Current offset
+              example: 0
+            X-Total-Count:
+              $ref: '../components/responses/success.yml#/components/headers/X-Total-Count'
+            X-Pagination-Has-More:
+              $ref: '../components/responses/success.yml#/components/headers/X-Pagination-Has-More'
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/unik.yml#/components/schemas/UnikListResponse'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '429':
+          $ref: '../components/responses/errors.yml#/components/responses/TooManyRequests'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    post:
+      tags:
+        - Uniks
+      summary: Create new Unik
+      description: |
+        Creates a new Unik for authenticated user.
+        
+        **RLS Behavior**: Unik is automatically owned by requesting user.
+        
+        **Rate Limiting**: 60 requests/minute (write operation)
+      operationId: createUnik
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/unik.yml#/components/schemas/CreateUnik'
+      responses:
+        '201':
+          description: Unik created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/unik.yml#/components/schemas/Unik'
+        '400':
+          $ref: '../components/responses/errors.yml#/components/responses/BadRequest'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '429':
+          $ref: '../components/responses/errors.yml#/components/responses/TooManyRequests'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+
+  /unik/{unikId}:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+    
+    get:
+      tags:
+        - Uniks
+      summary: Get Unik by ID
+      description: |
+        Returns Unik details by UUID.
+        
+        **RLS Behavior**: Returns 404 if Unik doesn't belong to user.
+      operationId: getUnik
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Unik details
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/unik.yml#/components/schemas/Unik'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    patch:
+      tags:
+        - Uniks
+      summary: Update Unik
+      description: |
+        Partially updates Unik properties.
+        
+        **RLS Behavior**: Update fails if Unik doesn't belong to user.
+      operationId: updateUnik
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/unik.yml#/components/schemas/UpdateUnik'
+      responses:
+        '200':
+          description: Unik updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/unik.yml#/components/schemas/Unik'
+        '400':
+          $ref: '../components/responses/errors.yml#/components/responses/BadRequest'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    delete:
+      tags:
+        - Uniks
+      summary: Delete Unik
+      description: |
+        Permanently deletes Unik and all contained Spaces/Canvases.
+        
+        **⚠️ Warning**: This action is irreversible!
+        
+        **RLS Behavior**: Delete fails if Unik doesn't belong to user.
+      operationId: deleteUnik
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Unik deleted successfully
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+
+  /unik/{unikId}/members:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+    
+    get:
+      tags:
+        - Uniks
+      summary: List Unik members
+      description: |
+        Returns list of all members in the Unik.
+        
+        **Permissions**: Any Unik member can view member list.
+      operationId: listUnikMembers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Member list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../components/schemas/unik-member.yml#/components/schemas/UnikMember'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../components/responses/errors.yml#/components/responses/Forbidden'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    post:
+      tags:
+        - Uniks
+      summary: Add member to Unik
+      description: |
+        Adds a new member to the Unik.
+        
+        **Permissions**: Only 'owner' and 'admin' roles can add members.
+        
+        **Note**: Cannot assign 'owner' role via this endpoint.
+      operationId: addUnikMember
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/unik-member.yml#/components/schemas/AddMemberRequest'
+      responses:
+        '201':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/unik-member.yml#/components/schemas/UnikMember'
+        '400':
+          $ref: '../components/responses/errors.yml#/components/responses/BadRequest'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '403':
+          description: Forbidden - Only owner/admin can add members
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yml#/components/schemas/ApiError'
+        '409':
+          description: Conflict - User already a member
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yml#/components/schemas/ApiError'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+
+  /unik/{unikId}/members/{userId}:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User ID of the member
+    
+    put:
+      tags:
+        - Uniks
+      summary: Update member role
+      description: |
+        Updates a member's role in the Unik.
+        
+        **Permissions**: Only 'owner' can change roles.
+        
+        **Note**: Cannot change 'owner' role or assign new 'owner' role.
+      operationId: updateUnikMemberRole
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/unik-member.yml#/components/schemas/UpdateMemberRequest'
+      responses:
+        '200':
+          description: Member role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/unik-member.yml#/components/schemas/UnikMember'
+        '400':
+          $ref: '../components/responses/errors.yml#/components/responses/BadRequest'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '403':
+          description: Forbidden - Only owner can update roles
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yml#/components/schemas/ApiError'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    delete:
+      tags:
+        - Uniks
+      summary: Remove member from Unik
+      description: |
+        Removes a member from the Unik.
+        
+        **Permissions**: Only 'owner' and 'admin' roles can remove members.
+        
+        **Note**: Cannot remove the 'owner'.
+      operationId: removeUnikMember
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Member removed successfully
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '403':
+          description: Forbidden - Only owner/admin can remove members
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yml#/components/schemas/ApiError'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+

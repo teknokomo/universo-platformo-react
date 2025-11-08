@@ -270,7 +270,7 @@ We welcome contributions to Universo Platformo React! Please follow these steps:
 
 ## License
 
-This project is being implemented under the Omsk Open License (Basic modification). Individual packages in `packages/` may have a different license, please check the license in each individual package.
+This project is being implemented under the [Omsk Open License](https://universo.pro/ol) (Basic modification). Individual packages in `packages/` may have a different license, please check the license in each individual package.
 
 The Omsk Open License is similar to the MIT license, but includes additional "Basic Provisions" aimed at creating a meaningful and secure public domain while protecting traditional values.
 

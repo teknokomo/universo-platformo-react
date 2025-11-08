@@ -8,8 +8,8 @@ info:
     
     ## Ключевые концепции
     
-    - **Workspace (Unik)** — рабочее пространство пользователя (top-level контейнер)
-    - **Space** — логическая группировка Canvas внутри Workspace
+    - **Unik** — рабочее пространство пользователя (top-level контейнер)
+    - **Space** — логическая группировка Canvas внутри Unik
     - **Canvas** — 3D-сцена или AI workflow
     - **Metaverse** — тематическая коллекция пространств
     - **Publication** — экспорт Canvas в AR.js, PlayCanvas, Babylon.js
@@ -22,29 +22,47 @@ info:
     
     ## Rate Limiting
     
-    - **Read операции**: 100 запросов/минуту
-    - **Write операции**: 60 запросов/минуту
+    API использует Redis-based rate limiter с per-endpoint квотами:
+    - **Read операции** (GET): 100 запросов/минуту
+    - **Write операции** (POST/PUT/DELETE): 60 запросов/минуту
+    
+    **Response headers**:
+    ```
+    X-RateLimit-Limit: 100          # Максимум запросов
+    X-RateLimit-Remaining: 42       # Осталось запросов
+    X-RateLimit-Reset: 1730545260   # Unix timestamp сброса
+    Retry-After: 42                 # Секунд до повтора (при 429)
+    ```
+    
+    **Retry strategy** (exponential backoff):
+    ```
+    1s → 2s → 4s → 8s → 16s → 32s → 60s (макс)
+    ```
+    
+    При превышении лимита возвращается **429 Too Many Requests** (см. RFC 6585, RFC 7231).
+    
+    **Документация**: См. раздел Errors для деталей 429 response.
     
     ## Row-Level Security (RLS)
     
     Все эндпоинты используют PostgreSQL RLS для изоляции данных:
-    - Пользователь видит только свои Workspace/Canvases
+    - Пользователь видит только свои Unik/Canvases
     - Публичные Metaverses доступны всем
     
   contact:
     name: Universo Platformo API Support
-    url: https://universo-platformo.com/support
-    email: api@universo-platformo.com
+    url: https://universo.pro/support
+    email: api@universo.pro
   license:
-    name: Apache 2.0
-    url: https://www.apache.org/licenses/LICENSE-2.0
+    name: Omsk Open License
+    url: https://universo.pro/ol
 
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development server
-  - url: https://staging.universo-platformo.com/api/v1
+  - url: https://staging.universo.pro/api/v1
     description: Staging environment
-  - url: https://api.universo-platformo.com/api/v1
+  - url: https://api.universo.pro/api/v1
     description: Production environment
 
 security:
@@ -52,8 +70,8 @@ security:
   - ApiKeyAuth: []
 
 tags:
-  - name: Workspaces
-    description: Workspace (Unik) management — top-level user containers
+  - name: Uniks
+    description: Unik management — user workspaces and team collaboration
   - name: Spaces
     description: Space management — logical grouping of Canvases
   - name: Canvases
@@ -68,12 +86,18 @@ tags:
     description: AI-powered 3D space generation
 
 paths:
-  # Workspaces
+  # Uniks
   /uniks:
-    $ref: './paths/workspaces.yml#/paths/~1uniks'
+    $ref: './paths/uniks.yml#/paths/~1uniks'
   
   /unik/{unikId}:
-    $ref: './paths/workspaces.yml#/paths/~1unik~1{unikId}'
+    $ref: './paths/uniks.yml#/paths/~1unik~1{unikId}'
+  
+  /unik/{unikId}/members:
+    $ref: './paths/uniks.yml#/paths/~1unik~1{unikId}~1members'
+  
+  /unik/{unikId}/members/{userId}:
+    $ref: './paths/uniks.yml#/paths/~1unik~1{unikId}~1members~1{userId}'
   
   # Spaces
   /unik/{unikId}/spaces:
@@ -110,15 +134,15 @@ components:
     $ref: './components/security.yml#/components/securitySchemes'
   
   schemas:
-    # Workspace schemas
-    Workspace:
-      $ref: './components/schemas/workspace.yml#/components/schemas/Workspace'
-    CreateWorkspace:
-      $ref: './components/schemas/workspace.yml#/components/schemas/CreateWorkspace'
-    UpdateWorkspace:
-      $ref: './components/schemas/workspace.yml#/components/schemas/UpdateWorkspace'
-    WorkspaceListResponse:
-      $ref: './components/schemas/workspace.yml#/components/schemas/WorkspaceListResponse'
+    # Unik schemas
+    Unik:
+      $ref: './components/schemas/unik.yml#/components/schemas/Unik'
+    CreateUnik:
+      $ref: './components/schemas/unik.yml#/components/schemas/CreateUnik'
+    UpdateUnik:
+      $ref: './components/schemas/unik.yml#/components/schemas/UpdateUnik'
+    UnikListResponse:
+      $ref: './components/schemas/unik.yml#/components/schemas/UnikListResponse'
     
     # Space schemas
     Space:
