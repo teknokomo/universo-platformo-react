@@ -2458,4 +2458,116 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
 
 ---
 
+## Universal Role System Pattern (2025-01-19)
+
+**Pattern**: Centralized role types in `@universo/types` with reusable RoleChip component to eliminate role type duplication and ensure consistent UI representation.
+
+**Context**: Multiple packages (metaverses-frt, metaverses-srv, flowise-server) had duplicate role type definitions and inconsistent color mapping for role badges. This led to maintenance overhead and potential bugs when role hierarchy changed.
+
+**Architecture**:
+- **Single Source of Truth**: `packages/universo-types/base/src/common/roles.ts`
+- **Type Safety**: All role types exported from `@universo/types`
+- **UI Component**: `packages/universo-template-mui/base/src/components/chips/RoleChip.tsx`
+- **Utilities**: Role comparison functions (`hasRequiredRole`, `canManageRole`, `getRoleLevel`)
+
+**Structure**:
+```typescript
+// packages/universo-types/base/src/common/roles.ts
+export const BASE_ROLES = ['owner', 'admin', 'editor', 'member'] as const
+export type BaseRole = (typeof BASE_ROLES)[number]
+
+export const ROLE_HIERARCHY: Record<BaseRole, number> = {
+    owner: 4,
+    admin: 3,
+    editor: 2,
+    member: 1
+}
+
+export type MetaverseRole = BaseRole
+export type UnikRole = BaseRole
+export type AssignableRole = Exclude<BaseRole, 'owner'>
+
+export function hasRequiredRole(actual: BaseRole, allowed: BaseRole[] = []): boolean
+export function canManageRole(managerRole: BaseRole, targetRole: BaseRole): boolean
+export function getRoleLevel(role: BaseRole): number
+```
+
+**Usage in Backend** (Access Control):
+```typescript
+// packages/metaverses-srv/base/src/routes/guards.ts
+import { MetaverseRole } from '@universo/types'
+
+export const ROLE_PERMISSIONS = {
+    owner: { manageMembers: true, manageMetaverse: true, ... },
+    admin: { manageMembers: true, manageMetaverse: true, ... },
+    editor: { manageMembers: false, manageMetaverse: false, ... },
+    member: { manageMembers: false, manageMetaverse: false, ... }
+} as const satisfies Record<MetaverseRole, Record<string, boolean>>
+```
+
+**Usage in Frontend** (UI Component):
+```typescript
+// packages/universo-template-mui/base/src/components/chips/RoleChip.tsx
+import type { BaseRole } from '@universo/types'
+
+const ROLE_STYLE_MAP: Record<BaseRole, { bgcolor: string; color: string; borderColor: string }> = {
+    owner: { bgcolor: '#ffebee', color: '#c62828', borderColor: '#e57373' },
+    admin: { bgcolor: '#f3e5f5', color: '#7b1fa2', borderColor: '#ba68c8' },
+    editor: { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#64b5f6' },
+    member: { bgcolor: '#f5f5f5', color: '#616161', borderColor: '#9e9e9e' }
+}
+
+export const RoleChip: React.FC<{ role: BaseRole }> = ({ role }) => {
+    const { t } = useTranslation('roles')
+    const styles = ROLE_STYLE_MAP[role]
+    
+    return <Chip label={t(role)} sx={styles} />
+}
+```
+
+**Usage in Application**:
+```typescript
+// packages/metaverses-frt/base/src/pages/MetaverseList.tsx
+import { RoleChip } from '@universo/template-mui'
+
+// Before (inline Chip with manual color mapping):
+<Chip
+    label={t(`roles:${row.role || 'member'}`)}
+    size="small"
+    color={
+        row.role === 'owner' ? 'error' :
+        row.role === 'admin' ? 'warning' :
+        row.role === 'editor' ? 'info' : 'default'
+    }
+/>
+
+// After (reusable component):
+<RoleChip role={row.role || 'member'} />
+```
+
+**Benefits**:
+- ✅ **Zero Duplication**: Role types defined once, used everywhere
+- ✅ **Consistent Colors**: Owner=red, Admin=purple, Editor=blue, Member=grey (soft backgrounds)
+- ✅ **i18n Support**: Automatically translates role names via `roles` namespace
+- ✅ **Type Safety**: TypeScript ensures only valid roles used
+- ✅ **Maintainability**: Change role hierarchy in one place
+- ✅ **Performance**: No runtime PropTypes, efficient color lookup
+
+**Color Scheme** (Soft UI Design):
+| Role | Background | Text | Use Case |
+|------|-----------|------|----------|
+| Owner | Light Red (#ffebee) | Dark Red (#c62828) | Full control |
+| Admin | Light Purple (#f3e5f5) | Dark Purple (#7b1fa2) | Management |
+| Editor | Light Blue (#e3f2fd) | Dark Blue (#1976d2) | Content editing |
+| Member | Light Grey (#f5f5f5) | Dark Grey (#616161) | View access |
+
+**Dependencies**:
+- `packages/universo-types` exports all role types
+- `packages/universo-template-mui` depends on `@universo/types`
+- All application packages import from `@universo/types`
+
+**Pattern Established**: All future entity types (Spaces, Canvases, etc.) should use `BaseRole` or define specific role types in `@universo/types/common/roles.ts`. Never duplicate role type definitions.
+
+---
+
 _For detailed application structure and development guidelines, see [packages/README.md](../packages/README.md). For technical implementation details, see [techContext.md](techContext.md). For project overview, see [projectbrief.md](projectbrief.md)._

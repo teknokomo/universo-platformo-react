@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: Canvases Paths
+  version: 1.0.0
+
+paths:
+  /unik/{unikId}/spaces/{spaceId}/canvases:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/SpaceId'
+    
+    get:
+      tags:
+        - Canvases
+      summary: List canvases in space
+      operationId: listCanvases
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/Limit'
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Canvas list
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/canvas.yml#/components/schemas/CanvasListResponse'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    post:
+      tags:
+        - Canvases
+      summary: Create new canvas
+      operationId: createCanvas
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/canvas.yml#/components/schemas/CreateCanvas'
+      responses:
+        '201':
+          description: Canvas created
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/canvas.yml#/components/schemas/Canvas'
+        '400':
+          $ref: '../components/responses/errors.yml#/components/responses/BadRequest'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+
+  /unik/{unikId}/spaces/{spaceId}/canvases/{canvasId}:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/SpaceId'
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/CanvasId'
+    
+    get:
+      tags:
+        - Canvases
+      summary: Get canvas by ID
+      operationId: getCanvas
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Canvas details
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/canvas.yml#/components/schemas/Canvas'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    patch:
+      tags:
+        - Canvases
+      summary: Update canvas
+      operationId: updateCanvas
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/canvas.yml#/components/schemas/UpdateCanvas'
+      responses:
+        '200':
+          description: Canvas updated
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/canvas.yml#/components/schemas/Canvas'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    delete:
+      tags:
+        - Canvases
+      summary: Delete canvas
+      operationId: deleteCanvas
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Canvas deleted
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'

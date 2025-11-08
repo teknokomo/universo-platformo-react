@@ -8,8 +8,7 @@ import { RawFlowData, CanvasMinimal } from '../types/publication.types'
 import { publish, serialization } from '@universo/utils'
 import { PublishCanvas } from '../database/entities'
 
-const normalizeTimerConfig = (config: unknown) =>
-    publish.normalizeTimerConfig(config as Partial<publish.TimerConfig> | null | undefined)
+const normalizeTimerConfig = (config: unknown) => publish.normalizeTimerConfig(config as Partial<publish.TimerConfig> | null | undefined)
 
 /**
  * Service for handling flow data extraction from Supabase
@@ -18,7 +17,7 @@ const normalizeTimerConfig = (config: unknown) =>
  * requiring direct entity imports that cause path conflicts
  */
 export class FlowDataService {
-    constructor(private dataSource: DataSource) { }
+    constructor(private dataSource: DataSource) {}
 
     private get publishRepository() {
         return this.dataSource.getRepository(PublishCanvas)
@@ -34,9 +33,9 @@ export class FlowDataService {
             }
 
             if (link.targetVersionUuid) {
-                const canvas = await canvasRepository.findOne({
+                const canvas = (await canvasRepository.findOne({
                     where: { versionUuid: link.targetVersionUuid }
-                }) as CanvasMinimal | null
+                })) as CanvasMinimal | null
                 if (canvas?.id) {
                     return canvas.id
                 }
@@ -45,12 +44,12 @@ export class FlowDataService {
         }
 
         if (link.versionGroupId) {
-            const activeCanvas = await canvasRepository.findOne({
+            const activeCanvas = (await canvasRepository.findOne({
                 where: {
                     versionGroupId: link.versionGroupId,
                     isActive: true
                 }
-            }) as CanvasMinimal | null
+            })) as CanvasMinimal | null
 
             if (activeCanvas?.id) {
                 return activeCanvas.id
@@ -95,7 +94,10 @@ export class FlowDataService {
             let playcanvasConfig = null
             if (canvas.chatbotConfig) {
                 try {
-                    const parsed = typeof canvas.chatbotConfig === 'string' ? serialization.safeParseJson<any>(canvas.chatbotConfig) : { ok: true as const, value: canvas.chatbotConfig }
+                    const parsed =
+                        typeof canvas.chatbotConfig === 'string'
+                            ? serialization.safeParseJson<any>(canvas.chatbotConfig)
+                            : { ok: true as const, value: canvas.chatbotConfig }
                     if (!parsed.ok) {
                         const errMsg = parsed.error?.message || 'Unknown JSON parse error'
                         logger.warn(`[FlowDataService] Failed to parse chatbotConfig: ${errMsg}`)
@@ -106,7 +108,8 @@ export class FlowDataService {
                             logger.info(`[FlowDataService] Extracted libraryConfig: ${JSON.stringify(libraryConfig)}`)
                         }
                         if (config?.arjs) {
-                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor, timerConfig } = config.arjs
+                            const { arDisplayType, wallpaperType, markerType, markerValue, cameraUsage, backgroundColor, timerConfig } =
+                                config.arjs
                             renderConfig = {
                                 arDisplayType,
                                 wallpaperType,
@@ -129,7 +132,11 @@ export class FlowDataService {
                         }
                     }
                 } catch (parseError) {
-                    logger.warn(`[FlowDataService] Unexpected error during chatbotConfig parse: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
+                    logger.warn(
+                        `[FlowDataService] Unexpected error during chatbotConfig parse: ${
+                            parseError instanceof Error ? parseError.message : String(parseError)
+                        }`
+                    )
                 }
             }
 

@@ -4,273 +4,274 @@ import type { SpacesService } from '@/services/spacesService'
 import { createSpaceFixture } from '@/tests/fixtures/spaces'
 
 describe('SpacesController', () => {
-  const createResponse = () => {
-    const res: Partial<Response> = {}
-    res.status = jest.fn().mockImplementation(() => res as Response)
-    res.json = jest.fn().mockImplementation(() => res as Response)
-    res.send = jest.fn().mockImplementation(() => res as Response)
-    return res as Response & {
-      status: jest.Mock
-      json: jest.Mock
-      send: jest.Mock
+    const createResponse = () => {
+        const res: Partial<Response> = {}
+        res.status = jest.fn().mockImplementation(() => res as Response)
+        res.json = jest.fn().mockImplementation(() => res as Response)
+        res.send = jest.fn().mockImplementation(() => res as Response)
+        return res as Response & {
+            status: jest.Mock
+            json: jest.Mock
+            send: jest.Mock
+        }
     }
-  }
 
-  const createRequest = (overrides: Partial<Request> = {}): Request => ({
-    params: {},
-    body: {},
-    ...overrides
-  }) as Request
+    const createRequest = (overrides: Partial<Request> = {}): Request =>
+        ({
+            params: {},
+            body: {},
+            ...overrides
+        } as Request)
 
-  let controller: SpacesController
-  let service: Partial<jest.Mocked<SpacesService>>
+    let controller: SpacesController
+    let service: Partial<jest.Mocked<SpacesService>>
 
-  beforeEach(() => {
-    service = {
-      getSpacesForUnik: jest.fn(),
-      createSpace: jest.fn(),
-      reorderCanvases: jest.fn(),
-      updateCanvasVersion: jest.fn()
-    } satisfies Partial<jest.Mocked<SpacesService>>
-    controller = new SpacesController(service as SpacesService)
-  })
-
-  afterEach(() => {
-    jest.clearAllMocks()
-  })
-
-  it('возвращает список пространств для уникального идентификатора', async () => {
-    const spaces = [createSpaceFixture()]
-    service.getSpacesForUnik.mockResolvedValue(spaces)
-
-    const req = createRequest({ params: { unikId: 'unik-1' } })
-    const res = createResponse()
-
-    await controller.getSpaces(req, res)
-
-    expect(service.getSpacesForUnik).toHaveBeenCalledWith('unik-1')
-    expect(res.json).toHaveBeenCalledWith({
-      success: true,
-      data: { spaces }
+    beforeEach(() => {
+        service = {
+            getSpacesForUnik: jest.fn(),
+            createSpace: jest.fn(),
+            reorderCanvases: jest.fn(),
+            updateCanvasVersion: jest.fn()
+        } satisfies Partial<jest.Mocked<SpacesService>>
+        controller = new SpacesController(service as SpacesService)
     })
-  })
 
-  it('возвращает 400, если unikId отсутствует при запросе списка пространств', async () => {
-    const req = createRequest()
-    const res = createResponse()
-
-    await controller.getSpaces(req, res)
-
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Unik ID is required'
+    afterEach(() => {
+        jest.clearAllMocks()
     })
-  })
 
-  it('создаёт пространство и возвращает 201 при успешной транзакции', async () => {
-    const space = createSpaceFixture()
-    service.createSpace.mockResolvedValue(space)
+    it('возвращает список пространств для уникального идентификатора', async () => {
+        const spaces = [createSpaceFixture()]
+        service.getSpacesForUnik.mockResolvedValue(spaces)
 
-    const req = createRequest({
-      params: { unikId: 'unik-1' },
-      body: {
-        name: ' Space One ',
-        defaultCanvasName: ' Основной холст ',
-        defaultCanvasFlowData: '{}'
-      }
+        const req = createRequest({ params: { unikId: 'unik-1' } })
+        const res = createResponse()
+
+        await controller.getSpaces(req, res)
+
+        expect(service.getSpacesForUnik).toHaveBeenCalledWith('unik-1')
+        expect(res.json).toHaveBeenCalledWith({
+            success: true,
+            data: { spaces }
+        })
     })
-    const res = createResponse()
 
-    await controller.createSpace(req, res)
+    it('возвращает 400, если unikId отсутствует при запросе списка пространств', async () => {
+        const req = createRequest()
+        const res = createResponse()
 
-    expect(service.createSpace).toHaveBeenCalledWith('unik-1', {
-      name: 'Space One',
-      defaultCanvasName: 'Основной холст',
-      defaultCanvasFlowData: '{}'
+        await controller.getSpaces(req, res)
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Unik ID is required'
+        })
     })
-    expect(res.status).toHaveBeenCalledWith(201)
-    expect(res.json).toHaveBeenCalledWith({
-      success: true,
-      data: space,
-      message: 'Space created successfully'
+
+    it('создаёт пространство и возвращает 201 при успешной транзакции', async () => {
+        const space = createSpaceFixture()
+        service.createSpace.mockResolvedValue(space)
+
+        const req = createRequest({
+            params: { unikId: 'unik-1' },
+            body: {
+                name: ' Space One ',
+                defaultCanvasName: ' Основной холст ',
+                defaultCanvasFlowData: '{}'
+            }
+        })
+        const res = createResponse()
+
+        await controller.createSpace(req, res)
+
+        expect(service.createSpace).toHaveBeenCalledWith('unik-1', {
+            name: 'Space One',
+            defaultCanvasName: 'Основной холст',
+            defaultCanvasFlowData: '{}'
+        })
+        expect(res.status).toHaveBeenCalledWith(201)
+        expect(res.json).toHaveBeenCalledWith({
+            success: true,
+            data: space,
+            message: 'Space created successfully'
+        })
     })
-  })
 
-  it('возвращает 400, если имя пространства отсутствует или пустое', async () => {
-    const req = createRequest({
-      params: { unikId: 'unik-1' },
-      body: { name: '  ' }
+    it('возвращает 400, если имя пространства отсутствует или пустое', async () => {
+        const req = createRequest({
+            params: { unikId: 'unik-1' },
+            body: { name: '  ' }
+        })
+        const res = createResponse()
+
+        await controller.createSpace(req, res)
+
+        expect(service.createSpace).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Space name is required'
+        })
     })
-    const res = createResponse()
 
-    await controller.createSpace(req, res)
+    it('возвращает 400, если имя канваса превышает лимит', async () => {
+        const longName = 'a'.repeat(201)
+        const req = createRequest({
+            params: { unikId: 'unik-1' },
+            body: { name: 'Space One', defaultCanvasName: longName }
+        })
+        const res = createResponse()
 
-    expect(service.createSpace).not.toHaveBeenCalled()
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Space name is required'
+        await controller.createSpace(req, res)
+
+        expect(service.createSpace).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Canvas name must be 200 characters or less'
+        })
     })
-  })
 
-  it('возвращает 400, если имя канваса превышает лимит', async () => {
-    const longName = 'a'.repeat(201)
-    const req = createRequest({
-      params: { unikId: 'unik-1' },
-      body: { name: 'Space One', defaultCanvasName: longName }
+    it('возвращает 500, если сервис выбрасывает ошибку транзакции', async () => {
+        service.createSpace.mockRejectedValue(new Error('Transaction failed'))
+
+        const req = createRequest({
+            params: { unikId: 'unik-1' },
+            body: { name: 'Space One' }
+        })
+        const res = createResponse()
+
+        await controller.createSpace(req, res)
+
+        expect(res.status).toHaveBeenCalledWith(500)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Transaction failed'
+        })
     })
-    const res = createResponse()
 
-    await controller.createSpace(req, res)
+    it('валидирует структуру данных при изменении порядка канвасов', async () => {
+        const req = createRequest({
+            params: { unikId: 'unik-1', spaceId: 'space-1' },
+            body: { canvasOrders: [{ canvasId: '', sortOrder: 0 }] }
+        })
+        const res = createResponse()
 
-    expect(service.createSpace).not.toHaveBeenCalled()
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Canvas name must be 200 characters or less'
+        await controller.reorderCanvases(req, res)
+
+        expect(service.reorderCanvases).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Invalid canvas order data'
+        })
     })
-  })
 
-  it('возвращает 500, если сервис выбрасывает ошибку транзакции', async () => {
-    service.createSpace.mockRejectedValue(new Error('Transaction failed'))
+    it('возвращает подтверждение успешного изменения порядка канвасов', async () => {
+        service.reorderCanvases.mockResolvedValue(true)
 
-    const req = createRequest({
-      params: { unikId: 'unik-1' },
-      body: { name: 'Space One' }
+        const req = createRequest({
+            params: { unikId: 'unik-1', spaceId: 'space-1' },
+            body: { canvasOrders: [{ canvasId: 'canvas-1', sortOrder: 1 }] }
+        })
+        const res = createResponse()
+
+        await controller.reorderCanvases(req, res)
+
+        expect(service.reorderCanvases).toHaveBeenCalledWith('unik-1', 'space-1', {
+            canvasOrders: [{ canvasId: 'canvas-1', sortOrder: 1 }]
+        })
+        expect(res.json).toHaveBeenCalledWith({ message: 'Canvases reordered successfully' })
     })
-    const res = createResponse()
 
-    await controller.createSpace(req, res)
+    it('обновляет метаданные версии при корректных данных', async () => {
+        service.updateCanvasVersion.mockResolvedValue({
+            id: 'canvas-2',
+            versionLabel: 'Release',
+            versionDescription: 'Updated snapshot'
+        } as any)
 
-    expect(res.status).toHaveBeenCalledWith(500)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Transaction failed'
+        const req = createRequest({
+            params: {
+                unikId: 'unik-1',
+                spaceId: 'space-1',
+                canvasId: 'canvas-1',
+                versionId: 'canvas-2'
+            },
+            body: {
+                label: ' Release ',
+                description: ' Updated snapshot '
+            }
+        })
+        const res = createResponse()
+
+        await controller.updateCanvasVersion(req, res)
+
+        expect(service.updateCanvasVersion).toHaveBeenCalledWith('unik-1', 'space-1', 'canvas-1', 'canvas-2', {
+            label: 'Release',
+            description: 'Updated snapshot'
+        })
+        expect(res.json).toHaveBeenCalledWith({
+            success: true,
+            data: {
+                id: 'canvas-2',
+                versionLabel: 'Release',
+                versionDescription: 'Updated snapshot'
+            },
+            message: 'Canvas version updated successfully'
+        })
     })
-  })
 
-  it('валидирует структуру данных при изменении порядка канвасов', async () => {
-    const req = createRequest({
-      params: { unikId: 'unik-1', spaceId: 'space-1' },
-      body: { canvasOrders: [{ canvasId: '', sortOrder: 0 }] }
+    it('возвращает 400, если передан пустой ярлык версии', async () => {
+        const req = createRequest({
+            params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1', versionId: 'canvas-2' },
+            body: { label: '   ' }
+        })
+        const res = createResponse()
+
+        await controller.updateCanvasVersion(req, res)
+
+        expect(service.updateCanvasVersion).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Version label cannot be empty'
+        })
     })
-    const res = createResponse()
 
-    await controller.reorderCanvases(req, res)
+    it('возвращает 404, если версия не найдена', async () => {
+        service.updateCanvasVersion.mockResolvedValue(null as any)
 
-    expect(service.reorderCanvases).not.toHaveBeenCalled()
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Invalid canvas order data'
+        const req = createRequest({
+            params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1', versionId: 'canvas-2' },
+            body: { label: 'Release' }
+        })
+        const res = createResponse()
+
+        await controller.updateCanvasVersion(req, res)
+
+        expect(res.status).toHaveBeenCalledWith(404)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'Canvas version not found'
+        })
     })
-  })
 
-  it('возвращает подтверждение успешного изменения порядка канвасов', async () => {
-    service.reorderCanvases.mockResolvedValue(true)
+    it('возвращает 400, если поля для обновления не переданы', async () => {
+        const req = createRequest({
+            params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1', versionId: 'canvas-2' },
+            body: {}
+        })
+        const res = createResponse()
 
-    const req = createRequest({
-      params: { unikId: 'unik-1', spaceId: 'space-1' },
-      body: { canvasOrders: [{ canvasId: 'canvas-1', sortOrder: 1 }] }
+        await controller.updateCanvasVersion(req, res)
+
+        expect(service.updateCanvasVersion).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: 'No fields provided for update'
+        })
     })
-    const res = createResponse()
-
-    await controller.reorderCanvases(req, res)
-
-    expect(service.reorderCanvases).toHaveBeenCalledWith('unik-1', 'space-1', {
-      canvasOrders: [{ canvasId: 'canvas-1', sortOrder: 1 }]
-    })
-    expect(res.json).toHaveBeenCalledWith({ message: 'Canvases reordered successfully' })
-  })
-
-  it('обновляет метаданные версии при корректных данных', async () => {
-    service.updateCanvasVersion.mockResolvedValue({
-      id: 'canvas-2',
-      versionLabel: 'Release',
-      versionDescription: 'Updated snapshot'
-    } as any)
-
-    const req = createRequest({
-      params: {
-        unikId: 'unik-1',
-        spaceId: 'space-1',
-        canvasId: 'canvas-1',
-        versionId: 'canvas-2'
-      },
-      body: {
-        label: ' Release ',
-        description: ' Updated snapshot '
-      }
-    })
-    const res = createResponse()
-
-    await controller.updateCanvasVersion(req, res)
-
-    expect(service.updateCanvasVersion).toHaveBeenCalledWith('unik-1', 'space-1', 'canvas-1', 'canvas-2', {
-      label: 'Release',
-      description: 'Updated snapshot'
-    })
-    expect(res.json).toHaveBeenCalledWith({
-      success: true,
-      data: {
-        id: 'canvas-2',
-        versionLabel: 'Release',
-        versionDescription: 'Updated snapshot'
-      },
-      message: 'Canvas version updated successfully'
-    })
-  })
-
-  it('возвращает 400, если передан пустой ярлык версии', async () => {
-    const req = createRequest({
-      params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1', versionId: 'canvas-2' },
-      body: { label: '   ' }
-    })
-    const res = createResponse()
-
-    await controller.updateCanvasVersion(req, res)
-
-    expect(service.updateCanvasVersion).not.toHaveBeenCalled()
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Version label cannot be empty'
-    })
-  })
-
-  it('возвращает 404, если версия не найдена', async () => {
-    service.updateCanvasVersion.mockResolvedValue(null as any)
-
-    const req = createRequest({
-      params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1', versionId: 'canvas-2' },
-      body: { label: 'Release' }
-    })
-    const res = createResponse()
-
-    await controller.updateCanvasVersion(req, res)
-
-    expect(res.status).toHaveBeenCalledWith(404)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'Canvas version not found'
-    })
-  })
-
-  it('возвращает 400, если поля для обновления не переданы', async () => {
-    const req = createRequest({
-      params: { unikId: 'unik-1', spaceId: 'space-1', canvasId: 'canvas-1', versionId: 'canvas-2' },
-      body: {}
-    })
-    const res = createResponse()
-
-    await controller.updateCanvasVersion(req, res)
-
-    expect(service.updateCanvasVersion).not.toHaveBeenCalled()
-    expect(res.status).toHaveBeenCalledWith(400)
-    expect(res.json).toHaveBeenCalledWith({
-      success: false,
-      error: 'No fields provided for update'
-    })
-  })
 })

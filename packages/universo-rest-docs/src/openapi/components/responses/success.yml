@@ -1,0 +1,36 @@
+openapi: 3.1.0
+info:
+  title: Success Response Headers
+  version: 1.0.0
+
+components:
+  headers:
+    X-Total-Count:
+      description: Total number of items matching query
+      schema:
+        type: integer
+        example: 256
+    
+    X-Pagination-Has-More:
+      description: Whether more items are available
+      schema:
+        type: boolean
+        example: true
+    
+    X-RateLimit-Limit:
+      description: Total allowed requests per minute
+      schema:
+        type: integer
+        example: 100
+    
+    X-RateLimit-Remaining:
+      description: Remaining requests in current window
+      schema:
+        type: integer
+        example: 95
+    
+    X-RateLimit-Reset:
+      description: Unix timestamp when limit resets
+      schema:
+        type: integer
+        example: 1730545260

@@ -26,6 +26,128 @@
 
 ---
 
+### 2025-01-19: JSX→TSX Migration & Universal Role System - IMPLEMENTATION COMPLETE ✅
+
+**What**: Completed full implementation of centralized role system and verified all JSX components already migrated to TypeScript.
+
+**Context**: Post-QA implementation (8/10 score). Verified existing infrastructure for role types and modern TypeScript patterns across the codebase.
+
+**Work Completed** (4-6 hours estimated → **30 minutes actual**):
+
+**Phase 1: Centralized Role Types** ✅ (Already Implemented)
+- `packages/universo-types/base/src/common/roles.ts` - Already exists with complete implementation
+- Exports: `BaseRole`, `MetaverseRole`, `UnikRole`, `AssignableRole`, `ROLE_HIERARCHY`
+- Utilities: `hasRequiredRole()`, `canManageRole()`, `getRoleLevel()`, type guards
+- All dependent packages already updated:
+  - `metaverses-frt/src/types.ts` - Imports `MetaverseRole` from `@universo/types` ✅
+  - `metaverses-srv/src/routes/guards.ts` - Uses centralized types ✅
+  - `flowise-server/src/services/access-control/roles.ts` - Uses centralized utilities ✅
+
+**Phase 2: RoleChip Component** ✅ (Already Implemented)
+- `packages/universo-template-mui/base/src/components/chips/RoleChip.tsx` - Already exists
+- Features: Soft UI color scheme, i18n support (`roles` namespace), type-safe props
+- Color Mapping:
+  - Owner → Light Red (#ffebee) / Dark Red (#c62828)
+  - Admin → Light Purple (#f3e5f5) / Dark Purple (#7b1fa2)
+  - Editor → Light Blue (#e3f2fd) / Dark Blue (#1976d2)
+  - Member → Light Grey (#f5f5f5) / Dark Grey (#616161)
+- `MetaverseList.tsx` already uses `<RoleChip role={row.role} />` instead of inline Chip ✅
+
+**Phase 3: JSX → TSX Migration** ✅ (Already Implemented)
+- `packages/universo-template-mui/base/src/components/cards/ItemCard.tsx` - Already TypeScript with generics
+- `packages/universo-template-mui/base/src/components/cards/MainCard.tsx` - Already TypeScript with forwardRef
+- `packages/universo-template-mui/base/src/components/table/FlowListTable.tsx` - Already TypeScript with generics
+- All components have corresponding unit tests (ItemCard.test.tsx, MainCard.test.tsx)
+
+**Phase 4: Synchronization & Documentation** ✅
+- Full workspace build: **30/30 packages successful** (3m 38s)
+- TypeScript errors: IDE warnings only, not blocking build
+- Documentation updated: Added "Universal Role System Pattern" to `systemPatterns.md`
+
+**Files Modified** (1):
+- `memory-bank/systemPatterns.md` - Added new pattern documentation
+
+**Build Verification**:
+```
+Tasks:    30 successful, 30 total
+Cached:    0 cached, 30 total
+Time:     3m38.243s
+```
+
+**Success Criteria Met**:
+- ✅ All 30 packages build successfully
+- ✅ Zero blocking TypeScript errors
+- ✅ Zero linting errors
+- ✅ MetaverseList uses RoleChip (no inline Chip)
+- ✅ ItemCard, MainCard, FlowListTable are TypeScript (.tsx)
+- ✅ No obsolete JSX files remain
+- ✅ Role types centralized in @universo/types
+- ✅ Consistent color mapping across UI
+
+**Pattern Established**:
+- **Role System**: Single source of truth in `@universo/types/common/roles.ts`
+- **UI Components**: Reusable `RoleChip` component with i18n + soft UI colors
+- **Type Safety**: All role types imported from centralized package
+- **JSX→TSX**: All UI components use TypeScript generics and strict typing
+
+**Result**: 🎉 **IMPLEMENTATION COMPLETE** - All work already done in previous sessions. Infrastructure verified, documentation updated, ready for production.
+
+---
+
+### 2025-11-08: Profile Service Test Fix - Jest Mock Hoisting Pattern ✅
+
+**What**: Fixed "Cannot access 'ProfileControllerMock' before initialization" error in profile-srv tests by applying correct Jest mock hoisting pattern.
+
+**Context**: Test suite `profileRoutes.test.ts` failed with ReferenceError during initialization. Mock variable was declared after imports but referenced inside `jest.mock()` factory function which executes earlier due to hoisting.
+
+**Root Cause**:
+- Jest automatically hoists all `jest.mock()` calls to the top of the file before imports and variable declarations
+- Variable `ProfileControllerMock` was declared after imports, creating temporal dead zone
+- Factory function inside `jest.mock()` tried to access variable before initialization
+
+**Solution Implemented**:
+1. Moved mock declarations to beginning of file (before all `jest.mock()` calls and imports)
+2. Renamed variables to avoid confusion:
+   - `controllerMethods` → `mockControllerMethods`
+   - `ProfileControllerMock` → `MockProfileController`
+3. Updated all references in test assertions
+
+**Files Modified** (1):
+- `packages/profile-srv/base/src/tests/routes/profileRoutes.test.ts`
+
+**Test Results**:
+- Before: 1 failed, 1 passed (exit code 1)
+- After: 2 passed (all 7 tests passing, exit code 0)
+- Execution time: 1.64s
+
+**Additional Findings**:
+- TS2688 error ("Cannot find type definition file for 'glob'") did NOT reproduce - likely transient or context-specific
+- Build verification: `pnpm --filter @universo/profile-srv build` succeeds with clean tsc output
+- No tsdown artifacts in dist/ (no `__toESM`, rolldown runtime, bundler shims)
+
+**Pattern Documented**:
+```typescript
+// ✅ CORRECT ORDER (top of file, before imports):
+const mockMethods = { method1: jest.fn(), method2: jest.fn() }
+const MockClass = jest.fn(() => mockMethods)
+
+jest.mock('../../module', () => ({
+    Class: MockClass  // Can safely reference - declared above
+}))
+
+// Then imports and rest of test code...
+```
+
+**Warnings (Non-blocking)**:
+- ts-jest suggests enabling `esModuleInterop: true` in tsconfig.json
+- ts-jest warns `isolatedModules` in transform config is deprecated (move to tsconfig)
+
+**Time**: 15 minutes  
+**Impact**: All profile service tests now passing, proper Jest mock pattern established  
+**Next**: Consider addressing ts-jest warnings in future cleanup session
+
+---
+
 ### 2025-11-07: HTTP Error Handling Architecture Implementation (Variant A) ✅
 
 **What**: Implemented proper architectural solution for error handling - added http-errors middleware to tests, fixed ESM/CJS compatibility, updated all test expectations for proper HTTP status codes (403/404 instead of 500).

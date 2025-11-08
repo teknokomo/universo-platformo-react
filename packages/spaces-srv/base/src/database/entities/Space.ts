@@ -34,6 +34,6 @@ export class Space {
     unik!: UnikReference
 
     // Relationship with SpaceCanvas
-    @OneToMany(() => SpaceCanvas, spaceCanvas => spaceCanvas.space)
+    @OneToMany(() => SpaceCanvas, (spaceCanvas) => spaceCanvas.space)
     spaceCanvases!: SpaceCanvas[]
 }

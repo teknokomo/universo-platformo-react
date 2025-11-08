@@ -1,13 +1,7 @@
 import { DataSource } from 'typeorm'
 import { ChatflowType } from '../types'
 import { Canvas } from '../database/entities/Canvas'
-import {
-    CanvasService,
-    CanvasServiceDependencies,
-    CanvasServiceEntities,
-    PublicCanvasResponse,
-    CanvasScope
-} from './canvasService'
+import { CanvasService, CanvasServiceDependencies, CanvasServiceEntities, PublicCanvasResponse, CanvasScope } from './canvasService'
 
 export interface CanvasServiceFactoryOptions {
     getDataSource: () => DataSource
@@ -19,10 +13,7 @@ export type CanvasFlowResult = Canvas
 
 export interface CanvasServiceAdapter {
     readonly legacyService: CanvasService
-    checkIfCanvasIsValidForStreaming: (
-        canvasId: string,
-        scope?: CanvasScope
-    ) => Promise<{ isStreaming: boolean }>
+    checkIfCanvasIsValidForStreaming: (canvasId: string, scope?: CanvasScope) => Promise<{ isStreaming: boolean }>
     checkIfCanvasIsValidForUploads: (canvasId: string, scope?: CanvasScope) => Promise<any>
     deleteCanvas: (canvasId: string, scope?: CanvasScope) => Promise<any>
     getAllCanvases: (params: { unikId?: string; spaceId?: string; type?: ChatflowType }) => Promise<CanvasFlowResult[]>
@@ -35,11 +26,7 @@ export interface CanvasServiceAdapter {
 }
 
 export const createCanvasService = (options: CanvasServiceFactoryOptions): CanvasServiceAdapter => {
-    const legacyService = new CanvasService(
-        options.getDataSource,
-        options.entities,
-        options.dependencies
-    )
+    const legacyService = new CanvasService(options.getDataSource, options.entities, options.dependencies)
 
     return {
         legacyService,

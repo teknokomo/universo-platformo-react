@@ -1,0 +1,99 @@
+openapi: 3.1.0
+info:
+  title: Space Schemas
+  version: 1.0.0
+
+components:
+  schemas:
+    Space:
+      type: object
+      required:
+        - id
+        - unikId
+        - name
+        - order
+        - createdAt
+        - updatedAt
+        - isActive
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6g7-8901-bcde-f1234567890a"
+        unikId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Main Space"
+        description:
+          type: string
+          maxLength: 1000
+          example: "Primary workspace space"
+        order:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 0
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T11:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T11:00:00Z"
+        isActive:
+          type: boolean
+          default: true
+          example: true
+    
+    CreateSpace:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "New Space"
+        description:
+          type: string
+          maxLength: 1000
+          example: "Space description"
+        order:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 0
+    
+    UpdateSpace:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        order:
+          type: integer
+          minimum: 0
+    
+    SpaceListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Space'
+        pagination:
+          $ref: './common.yml#/components/schemas/PaginationMeta'

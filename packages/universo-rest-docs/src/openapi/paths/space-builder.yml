@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Space Builder Paths
+  version: 1.0.0
+
+paths:
+  /space-builder/generate:
+    post:
+      tags:
+        - Space Builder
+      summary: Generate 3D space from text
+      operationId: generateSpace
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Generation started
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'

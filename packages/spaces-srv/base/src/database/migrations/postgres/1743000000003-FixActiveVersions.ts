@@ -53,7 +53,7 @@ export class FixActiveVersions1743000000003 implements MigrationInterface {
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         console.log('[FixActiveVersions] Rolling back active versions fix...')
-        
+
         // Возвращаем дефолтное значение обратно к false (если нужно откатить)
         await queryRunner.query(`
             ALTER TABLE "public"."canvases"

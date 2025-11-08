@@ -83,9 +83,11 @@ export class SpacesDataMigration1743000000001 implements MigrationInterface {
         console.log(`  - relationships created: ${relationshipsCount[0].count}`)
 
         // Verify that counts match
-        if (spacesCount[0].count !== chatFlowCount[0].count ||
+        if (
+            spacesCount[0].count !== chatFlowCount[0].count ||
             canvasesCount[0].count !== chatFlowCount[0].count ||
-            relationshipsCount[0].count !== chatFlowCount[0].count) {
+            relationshipsCount[0].count !== chatFlowCount[0].count
+        ) {
             throw new Error('[SpacesDataMigration] Migration verification failed: record counts do not match')
         }
 

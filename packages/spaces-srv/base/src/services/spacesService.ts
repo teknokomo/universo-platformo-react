@@ -116,12 +116,7 @@ export class SpacesService {
         return this._publishLinkService
     }
 
-    private async loadCanvasForSpace(
-        unikId: string,
-        spaceId: string,
-        canvasId: string,
-        manager?: EntityManager
-    ): Promise<Canvas | null> {
+    private async loadCanvasForSpace(unikId: string, spaceId: string, canvasId: string, manager?: EntityManager): Promise<Canvas | null> {
         const repo = manager ? manager.getRepository(Canvas) : this.canvasRepository
         return repo
             .createQueryBuilder('canvas')
@@ -143,14 +138,7 @@ export class SpacesService {
                 .leftJoin('sp.spaceCanvases', 'sc')
                 .leftJoin('sc.canvas', 'canvas')
                 .where('sp.unik_id = :unikId', { unikId })
-                .select([
-                    'sp.id',
-                    'sp.name',
-                    'sp.description',
-                    'sp.visibility',
-                    'sp.createdDate',
-                    'sp.updatedDate'
-                ])
+                .select(['sp.id', 'sp.name', 'sp.description', 'sp.visibility', 'sp.createdDate', 'sp.updatedDate'])
                 .addSelect('COUNT(canvas.id)', 'canvasCount')
                 .groupBy('sp.id')
                 .getRawAndEntities()
@@ -191,9 +179,8 @@ export class SpacesService {
 
             const resolvedCanvasName = (defaultCanvasName ?? 'Main Canvas').trim() || 'Main Canvas'
             const normalizedCanvasName = resolvedCanvasName.slice(0, 200)
-            const canvasFlowData = typeof defaultCanvasFlowData === 'string' && defaultCanvasFlowData.trim().length
-                ? defaultCanvasFlowData
-                : '{}'
+            const canvasFlowData =
+                typeof defaultCanvasFlowData === 'string' && defaultCanvasFlowData.trim().length ? defaultCanvasFlowData : '{}'
 
             // Create space
             const space = spaceRepo.create({
@@ -256,9 +243,7 @@ export class SpacesService {
                 return null
             }
 
-            const canvases: CanvasResponse[] = space.spaceCanvases?.map((sc: any) =>
-                toCanvasResponse(sc.canvas, sc.sortOrder)
-            ) || []
+            const canvases: CanvasResponse[] = space.spaceCanvases?.map((sc: any) => toCanvasResponse(sc.canvas, sc.sortOrder)) || []
 
             return {
                 id: space.id,
@@ -280,10 +265,7 @@ export class SpacesService {
      * Update space
      */
     async updateSpace(unikId: string, spaceId: string, data: UpdateSpaceDto): Promise<SpaceResponse | null> {
-        const result = await this.spaceRepository.update(
-            { id: spaceId, unik: { id: unikId } },
-            { ...data, updatedDate: new Date() }
-        )
+        const result = await this.spaceRepository.update({ id: spaceId, unik: { id: unikId } }, { ...data, updatedDate: new Date() })
 
         if (result.affected === 0) {
             return null
@@ -517,11 +499,7 @@ export class SpacesService {
     /**
      * List versions for a canvas group
      */
-    async getCanvasVersions(
-        unikId: string,
-        spaceId: string,
-        canvasId: string
-    ): Promise<CanvasVersionResponse[] | null> {
+    async getCanvasVersions(unikId: string, spaceId: string, canvasId: string): Promise<CanvasVersionResponse[] | null> {
         const canvas = await this.loadCanvasForSpace(unikId, spaceId, canvasId)
         if (!canvas) {
             return null
@@ -643,16 +621,12 @@ export class SpacesService {
 
             if (data.label !== undefined) {
                 const trimmedLabel = data.label?.trim()
-                target.versionLabel = trimmedLabel && trimmedLabel.length > 0
-                    ? trimmedLabel
-                    : `v${target.versionIndex}`
+                target.versionLabel = trimmedLabel && trimmedLabel.length > 0 ? trimmedLabel : `v${target.versionIndex}`
             }
 
             if (data.description !== undefined) {
                 const trimmedDescription = data.description?.trim()
-                target.versionDescription = trimmedDescription && trimmedDescription.length > 0
-                    ? trimmedDescription
-                    : undefined
+                target.versionDescription = trimmedDescription && trimmedDescription.length > 0 ? trimmedDescription : undefined
             }
 
             target.updatedDate = new Date()
@@ -665,12 +639,7 @@ export class SpacesService {
     /**
      * Activate a specific canvas version within a group
      */
-    async activateCanvasVersion(
-        unikId: string,
-        spaceId: string,
-        canvasId: string,
-        versionId: string
-    ): Promise<CanvasResponse | null> {
+    async activateCanvasVersion(unikId: string, spaceId: string, canvasId: string, versionId: string): Promise<CanvasResponse | null> {
         return this.dataSource.transaction(async (manager: EntityManager) => {
             const reference = await this.loadCanvasForSpace(unikId, spaceId, canvasId, manager)
             if (!reference) {
@@ -696,12 +665,7 @@ export class SpacesService {
                 .where('version_group_id = :versionGroupId', { versionGroupId: reference.versionGroupId })
                 .execute()
 
-            await canvasRepo
-                .createQueryBuilder()
-                .update(Canvas)
-                .set({ isActive: true })
-                .where('id = :versionId', { versionId })
-                .execute()
+            await canvasRepo.createQueryBuilder().update(Canvas).set({ isActive: true }).where('id = :versionId', { versionId }).execute()
 
             await spaceCanvasRepo
                 .createQueryBuilder()
@@ -731,12 +695,7 @@ export class SpacesService {
     /**
      * Delete a non-active canvas version
      */
-    async deleteCanvasVersion(
-        unikId: string,
-        spaceId: string,
-        canvasId: string,
-        versionId: string
-    ): Promise<boolean> {
+    async deleteCanvasVersion(unikId: string, spaceId: string, canvasId: string, versionId: string): Promise<boolean> {
         return this.dataSource.transaction(async (manager: EntityManager) => {
             const reference = await this.loadCanvasForSpace(unikId, spaceId, canvasId, manager)
             if (!reference) {

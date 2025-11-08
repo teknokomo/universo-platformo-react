@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Query Parameters
+  version: 1.0.0
+
+components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Number of items to return (pagination)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+      example: 50
+    
+    Offset:
+      name: offset
+      in: query
+      description: Number of items to skip (pagination)
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      example: 0
+    
+    SortBy:
+      name: sortBy
+      in: query
+      description: Field to sort by
+      schema:
+        type: string
+        enum: [name, created, updated]
+        default: updated
+      example: "name"
+    
+    SortOrder:
+      name: sortOrder
+      in: query
+      description: Sort direction
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+      example: "asc"

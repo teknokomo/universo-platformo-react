@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Metaverses Paths
+  version: 1.0.0
+
+paths:
+  /metaverses:
+    get:
+      tags:
+        - Metaverses
+      summary: List metaverses
+      operationId: listMetaverses
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Metaverse list
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'

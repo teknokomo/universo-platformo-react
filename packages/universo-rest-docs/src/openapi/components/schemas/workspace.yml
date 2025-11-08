@@ -1,0 +1,99 @@
+openapi: 3.1.0
+info:
+  title: Workspace Schemas
+  version: 1.0.0
+
+components:
+  schemas:
+    Workspace:
+      type: object
+      required:
+        - id
+        - name
+        - ownerId
+        - createdAt
+        - updatedAt
+        - isActive
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique workspace identifier
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Workspace name
+          example: "My Production Workspace"
+        description:
+          type: string
+          maxLength: 1000
+          description: Workspace description
+          example: "Main workspace for production applications"
+        ownerId:
+          type: string
+          format: uuid
+          description: Owner user ID (Supabase auth.users)
+          example: "user-uuid-1234"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-15T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-01-20T14:30:00Z"
+        isActive:
+          type: boolean
+          default: true
+          description: Soft delete flag
+          example: true
+    
+    CreateWorkspace:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Workspace name
+          example: "My New Workspace"
+        description:
+          type: string
+          maxLength: 1000
+          description: Optional workspace description
+          example: "Workspace for AR experiments"
+    
+    UpdateWorkspace:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Updated workspace name
+          example: "Renamed Workspace"
+        description:
+          type: string
+          maxLength: 1000
+          description: Updated description
+          example: "Updated description"
+    
+    WorkspaceListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          description: Array of workspace objects
+          items:
+            $ref: '#/components/schemas/Workspace'
+        pagination:
+          $ref: './common.yml#/components/schemas/PaginationMeta'

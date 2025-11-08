@@ -13,7 +13,7 @@ import {
 } from '../types'
 
 export class SpacesController {
-    constructor(private spacesService: SpacesService) { }
+    constructor(private spacesService: SpacesService) {}
 
     /**
      * GET /uniks/:unikId/spaces - Get all spaces for unik
@@ -33,7 +33,12 @@ export class SpacesController {
 
             console.log('[SpacesController.getSpaces] unikId:', unikId)
             const spaces = await this.spacesService.getSpacesForUnik(unikId)
-            console.log('[SpacesController.getSpaces] spaces count:', Array.isArray(spaces) ? spaces.length : 'not array', 'sample:', spaces?.[0])
+            console.log(
+                '[SpacesController.getSpaces] spaces count:',
+                Array.isArray(spaces) ? spaces.length : 'not array',
+                'sample:',
+                spaces?.[0]
+            )
 
             res.json({
                 success: true,
@@ -639,13 +644,7 @@ export class SpacesController {
                 payload.description = description
             }
 
-            const version = await this.spacesService.updateCanvasVersion(
-                unikId,
-                spaceId,
-                canvasId,
-                versionId,
-                payload
-            )
+            const version = await this.spacesService.updateCanvasVersion(unikId, spaceId, canvasId, versionId, payload)
 
             if (!version) {
                 res.status(404).json({
