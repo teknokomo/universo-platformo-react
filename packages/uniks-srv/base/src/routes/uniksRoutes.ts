@@ -38,7 +38,8 @@ const getRepositories = (req: Request, getDataSource: () => DataSource) => {
 }
 
 const createUnikSchema = z.object({
-    name: z.string().min(1, 'name is required')
+    name: z.string().min(1, 'name is required'),
+    description: z.string().max(1000).optional()
 })
 
 const addMemberSchema = z.object({
@@ -48,7 +49,8 @@ const addMemberSchema = z.object({
 })
 
 const updateUnikSchema = z.object({
-    name: z.string().min(1, 'name is required')
+    name: z.string().min(1, 'name is required'),
+    description: z.string().max(1000).optional()
 })
 
 // Router for collection operations (list, create) - mounted at /uniks
@@ -124,7 +126,10 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
             }
 
             const { unikRepo, membershipRepo } = getRepositories(req, getDataSource)
-            const unik = unikRepo.create({ name: parsed.data.name })
+            const unik = unikRepo.create({ 
+                name: parsed.data.name,
+                description: parsed.data.description
+            })
             const savedUnik = await unikRepo.save(unik)
 
             const membership = membershipRepo.create({ user_id: userId, unik_id: savedUnik.id, role: 'owner' })
@@ -232,7 +237,10 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
             const updateResult = await unikRepo
                 .createQueryBuilder()
                 .update(Unik)
-                .set({ name: parsed.data.name })
+                .set({ 
+                    name: parsed.data.name,
+                    description: parsed.data.description
+                })
                 .where('id = :id', { id: req.params.id })
                 .returning('*')
                 .execute()

@@ -1,8 +1,3 @@
-openapi: 3.1.0
-info:
-  title: Canvases Paths
-  version: 1.0.0
-
 paths:
   /unik/{unikId}/spaces/{spaceId}/canvases:
     parameters:

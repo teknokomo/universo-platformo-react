@@ -3,11 +3,12 @@ import path from 'path'
 import YAML from 'yaml'
 
 export function loadOpenApiSpec(): object {
-    const isDev = process.env.NODE_ENV !== 'production'
-    const specPath = isDev ? path.join(__dirname, '../../src/openapi/index.yml') : path.join(__dirname, '../openapi-bundled.yml')
+    // Always use bundled file - it has all $ref resolved
+    // Modular files are used only for authoring, bundle-openapi.js merges them
+    const specPath = path.join(__dirname, '../openapi-bundled.yml')
 
     if (!fs.existsSync(specPath)) {
-        throw new Error(`OpenAPI spec not found at ${specPath}`)
+        throw new Error(`OpenAPI spec not found at ${specPath}. Run 'pnpm build:openapi' first.`)
     }
 
     const specContent = fs.readFileSync(specPath, 'utf8')

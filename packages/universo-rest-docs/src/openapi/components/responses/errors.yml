@@ -80,10 +80,16 @@ components:
                 path: "/api/v1/unik/abc-123"
     
     TooManyRequests:
-      description: Too Many Requests — Rate limit exceeded
+      description: |
+        Too Many Requests — Rate limit exceeded
+        
+        The API uses Redis-based rate limiting with per-endpoint quotas.
+        Headers indicate current limit status and when to retry.
+        
+        **Recommended retry strategy**: Exponential backoff (1s, 2s, 4s, 8s...)
       headers:
         X-RateLimit-Limit:
-          description: Total allowed requests per minute
+          description: Total allowed requests per minute for this endpoint
           schema:
             type: integer
             example: 100
@@ -93,10 +99,16 @@ components:
             type: integer
             example: 0
         X-RateLimit-Reset:
-          description: Unix timestamp when limit resets
+          description: Unix timestamp (seconds) when limit resets
           schema:
             type: integer
+            format: int64
             example: 1730545260
+        Retry-After:
+          description: Seconds to wait before retrying (RFC 7231)
+          schema:
+            type: integer
+            example: 42
       content:
         application/json:
           schema:

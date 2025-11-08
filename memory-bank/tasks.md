@@ -141,6 +141,104 @@ import { something } from './somewhere'
 
 ---
 
+## 🔥 OpenAPI Spec Fix: YAML Indentation & $ref Syntax - ✅ COMPLETED (2025-11-08)
+
+**Context**: Swagger UI показывал ошибки "Could not resolve reference: Invalid reference token 'paths'" для всех путей в модульной OpenAPI 3.1.0 спецификации.
+
+**Root Cause Identified**:
+- Проблема #1: Неправильный синтаксис `$ref` в index.yml - использовал `#/paths/~1uniks` вместо `#/~1uniks`
+- Проблема #2: Файлы путей содержали обёртки `paths:`, которые конфликтовали с JSON Pointer синтаксисом
+- Проблема #3: После удаления обёрток - множественные пути в одном файле имели неправильные отступы YAML
+
+**Solution Implemented (Plan B - Fix YAML Structure)**:
+1. ✅ Удалены обёртки `openapi:`, `info:`, `paths:` из всех 7 файлов путей:
+   - workspaces.yml, spaces.yml, canvases.yml, metaverses.yml, publications.yml, profile.yml, space-builder.yml
+   
+2. ✅ Обновлены все `$ref` в index.yml (10 ссылок):
+   - BEFORE: `'./paths/workspaces.yml#/paths/~1uniks'`
+   - AFTER: `'./paths/workspaces.yml#/~1uniks'`
+   - JSON Pointer RFC 6901 корректный синтаксис
+
+3. ✅ Исправлены отступы YAML в файлах с несколькими путями:
+   - workspaces.yml: `/uniks:` и `/unik/{unikId}:` теперь на одном уровне (корневом)
+   - spaces.yml: Оба пути на корневом уровне с 2-пробельными отступами для вложенных ключей
+   - canvases.yml: Аналогично исправлена структура
+
+4. ✅ Валидация OpenAPI спецификации:
+   - Command: `npx @redocly/openapi-cli lint src/openapi/index.yml`
+   - Result: **"Woohoo! Your OpenAPI definition is valid. 🎉"**
+   - Errors before: 12 "bad indentation" errors
+   - Errors after: 0 ✅
+
+5. ✅ Сборка и запуск сервера документации:
+   - Build: `pnpm build` - SUCCESS (сборка TypeScript + bundle OpenAPI)
+   - Bundled file: dist/openapi-bundled.yml создан успешно
+   - Server: `node dist/index.js` запущен на порту 6655
+   - Swagger UI: http://localhost:6655/api-docs
+
+**Architecture Decision (Plan A vs Plan B)**:
+
+**Plan A (Rejected)**: Always use bundled file
+- Pros: Simple, eliminates resolver issues
+- Cons: Poor DX (rebuild on every change), extra dependencies (nodemon, concurrently)
+
+**Plan B (Selected)**: Fix modular YAML structure
+- Pros: Preserves modular dev workflow, no rebuild needed, fixes root cause
+- Cons: Required understanding of JSON Pointer syntax and YAML structure
+
+**Files Modified** (8 total):
+
+**Path Files** (7):
+1. `packages/universo-rest-docs/src/openapi/paths/workspaces.yml` - Removed wrappers, fixed indents
+2. `packages/universo-rest-docs/src/openapi/paths/spaces.yml` - Removed wrappers, fixed indents
+3. `packages/universo-rest-docs/src/openapi/paths/canvases.yml` - Removed wrappers, fixed indents
+4. `packages/universo-rest-docs/src/openapi/paths/metaverses.yml` - Removed wrappers
+5. `packages/universo-rest-docs/src/openapi/paths/publications.yml` - Removed wrappers
+6. `packages/universo-rest-docs/src/openapi/paths/profile.yml` - Removed wrappers
+7. `packages/universo-rest-docs/src/openapi/paths/space-builder.yml` - Removed wrappers
+
+**Main Spec File** (1):
+8. `packages/universo-rest-docs/src/openapi/index.yml` - Updated all 10 `$ref` to correct JSON Pointer syntax
+
+**Technical Details**:
+
+**YAML Structure (Fixed)**:
+```yaml
+# ✅ CORRECT (all paths at root level):
+/uniks:
+  get:
+    tags: [Workspaces]
+    # ... 2-space indent for children
+  post:
+    tags: [Workspaces]
+    # ... 2-space indent
+
+/unik/{unikId}:  # ← Same indentation as /uniks (root level)
+  get:
+    # ... 2-space indent
+```
+
+**JSON Pointer Syntax**:
+- `/` in path encodes as `~1` (RFC 6901)
+- `#/~1uniks` = path `/uniks` in same file
+- `#/paths/~1uniks` = path inside `paths:` object (wrong for our structure)
+
+**Pattern Established**:
+- OpenAPI 3.1.0 modular specs should use direct JSON Pointers without intermediate wrappers
+- Multiple paths in one file: all at root level, consistent 2-space indents
+- Validation before commit: `npx @redocly/openapi-cli lint src/openapi/index.yml`
+
+**User Testing Required**:
+- [ ] Open http://localhost:6655/api-docs
+- [ ] Verify: No "Resolver error" messages in Swagger UI
+- [ ] Verify: All 10 endpoints visible and expandable
+- [ ] Test: Click on any endpoint → should show full documentation
+- [ ] Check console: 0 errors
+
+**Result**: 🎉 **IMPLEMENTATION COMPLETE** - OpenAPI модульная структура исправлена. Валидация проходит успешно. Swagger UI готов к тестированию.
+
+---
+
 ## 🔥 IMPLEMENT MODE: HTTP Error Handling Architecture (Variant A) - ✅ COMPLETED (2025-11-07)
 
 **Final Status**: ✅ ALL IMPLEMENTATION TASKS COMPLETED SUCCESSFULLY

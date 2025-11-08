@@ -1,0 +1,81 @@
+openapi: 3.1.0
+info:
+  title: Unik Member Schemas
+  version: 1.0.0
+
+components:
+  schemas:
+    UnikRole:
+      type: string
+      enum:
+        - owner
+        - admin
+        - editor
+        - member
+      description: |
+        User role in Unik:
+        - **owner**: Full control, can delete Unik
+        - **admin**: Can manage members and settings
+        - **editor**: Can create/edit content
+        - **member**: Read-only access
+      example: "admin"
+    
+    UnikMember:
+      type: object
+      required:
+        - id
+        - userId
+        - unikId
+        - role
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique membership record ID
+          example: "m1-uuid-1234"
+        userId:
+          type: string
+          format: uuid
+          description: User ID (auth.users)
+          example: "user-uuid-5678"
+        unikId:
+          type: string
+          format: uuid
+          description: Unik ID
+          example: "unik-uuid-abcd"
+        role:
+          $ref: '#/components/schemas/UnikRole'
+        createdAt:
+          type: string
+          format: date-time
+          description: Membership creation timestamp
+          example: "2025-01-15T10:00:00Z"
+    
+    AddMemberRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: User ID to add as member
+          example: "new-user-uuid"
+        role:
+          type: string
+          enum:
+            - admin
+            - editor
+            - member
+          default: member
+          description: Initial role (cannot assign 'owner' role)
+          example: "editor"
+    
+    UpdateMemberRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          $ref: '#/components/schemas/UnikRole'

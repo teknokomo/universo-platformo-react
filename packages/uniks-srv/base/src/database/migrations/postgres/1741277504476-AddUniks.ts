@@ -12,6 +12,8 @@ export class AddUniks1741277504476 implements MigrationInterface {
         CREATE TABLE IF NOT EXISTS uniks.uniks (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           name varchar NOT NULL,
+          description TEXT,
+          is_active BOOLEAN NOT NULL DEFAULT true,
           created_at TIMESTAMP NOT NULL DEFAULT now(),
           updated_at TIMESTAMP NOT NULL DEFAULT now()
         );

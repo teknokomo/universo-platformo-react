@@ -38,65 +38,65 @@ import {
 
 /**
  * Register OpenAPI metadata for schemas
- * 
+ *
  * TODO: The following schemas are not yet implemented in @universo/types:
- * - Workspace (Unik) schemas
- * - Space schemas  
+ * - Unik schemas
+ * - Space schemas
  * - Canvas schemas
  * - Publication schemas
- * 
+ *
  * These will be added as part of future validation infrastructure work.
  */
 
 // Metaverse schemas
 const MetaverseSchemaWithMeta = MetaverseSchema.openapi('Metaverse', {
-    description: 'Metaverse collection - thematic grouping of spaces',
-});
+    description: 'Metaverse collection - thematic grouping of spaces'
+})
 
 const SectionSchemaWithMeta = SectionSchema.openapi('Section', {
-    description: 'Section within metaverse - organizational unit',
-});
+    description: 'Section within metaverse - organizational unit'
+})
 
 const EntitySchemaWithMeta = EntitySchema.openapi('Entity', {
-    description: '3D entity or interactive object within section',
-});
+    description: '3D entity or interactive object within section'
+})
 
 const CreateMetaverseSchemaWithMeta = CreateMetaverseSchema.openapi('CreateMetaverse', {
-    description: 'Metaverse creation request',
-});
+    description: 'Metaverse creation request'
+})
 
 const UpdateMetaverseSchemaWithMeta = UpdateMetaverseSchema.openapi('UpdateMetaverse', {
-    description: 'Metaverse update request',
-});
+    description: 'Metaverse update request'
+})
 
 const CreateSectionSchemaWithMeta = CreateSectionSchema.openapi('CreateSection', {
-    description: 'Section creation request',
-});
+    description: 'Section creation request'
+})
 
 const UpdateSectionSchemaWithMeta = UpdateSectionSchema.openapi('UpdateSection', {
-    description: 'Section update request',
-});
+    description: 'Section update request'
+})
 
 const CreateEntitySchemaWithMeta = CreateEntitySchema.openapi('CreateEntity', {
-    description: 'Entity creation request',
-});
+    description: 'Entity creation request'
+})
 
 const UpdateEntitySchemaWithMeta = UpdateEntitySchema.openapi('UpdateEntity', {
-    description: 'Entity update request',
-});
+    description: 'Entity update request'
+})
 
 // Common schemas
 const PaginationMetaSchemaWithMeta = PaginationMetaSchema.openapi('PaginationMeta', {
-    description: 'Pagination metadata for list responses',
-});
+    description: 'Pagination metadata for list responses'
+})
 
 const PaginationQuerySchemaWithMeta = PaginationQuerySchema.openapi('PaginationQuery', {
-    description: 'Pagination query parameters',
-});
+    description: 'Pagination query parameters'
+})
 
 const ApiErrorSchemaWithMeta = ApiErrorSchema.openapi('ApiError', {
-    description: 'Standard API error response format',
-});
+    description: 'Standard API error response format'
+})
 
 /**
  * Export all registered schemas for use in OpenAPI spec generation
@@ -112,15 +112,15 @@ export const openApiSchemas = {
     UpdateSection: UpdateSectionSchemaWithMeta,
     CreateEntity: CreateEntitySchemaWithMeta,
     UpdateEntity: UpdateEntitySchemaWithMeta,
-    
+
     // Common
     PaginationMeta: PaginationMetaSchemaWithMeta,
-    ApiError: ApiErrorSchemaWithMeta,
-};
+    ApiError: ApiErrorSchemaWithMeta
+}
 
 /**
  * Export query parameter schemas separately
  */
 export const querySchemas = {
-    PaginationQuery: PaginationQuerySchemaWithMeta,
-};
+    PaginationQuery: PaginationQuerySchemaWithMeta
+}
