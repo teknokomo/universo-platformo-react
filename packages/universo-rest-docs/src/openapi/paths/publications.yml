@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Publications Paths
+  version: 1.0.0
+
+paths:
+  /publish/arjs:
+    post:
+      tags:
+        - Publications
+      summary: Publish canvas to AR.js
+      operationId: publishToARJS
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Publication started
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'

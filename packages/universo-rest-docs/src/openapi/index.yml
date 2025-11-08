@@ -1,0 +1,181 @@
+openapi: 3.1.0
+
+info:
+  title: Universo Platformo REST API
+  version: 3.0.0
+  description: |
+    **Universo Platformo** — платформа для создания 3D-пространств, AI-workflow и XR-приложений.
+    
+    ## Ключевые концепции
+    
+    - **Workspace (Unik)** — рабочее пространство пользователя (top-level контейнер)
+    - **Space** — логическая группировка Canvas внутри Workspace
+    - **Canvas** — 3D-сцена или AI workflow
+    - **Metaverse** — тематическая коллекция пространств
+    - **Publication** — экспорт Canvas в AR.js, PlayCanvas, Babylon.js
+    
+    ## Аутентификация
+    
+    API использует два метода аутентификации:
+    1. **Bearer JWT** — Supabase токен для пользовательских запросов
+    2. **API Key** — X-API-Key для программного доступа
+    
+    ## Rate Limiting
+    
+    - **Read операции**: 100 запросов/минуту
+    - **Write операции**: 60 запросов/минуту
+    
+    ## Row-Level Security (RLS)
+    
+    Все эндпоинты используют PostgreSQL RLS для изоляции данных:
+    - Пользователь видит только свои Workspace/Canvases
+    - Публичные Metaverses доступны всем
+    
+  contact:
+    name: Universo Platformo API Support
+    url: https://universo-platformo.com/support
+    email: api@universo-platformo.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+  - url: https://staging.universo-platformo.com/api/v1
+    description: Staging environment
+  - url: https://api.universo-platformo.com/api/v1
+    description: Production environment
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+tags:
+  - name: Workspaces
+    description: Workspace (Unik) management — top-level user containers
+  - name: Spaces
+    description: Space management — logical grouping of Canvases
+  - name: Canvases
+    description: Canvas management — 3D scenes and AI workflows
+  - name: Metaverses
+    description: Metaverse collections — thematic space groupings
+  - name: Publications
+    description: Canvas export to AR.js, PlayCanvas, Babylon.js
+  - name: Profile
+    description: User profile and settings
+  - name: Space Builder
+    description: AI-powered 3D space generation
+
+paths:
+  # Workspaces
+  /uniks:
+    $ref: './paths/workspaces.yml#/paths/~1uniks'
+  
+  /unik/{unikId}:
+    $ref: './paths/workspaces.yml#/paths/~1unik~1{unikId}'
+  
+  # Spaces
+  /unik/{unikId}/spaces:
+    $ref: './paths/spaces.yml#/paths/~1unik~1{unikId}~1spaces'
+  
+  /unik/{unikId}/spaces/{spaceId}:
+    $ref: './paths/spaces.yml#/paths/~1unik~1{unikId}~1spaces~1{spaceId}'
+  
+  # Canvases
+  /unik/{unikId}/spaces/{spaceId}/canvases:
+    $ref: './paths/canvases.yml#/paths/~1unik~1{unikId}~1spaces~1{spaceId}~1canvases'
+  
+  /unik/{unikId}/spaces/{spaceId}/canvases/{canvasId}:
+    $ref: './paths/canvases.yml#/paths/~1unik~1{unikId}~1spaces~1{spaceId}~1canvases~1{canvasId}'
+  
+  # Metaverses
+  /metaverses:
+    $ref: './paths/metaverses.yml#/paths/~1metaverses'
+  
+  # Publications
+  /publish/arjs:
+    $ref: './paths/publications.yml#/paths/~1publish~1arjs'
+  
+  # Profile
+  /profile:
+    $ref: './paths/profile.yml#/paths/~1profile'
+  
+  # Space Builder
+  /space-builder/generate:
+    $ref: './paths/space-builder.yml#/paths/~1space-builder~1generate'
+
+components:
+  securitySchemes:
+    $ref: './components/security.yml#/components/securitySchemes'
+  
+  schemas:
+    # Workspace schemas
+    Workspace:
+      $ref: './components/schemas/workspace.yml#/components/schemas/Workspace'
+    CreateWorkspace:
+      $ref: './components/schemas/workspace.yml#/components/schemas/CreateWorkspace'
+    UpdateWorkspace:
+      $ref: './components/schemas/workspace.yml#/components/schemas/UpdateWorkspace'
+    WorkspaceListResponse:
+      $ref: './components/schemas/workspace.yml#/components/schemas/WorkspaceListResponse'
+    
+    # Space schemas
+    Space:
+      $ref: './components/schemas/space.yml#/components/schemas/Space'
+    CreateSpace:
+      $ref: './components/schemas/space.yml#/components/schemas/CreateSpace'
+    UpdateSpace:
+      $ref: './components/schemas/space.yml#/components/schemas/UpdateSpace'
+    SpaceListResponse:
+      $ref: './components/schemas/space.yml#/components/schemas/SpaceListResponse'
+    
+    # Canvas schemas
+    Canvas:
+      $ref: './components/schemas/canvas.yml#/components/schemas/Canvas'
+    CreateCanvas:
+      $ref: './components/schemas/canvas.yml#/components/schemas/CreateCanvas'
+    UpdateCanvas:
+      $ref: './components/schemas/canvas.yml#/components/schemas/UpdateCanvas'
+    CanvasListResponse:
+      $ref: './components/schemas/canvas.yml#/components/schemas/CanvasListResponse'
+    
+    # Common schemas
+    ApiError:
+      $ref: './components/schemas/common.yml#/components/schemas/ApiError'
+    PaginationMeta:
+      $ref: './components/schemas/common.yml#/components/schemas/PaginationMeta'
+  
+  parameters:
+    # Path parameters
+    UnikId:
+      $ref: './components/parameters/path-params.yml#/components/parameters/UnikId'
+    SpaceId:
+      $ref: './components/parameters/path-params.yml#/components/parameters/SpaceId'
+    CanvasId:
+      $ref: './components/parameters/path-params.yml#/components/parameters/CanvasId'
+    
+    # Query parameters
+    Limit:
+      $ref: './components/parameters/query-params.yml#/components/parameters/Limit'
+    Offset:
+      $ref: './components/parameters/query-params.yml#/components/parameters/Offset'
+    SortBy:
+      $ref: './components/parameters/query-params.yml#/components/parameters/SortBy'
+    SortOrder:
+      $ref: './components/parameters/query-params.yml#/components/parameters/SortOrder'
+  
+  responses:
+    # Error responses
+    BadRequest:
+      $ref: './components/responses/errors.yml#/components/responses/BadRequest'
+    Unauthorized:
+      $ref: './components/responses/errors.yml#/components/responses/Unauthorized'
+    Forbidden:
+      $ref: './components/responses/errors.yml#/components/responses/Forbidden'
+    NotFound:
+      $ref: './components/responses/errors.yml#/components/responses/NotFound'
+    TooManyRequests:
+      $ref: './components/responses/errors.yml#/components/responses/TooManyRequests'
+    InternalError:
+      $ref: './components/responses/errors.yml#/components/responses/InternalError'

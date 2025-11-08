@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: Security Schemes
+  version: 1.0.0
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Supabase JWT token from `auth.users` table.
+        
+        **How to obtain**:
+        1. User signs in via Supabase Auth
+        2. Frontend receives JWT token
+        3. Include in `Authorization: Bearer <token>` header
+        
+        **Token lifetime**: 1 hour (configurable in Supabase)
+        
+        **Example**:
+        ```
+        Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        ```
+    
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key for programmatic access (server-to-server).
+        
+        **How to obtain**:
+        1. Generate via user settings in Universo Platformo dashboard
+        2. Store securely (never commit to git!)
+        3. Include in `X-API-Key` header
+        
+        **Permissions**: Same as user's Supabase JWT
+        
+        **Example**:
+        ```
+        X-API-Key: sk_live_1234567890abcdef
+        ```

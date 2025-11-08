@@ -1,0 +1,96 @@
+openapi: 3.1.0
+info:
+  title: Canvas Schemas
+  version: 1.0.0
+
+components:
+  schemas:
+    Canvas:
+      type: object
+      required:
+        - id
+        - spaceId
+        - name
+        - flowData
+        - deployed
+        - isPublic
+        - chatbotConfig
+        - createdDate
+        - updatedDate
+      properties:
+        id:
+          type: string
+          format: uuid
+        spaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        flowData:
+          type: string
+          description: JSON string containing canvas node configuration
+        deployed:
+          type: boolean
+          default: false
+        isPublic:
+          type: boolean
+          default: false
+        chatbotConfig:
+          type: string
+          description: JSON string with chatbot UI configuration
+        createdDate:
+          type: string
+          format: date-time
+        updatedDate:
+          type: string
+          format: date-time
+    
+    CreateCanvas:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        flowData:
+          type: string
+          default: "{}"
+        deployed:
+          type: boolean
+          default: false
+        isPublic:
+          type: boolean
+          default: false
+        chatbotConfig:
+          type: string
+    
+    UpdateCanvas:
+      type: object
+      properties:
+        name:
+          type: string
+        flowData:
+          type: string
+        deployed:
+          type: boolean
+        isPublic:
+          type: boolean
+        chatbotConfig:
+          type: string
+    
+    CanvasListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Canvas'
+        pagination:
+          $ref: './common.yml#/components/schemas/PaginationMeta'

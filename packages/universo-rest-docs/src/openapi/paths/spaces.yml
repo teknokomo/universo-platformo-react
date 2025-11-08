@@ -1,0 +1,128 @@
+openapi: 3.1.0
+info:
+  title: Spaces Paths
+  version: 1.0.0
+
+paths:
+  /unik/{unikId}/spaces:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+    
+    get:
+      tags:
+        - Spaces
+      summary: List spaces in workspace
+      operationId: listSpaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/Limit'
+        - $ref: '../components/parameters/query-params.yml#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Space list
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/space.yml#/components/schemas/SpaceListResponse'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    post:
+      tags:
+        - Spaces
+      summary: Create new space
+      operationId: createSpace
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/space.yml#/components/schemas/CreateSpace'
+      responses:
+        '201':
+          description: Space created
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/space.yml#/components/schemas/Space'
+        '400':
+          $ref: '../components/responses/errors.yml#/components/responses/BadRequest'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+
+  /unik/{unikId}/spaces/{spaceId}:
+    parameters:
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/UnikId'
+      - $ref: '../components/parameters/path-params.yml#/components/parameters/SpaceId'
+    
+    get:
+      tags:
+        - Spaces
+      summary: Get space by ID
+      operationId: getSpace
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Space details
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/space.yml#/components/schemas/Space'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    patch:
+      tags:
+        - Spaces
+      summary: Update space
+      operationId: updateSpace
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/space.yml#/components/schemas/UpdateSpace'
+      responses:
+        '200':
+          description: Space updated
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/space.yml#/components/schemas/Space'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'
+    
+    delete:
+      tags:
+        - Spaces
+      summary: Delete space
+      operationId: deleteSpace
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Space deleted
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../components/responses/errors.yml#/components/responses/NotFound'
+        '500':
+          $ref: '../components/responses/errors.yml#/components/responses/InternalError'

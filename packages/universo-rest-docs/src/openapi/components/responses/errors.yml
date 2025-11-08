@@ -1,0 +1,128 @@
+openapi: 3.1.0
+info:
+  title: Error Responses
+  version: 1.0.0
+
+components:
+  responses:
+    BadRequest:
+      description: Bad Request — Invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common.yml#/components/schemas/ApiError'
+          examples:
+            validationError:
+              summary: Validation error example
+              value:
+                error: "ValidationError"
+                message: "Invalid request body"
+                statusCode: 400
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/uniks"
+                details:
+                  name: "Name must be between 1 and 255 characters"
+    
+    Unauthorized:
+      description: Unauthorized — Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common.yml#/components/schemas/ApiError'
+          examples:
+            missingToken:
+              summary: Missing authentication token
+              value:
+                error: "Unauthorized"
+                message: "Missing or invalid authentication token"
+                statusCode: 401
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/uniks"
+            invalidToken:
+              summary: Invalid JWT token
+              value:
+                error: "Unauthorized"
+                message: "JWT token has expired or is invalid"
+                statusCode: 401
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/uniks"
+    
+    Forbidden:
+      description: Forbidden — Insufficient permissions (RLS violation)
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common.yml#/components/schemas/ApiError'
+          examples:
+            rlsViolation:
+              summary: Row-Level Security violation
+              value:
+                error: "Forbidden"
+                message: "Insufficient permissions to access this resource"
+                statusCode: 403
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/unik/abc-123"
+    
+    NotFound:
+      description: Not Found — Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common.yml#/components/schemas/ApiError'
+          examples:
+            resourceNotFound:
+              summary: Resource not found
+              value:
+                error: "NotFound"
+                message: "Resource not found"
+                statusCode: 404
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/unik/abc-123"
+    
+    TooManyRequests:
+      description: Too Many Requests — Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: Total allowed requests per minute
+          schema:
+            type: integer
+            example: 100
+        X-RateLimit-Remaining:
+          description: Remaining requests in current window
+          schema:
+            type: integer
+            example: 0
+        X-RateLimit-Reset:
+          description: Unix timestamp when limit resets
+          schema:
+            type: integer
+            example: 1730545260
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common.yml#/components/schemas/ApiError'
+          examples:
+            rateLimitExceeded:
+              summary: Rate limit exceeded
+              value:
+                error: "TooManyRequests"
+                message: "Rate limit exceeded. Try again in 42 seconds."
+                statusCode: 429
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/uniks"
+    
+    InternalError:
+      description: Internal Server Error — Unexpected server failure
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/common.yml#/components/schemas/ApiError'
+          examples:
+            serverError:
+              summary: Generic server error
+              value:
+                error: "InternalServerError"
+                message: "An unexpected error occurred"
+                statusCode: 500
+                timestamp: "2025-11-02T10:00:00Z"
+                path: "/api/v1/uniks"

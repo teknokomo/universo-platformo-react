@@ -90,24 +90,19 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 spacesCount: string
             }>()
 
-            const response = raw.map((row: {
-                role: string
-                id: string
-                name: string
-                created_at: Date
-                updated_at: Date
-                spacesCount: string
-            }) => ({
-                id: row.id,
-                name: row.name,
-                role: row.role,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
-                // expose camelCase for UI convenience as well
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
-                spacesCount: parseInt(row.spacesCount || '0', 10) || 0
-            }))
+            const response = raw.map(
+                (row: { role: string; id: string; name: string; created_at: Date; updated_at: Date; spacesCount: string }) => ({
+                    id: row.id,
+                    name: row.name,
+                    role: row.role,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    // expose camelCase for UI convenience as well
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    spacesCount: parseInt(row.spacesCount || '0', 10) || 0
+                })
+            )
 
             res.json(response)
         })

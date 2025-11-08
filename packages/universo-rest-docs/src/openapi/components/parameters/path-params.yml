@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: Path Parameters
+  version: 1.0.0
+
+components:
+  parameters:
+    UnikId:
+      name: unikId
+      in: path
+      required: true
+      description: Workspace (Unik) UUID
+      schema:
+        type: string
+        format: uuid
+      example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    
+    SpaceId:
+      name: spaceId
+      in: path
+      required: true
+      description: Space UUID
+      schema:
+        type: string
+        format: uuid
+      example: "b2c3d4e5-f6g7-8901-bcde-f1234567890a"
+    
+    CanvasId:
+      name: canvasId
+      in: path
+      required: true
+      description: Canvas UUID
+      schema:
+        type: string
+        format: uuid
+      example: "c3d4e5f6-g7h8-9012-cdef-1234567890ab"
+    
+    MetaverseId:
+      name: id
+      in: path
+      required: true
+      description: Metaverse UUID
+      schema:
+        type: string
+        format: uuid
+      example: "d4e5f6g7-h8i9-0123-def0-1234567890bc"
+    
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      description: Space Builder Job UUID
+      schema:
+        type: string
+        format: uuid
+      example: "e5f6g7h8-i9j0-1234-ef01-234567890bcd"
+    
+    Technology:
+      name: technology
+      in: path
+      required: true
+      description: Publication technology (arjs, playcanvas, babylonjs)
+      schema:
+        type: string
+        enum: [arjs, playcanvas, babylonjs]
+      example: "arjs"

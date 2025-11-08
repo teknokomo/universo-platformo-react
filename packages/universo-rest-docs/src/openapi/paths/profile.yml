@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Profile Paths
+  version: 1.0.0
+
+paths:
+  /profile:
+    get:
+      tags:
+        - Profile
+      summary: Get user profile
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/profile.yml#/components/schemas/UserProfile'
+        '401':
+          $ref: '../components/responses/errors.yml#/components/responses/Unauthorized'

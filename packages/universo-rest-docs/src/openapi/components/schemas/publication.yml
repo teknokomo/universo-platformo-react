@@ -1,0 +1,22 @@
+openapi: 3.1.0
+info:
+  title: Publication Schemas
+  version: 1.0.0
+
+components:
+  schemas:
+    Publication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        canvasId:
+          type: string
+          format: uuid
+        technology:
+          type: string
+          enum: [arjs, playcanvas, babylonjs]
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]

@@ -89,7 +89,7 @@ describe('uniks routes (TypeORM)', () => {
     it('returns list of current user uniks', async () => {
         const unikRepo = createMockRepository<any>()
         const membershipRepo = createMockRepository<any>()
-        
+
         // Mock QueryBuilder to return raw data matching the new implementation
         const mockQB = membershipRepo.createQueryBuilder()
         mockQB.getRawMany.mockResolvedValue([
@@ -116,20 +116,20 @@ describe('uniks routes (TypeORM)', () => {
 
         expect(response.status).toBe(200)
         expect(response.body).toEqual([
-            { 
-                id: 'unik-1', 
-                name: 'Main', 
-                created_at: '2025-01-01T00:00:00.000Z', 
+            {
+                id: 'unik-1',
+                name: 'Main',
+                created_at: '2025-01-01T00:00:00.000Z',
                 updated_at: '2025-01-01T00:00:00.000Z',
                 createdAt: '2025-01-01T00:00:00.000Z',
                 updatedAt: '2025-01-01T00:00:00.000Z',
                 role: 'owner',
                 spacesCount: 3
             },
-            { 
-                id: 'unik-2', 
-                name: 'Side', 
-                created_at: '2025-01-02T00:00:00.000Z', 
+            {
+                id: 'unik-2',
+                name: 'Side',
+                created_at: '2025-01-02T00:00:00.000Z',
                 updated_at: '2025-01-02T00:00:00.000Z',
                 createdAt: '2025-01-02T00:00:00.000Z',
                 updatedAt: '2025-01-02T00:00:00.000Z',
@@ -137,7 +137,7 @@ describe('uniks routes (TypeORM)', () => {
                 spacesCount: 1
             }
         ])
-        
+
         // Verify createQueryBuilder chain was called correctly
         expect(membershipRepo.createQueryBuilder).toHaveBeenCalledWith('m')
         expect(mockQB.leftJoin).toHaveBeenCalledWith('m.unik', 'u')

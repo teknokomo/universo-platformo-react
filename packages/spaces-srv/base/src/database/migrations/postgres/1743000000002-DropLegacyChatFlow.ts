@@ -12,4 +12,3 @@ export class DropLegacyChatFlow1743000000002 implements MigrationInterface {
         // no-op: legacy table is not restored
     }
 }
-

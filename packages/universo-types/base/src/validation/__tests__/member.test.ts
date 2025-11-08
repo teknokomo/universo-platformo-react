@@ -4,11 +4,7 @@ import type { MemberFormData } from '../member'
 
 describe('emailSchema', () => {
     it('should accept valid email addresses', () => {
-        const validEmails = [
-            'user@example.com',
-            'test.user@domain.co.uk',
-            'name+tag@company.org'
-        ]
+        const validEmails = ['user@example.com', 'test.user@domain.co.uk', 'name+tag@company.org']
 
         validEmails.forEach((email) => {
             const result = emailSchema.safeParse(email)
@@ -39,13 +35,7 @@ describe('emailSchema', () => {
     })
 
     it('should reject invalid email format', () => {
-        const invalidEmails = [
-            'not-an-email',
-            '@example.com',
-            'user@',
-            'user..name@example.com',
-            'user @example.com'
-        ]
+        const invalidEmails = ['not-an-email', '@example.com', 'user@', 'user..name@example.com', 'user @example.com']
 
         invalidEmails.forEach((email) => {
             const result = emailSchema.safeParse(email)

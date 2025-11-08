@@ -1,12 +1,55 @@
 # Active Context
 
-> **Last Updated**: 2025-11-06
+> **Last Updated**: 2025-11-08
 >
 > **Purpose**: This file tracks the current focus of development - what we're actively working on RIGHT NOW. Completed work is in `progress.md`, planned work is in `tasks.md`.
 
 ---
 
-## Current Focus: HTTP Error Handling Architecture Complete ✅ (2025-11-07)
+## Current Focus: Profile Service Tests Fixed ✅ (2025-11-08)
+
+**Status**: Implementation Complete - All Tests Passing
+
+**Summary**: Resolved Jest mock hoisting error in `@universo/profile-srv` test suite. Fixed "Cannot access 'ProfileControllerMock' before initialization" by applying correct variable declaration order pattern.
+
+**What Was Completed**:
+
+### Issue Analysis ✅
+- Reproduced error: `pnpm --filter @universo/profile-srv test`
+- Error: ReferenceError in profileRoutes.test.ts line 36
+- Root cause: Variable declared after imports, but referenced inside jest.mock() factory (which hoists to top)
+
+### Solution Implementation ✅
+- Moved mock declarations before all jest.mock() calls
+- Renamed variables for clarity:
+  - `controllerMethods` → `mockControllerMethods`
+  - `ProfileControllerMock` → `MockProfileController`
+- Updated all 9 references in test file
+
+### Verification ✅
+- All 7 tests passing (2 test suites)
+- Build verification: `tsc` output clean (no tsdown artifacts)
+- No TS2688 error encountered (was likely transient)
+
+**Key Pattern Documented**:
+```typescript
+// ✅ Declare mocks FIRST (before jest.mock() and imports)
+const mockMethods = { ... }
+const MockClass = jest.fn(() => mockMethods)
+
+jest.mock('../../module', () => ({ Class: MockClass }))
+
+// Then imports...
+```
+
+**Files Modified**: 1
+- `packages/profile-srv/base/src/tests/routes/profileRoutes.test.ts`
+
+**Next Steps**: None - issue fully resolved. Consider addressing ts-jest warnings (esModuleInterop, isolatedModules) in future cleanup.
+
+---
+
+## Previous Focus: HTTP Error Handling Architecture Complete ✅ (2025-11-07)
 
 **Status**: Implementation Mode - All Tasks Completed Successfully
 

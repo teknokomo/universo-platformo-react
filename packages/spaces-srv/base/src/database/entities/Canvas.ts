@@ -71,6 +71,6 @@ export class Canvas {
     updatedDate!: Date
 
     // Relationship with SpaceCanvas
-    @OneToMany(() => SpaceCanvas, spaceCanvas => spaceCanvas.canvas)
+    @OneToMany(() => SpaceCanvas, (spaceCanvas) => spaceCanvas.canvas)
     spaceCanvases?: SpaceCanvas[]
 }

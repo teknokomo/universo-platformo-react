@@ -3,11 +3,7 @@ import type { Router as ExpressRouter } from 'express'
 import { DataSource } from 'typeorm'
 import { SpacesController } from '../controllers/spacesController'
 import { SpacesService } from '../services/spacesService'
-import {
-    CanvasController,
-    RateLimiterManagerLike,
-    CanvasControllerOptions
-} from '../controllers/canvasController'
+import { CanvasController, RateLimiterManagerLike, CanvasControllerOptions } from '../controllers/canvasController'
 import { createCanvasService, CanvasServiceFactoryOptions } from '../services/canvasServiceFactory'
 
 export interface CreateSpacesRoutesOptions {
@@ -17,10 +13,7 @@ export interface CreateSpacesRoutesOptions {
     membership?: CanvasControllerOptions['membership']
 }
 
-export function createSpacesRoutes(
-    getDataSourceFn: () => DataSource,
-    options: CreateSpacesRoutesOptions
-): ExpressRouter {
+export function createSpacesRoutes(getDataSourceFn: () => DataSource, options: CreateSpacesRoutesOptions): ExpressRouter {
     // Enable access to parent route params like :unikId
     const router: ExpressRouter = Router({ mergeParams: true })
 
@@ -55,35 +48,21 @@ export function createSpacesRoutes(
     router.put('/spaces/:spaceId/canvases/reorder', (req, res) => spacesController.reorderCanvases(req, res))
     router.get('/spaces/:spaceId/canvases/:canvasId/versions', (req, res) => spacesController.getCanvasVersions(req, res))
     router.post('/spaces/:spaceId/canvases/:canvasId/versions', (req, res) => spacesController.createCanvasVersion(req, res))
-    router.put('/spaces/:spaceId/canvases/:canvasId/versions/:versionId', (req, res) =>
-        spacesController.updateCanvasVersion(req, res)
+    router.put('/spaces/:spaceId/canvases/:canvasId/versions/:versionId', (req, res) => spacesController.updateCanvasVersion(req, res))
+    router.post('/spaces/:spaceId/canvases/:canvasId/versions/:versionId/activate', (req, res) =>
+        spacesController.activateCanvasVersion(req, res)
     )
-    router.post(
-        '/spaces/:spaceId/canvases/:canvasId/versions/:versionId/activate',
-        (req, res) => spacesController.activateCanvasVersion(req, res)
+    router.delete('/spaces/:spaceId/canvases/:canvasId/versions/:versionId', (req, res) => spacesController.deleteCanvasVersion(req, res))
+
+    router.get('/spaces/:spaceId/canvases/:canvasId/streaming', (req, res, next) =>
+        canvasController.checkIfCanvasIsValidForStreaming(req, res, next)
     )
-    router.delete(
-        '/spaces/:spaceId/canvases/:canvasId/versions/:versionId',
-        (req, res) => spacesController.deleteCanvasVersion(req, res)
+    router.get('/spaces/:spaceId/canvases/:canvasId/uploads', (req, res, next) =>
+        canvasController.checkIfCanvasIsValidForUploads(req, res, next)
     )
 
-    router.get(
-        '/spaces/:spaceId/canvases/:canvasId/streaming',
-        (req, res, next) => canvasController.checkIfCanvasIsValidForStreaming(req, res, next)
-    )
-    router.get(
-        '/spaces/:spaceId/canvases/:canvasId/uploads',
-        (req, res, next) => canvasController.checkIfCanvasIsValidForUploads(req, res, next)
-    )
-
-    router.get(
-        '/canvases/:canvasId/streaming',
-        (req, res, next) => canvasController.checkIfCanvasIsValidForStreaming(req, res, next)
-    )
-    router.get(
-        '/canvases/:canvasId/uploads',
-        (req, res, next) => canvasController.checkIfCanvasIsValidForUploads(req, res, next)
-    )
+    router.get('/canvases/:canvasId/streaming', (req, res, next) => canvasController.checkIfCanvasIsValidForStreaming(req, res, next))
+    router.get('/canvases/:canvasId/uploads', (req, res, next) => canvasController.checkIfCanvasIsValidForUploads(req, res, next))
 
     // Single Canvas operations (path expected by UI)
     router.get('/canvases/:canvasId', (req, res, next) => canvasController.getCanvasById(req, res, next))

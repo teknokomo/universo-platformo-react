@@ -18,12 +18,12 @@ export class SpaceCanvas {
     createdDate!: Date
 
     // Foreign key to Space
-    @ManyToOne(() => Space, space => space.spaceCanvases, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Space, (space) => space.spaceCanvases, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'space_id' })
     space!: Space
 
     // Foreign key to Canvas
-    @ManyToOne(() => Canvas, canvas => canvas.spaceCanvases, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Canvas, (canvas) => canvas.spaceCanvases, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'canvas_id' })
     canvas!: Canvas
 }
