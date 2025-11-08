@@ -40,7 +40,7 @@ import {
  * Register OpenAPI metadata for schemas
  *
  * TODO: The following schemas are not yet implemented in @universo/types:
- * - Workspace (Unik) schemas
+ * - Unik schemas
  * - Space schemas
  * - Canvas schemas
  * - Publication schemas
