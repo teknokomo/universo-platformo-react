@@ -1,5 +1,5 @@
 import React from 'react'
-import { Chip, type ChipProps } from '@mui/material'
+import { Chip } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import type { BaseRole } from '@universo/types'

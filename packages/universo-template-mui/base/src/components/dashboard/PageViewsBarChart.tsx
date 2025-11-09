@@ -1,23 +1,37 @@
+/**
+ * Page Views Bar Chart Component
+ *
+ * Displays stacked bar chart for page views, downloads, and conversions.
+ * Currently shows demo data for visualization purposes.
+ *
+ * @param title - Chart title (supports i18n via props)
+ * @param description - Chart description (supports i18n via props)
+ */
+
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import { BarChart } from '@mui/x-charts/BarChart'
 import { useTheme } from '@mui/material/styles'
 
-export default function PageViewsBarChart() {
+export type PageViewsBarChartProps = {
+    title?: string
+    description?: string
+}
+
+export default function PageViewsBarChart({
+    title = 'Page views and downloads',
+    description = 'Page views and downloads for the last 12 months'
+}: PageViewsBarChartProps) {
     const theme = useTheme()
-    const colorPalette = [
-        (theme.vars || theme).palette.primary.dark,
-        (theme.vars || theme).palette.primary.main,
-        (theme.vars || theme).palette.primary.light
-    ]
+    const colorPalette = [theme.palette.primary.light, theme.palette.primary.main, theme.palette.primary.dark]
+
     return (
         <Card variant='outlined' sx={{ width: '100%' }}>
             <CardContent>
                 <Typography component='h2' variant='subtitle2' gutterBottom>
-                    Page views and downloads
+                    {title}
                 </Typography>
                 <Stack sx={{ justifyContent: 'space-between' }}>
                     <Stack
@@ -31,10 +45,9 @@ export default function PageViewsBarChart() {
                         <Typography variant='h4' component='p'>
                             1.3M
                         </Typography>
-                        <Chip size='small' color='error' label='-8%' />
                     </Stack>
                     <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                        Page views and downloads for the last 6 months
+                        {description}
                     </Typography>
                 </Stack>
                 <BarChart
@@ -43,34 +56,39 @@ export default function PageViewsBarChart() {
                     xAxis={[
                         {
                             scaleType: 'band',
-                            data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+                            data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
                         }
                     ]}
                     yAxis={[{}]}
                     series={[
                         {
                             id: 'page-views',
-                            label: 'Page views',
-                            data: [2234, 3872, 2998, 4125, 3357, 2789, 2998],
+                            label: 'Page Views',
+                            data: [2234, 3872, 2998, 4125, 3357, 2842, 4538, 3219, 4892, 3647, 5123, 4219],
                             stack: 'A'
                         },
                         {
                             id: 'downloads',
                             label: 'Downloads',
-                            data: [3098, 4215, 2384, 2101, 4752, 3593, 2384],
+                            data: [3098, 4284, 3192, 4629, 3891, 3254, 4983, 3657, 5234, 4129, 5687, 4729],
                             stack: 'A'
                         },
                         {
                             id: 'conversions',
                             label: 'Conversions',
-                            data: [4051, 2275, 3129, 4693, 3904, 2038, 2275],
+                            data: [4508, 5892, 4783, 6324, 5127, 4638, 6892, 5319, 7183, 5847, 7629, 6524],
                             stack: 'A'
                         }
                     ]}
                     height={250}
-                    margin={{ left: 0, right: 0, top: 20, bottom: 0 }}
+                    /* Provide inner padding so chart content doesn't hug card edges */
+                    margin={{ left: 16, right: 16, top: 16, bottom: 24 }}
                     grid={{ horizontal: true }}
-                    legend={{ hidden: true }}
+                    slotProps={{
+                        legend: {
+                            hidden: true
+                        }
+                    }}
                 />
             </CardContent>
         </Card>

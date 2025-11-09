@@ -28,6 +28,12 @@ export default mergeConfig(
         enabled: true,
         reporter: ['text', 'json-summary'],
         reportsDirectory: path.resolve(__dirname, 'coverage'),
+        thresholds: {
+          statements: 70,
+          branches: 70,
+          functions: 70,
+          lines: 70,
+        },
       },
     },
     esbuild: {

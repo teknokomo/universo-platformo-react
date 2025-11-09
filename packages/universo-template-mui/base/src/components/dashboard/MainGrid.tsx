@@ -2,6 +2,8 @@ import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded'
 import Copyright from '../internals/Copyright'
 import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedTreeView from './CustomizedTreeView'
@@ -58,7 +60,13 @@ export default function MainGrid() {
                     </Grid>
                 ))}
                 <Grid item xs={12} sm={6} lg={3}>
-                    <HighlightedCard />
+                    <HighlightedCard
+                        icon={<InsightsRoundedIcon />}
+                        title='Explore your data'
+                        description='Uncover performance and visitor insights with our data wizardry.'
+                        buttonText='Get insights'
+                        buttonIcon={<ChevronRightRoundedIcon />}
+                    />
                 </Grid>
                 <Grid item xs={12} md={6}>
                     <SessionsChart />

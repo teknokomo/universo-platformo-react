@@ -81,7 +81,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             setFieldErrors({})
         }
     }, [open, initialName, initialDescription])
-    
+
     // Set initial extra values only on first open
     useEffect(() => {
         if (open) {
