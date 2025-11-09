@@ -186,7 +186,11 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                             ) : (
                                 <>
                                     <StyledTableCell component='th' scope='row' style={{ width: '20%' }} key='0'>
-                                        <TableSortLabel active={orderBy === 'name'} direction={order} onClick={() => handleRequestSort('name')}>
+                                        <TableSortLabel
+                                            active={orderBy === 'name'}
+                                            direction={order}
+                                            onClick={() => handleRequestSort('name')}
+                                        >
                                             {t('table.columns.name')}
                                         </TableSortLabel>
                                     </StyledTableCell>
@@ -314,82 +318,82 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                             </Typography>
                                                         </StyledTableCell>
                                                     ) : (
-                                                <>
-                                                    <StyledTableCell key='1'>
-                                                        <div
-                                                            style={{
-                                                                display: 'flex',
-                                                                flexDirection: 'row',
-                                                                flexWrap: 'wrap',
-                                                                marginTop: 5
-                                                            }}
-                                                        >
-                                                            &nbsp;
-                                                            {(row as any).category &&
-                                                                (row as any).category
-                                                                    .split(';')
-                                                                    .map((tag: string, tagIndex: number) => (
-                                                                        <Chip
-                                                                            key={tagIndex}
-                                                                            label={tag}
-                                                                            style={{ marginRight: 5, marginBottom: 5 }}
-                                                                        />
-                                                                    ))}
-                                                        </div>
-                                                    </StyledTableCell>
-                                                    <StyledTableCell key='2'>
-                                                        {images && images[row.id] && (
-                                                            <Box
-                                                                sx={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'start',
-                                                                    gap: 1
-                                                                }}
-                                                            >
-                                                                {images[row.id]
-                                                                    .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
-                                                                    .map((img: any) => (
-                                                                        <Box
-                                                                            key={img}
-                                                                            sx={{
-                                                                                width: 30,
-                                                                                height: 30,
-                                                                                borderRadius: '50%',
-                                                                                backgroundColor: customization.isDarkMode
-                                                                                    ? theme.palette.common.white
-                                                                                    : theme.palette.grey[300] + 75
-                                                                            }}
-                                                                        >
-                                                                            <img
-                                                                                style={{
-                                                                                    width: '100%',
-                                                                                    height: '100%',
-                                                                                    padding: 5,
-                                                                                    objectFit: 'contain'
-                                                                                }}
-                                                                                alt=''
-                                                                                src={img}
-                                                                            />
-                                                                        </Box>
-                                                                    ))}
-                                                                {images[row.id].length > 5 && (
-                                                                    <Typography
+                                                        <>
+                                                            <StyledTableCell key='1'>
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        flexDirection: 'row',
+                                                                        flexWrap: 'wrap',
+                                                                        marginTop: 5
+                                                                    }}
+                                                                >
+                                                                    &nbsp;
+                                                                    {(row as any).category &&
+                                                                        (row as any).category
+                                                                            .split(';')
+                                                                            .map((tag: string, tagIndex: number) => (
+                                                                                <Chip
+                                                                                    key={tagIndex}
+                                                                                    label={tag}
+                                                                                    style={{ marginRight: 5, marginBottom: 5 }}
+                                                                                />
+                                                                            ))}
+                                                                </div>
+                                                            </StyledTableCell>
+                                                            <StyledTableCell key='2'>
+                                                                {images && images[row.id] && (
+                                                                    <Box
                                                                         sx={{
-                                                                            alignItems: 'center',
                                                                             display: 'flex',
-                                                                            fontSize: '.9rem',
-                                                                            fontWeight: 200
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'start',
+                                                                            gap: 1
                                                                         }}
                                                                     >
-                                                                        {t('table.more', { count: images[row.id].length - 5 })}
-                                                                    </Typography>
+                                                                        {images[row.id]
+                                                                            .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
+                                                                            .map((img: any) => (
+                                                                                <Box
+                                                                                    key={img}
+                                                                                    sx={{
+                                                                                        width: 30,
+                                                                                        height: 30,
+                                                                                        borderRadius: '50%',
+                                                                                        backgroundColor: customization.isDarkMode
+                                                                                            ? theme.palette.common.white
+                                                                                            : theme.palette.grey[300] + 75
+                                                                                    }}
+                                                                                >
+                                                                                    <img
+                                                                                        style={{
+                                                                                            width: '100%',
+                                                                                            height: '100%',
+                                                                                            padding: 5,
+                                                                                            objectFit: 'contain'
+                                                                                        }}
+                                                                                        alt=''
+                                                                                        src={img}
+                                                                                    />
+                                                                                </Box>
+                                                                            ))}
+                                                                        {images[row.id].length > 5 && (
+                                                                            <Typography
+                                                                                sx={{
+                                                                                    alignItems: 'center',
+                                                                                    display: 'flex',
+                                                                                    fontSize: '.9rem',
+                                                                                    fontWeight: 200
+                                                                                }}
+                                                                            >
+                                                                                {t('table.more', { count: images[row.id].length - 5 })}
+                                                                            </Typography>
+                                                                        )}
+                                                                    </Box>
                                                                 )}
-                                                            </Box>
-                                                        )}
-                                                    </StyledTableCell>
-                                                </>
-                                            )}
+                                                            </StyledTableCell>
+                                                        </>
+                                                    )}
                                                     <StyledTableCell key='3'>{formatDate(normalizedUpdatedDate, 'full')}</StyledTableCell>
                                                     <StyledTableCell key='4'>
                                                         <Stack

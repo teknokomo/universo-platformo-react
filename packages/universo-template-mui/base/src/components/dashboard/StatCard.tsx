@@ -10,10 +10,18 @@ import { areaElementClasses } from '@mui/x-charts/LineChart'
 
 export type StatCardProps = {
     title: string
-    value: string
+    value: string | number
     interval: string
-    trend: 'up' | 'down' | 'neutral'
-    data: number[]
+    trend?: 'up' | 'down' | 'neutral'
+    trendPercentage?: string
+    description?: string
+    data?: number[]
+    /**
+     * Custom labels for x-axis. If not provided, uses current month's days.
+     * Useful for demo data or custom date ranges.
+     * @example ['Day 1', 'Day 2', 'Day 3', ...]
+     */
+    xAxisLabels?: string[]
 }
 
 function getDaysInMonth(month: number, year: number) {
@@ -42,9 +50,13 @@ function AreaGradient({ color, id }: { color: string; id: string }) {
     )
 }
 
-export default function StatCard({ title, value, interval, trend, data }: StatCardProps) {
+export default function StatCard({ title, value, interval, trend, trendPercentage, description, data, xAxisLabels }: StatCardProps) {
     const theme = useTheme()
-    const daysInWeek = getDaysInMonth(4, 2024)
+
+    // Generate default labels from current month if not provided
+    const now = new Date()
+    const defaultLabels = getDaysInMonth(now.getMonth() + 1, now.getFullYear())
+    const chartLabels = xAxisLabels || defaultLabels
 
     const trendColors = {
         up: theme.palette.mode === 'light' ? theme.palette.success.main : theme.palette.success.dark,
@@ -58,9 +70,11 @@ export default function StatCard({ title, value, interval, trend, data }: StatCa
         neutral: 'default' as const
     }
 
-    const color = labelColors[trend]
-    const chartColor = trendColors[trend]
-    const trendValues = { up: '+25%', down: '-25%', neutral: '+5%' }
+    // Use trend-based color if trend is provided, otherwise use primary color
+    const chartColor = trend ? trendColors[trend] : theme.palette.primary.main
+
+    // Default trend percentages (can be overridden via trendPercentage prop)
+    const defaultTrendValues = { up: '+25%', down: '-25%', neutral: '+5%' }
 
     return (
         <Card variant='outlined' sx={{ height: '100%', flexGrow: 1 }}>
@@ -74,32 +88,40 @@ export default function StatCard({ title, value, interval, trend, data }: StatCa
                             <Typography variant='h4' component='p'>
                                 {value}
                             </Typography>
-                            <Chip size='small' color={color} label={trendValues[trend]} />
+                            {trend && <Chip size='small' color={labelColors[trend]} label={trendPercentage || defaultTrendValues[trend]} />}
                         </Stack>
                         <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                             {interval}
                         </Typography>
+                        {description && (
+                            <Typography variant='caption' sx={{ color: 'text.secondary', mt: 0.5 }}>
+                                {description}
+                            </Typography>
+                        )}
                     </Stack>
-                    <Box sx={{ width: '100%', height: 50 }}>
-                        <SparkLineChart
-                            colors={[chartColor]}
-                            data={data}
-                            area
-                            showHighlight
-                            showTooltip
-                            xAxis={{
-                                scaleType: 'band',
-                                data: daysInWeek // Use the correct property 'data' for xAxis
-                            }}
-                            sx={{
-                                [`& .${areaElementClasses.root}`]: {
-                                    fill: `url(#area-gradient-${value})`
-                                }
-                            }}
-                        >
-                            <AreaGradient color={chartColor} id={`area-gradient-${value}`} />
-                        </SparkLineChart>
-                    </Box>
+                    {data && data.length > 0 && (
+                        <Box sx={{ width: '100%', height: 50 }}>
+                            <SparkLineChart
+                                colors={[chartColor]}
+                                data={data}
+                                height={50}
+                                area
+                                showHighlight
+                                showTooltip
+                                xAxis={{
+                                    scaleType: 'band',
+                                    data: chartLabels
+                                }}
+                                sx={{
+                                    [`& .${areaElementClasses.root}`]: {
+                                        fill: `url(#area-gradient-${value})`
+                                    }
+                                }}
+                            >
+                                <AreaGradient color={chartColor} id={`area-gradient-${value}`} />
+                            </SparkLineChart>
+                        </Box>
+                    )}
                 </Stack>
             </CardContent>
         </Card>

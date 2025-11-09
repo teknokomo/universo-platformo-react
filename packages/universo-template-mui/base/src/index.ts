@@ -101,3 +101,17 @@ export { default } from './components/cards/ItemCard'
 
 // Navigation system exports
 export * from './navigation'
+
+// Factories for creating reusable action descriptors
+export { createEntityActions, notifyError } from './factories'
+export type { EntityActionsConfig } from './factories'
+
+// Dashboard components
+export { default as StatCard } from './components/dashboard/StatCard'
+export type { StatCardProps } from './components/dashboard/StatCard'
+export { default as HighlightedCard } from './components/dashboard/HighlightedCard'
+export type { HighlightedCardProps } from './components/dashboard/HighlightedCard'
+export { default as SessionsChart } from './components/dashboard/SessionsChart'
+export type { SessionsChartProps } from './components/dashboard/SessionsChart'
+export { default as PageViewsBarChart } from './components/dashboard/PageViewsBarChart'
+export type { PageViewsBarChartProps } from './components/dashboard/PageViewsBarChart'

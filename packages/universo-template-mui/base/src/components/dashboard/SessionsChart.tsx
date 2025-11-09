@@ -1,3 +1,13 @@
+/**
+ * Sessions Activity Chart Component
+ *
+ * Displays stacked area chart for user sessions data (Direct, Referral, Organic sources).
+ * Currently shows demo data for visualization purposes.
+ *
+ * @param title - Chart title (supports i18n via props)
+ * @param description - Chart description (supports i18n via props)
+ */
+
 import { useTheme } from '@mui/material/styles'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -5,6 +15,11 @@ import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import { LineChart } from '@mui/x-charts/LineChart'
+
+export type SessionsChartProps = {
+    title?: string
+    description?: string
+}
 
 function AreaGradient({ color, id }: { color: string; id: string }) {
     return (
@@ -32,7 +47,7 @@ function getDaysInMonth(month: number, year: number) {
     return days
 }
 
-export default function SessionsChart() {
+export default function SessionsChart({ title = 'Sessions', description = 'Sessions per day for the last 30 days' }: SessionsChartProps) {
     const theme = useTheme()
     const data = getDaysInMonth(4, 2024)
 
@@ -42,7 +57,7 @@ export default function SessionsChart() {
         <Card variant='outlined' sx={{ width: '100%' }}>
             <CardContent>
                 <Typography component='h2' variant='subtitle2' gutterBottom>
-                    Sessions
+                    {title}
                 </Typography>
                 <Stack sx={{ justifyContent: 'space-between' }}>
                     <Stack
@@ -59,7 +74,7 @@ export default function SessionsChart() {
                         <Chip size='small' color='success' label='+35%' />
                     </Stack>
                     <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                        Sessions per day for the last 30 days
+                        {description}
                     </Typography>
                 </Stack>
                 <LineChart
@@ -68,7 +83,7 @@ export default function SessionsChart() {
                         {
                             scaleType: 'point',
                             data,
-                            tickInterval: (index, i) => (i + 1) % 5 === 0
+                            tickInterval: (_index, i) => (i + 1) % 5 === 0
                         }
                     ]}
                     yAxis={[{}]}
@@ -114,7 +129,8 @@ export default function SessionsChart() {
                         }
                     ]}
                     height={250}
-                    margin={{ left: 0, right: 20, top: 20, bottom: 0 }}
+                    /* Provide inner padding so chart content doesn't hug card edges */
+                    margin={{ left: 16, right: 16, top: 16, bottom: 24 }}
                     grid={{ horizontal: true }}
                     sx={{
                         '& .MuiAreaElement-series-organic': {
