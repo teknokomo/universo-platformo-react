@@ -51,6 +51,92 @@ The MUI Dashboard Template provides a comprehensive dashboard interface built on
 - **SideMenu**: Collapsible sidebar with navigation items
 - **NavbarBreadcrumbs**: Dynamic breadcrumb navigation with i18n support
 
+### Action Factories
+
+#### `createEntityActions<TEntity, TFormData>`
+
+Factory for creating standard CRUD actions (edit/delete) for entities with name/description fields.
+
+```tsx
+import { createEntityActions } from '@universo/template-mui'
+
+const metaverseActions = createEntityActions<Metaverse, MetaverseData>({
+  i18nPrefix: 'metaverses',
+  getInitialFormData: (entity) => ({ 
+    initialName: entity.name, 
+    initialDescription: entity.description 
+  })
+})
+```
+
+**Use Case**: Entities like Metaverses, Sections, Entities with standard name/description forms.
+
+#### `createMemberActions<TMember>` (NEW)
+
+Factory for creating member management actions (edit/remove) for access control lists.
+
+```tsx
+import { createMemberActions } from '@universo/template-mui'
+import type { MetaverseMember } from '../types'
+
+export default createMemberActions<MetaverseMember>({
+  i18nPrefix: 'metaverses',
+  entityType: 'metaverse'
+})
+```
+
+**Use Case**: Member management across Metaverses, Uniks, Finances, Projects modules.
+
+**Benefits**:
+- ✅ Eliminates code duplication (130 lines → 11 lines, -91%)
+- ✅ Consistent error handling via `notifyMemberError`
+- ✅ Type-safe with `BaseMemberEntity` interface
+- ✅ Reusable across multiple modules
+- ✅ Uses `MemberFormDialog` with email/role/comment fields
+
+**Configuration Options**:
+```tsx
+interface MemberActionsConfig<TMember> {
+  i18nPrefix: string        // e.g. 'metaverses', 'uniks'
+  entityType: string         // e.g. 'metaverse', 'unik' (for logging)
+  i18nKeys?: {               // Optional translation key overrides
+    editTitle?: string
+    emailLabel?: string
+    roleLabel?: string
+    commentLabel?: string
+    commentPlaceholder?: string
+    commentCharacterCount?: string
+    confirmRemove?: string
+    confirmRemoveDescription?: string
+  }
+  getMemberEmail?: (member: TMember) => string
+  getInitialFormData?: (member: TMember) => {
+    initialEmail: string
+    initialRole: string
+    initialComment: string
+  }
+}
+```
+
+**Required Types**:
+```tsx
+import type { BaseMemberEntity } from '@universo/types'
+
+interface YourMember extends BaseMemberEntity {
+  id: string
+  email: string | null
+  role: string
+  comment?: string
+  // ... module-specific fields
+}
+```
+
+**Translation Keys Pattern**:
+- Default pattern: `members.editTitle`, `members.confirmRemove`, `members.emailLabel`, etc. (relative to i18nPrefix namespace)
+- Example: with `i18nPrefix: 'metaverses'`, key `members.editTitle` resolves to `metaverses:members.editTitle`
+- Fallback to `@universo/i18n/core/access.json` for common keys (future enhancement)
+- Override via `i18nKeys` configuration option
+
 ### Navigation Components
 
 - **LanguageSwitcher**: Language selection dropdown with flag badges

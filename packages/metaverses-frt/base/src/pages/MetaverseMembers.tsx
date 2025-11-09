@@ -38,13 +38,10 @@ import * as metaversesApi from '../api/metaverses'
 import { metaversesQueryKeys } from '../api/queryKeys'
 import { MetaverseMember } from '../types'
 import memberActions from './MemberActions'
+import type { MemberFormData } from '@universo/template-mui'
 
-// Type for member invite/update data
-type MemberData = {
-    email: string
-    role: AssignableRole
-    comment?: string
-}
+// Re-export MemberFormData as MemberData for backward compatibility
+type MemberData = MemberFormData
 
 /**
  * Type guard to check if data is MemberFormData
@@ -259,44 +256,26 @@ const MetaverseMembers = () => {
             entityKind: 'member',
             t: baseContext.t!,
             api: {
-                updateMemberRole: async (id: string, patch: MemberData) => {
-                    if (!metaverseId) return
-                    // Validate patch data
-                    if (!isMemberFormData(patch)) {
-                        throw new Error('Invalid member data format')
-                    }
-                    await updateMemberRoleApi.request(metaverseId, id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.members(metaverseId)
-                    })
-                },
                 updateEntity: async (id: string, data: MemberData) => {
-                    // Alias for updateMemberRole to match ActionContext API expectation
                     if (!metaverseId) return
                     // Validate data
                     if (!isMemberFormData(data)) {
                         throw new Error('Invalid member data format')
                     }
-                    await updateMemberRoleApi.request(metaverseId, id, data)
+                    // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
+                    await updateMemberRoleApi.request(metaverseId, id, {
+                        role: data.role as AssignableRole,
+                        comment: data.comment
+                    })
                     // Invalidate cache after update
                     await queryClient.invalidateQueries({
                         queryKey: metaversesQueryKeys.members(metaverseId)
                     })
                 },
-                removeMember: async (id: string) => {
-                    if (!metaverseId) return
-                    await removeMemberApi.request(metaverseId, id)
-                    // Invalidate cache after remove
-                    await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.members(metaverseId)
-                    })
-                },
                 deleteEntity: async (id: string) => {
-                    // Alias for removeMember to match ActionContext API expectation
                     if (!metaverseId) return
                     await removeMemberApi.request(metaverseId, id)
-                    // Invalidate cache after remove
+                    // Invalidate cache after delete
                     await queryClient.invalidateQueries({
                         queryKey: metaversesQueryKeys.members(metaverseId)
                     })
@@ -313,14 +292,19 @@ const MetaverseMembers = () => {
                 confirm: async (spec: ConfirmSpec) => {
                     // Support both direct strings and translation keys
                     const confirmed = await confirm({
-                        title: spec.titleKey ? baseContext.t!(spec.titleKey, spec.interpolate) : spec.title || '',
-                        description: spec.descriptionKey ? baseContext.t!(spec.descriptionKey, spec.interpolate) : spec.description,
-                        confirmButtonName: spec.confirmKey
-                            ? baseContext.t!(spec.confirmKey)
-                            : spec.confirmButtonName || baseContext.t!('confirm.remove.confirm'),
-                        cancelButtonName: spec.cancelKey
-                            ? baseContext.t!(spec.cancelKey)
-                            : spec.cancelButtonName || baseContext.t!('confirm.remove.cancel')
+                        title: spec.titleKey && baseContext.t ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title || '',
+                        description:
+                            spec.descriptionKey && baseContext.t
+                                ? baseContext.t(spec.descriptionKey, spec.interpolate)
+                                : spec.description || '',
+                        confirmButtonName:
+                            spec.confirmKey && baseContext.t
+                                ? baseContext.t(spec.confirmKey)
+                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm.remove.confirm') : 'Confirm'),
+                        cancelButtonName:
+                            spec.cancelKey && baseContext.t
+                                ? baseContext.t(spec.cancelKey)
+                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
                     })
                     return confirmed
                 },
@@ -333,18 +317,8 @@ const MetaverseMembers = () => {
                     }
                 },
                 // Helper to open ConfirmDeleteDialog independently from BaseEntityMenu
-                openRemoveDialog: (member: MetaverseMember) => {
+                openDeleteDialog: (member: MetaverseMember) => {
                     setRemoveDialogState({ open: true, member })
-                },
-                // Compute self-action warnings
-                computeSelfActionWarning: (member: MetaverseMember, action: 'edit' | 'remove') => {
-                    if (member.userId === user?.id) {
-                        if (action === 'remove') {
-                            return baseContext.t('warnings.selfRemove')
-                        }
-                        return baseContext.t('warnings.selfDowngrade')
-                    }
-                    return undefined
                 }
             }
         }),
@@ -463,7 +437,7 @@ const MetaverseMembers = () => {
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<MetaverseMember, MemberData>
+                                                            <BaseEntityMenu<MetaverseMember, MemberFormData>
                                                                 entity={member}
                                                                 entityKind='member'
                                                                 descriptors={descriptors}
@@ -513,7 +487,7 @@ const MetaverseMembers = () => {
                                             const descriptors = memberActions
 
                                             return (
-                                                <BaseEntityMenu<MetaverseMember, MemberData>
+                                                <BaseEntityMenu<MetaverseMember, MemberFormData>
                                                     entity={row}
                                                     entityKind='member'
                                                     descriptors={descriptors}
