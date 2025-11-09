@@ -105,6 +105,8 @@ export * from './navigation'
 // Factories for creating reusable action descriptors
 export { createEntityActions, notifyError } from './factories'
 export type { EntityActionsConfig } from './factories'
+export { createMemberActions, notifyMemberError } from './factories/createMemberActions'
+export type { MemberActionsConfig, MemberFormData } from './factories/createMemberActions'
 
 // Dashboard components
 export { default as StatCard } from './components/dashboard/StatCard'

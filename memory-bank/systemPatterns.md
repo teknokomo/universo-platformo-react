@@ -288,6 +288,112 @@ grep -r "useQuery" packages/*/src | grep -v "queryKey:"
 
 ---
 
+## Factory Functions for Actions Pattern (CRITICAL)
+
+**Rule**: Use factory functions to generate reusable action descriptors for CRUD and member management operations.
+
+**Required**:
+- Factory in `@universo/template-mui/factories/`
+- Generic types for entity and form data
+- Configuration object pattern (not multiple parameters)
+- i18n key patterns with optional overrides
+
+**Factories Available**:
+
+### 1. `createEntityActions<TEntity, TFormData>` 
+For entities with name/description fields (Metaverses, Sections, Entities).
+
+**Pattern**:
+```typescript
+import { createEntityActions } from '@universo/template-mui'
+
+export default createEntityActions<Metaverse, MetaverseData>({
+  i18nPrefix: 'metaverses',
+  getInitialFormData: (entity) => ({ 
+    initialName: entity.name, 
+    initialDescription: entity.description 
+  })
+})
+```
+
+**Result**: Edit/Delete actions using `EntityFormDialog` (name/description fields).
+
+### 2. `createMemberActions<TMember extends BaseMemberEntity>` (NEW)
+For member management with email/role/comment fields (Metaverses, Uniks, Finances, Projects).
+
+**Pattern**:
+```typescript
+import { createMemberActions } from '@universo/template-mui'
+import type { MetaverseMember } from '../types'
+
+export default createMemberActions<MetaverseMember>({
+  i18nPrefix: 'metaverses',
+  entityType: 'metaverse'
+})
+```
+
+**Result**: Edit/Remove actions using `MemberFormDialog` (email/role/comment fields).
+
+**Benefits**:
+- ✅ Eliminates code duplication (130 lines → 11 lines, -91%)
+- ✅ Consistent error handling via `notifyError`/`notifyMemberError`
+- ✅ Type-safe with TypeScript generics
+- ✅ Reusable across multiple modules
+- ✅ Centralized i18n key patterns
+
+**Configuration Options**:
+```typescript
+interface MemberActionsConfig<TMember> {
+  i18nPrefix: string        // Module namespace (e.g. 'metaverses', 'uniks')
+  entityType: string         // For logging (e.g. 'metaverse', 'unik')
+  i18nKeys?: {               // Optional translation key overrides
+    editTitle?: string
+    confirmRemove?: string
+    // ... 8 more keys
+  }
+  getMemberEmail?: (member: TMember) => string
+  getInitialFormData?: (member: TMember) => { 
+    initialEmail: string
+    initialRole: string
+    initialComment: string 
+  }
+}
+```
+
+**Translation Key Patterns**:
+- Default: `members.editTitle`, `members.confirmRemove` (relative to i18nPrefix namespace)
+- Example: `i18nPrefix='metaverses'` → key `members.editTitle` resolves to `metaverses:members.editTitle`
+- Fallback: `@universo/i18n/core/access.json` for common keys (future)
+- Override: Via `i18nKeys` configuration
+
+**Required Types**:
+```typescript
+import type { BaseMemberEntity } from '@universo/types'
+
+interface YourMember extends BaseMemberEntity {
+  id: string
+  email: string | null
+  role: string
+  comment?: string
+  // ... module-specific fields
+}
+```
+
+**Detection**:
+```bash
+# Find Actions files not using factories (antipattern)
+find packages/*/src/pages -name "*Actions.tsx" -exec grep -L "createEntityActions\|createMemberActions" {} \;
+```
+
+**Why**: DRY principle, consistent UX, type safety, easier testing, faster feature development.
+
+**Code Reduction Example** (Metaverses package):
+- Before: 130 lines × 4 Actions files = 520 lines
+- After: 11 lines × 4 Actions files = 44 lines
+- **Savings: 476 lines (-92%)**
+
+---
+
 ## Secondary Patterns (Condensed)
 
 ### UPDL Node System

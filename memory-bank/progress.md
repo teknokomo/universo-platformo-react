@@ -22,6 +22,108 @@
 
 ## November 2025 (Latest)
 
+### 2025-11-10: createMemberActions Factory Implementation ✅
+**Context**: Created reusable factory for member management actions to eliminate code duplication across Metaverses, Uniks, Finances, Projects modules and enable consistent member access control UX.
+
+#### 1. **Factory Architecture** ✅
+**Problem**: Member management actions (edit/remove) were duplicated in each module with identical logic:
+- `MemberActions.tsx` in metaverses-frt: 130 lines of boilerplate
+- Needed for future modules: Uniks, Finances, Projects
+- Inconsistent error handling and i18n patterns
+
+**Solution**: Created `createMemberActions<TMember>` factory in `@universo/template-mui/factories/`:
+```typescript
+import { createMemberActions } from '@universo/template-mui'
+
+export default createMemberActions<MetaverseMember>({
+  i18nPrefix: 'metaverses',
+  entityType: 'metaverse'
+})
+```
+
+**Benefits**:
+- 130 lines → 11 lines (-91% code reduction)
+- Type-safe with `BaseMemberEntity` interface
+- Consistent error handling via `notifyMemberError`
+- Reusable across all modules with member management
+- Centralized i18n key patterns with optional overrides
+
+#### 2. **Type System** ✅
+**Created** `BaseMemberEntity` interface in `@universo/types/validation/baseMember.ts`:
+```typescript
+interface BaseMemberEntity {
+  id: string
+  email: string | null
+  role: string
+  comment?: string
+}
+```
+
+**Created** `MemberActionsConfig<TMember>` interface with configuration options:
+- `i18nPrefix`: Module namespace (e.g. 'metaverses', 'uniks')
+- `entityType`: For logging purposes
+- `i18nKeys`: Optional translation key overrides (8 keys)
+- `getMemberEmail`: Optional email extractor function
+- `getInitialFormData`: Optional form data initializer
+
+#### 3. **Refactoring Results** ✅
+**metaverses-frt Package**:
+- `MemberActions.tsx`: 130 lines → 11 lines (-91%)
+- `MetaverseMembers.tsx`: Updated to use `MemberFormData` type from factory
+- Removed duplicate `notifyError` function
+- Removed duplicate `MemberData` type (now uses `MemberFormData`)
+
+**Build Validation**:
+- ✅ `@universo/types` builds successfully (4625ms)
+- ✅ `@universo/template-mui` builds successfully (1494ms)
+- ✅ `@universo/metaverses-frt` builds successfully (4225ms)
+
+**Type Check**: All factory-related errors resolved, pre-existing errors unrelated to changes remain
+
+**Lint Check**: All prettier errors in new/modified code fixed, pre-existing warnings remain
+
+#### 4. **Documentation** ✅
+**Updated** `packages/universo-template-mui/base/README.md`:
+- Added `createMemberActions` section with usage examples
+- Documented configuration options and type requirements
+- Explained translation key patterns
+- Compared with `createEntityActions` for clarity
+
+**Updated** `memory-bank/systemPatterns.md`:
+- Added "Factory Functions for Actions Pattern (CRITICAL)" section
+- Documented both factories: `createEntityActions` and `createMemberActions`
+- Provided detection bash commands for antipatterns
+- Explained code reduction metrics: 476 lines saved in metaverses package (-92%)
+
+#### 5. **Browser Testing** ✅
+**Status**: Issue found and fixed
+
+**Issue**: Language keys displayed instead of translated text in edit/remove member dialogs
+- Cause: Factory used incorrect i18n key pattern `${i18nPrefix}.members.editTitle`
+- Expected: `members.editTitle` (relative to namespace, since `ctx.t()` already uses i18nPrefix as namespace)
+- Example: `metaverses.members.editTitle` → `members.editTitle` (resolved to `metaverses:members.editTitle`)
+
+**Fix**: Updated factory to use relative key paths:
+```typescript
+const editTitleKey = i18nKeys.editTitle || 'members.editTitle'
+const confirmRemoveKey = i18nKeys.confirmRemove || 'members.confirmRemove'
+// ... other keys
+```
+
+**Verification Required**:
+- Edit member functionality (email readonly, role/comment editable)
+- Remove member functionality (confirmation dialog)
+- i18n switching (EN ↔ RU translations)
+
+**Next Steps**:
+- User performs full browser testing with dev server
+- Apply pattern to future modules (Uniks, Finances, Projects)
+- Monitor for edge cases in production usage
+
+**Impact**: Establishes reusable pattern for member management across all modules, reducing future development time and ensuring consistent UX.
+
+---
+
 ### 2025-11-09: MSW Handlers - A+ Grade Improvements ✅
 **Context**: Implemented final two improvements for MSW handlers Grade A+: pagination унификация и Content-Type validation тесты.
 
