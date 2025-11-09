@@ -58,6 +58,12 @@ export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
         initialRole: string
         initialComment: string
     }
+
+    /**
+     * Available roles to select from in the edit dialog
+     * @default ['admin', 'editor', 'member']
+     */
+    availableRoles?: ReadonlyArray<import('@universo/types').AssignableRole>
 }
 
 /**
@@ -132,6 +138,7 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
         i18nPrefix,
         entityType,
         i18nKeys = {},
+        availableRoles,
         getMemberEmail = (member) => member.email || '',
         getInitialFormData = (member) => ({
             initialEmail: member.email || '',
@@ -181,6 +188,7 @@ export function createMemberActions<TMember extends BaseMemberEntity>(
                     saveButtonText: ctx.t('common:actions.save'),
                     savingButtonText: ctx.t('common:actions.saving'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
+                    ...(availableRoles && { availableRoles }),
                     ...getInitialFormData(ctx.entity),
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing

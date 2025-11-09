@@ -275,7 +275,7 @@ const MetaverseMembers = () => {
                 deleteEntity: async (id: string) => {
                     if (!metaverseId) return
                     await removeMemberApi.request(metaverseId, id)
-                    // Invalidate cache after update
+                    // Invalidate cache after delete
                     await queryClient.invalidateQueries({
                         queryKey: metaversesQueryKeys.members(metaverseId)
                     })
@@ -371,7 +371,7 @@ const MetaverseMembers = () => {
                         <ToolbarControls
                             viewToggleEnabled
                             viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => handleChange({} as React.MouseEvent<HTMLElement>, mode)}
+                            onViewModeChange={(mode: string) => handleChange(null, mode)}
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
                             primaryAction={{
@@ -440,7 +440,7 @@ const MetaverseMembers = () => {
                                                             <BaseEntityMenu<MetaverseMember, MemberFormData>
                                                                 entity={member}
                                                                 entityKind='member'
-                                                                descriptors={[...descriptors]}
+                                                                descriptors={descriptors}
                                                                 namespace='metaverses'
                                                                 i18nInstance={i18n}
                                                                 createContext={createMemberContext}
@@ -490,7 +490,7 @@ const MetaverseMembers = () => {
                                                 <BaseEntityMenu<MetaverseMember, MemberFormData>
                                                     entity={row}
                                                     entityKind='member'
-                                                    descriptors={[...descriptors]}
+                                                    descriptors={descriptors}
                                                     namespace='metaverses'
                                                     menuButtonLabelKey='flowList:menu.button'
                                                     i18nInstance={i18n}
