@@ -23,6 +23,47 @@
 
 ## November 2025 (Latest)
 
+### 2025-11-13: PR #539 Bot Review Fixes (QA Analysis Complete) ✅
+**Problem**: GitHub PR #539 received automated bot reviews (Gemini Code Assist, Copilot, Codex) with 14 comments. Needed verification of suggestions against actual codebase to avoid breaking changes.
+
+**QA Analysis Results**:
+- **Total Comments**: 14 from 4 bots
+- **Real Issues**: 6 (3 critical, 2 medium, 1 low)
+- **False Positives**: 3 (Copilot analyzed build-time shims instead of runtime code)
+- **Bot Accuracy**: 67%
+
+**Critical Fixes Implemented**:
+1. **Analytics.test.tsx Import Path** (CRITICAL): Fixed TypeScript generic type import `'analytics:react-router-dom'` → `'react-router-dom'` (line 51)
+2. **Analytics.test.tsx Assertions** (HIGH): Removed i18n namespace prefix from test assertions `'analytics:Alice'` → `'Alice'`, `'analytics:Bob'` → `'Bob'` (lines 122-123)
+3. **RLS Policy for uniks_users** (CRITICAL - P1): Updated PostgreSQL Row Level Security policy to allow owner/admin roles to manage all members in their Unik:
+   - **Before**: `USING (user_id = auth.uid())` - only shows user's own record
+   - **After**: Added EXISTS subquery checking owner/admin role to allow viewing/managing all members in the Unik
+   - **Impact**: Without this fix, member management endpoints (GET/POST/PATCH/DELETE /unik/:id/members) would not work
+
+**Medium Priority Fixes**:
+4. **File Rename**: `useMetaverseDetails.ts` → `useUnikDetails.ts` to match exported hook name (reduces confusion)
+5. **Duplicate Removal**: Deleted `UnikMemberActions.tsx` (100% identical to `MemberActions.tsx`, verified with diff)
+6. **Cleanup**: Removed unused `handleChange` function in `UnikMember.tsx` (direct setter used instead per comment)
+
+**False Positives Identified**:
+- Copilot: "Unused variable handleChange" - verified function was actually unused (removed in fix #6)
+- Copilot: "Superfluous argument to useApi" (2 instances) - analyzed build-time shim instead of runtime implementation
+
+**Verification**:
+- Lint: analytics-frt (98 errors auto-fixed), uniks-frt (1 warning fixed), uniks-srv (1 console.log in migration - acceptable)
+- Build: analytics-frt ✅, uniks-frt ✅, uniks-srv ✅
+
+**Files Modified**:
+- packages/analytics-frt/base/src/pages/__tests__/Analytics.test.tsx (import + assertions)
+- packages/uniks-srv/base/src/database/migrations/postgres/1731200000000-CreateUniksSchema.ts (RLS policy + down migration)
+- packages/uniks-frt/base/src/api/useMetaverseDetails.ts → useUnikDetails.ts (renamed)
+- packages/uniks-frt/base/src/pages/UnikBoard.tsx (import path updated)
+- packages/uniks-frt/base/src/pages/UnikMemberActions.tsx (DELETED - duplicate)
+- packages/uniks-frt/base/src/pages/UnikMember.tsx (removed unused handleChange)
+
+**Deferred**:
+- Low priority issue: Unused variable 't' in UpsertHistoryDialog (upstream Flowise code, needs separate cleanup issue)
+
 ### 2025-11-14: Uniks Module Refactoring (Stages 1-8 Complete) ✅
 **Problem**: After Metaverses refactoring, Uniks showed 3 UI issues: (1) Route conflicts showing old UI, (2) Wrong metrics in UnikBoard (Sections/Entities instead of Spaces/Tools), (3) Legacy code copied from Metaverses.
 

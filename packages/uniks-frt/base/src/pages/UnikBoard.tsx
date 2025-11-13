@@ -16,7 +16,7 @@ import {
     PageViewsBarChart
 } from '@universo/template-mui'
 
-import { useUnikDetails } from '../api/useMetaverseDetails'
+import { useUnikDetails } from '../api/useUnikDetails'
 
 /**
  * Unik Board Page

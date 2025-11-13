@@ -9,11 +9,11 @@ import ruMainTranslation from './locales/ru/main.json'
 type LanguageCode = 'en' | 'ru'
 
 interface AnalyticsTranslation {
-  analytics: Record<string, unknown>
+    analytics: Record<string, unknown>
 }
 
 interface TranslationsMap {
-  [key: string]: AnalyticsTranslation
+    [key: string]: AnalyticsTranslation
 }
 
 /**
@@ -21,19 +21,19 @@ interface TranslationsMap {
  * Format: { [language]: { analytics: [translations] } }
  */
 export const analyticsTranslations: TranslationsMap = {
-  en: {
-    analytics: enMainTranslation.analytics
-  },
-  ru: {
-    analytics: ruMainTranslation.analytics
-  }
+    en: {
+        analytics: enMainTranslation.analytics
+    },
+    ru: {
+        analytics: ruMainTranslation.analytics
+    }
 }
 
 // Side-effect: register the 'analytics' namespace with the global i18n instance
 // Ensures translations are available when the Analytics page is rendered
 registerNamespace('analytics', {
-  en: enMainTranslation.analytics,
-  ru: ruMainTranslation.analytics
+    en: enMainTranslation.analytics,
+    ru: ruMainTranslation.analytics
 })
 
 /**
@@ -42,7 +42,7 @@ registerNamespace('analytics', {
  * @returns Translations for the specified language
  */
 export function getAnalyticsTranslations(language: LanguageCode): Record<string, unknown> {
-  return analyticsTranslations[language]?.analytics || analyticsTranslations.en.analytics
+    return analyticsTranslations[language]?.analytics || analyticsTranslations.en.analytics
 }
 
 export default analyticsTranslations

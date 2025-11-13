@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next'
 import { styled } from '@mui/material/styles'
 import { tableCellClasses } from '@mui/material/TableCell'
 import {
-    Button,
     Box,
     Skeleton,
     Stack,
@@ -36,7 +35,6 @@ import {
 // project imports
 import { MainCard } from '@flowise/template-mui'
 import ViewHeader from '@flowise/template-mui/layout/MainLayout/ViewHeader'
-import ErrorBoundary from '@flowise/template-mui/ErrorBoundary'
 
 // API
 import leadsApi from '@/api/lead'
@@ -47,10 +45,10 @@ const spacesApi = api.spaces
 // Normalize various potential server response shapes to a spaces array
 function normalizeSpacesResponse(raw) {
     if (Array.isArray(raw)) {
-        return raw;
+        return raw
     }
-    const spaces = raw?.data?.spaces || raw?.spaces;
-    return Array.isArray(spaces) ? spaces : [];
+    const spaces = raw?.data?.spaces || raw?.spaces
+    return Array.isArray(spaces) ? spaces : []
 }
 
 // Resolve lead points with backward compatibility (points field preferred, fallback to numeric phone)
@@ -149,12 +147,8 @@ const Analytics = () => {
         }
 
         // Use points field with fallback to phone for backward compatibility
-        const validLeads = leadsData.filter((lead) => 
-            lead.points !== undefined || (lead.phone && !isNaN(parseInt(lead.phone)))
-        )
-        const points = validLeads.map((lead) => 
-            lead.points !== undefined ? lead.points : (parseInt(lead.phone) || 0)
-        )
+        const validLeads = leadsData.filter((lead) => lead.points !== undefined || (lead.phone && !isNaN(parseInt(lead.phone))))
+        const points = validLeads.map((lead) => (lead.points !== undefined ? lead.points : parseInt(lead.phone) || 0))
 
         return {
             totalLeads: leadsData.length,
@@ -338,11 +332,7 @@ const Analytics = () => {
                             </Select>
                         </FormControl>
 
-                        {spaces.length === 0 && !spacesLoading && (
-                            <Alert severity='info'>
-                                {t('analytics:noQuizzesFound')}
-                            </Alert>
-                        )}
+                        {spaces.length === 0 && !spacesLoading && <Alert severity='info'>{t('analytics:noQuizzesFound')}</Alert>}
                     </Box>
 
                     {/* Universo Platformo | Analytics Cards */}
@@ -464,10 +454,14 @@ const Analytics = () => {
                                             {leads?.filter(filterLeads)?.map((row, index) => (
                                                 <StyledTableRow key={index}>
                                                     <StyledTableCell>
-                                                        <Typography variant='body1'>{row.name || t('analytics:table.notSpecified')}</Typography>
+                                                        <Typography variant='body1'>
+                                                            {row.name || t('analytics:table.notSpecified')}
+                                                        </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
-                                                        <Typography variant='body1'>{row.email || t('analytics:table.notSpecified')}</Typography>
+                                                        <Typography variant='body1'>
+                                                            {row.email || t('analytics:table.notSpecified')}
+                                                        </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Typography variant='body1'>

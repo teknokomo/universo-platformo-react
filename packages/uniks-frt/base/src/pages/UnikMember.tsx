@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -194,12 +194,6 @@ const UnikMembers = () => {
         } finally {
             setInviting(false)
         }
-    }
-
-    const handleChange = (_event: React.MouseEvent<HTMLElement>, nextView: string | null) => {
-        if (nextView === null) return
-        localStorage.setItem('unikMembersDisplayStyle', nextView)
-        setView(nextView)
     }
 
     const memberColumns = [

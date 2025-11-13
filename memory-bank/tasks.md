@@ -40,6 +40,30 @@
 
 ## 🚧 IN PROGRESS
 
+### PR #539 Bot Review Fixes (QA Analysis)
+**Status**: All critical fixes completed ✅
+
+#### Critical Blockers (MUST FIX before merge)
+- [x] QA-1: Fix Analytics.test.tsx import path ('analytics:react-router-dom' → 'react-router-dom')
+- [x] QA-2: Fix Analytics.test.tsx assertions ('analytics:Alice' → 'Alice', 'analytics:Bob' → 'Bob')
+- [x] QA-3: Fix RLS policy for uniks_users to allow owner/admin manage all members
+
+#### Medium Priority (Recommended)
+- [x] QA-4: Rename useMetaverseDetails.ts → useUnikDetails.ts
+- [x] QA-5: Remove duplicate file UnikMemberActions.tsx (keep MemberActions.tsx)
+- [x] QA-6: Remove unused handleChange function in UnikMember.tsx
+
+#### Build & Lint Verification
+- [x] Lint analytics-frt (98 errors auto-fixed, 11 warnings remain)
+- [x] Lint uniks-frt (1 warning auto-fixed)
+- [x] Lint uniks-srv (1 console warning - acceptable in migration)
+- [x] Build analytics-frt (✅ successful)
+- [x] Build uniks-frt (✅ successful)
+- [x] Build uniks-srv (✅ successful)
+
+#### Low Priority (Deferred)
+- [ ] QA-7: Create separate issue for upstream cleanup (unused variable 't' in UpsertHistoryDialog)
+
 ### Uniks Functionality Refactoring
 **Status**: Stages 1-8 complete, Stage 7,9,11 browser testing pending
 

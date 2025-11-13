@@ -77,11 +77,28 @@ export class CreateUniksSchema1731200000000 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE uniks.uniks_users ENABLE ROW LEVEL SECURITY;`)
 
         // 7) RLS Policies for uniks_users table
+        // Allow users to view their own membership and admins/owners to manage all members in their Unik
         await queryRunner.query(`
-            CREATE POLICY "Allow users to manage their unik memberships" ON uniks.uniks_users
+            CREATE POLICY "Allow members to view and admins to manage memberships" ON uniks.uniks_users
             FOR ALL
-            USING (user_id = auth.uid())
-            WITH CHECK (user_id = auth.uid())
+            USING (
+                user_id = auth.uid()
+                OR
+                EXISTS (
+                    SELECT 1 FROM uniks.uniks_users uu
+                    WHERE uu.unik_id = uniks_users.unik_id
+                      AND uu.user_id = auth.uid()
+                      AND uu.role IN ('owner', 'admin')
+                )
+            )
+            WITH CHECK (
+                EXISTS (
+                    SELECT 1 FROM uniks.uniks_users uu
+                    WHERE uu.unik_id = uniks_users.unik_id
+                      AND uu.user_id = auth.uid()
+                      AND uu.role IN ('owner', 'admin')
+                )
+            )
         `)
 
         // 8) RLS Policies for uniks (based on unik-user relationship)
@@ -167,7 +184,7 @@ export class CreateUniksSchema1731200000000 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX IF EXISTS uniks.idx_unik_name_lower`)
 
         // Drop RLS policies first
-        await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage their unik memberships" ON uniks.uniks_users;`)
+        await queryRunner.query(`DROP POLICY IF EXISTS "Allow members to view and admins to manage memberships" ON uniks.uniks_users;`)
         await queryRunner.query(`DROP POLICY IF EXISTS "Allow users to manage their own uniks" ON uniks.uniks;`)
 
         // Disable RLS
