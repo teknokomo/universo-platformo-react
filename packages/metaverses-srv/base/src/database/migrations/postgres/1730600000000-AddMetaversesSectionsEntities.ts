@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class AddMetaversesSectionsEntities1741277700000 implements MigrationInterface {
-    name = 'AddMetaversesSectionsEntities1741277700000'
+export class AddMetaversesSectionsEntities1730600000000 implements MigrationInterface {
+    name = 'AddMetaversesSectionsEntities1730600000000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Enable UUID extension

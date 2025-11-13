@@ -58,4 +58,8 @@ export function useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot) 
     return fallbackHook(subscribe, snapshotFn)
 }
 
-export default useSyncExternalStore
+// For libraries importing `use-sync-external-store/shim` as a default object
+// (e.g. `import shim from 'use-sync-external-store/shim'` and then
+// `shim.useSyncExternalStore`), we must default-export an object exposing the
+// function as a property to avoid runtime `Wc is not a function` errors.
+export default { useSyncExternalStore }

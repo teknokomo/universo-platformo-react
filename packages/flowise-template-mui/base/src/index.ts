@@ -1,4 +1,5 @@
 // Constants
+import './i18n'
 export { gridSpacing, baseURL, maxScroll, REDACTED_CREDENTIAL_VALUE } from './constants'
 
 // Button ui-components

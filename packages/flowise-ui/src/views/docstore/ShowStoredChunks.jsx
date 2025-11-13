@@ -101,7 +101,7 @@ const ShowStoredChunks = () => {
             )
             if (editResp.data) {
                 enqueueSnackbar({
-                    message: t('documentStore.chunks.editSuccess'),
+                    message: t('document-store:chunks.editSuccess'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -118,7 +118,7 @@ const ShowStoredChunks = () => {
         } catch (error) {
             setLoading(false)
             enqueueSnackbar({
-                message: t('documentStore.chunks.editError', {
+                message: t('document-store:chunks.editError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -136,10 +136,10 @@ const ShowStoredChunks = () => {
 
     const onDeleteChunk = async (chunk) => {
         const confirmPayload = {
-            title: t('documentStore.chunks.delete'),
-            description: t('documentStore.chunks.deleteConfirm').replace('{{id}}', chunk.id),
-            confirmButtonName: t('documentStore.common.delete'),
-            cancelButtonName: t('documentStore.common.cancel')
+            title: t('document-store:chunks.delete'),
+            description: t('document-store:chunks.deleteConfirm').replace('{{id}}', chunk.id),
+            confirmButtonName: t('document-store:common.delete'),
+            cancelButtonName: t('document-store:common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -150,7 +150,7 @@ const ShowStoredChunks = () => {
                 const delResp = await documentsApi.deleteChunkFromStore(unikId, chunk.storeId, chunk.docId, chunk.id)
                 if (delResp.data) {
                     enqueueSnackbar({
-                        message: t('documentStore.chunks.deleteSuccess'),
+                        message: t('document-store:chunks.deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -167,7 +167,7 @@ const ShowStoredChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.chunks.deleteError', {
+                    message: t('document-store:chunks.deleteError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -288,7 +288,7 @@ const ShowStoredChunks = () => {
                                         }
                                     />
                                 </IconButton>
-                                {t('documentStore.chunks.showing', { start: Math.min(start, totalChunks), end, total: totalChunks })}
+                                {t('document-store:chunks.showing', { start: Math.min(start, totalChunks), end, total: totalChunks })}
                                 <IconButton
                                     size='small'
                                     onClick={() => changePage(currentPage + 1)}
@@ -311,7 +311,7 @@ const ShowStoredChunks = () => {
                             </div>
                             <div style={{ marginRight: 20, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                                 <IconLanguage style={{ marginRight: 10 }} size={20} />
-                                {t('documentStore.chunks.totalCharacters', { count: getChunksApi.data?.characters?.toLocaleString() })}
+                                {t('document-store:chunks.totalCharacters', { count: getChunksApi.data?.characters?.toLocaleString() })}
                             </div>
                         </div>
                     </div>
@@ -333,7 +333,7 @@ const ShowStoredChunks = () => {
                                             alt='chunks_emptySVG'
                                         />
                                     </Box>
-                                    <div>{t('documentStore.chunks.noChunks')}</div>
+                                    <div>{t('document-store:chunks.noChunks')}</div>
                                 </div>
                             )}
                             {documentChunks.length > 0 &&
@@ -347,7 +347,7 @@ const ShowStoredChunks = () => {
                                             <Card>
                                                 <CardContent sx={{ p: 2 }}>
                                                     <Typography sx={{ wordWrap: 'break-word', mb: 1 }} variant='h5'>
-                                                        {`#${row.chunkNo}. ${t('documentStore.chunks.charactersCount', { count: row.pageContent.length })}`}
+                                                        {`#${row.chunkNo}. ${t('document-store:chunks.charactersCount', { count: row.pageContent.length })}`}
                                                     </Typography>
                                                     <Typography sx={{ wordWrap: 'break-word' }} variant='body2'>
                                                         {row.pageContent}

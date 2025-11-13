@@ -714,7 +714,7 @@ const ShareChatbot = ({ isSessionMemory, isAgentCanvas, canvasId, unikId: propUn
                                         target='_blank'
                                         href='https://www.npmjs.com/package/flowise-embed?activeTab=versions'
                                     >
-                                        {t('common.version')}
+                                        {t('common:version')}
                                     </a>
                                     :&nbsp;<code>{`https://cdn.jsdelivr.net/npm/flowise-embed@<version>/dist/web.js`}</code>
                                 </p>

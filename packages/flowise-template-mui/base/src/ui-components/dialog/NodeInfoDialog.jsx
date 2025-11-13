@@ -13,7 +13,7 @@ import { IconBook2 } from '@tabler/icons-react'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG, baseURL } from '@flowise/store'
 
 // API
-// TODO: use api.config
+import { api } from '@universo/api-client'
 import useApi from '../../hooks/useApi.js'
 
 const NodeInfoDialog = ({ show, dialogProps, onCancel }) => {
@@ -21,7 +21,11 @@ const NodeInfoDialog = ({ show, dialogProps, onCancel }) => {
     const dispatch = useDispatch()
     const { t } = useTranslation()
 
-    const getNodeConfigApi = useApi(api.config.getNodeConfig)
+    // Wrap getNodeConfig to match useApi signature
+    const getNodeConfigApi = useApi(async (nodeName) => {
+        const result = await api.client.get(`/node-config/${nodeName}`)
+        return { data: result.data }
+    })
 
     useEffect(() => {
         if (dialogProps.data) {

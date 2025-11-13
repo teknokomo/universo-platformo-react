@@ -42,10 +42,10 @@ export interface ConfirmDeleteDialogProps {
  * ```tsx
  * <ConfirmDeleteDialog
  *   open={showDeleteDialog}
- *   title={t('confirm.delete.title', { entity: 'Metaverse' })}
- *   description={t('confirm.delete.description', { name: metaverse.name })}
- *   confirmButtonText={t('confirm.delete.confirm')}
- *   cancelButtonText={t('confirm.delete.cancel')}
+ *   title={t('common:delete.title', { entity: 'Metaverse' })}
+ *   description={t('common:delete.description', { name: metaverse.name })}
+ *   confirmButtonText={t('common:delete.confirm')}
+ *   cancelButtonText={t('common:delete.cancel')}
  *   loading={isDeleting}
  *   error={deleteError}
  *   onCancel={() => setShowDeleteDialog(false)}

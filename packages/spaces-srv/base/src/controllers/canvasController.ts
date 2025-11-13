@@ -181,7 +181,22 @@ export class CanvasController {
 
             const type = (req.query?.type as ChatflowType) || undefined
             const canvases = await this.canvasService.getAllCanvases({ unikId, spaceId, type })
-            res.json(canvases)
+            console.log('[CanvasController.getAllCanvases] Result:', { 
+                unikId, 
+                spaceId, 
+                type,
+                canvasesCount: Array.isArray(canvases) ? canvases.length : (canvases as any)?.canvases?.length || 0,
+                firstCanvasId: Array.isArray(canvases) && canvases.length > 0 ? canvases[0].id : null,
+                responseKeys: canvases ? Object.keys(canvases) : [],
+                isArray: Array.isArray(canvases),
+                responseType: typeof canvases,
+                firstCanvasName: Array.isArray(canvases) && canvases.length > 0 ? canvases[0].name : null
+            })
+            // Wrap array response to match CanvasListResponse type
+            const response = Array.isArray(canvases) 
+                ? { canvases, total: canvases.length }
+                : canvases
+            res.json(response)
         } catch (error) {
             next(error)
         }
@@ -313,33 +328,76 @@ export class CanvasController {
     }
 
     async updateCanvas(req: Request, res: Response, next: NextFunction): Promise<void> {
+        console.log('[CanvasController.updateCanvas] START', {
+            path: req.path,
+            method: req.method,
+            params: req.params,
+            bodyKeys: Object.keys(req.body || {}),
+            hasFlowData: !!req.body?.flowData,
+            flowDataLength: req.body?.flowData?.length
+        })
+
         try {
             const canvasId = this.resolveCanvasId(req)
             const unikId = this.resolveUnikId(req)
             const expectsSpace = this.routeRequiresSpace(req)
             const spaceId = this.resolveSpaceId(req)
+            
+            console.log('[CanvasController.updateCanvas] Resolved params', {
+                canvasId,
+                unikId,
+                spaceId,
+                expectsSpace
+            })
+
             if (!canvasId || !unikId || (expectsSpace && !spaceId)) {
+                console.error('[CanvasController.updateCanvas] Missing required params', {
+                    hasCanvasId: !!canvasId,
+                    hasUnikId: !!unikId,
+                    hasSpaceId: !!spaceId,
+                    expectsSpace
+                })
                 res.status(StatusCodes.PRECONDITION_FAILED).json({
                     error: expectsSpace ? 'canvasId, spaceId, and unikId params are required' : 'canvasId and unikId params are required'
                 })
                 return
             }
 
+            console.log('[CanvasController.updateCanvas] Ensuring unik membership')
             const userId = await this.ensureUnikMembership(req, res, unikId)
             if (this.options?.membership?.ensureUnikMembershipResponse && !userId) {
+                console.error('[CanvasController.updateCanvas] Unik membership check failed')
                 return
             }
+            console.log('[CanvasController.updateCanvas] Unik membership confirmed, userId:', userId)
 
             const updateData = req.body as Partial<Canvas>
             const scope = this.resolveScope(req)
+            console.log('[CanvasController.updateCanvas] Calling canvasService.updateCanvas', {
+                canvasId,
+                updateDataKeys: Object.keys(updateData),
+                scope
+            })
+
             const updated = await this.canvasService.updateCanvas(canvasId, updateData, scope)
 
+            console.log('[CanvasController.updateCanvas] Canvas updated successfully', {
+                updatedId: updated.id,
+                updatedName: updated.name
+            })
+
             if (this.rateLimiterManager) {
+                console.log('[CanvasController.updateCanvas] Updating rate limiter')
                 await this.rateLimiterManager.updateRateLimiter(updated)
             }
 
+            console.log('[CanvasController.updateCanvas] Sending response')
             res.json(updated)
         } catch (error) {
+            console.error('[CanvasController.updateCanvas] ERROR', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            })
             next(error)
         }
     }

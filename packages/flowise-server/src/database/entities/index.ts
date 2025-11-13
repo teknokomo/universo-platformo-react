@@ -10,7 +10,7 @@ import { Lead } from './Lead'
 import { UpsertHistory } from './UpsertHistory'
 import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
-import { Unik, UnikUser } from '@universo/uniks-srv'
+import { Unik, UnikUser, AuthUser } from '@universo/uniks-srv'
 import { Profile } from '@universo/profile-srv'
 import { metaversesEntities } from '@universo/metaverses-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
@@ -39,6 +39,7 @@ export const entities = {
   // Uniks entities
   Unik,
   UnikUser,
+  AuthUser,
   // Profile entities
   Profile,
   // Spaces entities

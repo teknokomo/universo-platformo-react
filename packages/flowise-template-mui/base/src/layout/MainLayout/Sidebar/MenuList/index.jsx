@@ -24,10 +24,10 @@ const MenuList = () => {
 
         let isActive = true
 
-    const fetchPermissions = async () => {
+        const fetchPermissions = async () => {
             try {
-        // Use the raw axios client exposed as $client and ensure leading slash in path
-        const response = await api.$client.get(`/metaverses/${metaverseId}`)
+                // Use the raw axios client exposed as $client and ensure leading slash in path
+                const response = await api.$client.get(`/metaverses/${metaverseId}`)
 
                 if (!isActive) return
 

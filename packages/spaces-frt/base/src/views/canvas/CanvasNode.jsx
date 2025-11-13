@@ -79,7 +79,7 @@ const CanvasNode = ({ data }) => {
           title={
             <div style={{ background: 'transparent', display: 'flex', flexDirection: 'column' }}>
               <IconButton
-                title={t('common.edit')}
+                title={t('common:edit')}
                 onClick={() => {
                   duplicateNode(data.id)
                 }}
@@ -89,7 +89,7 @@ const CanvasNode = ({ data }) => {
                 <IconCopy />
               </IconButton>
               <IconButton
-                title={t('common.delete')}
+                title={t('common:delete')}
                 onClick={() => {
                   deleteNode(data.id)
                 }}
@@ -99,7 +99,7 @@ const CanvasNode = ({ data }) => {
                 <IconTrash />
               </IconButton>
               <IconButton
-                title={t('common.info')}
+                title={t('common:info')}
                 onClick={() => {
                   setInfoDialogProps({ data })
                   setShowInfoDialog(true)
@@ -149,7 +149,7 @@ const CanvasNode = ({ data }) => {
               <>
                 <Divider />
                 <Box sx={{ background: theme.palette.asyncSelect.main, p: 1 }}>
-                  <Typography sx={{ fontWeight: 500, textAlign: 'center' }}>{t('canvas.nodeConfig.inputs')}</Typography>
+                  <Typography sx={{ fontWeight: 500, textAlign: 'center' }}>{t('nodeConfig.inputs')}</Typography>
                 </Box>
                 <Divider />
               </>
@@ -173,14 +173,14 @@ const CanvasNode = ({ data }) => {
             {data.inputParams.filter((param) => param.additionalParams).filter((param) => shouldShowInputParam(param, data)).length > 0 && (
               <div style={{ textAlign: 'center', marginTop: data.inputParams.filter((param) => param.additionalParams).filter((param) => shouldShowInputParam(param, data)).length === data.inputParams.length + data.inputAnchors.length ? 20 : 0 }}>
                 <Button sx={{ borderRadius: 25, width: '90%', mb: 2 }} variant='outlined' onClick={onDialogClicked}>
-                  {t('nodeConfig.flowControl')}
+                  {t('canvas:flowControl')}
                 </Button>
               </div>
             )}
             {data.outputAnchors.length > 0 && <Divider />}
             {data.outputAnchors.length > 0 && (
               <Box sx={{ background: theme.palette.asyncSelect.main, p: 1 }}>
-                <Typography sx={{ fontWeight: 500, textAlign: 'center' }}>{t('canvas.nodeConfig.outputs')}</Typography>
+                <Typography sx={{ fontWeight: 500, textAlign: 'center' }}>{t('nodeConfig.outputs')}</Typography>
               </Box>
             )}
             {data.outputAnchors.length > 0 && <Divider />}

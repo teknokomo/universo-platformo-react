@@ -52,15 +52,15 @@ const PostProcessing = ({ dialogProps }) => {
         const dialogProps = {
             value,
             inputParam: {
-                label: t('canvas.configuration.postProcessing.jsFunction'),
+                label: t('canvas:configuration.postProcessing.jsFunction'),
                 name: 'postProcessingFunction',
                 type: 'code',
                 placeholder: sampleFunction,
                 hideCodeExecute: true
             },
             languageType: 'js',
-            confirmButtonName: t('canvas.configuration.postProcessing.save'),
-            cancelButtonName: t('common.cancel')
+            confirmButtonName: t('canvas:configuration.postProcessing.save'),
+            cancelButtonName: t('common:cancel')
         }
         setExpandDialogProps(dialogProps)
         setShowExpandDialog(true)
@@ -85,7 +85,7 @@ const PostProcessing = ({ dialogProps }) => {
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.postProcessing.configSaved'),
+                    message: t('canvas:configuration.postProcessing.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -101,7 +101,7 @@ const PostProcessing = ({ dialogProps }) => {
         } catch (error) {
             const errorMessage = typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('canvas.configuration.postProcessing.failedToSave')}: ${errorMessage}`,
+                message: `${t('canvas:configuration.postProcessing.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -135,14 +135,14 @@ const PostProcessing = ({ dialogProps }) => {
         <>
             <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <SwitchInput
-                    label={t('canvas.configuration.postProcessing.enable')}
+                    label={t('canvas:configuration.postProcessing.enable')}
                     onChange={handleChange}
                     value={postProcessingEnabled}
                 />
             </Box>
             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
                 <Box sx={{ width: '100%', display: 'flex', alignItems: 'center' }}>
-                    <Typography>{t('canvas.configuration.postProcessing.jsFunction')}</Typography>
+                    <Typography>{t('canvas:configuration.postProcessing.jsFunction')}</Typography>
                     <Button
                         sx={{ ml: 2 }}
                         variant='outlined'
@@ -150,7 +150,7 @@ const PostProcessing = ({ dialogProps }) => {
                             setPostProcessingFunction(sampleFunction)
                         }}
                     >
-                        {t('canvas.configuration.postProcessing.seeExample')}
+                        {t('canvas:configuration.postProcessing.seeExample')}
                     </Button>
                     <div style={{ flex: 1 }} />
                     <IconButton
@@ -159,7 +159,7 @@ const PostProcessing = ({ dialogProps }) => {
                             height: 25,
                             width: 25
                         }}
-                        title={t('canvas.configuration.postProcessing.expand')}
+                        title={t('canvas:configuration.postProcessing.expand')}
                         color='primary'
                         onClick={() => onExpandDialogClicked(postProcessingFunction)}
                     >
@@ -208,7 +208,7 @@ const PostProcessing = ({ dialogProps }) => {
                 >
                     <IconBulb size={30} color='#2d6a4f' />
                     <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>
-                        {t('canvas.configuration.postProcessing.variables')}{' '}
+                        {t('canvas:configuration.postProcessing.variables')}{' '}
                         <pre>$flow.rawOutput, $flow.input, $flow.canvasId, $flow.sessionId, $flow.chatId</pre>
                     </span>
                 </div>
@@ -219,7 +219,7 @@ const PostProcessing = ({ dialogProps }) => {
                 disabled={!postProcessingFunction || postProcessingFunction?.trim().length === 0}
                 onClick={onSave}
             >
-                {t('canvas.configuration.postProcessing.save')}
+                {t('canvas:configuration.postProcessing.save')}
             </StyledButton>
             <ExpandTextDialog
                 show={showExpandDialog}

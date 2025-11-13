@@ -32,7 +32,7 @@ import { useNotifier } from '@flowise/template-mui/hooks'
 
 const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation('api-keys')
+    const { t } = useTranslation()
 
     const theme = useTheme()
     const dispatch = useDispatch()
@@ -65,7 +65,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             const createResp = await api.apiKeys.createNewAPI(dialogProps.unikId, { keyName })
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: t('apiKeys.messages.newKeyAdded'),
+                    message: t('apiKeys:messages.newKeyAdded'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -81,7 +81,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
         } catch (error) {
             if (setError) setError(error)
             enqueueSnackbar({
-                message: t('apiKeys.messages.addKeyError', {
+                message: t('apiKeys:messages.addKeyError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -104,7 +104,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             const saveResp = await api.apiKeys.updateAPI(dialogProps.unikId, dialogProps.key.id, { keyName })
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('apiKeys.messages.keySaved'),
+                    message: t('apiKeys:messages.keySaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -120,7 +120,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
         } catch (error) {
             if (setError) setError(error)
             enqueueSnackbar({
-                message: t('apiKeys.messages.saveKeyError', {
+                message: t('apiKeys:messages.saveKeyError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -153,7 +153,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             <DialogContent>
                 {dialogProps.type === 'EDIT' && (
                     <Box sx={{ p: 2 }}>
-                        <Typography variant='overline'>{t('apiKeys.grid.apiKey')}</Typography>
+                        <Typography variant='overline'>{t('apiKeys:grid.apiKey')}</Typography>
                         <Stack direction='row' sx={{ mb: 1 }}>
                             <Typography
                                 sx={{
@@ -168,7 +168,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
                                 {dialogProps.key.apiKey}
                             </Typography>
                             <IconButton
-                                title={t('apiKeys.buttonTitles.copy')}
+                                title={t('apiKeys:buttonTitles.copy')}
                                 color='success'
                                 onClick={(event) => {
                                     navigator.clipboard.writeText(dialogProps.key.apiKey)
@@ -194,7 +194,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
                                 }}
                             >
                                 <Typography variant='h6' sx={{ pl: 1, pr: 1, color: 'white', background: theme.palette.success.dark }}>
-                                    {t('apiKeys.copied')}
+                                    {t('apiKeys:copied')}
                                 </Typography>
                             </Popover>
                         </Stack>
@@ -203,13 +203,13 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
 
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
-                        <Typography variant='overline'>{t('apiKeys.grid.keyName')}</Typography>
+                        <Typography variant='overline'>{t('apiKeys:grid.keyName')}</Typography>
                     </Stack>
                     <OutlinedInput
                         id='keyName'
                         type='string'
                         fullWidth
-                        placeholder={t('apiKeys.placeholders.keyName')}
+                        placeholder={t('apiKeys:placeholders.keyName')}
                         value={keyName}
                         name='keyName'
                         onChange={(e) => setKeyName(e.target.value)}

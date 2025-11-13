@@ -158,6 +158,10 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
     }
 
     const groupByTags = (nodes, newTabValue = 0) => {
+        if (!nodes || !Array.isArray(nodes)) {
+            console.warn('[AddNodes] groupByTags received invalid nodes:', nodes)
+            return []
+        }
         const langchainNodes = nodes.filter((nd) => !nd.tags)
         const llmaindexNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('LlamaIndex'))
         const updlNodes = nodes.filter((nd) => nd.tags && nd.tags.includes('UPDL'))
@@ -174,6 +178,12 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
     }
 
     const groupByCategory = (nodes, newTabValue, isFilter) => {
+        if (!nodes || !Array.isArray(nodes)) {
+            console.warn('[AddNodes] groupByCategory received invalid nodes:', nodes)
+            setNodes({})
+            setCategoryExpanded({})
+            return
+        }
         if (isAgentCanvas) {
             const accordianCategories = {}
             const result = nodes.reduce(function (r, a) {
@@ -294,7 +304,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
                 size='small'
                 color='primary'
                 aria-label='add'
-                title={t('nodeConfig.addNode')}
+                title={t('canvas:addNode')}
                 onClick={handleToggle}
             >
                 {open ? <IconMinus /> : <IconPlus />}
@@ -461,7 +471,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
                                                                         }}
                                                                     >
                                                                         <Typography variant='h5'>
-                                                                            {t('nodeCategories.' + category.split(';')[0], category.split(';')[0])}
+                                                                            {t('canvas:' + category.split(';')[0], category.split(';')[0])}
                                                                         </Typography>
                                                                         &nbsp;
                                                                         <Chip
@@ -484,7 +494,7 @@ const AddNodes = ({ nodesData, node, isAgentCanvas, onApplyGraph }) => {
                                                                     </div>
                                                                 ) : (
                                                                     <Typography variant='h5'>
-                                                                        {t('nodeCategories.' + category, category)}
+                                                                        {t('canvas:nodeCategories.' + category, category)}
                                                                     </Typography>
                                                                 )}
                                                             </AccordionSummary>

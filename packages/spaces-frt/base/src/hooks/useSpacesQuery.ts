@@ -9,7 +9,7 @@ import type { AxiosResponse } from 'axios'
 const spacesQueryKeys = {
     all: ['spaces'] as const,
     lists: () => [...spacesQueryKeys.all, 'list'] as const,
-    list: (unikId: string | undefined) => [...spacesQueryKeys.lists(), unikId] as const,
+    list: (unikId: string | undefined) => [...spacesQueryKeys.lists(), unikId] as const
 }
 
 type SpacesResponse = AxiosResponse<{ spaces?: unknown[] }> | { spaces?: unknown[] } | unknown[] | null | undefined
@@ -34,8 +34,8 @@ const normalizeSpacesPayload = (payload: SpacesResponse): unknown[] => {
 
 const fetchSpaces = async (unikId: string | undefined) => {
     if (!unikId) return []
-    const response = await api.spaces.getSpaces(unikId)
-    return response?.data ?? null
+    const response = await api.spaces.getAll(unikId)
+    return response ?? null
 }
 
 type UseSpacesQueryOptions = Omit<

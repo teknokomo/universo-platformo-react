@@ -374,10 +374,10 @@ const PlayCanvasPublisherComponent: React.FC<PlayCanvasPublisherProps> = ({ flow
             {/* Main Content Card */}
             <PublicationSettingsCard
                 isLoading={loading}
-                loadingMessage={t('common.loadingSettings', 'Loading settings...')}
+                loadingMessage={t('common:loadingSettings', 'Loading settings...')}
                 error={error}
                 onRetry={handleRetryLoadSettings}
-                retryLabel={t('common.retry', 'Повторить')}
+                retryLabel={t('common:retry', 'Повторить')}
             >
                 <TextField
                     fullWidth

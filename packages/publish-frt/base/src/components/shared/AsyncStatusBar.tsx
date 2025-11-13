@@ -39,11 +39,12 @@ export const AsyncStatusBar: React.FC<AsyncStatusBarProps> = React.memo(
 
         const defaultMessages: Record<AsyncStatus, string> = {
             idle: '',
-            loading: t('common.loading', 'Loading...'),
-            saving: t('common.saving', 'Saving...'),
-            saved: t('common.saved', 'Saved'),
-            success: t('common.success', 'Success'),
-            error: errorMessage || t('common.error', 'Error')
+            // Explicit namespace to avoid relying on 'publish' bound t for common keys
+            loading: t('common:loading', 'Loading...'),
+            saving: t('common:saving', 'Saving...'),
+            saved: t('common:saved', 'Saved'),
+            success: t('common:success', 'Success'),
+            error: errorMessage || t('common:error', 'Error')
         }
 
         const effectiveMessages = { ...defaultMessages, ...messages }

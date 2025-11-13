@@ -170,7 +170,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                         <Typography>
-                            {t('documentStore.form.name')}
+                            {t('document-store:form.name')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
 
@@ -188,7 +188,7 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 </Box>
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
-                        <Typography>{t('documentStore.form.description')}</Typography>
+                        <Typography>{t('document-store:form.description')}</Typography>
 
                         <div style={{ flexGrow: 1 }}></div>
                     </div>
@@ -206,13 +206,13 @@ const AddDocStoreDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => onCancel()}>{t('documentStore.form.cancel')}</Button>
+                <Button onClick={() => onCancel()}>{t('document-store:form.cancel')}</Button>
                 <StyledButton
                     disabled={!documentStoreName}
                     variant='contained'
                     onClick={() => (dialogType === 'ADD' ? createDocumentStore() : updateDocumentStore())}
                 >
-                    {dialogProps.confirmButtonName || t('documentStore.form.add')}
+                    {dialogProps.confirmButtonName || t('document-store:form.add')}
                 </StyledButton>
             </DialogActions>
             <ConfirmDialog />

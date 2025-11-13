@@ -23,7 +23,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({ flowData, renderConfig, library
     useEffect(() => {
         const renderARExperience = async () => {
             if (!flowData) {
-                setError(t('publish.publicFlow.errors.missingFlow', 'Publication data is missing'))
+                setError(t('publicFlow.errors.missingFlow', 'Publication data is missing'))
                 setLoading(false)
                 return
             }
@@ -80,7 +80,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({ flowData, renderConfig, library
                 const message =
                     renderError instanceof Error && renderError.message
                         ? renderError.message
-                        : t('publish.publicFlow.errors.renderFailed', 'Failed to render the AR.js publication')
+                        : t('publicFlow.errors.renderFailed', 'Failed to render the AR.js publication')
                 setError(message)
             } finally {
                 setLoading(false)

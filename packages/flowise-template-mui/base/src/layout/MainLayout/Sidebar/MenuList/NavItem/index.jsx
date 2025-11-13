@@ -87,13 +87,18 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
     // Get translated title from key depending on menu item ID
     const getTranslatedTitle = (id, title) => {
         console.log('[NavItem] getTranslatedTitle called:', { id, title })
-        
+
         // Check if title uses namespace:key format (e.g., "menu:metaverses")
         if (title && title.includes(':')) {
             const [namespace, key] = title.split(':')
             const i18n = getI18n()
             const result = i18n.t(key, { ns: namespace })
-            console.log('[NavItem] namespace:key translation:', { namespace, key, result, hasNamespace: i18n.hasResourceBundle('ru', namespace) })
+            console.log('[NavItem] namespace:key translation:', {
+                namespace,
+                key,
+                result,
+                hasNamespace: i18n.hasResourceBundle('ru', namespace)
+            })
             return result
         }
 

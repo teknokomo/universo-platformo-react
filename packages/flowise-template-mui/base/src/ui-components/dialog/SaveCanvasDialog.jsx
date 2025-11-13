@@ -45,9 +45,9 @@ const SaveCanvasDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 />
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('common.cancel')}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('common:cancel')}</Button>
                 <StyledButton disabled={!isReadyToSave} variant='contained' onClick={() => onConfirm(canvasName)}>
-                    {dialogProps.confirmButtonName || t('common.save')}
+                    {dialogProps.confirmButtonName || t('common:save')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

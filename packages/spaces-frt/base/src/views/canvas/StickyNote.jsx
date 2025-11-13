@@ -43,10 +43,10 @@ const StickyNote = ({ data }) => {
           disableFocusListener={true}
           title={
             <div style={{ background: 'transparent', display: 'flex', flexDirection: 'column' }}>
-              <IconButton title={t('common.edit')} onClick={() => duplicateNode(data.id)} sx={{ height: '35px', width: '35px', '&:hover': { color: theme?.palette.primary.main } }} color={theme?.customization?.isDarkMode ? theme.colors?.paper : 'inherit'}>
+              <IconButton title={t('common:edit')} onClick={() => duplicateNode(data.id)} sx={{ height: '35px', width: '35px', '&:hover': { color: theme?.palette.primary.main } }} color={theme?.customization?.isDarkMode ? theme.colors?.paper : 'inherit'}>
                 <IconCopy />
               </IconButton>
-              <IconButton title={t('common.delete')} onClick={() => deleteNode(data.id)} sx={{ height: '35px', width: '35px', '&:hover': { color: 'red' } }} color={theme?.customization?.isDarkMode ? theme.colors?.paper : 'inherit'}>
+              <IconButton title={t('common:delete')} onClick={() => deleteNode(data.id)} sx={{ height: '35px', width: '35px', '&:hover': { color: 'red' } }} color={theme?.customization?.isDarkMode ? theme.colors?.paper : 'inherit'}>
                 <IconTrash />
               </IconButton>
             </div>

@@ -9,19 +9,36 @@ export function useBlocker(blocker, when = true) {
     useEffect(() => {
         if (!when) return
 
-        const unblock = navigator.block((tx) => {
-            const autoUnblockingTx = {
-                ...tx,
-                retry() {
-                    unblock()
-                    tx.retry()
+        // React Router v6 may provide a navigator without `block` in some setups.
+        // Guard against undefined and fallback to beforeunload to avoid crashes.
+        const canBlock = navigator && typeof navigator.block === 'function'
+
+        if (canBlock) {
+            const unblock = navigator.block((tx) => {
+                const autoUnblockingTx = {
+                    ...tx,
+                    retry() {
+                        unblock()
+                        tx.retry()
+                    }
                 }
-            }
 
-            blocker(autoUnblockingTx)
-        })
+                blocker(autoUnblockingTx)
+            })
 
-        return unblock
+            return unblock
+        }
+
+        // Fallback: warn on page unload/refresh when route-level block is unavailable.
+        const beforeUnload = (e) => {
+            // Standard way to trigger confirmation dialog in browsers
+            e.preventDefault()
+            e.returnValue = ''
+            return ''
+        }
+
+        window.addEventListener('beforeunload', beforeUnload)
+        return () => window.removeEventListener('beforeunload', beforeUnload)
     }, [navigator, blocker, when])
 }
 

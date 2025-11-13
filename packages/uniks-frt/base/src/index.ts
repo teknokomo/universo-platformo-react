@@ -1,5 +1,10 @@
-export { default as UnikList } from '@universo/uniks-frt/src/pages/UnikList.js'
-export { default as UnikDialog } from '@universo/uniks-frt/src/pages/UnikDialog.js'
-export { default as UnikDetail } from '@universo/uniks-frt/src/pages/UnikDetail.js'
-export { default as unikDashboard } from '@universo/uniks-frt/src/menu-items/unikDashboard.js'
-export { uniksTranslations } from '@universo/uniks-frt/src/i18n/index.js'
+// Register i18n namespace (side-effect import must come first)
+import './i18n'
+
+// Main page exports
+export { default as UnikList } from './pages/UnikList'
+export { default as UnikBoard } from './pages/UnikBoard'
+export { default as UnikMember } from './pages/UnikMember'
+
+export { default as unikDashboard } from './menu-items/unikDashboard'
+export { uniksTranslations } from './i18n'

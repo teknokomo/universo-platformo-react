@@ -89,24 +89,24 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                             #{selectedChunkNumber}. {selectedChunk.id}
                         </Typography>
                         {!isEdit && !isReadOnly && (
-                            <IconButton onClick={() => setIsEdit(true)} size='small' color='primary' title={t('documentStore.chunks.editChunk')} sx={{ ml: 2 }}>
+                            <IconButton onClick={() => setIsEdit(true)} size='small' color='primary' title={t('document-store:chunks.editChunk')} sx={{ ml: 2 }}>
                                 <IconEdit />
                             </IconButton>
                         )}
                         {isEdit && !isReadOnly && (
-                            <Button onClick={() => onEditCancel()} color='primary' title={t('documentStore.common.cancel')} sx={{ ml: 2 }}>
-                                {t('documentStore.common.cancel')}
+                            <Button onClick={() => onEditCancel()} color='primary' title={t('document-store:common.cancel')} sx={{ ml: 2 }}>
+                                {t('document-store:common.cancel')}
                             </Button>
                         )}
                         {isEdit && !isReadOnly && (
                             <Button
                                 onClick={() => onEditSaved(true)}
                                 color='primary'
-                                title={t('documentStore.common.save')}
+                                title={t('document-store:common.save')}
                                 variant='contained'
                                 sx={{ ml: 2, mr: 1 }}
                             >
-                                {t('documentStore.common.save')}
+                                {t('document-store:common.save')}
                             </Button>
                         )}
                         {!isEdit && !isReadOnly && (
@@ -114,13 +114,13 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                                 onClick={() => onDeleteChunk(selectedChunk)}
                                 size='small'
                                 color='error'
-                                title={t('documentStore.chunks.deleteChunk')}
+                                title={t('document-store:chunks.deleteChunk')}
                                 sx={{ ml: 1 }}
                             >
                                 <IconTrash />
                             </IconButton>
                         )}
-                        <IconButton onClick={onCancel} size='small' color='inherit' title={t('documentStore.common.close')} sx={{ ml: 1 }}>
+                        <IconButton onClick={onCancel} size='small' color='inherit' title={t('document-store:common.close')} sx={{ ml: 1 }}>
                             <IconX />
                         </IconButton>
                     </div>
@@ -149,7 +149,7 @@ const ExpandedChunkDialog = ({ show, dialogProps, onCancel, onChunkEdit, onDelet
                             }}
                         >
                             <IconLanguage style={{ marginRight: 5 }} size={15} />
-                            {t('documentStore.chunks.characters', { count: selectedChunk?.pageContent?.length })}
+                            {t('document-store:chunks.characters', { count: selectedChunk?.pageContent?.length })}
                         </div>
                         <div style={{ marginTop: '5px' }}></div>
                         {!isEdit && (

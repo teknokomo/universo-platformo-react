@@ -61,7 +61,8 @@ import { usePrompt } from '@universo/utils/ui-utils/usePrompt'
 import { FLOWISE_CREDENTIAL_ID, uiBaseURL } from '@flowise/store'
 // Space Builder i18n and FAB
 import { SpaceBuilderFab, registerSpaceBuilderI18n } from '@universo/space-builder-frt'
-import i18n from '../../i18n/i18nInstance.js'
+import { getInstance } from '@universo/i18n/instance'
+const i18n = getInstance()
 
 
 const nodeTypes = { customNode: CanvasNode, stickyNote: StickyNote }
@@ -124,6 +125,8 @@ const Canvas = () => {
     const navigate = useNavigate()
     const params = useParams()
     const { unikId, spaceId: routeSpaceId, canvasId: routeCanvasId, id: legacyId } = params
+    console.log('[Canvas] URL params:', { unikId, routeSpaceId, routeCanvasId, legacyId, fullParams: params })
+    
     const location = useLocation()
     const locationState =
         location.state && typeof location.state === 'object' && location.state !== null ? location.state : {}
@@ -146,9 +149,12 @@ const Canvas = () => {
 
     const URLpath = document.location.pathname.toString().split('/')
     const isAgentCanvas = URLpath.includes('agentcanvas')
+    
+    // CRITICAL: Recalculate spaceId on every render to reflect URL changes after navigation
     const normalizedSpaceId = routeSpaceId && routeSpaceId !== 'new' ? routeSpaceId : null
     const legacySpaceId = !isAgentCanvas && legacyId && legacyId !== 'new' ? legacyId : null
     const spaceId = normalizedSpaceId || legacySpaceId || stateSpaceId || null
+    
     const normalizedCanvasId = routeSpaceId && routeCanvasId === 'new' ? null : routeCanvasId
     const routeResolvedCanvasId =
         normalizedCanvasId && normalizedCanvasId !== 'new' ? normalizedCanvasId : null
@@ -227,7 +233,11 @@ const Canvas = () => {
 
     // ==============================|| Chatflow API ||============================== //
 
-    const getNodesApi = useApi(api.nodes.getAllNodes)
+    const getNodesApi = useApi(async () => {
+        const result = await api.nodes.getAll()
+        console.log('[Canvas] getNodesApi result:', { hasResult: !!result, isArray: Array.isArray(result), length: result?.length })
+        return { data: result }
+    })
     const mergeSpaceOptions = useCallback(
         (options = {}) => {
             const { spaceId: overrideSpaceId, ...restOptions } = options || {}
@@ -242,15 +252,29 @@ const Canvas = () => {
     const getCanvasApi = useApi((unik, canvasId, options = {}) =>
         api.canvases.getCanvas(unik, canvasId, mergeSpaceOptions(options))
     )
-    const updateCanvasApi = useApi((unik, canvasId, body, options = {}) =>
-        api.canvases.updateCanvas(unik, canvasId, body, mergeSpaceOptions(options))
-    )
-    const deleteCanvasApi = useApi((unik, canvasId, options = {}) =>
-        api.canvases.deleteCanvas(unik, canvasId, mergeSpaceOptions(options))
-    )
-    const getSpaceApi = useApi(() => (spaceId ? api.spaces.getSpace(parentUnikId, spaceId) : null))
-    const createSpaceApi = useApi(api.spaces.createSpace)
-    const updateSpaceApi = useApi(api.spaces.updateSpace)
+    // Wrap API calls to match useApi's expected signature: Promise<{ data: T }>
+    const updateCanvasApi = useApi(async (unik, canvasId, body, options = {}) => {
+        const result = await api.canvases.updateCanvas(unik, canvasId, body, mergeSpaceOptions(options))
+        return { data: result }
+    })
+    const deleteCanvasApi = useApi(async (unik, canvasId, options = {}) => {
+        const result = await api.canvases.deleteCanvas(unik, canvasId, mergeSpaceOptions(options))
+        return { data: result }
+    })
+    const getSpaceApi = useApi(async () => {
+        if (!spaceId) return { data: null }
+        const result = await api.spaces.getById(parentUnikId, spaceId)
+        return { data: result }
+    })
+    // Wrap API calls to match useApi's expected signature: Promise<{ data: T }>
+    const createSpaceApi = useApi(async (unikId, payload) => {
+        const result = await api.spaces.create(unikId, payload)
+        return { data: result }
+    })
+    const updateSpaceApi = useApi(async (unikId, spaceId, payload) => {
+        const result = await api.spaces.update(unikId, spaceId, payload)
+        return { data: result }
+    })
 
     // ==============================|| Events & Actions ||============================== //
 
@@ -624,12 +648,35 @@ const Canvas = () => {
 
     const createNewSpaceWithCanvas = async (sanitizedName, flowData) => {
         try {
+            console.log('[Canvas] createNewSpaceWithCanvas called', {
+                sanitizedName,
+                parentUnikId,
+                tempCanvasName: tempCanvas.name,
+                flowDataKeys: Object.keys(flowData || {}),
+                createSpaceApiExists: !!createSpaceApi,
+                createSpaceApiRequestExists: !!createSpaceApi?.request
+            })
             const response = await createSpaceApi.request(parentUnikId, {
                 name: sanitizedName,
                 defaultCanvasName: tempCanvas.name,
                 defaultCanvasFlowData: flowData
             })
+            console.log('[Canvas] createSpaceApi.request response:', response)
+            console.log('[Canvas] response structure:', {
+                hasData: !!response?.data,
+                dataKeys: response?.data ? Object.keys(response.data) : null,
+                responseKeys: Object.keys(response || {}),
+                fullResponse: JSON.stringify(response, null, 2)
+            })
             const payload = response?.data || response
+            console.log('[Canvas] payload:', {
+                hasPayload: !!payload,
+                payloadKeys: payload ? Object.keys(payload) : null,
+                hasDefaultCanvas: !!payload?.defaultCanvas,
+                defaultCanvasKeys: payload?.defaultCanvas ? Object.keys(payload.defaultCanvas) : null,
+                payloadId: payload?.id,
+                payloadSpaceId: payload?.spaceId || payload?.space_id
+            })
             const defaultCanvas = payload?.defaultCanvas
             const createdSpaceId =
                 defaultCanvas?.spaceId ||
@@ -639,8 +686,21 @@ const Canvas = () => {
                 payload?.space_id ||
                 null
 
+            console.log('[Canvas] createdSpaceId extraction:', {
+                createdSpaceId,
+                hasDefaultCanvas: !!defaultCanvas,
+                defaultCanvasId: defaultCanvas?.id,
+                defaultCanvasSpaceId: defaultCanvas?.spaceId || defaultCanvas?.space_id
+            })
+
             if (defaultCanvas?.id) {
+                console.log('[Canvas] defaultCanvas exists, proceeding with setup:', {
+                    canvasId: defaultCanvas.id,
+                    isAgentCanvas,
+                    createdSpaceId
+                })
                 if (isAgentCanvas) {
+                    console.log('[Canvas] Updating canvas type to MULTIAGENT')
                     await updateCanvasApi.request(
                         parentUnikId,
                         defaultCanvas.id,
@@ -657,16 +717,32 @@ const Canvas = () => {
                     spaceName: payload?.name || sanitizedName,
                     isAgentCanvas
                 })
+                console.log('[Canvas] Built canvas view model:', {
+                    hasViewModel: !!canvasViewModel,
+                    viewModelId: canvasViewModel?.id,
+                    viewModelSpaceId: canvasViewModel?.spaceId || canvasViewModel?.space_id
+                })
                 dispatch({ type: SET_CANVAS, canvas: canvasViewModel })
                 setActiveCanvas(canvasViewModel)
+            } else {
+                console.warn('[Canvas] No defaultCanvas.id in response!', { payload })
             }
 
             saveChatflowSuccess()
+            console.log('[Canvas] Attempting navigation:', {
+                hasPayloadId: !!payload?.id,
+                payloadId: payload?.id,
+                defaultCanvasId: defaultCanvas?.id,
+                isAgentCanvas
+            })
             if (payload?.id) {
                 const redirectPath = isAgentCanvas
                     ? `/unik/${parentUnikId}/agentcanvas/${defaultCanvas?.id || payload.id}`
                     : `/unik/${parentUnikId}/space/${payload.id}`
+                console.log('[Canvas] Navigating to:', redirectPath)
                 navigate(redirectPath, { replace: true })
+            } else {
+                console.error('[Canvas] Cannot navigate: no payload.id!', { payload })
             }
         } catch (error) {
             const serverMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message
@@ -701,7 +777,18 @@ const Canvas = () => {
     }
 
     const handleSaveFlow = async (canvasName) => {
+        console.log('[Canvas] handleSaveFlow called', {
+            canvasName,
+            spaceId,
+            activeCanvasId,
+            activeCanvasExists: !!activeCanvas?.id,
+            parentUnikId
+        })
         const flowData = serializeFlowData()
+        console.log('[Canvas] serializeFlowData result:', {
+            flowDataExists: !!flowData,
+            flowDataKeys: flowData ? Object.keys(flowData) : null
+        })
         if (!flowData) return
 
         if (spaceId && activeCanvasId) {
@@ -977,6 +1064,61 @@ const Canvas = () => {
         }
     }, [getSpaceApi.data])
 
+    // Load active Canvas flowData from useCanvases when activeCanvasId changes
+    useEffect(() => {
+        console.log('[Canvas] useEffect flowData loader triggered:', { 
+            spaceId, 
+            activeCanvasId, 
+            canvasesLength: canvases?.length 
+        })
+        
+        if (!spaceId) {
+            console.log('[Canvas] useEffect flowData loader: no spaceId, exiting')
+            return
+        }
+        if (!activeCanvasId) {
+            console.log('[Canvas] useEffect flowData loader: no activeCanvasId, exiting')
+            return
+        }
+        if (!canvases?.length) {
+            console.log('[Canvas] useEffect flowData loader: no canvases, exiting')
+            return
+        }
+
+        const activeCanvasFromList = canvases.find((c) => c.id === activeCanvasId)
+        if (!activeCanvasFromList) {
+            console.log('[Canvas] useEffect flowData loader: activeCanvas not found in list, exiting')
+            return
+        }
+
+        console.log('[Canvas] Loading flowData for active canvas:', {
+            activeCanvasId,
+            hasFlowData: !!activeCanvasFromList.flowData,
+            flowDataLength: activeCanvasFromList.flowData?.length || 0
+        })
+
+        try {
+            const parsed = activeCanvasFromList.flowData
+                ? JSON.parse(activeCanvasFromList.flowData)
+                : { nodes: [], edges: [] }
+            setNodes(parsed.nodes || [])
+            setEdges(parsed.edges || [])
+        } catch (error) {
+            console.error('[Canvas] Failed to parse flowData:', error)
+            setNodes([])
+            setEdges([])
+        }
+
+        const canvasViewModel = buildCanvasAsChatflow(activeCanvasFromList, {
+            unikId: parentUnikId,
+            spaceId: activeCanvasFromList.spaceId || activeCanvasFromList.space_id || spaceId,
+            spaceName: activeCanvasFromList.spaceName || activeCanvasFromList.space_name,
+            isAgentCanvas
+        })
+        dispatch({ type: SET_CANVAS, canvas: canvasViewModel })
+        setActiveCanvas(canvasViewModel)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [spaceId, activeCanvasId, canvases])
 
     // Initialization
     useEffect(() => {
@@ -1231,6 +1373,7 @@ const Canvas = () => {
                             handleLoadFlow={handleLoadFlow}
                             isAgentCanvas={isAgentCanvas}
                             spaceId={spaceId}
+                            activeCanvasId={activeCanvasId}
                             spaceName={spaceData?.name}
                             spaceLoading={!!spaceId && !!getSpaceApi.loading}
                             onRenameSpace={handleRenameSpace}

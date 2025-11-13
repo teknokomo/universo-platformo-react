@@ -48,7 +48,7 @@ const { getSpacesMock, getCanvasesMock, getLeadsMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  const actual = await vi.importActual<typeof import('analytics:react-router-dom')>('react-router-dom')
   return {
     ...actual,
     useParams: () => ({ unikId: 'unik-1' }),
@@ -91,7 +91,7 @@ describe('Analytics dashboard', () => {
     getLeadsMock.mockClear()
   })
 
-  it('renders analytics summary and lead table once data resolves', async () => {
+  it('analytics:renders analytics summary and lead table once data resolves', async () => {
     await renderWithProviders(<Analytics />, {
       withRouter: false,
       withRedux: false,
@@ -118,8 +118,8 @@ describe('Analytics dashboard', () => {
     const table = await screen.findByRole('table', { name: /analytics table/i })
     const rows = within(table).getAllByRole('row')
     expect(rows).toHaveLength(3)
-    expect(within(rows[1]).getByText('Alice')).toBeInTheDocument()
-    expect(within(rows[2]).getByText('Bob')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('analytics:Alice')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('analytics:Bob')).toBeInTheDocument()
 
   })
 })

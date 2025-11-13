@@ -2,6 +2,7 @@
 // Export translations for use in the main application
 
 // Import translations
+import { registerNamespace } from '@universo/i18n/registry'
 import enMainTranslation from './locales/en/main.json'
 import ruMainTranslation from './locales/ru/main.json'
 
@@ -27,6 +28,13 @@ export const analyticsTranslations: TranslationsMap = {
     analytics: ruMainTranslation.analytics
   }
 }
+
+// Side-effect: register the 'analytics' namespace with the global i18n instance
+// Ensures translations are available when the Analytics page is rendered
+registerNamespace('analytics', {
+  en: enMainTranslation.analytics,
+  ru: ruMainTranslation.analytics
+})
 
 /**
  * Get Analytics translations for a specific language

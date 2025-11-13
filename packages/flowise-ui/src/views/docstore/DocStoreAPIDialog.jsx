@@ -25,7 +25,7 @@ const DocStoreAPIDialog = ({ show, dialogProps, onCancel }) => {
     const getConfigApi = useApi(api.documentStore.getDocumentStoreConfig)
 
     const formDataRequest = () => {
-        return `${t('documentStore.api.upsertDescription')}
+        return `${t('document-store:api.upsertDescription')}
 
 \`\`\`python
 import requests
@@ -41,10 +41,10 @@ form_data = {
 
 body_data = {
     "docId": "${dialogProps.loaderId}",
-    "metadata": {}, # ${t('documentStore.api.addMetadata')}
-    "replaceExisting": True, # ${t('documentStore.api.replaceExisting')}
-    "createNewDocStore": False, # ${t('documentStore.api.createNewDocStore')}
-    "splitter": json.dumps({"config":{"chunkSize":20000}}) # ${t('documentStore.api.overrideConfig')}
+    "metadata": {}, # ${t('document-store:api.addMetadata')}
+    "replaceExisting": True, # ${t('document-store:api.replaceExisting')}
+    "createNewDocStore": False, # ${t('document-store:api.createNewDocStore')}
+    "splitter": json.dumps({"config":{"chunkSize":20000}}) # ${t('document-store:api.overrideConfig')}
     # "loader": "",
     # "vectorStore": "",
     # "embedding": "",
@@ -71,13 +71,13 @@ let formData = new FormData();
 formData.append("files", input.files[0]);
 formData.append("docId", "${dialogProps.loaderId}");
 formData.append("splitter", JSON.stringify({"config":{"chunkSize":20000}}));
-// ${t('documentStore.api.addMetadata')}
+// ${t('document-store:api.addMetadata')}
 formData.append("metadata", "{}");
-// ${t('documentStore.api.replaceExisting')}
+// ${t('document-store:api.replaceExisting')}
 formData.append("replaceExisting", "true");
-// ${t('documentStore.api.createNewDocStore')}
+// ${t('document-store:api.createNewDocStore')}
 formData.append("createNewDocStore", "false");
-// ${t('documentStore.api.overrideConfig')}
+// ${t('document-store:api.overrideConfig')}
 // formData.append("loader", "");
 // formData.append("embedding", "");
 // formData.append("vectorStore", "");
@@ -113,7 +113,7 @@ curl -X POST http://localhost:3000/api/v1/document-store/upsert/${dialogProps.st
   -F "metadata={}" \\
   -F "replaceExisting=true" \\
   -F "createNewDocStore=false" \\
-  # ${t('documentStore.api.overrideConfig')}:
+  # ${t('document-store:api.overrideConfig')}:
   # -F "loader=" \\
   # -F "embedding=" \\
   # -F "vectorStore=" \\
@@ -124,7 +124,7 @@ curl -X POST http://localhost:3000/api/v1/document-store/upsert/${dialogProps.st
     }
 
     const jsonDataRequest = () => {
-        return `${t('documentStore.api.upsertDescription')}
+        return `${t('document-store:api.upsertDescription')}
  
 \`\`\`python
 import requests
@@ -142,10 +142,10 @@ def query(payload):
 
 output = query({
     "docId": "${dialogProps.loaderId}",
-    "metadata": "{}", # ${t('documentStore.api.addMetadata')}
-    "replaceExisting": True, # ${t('documentStore.api.replaceExisting')}
-    "createNewDocStore": False, # ${t('documentStore.api.createNewDocStore')}
-    # ${t('documentStore.api.overrideConfig')}
+    "metadata": "{}", # ${t('document-store:api.addMetadata')}
+    "replaceExisting": True, # ${t('document-store:api.replaceExisting')}
+    "createNewDocStore": False, # ${t('document-store:api.createNewDocStore')}
+    # ${t('document-store:api.overrideConfig')}
     "loader": {
         "config": {
             "text": "This is a new text"
@@ -183,10 +183,10 @@ async function query(data) {
 
 query({
     "docId": "${dialogProps.loaderId},
-    "metadata": "{}", // ${t('documentStore.api.addMetadata')}
-    "replaceExisting": true, // ${t('documentStore.api.replaceExisting')}
-    "createNewDocStore": false, // ${t('documentStore.api.createNewDocStore')}
-    // ${t('documentStore.api.overrideConfig')}
+    "metadata": "{}", // ${t('document-store:api.addMetadata')}
+    "replaceExisting": true, // ${t('document-store:api.replaceExisting')}
+    "createNewDocStore": false, // ${t('document-store:api.createNewDocStore')}
+    // ${t('document-store:api.overrideConfig')}
     "loader": {
         "config": {
             "text": "This is a new text"
@@ -225,7 +225,7 @@ curl -X POST http://localhost:3000/api/v1/document-store/upsert/${dialogProps.st
                 "chunkSize": 20000
             }
         }
-        // ${t('documentStore.api.overrideConfig')}
+        // ${t('document-store:api.overrideConfig')}
         // "embedding": {},
         // "vectorStore": {},
         // "recordManager": {}
@@ -334,7 +334,7 @@ curl -X POST http://localhost:3000/api/v1/document-store/upsert/${dialogProps.st
                     {values}
                 </MemoizedReactMarkdown>
 
-                <Typography sx={{ mt: 3, mb: 1 }}>{t('documentStore.api.overrideConfigsDescription')}</Typography>
+                <Typography sx={{ mt: 3, mb: 1 }}>{t('document-store:api.overrideConfigsDescription')}</Typography>
 
                 <Stack direction='column' spacing={2} sx={{ width: '100%', my: 2 }}>
                     <Card sx={{ borderColor: theme.palette.primary[200] + 75, p: 2 }} variant='outlined'>

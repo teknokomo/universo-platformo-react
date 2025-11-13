@@ -37,8 +37,8 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
             value,
             inputParam,
             disabled,
-            confirmButtonName: t('documentStore.common.save'),
-            cancelButtonName: t('documentStore.common.cancel')
+            confirmButtonName: t('document-store:common.save'),
+            cancelButtonName: t('document-store:common.cancel')
         }
         setExpandDialogProps(dialogProps)
         setShowExpandDialog(true)
@@ -50,8 +50,8 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
             relativeLinksMethod,
             limit,
             selectedLinks,
-            confirmButtonName: t('documentStore.common.save'),
-            cancelButtonName: t('documentStore.common.cancel')
+            confirmButtonName: t('document-store:common.save'),
+            cancelButtonName: t('document-store:common.cancel')
         }
         setManageScrapedLinksDialogProps(dialogProps)
         setShowManageScrapedLinksDialog(true)
@@ -79,12 +79,12 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
     // Form field translations
     const getTranslatedLabel = (label) => {
         // PDF-specific translations
-        if (label === 'PDF File') return t('documentStore.loaders.pdf.file')
-        if (label === 'Usage') return t('documentStore.loaders.pdf.usage')
-        if (label === 'One document per page') return t('documentStore.loaders.pdf.oneDocumentPerPage')
-        if (label === 'Use Legacy Build') return t('documentStore.loaders.pdf.useLegacyBuild')
-        if (label === 'Additional Metadata') return t('documentStore.loaders.pdf.additionalMetadata')
-        if (label === 'Omit Metadata Keys') return t('documentStore.loaders.pdf.omitMetadataKeys')
+        if (label === 'PDF File') return t('document-store:loaders.pdf.file')
+        if (label === 'Usage') return t('document-store:loaders.pdf.usage')
+        if (label === 'One document per page') return t('document-store:loaders.pdf.oneDocumentPerPage')
+        if (label === 'Use Legacy Build') return t('document-store:loaders.pdf.useLegacyBuild')
+        if (label === 'Additional Metadata') return t('document-store:loaders.pdf.additionalMetadata')
+        if (label === 'Omit Metadata Keys') return t('document-store:loaders.pdf.omitMetadataKeys')
         
         // Vector Store fields
         if (label === 'Connect Credential') return t('vector-store:vectorStore.formFields.connectCredential')
@@ -123,7 +123,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                         height: 25,
                                         width: 25
                                     }}
-                                    title={t('documentStore.common.expand')}
+                                    title={t('document-store:common.expand')}
                                     color='primary'
                                     onClick={() =>
                                         onExpandDialogClicked(data.inputs[inputParam.name] ?? inputParam.default ?? '', inputParam)
@@ -168,7 +168,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                 disabled={disabled}
                                 fileType={inputParam.fileType || '*'}
                                 onChange={(newValue) => (data.inputs[inputParam.name] = newValue)}
-                                value={data.inputs[inputParam.name] ?? inputParam.default ?? t('documentStore.loaders.common.chooseFile')}
+                                value={data.inputs[inputParam.name] ?? inputParam.default ?? t('document-store:loaders.common.chooseFile')}
                             />
                         )}
                         {inputParam.type === 'boolean' && (
@@ -295,7 +295,7 @@ const DocStoreInputHandler = ({ inputParam, data, disabled = false }) => {
                                             )
                                         }
                                     >
-                                        {t('documentStore.actions.manageLinks')}
+                                        {t('document-store:actions.manageLinks')}
                                     </Button>
                                     <ManageScrapedLinksDialog
                                         show={showManageScrapedLinksDialog}

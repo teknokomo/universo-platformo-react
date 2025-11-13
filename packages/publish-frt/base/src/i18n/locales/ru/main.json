@@ -1,381 +1,376 @@
 {
+  "publish": {
     "general": {
-        "publish": "Опубликовать",
-        "save": "Сохранить",
-        "cancel": "Отмена",
-        "delete": "Удалить",
-        "edit": "Редактировать",
-        "create": "Создать",
-        "update": "Обновить",
-        "loading": "Загрузка...",
-        "success": "Успешно",
-        "error": "Ошибка",
-        "comingSoon": "скоро",
-        "applicationNotAvailable": "Приложение недоступно"
+      "publish": "Опубликовать",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "edit": "Редактировать",
+      "create": "Создать",
+      "update": "Обновить",
+      "loading": "Загрузка...",
+      "success": "Успешно",
+      "error": "Ошибка",
+      "comingSoon": "скоро",
+      "applicationNotAvailable": "Приложение недоступно",
+      "close": "Закрыть"
     },
     "navigation": {
-        "dashboard": "Панель управления",
-        "projects": "Проекты",
-        "settings": "Настройки",
-        "help": "Помощь",
-        "logout": "Выход"
+      "dashboard": "Панель управления",
+      "projects": "Проекты",
+      "settings": "Настройки",
+      "help": "Помощь",
+      "logout": "Выход"
     },
     "projects": {
-        "title": "Проекты",
-        "create": "Создать проект",
-        "edit": "Редактировать проект",
-        "delete": "Удалить проект",
-        "name": "Название проекта",
-        "description": "Описание",
-        "status": "Статус",
-        "lastModified": "Последнее изменение",
-        "createdAt": "Создан",
-        "author": "Автор",
-        "noProjects": "Проекты не найдены"
+      "title": "Проекты",
+      "create": "Создать проект",
+      "edit": "Редактировать проект",
+      "delete": "Удалить проект",
+      "name": "Название проекта",
+      "description": "Описание",
+      "status": "Статус",
+      "lastModified": "Последнее изменение",
+      "createdAt": "Создан",
+      "author": "Автор",
+      "noProjects": "Проекты не найдены"
     },
     "publishing": {
-        "title": "Публикация",
-        "platform": "Платформа",
-        "version": "Версия",
-        "visibility": "Видимость",
-        "public": "Публичный",
-        "private": "Приватный",
-        "publishNow": "Опубликовать сейчас",
-        "scheduling": "Запланировать публикацию",
-        "scheduledFor": "Запланировано на",
-        "confirmPublish": "Вы уверены, что хотите опубликовать?",
-        "publishSuccess": "Успешно опубликовано",
-        "publishError": "Не удалось опубликовать",
-        "targetPlatforms": "Целевые платформы",
-        "publishSettings": "Настройки публикации"
+      "title": "Публикация",
+      "platform": "Платформа",
+      "version": "Версия",
+      "visibility": "Видимость",
+      "public": "Публичный",
+      "private": "Приватный",
+      "publishNow": "Опубликовать сейчас",
+      "scheduling": "Запланировать публикацию",
+      "scheduledFor": "Запланировано на",
+      "confirmPublish": "Вы уверены, что хотите опубликовать?",
+      "publishSuccess": "Успешно опубликовано",
+      "publishError": "Не удалось опубликовать",
+      "targetPlatforms": "Целевые платформы",
+      "publishSettings": "Настройки публикации"
     },
     "settings": {
-        "title": "Настройки",
-        "general": "Общие настройки",
-        "account": "Настройки аккаунта",
-        "notifications": "Уведомления",
-        "appearance": "Внешний вид",
-        "language": "Язык",
-        "theme": "Тема",
-        "dark": "Тёмная",
-        "light": "Светлая",
-        "system": "Системная"
+      "title": "Настройки",
+      "general": "Общие настройки",
+      "account": "Настройки аккаунта",
+      "notifications": "Уведомления",
+      "appearance": "Внешний вид",
+      "language": "Язык",
+      "theme": "Тема",
+      "dark": "Тёмная",
+      "light": "Светлая",
+      "system": "Системная"
     },
     "validation": {
-        "required": "Это поле обязательно",
-        "minLength": "Должно быть не менее {{min}} символов",
-        "maxLength": "Должно быть не более {{max}} символов",
-        "invalidFormat": "Неверный формат"
+      "required": "Это поле обязательно",
+      "minLength": "Должно быть не менее {{min}} символов",
+      "maxLength": "Должно быть не более {{max}} символов",
+      "invalidFormat": "Неверный формат"
     },
     "errors": {
-        "generic": "Что-то пошло не так",
-        "network": "Ошибка сети",
-        "unauthorized": "Нет доступа",
-        "notFound": "Не найдено",
-        "serverError": "Ошибка сервера"
+      "generic": "Что-то пошло не так",
+      "network": "Ошибка сети",
+      "unauthorized": "Нет доступа",
+      "notFound": "Не найдено",
+      "serverError": "Ошибка сервера"
     },
-    "publish": {
-        "title": "Публикация и экспорт",
-        "subtitle": "Поделитесь и экспортируйте ваши UPDL проекты",
-        "general": {
-            "cancel": "Отмена",
-            "close": "Закрыть",
-            "loading": "Загрузка...",
-            "comingSoon": "скоро"
+    "title": "Публикация и экспорт",
+    "subtitle": "Поделитесь и экспортируйте ваши UPDL проекты",
+    "project": {
+      "title": "Название проекта"
+    },
+    "tabs": {
+      "configuration": "Конфигурация",
+      "publish": "Публикация",
+      "export": "Экспорт"
+    },
+    "configuration": {
+      "title": "Конфигурация",
+      "description": "Выберите режим для вашей публикации и настройте основные параметры",
+      "chooseMode": "Выберите режим публикации",
+      "makePublic": "Сделать публичным"
+    },
+    "technology": {
+      "label": "Технология",
+      "select": "Выберите технологию",
+      "chat": "Чатбот",
+      "arjs": "AR.js",
+      "playcanvas": "PlayCanvas",
+      "babylonjs": "Babylon.js",
+      "threejs": "Three.js",
+      "aframevr": "A-Frame",
+      "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
+      "babylonjsDescription": "3D экспортер на основе Babylon.js",
+      "aframevrDescription": "Экспортер VR на основе A-Frame"
+    },
+    "technologies": {
+      "label": "Технология",
+      "select": "Выберите технологию",
+      "chat": "Чатбот",
+      "arjs": "AR.js",
+      "playcanvas": "PlayCanvas",
+      "babylonjs": "Babylon.js",
+      "threejs": "Three.js",
+      "aframevr": "A-Frame",
+      "chatDescription": "Интерактивный интерфейс чатбота",
+      "arjsDescription": "Дополненная реальность с использованием AR.js",
+      "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
+      "babylonjsDescription": "3D экспортер на основе Babylon.js",
+      "aframevrDescription": "Экспортер VR на основе A-Frame"
+    },
+    "actions": {
+      "publish": "Опубликовать",
+      "export": "Экспортировать",
+      "download": "Скачать",
+      "copy": "Копировать ссылку",
+      "view": "Просмотр"
+    },
+    "marker": {
+      "type": "Тип маркера",
+      "hiro": "Hiro (по умолчанию)",
+      "kanji": "Kanji",
+      "pattern": "Шаблон",
+      "barcode": "Штрих-код",
+      "standard": "Стандартный маркер",
+      "custom": "Свой паттерн",
+      "presetLabel": "Предустановленный маркер",
+      "letterA": "Буква A",
+      "letterB": "Буква B",
+      "letterC": "Буква C",
+      "alt": "Маркер",
+      "instruction": "Покажите этот маркер камере для активации AR"
+    },
+    "success": {
+      "published": "Успешно опубликовано!",
+      "copied": "Ссылка скопирована в буфер обмена",
+      "exported": "HTML файл успешно скачан"
+    },
+    "links": {
+      "title": "Ссылки для публикации",
+      "description": "Поделитесь этими ссылками для доступа к вашему опубликованному проекту",
+      "baseLink": "Базовая ссылка",
+      "customLink": "Пользовательская ссылка",
+      "permanent": "постоянная",
+      "copy": "Копировать",
+      "copied": "Скопировано!",
+      "open": "Открыть в новой вкладке",
+      "liveBase": "Базовая ссылка (активная версия)",
+      "liveCustom": "Пользовательская ссылка (активная версия)",
+      "versionBase": "Базовая ссылка версии",
+      "versionCustom": "Пользовательская ссылка версии"
+    },
+    "errors": {
+      "failed": "Не удалось опубликовать",
+      "noUPDL": "В этом потоке не найдено узлов UPDL",
+      "loadingFailed": "Не удалось загрузить AR сцену",
+      "generationFailed": "Не удалось сгенерировать AR сцену"
+    },
+    "preview": {
+      "title": "Предпросмотр",
+      "camera": "Разрешите доступ к камере и покажите маркер Hiro для просмотра"
+    },
+    "export": {
+      "title": "Экспорт",
+      "description": "Экспортируйте ваш AR.js проект для локального использования",
+      "html": "HTML код",
+      "instructions": "Как использовать экспортированный код",
+      "downloadInstructions": "Скачайте и разместите HTML файл на веб-сервере с HTTPS",
+      "copyInstructions": "Скопируйте HTML код и сохраните его в файл с расширением .html"
+    },
+    "arjs": {
+        "generationMode": {
+          "label": "Режим генерации",
+          "streaming": "Потоковая генерация",
+          "pregeneration": "Предварительная генерация",
+          "streamingDescription": "Генерация AR.js в реальном времени на стороне клиента",
+          "pregenerationDescription": "Предварительная генерация AR.js на сервере (в разработке)"
         },
-        "project": {
-            "title": "Название проекта"
+        "backgroundColor": {
+          "label": "Фоновый цвет",
+          "helperText": "Выберите цвет фона для режима без камеры"
         },
-        "tabs": {
-            "configuration": "Конфигурация",
-            "publish": "Публикация",
-            "export": "Экспорт"
+        "displayType": {
+          "label": "Тип AR-отображения",
+          "wallpaper": "AR-обои",
+          "marker": "Стандартный маркер"
         },
-        "configuration": {
-            "title": "Конфигурация",
-            "description": "Выберите режим для вашей публикации и настройте основные параметры",
-            "chooseMode": "Выберите режим публикации",
-            "makePublic": "Сделать публичным"
+        "cameraUsage": {
+          "label": "Использование камеры",
+          "none": "Без камеры",
+          "standard": "Стандартное разрешение"
         },
-        "technology": {
-            "label": "Технология",
-            "select": "Выберите технологию",
-            "chat": "Чатбот",
-            "arjs": "AR.js",
-            "playcanvas": "PlayCanvas",
-            "babylonjs": "Babylon.js",
-            "threejs": "Three.js",
-            "aframevr": "A-Frame",
-            "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
-            "babylonjsDescription": "3D экспортер на основе Babylon.js",
-            "aframevrDescription": "Экспортер VR на основе A-Frame"
+        "wallpaper": {
+          "label": "Тип обоев",
+          "standard": "Стандартные AR-обои"
         },
-        "technologies": {
-            "label": "Технология",
-            "select": "Выберите технологию",
-            "chat": "Чатбот",
-            "arjs": "AR.js",
-            "playcanvas": "PlayCanvas",
-            "babylonjs": "Babylon.js",
-            "threejs": "Three.js",
-            "aframevr": "A-Frame",
-            "chatDescription": "Интерактивный интерфейс чатбота",
-            "arjsDescription": "Дополненная реальность с использованием AR.js",
-            "playcanvasDescription": "3D веб-экспортер на основе PlayCanvas",
-            "babylonjsDescription": "3D экспортер на основе Babylon.js",
-            "aframevrDescription": "Экспортер VR на основе A-Frame"
-        },
-        "actions": {
-            "publish": "Опубликовать",
-            "export": "Экспортировать",
-            "download": "Скачать",
-            "copy": "Копировать ссылку",
-            "view": "Просмотр"
-        },
-        "marker": {
-            "type": "Тип маркера",
-            "hiro": "Hiro (по умолчанию)",
-            "kanji": "Kanji",
-            "pattern": "Шаблон",
-            "barcode": "Штрих-код",
-            "standard": "Стандартный маркер",
-            "custom": "Свой паттерн",
-            "presetLabel": "Предустановленный маркер",
-            "letterA": "Буква A",
-            "letterB": "Буква B",
-            "letterC": "Буква C",
-            "alt": "Маркер",
-            "instruction": "Покажите этот маркер камере для активации AR"
-        },
-        "success": {
-            "published": "Успешно опубликовано!",
-            "copied": "Ссылка скопирована в буфер обмена",
-            "exported": "HTML файл успешно скачан"
-        },
-        "links": {
-            "title": "Ссылки для публикации",
-            "description": "Поделитесь этими ссылками для доступа к вашему опубликованному проекту",
-            "baseLink": "Базовая ссылка",
-            "customLink": "Пользовательская ссылка",
-            "permanent": "постоянная",
-            "copy": "Копировать",
-            "copied": "Скопировано!",
-            "open": "Открыть в новой вкладке",
-            "liveBase": "Базовая ссылка (активная версия)",
-            "liveCustom": "Пользовательская ссылка (активная версия)",
-            "versionBase": "Базовая ссылка версии",
-            "versionCustom": "Пользовательская ссылка версии"
-        },
-        "errors": {
-            "failed": "Не удалось опубликовать",
-            "noUPDL": "В этом потоке не найдено узлов UPDL",
-            "loadingFailed": "Не удалось загрузить AR сцену",
-            "generationFailed": "Не удалось сгенерировать AR сцену"
-        },
-        "preview": {
-            "title": "Предпросмотр",
-            "camera": "Разрешите доступ к камере и покажите маркер Hiro для просмотра"
-        },
-        "export": {
-            "title": "Экспорт",
-            "description": "Экспортируйте ваш AR.js проект для локального использования",
-            "html": "HTML код",
-            "instructions": "Как использовать экспортированный код",
-            "downloadInstructions": "Скачайте и разместите HTML файл на веб-сервере с HTTPS",
-            "copyInstructions": "Скопируйте HTML код и сохраните его в файл с расширением .html"
-        },
-        "arjs": {
-            "generationMode": {
-                "label": "Режим генерации",
-                "streaming": "Потоковая генерация",
-                "pregeneration": "Предварительная генерация",
-                "streamingDescription": "Генерация AR.js в реальном времени на стороне клиента",
-                "pregenerationDescription": "Предварительная генерация AR.js на сервере (в разработке)"
-            },
-            "backgroundColor": {
-                "label": "Фоновый цвет",
-                "helperText": "Выберите цвет фона для режима без камеры"
-            },
-            "displayType": {
-                "label": "Тип AR-отображения",
-                "wallpaper": "AR-обои",
-                "marker": "Стандартный маркер"
-            },
-            "cameraUsage": {
-                "label": "Использование камеры",
-                "none": "Без камеры",
-                "standard": "Стандартное разрешение"
-            },
-            "wallpaper": {
-                "label": "Тип обоев",
-                "standard": "Стандартные AR-обои"
-            },
-            "loading": "Загрузка AR сцены...",
-            "publishedUrl": "Ссылка на публикацию",
-            "copyLink": "Копировать ссылку",
-            "viewAR": "Открыть AR просмотр",
-            "generatingScene": "Генерация AR сцены...",
-            "showMarker": "Покажите этот маркер камере для активации AR",
-            "globalLibraryManagement": {
-                "enforcedMessage": "Настройки источника библиотек управляются глобально администратором (текущий источник: {{source}})",
-                "legacyCorrectedMessage": "Настройки источника библиотек были автоматически обновлены в соответствии с глобальными требованиями администратора (установлен источник: {{source}})",
-                "legacyRecommendationMessage": "Администратор рекомендует изменить источник библиотек на {{source}} в соответствии с глобальными настройками",
-                "officialSource": "Официальный сервер",
-                "kiberplanoSource": "Сервер Kiberplano"
-            }
-        },
-        "playcanvas": {
-            "projectTitle": "Название проекта",
-            "libraryVersion": {
-                "label": "Версия PlayCanvas",
-                "hint": "Выберите версию библиотеки"
-            },
-            "loading": "Загрузка приложения PlayCanvas...",
-            "publishedUrl": "Ссылка на публикацию",
-            "openInBrowser": "Откройте эту ссылку в браузере для просмотра вашего PlayCanvas приложения",
-            "viewApp": "Просмотр PlayCanvas приложения",
-            "generationMode": {
-                "label": "Режим генерации",
-                "streaming": "Потоковая генерация",
-                "pregeneration": "Предварительная генерация",
-                "streamingDescription": "Генерация сцены в реальном времени на стороне клиента",
-                "pregenerationDescription": "Предварительная генерация сцены на сервере (в разработке)"
-            },
-            "demoMode": {
-                "label": "Демо-режим",
-                "off": "Выключено",
-                "primitives": "Графические примитивы",
-                "hint": "Выберите, как будет отображаться сцена при отсутствии логики",
-                "offHint": "Пустая сцена с фоном",
-                "primitivesHint": "Сцена с вращающимся красным кубом"
-            },
-            "gameMode": {
-                "label": "Режим игры",
-                "singleplayer": "Одиночный режим",
-                "multiplayer": "Многопользовательский (Colyseus)",
-                "singleplayerDescription": "Стандартная PlayCanvas игра для одного игрока",
-                "multiplayerDescription": "Многопользовательская игра с синхронизацией в реальном времени через Colyseus"
-            },
-            "colyseusSettings": {
-                "title": "Настройки сервера Colyseus",
-                "serverHost": "Хост сервера",
-                "serverPort": "Порт сервера",
-                "roomName": "Название комнаты",
-                "description": "Настройте параметры подключения к многопользовательскому серверу Colyseus",
-                "hostHelp": "Введите имя хоста сервера (localhost, IP-адрес или доменное имя)",
-                "portHelp": "Введите порт сервера (1-65535, по умолчанию: 2567)",
-                "roomNameHelp": "Введите название комнаты (3-32 символа, буквы, цифры, подчёркивание, дефис)",
-                "errors": {
-                    "invalidHost": "Неверный формат хоста. Используйте localhost, IP-адрес или доменное имя",
-                    "invalidPort": "Неверный порт. Должен быть от 1 до 65535",
-                    "invalidRoomName": "Неверное название комнаты. Используйте 3-32 символа (буквы, цифры, подчёркивание, дефис)"
-                }
-            }
-        },
-        "templates": {
-            "label": "Шаблон экспорта",
-            "selectTemplate": "Выберите шаблон",
-            "noTemplatesFound": "Шаблоны не найдены",
-            "version": "v{{version}}",
-            "description": "Описание шаблона"
-        },
-        "playcanvasTemplates": {
-            "mmoomm": {
-                "name": "Universo MMOOMM",
-                "description": "Многопользовательские виртуальные миры с синхронизацией и сетью в реальном времени"
-            }
-        },
-        "quiz": {
-            "name": "Квиз-приложение",
-            "description": "Интерактивные квизы с системой баллов и сбором контактов"
-        },
-        "qrCode": {
-            "toggle": "Создать QR-код для ссылки",
-            "description": "Создайте QR-код для быстрого доступа с мобильных устройств",
-            "generating": "Генерация QR-кода...",
-            "scanInstruction": "Сканируйте QR-код для доступа с мобильного устройства",
-            "error": "Ошибка генерации QR-кода",
-            "invalidUrl": "Некорректная ссылка для генерации QR-кода",
-            "download": "Сохранить QR-код",
-            "downloading": "Сохранение...",
-            "downloadError": "Ошибка при сохранении QR-кода",
-            "downloadSuccess": "QR-код успешно сохранён"
-        },
-        "versions": {
-            "title": "Опубликовать версию",
-            "selectVersion": "Выберите версию",
-            "noVersions": "Нет доступных версий",
-            "publishButton": "Опубликовать",
-            "unpublishButton": "Отменить публикацию",
-            "copyLink": "Копировать ссылку",
-            "selectTechnology": "Выберите технологию",
-            "activeLabel": "активная",
-            "unknownVersion": "Неизвестная версия",
-            "versionLabel": "Версия",
-            "versionLinksTitle": "Ссылки на версии (фиксированные снимки)",
-            "groupMissing": "Группа версий пока не обнаружена. Можно публиковать версии, как только они появятся ниже.",
-            "versionPublished": "Версия успешно опубликована",
-            "versionUnpublished": "Публикация удалена",
-            "versionPublishError": "Не удалось опубликовать версию",
-            "publishedVersions": "Опубликованные версии",
-            "noPublishedVersions": "Нет опубликованных версий",
-            "confirmUnpublish": "Вы уверены, что хотите удалить эту публикацию?"
-        },
-        "notifications": {
-            "publicationCreated": "Публикация успешно создана",
-            "publicationRemoved": "Публикация удалена",
-            "publicationError": "Не удалось создать публикацию"
+        "loading": "Загрузка AR сцены...",
+        "publishedUrl": "Ссылка на публикацию",
+        "copyLink": "Копировать ссылку",
+        "viewAR": "Открыть AR просмотр",
+        "generatingScene": "Генерация AR сцены...",
+        "showMarker": "Покажите этот маркер камере для активации AR",
+        "globalLibraryManagement": {
+          "enforcedMessage": "Настройки источника библиотек управляются глобально администратором (текущий источник: {{source}})",
+          "legacyCorrectedMessage": "Настройки источника библиотек были автоматически обновлены в соответствии с глобальными требованиями администратора (установлен источник: {{source}})",
+          "legacyRecommendationMessage": "Администратор рекомендует изменить источник библиотек на {{source}} в соответствии с глобальными настройками",
+          "officialSource": "Официальный сервер",
+          "kiberplanoSource": "Сервер Kiberplano"
         }
-    },
+      },
+    "playcanvas": {
+        "projectTitle": "Название проекта",
+        "libraryVersion": {
+          "label": "Версия PlayCanvas",
+          "hint": "Выберите версию библиотеки"
+        },
+        "loading": "Загрузка приложения PlayCanvas...",
+        "publishedUrl": "Ссылка на публикацию",
+        "openInBrowser": "Откройте эту ссылку в браузере для просмотра вашего PlayCanvas приложения",
+        "viewApp": "Просмотр PlayCanvas приложения",
+        "generationMode": {
+          "label": "Режим генерации",
+          "streaming": "Потоковая генерация",
+          "pregeneration": "Предварительная генерация",
+          "streamingDescription": "Генерация сцены в реальном времени на стороне клиента",
+          "pregenerationDescription": "Предварительная генерация сцены на сервере (в разработке)"
+        },
+        "demoMode": {
+          "label": "Демо-режим",
+          "off": "Выключено",
+          "primitives": "Графические примитивы",
+          "hint": "Выберите, как будет отображаться сцена при отсутствии логики",
+          "offHint": "Пустая сцена с фоном",
+          "primitivesHint": "Сцена с вращающимся красным кубом"
+        },
+        "gameMode": {
+          "label": "Режим игры",
+          "singleplayer": "Одиночный режим",
+          "multiplayer": "Многопользовательский (Colyseus)",
+          "singleplayerDescription": "Стандартная PlayCanvas игра для одного игрока",
+          "multiplayerDescription": "Многопользовательская игра с синхронизацией в реальном времени через Colyseus"
+        },
+        "colyseusSettings": {
+          "title": "Настройки сервера Colyseus",
+          "serverHost": "Хост сервера",
+          "serverPort": "Порт сервера",
+          "roomName": "Название комнаты",
+          "description": "Настройте параметры подключения к многопользовательскому серверу Colyseus",
+          "hostHelp": "Введите имя хоста сервера (localhost, IP-адрес или доменное имя)",
+          "portHelp": "Введите порт сервера (1-65535, по умолчанию: 2567)",
+          "roomNameHelp": "Введите название комнаты (3-32 символа, буквы, цифры, подчёркивание, дефис)",
+          "errors": {
+            "invalidHost": "Неверный формат хоста. Используйте localhost, IP-адрес или доменное имя",
+            "invalidPort": "Неверный порт. Должен быть от 1 до 65535",
+            "invalidRoomName": "Неверное название комнаты. Используйте 3-32 символа (буквы, цифры, подчёркивание, дефис)"
+          }
+        }
+      },
+    "templates": {
+        "label": "Шаблон экспорта",
+        "selectTemplate": "Выберите шаблон",
+        "noTemplatesFound": "Шаблоны не найдены",
+        "version": "v{{version}}",
+        "description": "Описание шаблона"
+      },
+    "playcanvasTemplates": {
+        "mmoomm": {
+          "name": "Universo MMOOMM",
+          "description": "Многопользовательские виртуальные миры с синхронизацией и сетью в реальном времени"
+        }
+      },
+    "quiz": {
+        "name": "Квиз-приложение",
+        "description": "Интерактивные квизы с системой баллов и сбором контактов"
+      },
+    "qrCode": {
+        "toggle": "Создать QR-код для ссылки",
+        "description": "Создайте QR-код для быстрого доступа с мобильных устройств",
+        "generating": "Генерация QR-кода...",
+        "scanInstruction": "Сканируйте QR-код для доступа с мобильного устройства",
+        "error": "Ошибка генерации QR-кода",
+        "invalidUrl": "Некорректная ссылка для генерации QR-кода",
+        "download": "Сохранить QR-код",
+        "downloading": "Сохранение...",
+        "downloadError": "Ошибка при сохранении QR-кода",
+        "downloadSuccess": "QR-код успешно сохранён"
+      },
+    "versions": {
+        "title": "Опубликовать версию",
+        "selectVersion": "Выберите версию",
+        "noVersions": "Нет доступных версий",
+        "publishButton": "Опубликовать",
+        "unpublishButton": "Отменить публикацию",
+        "copyLink": "Копировать ссылку",
+        "selectTechnology": "Выберите технологию",
+        "activeLabel": "активная",
+        "unknownVersion": "Неизвестная версия",
+        "versionLabel": "Версия",
+        "versionLinksTitle": "Ссылки на версии (фиксированные снимки)",
+        "groupMissing": "Группа версий пока не обнаружена. Можно публиковать версии, как только они появятся ниже.",
+        "versionPublished": "Версия успешно опубликована",
+        "versionUnpublished": "Публикация удалена",
+        "versionPublishError": "Не удалось опубликовать версию",
+        "publishedVersions": "Опубликованные версии",
+        "noPublishedVersions": "Нет опубликованных версий",
+        "confirmUnpublish": "Вы уверены, что хотите удалить эту публикацию?"
+      },
+    "notifications": {
+        "publicationCreated": "Публикация успешно создана",
+        "publicationRemoved": "Публикация удалена",
+        "publicationError": "Не удалось создать публикацию"
+      },
     "arPublication": {
-        "configSaved": "Настройки публикации AR.js сохранены",
-        "saveError": "Ошибка при сохранении настроек",
-        "streamingModeEnabled": "Режим потоковой генерации включен",
-        "publicLinkAvailable": "Публичная ссылка доступна"
+      "configSaved": "Настройки публикации AR.js сохранены",
+      "saveError": "Ошибка при сохранении настроек",
+      "streamingModeEnabled": "Режим потоковой генерации включен",
+      "publicLinkAvailable": "Публичная ссылка доступна"
     },
     "playcanvasPublication": {
-        "configSaved": "Настройки публикации PlayCanvas сохранены",
-        "saveError": "Ошибка при сохранении настроек PlayCanvas",
-        "libraryHint": "Выберите версию движка PlayCanvas"
+      "configSaved": "Настройки публикации PlayCanvas сохранены",
+      "saveError": "Ошибка при сохранении настроек PlayCanvas",
+      "libraryHint": "Выберите версию движка PlayCanvas"
     },
     "common": {
-        "saving": "Сохранение...",
-        "saved": "Сохранено",
-        "saveError": "Ошибка сохранения",
-        "retry": "Повторить"
+      "saving": "Сохранение...",
+      "saved": "Сохранено",
+      "saveError": "Ошибка сохранения",
+      "retry": "Повторить"
     },
     "publisher": {
-        "timer": {
-            "title": "Настройки таймера",
-            "enabled": "Включить таймер",
-            "enabledHelp": "Добавить обратный отсчёт времени для прохождения квиза",
-            "limitSeconds": "Лимит времени (секунды)",
-            "limitSecondsHelp": "От 10 до 3600 секунд (1 час)",
-  "position": "Позиция таймера",
-  "positionHelp": "Выберите расположение таймера на экране",
-  "topCenter": "Вверху по центру",
-  "topLeft": "Вверху слева",
-  "topRight": "Вверху справа",
-            "bottomLeft": "Внизу слева",
-            "bottomRight": "Внизу справа"
-        }
+      "timer": {
+        "title": "Настройки таймера",
+        "enabled": "Включить таймер",
+        "enabledHelp": "Добавить обратный отсчёт времени для прохождения квиза",
+        "limitSeconds": "Лимит времени (секунды)",
+        "limitSecondsHelp": "От 10 до 3600 секунд (1 час)",
+        "position": "Позиция таймера",
+        "positionHelp": "Выберите расположение таймера на экране",
+        "topCenter": "Вверху по центру",
+        "topLeft": "Вверху слева",
+        "topRight": "Вверху справа",
+        "bottomLeft": "Внизу слева",
+        "bottomRight": "Внизу справа"
+      }
     },
     "apiCodeDialog": {
-        "noAuthorization": "Без авторизации",
-        "addNewKey": "- Добавить новый ключ -",
-        "chooseApiKey": "Выберите API ключ",
-        "cannotUseApiKey": "Вы не можете использовать API ключ при встраивании/совместном использовании чат-бота.",
-        "selectNoAuthorization": "Пожалуйста, выберите <b>«Без авторизации»</b> из выпадающего списка в правом верхнем углу.",
-        "showOverrideConfig": "Показать настройки переопределения",
-        "overrideConfigDescription": "Вы можете переопределить существующую конфигурацию ввода пространства с помощью свойства overrideConfig.",
-        "securityNote": "По соображениям безопасности переопределение конфигурации отключено по умолчанию. Вы можете изменить это, перейдя в Конфигурацию пространства -> вкладка Безопасность, и включить свойство, которое хотите переопределить.",
-        "refer": "Обратитесь",
-        "here": "сюда",
-        "forMoreDetails": "для получения дополнительной информации",
-        "nodes": "Узлы",
-        "variables": "Переменные",
-        "multipleValuesNote": "Вы также можете указать несколько значений для параметра конфигурации, указав id узла",
-        "readHere": "Прочтите",
-        "streamingNote": "как потоково возвращать ответ в приложение"
+      "noAuthorization": "Без авторизации",
+      "addNewKey": "- Добавить новый ключ -",
+      "chooseApiKey": "Выберите API ключ",
+      "cannotUseApiKey": "Вы не можете использовать API ключ при встраивании/совместном использовании чат-бота.",
+      "selectNoAuthorization": "Пожалуйста, выберите <b>«Без авторизации»</b> из выпадающего списка в правом верхнем углу.",
+      "showOverrideConfig": "Показать настройки переопределения",
+      "overrideConfigDescription": "Вы можете переопределить существующую конфигурацию ввода пространства с помощью свойства overrideConfig.",
+      "securityNote": "По соображениям безопасности переопределение конфигурации отключено по умолчанию. Вы можете изменить это, перейдя в Конфигурацию пространства -> вкладка Безопасность, и включить свойство, которое хотите переопределить.",
+      "refer": "Обратитесь",
+      "here": "сюда",
+      "forMoreDetails": "для получения дополнительной информации",
+      "nodes": "Узлы",
+      "variables": "Переменные",
+      "multipleValuesNote": "Вы также можете указать несколько значений для параметра конфигурации, указав id узла",
+      "readHere": "Прочтите",
+      "streamingNote": "как потоково возвращать ответ в приложение"
     }
+  }
 }

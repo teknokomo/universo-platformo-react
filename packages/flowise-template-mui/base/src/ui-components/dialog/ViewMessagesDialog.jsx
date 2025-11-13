@@ -64,6 +64,7 @@ import {
 // API
 // TODO: use api.canvasMessages
 // TODO: use api.feedback
+import { api } from '@universo/api-client'
 import useApi from '../../hooks/useApi.js'
 import useConfirm from '../../hooks/useConfirm.js'
 
@@ -101,7 +102,7 @@ const ConfirmDeleteMessageDialog = ({ show, dialogProps, onCancel, onConfirm }) 
     const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
     const portalElement = document.getElementById('portal')
     const [hardDelete, setHardDelete] = useState(false)
-    const { t } = useTranslation()
+    const { t } = useTranslation('viewMessages')
 
     const onSubmit = () => {
         onConfirm(hardDelete)
@@ -127,9 +128,9 @@ const ConfirmDeleteMessageDialog = ({ show, dialogProps, onCancel, onConfirm }) 
                 />
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('dialog.viewMessages.cancel')}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('cancel')}</Button>
                 <StyledButton variant='contained' onClick={onSubmit}>
-                    {dialogProps.confirmButtonName || t('dialog.viewMessages.confirm')}
+                    {dialogProps.confirmButtonName || t('confirm')}
                 </StyledButton>
             </DialogActions>
         </Dialog>
@@ -151,7 +152,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { confirm } = useConfirm()
-    const { t } = useTranslation()
+    const { t } = useTranslation('viewMessages')
 
     const { canvas, canvasId, spaceId, unikId } = resolveCanvasContext(dialogProps, { requireCanvasId: false })
 
@@ -256,10 +257,10 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
 
     const onDeleteMessages = () => {
         setHardDeleteDialogProps({
-            title: t('dialog.viewMessages.delete'),
-            description: t('dialog.viewMessages.deleteAllConfirm'),
-            confirmButtonName: t('dialog.viewMessages.delete'),
-            cancelButtonName: t('dialog.viewMessages.cancel')
+            title: t('delete'),
+            description: t('deleteAllConfirm'),
+            confirmButtonName: t('delete'),
+            cancelButtonName: t('cancel')
         })
         setHardDeleteDialogOpen(true)
     }
@@ -874,7 +875,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                     {dialogProps.title}
                     <div style={{ flex: 1 }} />
                     <Button variant='outlined' onClick={() => exportMessages()} startIcon={<IconFileExport />}>
-                        {t('dialog.viewMessages.export')}
+                        {t('export')}
                     </Button>
                 </div>
             </DialogTitle>
@@ -891,7 +892,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                         }}
                     >
                         <div style={{ marginRight: 10 }}>
-                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.startDate')}</b>
+                            <b style={{ marginRight: 10 }}>{t('startDate')}</b>
                             <DatePicker
                                 selected={startDate}
                                 onChange={(date) => onStartDateSelected(date)}
@@ -902,7 +903,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                             />
                         </div>
                         <div style={{ marginRight: 10 }}>
-                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.endDate')}</b>
+                            <b style={{ marginRight: 10 }}>{t('endDate')}</b>
                             <DatePicker
                                 selected={endDate}
                                 onChange={(date) => onEndDateSelected(date)}
@@ -923,7 +924,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                 marginRight: 10
                             }}
                         >
-                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.chatType')}</b>
+                            <b style={{ marginRight: 10 }}>{t('chatType')}</b>
                             <MultiDropdown
                                 key={JSON.stringify(chatTypeFilter)}
                                 name='chatType'
@@ -951,7 +952,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                 marginRight: 10
                             }}
                         >
-                            <b style={{ marginRight: 10 }}>{t('dialog.viewMessages.feedback')}</b>
+                            <b style={{ marginRight: 10 }}>{t('feedback')}</b>
                             <MultiDropdown
                                 key={JSON.stringify(feedbackTypeFilter)}
                                 name='chatType'
@@ -973,7 +974,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                         <div style={{ flex: 1 }}></div>
                         {stats.totalMessages > 0 && (
                             <Button color='error' variant='outlined' onClick={() => onDeleteMessages()} startIcon={<IconEraser />}>
-                                {t('dialog.viewMessages.delete')}
+                                {t('delete')}
                             </Button>
                         )}
                     </div>
@@ -1004,7 +1005,7 @@ const ViewMessagesDialog = ({ show, dialogProps, onCancel }) => {
                                         alt='msgEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('dialog.viewMessages.noMessages')}</div>
+                                <div>{t('noMessages')}</div>
                             </Stack>
                         )}
                         {chatlogs && chatlogs.length > 0 && (

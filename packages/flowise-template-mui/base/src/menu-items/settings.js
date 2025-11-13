@@ -36,70 +36,70 @@ const settings = {
     children: [
         {
             id: 'viewMessages',
-            title: i18n.t('canvas.contextMenu.viewMessages'),
+            title: i18n.t('canvas:contextMenu.viewMessages'),
             type: 'item',
             url: '',
             icon: icons.IconMessage
         },
         {
             id: 'viewLeads',
-            title: i18n.t('canvas.contextMenu.viewLeads'),
+            title: i18n.t('canvas:contextMenu.viewLeads'),
             type: 'item',
             url: '',
             icon: icons.IconUsers
         },
         {
             id: 'viewUpsertHistory',
-            title: i18n.t('canvas.contextMenu.upsertHistory'),
+            title: i18n.t('canvas:contextMenu.upsertHistory'),
             type: 'item',
             url: '',
             icon: icons.IconDatabaseExport
         },
         {
             id: 'canvasVersions',
-            title: i18n.t('canvas.contextMenu.canvasVersions'),
+            title: i18n.t('canvas:contextMenu.canvasVersions'),
             type: 'item',
             url: '',
             icon: icons.IconVersions
         },
         {
             id: 'canvasConfiguration',
-            title: i18n.t('canvas.contextMenu.configuration'),
+            title: i18n.t('canvas:contextMenu.configuration'),
             type: 'item',
             url: '',
             icon: icons.IconAdjustmentsHorizontal
         },
         {
             id: 'saveAsTemplate',
-            title: i18n.t('canvas.contextMenu.saveAsTemplate'),
+            title: i18n.t('canvas:contextMenu.saveAsTemplate'),
             type: 'item',
             url: '',
             icon: icons.IconTemplate
         },
         {
             id: 'duplicateCanvas',
-            title: i18n.t('canvas.contextMenu.duplicateCanvas'),
+            title: i18n.t('canvas:contextMenu.duplicateCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconCopy
         },
         {
             id: 'loadCanvas',
-            title: i18n.t('canvas.contextMenu.loadCanvas'),
+            title: i18n.t('canvas:contextMenu.loadCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconFileUpload
         },
         {
             id: 'exportCanvas',
-            title: i18n.t('canvas.contextMenu.exportCanvas'),
+            title: i18n.t('canvas:contextMenu.exportCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconFileExport
         },
         {
             id: 'deleteCanvas',
-            title: i18n.t('canvas.contextMenu.deleteCanvas'),
+            title: i18n.t('canvas:contextMenu.deleteCanvas'),
             type: 'item',
             url: '',
             icon: icons.IconTrash

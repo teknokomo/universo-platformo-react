@@ -405,16 +405,16 @@ const NodeInputHandler = ({
             setAsyncOptionEditDialogProps({
                 title: t('dialogs.editTool'),
                 type: 'EDIT',
-                cancelButtonName: t('common.cancel'),
-                confirmButtonName: t('common.save'),
+                cancelButtonName: t('common:cancel'),
+                confirmButtonName: t('common:save'),
                 toolId: inputValue
             })
         } else if (inputParamName === 'selectedAssistant') {
             setAsyncOptionEditDialogProps({
                 title: t('dialogs.editAssistant'),
                 type: 'EDIT',
-                cancelButtonName: t('common.cancel'),
-                confirmButtonName: t('common.save'),
+                cancelButtonName: t('common:cancel'),
+                confirmButtonName: t('common:save'),
                 assistantId: inputValue
             })
         }
@@ -426,15 +426,15 @@ const NodeInputHandler = ({
             setAsyncOptionEditDialogProps({
                 title: t('dialogs.addNewTool'),
                 type: 'ADD',
-                cancelButtonName: t('common.cancel'),
-                confirmButtonName: t('common.add')
+                cancelButtonName: t('common:cancel'),
+                confirmButtonName: t('common:add')
             })
         } else if (inputParamName === 'selectedAssistant') {
             setAsyncOptionEditDialogProps({
                 title: t('dialogs.addNewAssistant'),
                 type: 'ADD',
-                cancelButtonName: t('common.cancel'),
-                confirmButtonName: t('common.add')
+                cancelButtonName: t('common:cancel'),
+                confirmButtonName: t('common:add')
             })
         }
         setAsyncOptionEditDialog(inputParamName)
@@ -600,7 +600,7 @@ const NodeInputHandler = ({
                                         height: 25,
                                         width: 25
                                     }}
-                                    title={t('common.expand')}
+                                    title={t('common:expand')}
                                     color='primary'
                                     onClick={() =>
                                         onExpandDialogClicked(data.inputs[inputParam.name] ?? inputParam.default ?? '', inputParam)
@@ -818,7 +818,7 @@ const NodeInputHandler = ({
                                     />
                                     {EDITABLE_OPTIONS.includes(inputParam.name) && data.inputs[inputParam.name] && (
                                         <IconButton
-                                            title={t('common.edit')}
+                                            title={t('common:edit')}
                                             color='primary'
                                             size='small'
                                             onClick={() => editAsyncOption(inputParam.name, data.inputs[inputParam.name])}
@@ -828,7 +828,7 @@ const NodeInputHandler = ({
                                     )}
                                     {inputParam.refresh && (
                                         <IconButton
-                                            title={t('common.refresh')}
+                                            title={t('common:refresh')}
                                             color='primary'
                                             size='small'
                                             onClick={() => setReloadTimestamp(Date.now().toString())}

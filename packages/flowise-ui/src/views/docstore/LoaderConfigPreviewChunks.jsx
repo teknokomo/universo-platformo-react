@@ -133,7 +133,7 @@ const LoaderConfigPreviewChunks = () => {
         }
         if (!canSubmit) {
             enqueueSnackbar({
-                message: t('documentStore.loaders.common.fillMandatoryFields'),
+                message: t('document-store:loaders.common.fillMandatoryFields'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'warning',
@@ -165,7 +165,7 @@ const LoaderConfigPreviewChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.loaders.common.previewError', { 
+                    message: t('document-store:loaders.common.previewError', { 
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -191,7 +191,7 @@ const LoaderConfigPreviewChunks = () => {
                 setLoading(false)
                 if (saveResp.data) {
                     enqueueSnackbar({
-                        message: t('documentStore.loaders.common.processingSubmitted'),
+                        message: t('document-store:loaders.common.processingSubmitted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -209,7 +209,7 @@ const LoaderConfigPreviewChunks = () => {
             } catch (error) {
                 setLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.loaders.common.processingError', { 
+                    message: t('document-store:loaders.common.processingError', { 
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -391,7 +391,7 @@ const LoaderConfigPreviewChunks = () => {
                                 }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', flexDirection: 'row' }}>
-                                    <StyledFab size='small' color='secondary' aria-label='back' title={t('documentStore.loaders.common.back')} onClick={() => navigate(-1)}>
+                                    <StyledFab size='small' color='secondary' aria-label='back' title={t('document-store:loaders.common.back')} onClick={() => navigate(-1)}>
                                         <IconArrowLeft />
                                     </StyledFab>
                                     <Typography sx={{ ml: 2, mr: 2 }} variant='h3'>
@@ -433,7 +433,7 @@ const LoaderConfigPreviewChunks = () => {
                                         sx={{ borderRadius: 2, height: '100%' }}
                                         startIcon={<IconDatabaseImport />}
                                     >
-                                        {t('documentStore.loaders.common.process')}
+                                        {t('document-store:loaders.common.process')}
                                     </StyledButton>
                                 </Box>
                             </Toolbar>
@@ -453,7 +453,7 @@ const LoaderConfigPreviewChunks = () => {
                                                 fullWidth
                                                 sx={{ mt: 1 }}
                                                 size='small'
-                                                label={t('documentStore.loaders.pdf.loaderName')}
+                                                label={t('document-store:loaders.pdf.loaderName')}
                                                 value={loaderName}
                                                 onChange={(e) => setLoaderName(e.target.value)}
                                             />
@@ -475,7 +475,7 @@ const LoaderConfigPreviewChunks = () => {
                                                     <Typography sx={{ mr: 2 }} variant='h3'>
                                                         {(splitterOptions ?? []).find(
                                                             (splitter) => splitter.name === selectedTextSplitter?.name
-                                                        )?.label ?? t('documentStore.loaders.common.selectTextSplitter')}
+                                                        )?.label ?? t('document-store:loaders.common.selectTextSplitter')}
                                                     </Typography>
                                                     <div
                                                         style={{
@@ -507,7 +507,7 @@ const LoaderConfigPreviewChunks = () => {
                                                     </div>
                                                 </Box>
                                                 <Box sx={{ p: 2 }}>
-                                                    <Typography>{t('documentStore.loaders.common.splitter')}</Typography>
+                                                    <Typography>{t('document-store:loaders.common.splitter')}</Typography>
                                                     <Dropdown
                                                         key={JSON.stringify(selectedTextSplitter)}
                                                         name='textSplitter'
@@ -585,12 +585,12 @@ const LoaderConfigPreviewChunks = () => {
                                                     <StyledFab
                                                         color='secondary'
                                                         aria-label='preview'
-                                                        title={t('documentStore.loaders.common.preview')}
+                                                        title={t('document-store:loaders.common.preview')}
                                                         variant='extended'
                                                         onClick={onPreviewChunks}
                                                     >
                                                         <IconEye style={{ marginRight: '5px' }} />
-                                                        {t('documentStore.loaders.common.previewChunks')}
+                                                        {t('document-store:loaders.common.previewChunks')}
                                                     </StyledFab>
                                                 </div>
                                             </div>
@@ -598,10 +598,10 @@ const LoaderConfigPreviewChunks = () => {
                                     {documentChunks && documentChunks.length > 0 && (
                                         <>
                                             <Typography sx={{ wordWrap: 'break-word', textAlign: 'left', mb: 2 }} variant='h3'>
-                                                {currentPreviewCount} {t('documentStore.loaders.common.ofChunks', { total: totalChunks })}
+                                                {currentPreviewCount} {t('document-store:loaders.common.ofChunks', { total: totalChunks })}
                                             </Typography>
                                             <Box sx={{ mb: 3 }}>
-                                                <Typography>{t('documentStore.loaders.common.showChunksInPreview')}</Typography>
+                                                <Typography>{t('document-store:loaders.common.showChunksInPreview')}</Typography>
                                                 <div style={{ display: 'flex', flexDirection: 'row' }}>
                                                     <OutlinedInput
                                                         size='small'
@@ -615,12 +615,12 @@ const LoaderConfigPreviewChunks = () => {
                                                     <StyledFab
                                                         color='secondary'
                                                         aria-label='preview'
-                                                        title={t('documentStore.loaders.common.preview')}
+                                                        title={t('document-store:loaders.common.preview')}
                                                         variant='extended'
                                                         onClick={onPreviewChunks}
                                                     >
                                                         <IconEye style={{ marginRight: '5px' }} />
-                                                        {t('documentStore.loaders.common.preview')}
+                                                        {t('document-store:loaders.common.preview')}
                                                     </StyledFab>
                                                 </div>
                                             </Box>
@@ -640,7 +640,7 @@ const LoaderConfigPreviewChunks = () => {
                                                                 <Card>
                                                                     <CardContent sx={{ p: 1 }}>
                                                                         <Typography sx={{ wordWrap: 'break-word', mb: 1 }} variant='h5'>
-                                                                            {`#${index + 1}. ${t('documentStore.loaders.common.characters')}: ${row.pageContent.length}`}
+                                                                            {`#${index + 1}. ${t('document-store:loaders.common.characters')}: ${row.pageContent.length}`}
                                                                         </Typography>
                                                                         <Typography sx={{ wordWrap: 'break-word' }} variant='body2'>
                                                                             {row.pageContent}

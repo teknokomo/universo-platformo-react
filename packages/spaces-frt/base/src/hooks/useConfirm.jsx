@@ -12,21 +12,32 @@ const useConfirm = () => {
     }
 
     const onConfirm = () => {
+        console.log('[useConfirm:spaces-frt] onConfirm called', { hasResolveCallback: !!resolveCallback })
         closeConfirm()
-        resolveCallback(true)
+        if (resolveCallback) {
+            resolveCallback(true)
+        } else {
+            console.error('[useConfirm:spaces-frt] ❌ resolveCallback is undefined!')
+        }
     }
 
     const onCancel = () => {
         closeConfirm()
-        resolveCallback(false)
+        if (resolveCallback) {
+            resolveCallback(false)
+        }
     }
+    
     const confirm = (confirmPayload) => {
-        dispatch({
-            type: SHOW_CONFIRM,
-            payload: confirmPayload
-        })
+        console.log('[useConfirm:spaces-frt] confirm() called, about to create Promise')
         return new Promise((res) => {
             resolveCallback = res
+            console.log('[useConfirm:spaces-frt] ✅ resolveCallback set BEFORE dispatch')
+            dispatch({
+                type: SHOW_CONFIRM,
+                payload: confirmPayload
+            })
+            console.log('[useConfirm:spaces-frt] dispatch called AFTER setting resolveCallback')
         })
     }
 

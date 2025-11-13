@@ -177,7 +177,7 @@ const DocumentStoreDetails = () => {
 
     const listLoaders = () => {
         const dialogProp = {
-            title: t('documentStore.loaders.common.selectLoader'),
+            title: t('document-store:loaders.common.selectLoader'),
             unikId
         }
         setDocumentLoaderListDialogProps(dialogProp)
@@ -204,7 +204,7 @@ const DocumentStoreDetails = () => {
                 setBackdropLoading(false)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('documentStore.messages.storeDeleted'),
+                        message: t('document-store:messages.storeDeleted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -221,7 +221,7 @@ const DocumentStoreDetails = () => {
                 setBackdropLoading(false)
                 setError(error)
                 enqueueSnackbar({
-                    message: t('documentStore.messages.deleteError', { 
+                    message: t('document-store:messages.deleteError', { 
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -242,7 +242,7 @@ const DocumentStoreDetails = () => {
                 setBackdropLoading(false)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('documentStore.messages.loaderDeleted'),
+                        message: t('document-store:messages.loaderDeleted'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -259,7 +259,7 @@ const DocumentStoreDetails = () => {
                 setError(error)
                 setBackdropLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.messages.deleteError', { 
+                    message: t('document-store:messages.deleteError', { 
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -279,8 +279,8 @@ const DocumentStoreDetails = () => {
 
     const onLoaderDelete = (file, vectorStoreConfig, recordManagerConfig) => {
         const props = {
-            title: t('documentStore.deleteDialog.title'),
-            description: t('documentStore.loaders.deleteDescription', { name: file.loaderName }),
+            title: t('document-store:deleteDialog.title'),
+            description: t('document-store:loaders.deleteDescription', { name: file.loaderName }),
             vectorStoreConfig,
             recordManagerConfig,
             type: 'LOADER',
@@ -293,8 +293,8 @@ const DocumentStoreDetails = () => {
 
     const onStoreDelete = (vectorStoreConfig, recordManagerConfig) => {
         const props = {
-            title: t('documentStore.deleteDialog.title'),
-            description: t('documentStore.deleteDialog.description').replace('{name}', getSpecificDocumentStore.data?.name),
+            title: t('document-store:deleteDialog.title'),
+            description: t('document-store:deleteDialog.description').replace('{name}', getSpecificDocumentStore.data?.name),
             vectorStoreConfig,
             recordManagerConfig,
             type: 'STORE'
@@ -306,10 +306,10 @@ const DocumentStoreDetails = () => {
 
     const onStoreRefresh = async (storeId) => {
         const confirmPayload = {
-            title: t('documentStore.refreshDialog.title'),
-            description: t('documentStore.refreshDialog.description'),
-            confirmButtonName: t('documentStore.common.refresh'),
-            cancelButtonName: t('documentStore.common.cancel')
+            title: t('document-store:refreshDialog.title'),
+            description: t('document-store:refreshDialog.description'),
+            confirmButtonName: t('document-store:common.refresh'),
+            cancelButtonName: t('document-store:common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -320,7 +320,7 @@ const DocumentStoreDetails = () => {
                 const resp = await documentsApi.refreshLoader(unikId, storeId)
                 if (resp.data) {
                     enqueueSnackbar({
-                        message: t('documentStore.messages.storeRefreshed'),
+                        message: t('document-store:messages.storeRefreshed'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -336,7 +336,7 @@ const DocumentStoreDetails = () => {
             } catch (error) {
                 setBackdropLoading(false)
                 enqueueSnackbar({
-                    message: t('documentStore.messages.refreshError', {
+                    message: t('document-store:messages.refreshError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -356,10 +356,10 @@ const DocumentStoreDetails = () => {
     const onEditClicked = () => {
         setAnchorEl(null)
         const dialogProp = {
-            title: t('documentStore.common.edit'),
+            title: t('document-store:common.edit'),
             type: 'EDIT',
-            cancelButtonName: t('documentStore.common.cancel'),
-            confirmButtonName: t('documentStore.common.save'),
+            cancelButtonName: t('document-store:common.cancel'),
+            confirmButtonName: t('document-store:common.save'),
             data: {
                 id: storeId,
                 name: documentStore?.name,
@@ -448,7 +448,7 @@ const DocumentStoreDetails = () => {
                                 startIcon={<IconPlus />}
                                 onClick={listLoaders}
                             >
-                                {t('documentStore.addDocumentLoader')}
+                                {t('document-store:addDocumentLoader')}
                             </StyledButton>
                             <Button
                                 id='document-store-header-action-button'
@@ -462,7 +462,7 @@ const DocumentStoreDetails = () => {
                                 sx={{ minWidth: 150 }}
                                 endIcon={<KeyboardArrowDownIcon />}
                             >
-                                {t('documentStore.moreActions')}
+                                {t('document-store:moreActions')}
                             </Button>
                             <StyledMenu
                                 id='document-store-header-menu'
@@ -479,7 +479,7 @@ const DocumentStoreDetails = () => {
                                     disableRipple
                                 >
                                     <FileChunksIcon />
-                                    {t('documentStore.actions.viewEditChunks')}
+                                    {t('document-store:actions.viewEditChunks')}
                                 </MenuItem>
                                 <MenuItem
                                     disabled={documentStore?.totalChunks <= 0 || documentStore?.status === 'UPSERTING'}
@@ -487,7 +487,7 @@ const DocumentStoreDetails = () => {
                                     disableRipple
                                 >
                                     <NoteAddIcon />
-                                    {t('documentStore.actions.upsertAllChunks')}
+                                    {t('document-store:actions.upsertAllChunks')}
                                 </MenuItem>
                                 <MenuItem
                                     disabled={documentStore?.totalChunks <= 0 || documentStore?.status !== 'UPSERTED'}
@@ -495,16 +495,16 @@ const DocumentStoreDetails = () => {
                                     disableRipple
                                 >
                                     <SearchIcon />
-                                    {t('documentStore.actions.retrievalQuery')}
+                                    {t('document-store:actions.retrievalQuery')}
                                 </MenuItem>
                                 <MenuItem
                                     disabled={documentStore?.totalChunks <= 0 || documentStore?.status !== 'UPSERTED'}
                                     onClick={() => onStoreRefresh(documentStore.id)}
                                     disableRipple
-                                    title={t('documentStore.actions.refresh')}
+                                    title={t('document-store:actions.refresh')}
                                 >
                                     <RefreshIcon />
-                                    {t('documentStore.actions.refresh')}
+                                    {t('document-store:actions.refresh')}
                                 </MenuItem>
                                 <Divider sx={{ my: 0.5 }} />
                                 <MenuItem
@@ -512,7 +512,7 @@ const DocumentStoreDetails = () => {
                                     disableRipple
                                 >
                                     <FileDeleteIcon />
-                                    {t('documentStore.actions.delete')}
+                                    {t('document-store:actions.delete')}
                                 </MenuItem>
                             </StyledMenu>
                         </ViewHeader>
@@ -533,7 +533,7 @@ const DocumentStoreDetails = () => {
                                     }}
                                 >
                                     <IconVectorBezier2 style={{ marginRight: 5 }} size={17} />
-                                    {t('documentStore.detail.canvasesUsed')}
+                                    {t('document-store:detail.canvasesUsed')}
                                 </div>
                                 {getSpecificDocumentStore.data.whereUsed.map((canvasUsed, index) => (
                                     <Chip
@@ -561,14 +561,14 @@ const DocumentStoreDetails = () => {
                                         alt='doc_store_details_emptySVG'
                                     />
                                 </Box>
-                                <div>{t('documentStore.noDocumentAddedYet')}</div>
+                                <div>{t('document-store:noDocumentAddedYet')}</div>
                                 <StyledButton
                                     variant='contained'
                                     sx={{ borderRadius: 2, height: '100%', mt: 2, color: 'white' }}
                                     startIcon={<IconPlus />}
                                     onClick={listLoaders}
                                 >
-                                    {t('documentStore.addDocumentLoader')}
+                                    {t('document-store:addDocumentLoader')}
                                 </StyledButton>
                             </Stack>
                         ) : (
@@ -587,12 +587,12 @@ const DocumentStoreDetails = () => {
                                     >
                                         <TableRow>
                                             <StyledTableCell>&nbsp;</StyledTableCell>
-                                            <StyledTableCell>{t('documentStore.table.loader')}</StyledTableCell>
-                                            <StyledTableCell>{t('documentStore.table.splitter')}</StyledTableCell>
-                                            <StyledTableCell>{t('documentStore.table.sources')}</StyledTableCell>
-                                            <StyledTableCell>{t('documentStore.table.chunks')}</StyledTableCell>
-                                            <StyledTableCell>{t('documentStore.table.chars')}</StyledTableCell>
-                                            <StyledTableCell>{t('documentStore.table.actions')}</StyledTableCell>
+                                            <StyledTableCell>{t('document-store:table.loader')}</StyledTableCell>
+                                            <StyledTableCell>{t('document-store:table.splitter')}</StyledTableCell>
+                                            <StyledTableCell>{t('document-store:table.sources')}</StyledTableCell>
+                                            <StyledTableCell>{t('document-store:table.chunks')}</StyledTableCell>
+                                            <StyledTableCell>{t('document-store:table.chars')}</StyledTableCell>
+                                            <StyledTableCell>{t('document-store:table.actions')}</StyledTableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -682,7 +682,7 @@ const DocumentStoreDetails = () => {
                                     color='warning'
                                     style={{ color: 'darkred', fontWeight: 500, fontStyle: 'italic', fontSize: 12 }}
                                 >
-                                    {t('documentStore.detail.someFilesPendingProcessing')}
+                                    {t('document-store:detail.someFilesPendingProcessing')}
                                 </Typography>
                             </div>
                         )}
@@ -787,7 +787,7 @@ function LoaderRow(props) {
                             onClick={(e) => handleClick(e)}
                             endIcon={<KeyboardArrowDownIcon />}
                         >
-                            {t('documentStore.actions.options')}
+                            {t('document-store:actions.options')}
                         </Button>
                         <StyledMenu
                             id='document-store-actions-customized-menu'
@@ -800,24 +800,24 @@ function LoaderRow(props) {
                         >
                             <MenuItem onClick={props.onEditClick} disableRipple>
                                 <FileEditIcon />
-                                {t('documentStore.actions.previewProcess')}
+                                {t('document-store:actions.previewProcess')}
                             </MenuItem>
                             <MenuItem onClick={props.onViewChunksClick} disableRipple>
                                 <FileChunksIcon />
-                                {t('documentStore.actions.viewEditChunks')}
+                                {t('document-store:actions.viewEditChunks')}
                             </MenuItem>
                             <MenuItem onClick={props.onChunkUpsert} disableRipple>
                                 <NoteAddIcon />
-                                {t('documentStore.actions.upsertChunks')}
+                                {t('document-store:actions.upsertChunks')}
                             </MenuItem>
                             <MenuItem onClick={props.onViewUpsertAPI} disableRipple>
                                 <CodeIcon />
-                                {t('documentStore.actions.viewAPI')}
+                                {t('document-store:actions.viewAPI')}
                             </MenuItem>
                             <Divider sx={{ my: 0.5 }} />
                             <MenuItem onClick={props.onDeleteClick} disableRipple>
                                 <FileDeleteIcon />
-                                {t('documentStore.actions.delete')}
+                                {t('document-store:actions.delete')}
                             </MenuItem>
                         </StyledMenu>
                     </div>

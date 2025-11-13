@@ -86,7 +86,7 @@ const ComponentsListDialog = ({ show, dialogProps, onCancel, apiCall, onSelected
                         id='input-search-credential'
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder={t('documentStore.common.search')}
+                        placeholder={t('document-store:common.search')}
                         startAdornment={
                             <InputAdornment position='start'>
                                 <IconSearch stroke={1.5} size='1rem' color={theme.palette.grey[500]} />

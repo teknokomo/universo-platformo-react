@@ -41,51 +41,51 @@ const SpeechToTextType = {
 // Weird quirk - the key must match the name property value.
 const getSpeechToTextProviders = (t) => ({
     [SpeechToTextType.OPENAI_WHISPER]: {
-        label: t('speechToText.providers.openai'),
+        label: t('providers.openai'),
         name: SpeechToTextType.OPENAI_WHISPER,
         icon: openAISVG,
         url: 'https://platform.openai.com/docs/guides/speech-to-text',
         inputs: [
             {
-                label: t('speechToText.labels.credential'),
+                label: t('labels.credential'),
                 name: 'credential',
                 type: 'credential',
                 credentialNames: ['openAIApi']
             },
             {
-                label: t('speechToText.labels.language'),
+                label: t('labels.language'),
                 name: 'language',
                 type: 'string',
-                description: t('speechToText.labels.languageDescription'),
+                description: t('labels.languageDescription'),
                 placeholder: 'en',
                 optional: true
             },
             {
-                label: t('speechToText.labels.prompt'),
+                label: t('labels.prompt'),
                 name: 'prompt',
                 type: 'string',
                 rows: 4,
-                description: t('speechToText.labels.promptDescription'),
+                description: t('labels.promptDescription'),
                 optional: true
             },
             {
-                label: t('speechToText.labels.temperature'),
+                label: t('labels.temperature'),
                 name: 'temperature',
                 type: 'number',
                 step: 0.1,
-                description: t('speechToText.labels.temperatureDescription'),
+                description: t('labels.temperatureDescription'),
                 optional: true
             }
         ]
     },
     [SpeechToTextType.ASSEMBLYAI_TRANSCRIBE]: {
-        label: t('speechToText.providers.assemblyai'),
+        label: t('providers.assemblyai'),
         name: SpeechToTextType.ASSEMBLYAI_TRANSCRIBE,
         icon: assemblyAIPng,
         url: 'https://www.assemblyai.com/',
         inputs: [
             {
-                label: t('speechToText.labels.credential'),
+                label: t('labels.credential'),
                 name: 'credential',
                 type: 'credential',
                 credentialNames: ['assemblyAIApi']
@@ -93,93 +93,93 @@ const getSpeechToTextProviders = (t) => ({
         ]
     },
     [SpeechToTextType.LOCALAI_STT]: {
-        label: t('speechToText.providers.localai'),
+        label: t('providers.localai'),
         name: SpeechToTextType.LOCALAI_STT,
         icon: localAiPng,
         url: 'https://localai.io/features/audio-to-text/',
         inputs: [
             {
-                label: t('speechToText.labels.credential'),
+                label: t('labels.credential'),
                 name: 'credential',
                 type: 'credential',
                 credentialNames: ['localAIApi']
             },
             {
-                label: t('speechToText.labels.baseUrl'),
+                label: t('labels.baseUrl'),
                 name: 'baseUrl',
                 type: 'string',
-                description: t('speechToText.labels.baseUrlDescription')
+                description: t('labels.baseUrlDescription')
             },
             {
-                label: t('speechToText.labels.language'),
+                label: t('labels.language'),
                 name: 'language',
                 type: 'string',
-                description: t('speechToText.labels.languageDescription'),
+                description: t('labels.languageDescription'),
                 placeholder: 'en',
                 optional: true
             },
             {
-                label: t('speechToText.labels.model'),
+                label: t('labels.model'),
                 name: 'model',
                 type: 'string',
-                description: t('speechToText.labels.modelDescription'),
+                description: t('labels.modelDescription'),
                 placeholder: 'whisper-1',
                 optional: true
             },
             {
-                label: t('speechToText.labels.prompt'),
+                label: t('labels.prompt'),
                 name: 'prompt',
                 type: 'string',
                 rows: 4,
-                description: t('speechToText.labels.promptDescription'),
+                description: t('labels.promptDescription'),
                 optional: true
             },
             {
-                label: t('speechToText.labels.temperature'),
+                label: t('labels.temperature'),
                 name: 'temperature',
                 type: 'number',
                 step: 0.1,
-                description: t('speechToText.labels.temperatureDescription'),
+                description: t('labels.temperatureDescription'),
                 optional: true
             }
         ]
     },
     [SpeechToTextType.AZURE_COGNITIVE]: {
-        label: t('speechToText.providers.azure'),
+        label: t('providers.azure'),
         name: SpeechToTextType.AZURE_COGNITIVE,
         icon: azureSvg,
         url: 'https://azure.microsoft.com/en-us/products/cognitive-services/speech-services',
         inputs: [
             {
-                label: t('speechToText.labels.credential'),
+                label: t('labels.credential'),
                 name: 'credential',
                 type: 'credential',
                 credentialNames: ['azureCognitiveServices']
             },
             {
-                label: t('speechToText.labels.language'),
+                label: t('labels.language'),
                 name: 'language',
                 type: 'string',
-                description: t('speechToText.labels.azureLanguageDescription'),
+                description: t('labels.azureLanguageDescription'),
                 placeholder: 'en-US',
                 optional: true
             },
             {
-                label: t('speechToText.labels.profanityFilter'),
+                label: t('labels.profanityFilter'),
                 name: 'profanityFilterMode',
                 type: 'options',
-                description: t('speechToText.labels.profanityFilterDescription'),
+                description: t('labels.profanityFilterDescription'),
                 options: [
                     {
-                        label: t('speechToText.labels.profanityOptions.none'),
+                        label: t('labels.profanityOptions.none'),
                         name: 'None'
                     },
                     {
-                        label: t('speechToText.labels.profanityOptions.masked'),
+                        label: t('labels.profanityOptions.masked'),
                         name: 'Masked'
                     },
                     {
-                        label: t('speechToText.labels.profanityOptions.removed'),
+                        label: t('labels.profanityOptions.removed'),
                         name: 'Removed'
                     }
                 ],
@@ -187,49 +187,49 @@ const getSpeechToTextProviders = (t) => ({
                 optional: true
             },
             {
-                label: t('speechToText.labels.audioChannels'),
+                label: t('labels.audioChannels'),
                 name: 'channels',
                 type: 'string',
-                description: t('speechToText.labels.audioChannelsDescription'),
+                description: t('labels.audioChannelsDescription'),
                 placeholder: '0,1',
                 default: '0,1'
             }
         ]
     },
     [SpeechToTextType.GROQ_WHISPER]: {
-        label: t('speechToText.providers.groq'),
+        label: t('providers.groq'),
         name: SpeechToTextType.GROQ_WHISPER,
         icon: groqPng,
         url: 'https://console.groq.com/',
         inputs: [
             {
-                label: t('speechToText.labels.model'),
+                label: t('labels.model'),
                 name: 'model',
                 type: 'string',
-                description: t('speechToText.labels.modelDescription'),
+                description: t('labels.modelDescription'),
                 placeholder: 'whisper-large-v3',
                 optional: true
             },
             {
-                label: t('speechToText.labels.credential'),
+                label: t('labels.credential'),
                 name: 'credential',
                 type: 'credential',
                 credentialNames: ['groqApi']
             },
             {
-                label: t('speechToText.labels.language'),
+                label: t('labels.language'),
                 name: 'language',
                 type: 'string',
-                description: t('speechToText.labels.languageDescription'),
+                description: t('labels.languageDescription'),
                 placeholder: 'en',
                 optional: true
             },
             {
-                label: t('speechToText.labels.temperature'),
+                label: t('labels.temperature'),
                 name: 'temperature',
                 type: 'number',
                 step: 0.1,
-                description: t('speechToText.labels.temperatureDescription'),
+                description: t('labels.temperatureDescription'),
                 optional: true
             }
         ]
@@ -237,7 +237,8 @@ const getSpeechToTextProviders = (t) => ({
 })
 
 const SpeechToText = ({ dialogProps }) => {
-    const { t } = useTranslation()
+    // Bind directly to 'speechToText' feature namespace to allow short keys
+    const { t } = useTranslation('speechToText')
     const speechToTextProviders = getSpeechToTextProviders(t)
     const dispatch = useDispatch()
 
@@ -255,7 +256,7 @@ const SpeechToText = ({ dialogProps }) => {
     const onSave = async () => {
         if (!canvasId || !unikId) {
             enqueueSnackbar({
-                message: t('speechToText.missingCanvas'),
+                message: t('missingCanvas'),
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error'
@@ -276,7 +277,7 @@ const SpeechToText = ({ dialogProps }) => {
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('speechToText.configSaved'),
+                    message: t('configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -293,7 +294,7 @@ const SpeechToText = ({ dialogProps }) => {
         } catch (error) {
             const errorMessage = typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('speechToText.failedToSave')}: ${errorMessage}`,
+                message: `${t('failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -381,10 +382,10 @@ const SpeechToText = ({ dialogProps }) => {
     return (
         <>
             <Box fullWidth sx={{ mb: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography>{t('speechToText.providersTitle')}</Typography>
+                <Typography>{t('providersTitle')}</Typography>
                 <FormControl fullWidth>
                     <Select size='small' value={selectedProvider} onChange={handleProviderChange}>
-                        <MenuItem value='none'>{t('speechToText.labels.none')}</MenuItem>
+                        <MenuItem value='none'>{t('labels.none')}</MenuItem>
                         {Object.values(speechToTextProviders).map((provider) => (
                             <MenuItem key={provider.name} value={provider.name}>
                                 {provider.label}
@@ -494,7 +495,7 @@ const SpeechToText = ({ dialogProps }) => {
                 variant='contained'
                 onClick={onSave}
             >
-                {t('common.save')}
+                {t('common:save')}
             </StyledButton>
         </>
     )

@@ -29,7 +29,7 @@ import { IconPlus } from '@tabler/icons-react'
 const CustomAssistantLayout = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
-    const { t } = useTranslation('assistants')
+    const { t } = useTranslation()
 
     const getAllAssistantsApi = useApi(api.assistants.getAllAssistants)
 
@@ -45,10 +45,10 @@ const CustomAssistantLayout = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: t('assistants.custom.addNew'),
+            title: t('assistants:custom.addNew'),
             type: 'ADD',
-            cancelButtonName: t('assistants.common.cancel'),
-            confirmButtonName: t('assistants.common.add'),
+            cancelButtonName: t('assistants:common.cancel'),
+            confirmButtonName: t('assistants:common.add'),
             unikId
         }
         setDialogProps(dialogProp)
@@ -113,8 +113,8 @@ const CustomAssistantLayout = () => {
                             isBackButton={true}
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder={t('assistants.searchPlaceholder')}
-                            title={t('assistants.custom.title')}
+                            searchPlaceholder={t('assistants:searchPlaceholder')}
+                            title={t('assistants:custom.title')}
                             onBack={() => navigate(-1)}
                         >
                             <StyledButton
@@ -123,7 +123,7 @@ const CustomAssistantLayout = () => {
                                 onClick={addNew}
                                 startIcon={<IconPlus />}
                             >
-                                {t('assistants.common.add')}
+                                {t('assistants:common.add')}
                             </StyledButton>
                         </ViewHeader>
                         {isLoading ? (
@@ -165,7 +165,7 @@ const CustomAssistantLayout = () => {
                                         alt='AssistantEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('assistants.noAssistantsYet', { type: 'Custom' })}</div>
+                                <div>{t('assistants:noAssistantsYet', { type: 'Custom' })}</div>
                             </Stack>
                         )}
                     </Stack>

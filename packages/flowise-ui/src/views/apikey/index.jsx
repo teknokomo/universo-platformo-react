@@ -89,7 +89,7 @@ const StyledTableRow = styled(TableRow)(() => ({
 function APIKeyRow(props) {
     const [open, setOpen] = useState(false)
     const theme = useTheme()
-    const { t } = useTranslation('api-keys')
+    const { t } = useTranslation()
 
     return (
         <>
@@ -103,10 +103,10 @@ function APIKeyRow(props) {
                         : `${props.apiKey.apiKey.substring(0, 2)}${'•'.repeat(18)}${props.apiKey.apiKey.substring(
                               props.apiKey.apiKey.length - 5
                           )}`}
-                    <IconButton title={t('apiKeys.buttonTitles.copy')} color='success' onClick={props.onCopyClick}>
+                    <IconButton title={t('apiKeys:buttonTitles.copy')} color='success' onClick={props.onCopyClick}>
                         <IconCopy />
                     </IconButton>
-                    <IconButton title={t('apiKeys.buttonTitles.show')} color='inherit' onClick={props.onShowAPIClick}>
+                    <IconButton title={t('apiKeys:buttonTitles.show')} color='inherit' onClick={props.onShowAPIClick}>
                         {props.showApiKeys.includes(props.apiKey.apiKey) ? <IconEyeOff /> : <IconEye />}
                     </IconButton>
                     <Popover
@@ -123,7 +123,7 @@ function APIKeyRow(props) {
                         }}
                     >
                         <Typography variant='h6' sx={{ pl: 1, pr: 1, color: 'white', background: props.theme.palette.success.dark }}>
-                            {t('apiKeys.copied')}
+                            {t('apiKeys:copied')}
                         </Typography>
                     </Popover>
                 </StyledTableCell>
@@ -137,12 +137,12 @@ function APIKeyRow(props) {
                 </StyledTableCell>
                 <StyledTableCell>{dayjs(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
                 <StyledTableCell>
-                    <IconButton title={t('apiKeys.buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
+                    <IconButton title={t('apiKeys:buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
                         <IconEdit />
                     </IconButton>
                 </StyledTableCell>
                 <StyledTableCell>
-                    <IconButton title={t('apiKeys.buttonTitles.delete')} color='error' onClick={props.onDeleteClick}>
+                    <IconButton title={t('apiKeys:buttonTitles.delete')} color='error' onClick={props.onDeleteClick}>
                         <IconTrash />
                     </IconButton>
                 </StyledTableCell>
@@ -155,9 +155,9 @@ function APIKeyRow(props) {
                                 <Table aria-label='canvas table'>
                                     <TableHead sx={{ height: 48 }}>
                                         <TableRow>
-                                            <StyledTableCell sx={{ width: '30%' }}>{t('apiKeys.canvasDetails.name')}</StyledTableCell>
-                                            <StyledTableCell sx={{ width: '20%' }}>{t('apiKeys.canvasDetails.modifiedOn')}</StyledTableCell>
-                                            <StyledTableCell sx={{ width: '50%' }}>{t('apiKeys.canvasDetails.category')}</StyledTableCell>
+                                            <StyledTableCell sx={{ width: '30%' }}>{t('apiKeys:canvasDetails.name')}</StyledTableCell>
+                                            <StyledTableCell sx={{ width: '20%' }}>{t('apiKeys:canvasDetails.modifiedOn')}</StyledTableCell>
+                                            <StyledTableCell sx={{ width: '50%' }}>{t('apiKeys:canvasDetails.category')}</StyledTableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -203,7 +203,7 @@ const APIKey = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
     const { unikId } = useParams()
-    const { t } = useTranslation('api-keys')
+    const { t } = useTranslation()
 
     const dispatch = useDispatch()
     useNotifier()
@@ -233,7 +233,7 @@ const APIKey = () => {
 
     const { confirm } = useConfirm()
 
-    const getAllAPIKeysApi = useApi(apiKeyApi.getAllAPIKeys)
+    const getAllAPIKeysApi = useApi(api.apiKeys.getAllAPIKeys)
 
     const onShowApiKeyClick = (apikey) => {
         const index = showApiKeys.indexOf(apikey)
@@ -254,10 +254,10 @@ const APIKey = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: t('apiKeys.createKey'),
+            title: t('apiKeys:createKey'),
             type: 'ADD',
-            cancelButtonName: t('apiKeys.common.cancel'),
-            confirmButtonName: t('apiKeys.common.add'),
+            cancelButtonName: t('apiKeys:common.cancel'),
+            confirmButtonName: t('apiKeys:common.add'),
             customBtnId: 'btn_confirmAddingApiKey',
             unikId
         }
@@ -267,10 +267,10 @@ const APIKey = () => {
 
     const edit = (key) => {
         const dialogProp = {
-            title: t('apiKeys.common.edit'),
+            title: t('apiKeys:common.edit'),
             type: 'EDIT',
-            cancelButtonName: t('apiKeys.common.cancel'),
-            confirmButtonName: t('apiKeys.common.save'),
+            cancelButtonName: t('apiKeys:common.cancel'),
+            confirmButtonName: t('apiKeys:common.save'),
             customBtnId: 'btn_confirmEditingApiKey',
             key,
             unikId
@@ -282,8 +282,8 @@ const APIKey = () => {
     const uploadDialog = () => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: t('apiKeys.common.cancel'),
-            confirmButtonName: t('apiKeys.import'),
+            cancelButtonName: t('apiKeys:common.cancel'),
+            confirmButtonName: t('apiKeys:import'),
             data: {},
             unikId
         }
@@ -293,23 +293,23 @@ const APIKey = () => {
 
     const deleteKey = async (key) => {
         const confirmPayload = {
-            title: t('apiKeys.common.delete'),
+            title: t('apiKeys:common.delete'),
             description:
                 key.chatFlows.length === 0
-                    ? t('apiKeys.deleteToolConfirm').replace('{name}', key.keyName)
-                    : `${t('apiKeys.common.delete')} ${key.keyName}? ${t('apiKeys.thereAre')} ${key.chatFlows.length} ${t('apiKeys.canvasesUsingKey')}`,
-            confirmButtonName: t('apiKeys.common.delete'),
-            cancelButtonName: t('apiKeys.common.cancel'),
+                    ? t('apiKeys:deleteToolConfirm').replace('{name}', key.keyName)
+                    : `${t('apiKeys:common.delete')} ${key.keyName}? ${t('apiKeys:thereAre')} ${key.chatFlows.length} ${t('apiKeys:canvasesUsingKey')}`,
+            confirmButtonName: t('apiKeys:common.delete'),
+            cancelButtonName: t('apiKeys:common.cancel'),
             customBtnId: 'btn_initiateDeleteApiKey'
         }
         const isConfirmed = await confirm(confirmPayload)
 
         if (isConfirmed) {
             try {
-                const deleteResp = await apiKeyApi.deleteAPI(unikId, key.id)
+                const deleteResp = await api.apiKeys.deleteAPI(unikId, key.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('apiKeys.deleteSuccess'),
+                        message: t('apiKeys:deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -324,7 +324,7 @@ const APIKey = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('apiKeys.deleteError', { 
+                    message: t('apiKeys:deleteError', { 
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
                     }),
                     options: {
@@ -380,7 +380,7 @@ const APIKey = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('apiKeys.searchPlaceholder')} title={t('apiKeys.title')}>
+                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('apiKeys:searchPlaceholder')} title={t('apiKeys:title')}>
                             <Button
                                 variant='outlined'
                                 sx={{ borderRadius: 2, height: '100%' }}
@@ -388,7 +388,7 @@ const APIKey = () => {
                                 startIcon={<IconFileUpload />}
                                 id='btn_importApiKeys'
                             >
-                                {t('apiKeys.import')}
+                                {t('apiKeys:import')}
                             </Button>
                             <StyledButton
                                 variant='contained'
@@ -397,7 +397,7 @@ const APIKey = () => {
                                 startIcon={<IconPlus />}
                                 id='btn_createApiKey'
                             >
-                                {t('apiKeys.createKey')}
+                                {t('apiKeys:createKey')}
                             </StyledButton>
                         </ViewHeader>
                         {!isLoading && apiKeys.length <= 0 ? (
@@ -409,7 +409,7 @@ const APIKey = () => {
                                         alt='APIEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('apiKeys.noApiKeysYet')}</div>
+                                <div>{t('apiKeys:noApiKeysYet')}</div>
                             </Stack>
                         ) : (
                             <TableContainer
@@ -426,10 +426,10 @@ const APIKey = () => {
                                         }}
                                     >
                                         <TableRow>
-                                            <StyledTableCell>{t('apiKeys.grid.keyName')}</StyledTableCell>
-                                            <StyledTableCell>{t('apiKeys.grid.apiKey')}</StyledTableCell>
-                                            <StyledTableCell>{t('apiKeys.grid.usage')}</StyledTableCell>
-                                            <StyledTableCell>{t('apiKeys.grid.created')}</StyledTableCell>
+                                            <StyledTableCell>{t('apiKeys:grid.keyName')}</StyledTableCell>
+                                            <StyledTableCell>{t('apiKeys:grid.apiKey')}</StyledTableCell>
+                                            <StyledTableCell>{t('apiKeys:grid.usage')}</StyledTableCell>
+                                            <StyledTableCell>{t('apiKeys:grid.created')}</StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                         </TableRow>

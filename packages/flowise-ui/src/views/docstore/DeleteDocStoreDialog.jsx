@@ -142,14 +142,14 @@ const DeleteDocStoreDialog = ({ show, dialogProps, onCancel, onDelete }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem', p: 3, pb: 0 }} id='alert-dialog-title'>
-                {dialogProps.title || t('documentStore.deleteDialog.title')}
+                {dialogProps.title || t('document-store:deleteDialog.title')}
             </DialogTitle>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '75vh', position: 'relative', px: 3, pb: 3 }}>
-                <span style={{ marginTop: '20px' }}>{dialogProps.description || t('documentStore.deleteDialog.description')}</span>
+                <span style={{ marginTop: '20px' }}>{dialogProps.description || t('document-store:deleteDialog.description')}</span>
                 {dialogProps.type === 'STORE' && dialogProps.recordManagerConfig && (
                     <FormControlLabel
                         control={<Checkbox checked={removeFromVS} onChange={(event) => setRemoveFromVS(event.target.checked)} />}
-                        label={t('documentStore.deleteDialog.removeFromVectorStore')}
+                        label={t('document-store:deleteDialog.removeFromVectorStore')}
                     />
                 )}
                 {removeFromVS && (
@@ -219,17 +219,17 @@ const DeleteDocStoreDialog = ({ show, dialogProps, onCancel, onDelete }) => {
                             </Table>
                         </TableContainer>
                         <span style={{ marginTop: '30px', fontStyle: 'italic', color: '#b35702' }}>
-                            {t('documentStore.deleteDialog.dataDeleteNote')}
+                            {t('document-store:deleteDialog.dataDeleteNote')}
                         </span>
                     </div>
                 )}
             </DialogContent>
             <DialogActions sx={{ pr: 3, pb: 3 }}>
                 <Button onClick={onCancel} color='primary'>
-                    {t('documentStore.common.cancel')}
+                    {t('document-store:common.cancel')}
                 </Button>
                 <Button variant='contained' onClick={() => onDelete(dialogProps.type, dialogProps.file, removeFromVS)} color='error'>
-                    {t('documentStore.common.delete')}
+                    {t('document-store:common.delete')}
                 </Button>
             </DialogActions>
         </Dialog>

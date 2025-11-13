@@ -89,13 +89,44 @@ const CanvasVersionsDialog = ({
 
   const enqueueSnackbar = (payload) => dispatch(enqueueSnackbarAction(payload))
 
-  const listVersionsApi = useApi(() =>
-    referenceCanvasId ? api.canvasVersions.list(unikId, spaceId, referenceCanvasId) : Promise.resolve({ data: [] })
+  // Safe wrappers around optional canvasVersions API (it may not exist yet in @universo/api-client)
+  const canvasVersionsApi = api && api.canvasVersions ? api.canvasVersions : null
+  const hasCanvasVersions = Boolean(
+    canvasVersionsApi &&
+      typeof canvasVersionsApi.list === 'function' &&
+      typeof canvasVersionsApi.create === 'function' &&
+      typeof canvasVersionsApi.update === 'function' &&
+      typeof canvasVersionsApi.activate === 'function' &&
+      typeof canvasVersionsApi.remove === 'function'
   )
-  const createVersionApi = useApi(api.canvasVersions.create)
-  const updateVersionApi = useApi(api.canvasVersions.update)
-  const activateVersionApi = useApi(api.canvasVersions.activate)
-  const deleteVersionApi = useApi(api.canvasVersions.remove)
+
+  const listVersionsFn = () => {
+    if (!referenceCanvasId || !unikId || !spaceId) return Promise.resolve({ data: { versions: [] } })
+    if (!hasCanvasVersions) return Promise.resolve({ data: { versions: [] } })
+    return canvasVersionsApi.list(unikId, spaceId, referenceCanvasId)
+  }
+  const createVersionFn = (pUnikId, pSpaceId, pCanvasId, payload) => {
+    if (!hasCanvasVersions) return Promise.reject(new Error('Canvas versioning API is not available'))
+    return canvasVersionsApi.create(pUnikId, pSpaceId, pCanvasId, payload)
+  }
+  const updateVersionFn = (pUnikId, pSpaceId, pCanvasId, versionId, payload) => {
+    if (!hasCanvasVersions) return Promise.reject(new Error('Canvas versioning API is not available'))
+    return canvasVersionsApi.update(pUnikId, pSpaceId, pCanvasId, versionId, payload)
+  }
+  const activateVersionFn = (pUnikId, pSpaceId, pCanvasId, versionId) => {
+    if (!hasCanvasVersions) return Promise.reject(new Error('Canvas versioning API is not available'))
+    return canvasVersionsApi.activate(pUnikId, pSpaceId, pCanvasId, versionId)
+  }
+  const deleteVersionFn = (pUnikId, pSpaceId, pCanvasId, versionId) => {
+    if (!hasCanvasVersions) return Promise.reject(new Error('Canvas versioning API is not available'))
+    return canvasVersionsApi.remove(pUnikId, pSpaceId, pCanvasId, versionId)
+  }
+
+  const listVersionsApi = useApi(listVersionsFn)
+  const createVersionApi = useApi(createVersionFn)
+  const updateVersionApi = useApi(updateVersionFn)
+  const activateVersionApi = useApi(activateVersionFn)
+  const deleteVersionApi = useApi(deleteVersionFn)
 
   const resetEditingState = () => {
     setEditingVersionId(null)
@@ -143,7 +174,14 @@ const CanvasVersionsDialog = ({
       setVersions([])
       return
     }
-    const items = Array.isArray(raw?.data?.versions) ? raw.data.versions : []
+    // Support multiple shapes to be resilient across API client differences
+    // 1) { versions: [...] }
+    // 2) { data: { versions: [...] } }
+    // 3) direct array [...]
+    let items = []
+    if (Array.isArray(raw?.versions)) items = raw.versions
+    else if (Array.isArray(raw?.data?.versions)) items = raw.data.versions
+    else if (Array.isArray(raw)) items = raw
     setVersions(sortVersions(items))
   }, [listVersionsApi.data])
 
@@ -409,7 +447,7 @@ const CanvasVersionsDialog = ({
               <Button
                 variant='contained'
                 onClick={handleCreate}
-                disabled={isBusy}
+                disabled={isBusy || !hasCanvasVersions}
               >
                 {t('versionsDialog.createButton', 'Save version')}
               </Button>
@@ -418,7 +456,11 @@ const CanvasVersionsDialog = ({
           </Stack>
 
           <Box>
-            {versions.length === 0 ? (
+            {!hasCanvasVersions ? (
+              <Typography color='text.secondary'>
+                {t('versionsDialog.unavailable', 'Versioning is not available in this build.')}
+              </Typography>
+            ) : versions.length === 0 ? (
               <Typography color='text.secondary'>
                 {t('versionsDialog.empty', 'No versions available yet.')}
               </Typography>
@@ -557,7 +599,7 @@ const CanvasVersionsDialog = ({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>{t('common.cancel', 'Cancel')}</Button>
+        <Button onClick={onCancel}>{t('common:cancel', 'Cancel')}</Button>
       </DialogActions>
     </Dialog>
   ) : null

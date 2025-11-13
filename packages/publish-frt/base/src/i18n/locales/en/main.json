@@ -1,381 +1,377 @@
 {
+  "publish": {
     "general": {
-        "publish": "Publish",
-        "save": "Save",
-        "cancel": "Cancel",
-        "delete": "Delete",
-        "edit": "Edit",
-        "create": "Create",
-        "update": "Update",
-        "loading": "Loading...",
-        "success": "Success",
-        "error": "Error",
-        "comingSoon": "coming soon",
-        "applicationNotAvailable": "Application Not Available"
+      "publish": "Publish",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "create": "Create",
+      "update": "Update",
+      "loading": "Loading...",
+      "success": "Success",
+      "error": "Error",
+      "comingSoon": "coming soon",
+      "applicationNotAvailable": "Application Not Available",
+      "close": "Close"
     },
     "navigation": {
-        "dashboard": "Dashboard",
-        "projects": "Projects",
-        "settings": "Settings",
-        "help": "Help",
-        "logout": "Logout"
+      "dashboard": "Dashboard",
+      "projects": "Projects",
+      "settings": "Settings",
+      "help": "Help",
+      "logout": "Logout"
     },
     "projects": {
-        "title": "Projects",
-        "create": "Create Project",
-        "edit": "Edit Project",
-        "delete": "Delete Project",
-        "name": "Project Name",
-        "description": "Description",
-        "status": "Status",
-        "lastModified": "Last Modified",
-        "createdAt": "Created At",
-        "author": "Author",
-        "noProjects": "No projects found"
+      "title": "Projects",
+      "create": "Create Project",
+      "edit": "Edit Project",
+      "delete": "Delete Project",
+      "name": "Project Name",
+      "description": "Description",
+      "status": "Status",
+      "lastModified": "Last Modified",
+      "createdAt": "Created At",
+      "author": "Author",
+      "noProjects": "No projects found"
     },
     "publishing": {
-        "title": "Publish",
-        "platform": "Platform",
-        "version": "Version",
-        "visibility": "Visibility",
-        "public": "Public",
-        "private": "Private",
-        "publishNow": "Publish Now",
-        "scheduling": "Schedule Publication",
-        "scheduledFor": "Scheduled For",
-        "confirmPublish": "Are you sure you want to publish?",
-        "publishSuccess": "Successfully published",
-        "publishError": "Failed to publish",
-        "targetPlatforms": "Target Platforms",
-        "publishSettings": "Publication Settings"
+      "title": "Publish",
+      "platform": "Platform",
+      "version": "Version",
+      "visibility": "Visibility",
+      "public": "Public",
+      "private": "Private",
+      "publishNow": "Publish Now",
+      "scheduling": "Schedule Publication",
+      "scheduledFor": "Scheduled For",
+      "confirmPublish": "Are you sure you want to publish?",
+      "publishSuccess": "Successfully published",
+      "publishError": "Failed to publish",
+      "targetPlatforms": "Target Platforms",
+      "publishSettings": "Publication Settings"
     },
     "settings": {
-        "title": "Settings",
-        "general": "General Settings",
-        "account": "Account Settings",
-        "notifications": "Notifications",
-        "appearance": "Appearance",
-        "language": "Language",
-        "theme": "Theme",
-        "dark": "Dark",
-        "light": "Light",
-        "system": "System"
+      "title": "Settings",
+      "general": "General Settings",
+      "account": "Account Settings",
+      "notifications": "Notifications",
+      "appearance": "Appearance",
+      "language": "Language",
+      "theme": "Theme",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
     },
     "validation": {
-        "required": "This field is required",
-        "minLength": "Must be at least {{min}} characters",
-        "maxLength": "Must not exceed {{max}} characters",
-        "invalidFormat": "Invalid format"
+      "required": "This field is required",
+      "minLength": "Must be at least {{min}} characters",
+      "maxLength": "Must not exceed {{max}} characters",
+      "invalidFormat": "Invalid format"
     },
     "errors": {
-        "generic": "Something went wrong",
-        "network": "Network error",
-        "unauthorized": "Unauthorized",
-        "notFound": "Not found",
-        "serverError": "Server error"
+      "generic": "Something went wrong",
+      "network": "Network error",
+      "unauthorized": "Unauthorized",
+      "notFound": "Not found",
+      "serverError": "Server error"
     },
-    "publish": {
-        "title": "Publish & Export",
-        "subtitle": "Share and export your UPDL creations",
-        "general": {
-            "cancel": "Cancel",
-            "close": "Close",
-            "loading": "Loading...",
-            "comingSoon": "coming soon"
+    "title": "Publish & Export",
+    "subtitle": "Share and export your UPDL creations",
+    "project": {
+      "title": "Project Name"
+    },
+    "tabs": {
+      "configuration": "Configuration",
+      "publish": "Publish",
+      "export": "Export"
+    },
+    "configuration": {
+      "title": "Configuration",
+      "description": "Select the mode for your publication and configure basic settings",
+      "chooseMode": "Choose Publication Mode",
+      "makePublic": "Make Public"
+    },
+    "technology": {
+      "label": "Technology",
+      "select": "Select technology",
+      "chat": "Chatbot",
+      "arjs": "AR.js",
+      "playcanvas": "PlayCanvas",
+      "babylonjs": "Babylon.js",
+      "threejs": "Three.js",
+      "aframevr": "A-Frame",
+      "playcanvasDescription": "3D web exporter based on PlayCanvas",
+      "babylonjsDescription": "3D exporter based on Babylon.js",
+      "aframevrDescription": "VR exporter based on A-Frame"
+    },
+    "technologies": {
+      "label": "Technology",
+      "select": "Select technology",
+      "chat": "Chatbot",
+      "arjs": "AR.js",
+      "playcanvas": "PlayCanvas",
+      "babylonjs": "Babylon.js",
+      "threejs": "Three.js",
+      "aframevr": "A-Frame",
+      "chatDescription": "Interactive chatbot interface",
+      "arjsDescription": "Augmented reality using AR.js",
+      "playcanvasDescription": "3D web exporter based on PlayCanvas",
+      "babylonjsDescription": "3D exporter based on Babylon.js",
+      "aframevrDescription": "VR exporter based on A-Frame"
+    },
+    "actions": {
+      "publish": "Publish",
+      "export": "Export",
+      "download": "Download",
+      "copy": "Copy Link",
+      "view": "View"
+    },
+    "marker": {
+      "type": "Marker Type",
+      "hiro": "Hiro (default)",
+      "kanji": "Kanji",
+      "pattern": "Pattern",
+      "barcode": "Barcode",
+      "standard": "Standard Marker",
+      "custom": "Custom Pattern",
+      "presetLabel": "Preset Marker",
+      "letterA": "Letter A",
+      "letterB": "Letter B",
+      "letterC": "Letter C",
+      "alt": "Marker",
+      "instruction": "Show this marker to the camera to activate AR"
+    },
+    "success": {
+      "published": "Successfully published!",
+      "copied": "Link copied to clipboard",
+      "exported": "HTML file downloaded successfully"
+    },
+    "links": {
+      "title": "Publication Links",
+      "description": "Share these links to give access to your published project",
+      "baseLink": "Base Link",
+      "customLink": "Custom Link",
+      "permanent": "permanent",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "open": "Open in new tab",
+      "liveBase": "Base link (live version)",
+      "liveCustom": "Custom link (live version)",
+      "versionBase": "Base link (specific version)",
+      "versionCustom": "Custom link (specific version)"
+    },
+    "errors": {
+      "failed": "Failed to publish",
+      "noUPDL": "No UPDL nodes found in this flow",
+      "loadingFailed": "Failed to load AR scene",
+      "generationFailed": "Failed to generate AR scene"
+    },
+    "preview": {
+      "title": "Preview",
+      "camera": "Allow camera access and show Hiro marker to view"
+    },
+    "export": {
+      "title": "Export",
+      "description": "Export your AR.js project for local use",
+      "html": "HTML code",
+      "instructions": "How to use the exported code",
+      "downloadInstructions": "Download and host the HTML file on a web server with HTTPS",
+      "copyInstructions": "Copy the HTML code and save it to a file with .html extension"
+    },
+    "arjs": {
+        "generationMode": {
+          "label": "Generation Mode",
+          "streaming": "Streaming Generation",
+          "pregeneration": "Pre-generation",
+          "streamingDescription": "Real-time AR.js generation on the client side",
+          "pregenerationDescription": "Pre-generated AR.js on the server (coming soon)"
         },
-        "project": {
-            "title": "Project Name"
+        "backgroundColor": {
+          "label": "Background Color",
+          "helperText": "Choose background color for camera-disabled mode"
         },
-        "tabs": {
-            "configuration": "Configuration",
-            "publish": "Publish",
-            "export": "Export"
+        "displayType": {
+          "label": "AR display type",
+          "wallpaper": "AR wallpaper",
+          "marker": "Standard marker"
         },
-        "configuration": {
-            "title": "Configuration",
-            "description": "Select the mode for your publication and configure basic settings",
-            "chooseMode": "Choose Publication Mode",
-            "makePublic": "Make Public"
+        "cameraUsage": {
+          "label": "Camera usage",
+          "none": "No camera",
+          "standard": "Standard resolution"
         },
-        "technology": {
-            "label": "Technology",
-            "select": "Select technology",
-            "chat": "Chatbot",
-            "arjs": "AR.js",
-            "playcanvas": "PlayCanvas",
-            "babylonjs": "Babylon.js",
-            "threejs": "Three.js",
-            "aframevr": "A-Frame",
-            "playcanvasDescription": "3D web exporter based on PlayCanvas",
-            "babylonjsDescription": "3D exporter based on Babylon.js",
-            "aframevrDescription": "VR exporter based on A-Frame"
+        "wallpaper": {
+          "label": "Wallpaper type",
+          "standard": "Standard AR wallpaper"
         },
-        "technologies": {
-            "label": "Technology",
-            "select": "Select technology",
-            "chat": "Chatbot",
-            "arjs": "AR.js",
-            "playcanvas": "PlayCanvas",
-            "babylonjs": "Babylon.js",
-            "threejs": "Three.js",
-            "aframevr": "A-Frame",
-            "chatDescription": "Interactive chatbot interface",
-            "arjsDescription": "Augmented reality using AR.js",
-            "playcanvasDescription": "3D web exporter based on PlayCanvas",
-            "babylonjsDescription": "3D exporter based on Babylon.js",
-            "aframevrDescription": "VR exporter based on A-Frame"
-        },
-        "actions": {
-            "publish": "Publish",
-            "export": "Export",
-            "download": "Download",
-            "copy": "Copy Link",
-            "view": "View"
-        },
-        "marker": {
-            "type": "Marker Type",
-            "hiro": "Hiro (default)",
-            "kanji": "Kanji",
-            "pattern": "Pattern",
-            "barcode": "Barcode",
-            "standard": "Standard Marker",
-            "custom": "Custom Pattern",
-            "presetLabel": "Preset Marker",
-            "letterA": "Letter A",
-            "letterB": "Letter B",
-            "letterC": "Letter C",
-            "alt": "Marker",
-            "instruction": "Show this marker to the camera to activate AR"
-        },
-        "success": {
-            "published": "Successfully published!",
-            "copied": "Link copied to clipboard",
-            "exported": "HTML file downloaded successfully"
-        },
-        "links": {
-            "title": "Publication Links",
-            "description": "Share these links to give access to your published project",
-            "baseLink": "Base Link",
-            "customLink": "Custom Link",
-            "permanent": "permanent",
-            "copy": "Copy",
-            "copied": "Copied!",
-            "open": "Open in new tab",
-            "liveBase": "Base link (live version)",
-            "liveCustom": "Custom link (live version)",
-            "versionBase": "Base link (specific version)",
-            "versionCustom": "Custom link (specific version)"
-        },
-        "errors": {
-            "failed": "Failed to publish",
-            "noUPDL": "No UPDL nodes found in this flow",
-            "loadingFailed": "Failed to load AR scene",
-            "generationFailed": "Failed to generate AR scene"
-        },
-        "preview": {
-            "title": "Preview",
-            "camera": "Allow camera access and show Hiro marker to view"
-        },
-        "export": {
-            "title": "Export",
-            "description": "Export your AR.js project for local use",
-            "html": "HTML code",
-            "instructions": "How to use the exported code",
-            "downloadInstructions": "Download and host the HTML file on a web server with HTTPS",
-            "copyInstructions": "Copy the HTML code and save it to a file with .html extension"
-        },
-        "arjs": {
-            "generationMode": {
-                "label": "Generation Mode",
-                "streaming": "Streaming Generation",
-                "pregeneration": "Pre-generation",
-                "streamingDescription": "Real-time AR.js generation on the client side",
-                "pregenerationDescription": "Pre-generated AR.js on the server (coming soon)"
-            },
-            "backgroundColor": {
-                "label": "Background Color",
-                "helperText": "Choose background color for camera-disabled mode"
-            },
-            "displayType": {
-                "label": "AR display type",
-                "wallpaper": "AR wallpaper",
-                "marker": "Standard marker"
-            },
-            "cameraUsage": {
-                "label": "Camera usage",
-                "none": "No camera",
-                "standard": "Standard resolution"
-            },
-            "wallpaper": {
-                "label": "Wallpaper type",
-                "standard": "Standard AR wallpaper"
-            },
-            "loading": "Loading AR scene...",
-            "publishedUrl": "Publication URL",
-            "copyLink": "Copy link",
-            "viewAR": "Open AR view",
-            "generatingScene": "Generating AR scene...",
-            "showMarker": "Show this marker to the camera to activate AR",
-            "globalLibraryManagement": {
-                "enforcedMessage": "Library source settings are managed globally by administrator (current source: {{source}})",
-                "legacyCorrectedMessage": "Library source settings have been automatically updated to comply with global administrator requirements (set to: {{source}})",
-                "legacyRecommendationMessage": "Administrator recommends changing library source to {{source}} to comply with global settings",
-                "officialSource": "Official server",
-                "kiberplanoSource": "Kiberplano server"
-            }
-        },
-        "playcanvas": {
-            "projectTitle": "Project Title",
-            "libraryVersion": {
-                "label": "PlayCanvas Version",
-                "hint": "Select library version"
-            },
-            "loading": "Loading PlayCanvas Application...",
-            "publishedUrl": "Published URL",
-            "openInBrowser": "Open this link in a browser to view your PlayCanvas application",
-            "viewApp": "View PlayCanvas App",
-            "generationMode": {
-                "label": "Generation Mode",
-                "streaming": "Streaming Generation",
-                "pregeneration": "Pre-generation",
-                "streamingDescription": "Real-time scene generation on the client side",
-                "pregenerationDescription": "Pre-generated scene on the server (coming soon)"
-            },
-            "demoMode": {
-                "label": "Demo Mode",
-                "off": "Off",
-                "primitives": "Graphic Primitives",
-                "hint": "Choose how the scene will be displayed when there's no logic",
-                "offHint": "Empty scene with background",
-                "primitivesHint": "Scene with rotating red cube"
-            },
-            "gameMode": {
-                "label": "Game Mode",
-                "singleplayer": "Single Player",
-                "multiplayer": "Multiplayer (Colyseus)",
-                "singleplayerDescription": "Standard PlayCanvas game for single player",
-                "multiplayerDescription": "Multi-user game with real-time synchronization via Colyseus"
-            },
-            "colyseusSettings": {
-                "title": "Colyseus Server Settings",
-                "serverHost": "Server Host",
-                "serverPort": "Server Port",
-                "roomName": "Room Name",
-                "description": "Configure connection settings for the Colyseus multiplayer server",
-                "hostHelp": "Enter server hostname (localhost, IP address, or domain name)",
-                "portHelp": "Enter server port (1-65535, default: 2567)",
-                "roomNameHelp": "Enter room name (3-32 characters, alphanumeric, underscore, hyphen)",
-                "errors": {
-                    "invalidHost": "Invalid host format. Use localhost, IP address, or domain name",
-                    "invalidPort": "Invalid port. Must be between 1 and 65535",
-                    "invalidRoomName": "Invalid room name. Use 3-32 characters (alphanumeric, underscore, hyphen)"
-                }
-            }
-        },
-        "templates": {
-            "label": "Export Template",
-            "selectTemplate": "Select template",
-            "noTemplatesFound": "No templates found",
-            "version": "v{{version}}",
-            "description": "Template description"
-        },
-        "playcanvasTemplates": {
-            "mmoomm": {
-                "name": "Universo MMOOMM",
-                "description": "Multi-user virtual worlds with real-time synchronization and networking"
-            }
-        },
-        "quiz": {
-            "name": "Quiz Application",
-            "description": "Interactive quizzes with a scoring system and contact collection."
-        },
-        "qrCode": {
-            "toggle": "Generate QR code for link",
-            "description": "Create a QR code for quick access from mobile devices",
-            "generating": "Generating QR code...",
-            "scanInstruction": "Scan QR code to access from mobile device",
-            "error": "QR code generation error",
-            "invalidUrl": "Invalid URL for QR code generation",
-            "download": "Save QR Code",
-            "downloading": "Saving...",
-            "downloadError": "Error saving QR code",
-            "downloadSuccess": "QR code saved successfully"
-        },
-        "versions": {
-            "title": "Publish Version",
-            "selectVersion": "Select version",
-            "noVersions": "No versions available",
-            "publishButton": "Publish",
-            "unpublishButton": "Unpublish",
-            "copyLink": "Copy Link",
-            "selectTechnology": "Select technology",
-            "activeLabel": "Active",
-            "unknownVersion": "Unknown version",
-            "versionLabel": "Version",
-            "versionLinksTitle": "Version Links (Fixed Snapshots)",
-            "groupMissing": "Version group is not detected yet. You can still publish specific versions once they appear below.",
-            "versionPublished": "Version published successfully",
-            "versionUnpublished": "Publication removed",
-            "versionPublishError": "Failed to publish version",
-            "publishedVersions": "Published Versions",
-            "noPublishedVersions": "No published versions yet",
-            "confirmUnpublish": "Are you sure you want to remove this publication?"
-        },
-        "notifications": {
-            "publicationCreated": "Publication created successfully",
-            "publicationRemoved": "Publication removed",
-            "publicationError": "Failed to create publication"
+        "loading": "Loading AR scene...",
+        "publishedUrl": "Publication URL",
+        "copyLink": "Copy link",
+        "viewAR": "Open AR view",
+        "generatingScene": "Generating AR scene...",
+        "showMarker": "Show this marker to the camera to activate AR",
+        "globalLibraryManagement": {
+          "enforcedMessage": "Library source settings are managed globally by administrator (current source: {{source}})",
+          "legacyCorrectedMessage": "Library source settings have been automatically updated to comply with global administrator requirements (set to: {{source}})",
+          "legacyRecommendationMessage": "Administrator recommends changing library source to {{source}} to comply with global settings",
+          "officialSource": "Official server",
+          "kiberplanoSource": "Kiberplano server"
         }
-    },
+      },
+    "playcanvas": {
+        "projectTitle": "Project Title",
+        "libraryVersion": {
+          "label": "PlayCanvas Version",
+          "hint": "Select library version"
+        },
+        "loading": "Loading PlayCanvas Application...",
+        "publishedUrl": "Published URL",
+        "openInBrowser": "Open this link in a browser to view your PlayCanvas application",
+        "viewApp": "View PlayCanvas App",
+        "generationMode": {
+          "label": "Generation Mode",
+          "streaming": "Streaming Generation",
+          "pregeneration": "Pre-generation",
+          "streamingDescription": "Real-time scene generation on the client side",
+          "pregenerationDescription": "Pre-generated scene on the server (coming soon)"
+        },
+        "demoMode": {
+          "label": "Demo Mode",
+          "off": "Off",
+          "primitives": "Graphic Primitives",
+          "hint": "Choose how the scene will be displayed when there's no logic",
+          "offHint": "Empty scene with background",
+          "primitivesHint": "Scene with rotating red cube"
+        },
+        "gameMode": {
+          "label": "Game Mode",
+          "singleplayer": "Single Player",
+          "multiplayer": "Multiplayer (Colyseus)",
+          "singleplayerDescription": "Standard PlayCanvas game for single player",
+          "multiplayerDescription": "Multi-user game with real-time synchronization via Colyseus"
+        },
+        "colyseusSettings": {
+          "title": "Colyseus Server Settings",
+          "serverHost": "Server Host",
+          "serverPort": "Server Port",
+          "roomName": "Room Name",
+          "description": "Configure connection settings for the Colyseus multiplayer server",
+          "hostHelp": "Enter server hostname (localhost, IP address, or domain name)",
+          "portHelp": "Enter server port (1-65535, default: 2567)",
+          "roomNameHelp": "Enter room name (3-32 characters, alphanumeric, underscore, hyphen)",
+          "errors": {
+            "invalidHost": "Invalid host format. Use localhost, IP address, or domain name",
+            "invalidPort": "Invalid port. Must be between 1 and 65535",
+            "invalidRoomName": "Invalid room name. Use 3-32 characters (alphanumeric, underscore, hyphen)"
+          }
+        }
+      },
+    "templates": {
+        "label": "Export Template",
+        "selectTemplate": "Select template",
+        "noTemplatesFound": "No templates found",
+        "version": "v{{version}}",
+        "description": "Template description"
+      },
+    "playcanvasTemplates": {
+        "mmoomm": {
+          "name": "Universo MMOOMM",
+          "description": "Multi-user virtual worlds with real-time synchronization and networking"
+        }
+      },
+    "quiz": {
+        "name": "Quiz Application",
+        "description": "Interactive quizzes with a scoring system and contact collection."
+      },
+    "qrCode": {
+        "toggle": "Generate QR code for link",
+        "description": "Create a QR code for quick access from mobile devices",
+        "generating": "Generating QR code...",
+        "scanInstruction": "Scan QR code to access from mobile device",
+        "error": "QR code generation error",
+        "invalidUrl": "Invalid URL for QR code generation",
+        "download": "Save QR Code",
+        "downloading": "Saving...",
+        "downloadError": "Error saving QR code",
+        "downloadSuccess": "QR code saved successfully"
+      },
+    "versions": {
+        "title": "Publish Version",
+        "selectVersion": "Select version",
+        "noVersions": "No versions available",
+        "publishButton": "Publish",
+        "unpublishButton": "Unpublish",
+        "copyLink": "Copy Link",
+        "selectTechnology": "Select technology",
+        "activeLabel": "Active",
+        "unknownVersion": "Unknown version",
+        "versionLabel": "Version",
+        "versionLinksTitle": "Version Links (Fixed Snapshots)",
+        "groupMissing": "Version group is not detected yet. You can still publish specific versions once they appear below.",
+        "versionPublished": "Version published successfully",
+        "versionUnpublished": "Publication removed",
+        "versionPublishError": "Failed to publish version",
+        "publishedVersions": "Published Versions",
+        "noPublishedVersions": "No published versions yet",
+        "confirmUnpublish": "Are you sure you want to remove this publication?"
+      },
+    "notifications": {
+        "publicationCreated": "Publication created successfully",
+        "publicationRemoved": "Publication removed",
+        "publicationError": "Failed to create publication"
+      }
+    ,
     "arPublication": {
-        "configSaved": "AR.js publication settings saved",
-        "saveError": "Error saving publication settings",
-        "streamingModeEnabled": "Streaming generation mode enabled",
-        "publicLinkAvailable": "Public link is available"
+      "configSaved": "AR.js publication settings saved",
+      "saveError": "Error saving publication settings",
+      "streamingModeEnabled": "Streaming generation mode enabled",
+      "publicLinkAvailable": "Public link is available"
     },
     "playcanvasPublication": {
-        "configSaved": "PlayCanvas publication settings saved",
-        "saveError": "Error saving PlayCanvas settings",
-        "libraryHint": "Choose PlayCanvas engine version"
+      "configSaved": "PlayCanvas publication settings saved",
+      "saveError": "Error saving PlayCanvas settings",
+      "libraryHint": "Choose PlayCanvas engine version"
     },
     "common": {
-        "saving": "Saving...",
-        "saved": "Saved",
-        "saveError": "Save error",
-        "retry": "Retry"
+      "saving": "Saving...",
+      "saved": "Saved",
+      "saveError": "Save error",
+      "retry": "Retry"
     },
     "publisher": {
-        "timer": {
-            "title": "Timer Settings",
-            "enabled": "Enable timer",
-            "enabledHelp": "Add countdown timer for quiz completion",
-            "limitSeconds": "Time limit (seconds)",
-            "limitSecondsHelp": "From 10 to 3600 seconds (1 hour)",
-            "position": "Timer position",
-  "positionHelp": "Choose timer location on screen",
-  "topCenter": "Top Center",
-  "topLeft": "Top Left",
-  "topRight": "Top Right",
-            "bottomLeft": "Bottom Left",
-            "bottomRight": "Bottom Right"
-        }
+      "timer": {
+        "title": "Timer Settings",
+        "enabled": "Enable timer",
+        "enabledHelp": "Add countdown timer for quiz completion",
+        "limitSeconds": "Time limit (seconds)",
+        "limitSecondsHelp": "From 10 to 3600 seconds (1 hour)",
+        "position": "Timer position",
+        "positionHelp": "Choose timer location on screen",
+        "topCenter": "Top Center",
+        "topLeft": "Top Left",
+        "topRight": "Top Right",
+        "bottomLeft": "Bottom Left",
+        "bottomRight": "Bottom Right"
+      }
     },
     "apiCodeDialog": {
-        "noAuthorization": "No Authorization",
-        "addNewKey": "- Add New Key -",
-        "chooseApiKey": "Choose an API key",
-        "cannotUseApiKey": "You cannot use API key while embedding/sharing chatbot.",
-        "selectNoAuthorization": "Please select <b>\"No Authorization\"</b> from the dropdown at the top right corner.",
-        "showOverrideConfig": "Show Override Config",
-        "overrideConfigDescription": "You can override existing input configuration of the space with overrideConfig property.",
-        "securityNote": "For security reason, override config is disabled by default. You can change this by going into Space Configuration -> Security tab, and enable the property you want to override.",
-        "refer": "Refer",
-        "here": "here",
-        "forMoreDetails": "for more details",
-        "nodes": "Nodes",
-        "variables": "Variables",
-        "multipleValuesNote": "You can also specify multiple values for a config parameter by specifying the node id",
-        "readHere": "Read",
-        "streamingNote": "on how to stream response back to application"
+      "noAuthorization": "No Authorization",
+      "addNewKey": "- Add New Key -",
+      "chooseApiKey": "Choose an API key",
+      "cannotUseApiKey": "You cannot use API key while embedding/sharing chatbot.",
+      "selectNoAuthorization": "Please select <b>\"No Authorization\"</b> from the dropdown at the top right corner.",
+      "showOverrideConfig": "Show Override Config",
+      "overrideConfigDescription": "You can override existing input configuration of the space with overrideConfig property.",
+      "securityNote": "For security reason, override config is disabled by default. You can change this by going into Space Configuration -> Security tab, and enable the property you want to override.",
+      "refer": "Refer",
+      "here": "here",
+      "forMoreDetails": "for more details",
+      "nodes": "Nodes",
+      "variables": "Variables",
+      "multipleValuesNote": "You can also specify multiple values for a config parameter by specifying the node id",
+      "readHere": "Read",
+      "streamingNote": "on how to stream response back to application"
     }
+  }
 }

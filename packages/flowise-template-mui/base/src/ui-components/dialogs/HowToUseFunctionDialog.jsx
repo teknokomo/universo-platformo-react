@@ -17,24 +17,24 @@ const HowToUseFunctionDialog = ({ show, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {t('tools.dialog.howToUseFunction')}
+                {t('tools:dialog.howToUseFunction')}
             </DialogTitle>
             <DialogContent>
                 <ul>
-                    <li style={{ marginTop: 10 }}>{t('tools.function.useLibraries')}</li>
+                    <li style={{ marginTop: 10 }}>{t('tools:function.useLibraries')}</li>
                     <li style={{ marginTop: 10 }}>
-                        {t('tools.function.usePropertiesAsVariables')}
+                        {t('tools:function.usePropertiesAsVariables')}
                         <ul style={{ marginTop: 10 }}>
                             <li>
-                                {t('tools.function.property')} = <code>userid</code>
+                                {t('tools:function.property')} = <code>userid</code>
                             </li>
                             <li>
-                                {t('tools.function.variable')} = <code>$userid</code>
+                                {t('tools:function.variable')} = <code>$userid</code>
                             </li>
                         </ul>
                     </li>
                     <li style={{ marginTop: 10 }}>
-                        {t('tools.function.getFlowConfig')}
+                        {t('tools:function.getFlowConfig')}
                         <ul style={{ marginTop: 10 }}>
                             <li>
                                 <code>$flow.sessionId</code>
@@ -54,9 +54,9 @@ const HowToUseFunctionDialog = ({ show, onCancel }) => {
                         </ul>
                     </li>
                     <li style={{ marginTop: 10 }}>
-                        {t('tools.function.getCustomVariables')}&nbsp;<code>{`$vars.<variable-name>`}</code>
+                        {t('tools:function.getCustomVariables')}&nbsp;<code>{`$vars.<variable-name>`}</code>
                     </li>
-                    <li style={{ marginTop: 10 }}>{t('tools.function.returnString')}</li>
+                    <li style={{ marginTop: 10 }}>{t('tools:function.returnString')}</li>
                 </ul>
             </DialogContent>
         </Dialog>

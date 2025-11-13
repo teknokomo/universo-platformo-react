@@ -78,7 +78,7 @@ const Credentials = () => {
     const customization = useSelector((state) => state.customization)
     const dispatch = useDispatch()
     const { unikId } = useParams()
-    const { t } = useTranslation('credentials')
+    const { t } = useTranslation()
     useNotifier()
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
@@ -108,7 +108,7 @@ const Credentials = () => {
 
     const listCredential = () => {
         const dialogProp = {
-            title: t('credentials.addCredential'),
+            title: t('credentials:addCredential'),
             componentsCredentials
         }
         setCredentialListDialogProps(dialogProp)
@@ -118,8 +118,8 @@ const Credentials = () => {
     const addNew = (credentialComponent) => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: t('credentials.common.cancel'),
-            confirmButtonName: t('credentials.common.add'),
+            cancelButtonName: t('credentials:common.cancel'),
+            confirmButtonName: t('credentials:common.add'),
             credentialComponent,
             unikId
         }
@@ -130,8 +130,8 @@ const Credentials = () => {
     const edit = (credential) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: t('credentials.common.cancel'),
-            confirmButtonName: t('credentials.common.save'),
+            cancelButtonName: t('credentials:common.cancel'),
+            confirmButtonName: t('credentials:common.save'),
             data: credential,
             unikId
         }
@@ -141,10 +141,10 @@ const Credentials = () => {
 
     const deleteCredential = async (credential) => {
         const confirmPayload = {
-            title: t('credentials.common.delete'),
-            description: t('credentials.deleteConfirm').replace('{name}', credential.name),
-            confirmButtonName: t('credentials.common.delete'),
-            cancelButtonName: t('credentials.common.cancel')
+            title: t('credentials:common.delete'),
+            description: t('credentials:deleteConfirm').replace('{name}', credential.name),
+            confirmButtonName: t('credentials:common.delete'),
+            cancelButtonName: t('credentials:common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -153,7 +153,7 @@ const Credentials = () => {
                 const deleteResp = await api.credentials.deleteCredential(unikId, credential.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('credentials.deleteSuccess'),
+                        message: t('credentials:deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -168,7 +168,7 @@ const Credentials = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('credentials.deleteError', {
+                    message: t('credentials:deleteError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -239,8 +239,8 @@ const Credentials = () => {
                         <ViewHeader
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder={t('credentials.searchPlaceholder')}
-                            title={t('credentials.title')}
+                            searchPlaceholder={t('credentials:searchPlaceholder')}
+                            title={t('credentials:title')}
                         >
                             <StyledButton
                                 variant='contained'
@@ -248,7 +248,7 @@ const Credentials = () => {
                                 onClick={listCredential}
                                 startIcon={<IconPlus />}
                             >
-                                {t('credentials.addCredential')}
+                                {t('credentials:addCredential')}
                             </StyledButton>
                         </ViewHeader>
                         {!isLoading && credentials.length <= 0 ? (
@@ -260,7 +260,7 @@ const Credentials = () => {
                                         alt='CredentialEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('credentials.noCredentialsYet')}</div>
+                                <div>{t('credentials:noCredentialsYet')}</div>
                             </Stack>
                         ) : (
                             <TableContainer
@@ -277,9 +277,9 @@ const Credentials = () => {
                                         }}
                                     >
                                         <TableRow>
-                                            <StyledTableCell>{t('credentials.grid.name')}</StyledTableCell>
-                                            <StyledTableCell>{t('credentials.grid.lastUpdated')}</StyledTableCell>
-                                            <StyledTableCell>{t('credentials.grid.created')}</StyledTableCell>
+                                            <StyledTableCell>{t('credentials:grid.name')}</StyledTableCell>
+                                            <StyledTableCell>{t('credentials:grid.lastUpdated')}</StyledTableCell>
+                                            <StyledTableCell>{t('credentials:grid.created')}</StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                         </TableRow>

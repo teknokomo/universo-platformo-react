@@ -57,7 +57,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const dispatch = useDispatch()
     const theme = useTheme()
-    const { t } = useTranslation()
+    const { t } = useTranslation('viewLeads')
 
     const [leads, setLeads] = useState([])
     const [search, setSearch] = useState('')
@@ -141,7 +141,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
                             }
                         }}
                         variant='outlined'
-                        placeholder={t('dialog.viewLeads.searchPlaceholder')}
+                        placeholder={t('searchPlaceholder')}
                         onChange={onSearchChange}
                         startAdornment={
                             <Box
@@ -161,7 +161,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
                     <div style={{ flex: 1 }} />
                     {leads && leads.length > 0 && (
                         <Button variant='outlined' onClick={() => exportMessages()} startIcon={<IconFileExport />}>
-                            {t('dialog.viewLeads.export')}
+                            {t('export')}
                         </Button>
                     )}
                 </div>
@@ -172,7 +172,7 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
                         <Box sx={{ p: 5, height: 'auto' }}>
                             <img style={{ objectFit: 'cover', height: '20vh', width: 'auto' }} src={leadsEmptySVG} alt='msgEmptySVG' />
                         </Box>
-                        <div>{t('dialog.viewLeads.noLeads')}</div>
+                        <div>{t('noLeads')}</div>
                     </Stack>
                 )}
                 {leads && leads.length > 0 && (
@@ -180,10 +180,10 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
                         <Table sx={{ minWidth: 650 }} aria-label='simple table'>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell>{t('dialog.viewLeads.name')}</TableCell>
-                                    <TableCell>{t('dialog.viewLeads.email')}</TableCell>
-                                    <TableCell>{t('dialog.viewLeads.phone')}</TableCell>
-                                    <TableCell>{t('dialog.viewLeads.createdDate')}</TableCell>
+                                    <TableCell>{t('name')}</TableCell>
+                                    <TableCell>{t('email')}</TableCell>
+                                    <TableCell>{t('phone')}</TableCell>
+                                    <TableCell>{t('createdDate')}</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>

@@ -55,7 +55,7 @@ const Settings = ({ canvas, isSettingsOpen, isCustomAssistant, anchorEl, isAgent
             } else {
                 const menus = isAgentCanvas ? agentsettings : settings
                 let items = menus.children
-                // В режиме Пространства переименуем пункт удаления на "Удалить пространство"
+                // In Space mode, rename the delete item to "Delete Space"
                 if (!isAgentCanvas) {
                     items = items.map((m) =>
                         m.id === 'deleteCanvas'

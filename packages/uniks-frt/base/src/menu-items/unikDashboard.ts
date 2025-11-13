@@ -1,40 +1,38 @@
-// assets
 import {
-    IconUsersGroup,
-    IconHierarchy,
     IconBuildingStore,
-    IconKey,
+    IconMap,
     IconTool,
-    IconLock,
-    IconRobot,
+    IconKey,
     IconVariable,
-    IconFiles,
-    IconChartBar
+    IconApi,
+    IconDatabase,
+    IconRobot,
+    IconChartBar,
+    IconUsersGroup
 } from '@tabler/icons-react'
-import type { Icon } from '@tabler/icons-react'
+import { ComponentType } from 'react'
 
-// constant
-const icons: Record<string, Icon> = {
-    IconUsersGroup,
-    IconHierarchy,
-    IconBuildingStore,
-    IconKey,
-    IconTool,
-    IconLock,
-    IconRobot,
-    IconVariable,
-    IconFiles,
-    IconChartBar
-}
-
-interface MenuItem {
+export interface MenuItem {
     id: string
     title: string
-    type: 'item' | 'group'
+    type: 'item' | 'group' | 'collapse'
     url?: string
-    icon?: Icon
+    icon?: ComponentType<any>
     breadcrumbs?: boolean
     children?: MenuItem[]
+}
+
+const icons = {
+    IconBuildingStore,
+    IconMap,
+    IconTool,
+    IconKey,
+    IconVariable,
+    IconApi,
+    IconDatabase,
+    IconRobot,
+    IconChartBar,
+    IconUsersGroup
 }
 
 // ==============================|| UNIK DASHBOARD MENU ITEMS ||============================== //
@@ -45,11 +43,10 @@ const unikDashboard: MenuItem = {
     type: 'group',
     children: [
         {
-            id: 'unik-dashboard',
-            title: 'menu:dashboard',
+            id: 'unikboard',
+            title: 'menu:unikboard',
             type: 'item',
-            // Relative URL for the main page of the Unik – will be /uniks/{unikId}
-            url: '',
+            url: '', // will resolve to /uniks/:unikId
             icon: icons.IconBuildingStore,
             breadcrumbs: false
         },
@@ -58,23 +55,7 @@ const unikDashboard: MenuItem = {
             title: 'menu:spaces',
             type: 'item',
             url: '/spaces',
-            icon: icons.IconHierarchy,
-            breadcrumbs: true
-        },
-        {
-            id: 'agentflows',
-            title: 'menu:agentflows',
-            type: 'item',
-            url: '/agentflows',
-            icon: icons.IconUsersGroup,
-            breadcrumbs: true
-        },
-        {
-            id: 'assistants',
-            title: 'menu:assistants',
-            type: 'item',
-            url: '/assistants',
-            icon: icons.IconRobot,
+            icon: icons.IconMap,
             breadcrumbs: true
         },
         {
@@ -90,7 +71,7 @@ const unikDashboard: MenuItem = {
             title: 'menu:credentials',
             type: 'item',
             url: '/credentials',
-            icon: icons.IconLock,
+            icon: icons.IconKey,
             breadcrumbs: true
         },
         {
@@ -106,7 +87,7 @@ const unikDashboard: MenuItem = {
             title: 'menu:apiKeys',
             type: 'item',
             url: '/apikey',
-            icon: icons.IconKey,
+            icon: icons.IconApi,
             breadcrumbs: true
         },
         {
@@ -114,7 +95,15 @@ const unikDashboard: MenuItem = {
             title: 'menu:documentStores',
             type: 'item',
             url: '/document-stores',
-            icon: icons.IconFiles,
+            icon: icons.IconDatabase,
+            breadcrumbs: true
+        },
+        {
+            id: 'assistants',
+            title: 'menu:assistants',
+            type: 'item',
+            url: '/assistants',
+            icon: icons.IconRobot,
             breadcrumbs: true
         },
         {
@@ -126,11 +115,11 @@ const unikDashboard: MenuItem = {
             breadcrumbs: true
         },
         {
-            id: 'templates',
-            title: 'menu:templates',
+            id: 'access',
+            title: 'menu:access',
             type: 'item',
-            url: '/templates',
-            icon: icons.IconBuildingStore,
+            url: '/access',
+            icon: icons.IconUsersGroup,
             breadcrumbs: true
         }
     ]

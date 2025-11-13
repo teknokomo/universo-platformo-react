@@ -1,13 +1,13 @@
 // Universo Platformo | Uniks module i18n
-// Register uniks-frt namespaces with global i18n instance
+// Register consolidated uniks namespace
 import { registerNamespace } from '@universo/i18n/registry'
-import enMainTranslation from '@universo/uniks-frt/src/i18n/locales/en/main.json'
-import ruMainTranslation from '@universo/uniks-frt/src/i18n/locales/ru/main.json'
+import enUniks from './locales/en/uniks.json'
+import ruUniks from './locales/ru/uniks.json'
 
-// Register uniks namespace with .uniks subtree (includes menu.uniks inside)
+// Register single consolidated namespace
 registerNamespace('uniks', {
-    en: enMainTranslation.uniks,
-    ru: ruMainTranslation.uniks
+    en: enUniks.uniks,
+    ru: ruUniks.uniks
 })
 
 type LanguageCode = 'en' | 'ru'
@@ -22,10 +22,10 @@ interface TranslationsMap {
 
 // Export translations for backwards compatibility
 export const uniksTranslations: TranslationsMap = {
-    en: enMainTranslation,
-    ru: ruMainTranslation
+    en: { uniks: enUniks.uniks },
+    ru: { uniks: ruUniks.uniks }
 }
 
-export function getUniksTranslations(language: LanguageCode): UniksTranslation {
-    return uniksTranslations[language] || uniksTranslations.en
+export function getUniksTranslations(language: LanguageCode): Record<string, unknown> {
+    return uniksTranslations[language]?.uniks || uniksTranslations.en.uniks
 }

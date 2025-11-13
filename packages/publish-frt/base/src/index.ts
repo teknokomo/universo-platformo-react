@@ -1,6 +1,9 @@
 // Universo Platformo | Publish Frontend Module
 // Main entry point for the publish frontend module
 
+// Side-effect: Register 'publish' namespace with global i18n
+import './i18n'
+
 // Import types from @universo/publish-srv
 import { IPublishRequest, IPublishResponse } from '@universo/publish-srv'
 

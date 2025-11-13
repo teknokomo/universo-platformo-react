@@ -1,0 +1,45 @@
+{
+  "speechToText": {
+    "providersTitle": "Провайдеры распознавания речи",
+    "providers": {
+      "openai": "OpenAI Whisper",
+      "assemblyai": "AssemblyAI Transcribe",
+      "localai": "LocalAI STT",
+      "azure": "Azure Cognitive Speech",
+      "groq": "Groq Whisper"
+    },
+    "labels": {
+      "none": "Нет",
+      "credential": "Учётные данные",
+      "language": "Язык",
+      "languageDescription": "Код языка ISO (например en, ru, de)",
+      "prompt": "Промпт",
+      "promptDescription": "Опциональный текст для улучшения транскрипции",
+      "temperature": "Температура",
+      "temperatureDescription": "Температура выборки (0.0 – 1.0)",
+      "baseUrl": "Базовый URL",
+      "baseUrlDescription": "Корневой адрес сервера LocalAI",
+      "model": "Модель",
+      "modelDescription": "Идентификатор модели (например whisper-1)",
+      "profanityFilter": "Фильтр ненормативной лексики",
+      "profanityFilterDescription": "Как обрабатывать обнаруженную лексику",
+      "profanityOptions": {
+        "none": "Не фильтровать",
+        "masked": "Скрывать",
+        "removed": "Удалять"
+      },
+      "audioChannels": "Аудио каналы",
+      "audioChannelsDescription": "Индексы каналов через запятую (например 0,1)"
+    },
+    "configSaved": "Конфигурация распознавания речи сохранена",
+    "failedToSave": "Не удалось сохранить конфигурацию",
+    "missingCanvas": "Отсутствует идентификатор холста",
+    "common": {
+      "save": "Сохранить"
+    }
+  },
+  "speechToTextDialog": {
+    "title": "Речь в текст",
+    "description": "Настройка провайдеров транскрипции аудио в режиме реального времени"
+  }
+}

@@ -21,8 +21,8 @@ export const canvasServiceConfig = {
     dependencies: {
         errorFactory: (status: number, message: string) => new InternalFlowiseError(status, message),
         removeFolderFromStorage,
-        updateDocumentStoreUsage: (canvasId: string, usage?: string) =>
-            documentStoreService.updateDocumentStoreUsage(canvasId, usage),
+        updateDocumentStoreUsage: (canvasId: string, usage: string | undefined, unikId: string) =>
+            documentStoreService.updateDocumentStoreUsage(canvasId, usage, unikId),
         containsBase64File: ({ flowData }: { flowData: string }) => containsBase64File({ flowData } as any),
         updateFlowDataWithFilePaths,
         constructGraphs,

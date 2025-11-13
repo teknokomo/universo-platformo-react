@@ -25,7 +25,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
     useEffect(() => {
         const renderPlayCanvasExperience = async () => {
             if (!flowData || !config) {
-                setError(t('publish.publicFlow.errors.missingFlow', 'Publication data is missing'))
+                setError(t('publicFlow.errors.missingFlow', 'Publication data is missing'))
                 setLoading(false)
                 return
             }
@@ -64,7 +64,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
                 const message =
                     renderError instanceof Error && renderError.message
                         ? renderError.message
-                        : t('publish.publicFlow.errors.renderFailed', 'Failed to render the publication')
+                        : t('publicFlow.errors.renderFailed', 'Failed to render the publication')
                 setError(message)
             } finally {
                 setLoading(false)
@@ -81,7 +81,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
 
         const container = document.getElementById('playcanvas-container')
         if (!container) {
-            setError(t('publish.publicFlow.errors.renderFailed', 'Failed to render the publication'))
+            setError(t('publicFlow.errors.renderFailed', 'Failed to render the publication'))
             return
         }
 
@@ -124,7 +124,7 @@ const PlayCanvasViewPage: React.FC<PlayCanvasViewPageProps> = ({ flowData, confi
                 >
                     <CircularProgress color='primary' size={60} />
                     <Typography variant='h6' sx={{ mt: 2 }}>
-                        {t('publish.playcanvas.loading', 'Loading PlayCanvas application...')}
+                        {t('playcanvas.loading', 'Loading PlayCanvas application...')}
                     </Typography>
                 </Box>
             )}

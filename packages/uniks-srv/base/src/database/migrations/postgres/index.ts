@@ -1,3 +1,3 @@
-import { AddUniks1741277504476 } from './1741277504476-AddUniks'
+import { CreateUniksSchema1731200000000 } from './1731200000000-CreateUniksSchema'
 
-export const uniksMigrations = [AddUniks1741277504476]
+export const uniksMigrations = [CreateUniksSchema1731200000000]

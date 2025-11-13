@@ -29,8 +29,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
     const editCredential = (id) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.save'),
+            cancelButtonName: t('common:cancel'),
+            confirmButtonName: t('common:save'),
             credentialId: id,
             unikId
         }
@@ -53,8 +53,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
             } else {
                 setSpecificCredentialDialogProps({
                     type: 'ADD',
-                    cancelButtonName: t('common.cancel'),
-                    confirmButtonName: t('common.add'),
+                    cancelButtonName: t('common:cancel'),
+                    confirmButtonName: t('common:add'),
                     credentialComponent: response.data,
                     unikId
                 })
@@ -77,8 +77,8 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
         setShowCredentialListDialog(false)
         setSpecificCredentialDialogProps({
             type: 'ADD',
-            cancelButtonName: t('common.cancel'),
-            confirmButtonName: t('common.add'),
+            cancelButtonName: t('common:cancel'),
+            confirmButtonName: t('common:add'),
             credentialComponent,
             unikId
         })
@@ -108,7 +108,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                         unikId={unikId}
                     />
                     {credentialId && (
-                        <IconButton title={t('common.edit')} color='primary' size='small' onClick={() => editCredential(credentialId)}>
+                        <IconButton title={t('common:edit')} color='primary' size='small' onClick={() => editCredential(credentialId)}>
                             <IconEdit />
                         </IconButton>
                     )}

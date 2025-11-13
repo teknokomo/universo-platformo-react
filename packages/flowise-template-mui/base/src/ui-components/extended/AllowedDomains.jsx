@@ -130,7 +130,7 @@ const AllowedDomains = ({ dialogProps }) => {
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>
             <Typography variant='h3'>
-                {t('canvas.configuration.security.allowedDomains.title')}
+                {t('canvas:configuration.security.allowedDomains.title')}
                 <TooltipWithParser
                     style={{ mb: 1, mt: 2, marginLeft: 10 }}
                     title={'Your chatbot will only work when used from the following domains.'}
@@ -138,7 +138,7 @@ const AllowedDomains = ({ dialogProps }) => {
             </Typography>
             <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
                 <Stack direction='column' spacing={2}>
-                    <Typography>{t('canvas.configuration.security.allowedDomains.domains')}</Typography>
+                    <Typography>{t('canvas:configuration.security.allowedDomains.domains')}</Typography>
                     {inputFields.map((origin, index) => {
                         return (
                             <div key={index} style={{ display: 'flex', width: '100%' }}>
@@ -151,7 +151,7 @@ const AllowedDomains = ({ dialogProps }) => {
                                         size='small'
                                         value={origin}
                                         name='origin'
-                                        placeholder={t('canvas.configuration.security.allowedDomains.placeholder')}
+                                        placeholder={t('canvas:configuration.security.allowedDomains.placeholder')}
                                         endAdornment={
                                             <InputAdornment position='end' sx={{ padding: '2px' }}>
                                                 {inputFields.length > 1 && (
@@ -183,7 +183,7 @@ const AllowedDomains = ({ dialogProps }) => {
                 </Stack>
                 <Stack direction='column' spacing={1}>
                     <Typography>
-                        {t('canvas.configuration.security.allowedDomains.errorMessage')}
+                        {t('canvas:configuration.security.allowedDomains.errorMessage')}
                         <TooltipWithParser
                             style={{ mb: 1, mt: 2, marginLeft: 10 }}
                             title={'Custom error message that will be shown when for unauthorized domain'}
@@ -203,7 +203,7 @@ const AllowedDomains = ({ dialogProps }) => {
                 </Stack>
             </Stack>
             <StyledButton variant='contained' onClick={onSave}>
-                {t('canvas.configuration.security.allowedDomains.save')}
+                {t('canvas:configuration.security.allowedDomains.save')}
             </StyledButton>
         </Stack>
     )
