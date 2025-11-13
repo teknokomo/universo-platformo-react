@@ -15,7 +15,7 @@ const Logo = () => {
             <img
                 style={{ objectFit: 'contain', height: 'auto', width: 150 }}
                 src={customization.isDarkMode ? logoDark : logo}
-                alt={t('common.flowise')}
+                alt={t('common:flowise')}
             />
         </div>
     )

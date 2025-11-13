@@ -172,7 +172,7 @@ const StarterPrompts = ({ dialogProps }) => {
                 >
                     <IconBulb size={30} color='#2d6a4f' />
                     <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>
-                        {t('canvas.configuration.starterPrompts.info')}
+                        {t('canvas:configuration.starterPrompts.info')}
                     </span>
                 </div>
             </div>
@@ -221,7 +221,7 @@ const StarterPrompts = ({ dialogProps }) => {
                 </List>
             </Box>
             <StyledButton variant='contained' onClick={onSave}>
-                {t('canvas.configuration.starterPrompts.save')}
+                {t('canvas:configuration.starterPrompts.save')}
             </StyledButton>
         </>
     )

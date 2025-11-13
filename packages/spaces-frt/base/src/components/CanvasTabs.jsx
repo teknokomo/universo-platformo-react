@@ -620,7 +620,7 @@ const CanvasTabs = ({
                 </MenuItem>
                 <MenuItem onClick={handleDelete} disabled={optimisticCanvases.length <= 1} sx={{ color: optimisticCanvases.length <= 1 ? 'text.disabled' : 'error.main' }}>
                     <IconTrash size={16} style={{ marginRight: 8 }} />
-                    {t('common.delete', 'Delete')}
+                    {t('common:delete', 'Delete')}
                 </MenuItem>
             </Menu>
 
@@ -641,9 +641,9 @@ const CanvasTabs = ({
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleRenameCancel}>{t('common.cancel', 'Cancel')}</Button>
+                    <Button onClick={handleRenameCancel}>{t('common:cancel', 'Cancel')}</Button>
                     <Button onClick={handleRenameConfirm} variant="contained" disabled={!newName.trim()}>
-                        {t('common.save', 'Save')}
+                        {t('common:save', 'Save')}
                     </Button>
                 </DialogActions>
             </Dialog>

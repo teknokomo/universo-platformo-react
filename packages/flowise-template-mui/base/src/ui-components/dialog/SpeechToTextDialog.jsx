@@ -16,7 +16,8 @@ import SpeechToText from '../extended/SpeechToText'
 
 const SpeechToTextDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    // Bind to dialog namespace for speech to text specific dialog strings
+    const { t } = useTranslation('speechToTextDialog')
     const dispatch = useDispatch()
 
     useNotifier()
@@ -37,7 +38,7 @@ const SpeechToTextDialog = ({ show, dialogProps, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {dialogProps.title || t('dialog.speechToText.title')}
+                {dialogProps.title || t('title')}
             </DialogTitle>
             <DialogContent>
                 <SpeechToText dialogProps={dialogProps} />

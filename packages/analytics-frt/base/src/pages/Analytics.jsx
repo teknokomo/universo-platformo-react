@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next'
 import { styled } from '@mui/material/styles'
 import { tableCellClasses } from '@mui/material/TableCell'
 import {
-    Button,
     Box,
     Skeleton,
     Stack,
@@ -36,7 +35,6 @@ import {
 // project imports
 import { MainCard } from '@flowise/template-mui'
 import ViewHeader from '@flowise/template-mui/layout/MainLayout/ViewHeader'
-import ErrorBoundary from '@flowise/template-mui/ErrorBoundary'
 
 // API
 import leadsApi from '@/api/lead'
@@ -47,10 +45,10 @@ const spacesApi = api.spaces
 // Normalize various potential server response shapes to a spaces array
 function normalizeSpacesResponse(raw) {
     if (Array.isArray(raw)) {
-        return raw;
+        return raw
     }
-    const spaces = raw?.data?.spaces || raw?.spaces;
-    return Array.isArray(spaces) ? spaces : [];
+    const spaces = raw?.data?.spaces || raw?.spaces
+    return Array.isArray(spaces) ? spaces : []
 }
 
 // Resolve lead points with backward compatibility (points field preferred, fallback to numeric phone)
@@ -149,12 +147,8 @@ const Analytics = () => {
         }
 
         // Use points field with fallback to phone for backward compatibility
-        const validLeads = leadsData.filter((lead) => 
-            lead.points !== undefined || (lead.phone && !isNaN(parseInt(lead.phone)))
-        )
-        const points = validLeads.map((lead) => 
-            lead.points !== undefined ? lead.points : (parseInt(lead.phone) || 0)
-        )
+        const validLeads = leadsData.filter((lead) => lead.points !== undefined || (lead.phone && !isNaN(parseInt(lead.phone))))
+        const points = validLeads.map((lead) => (lead.points !== undefined ? lead.points : parseInt(lead.phone) || 0))
 
         return {
             totalLeads: leadsData.length,
@@ -297,19 +291,19 @@ const Analytics = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={search}
-                        searchPlaceholder={t('searchPlaceholder')}
-                        title={t('title')}
+                        searchPlaceholder={t('analytics:searchPlaceholder')}
+                        title={t('analytics:title')}
                     />
 
                     {/* Universo Platformo | Space & Canvas Selectors */}
                     <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <FormControl fullWidth>
-                            <InputLabel id='space-select-label'>{t('selectSpace')}</InputLabel>
+                            <InputLabel id='space-select-label'>{t('analytics:selectSpace')}</InputLabel>
                             <Select
                                 labelId='space-select-label'
                                 id='space-select'
                                 value={selectedSpaceId}
-                                label={t('selectSpace')}
+                                label={t('analytics:selectSpace')}
                                 onChange={handleSpaceChange}
                                 disabled={spacesLoading}
                             >
@@ -321,12 +315,12 @@ const Analytics = () => {
                             </Select>
                         </FormControl>
                         <FormControl fullWidth disabled={!selectedSpaceId || canvasesLoading}>
-                            <InputLabel id='canvas-select-label'>{t('selectCanvas')}</InputLabel>
+                            <InputLabel id='canvas-select-label'>{t('analytics:selectCanvas')}</InputLabel>
                             <Select
                                 labelId='canvas-select-label'
                                 id='canvas-select'
                                 value={selectedCanvasId}
-                                label={t('selectCanvas')}
+                                label={t('analytics:selectCanvas')}
                                 onChange={handleCanvasChange}
                                 disabled={!selectedSpaceId || canvasesLoading}
                             >
@@ -338,11 +332,7 @@ const Analytics = () => {
                             </Select>
                         </FormControl>
 
-                        {spaces.length === 0 && !spacesLoading && (
-                            <Alert severity='info'>
-                                {t('noQuizzesFound')}
-                            </Alert>
-                        )}
+                        {spaces.length === 0 && !spacesLoading && <Alert severity='info'>{t('analytics:noQuizzesFound')}</Alert>}
                     </Box>
 
                     {/* Universo Platformo | Analytics Cards */}
@@ -355,7 +345,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.totalLeads}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                {t('metrics.totalParticipants')}
+                                                {t('analytics:metrics.totalParticipants')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -371,7 +361,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.averagePoints}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                {t('metrics.averageScore')}
+                                                {t('analytics:metrics.averageScore')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -387,7 +377,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.maxPoints}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                {t('metrics.maxScore')}
+                                                {t('analytics:metrics.maxScore')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -403,7 +393,7 @@ const Analytics = () => {
                                         <Box>
                                             <Typography variant='h4'>{analytics.totalPoints}</Typography>
                                             <Typography variant='body2' color='textSecondary'>
-                                                {t('metrics.totalPoints')}
+                                                {t('analytics:metrics.totalPoints')}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -423,7 +413,7 @@ const Analytics = () => {
                                 />
                             </Box>
                             <Typography variant='h6' color='textSecondary'>
-                                {t('selectQuizToView')}
+                                {t('analytics:selectQuizToView')}
                             </Typography>
                         </Stack>
                     ) : isLoading ? (
@@ -444,7 +434,7 @@ const Analytics = () => {
                                         />
                                     </Box>
                                     <Typography variant='h6' color='textSecondary'>
-                                        {t('noDataAvailable')}
+                                        {t('analytics:noDataAvailable')}
                                     </Typography>
                                 </Stack>
                             ) : (
@@ -452,26 +442,30 @@ const Analytics = () => {
                                     <Table sx={{ minWidth: 650 }} size='small' aria-label='analytics table'>
                                         <TableHead>
                                             <TableRow>
-                                                <StyledTableCell>{t('table.name')}</StyledTableCell>
-                                                <StyledTableCell>{t('table.email')}</StyledTableCell>
-                                                <StyledTableCell>{t('table.phone')}</StyledTableCell>
-                                                <StyledTableCell>{t('table.points')}</StyledTableCell>
-                                                <StyledTableCell>{t('table.completionDate')}</StyledTableCell>
-                                                <StyledTableCell>{t('table.canvasId')}</StyledTableCell>
+                                                <StyledTableCell>{t('analytics:table.name')}</StyledTableCell>
+                                                <StyledTableCell>{t('analytics:table.email')}</StyledTableCell>
+                                                <StyledTableCell>{t('analytics:table.phone')}</StyledTableCell>
+                                                <StyledTableCell>{t('analytics:table.points')}</StyledTableCell>
+                                                <StyledTableCell>{t('analytics:table.completionDate')}</StyledTableCell>
+                                                <StyledTableCell>{t('analytics:table.canvasId')}</StyledTableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {leads?.filter(filterLeads)?.map((row, index) => (
                                                 <StyledTableRow key={index}>
                                                     <StyledTableCell>
-                                                        <Typography variant='body1'>{row.name || t('table.notSpecified')}</Typography>
-                                                    </StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Typography variant='body1'>{row.email || t('table.notSpecified')}</Typography>
+                                                        <Typography variant='body1'>
+                                                            {row.name || t('analytics:table.notSpecified')}
+                                                        </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Typography variant='body1'>
-                                                            {row.phone || t('table.notSpecified')}
+                                                            {row.email || t('analytics:table.notSpecified')}
+                                                        </Typography>
+                                                    </StyledTableCell>
+                                                    <StyledTableCell>
+                                                        <Typography variant='body1'>
+                                                            {row.phone || t('analytics:table.notSpecified')}
                                                         </Typography>
                                                     </StyledTableCell>
                                                     <StyledTableCell>
@@ -496,7 +490,7 @@ const Analytics = () => {
                                                                 const identifier = row.canvasId ?? row.canvasid ?? ''
                                                                 return identifier
                                                                     ? `${identifier.substring(0, 8)}...`
-                                                                    : t('table.notSpecified')
+                                                                    : t('analytics:table.notSpecified')
                                                             })()}
                                                         </Typography>
                                                     </StyledTableCell>

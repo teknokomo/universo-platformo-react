@@ -10,39 +10,22 @@
 **Files Affected**: All middleware, controllers, UI authentication components migrated
 
 ### Access Control Evolution (Phase 2 - TypeORM Enforcement) - **COMPLETED**
+**Current Model**: Application-level access control with TypeORM middleware.  
+**Key Components**: WorkspaceAccessService (centralized membership validation), strict TypeScript role enum (`owner`, `admin`, `editor`, `member`), dedicated `uniks` schema with RLS policies, TypeORM Repository pattern (migrated from Supabase REST).
 
-**Current Model (September 2025)**: Application-level access control with TypeORM middleware
-
-**Key Components:**
-- **WorkspaceAccessService**: Centralized membership validation with per-request caching
-- **Role System**: Strict TypeScript enum (`owner`, `admin`, `editor`, `member`) with hierarchy validation  
-- **Schema Isolation**: Dedicated `uniks` schema with RLS policies (Supabase-level protection)
-- **Dual Query Strategy**: Membership lookup + entity fetch for cross-schema compatibility
-- **TypeORM Integration**: Complete migration from Supabase REST to Repository pattern
-
-**Implementation Pattern:**
+**Pattern**:
 ```typescript
-// All Unik-scoped controllers use this pattern
 const userId = await ensureUnikMembershipResponse(req, res, unikId, {
-  roles: ['editor', 'admin', 'owner'], // Optional role filtering
-  errorMessage: 'Access denied'
+  roles: ['editor', 'admin', 'owner']
 })
-if (!userId) return // Response already sent
+if (!userId) return
 ```
 
-**Security Layers:**
-1. **Application Layer**: TypeORM-based membership validation (primary protection)
-2. **Database Layer**: RLS policies on `uniks.uniks_users` and `uniks.uniks` (fallback protection)
-3. **Request Cache**: In-memory membership cache to minimize database hits during request lifecycle
-
-**Migration Context:** 
-- **Phase 1 (Complete)**: Supabase REST client with embedded relationship queries
-- **Phase 2 (Current)**: TypeORM direct access with application-level enforcement
-- **Future Consideration**: Low-privilege database role with mandatory RLS for additional protection
-
-**Critical Security Note:** All new routes accessing Unik-scoped resources MUST use `ensureUnikMembershipResponse` or `requireUnikRole` middleware. Missing this enforcement bypasses all access control.
+**Security Layers**: (1) TypeORM membership validation (primary), (2) RLS policies (fallback), (3) Request cache.  
+**CRITICAL**: All Unik-scoped routes MUST use `ensureUnikMembershipResponse` or `requireUnikRole` middleware.
 
 #### 2. Uniks (Workspace) System
+
 
 -   **Purpose**: Multi-tenant workspace isolation (enterprise feature simulation)
 -   **Implementation**: Schema-isolated entities with TypeORM access control
@@ -121,50 +104,9 @@ if (!userId) return // Response already sent
 
 ## Build System Architecture (Updated 2025-10-18)
 
-**Primary Build Tool**: tsdown v0.15.7 (Rolldown + Oxc based)
-
-**Coverage**: 100% of workspace packages using modern build tooling
-- ✅ 15 packages on tsdown (all custom packages)
-- ✅ 0 packages on legacy tsc + tsconfig.esm.json pattern
-- ℹ️ Base Flowise packages use tsc for unbundled output (intentional)
-
-**Build Configuration Pattern**:
-```typescript
-// tsdown.config.ts (standard pattern)
-import { defineConfig } from 'tsdown'
-
-export default defineConfig({
-  entry: { index: './src/index.ts' },
-  format: ['esm', 'cjs'],
-  dts: true,
-  platform: 'neutral', // or 'node' for backend packages
-  clean: true,
-  outDir: 'dist',
-  exports: false, // CRITICAL: manual control of package.json
-  treeshake: true,
-  minify: false
-})
-```
-
-**Output Structure** (dual-format):
-```
-dist/
-├── index.js      # CommonJS bundle
-├── index.mjs     # ES Module bundle
-├── index.d.ts    # TypeScript declarations (CJS)
-└── index.d.mts   # TypeScript declarations (ESM)
-```
-
-**Migration History**:
-- 2025-01-18: Initial tsdown migration (7 packages: spaces-frt, publish-frt, analytics-frt, profile-frt, finance-frt, uniks-frt, updl, utils)
-- 2025-10-18: **Completed migration** (4 packages: auth-frt, auth-srv, template-quiz, types)
-
-**Benefits Achieved**:
-- ⚡ ~50% faster builds vs tsc (Rolldown performance)
-- 🔧 Single configuration file vs 2-3 tsconfig files
-- 📦 Automatic dual-format generation (ESM + CJS)
-- 🌲 Built-in tree-shaking
-- 🎯 Consistent tooling across monorepo
+**Primary Tool**: tsdown v0.15.7 (Rolldown + Oxc), 100% coverage (15 custom packages).  
+**Output**: Dual-format (ESM + CJS), TypeScript declarations (.d.ts/.d.mts), tree-shaking, ~50% faster than tsc.  
+**Pattern**: Single `tsdown.config.ts`, platform neutral/node, manual package.json exports control.
 
 ## UPDL Core System (v0.21.0-alpha)
 

@@ -176,7 +176,7 @@ const RateLimit = ({ dialogProps }) => {
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>
             <Typography variant='h3'>
-                {t('canvas.configuration.security.rateLimit.title')}{' '}
+                {t('canvas:configuration.security.rateLimit.title')}{' '}
                 <TooltipWithParser
                     style={{ marginLeft: 10 }}
                     title={
@@ -185,7 +185,7 @@ const RateLimit = ({ dialogProps }) => {
                 />
             </Typography>
             <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
-                <SwitchInput label={t('canvas.configuration.security.rateLimit.enable')} onChange={handleChange} value={rateLimitStatus} />
+                <SwitchInput label={t('canvas:configuration.security.rateLimit.enable')} onChange={handleChange} value={rateLimitStatus} />
                 {rateLimitStatus && (
                     <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
                         {textField(limitMax, 'limitMax', 'Message Limit per Duration', 'number', '5')}
@@ -195,7 +195,7 @@ const RateLimit = ({ dialogProps }) => {
                 )}
             </Stack>
             <StyledButton disabled={checkDisabled()} variant='contained' onClick={() => onSave()} sx={{ width: 'auto' }}>
-                {t('canvas.configuration.security.rateLimit.save')}
+                {t('canvas:configuration.security.rateLimit.save')}
             </StyledButton>
         </Stack>
     )

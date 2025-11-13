@@ -21,7 +21,7 @@ export interface CanvasServiceMetricsConfig {
 export interface CanvasServiceDependencies {
     errorFactory: (status: number, message: string) => Error
     removeFolderFromStorage: (canvasId: string) => Promise<void>
-    updateDocumentStoreUsage: (canvasId: string, usage?: string) => Promise<void>
+    updateDocumentStoreUsage: (canvasId: string, usage: string | undefined, unikId: string) => Promise<void>
     containsBase64File: (payload: { flowData: string }) => boolean
     updateFlowDataWithFilePaths: (canvasId: string, flowData: string) => Promise<string>
     constructGraphs: (nodes: any[], edges: any[]) => { graph: any; nodeDependencies: Record<string, number> }
@@ -438,7 +438,10 @@ export class CanvasService {
 
             try {
                 await this.deps.removeFolderFromStorage(canvasId)
-                await this.deps.updateDocumentStoreUsage(canvasId, undefined)
+                if (!scope?.unikId) {
+                    throw this.createError(StatusCodes.BAD_REQUEST, 'unikId is required for document store operations')
+                }
+                await this.deps.updateDocumentStoreUsage(canvasId, undefined, scope.unikId)
                 await this.chatMessageRepository.delete({ canvasId: canvasId })
                 await this.chatMessageFeedbackRepository.delete({ canvasId: canvasId })
                 await this.upsertHistoryRepository.delete({ canvasId: canvasId })
@@ -522,18 +525,18 @@ export class CanvasService {
         }
     }
 
-    private async checkAndUpdateDocumentStoreUsage(canvas: Canvas): Promise<void> {
+    private async checkAndUpdateDocumentStoreUsage(canvas: Canvas, unikId: string): Promise<void> {
         const parsedFlowData = JSON.parse(canvas.flowData ?? '{}') as { nodes?: any[] }
         const nodes = Array.isArray(parsedFlowData?.nodes) ? parsedFlowData.nodes : []
         const documentStoreNode = nodes.length > 0 && nodes.find((node: any) => node?.data?.name === 'documentStore')
         const selectedStore = documentStoreNode?.data?.inputs?.selectedStore
 
         if (typeof selectedStore !== 'string' || selectedStore.length === 0) {
-            await this.deps.updateDocumentStoreUsage(canvas.id, undefined)
+            await this.deps.updateDocumentStoreUsage(canvas.id, undefined, unikId)
             return
         }
 
-        await this.deps.updateDocumentStoreUsage(canvas.id, selectedStore)
+        await this.deps.updateDocumentStoreUsage(canvas.id, selectedStore, unikId)
     }
 
     async saveCanvas(newChatFlow: Partial<Canvas>, scope?: CanvasScope): Promise<Canvas> {
@@ -550,7 +553,10 @@ export class CanvasService {
                 const step1Results = await this.canvasRepository.save(entity)
 
                 step1Results.flowData = await this.deps.updateFlowDataWithFilePaths(step1Results.id, incomingFlowData)
-                await this.checkAndUpdateDocumentStoreUsage(step1Results)
+                if (!scope?.unikId) {
+                    throw this.createError(StatusCodes.BAD_REQUEST, 'unikId is required for document store operations')
+                }
+                await this.checkAndUpdateDocumentStoreUsage(step1Results, scope.unikId)
                 saved = await this.canvasRepository.save(step1Results)
             } else {
                 const entity = this.canvasRepository.create(newChatFlow)
@@ -686,24 +692,62 @@ export class CanvasService {
     }
 
     async updateCanvas(canvas: Canvas, updateChatFlow: Canvas, scope?: CanvasScope): Promise<Canvas> {
+        console.log('[CanvasService.updateCanvas] START', {
+            canvasId: canvas.id,
+            canvasName: canvas.name,
+            updateFields: Object.keys(updateChatFlow).filter(k => updateChatFlow[k as keyof Canvas] !== undefined),
+            hasFlowData: !!updateChatFlow.flowData,
+            flowDataLength: updateChatFlow.flowData?.length,
+            scope: scope ? { unikId: scope.unikId, spaceId: scope.spaceId } : undefined
+        })
+
         try {
             if (updateChatFlow.flowData && this.deps.containsBase64File({ flowData: updateChatFlow.flowData })) {
+                console.log('[CanvasService.updateCanvas] Processing base64 files in flowData')
                 updateChatFlow.flowData = await this.deps.updateFlowDataWithFilePaths(canvas.id, updateChatFlow.flowData)
+                console.log('[CanvasService.updateCanvas] Base64 files processed, new flowData length:', updateChatFlow.flowData?.length)
             }
 
+            console.log('[CanvasService.updateCanvas] Merging canvas with update')
             const merged = this.canvasRepository.merge(canvas, updateChatFlow)
-            await this.checkAndUpdateDocumentStoreUsage(merged)
+            console.log('[CanvasService.updateCanvas] Merged entity created, checking document store usage')
+            
+            if (!scope?.unikId) {
+                throw this.createError(StatusCodes.BAD_REQUEST, 'unikId is required for document store operations')
+            }
+            await this.checkAndUpdateDocumentStoreUsage(merged, scope.unikId)
+            console.log('[CanvasService.updateCanvas] Document store usage checked, saving to DB')
+            
             const saved = await this.canvasRepository.save(merged)
+            console.log('[CanvasService.updateCanvas] Canvas saved to DB', {
+                savedId: saved.id,
+                savedName: saved.name,
+                hasFlowData: !!saved.flowData,
+                flowDataLength: saved.flowData?.length
+            })
 
             if (scope?.spaceId) {
+                console.log('[CanvasService.updateCanvas] Scope has spaceId, resolving space:', scope.spaceId)
                 const space = await this.resolveSpace(scope)
                 if (space) {
+                    console.log('[CanvasService.updateCanvas] Attaching canvas to space:', space.id)
                     await this.attachCanvasToSpace(saved, space)
+                    console.log('[CanvasService.updateCanvas] Canvas attached to space successfully')
+                } else {
+                    console.log('[CanvasService.updateCanvas] Space not found for spaceId:', scope.spaceId)
                 }
             }
 
+            console.log('[CanvasService.updateCanvas] UPDATE COMPLETE', { canvasId: saved.id })
             return saved
         } catch (error) {
+            console.error('[CanvasService.updateCanvas] ERROR', {
+                canvasId: canvas.id,
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                scope
+            })
+            
             if (error && typeof error === 'object' && 'status' in error) {
                 throw error
             }

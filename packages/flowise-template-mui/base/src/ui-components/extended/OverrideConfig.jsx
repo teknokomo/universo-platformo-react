@@ -358,15 +358,15 @@ const OverrideConfig = ({ dialogProps }) => {
     return (
         <Stack direction='column' spacing={2} sx={{ alignItems: 'start' }}>
             <Typography variant='h3'>
-                {t('canvas.configuration.security.overrideConfig.title')}
+                {t('canvas:configuration.security.overrideConfig.title')}
                 <TooltipWithParser
                     style={{ mb: 1, mt: 2, marginLeft: 10 }}
-                    title={t('canvas.configuration.security.overrideConfig.tooltip')}
+                    title={t('canvas:configuration.security.overrideConfig.tooltip')}
                 />
             </Typography>
             <Stack direction='column' spacing={2} sx={{ width: '100%' }}>
                 <SwitchInput
-                    label={t('canvas.configuration.security.overrideConfig.enable')}
+                    label={t('canvas:configuration.security.overrideConfig.enable')}
                     onChange={(newValue) => setOverrideConfigStatus(newValue)}
                     value={overrideConfigStatus}
                 />
@@ -457,7 +457,7 @@ const OverrideConfig = ({ dialogProps }) => {
                 )}
             </Stack>
             <StyledButton variant='contained' onClick={onOverrideConfigSave}>
-                {t('canvas.configuration.security.overrideConfig.save')}
+                {t('canvas:configuration.security.overrideConfig.save')}
             </StyledButton>
         </Stack>
     )

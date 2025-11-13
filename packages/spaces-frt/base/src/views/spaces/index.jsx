@@ -162,8 +162,8 @@ const Spaces = () => {
           <ViewHeader
             onSearchChange={onSearchChange}
             search
-            searchPlaceholder={`${t('common.search')} ${t('spaces', 'Spaces')}`}
-            title={t('spaces', 'Spaces')}
+            searchPlaceholder={`${t('common:search')} ${t('spaces:title')}`}
+            title={t('spaces:title')}
           >
             <ToggleButtonGroup
               sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -172,15 +172,15 @@ const Spaces = () => {
               exclusive
               onChange={handleChangeView}
             >
-              <ToggleButton sx={{ borderRadius: 2 }} variant='contained' value='card' title={t('common.cardView')}>
+              <ToggleButton sx={{ borderRadius: 2 }} variant='contained' value='card' title={t('common:cardView')}>
                 <IconLayoutGrid />
               </ToggleButton>
-              <ToggleButton sx={{ borderRadius: 2 }} variant='contained' value='list' title={t('common.listView')}>
+              <ToggleButton sx={{ borderRadius: 2 }} variant='contained' value='list' title={t('common:listView')}>
                 <IconList />
               </ToggleButton>
             </ToggleButtonGroup>
             <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-              {t('common.addNew')}
+              {t('common:addNew')}
             </StyledButton>
           </ViewHeader>
           {!view || view === 'card' ? (

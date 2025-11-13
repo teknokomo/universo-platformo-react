@@ -68,7 +68,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem', p: 3, pb: 0 }} id='alert-dialog-title'>
-                {dialogProps.title || t('documentStore.loaders.common.selectLoader')}
+                {dialogProps.title || t('document-store:loaders.common.selectLoader')}
             </DialogTitle>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '75vh', position: 'relative', px: 3, pb: 3 }}>
                 <Box
@@ -85,7 +85,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
                         id='input-search-credential'
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder={t('documentStore.common.search')}
+                        placeholder={t('document-store:common.search')}
                         startAdornment={
                             <InputAdornment position='start'>
                                 <IconSearch stroke={1.5} size='1rem' color={theme.palette.grey[500]} />
@@ -101,7 +101,7 @@ const DocumentLoaderListDialog = ({ show, dialogProps, onCancel, onDocLoaderSele
                                         color: theme.palette.grey[900]
                                     }
                                 }}
-                                title={t('documentStore.loaders.common.clearSearch')}
+                                title={t('document-store:loaders.common.clearSearch')}
                             >
                                 <IconX
                                     stroke={1.5}

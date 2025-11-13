@@ -40,11 +40,11 @@ const FileUpload = ({ dialogProps }) => {
 
     useNotifier()
 
-    const message = `${t('canvas.configuration.fileUpload.info')}
+    const message = `${t('canvas:configuration.fileUpload.info')}
 <br /><br />
-${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.com/using-flowise/uploads#files' target='_blank'>${t(
+${t('canvas:configuration.fileUpload.refer')} <a href='https://docs.flowiseai.com/using-flowise/uploads#files' target='_blank'>${t(
         'canvas.configuration.fileUpload.docs'
-    )}</a> ${t('canvas.configuration.fileUpload.moreDetails')}`
+    )}</a> ${t('canvas:configuration.fileUpload.moreDetails')}`
 
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
@@ -76,7 +76,7 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
             chatbotConfig.fileConfig = value.fileConfig
             if (!canvasId || !unikId) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.fileUpload.missingCanvas'),
+                    message: t('canvas:configuration.fileUpload.missingCanvas'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error'
@@ -94,7 +94,7 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.fileUpload.configSaved'),
+                    message: t('canvas:configuration.fileUpload.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -110,7 +110,7 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
         } catch (error) {
             const errorMessage = typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('canvas.configuration.fileUpload.failedToSave')}: ${errorMessage}`,
+                message: `${t('canvas:configuration.fileUpload.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -180,7 +180,7 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
                         <span style={{ color: '#2d6a4f', marginLeft: 10, fontWeight: 500 }}>{parser(message)}</span>
                     </div>
                 </div>
-                <SwitchInput label={t('canvas.configuration.fileUpload.enable')} onChange={handleChange} value={fullFileUpload} />
+                <SwitchInput label={t('canvas:configuration.fileUpload.enable')} onChange={handleChange} value={fullFileUpload} />
             </Box>
 
             <Typography sx={{ fontSize: 14, fontWeight: 500, marginBottom: 1 }}>Allow Uploads of Type</Typography>
@@ -220,7 +220,7 @@ ${t('canvas.configuration.fileUpload.refer')} <a href='https://docs.flowiseai.co
                 ))}
             </div>
             <StyledButton style={{ marginBottom: 10, marginTop: 20 }} variant='contained' onClick={onSave}>
-                {t('canvas.configuration.fileUpload.save')}
+                {t('canvas:configuration.fileUpload.save')}
             </StyledButton>
         </>
     )

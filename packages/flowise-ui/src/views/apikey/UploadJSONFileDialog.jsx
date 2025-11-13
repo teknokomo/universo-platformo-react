@@ -17,7 +17,7 @@ import { File } from '@flowise/template-mui'
 import { IconFileUpload, IconX } from '@tabler/icons-react'
 
 // API
-import apikeyAPI from '@/api/apikey'
+import { api } from '@universo/api-client'
 
 // utils
 import { useNotifier } from '@flowise/template-mui/hooks'
@@ -51,7 +51,7 @@ const importModes = [
 
 const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation('api-keys')
+    const { t } = useTranslation()
 
     const dispatch = useDispatch()
 
@@ -83,10 +83,10 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 importMode: importMode,
                 jsonFile: selectedFile
             }
-            const createResp = await apikeyAPI.importAPI(dialogProps.unikId, obj)
+            const createResp = await api.apiKeys.importAPI(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: t('apiKeys.messages.importSuccess'),
+                    message: t('apiKeys:messages.importSuccess'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -101,7 +101,7 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             }
         } catch (error) {
             enqueueSnackbar({
-                message: t('apiKeys.messages.importError', {
+                message: t('apiKeys:messages.importError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -131,14 +131,14 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <IconFileUpload style={{ marginRight: '10px' }} />
-                    {t('apiKeys.import')}
+                    {t('apiKeys:import')}
                 </div>
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
                         <Typography variant='overline'>
-                            {t('apiKeys.importFile')}
+                            {t('apiKeys:importFile')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                     </Stack>
@@ -146,13 +146,13 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                         disabled={false}
                         fileType='.json'
                         onChange={(newValue) => setSelectedFile(newValue)}
-                        value={selectedFile ?? t('apiKeys.chooseFile')}
+                        value={selectedFile ?? t('apiKeys:chooseFile')}
                     />
                 </Box>
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
                         <Typography variant='overline'>
-                            {t('apiKeys.importMode')}
+                            {t('apiKeys:importMode')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                     </Stack>
@@ -161,7 +161,7 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                         name={importMode}
                         options={importModes}
                         onSelect={(newValue) => setImportMode(newValue)}
-                        value={importMode ?? t('apiKeys.chooseOption')}
+                        value={importMode ?? t('apiKeys:chooseOption')}
                     />
                 </Box>
             </DialogContent>

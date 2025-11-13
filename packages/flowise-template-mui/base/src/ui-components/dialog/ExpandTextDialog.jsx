@@ -18,7 +18,7 @@ import { CodeEditor } from '../editor/CodeEditor'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@flowise/store'
 
 // API
-// TODO: use api.nodes
+import { api } from '@universo/api-client'
 import useApi from '../../hooks/useApi.js'
 
 import './ExpandTextDialog.css'
@@ -37,7 +37,11 @@ const ExpandTextDialog = ({ show, dialogProps, onCancel, onInputHintDialogClicke
     const [loading, setLoading] = useState(false)
     const [codeExecutedResult, setCodeExecutedResult] = useState('')
 
-    const executeCustomFunctionNodeApi = useApi(api.nodes.executeCustomFunctionNode)
+    // Wrap executeCustomFunctionNode to match useApi signature
+    const executeCustomFunctionNodeApi = useApi(async (body) => {
+        const result = await api.client.post('/node-custom-function', body)
+        return { data: result.data }
+    })
 
     useEffect(() => {
         if (dialogProps.value) {
@@ -187,9 +191,9 @@ const ExpandTextDialog = ({ show, dialogProps, onCancel, onInputHintDialogClicke
                 )}
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('common.cancel')}</Button>
+                <Button onClick={onCancel}>{dialogProps.cancelButtonName || t('common:cancel')}</Button>
                 <StyledButton disabled={dialogProps.disabled} variant='contained' onClick={() => onConfirm(inputValue, inputParam.name)}>
-                    {dialogProps.confirmButtonName || t('common.submit')}
+                    {dialogProps.confirmButtonName || t('common:submit')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

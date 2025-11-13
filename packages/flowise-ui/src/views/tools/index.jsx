@@ -32,7 +32,7 @@ const Tools = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
     const theme = useTheme()
-    const { t } = useTranslation(['tools'])
+        const { t } = useTranslation(['tools'])
     const getAllToolsApi = useApi(() => api.tools.getAllTools(unikId))
 
     const [isLoading, setLoading] = useState(true)
@@ -52,10 +52,10 @@ const Tools = () => {
     const onUploadFile = (file) => {
         try {
             const dialogProp = {
-                title: t('tools.dialog.addNewTool'),
+                title: t('tools:dialog.addNewTool'),
                 type: 'IMPORT',
-                cancelButtonName: t('tools.common.cancel'),
-                confirmButtonName: t('tools.common.save'),
+                cancelButtonName: t('tools:common.cancel'),
+                confirmButtonName: t('tools:common.save'),
                 data: JSON.parse(file)
             }
             setDialogProps(dialogProp)
@@ -83,10 +83,10 @@ const Tools = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: t('tools.dialog.addNewTool'),
+            title: t('tools:dialog.addNewTool'),
             type: 'ADD',
-            cancelButtonName: t('tools.common.cancel'),
-            confirmButtonName: t('tools.common.add'),
+            cancelButtonName: t('tools:common.cancel'),
+            confirmButtonName: t('tools:common.add'),
             unikId: unikId
         }
         setDialogProps(dialogProp)
@@ -95,10 +95,10 @@ const Tools = () => {
 
     const edit = (selectedTool) => {
         const dialogProp = {
-            title: t('tools.dialog.editTool'),
+            title: t('tools:dialog.editTool'),
             type: 'EDIT',
-            cancelButtonName: t('tools.common.cancel'),
-            confirmButtonName: t('tools.common.save'),
+            cancelButtonName: t('tools:common.cancel'),
+            confirmButtonName: t('tools:common.save'),
             data: selectedTool,
             unikId: unikId
         }
@@ -147,7 +147,7 @@ const Tools = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('tools.searchPlaceholder')} title={t('tools.title')}>
+                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('tools:searchPlaceholder')} title={t('tools:title')}>
                             <ToggleButtonGroup
                                 sx={{ borderRadius: 2, maxHeight: 40 }}
                                 value={view}
@@ -163,7 +163,7 @@ const Tools = () => {
                                     }}
                                     variant='contained'
                                     value='card'
-                                    title={t('tools.common.cardView')}
+                                    title={t('tools:common.cardView')}
                                 >
                                     <IconLayoutGrid />
                                 </ToggleButton>
@@ -175,7 +175,7 @@ const Tools = () => {
                                     }}
                                     variant='contained'
                                     value='list'
-                                    title={t('tools.common.listView')}
+                                    title={t('tools:common.listView')}
                                 >
                                     <IconList />
                                 </ToggleButton>
@@ -187,7 +187,7 @@ const Tools = () => {
                                     startIcon={<IconFileUpload />}
                                     sx={{ borderRadius: 2, height: 40 }}
                                 >
-                                    {t('tools.load')}
+                                    {t('tools:load')}
                                 </Button>
                                 <input
                                     style={{ display: 'none' }}
@@ -205,7 +205,7 @@ const Tools = () => {
                                     startIcon={<IconPlus />}
                                     sx={{ borderRadius: 2, height: 40 }}
                                 >
-                                    {t('tools.create')}
+                                    {t('tools:create')}
                                 </StyledButton>
                             </ButtonGroup>
                         </ViewHeader>
@@ -238,7 +238,7 @@ const Tools = () => {
                                         alt='ToolEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('tools.noToolsCreatedYet')}</div>
+                                <div>{t('tools:noToolsCreatedYet')}</div>
                             </Stack>
                         )}
                     </Stack>

@@ -26,11 +26,11 @@ const HowToUseVariablesDialog = ({ show, onCancel }) => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {t('variables.howToUse')}
+                {t('variables:howToUse')}
             </DialogTitle>
             <DialogContent>
                 <p style={{ marginBottom: '10px' }}>
-                    {t('variables.usage.customComponents')}
+                    {t('variables:usage.customComponents')}
                 </p>
                 <CodeEditor
                     disabled={true}
@@ -41,7 +41,7 @@ const HowToUseVariablesDialog = ({ show, onCancel }) => {
                     basicSetup={{ highlightActiveLine: false, highlightActiveLineGutter: false }}
                 />
                 <p style={{ marginBottom: '10px' }}>
-                    {t('variables.usage.textField')}
+                    {t('variables:usage.textField')}
                 </p>
                 <CodeEditor
                     disabled={true}
@@ -52,10 +52,10 @@ const HowToUseVariablesDialog = ({ show, onCancel }) => {
                     basicSetup={{ highlightActiveLine: false, highlightActiveLineGutter: false }}
                 />
                 <p style={{ marginBottom: '10px' }}>
-                    {t('variables.usage.typeExplanation')}
+                    {t('variables:usage.typeExplanation')}
                 </p>
                 <p style={{ marginBottom: '10px' }}>
-                    {t('variables.usage.overrideConfig')} <b>vars</b>:
+                    {t('variables:usage.overrideConfig')} <b>vars</b>:
                 </p>
                 <CodeEditor
                     disabled={true}
@@ -66,7 +66,7 @@ const HowToUseVariablesDialog = ({ show, onCancel }) => {
                     basicSetup={{ highlightActiveLine: false, highlightActiveLineGutter: false }}
                 />
                 <p>
-                    {t('variables.usage.readMore')}{' '}
+                    {t('variables:usage.readMore')}{' '}
                     <a target='_blank' rel='noreferrer' href='https://docs.flowiseai.com/using-flowise/variables'>
                         docs
                     </a>

@@ -1,26 +1,19 @@
 // English-only comments in code files.
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '@universo/api-client' // Replaced: import canvasesApi from '../api/canvases'
+import { api, Canvas as ApiCanvas, CreateCanvasPayload, UpdateCanvasPayload, ReorderCanvasPayload } from '@universo/api-client' // Replaced: import canvasesApi from '../api/canvases'
 import useApi from './useApi'
 
-interface Canvas {
-    id: string
-    name: string
-    flowData: string
+// Extended Canvas type with local UI state
+interface Canvas extends Omit<ApiCanvas, 'flowData'> {
+    flowData: string | null
     sortOrder?: number
     isDirty?: boolean
-    [key: string]: unknown
 }
 
 interface CanvasCreateOptions {
     flowData?: string | { nodes: unknown[]; edges: unknown[] }
     sortOrder?: number
-}
-
-interface CanvasOrderItem {
-    canvasId: string
-    sortOrder: number
 }
 
 interface UseCanvasesReturn {
@@ -48,16 +41,32 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<Error | string | null>(null)
 
-    // API hooks
-    const getCanvasesApi = useApi(() => api.canvases.getCanvases(unikId, spaceId))
-    const createCanvasApi = useApi(api.canvases.createCanvas)
-    const updateCanvasApi = useApi((unik: string, canvasId: string, body: unknown, options = {}) =>
-        api.canvases.updateCanvas(unik, canvasId, body, { ...options, spaceId })
-    )
-    const deleteCanvasApi = useApi((unik: string, canvasId: string, options = {}) =>
-        api.canvases.deleteCanvas(unik, canvasId, { ...options, spaceId })
-    )
-    const reorderCanvasesApi = useApi(api.canvases.reorderCanvases)
+    // API hooks - explicitly typed wrappers around API calls
+    const getCanvasesApi = useApi<Canvas[]>(async () => {
+        if (!unikId || !spaceId) return { data: [] }
+        const result = await api.canvases.getCanvases(unikId, spaceId)
+        return { data: (result.canvases || result.data || []) as Canvas[] }
+    })
+    const createCanvasApi = useApi<Canvas>(async (...args: unknown[]) => {
+        const [unikId, spaceId, body] = args as [string, string, CreateCanvasPayload]
+        const result = await api.canvases.createCanvas(unikId, spaceId, body)
+        return { data: result as Canvas }
+    })
+    const updateCanvasApi = useApi<Canvas>(async (...args: unknown[]) => {
+        const [unik, canvasId, body] = args as [string, string, UpdateCanvasPayload]
+        const result = await api.canvases.updateCanvas(unik, canvasId, body, { spaceId })
+        return { data: result as Canvas }
+    })
+    const deleteCanvasApi = useApi<void>(async (...args: unknown[]) => {
+        const [unik, canvasId] = args as [string, string]
+        await api.canvases.deleteCanvas(unik, canvasId, { spaceId })
+        return { data: undefined as void }
+    })
+    const reorderCanvasesApi = useApi<void>(async (...args: unknown[]) => {
+        const [unikId, spaceId, body] = args as [string, string, ReorderCanvasPayload]
+        await api.canvases.reorderCanvases(unikId, spaceId, body)
+        return { data: undefined as void }
+    })
 
     // Load canvases when spaceId changes
     useEffect(() => {
@@ -67,17 +76,63 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
 
     // Update local state when API data changes
     useEffect(() => {
-        if (!getCanvasesApi.data) return
+        console.log('[useCanvases] getCanvasesApi.data updated:', {
+            hasData: !!getCanvasesApi.data,
+            dataType: typeof getCanvasesApi.data,
+            isArray: Array.isArray(getCanvasesApi.data),
+            dataKeys: getCanvasesApi.data ? Object.keys(getCanvasesApi.data) : [],
+            dataLength: Array.isArray(getCanvasesApi.data) ? getCanvasesApi.data.length : 'N/A',
+            firstElement: Array.isArray(getCanvasesApi.data) && getCanvasesApi.data.length > 0 ? {
+                id: getCanvasesApi.data[0]?.id,
+                name: getCanvasesApi.data[0]?.name,
+                hasFlowData: !!getCanvasesApi.data[0]?.flowData
+            } : null
+        })
+
+        if (!getCanvasesApi.data) {
+            console.log('[useCanvases] No data, exiting')
+            return
+        }
+
         const raw = getCanvasesApi.data
         let list: Canvas[] = []
-        if (Array.isArray(raw)) list = raw
-        else if (Array.isArray((raw as { data?: { canvases?: Canvas[] } })?.data?.canvases))
+        let matchedPath = 'NONE'
+
+        if (Array.isArray(raw)) {
+            console.log('[useCanvases] Matched: Array.isArray(raw), length:', raw.length)
+            list = raw
+            matchedPath = 'Array.isArray(raw)'
+        } else if (Array.isArray((raw as { data?: { canvases?: Canvas[] } })?.data?.canvases)) {
+            console.log('[useCanvases] Matched: raw.data.canvases, length:', (raw as any).data.canvases.length)
             list = (raw as { data: { canvases: Canvas[] } }).data.canvases
-        else if (Array.isArray((raw as { canvases?: Canvas[] })?.canvases)) list = (raw as { canvases: Canvas[] }).canvases
+            matchedPath = 'raw.data.canvases'
+        } else if (Array.isArray((raw as { canvases?: Canvas[] })?.canvases)) {
+            console.log('[useCanvases] Matched: raw.canvases, length:', (raw as any).canvases.length)
+            list = (raw as { canvases: Canvas[] }).canvases
+            matchedPath = 'raw.canvases'
+        } else {
+            console.log('[useCanvases] NO MATCH for parsing logic!')
+        }
+
+        console.log('[useCanvases] Parsing result:', {
+            matchedPath,
+            listLength: list.length,
+            firstCanvasId: list.length > 0 ? list[0]?.id : null
+        })
 
         const sorted = [...list].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         setCanvases(sorted)
-        if (!activeCanvasId && sorted.length > 0) setActiveCanvasId(sorted[0].id)
+
+        console.log('[useCanvases] After setCanvases:', {
+            sortedLength: sorted.length,
+            activeCanvasId,
+            willSetActiveCanvasId: !activeCanvasId && sorted.length > 0
+        })
+
+        if (!activeCanvasId && sorted.length > 0) {
+            console.log('[useCanvases] Setting activeCanvasId to:', sorted[0].id)
+            setActiveCanvasId(sorted[0].id)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getCanvasesApi.data])
 
@@ -96,7 +151,15 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
     useEffect(() => {
         const apiError =
             getCanvasesApi.error || createCanvasApi.error || updateCanvasApi.error || deleteCanvasApi.error || reorderCanvasesApi.error
-        setError(apiError)
+        if (apiError instanceof Error) {
+            setError(apiError)
+        } else if (typeof apiError === 'string') {
+            setError(apiError)
+        } else if (apiError) {
+            setError(String(apiError))
+        } else {
+            setError(null)
+        }
     }, [getCanvasesApi.error, createCanvasApi.error, updateCanvasApi.error, deleteCanvasApi.error, reorderCanvasesApi.error])
 
     // Operations
@@ -107,26 +170,21 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
     const createCanvas = useCallback(
         async (name = 'New Canvas', options: CanvasCreateOptions = {}): Promise<Canvas | null> => {
             if (!spaceId || !unikId) return null
-            try {
-                const flowPayload = options.flowData
-                const flowDataString =
-                    typeof flowPayload === 'string' ? flowPayload : JSON.stringify(flowPayload || { nodes: [], edges: [] })
-                const created = (await createCanvasApi.request(unikId, spaceId, {
-                    name,
-                    flowData: flowDataString,
-                    sortOrder: options.sortOrder ?? canvases.length + 1
-                })) as Canvas | undefined
-                if (created?.id) setActiveCanvasId(created.id)
-                if (created) {
-                    setCanvases((prev) => {
-                        const next = [...prev, { ...created }]
-                        return next.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                    })
-                }
-                return created || null
-            } catch (err) {
-                throw err
+            const flowPayload = options.flowData
+            const flowDataString = typeof flowPayload === 'string' ? flowPayload : JSON.stringify(flowPayload || { nodes: [], edges: [] })
+            const created = (await createCanvasApi.request(unikId, spaceId, {
+                name,
+                flowData: flowDataString,
+                deployed: false
+            })) as Canvas | undefined
+            if (created?.id) setActiveCanvasId(created.id)
+            if (created) {
+                setCanvases((prev) => {
+                    const next = [...prev, { ...created }]
+                    return next.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                })
             }
+            return created || null
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [spaceId, unikId, canvases.length]
@@ -134,18 +192,18 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
 
     const renameCanvas = useCallback(
         async (canvasId: string, newName: string): Promise<boolean> => {
-            if (!canvasId || !newName?.trim()) return false
-            await updateCanvasApi.request(unikId, canvasId, { name: newName.trim() }, { spaceId })
+            if (!canvasId || !newName?.trim() || !unikId) return false
+            await updateCanvasApi.request(unikId, canvasId, { name: newName.trim() })
             setCanvases((prev) => prev.map((c) => (c.id === canvasId ? { ...c, name: newName.trim() } : c)))
             return true
         },
-        [unikId, spaceId, updateCanvasApi]
+        [unikId, updateCanvasApi]
     )
 
     const deleteCanvas = useCallback(
         async (canvasId: string): Promise<boolean> => {
-            if (!canvasId || canvases.length <= 1) return false
-            await deleteCanvasApi.request(unikId, canvasId, { spaceId })
+            if (!canvasId || canvases.length <= 1 || !unikId) return false
+            await deleteCanvasApi.request(unikId, canvasId)
             if (activeCanvasId === canvasId) {
                 const remain = canvases.filter((c) => c.id !== canvasId)
                 if (remain.length > 0) setActiveCanvasId(remain[0].id)
@@ -153,17 +211,18 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
             await getCanvasesApi.request()
             return true
         },
-        [canvases, activeCanvasId, unikId, spaceId, deleteCanvasApi, getCanvasesApi]
+        [canvases, activeCanvasId, unikId, deleteCanvasApi, getCanvasesApi]
     )
 
     const duplicateCanvas = useCallback(
         async (canvasId: string): Promise<Canvas | null> => {
+            if (!unikId || !spaceId) return null
             const src = canvases.find((c) => c.id === canvasId)
             if (!src) return null
             const dupe = (await createCanvasApi.request(unikId, spaceId, {
                 name: `${src.name} (Copy)`,
-                flowData: src.flowData,
-                sortOrder: canvases.length + 1
+                flowData: src.flowData || undefined,
+                deployed: false
             })) as Canvas | undefined
             if (dupe?.id) setActiveCanvasId(dupe.id)
             await getCanvasesApi.request()
@@ -174,17 +233,17 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
 
     const reorderCanvas = useCallback(
         async (canvasId: string, newIndex: number): Promise<boolean> => {
-            if (!canvasId || newIndex < 0 || newIndex >= canvases.length) return false
+            if (!canvasId || newIndex < 0 || newIndex >= canvases.length || !unikId || !spaceId) return false
             const reordered = [...canvases]
             const currIdx = reordered.findIndex((c) => c.id === canvasId)
             if (currIdx === -1) return false
             const [moved] = reordered.splice(currIdx, 1)
             reordered.splice(newIndex, 0, moved)
-            const canvasOrders: CanvasOrderItem[] = reordered.map((c, i) => ({
-                canvasId: c.id,
-                sortOrder: i + 1
+            const canvasOrders = reordered.map((c, i) => ({
+                id: c.id,
+                order: i + 1
             }))
-            await reorderCanvasesApi.request(unikId, spaceId, { canvasOrders })
+            await reorderCanvasesApi.request(unikId, spaceId, { canvases: canvasOrders })
             await getCanvasesApi.request()
             return true
         },
@@ -193,12 +252,12 @@ const useCanvases = (spaceId: string | undefined): UseCanvasesReturn => {
 
     const updateCanvasData = useCallback(
         async (canvasId: string, data: Partial<Canvas>): Promise<boolean> => {
-            if (!canvasId) return false
-            await updateCanvasApi.request(unikId, canvasId, data, { spaceId })
+            if (!canvasId || !unikId) return false
+            await updateCanvasApi.request(unikId, canvasId, data)
             setCanvases((prev) => prev.map((c) => (c.id === canvasId ? { ...c, ...data } : c)))
             return true
         },
-        [unikId, spaceId, updateCanvasApi]
+        [unikId, updateCanvasApi]
     )
 
     const getActiveCanvas = useCallback(

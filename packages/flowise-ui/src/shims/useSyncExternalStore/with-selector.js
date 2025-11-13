@@ -75,4 +75,7 @@ export function useSyncExternalStoreWithSelector(subscribe, getSnapshot, getServ
     return value
 }
 
-export default useSyncExternalStoreWithSelector
+// Match expected legacy default export shape for libraries performing
+// `import selectorShim from 'use-sync-external-store/shim/with-selector'` and then
+// accessing `selectorShim.useSyncExternalStoreWithSelector`.
+export default { useSyncExternalStoreWithSelector }

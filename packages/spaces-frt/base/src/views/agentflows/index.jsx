@@ -89,7 +89,7 @@ const Agentflows = () => {
     const [canvases, setCanvases] = useState([])
     const [aggregating, setAggregating] = useState(false)
 
-    const getSpacesApi = useApi(api.spaces.getSpaces)
+    const getSpacesApi = useApi((unikId) => api.spaces.getAll(unikId))
     const getCanvasesApi = useApi(api.canvases.getCanvases)
     const getCanvasesRequestRef = useRef(getCanvasesApi.request)
     useEffect(() => {
@@ -243,8 +243,8 @@ const Agentflows = () => {
                     <ViewHeader
                         onSearchChange={onSearchChange}
                         search={true}
-                        searchPlaceholder={t('agents.searchPlaceholder')}
-                        title={t('agents.title')}
+                        searchPlaceholder={t('canvas:searchPlaceholder')}
+                        title={t('canvas:title')}
                     >
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
@@ -261,7 +261,7 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('common.cardView')}
+                                title={t('common:cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -273,13 +273,13 @@ const Agentflows = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('common.listView')}
+                                title={t('common:listView')}
                             >
                                 <IconList />
                             </ToggleButton>
                         </ToggleButtonGroup>
                         <StyledButton variant='contained' onClick={addNew} startIcon={<IconPlus />} sx={{ borderRadius: 2, height: 40 }}>
-                            {t('common.addNew')}
+                            {t('common:addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -318,7 +318,7 @@ const Agentflows = () => {
                                     alt='AgentsEmptySVG'
                                 />
                             </Box>
-                            <div>{t('agents.noAgentsYet')}</div>
+                            <div>{t('canvas:noAgentsYet')}</div>
                         </Stack>
                     )}
                 </Stack>

@@ -15,22 +15,22 @@ import { IconRobotFace, IconBrandOpenai, IconBrandAzure } from '@tabler/icons-re
 
 const cards = [
     {
-        titleKey: 'assistants.custom.title',
-        descriptionKey: 'assistants.custom.description',
+        titleKey: 'assistants:custom.title',
+        descriptionKey: 'assistants:custom.description',
         icon: <IconRobotFace />,
         iconText: 'Custom',
         gradient: 'linear-gradient(135deg, #fff8e14e 0%, #ffcc802f 100%)'
     },
     {
-        titleKey: 'assistants.openai.title',
-        descriptionKey: 'assistants.openai.description',
+        titleKey: 'assistants:openai.title',
+        descriptionKey: 'assistants:openai.description',
         icon: <IconBrandOpenai />,
         iconText: 'OpenAI',
         gradient: 'linear-gradient(135deg, #c9ffd85f 0%, #a0f0b567 100%)'
     },
     {
-        titleKey: 'assistants.azure.title',
-        descriptionKey: 'assistants.azure.description',
+        titleKey: 'assistants:azure.title',
+        descriptionKey: 'assistants:azure.description',
         icon: <IconBrandAzure />,
         iconText: 'Azure',
         gradient: 'linear-gradient(135deg, #c4e1ff57 0%, #80b7ff5a 100%)'
@@ -63,13 +63,13 @@ const FeatureCards = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
     const theme = useTheme()
-    const { t } = useTranslation('assistants')
+    const { t } = useTranslation()
     const customization = useSelector((state) => state.customization)
 
     const onCardClick = (index) => {
         if (index === 0) navigate(`/unik/${unikId}/assistants/custom`)
         if (index === 1) navigate(`/unik/${unikId}/assistants/openai`)
-        if (index === 2) alert(t('assistants.underDevelopment'))
+        if (index === 2) alert(t('assistants:underDevelopment'))
     }
 
     return (
@@ -122,7 +122,7 @@ const FeatureCards = () => {
 
 const Assistants = () => {
     const { unikId } = useParams()
-    const { t } = useTranslation('assistants')
+    const { t } = useTranslation()
 
     if (!unikId) {
         console.error('Unik ID is missing in URL')
@@ -133,7 +133,7 @@ const Assistants = () => {
         <>
             <MainCard>
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader title={t('assistants.title')} />
+                    <ViewHeader title={t('assistants:title')} />
                     <FeatureCards />
                 </Stack>
             </MainCard>

@@ -151,7 +151,9 @@ declare global {
 
 export function getInstance(): typeof i18n {
     if (!globalThis.__universo_i18n__instance) {
-        const instance = i18n.createInstance()
+        // Use the default i18next singleton instead of creating a separate instance.
+        // This ensures react-i18next hooks (useTranslation) are bound without needing a Provider.
+        const instance = i18n
 
         instance
             .use(LanguageDetector)
@@ -167,7 +169,7 @@ export function getInstance(): typeof i18n {
                         access: accessEn.access,
                         // Views
                         admin: adminEn.admin,
-                        'api-keys': apiKeysEn.apiKeys,
+                        apiKeys: apiKeysEn.apiKeys,
                         assistants: assistantsEn.assistants,
                         auth: authEn.auth,
                         canvas: canvasEn.canvas,
@@ -219,7 +221,7 @@ export function getInstance(): typeof i18n {
                         access: accessRu.access,
                         // Views
                         admin: adminRu.admin,
-                        'api-keys': apiKeysRu.apiKeys,
+                        apiKeys: apiKeysRu.apiKeys,
                         assistants: assistantsRu.assistants,
                         auth: authRu.auth,
                         canvas: canvasRu.canvas,

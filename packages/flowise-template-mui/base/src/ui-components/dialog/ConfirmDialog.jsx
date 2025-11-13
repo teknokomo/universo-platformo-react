@@ -7,7 +7,7 @@ import { useTranslation } from '@universo/i18n'
 const ConfirmDialog = () => {
     const { onConfirm, onCancel, confirmState } = useConfirm()
     const portalElement = document.getElementById('portal')
-    const { t } = useTranslation()
+    const { t } = useTranslation('confirm')
 
     const component = confirmState.show ? (
         <Dialog
@@ -19,15 +19,15 @@ const ConfirmDialog = () => {
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
-                {confirmState.title || t('dialog.confirm.title')}
+                {confirmState.title || t('title')}
             </DialogTitle>
             <DialogContent>
                 <span>{confirmState.description}</span>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{confirmState.cancelButtonName || t('dialog.confirm.cancelButtonText')}</Button>
+                <Button onClick={onCancel}>{confirmState.cancelButtonName || t('cancelButtonText')}</Button>
                 <StyledButton variant='contained' onClick={onConfirm}>
-                    {confirmState.confirmButtonName || t('dialog.confirm.confirmButtonText')}
+                    {confirmState.confirmButtonName || t('confirmButtonText')}
                 </StyledButton>
             </DialogActions>
         </Dialog>

@@ -51,15 +51,15 @@ export const ConfirmDialog = () => {
             aria-describedby='confirm-dialog-description'
         >
             <DialogTitle id='confirm-dialog-title' sx={{ fontSize: '1rem' }}>
-                {confirmState.title || t('dialog.confirm.title')}
+                {confirmState.title || t('common:confirm.title')}
             </DialogTitle>
             <DialogContent id='confirm-dialog-description'>
                 <span>{confirmState.description}</span>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel}>{confirmState.cancelButtonName || t('dialog.confirm.cancelButtonText')}</Button>
+                <Button onClick={onCancel}>{confirmState.cancelButtonName || t('common:confirm.cancelButtonText')}</Button>
                 <Button variant='contained' color='primary' onClick={onConfirm}>
-                    {confirmState.confirmButtonName || t('dialog.confirm.confirmButtonText')}
+                    {confirmState.confirmButtonName || t('common:confirm.confirmButtonText')}
                 </Button>
             </DialogActions>
         </Dialog>,

@@ -49,12 +49,12 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
         {
             label: 'Static',
             name: 'static',
-            description: t('variables.typeDescriptions.static')
+            description: t('variables:typeDescriptions.static')
         },
         {
             label: 'Runtime',
             name: 'runtime',
-            description: t('variables.typeDescriptions.runtime')
+            description: t('variables:typeDescriptions.runtime')
         }
     ]
 
@@ -98,7 +98,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
             const createResp = await api.variables.createVariable(dialogProps.unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: t('variables.messages.newVariableAdded'),
+                    message: t('variables:messages.newVariableAdded'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -114,7 +114,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
         } catch (err) {
             if (setError) setError(err)
             enqueueSnackbar({
-                message: t('variables.messages.addError', {
+                message: t('variables:messages.addError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -143,7 +143,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
             const saveResp = await api.variables.updateVariable(dialogProps.unikId, variable.id, saveObj)
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('variables.messages.variableSaved'),
+                    message: t('variables:messages.variableSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -159,7 +159,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
         } catch (error) {
             if (setError) setError(err)
             enqueueSnackbar({
-                message: t('variables.messages.saveError', {
+                message: t('variables:messages.saveError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -189,14 +189,14 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
             <DialogTitle sx={{ fontSize: '1rem' }} id='alert-dialog-title'>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <IconVariable style={{ marginRight: '10px' }} />
-                    {dialogProps.type === 'ADD' ? t('variables.addVariable') : t('variables.editVariable')}
+                    {dialogProps.type === 'ADD' ? t('variables:addVariable') : t('variables:editVariable')}
                 </div>
             </DialogTitle>
             <DialogContent>
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                         <Typography>
-                            {t('variables.variableName')}<span style={{ color: 'red' }}>&nbsp;*</span>
+                            {t('variables:variableName')}<span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
 
                         <div style={{ flexGrow: 1 }}></div>
@@ -215,7 +215,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
                 <Box sx={{ p: 2 }}>
                     <div style={{ display: 'flex', flexDirection: 'row' }}>
                         <Typography>
-                            {t('variables.type')}<span style={{ color: 'red' }}>&nbsp;*</span>
+                            {t('variables:type')}<span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                         <div style={{ flexGrow: 1 }}></div>
                     </div>
@@ -224,7 +224,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
                         name='variableType'
                         options={variableTypes}
                         onSelect={(newValue) => setVariableType(newValue)}
-                        value={variableType ?? t('variables.chooseOption')}
+                        value={variableType ?? t('variables:chooseOption')}
                         id='dropdown_variableType'
                     />
                 </Box>
@@ -232,7 +232,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
                     <Box sx={{ p: 2 }}>
                         <div style={{ display: 'flex', flexDirection: 'row' }}>
                             <Typography>
-                                {t('variables.value')}<span style={{ color: 'red' }}>&nbsp;*</span>
+                                {t('variables:value')}<span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                             <div style={{ flexGrow: 1 }}></div>
                         </div>

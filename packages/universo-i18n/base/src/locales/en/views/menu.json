@@ -12,6 +12,7 @@
         "analytics": "Analytics",
         "templates": "Templates",
         "uniks": "Uniks",
+        "unikboard": "Unikboard",
         "metaverses": "Metaverses",
         "metaverseboard": "Metaverseboard",
         "clusters": "Clusters",
@@ -22,7 +23,16 @@
         "entities": "Entities",
         "docs": "Help",
         "profile": "Profile",
-        "access": "Access"
+        "access": "Access",
+        "rename": "Rename",
+        "duplicate": "Duplicate",
+        "export": "Export",
+        "exportTemplate": "Export as Template",
+        "starterPrompts": "Starter Prompts",
+        "chatFeedback": "Chat Feedback",
+        "allowedDomains": "Allowed Domains",
+        "speechToText": "Speech to Text",
+        "updateCategory": "Update Category"
     }
 }
 

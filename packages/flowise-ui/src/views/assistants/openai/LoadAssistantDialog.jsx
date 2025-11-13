@@ -13,7 +13,7 @@ import { useParams } from 'react-router-dom'
 const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected, setError }) => {
     const portalElement = document.getElementById('portal')
     const { unikId } = useParams()
-    const { t } = useTranslation('assistants')
+    const { t } = useTranslation()
 
     const getAllAvailableAssistantsApi = useApi(api.assistants.getAllAvailableAssistants)
 
@@ -66,7 +66,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                 <Box sx={{ p: 2 }}>
                     <Stack sx={{ position: 'relative' }} direction='row'>
                         <Typography variant='overline'>
-                            {t('assistants.openai.credential')}
+                            {t('assistants:openai.credential')}
                             <span style={{ color: 'red' }}>&nbsp;*</span>
                         </Typography>
                     </Stack>
@@ -74,7 +74,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                         key={credentialId}
                         data={credentialId ? { credential: credentialId } : {}}
                         inputParam={{
-                            label: t('assistants.vectorStore.credential'),
+                            label: t('assistants:vectorStore.credential'),
                             name: 'credential',
                             type: 'credential',
                             credentialNames: ['openAIApi']
@@ -89,7 +89,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
                     <Box sx={{ p: 2 }}>
                         <Stack sx={{ position: 'relative' }} direction='row'>
                             <Typography variant='overline'>
-                                {t('assistants.title')}
+                                {t('assistants:title')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                         </Stack>
@@ -105,7 +105,7 @@ const LoadAssistantDialog = ({ show, dialogProps, onCancel, onAssistantSelected,
             {selectedOpenAIAssistantId && (
                 <DialogActions>
                     <StyledButton variant='contained' onClick={() => onAssistantSelected(selectedOpenAIAssistantId, credentialId)}>
-                        {t('assistants.openai.load')}
+                        {t('assistants:openai.load')}
                     </StyledButton>
                 </DialogActions>
             )}

@@ -127,7 +127,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
     const customization = useSelector((state) => state.customization)
     const dialogRef = useRef()
-    const { t } = useTranslation('assistants')
+    const { t } = useTranslation()
 
     const getSpecificAssistantApi = useApi(api.assistants.getSpecificAssistant)
     const getAssistantObjApi = useApi(api.assistants.getAssistantObj)
@@ -339,10 +339,10 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
     const onEditAssistantVectorStoreClick = (vectorStoreObject) => {
         const dialogProp = {
-            title: `${t('assistants.common.edit')} ${vectorStoreObject.name ? vectorStoreObject.name : vectorStoreObject.id}`,
+            title: `${t('assistants:common.edit')} ${vectorStoreObject.name ? vectorStoreObject.name : vectorStoreObject.id}`,
             type: 'EDIT',
-            cancelButtonName: t('assistants.common.cancel'),
-            confirmButtonName: t('assistants.common.save'),
+            cancelButtonName: t('assistants:common.cancel'),
+            confirmButtonName: t('assistants:common.save'),
             data: vectorStoreObject,
             credential: assistantCredential
         }
@@ -352,10 +352,10 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
     const onAddAssistantVectorStoreClick = () => {
         const dialogProp = {
-            title: t('assistants.common.add') + ' Vector Store',
+            title: t('assistants:common.add') + ' Vector Store',
             type: 'ADD',
-            cancelButtonName: t('assistants.common.cancel'),
-            confirmButtonName: t('assistants.common.add'),
+            cancelButtonName: t('assistants:common.cancel'),
+            confirmButtonName: t('assistants:common.add'),
             credential: assistantCredential
         }
         setAssistantVectorStoreDialogProps(dialogProp)
@@ -386,7 +386,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             const createResp = await api.assistants.createNewAssistant(unikId, obj)
             if (createResp.data) {
                 enqueueSnackbar({
-                    message: t('assistants.messages.assistantCreated'),
+                    message: t('assistants:messages.assistantCreated'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -402,7 +402,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setLoading(false)
         } catch (error) {
             enqueueSnackbar({
-                message: t('assistants.messages.assistantCreateError', {
+                message: t('assistants:messages.assistantCreateError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -441,7 +441,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             const saveResp = await api.assistants.updateAssistant(unikId, assistantId, obj)
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('assistants.messages.assistantSaved'),
+                    message: t('assistants:messages.assistantSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -457,7 +457,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setLoading(false)
         } catch (error) {
             enqueueSnackbar({
-                message: t('assistants.messages.assistantSaveError', {
+                message: t('assistants:messages.assistantSaveError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -482,7 +482,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             if (getResp.data) {
                 syncData(getResp.data)
                 enqueueSnackbar({
-                    message: t('assistants.messages.assistantSynced'),
+                    message: t('assistants:messages.assistantSynced'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -497,7 +497,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setLoading(false)
         } catch (error) {
             enqueueSnackbar({
-                message: t('assistants.messages.assistantSyncError', {
+                message: t('assistants:messages.assistantSyncError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -522,7 +522,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             const uploadResp = await api.assistants.uploadFilesToAssistantVectorStore(vectorStoreId, assistantCredential, formData, unikId)
             if (uploadResp.data) {
                 enqueueSnackbar({
-                    message: t('assistants.messages.fileUploaded'),
+                    message: t('assistants:messages.fileUploaded'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -548,7 +548,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setLoading(false)
         } catch (error) {
             enqueueSnackbar({
-                message: t('assistants.messages.fileUploadError', {
+                message: t('assistants:messages.fileUploadError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -572,7 +572,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             const uploadResp = await api.assistants.uploadFilesToAssistant(assistantCredential, formData, unikId)
             if (uploadResp.data) {
                 enqueueSnackbar({
-                    message: t('assistants.messages.fileUploaded'),
+                    message: t('assistants:messages.fileUploaded'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -600,7 +600,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             setLoading(false)
         } catch (error) {
             enqueueSnackbar({
-                message: t('assistants.messages.fileUploadError', {
+                message: t('assistants:messages.fileUploadError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -631,9 +631,9 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
 
     const onDeleteClick = () => {
         setDeleteDialogProps({
-            title: t('assistants.openai.deleteAssistant'),
-            description: t('assistants.openai.deleteMethod').replace('{name}', assistantName),
-            cancelButtonName: t('assistants.common.cancel')
+            title: t('assistants:openai.deleteAssistant'),
+            description: t('assistants:openai.deleteMethod').replace('{name}', assistantName),
+            cancelButtonName: t('assistants:common.cancel')
         })
         setDeleteDialogOpen(true)
     }
@@ -644,7 +644,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             const delResp = await api.assistants.deleteAssistant(unikId, assistantId, isDeleteBoth)
             if (delResp.data) {
                 enqueueSnackbar({
-                    message: t('assistants.messages.assistantDeleted'),
+                    message: t('assistants:messages.assistantDeleted'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -659,7 +659,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             }
         } catch (error) {
             enqueueSnackbar({
-                message: t('assistants.messages.assistantDeleteError', {
+                message: t('assistants:messages.assistantDeleteError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -728,7 +728,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     <Box>
                         <Stack sx={{ position: 'relative' }} direction='row'>
                             <Typography variant='overline'>
-                                {t('assistants.openai.credential')}
+                                {t('assistants:openai.credential')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                         </Stack>
@@ -736,7 +736,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                             key={assistantCredential}
                             data={assistantCredential ? { credential: assistantCredential } : {}}
                             inputParam={{
-                                label: t('assistants.vectorStore.credential'),
+                                label: t('assistants:vectorStore.credential'),
                                 name: 'credential',
                                 type: 'credential',
                                 credentialNames: ['openAIApi']
@@ -747,7 +747,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     <Box>
                         <Stack sx={{ position: 'relative' }} direction='row'>
                             <Typography variant='overline'>
-                                {t('assistants.fields.selectModel')}
+                                {t('assistants:fields.selectModel')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                         </Stack>
@@ -761,15 +761,15 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('assistants.common.name')}</Typography>
-                            <TooltipWithParser title={t('assistants.tooltips.name')} />
+                            <Typography variant='overline'>{t('assistants:common.name')}</Typography>
+                            <TooltipWithParser title={t('assistants:tooltips.name')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantName'
                             type='string'
                             size='small'
                             fullWidth
-                            placeholder={t('assistants.placeholders.name')}
+                            placeholder={t('assistants:placeholders.name')}
                             value={assistantName}
                             name='assistantName'
                             onChange={(e) => setAssistantName(e.target.value)}
@@ -777,15 +777,15 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('assistants.common.description')}</Typography>
-                            <TooltipWithParser title={t('assistants.tooltips.description')} />
+                            <Typography variant='overline'>{t('assistants:common.description')}</Typography>
+                            <TooltipWithParser title={t('assistants:tooltips.description')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantDesc'
                             type='string'
                             size='small'
                             fullWidth
-                            placeholder={t('assistants.placeholders.description')}
+                            placeholder={t('assistants:placeholders.description')}
                             multiline={true}
                             rows={3}
                             value={assistantDesc}
@@ -795,7 +795,7 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative' }} direction='row'>
-                            <Typography variant='overline'>{t('assistants.fields.icon')}</Typography>
+                            <Typography variant='overline'>{t('assistants:fields.icon')}</Typography>
                         </Stack>
                         <div
                             style={{
@@ -830,15 +830,15 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('assistants.fields.instructions')}</Typography>
-                            <TooltipWithParser title={t('assistants.tooltips.instructions')} />
+                            <Typography variant='overline'>{t('assistants:fields.instructions')}</Typography>
+                            <TooltipWithParser title={t('assistants:tooltips.instructions')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantInstructions'
                             type='string'
                             size='small'
                             fullWidth
-                            placeholder={t('assistants.placeholders.instructions')}
+                            placeholder={t('assistants:placeholders.instructions')}
                             multiline={true}
                             rows={3}
                             value={assistantInstructions}
@@ -848,8 +848,8 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('assistants.fields.temperature')}</Typography>
-                            <TooltipWithParser title={t('assistants.tooltips.temperature')} />
+                            <Typography variant='overline'>{t('assistants:fields.temperature')}</Typography>
+                            <TooltipWithParser title={t('assistants:tooltips.temperature')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantTemp'
@@ -863,8 +863,8 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                     </Box>
                     <Box>
                         <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                            <Typography variant='overline'>{t('assistants.fields.topProbability')}</Typography>
-                            <TooltipWithParser title={t('assistants.tooltips.topProbability')} />
+                            <Typography variant='overline'>{t('assistants:fields.topProbability')}</Typography>
+                            <TooltipWithParser title={t('assistants:tooltips.topProbability')} />
                         </Stack>
                         <OutlinedInput
                             id='assistantTopP'
@@ -882,19 +882,19 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                         <>
                             <Box>
                                 <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                    <Typography variant='overline'>{t('assistants.fields.tools')}</Typography>
-                                    <TooltipWithParser title={t('assistants.tooltips.tools')} />
+                                    <Typography variant='overline'>{t('assistants:fields.tools')}</Typography>
+                                    <TooltipWithParser title={t('assistants:tooltips.tools')} />
                                 </Stack>
                                 <MultiDropdown
                                     key={JSON.stringify(assistantTools)}
                                     name={JSON.stringify(assistantTools)}
                                     options={[
                                         {
-                                            label: t('assistants.openai.tools.codeInterpreter'),
+                                            label: t('assistants:openai.tools.codeInterpreter'),
                                             name: 'code_interpreter'
                                         },
                                         {
-                                            label: t('assistants.openai.tools.fileSearch'),
+                                            label: t('assistants:openai.tools.fileSearch'),
                                             name: 'file_search'
                                         }
                                     ]}
@@ -912,8 +912,8 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                                     <Card sx={{ mb: 2, border: '1px solid #e0e0e0', borderRadius: `${customization.borderRadius}px` }}>
                                         <CardContent>
                                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                                <Typography variant='overline'>{t('assistants.openai.codeInterpreterFiles')}</Typography>
-                                                <TooltipWithParser title={t('assistants.tooltips.codeInterpreterFiles')} />
+                                                <Typography variant='overline'>{t('assistants:openai.codeInterpreterFiles')}</Typography>
+                                                <TooltipWithParser title={t('assistants:tooltips.codeInterpreterFiles')} />
                                             </Stack>
                                             {toolResources?.code_interpreter?.files?.length > 0 && (
                                                 <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
@@ -964,8 +964,8 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
                                     <Card sx={{ mb: 2, border: '1px solid #e0e0e0', borderRadius: `${customization.borderRadius}px` }}>
                                         <CardContent>
                                             <Stack sx={{ position: 'relative', alignItems: 'center' }} direction='row'>
-                                                <Typography variant='overline'>{t('assistants.openai.fileSearchFiles')}</Typography>
-                                                <TooltipWithParser title={t('assistants.tooltips.fileSearchFiles')} />
+                                                <Typography variant='overline'>{t('assistants:openai.fileSearchFiles')}</Typography>
+                                                <TooltipWithParser title={t('assistants:tooltips.fileSearchFiles')} />
                                             </Stack>
                                             {toolResources?.file_search?.vector_store_object && (
                                                 <Chip
@@ -1051,12 +1051,12 @@ const AssistantDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) =
             <DialogActions sx={{ p: 3, pt: 0 }}>
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='secondary' variant='contained' onClick={() => onSyncClick()}>
-                        {t('assistants.common.update')}
+                        {t('assistants:common.update')}
                     </StyledButton>
                 )}
                 {dialogProps.type === 'EDIT' && (
                     <StyledButton color='error' variant='contained' onClick={() => onDeleteClick()}>
-                        {t('assistants.common.delete')}
+                        {t('assistants:common.delete')}
                     </StyledButton>
                 )}
                 <StyledButton

@@ -27,7 +27,7 @@ import CanvasVersionsDialog from './CanvasVersionsDialog'
 
 // Hooks
 import useApi from '../../hooks/useApi'
-import useConfirm from '../../hooks/useConfirm'
+import useConfirm from '@flowise/template-mui/hooks/useConfirm'
 
 // utils
 import { generateExportFlowData } from '../../utils/genericHelper'
@@ -42,6 +42,7 @@ const CanvasHeader = ({
     handleDeleteFlow,
     handleLoadFlow,
     spaceId,
+    activeCanvasId,
     spaceName,
     spaceLoading,
     onRenameSpace,
@@ -54,7 +55,23 @@ const CanvasHeader = ({
     const location = useLocation()
     const flowNameRef = useRef()
     const settingsRef = useRef()
-    const { t } = useTranslation('canvas')
+    // Use global instance, leverage colon syntax for clarity across mixed namespace keys
+    const { t } = useTranslation()
+
+    // Defensive palette fallback: some host themes may not include `canvasHeader` extension.
+    const canvasHeaderPalette = theme.palette.canvasHeader ?? {
+        deployLight: theme.palette.primary?.light,
+        deployDark: theme.palette.primary?.dark,
+        saveLight: theme.palette.secondary?.light,
+        saveDark: theme.palette.secondary?.dark,
+        // Use bracket notation for numeric palette shades to avoid TS parse issues in declaration emit
+        settingsLight: theme.palette.grey ? theme.palette.grey[300] : undefined,
+        settingsDark: theme.palette.grey ? theme.palette.grey[700] : undefined
+    }
+    if (!theme.palette.canvasHeader) {
+        // eslint-disable-next-line no-console
+        console.warn('[CanvasHeader] Missing theme.palette.canvasHeader – using fallback colors', canvasHeaderPalette)
+    }
 
     const [isEditingFlowName, setEditingFlowName] = useState(null)
     const [flowName, setFlowName] = useState('')
@@ -81,7 +98,11 @@ const CanvasHeader = ({
 
     const titleLabel = isAgentCanvas ? t('agent', 'agent') : t('space', 'space')
 
-    const deleteSpaceApi = useApi(api.spaces.deleteSpace)
+    // Wrap API call to match useApi's expected signature: Promise<{ data: T }>
+    const deleteSpaceApi = useApi(async (unikId, spaceId) => {
+        await api.spaces.delete(unikId, spaceId)
+        return { data: undefined }
+    })
     const canvasState = useSelector((state) => state.canvas)
 
     // Helper: extract unikId from current location path (supports new singular '/unik/:unikId/...')
@@ -114,36 +135,47 @@ const CanvasHeader = ({
         }
     }
 
-    const onSettingsItemClick = (setting) => {
+    const onSettingsItemClick = async (setting) => {
         setSettingsOpen(false)
 
         if (setting === 'deleteSpace' && !isAgentCanvas) {
             // Подтверждение удаления пространства целиком
             const currentUnikId = extractUnikId()
+            console.log('[CanvasHeader] deleteSpace: currentUnikId =', currentUnikId, ', spaceId =', spaceId)
 
-            const title = t('confirmDeleteSpaceTitle', 'Delete Space')
-            const description = t('confirmDeleteSpaceDescription', 'This will delete the space and all its canvases. This action cannot be undone.')
+            const title = t('canvas:confirmDeleteSpaceTitle')
+            const description = t('canvas:confirmDeleteSpaceDescription')
 
-            confirm({ title, description }).then((confirmed) => {
-                if (!confirmed) return
-                deleteSpaceApi
-                    .request(currentUnikId, String(spaceId))
-                    .then(() => {
-                        navigate(`/unik/${currentUnikId}/spaces`)
-                    })
-                    .catch((error) => {
-                        enqueueSnackbar({
-                            message: error?.response?.data?.error || error?.message,
-                            options: { key: new Date().getTime() + Math.random(), variant: 'error', persist: true,
-                                action: (key) => (
-                                    <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                                        <IconX />
-                                    </Button>
-                                )
-                            }
-                        })
-                    })
-            })
+            console.log('[CanvasHeader] Calling confirm with:', { title, description })
+            const confirmed = await confirm({ title, description })
+            console.log('[CanvasHeader] Confirm result:', confirmed)
+            
+            if (!confirmed) {
+                console.log('[CanvasHeader] User cancelled deletion')
+                return
+            }
+
+            console.log('[CanvasHeader] User confirmed, calling deleteSpaceApi.request')
+            try {
+                await deleteSpaceApi.request(currentUnikId, String(spaceId))
+                console.log('[CanvasHeader] Space deleted successfully, navigating to spaces list')
+                navigate(`/unik/${currentUnikId}/spaces`)
+            } catch (error) {
+                console.error('[CanvasHeader] Error deleting space:', error)
+                enqueueSnackbar({
+                    message: error?.response?.data?.error || error?.message,
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'error',
+                        persist: true,
+                        action: (key) => (
+                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                                <IconX />
+                            </Button>
+                        )
+                    }
+                })
+            }
         } else if (setting === 'deleteCanvas') {
             handleDeleteFlow()
         } else if (setting === 'viewMessages') {
@@ -161,7 +193,7 @@ const CanvasHeader = ({
         } else if (setting === 'saveAsTemplate') {
             if (canvasState.isDirty) {
                 enqueueSnackbar({
-                    message: t('messages.saveFirst'),
+                    message: t('canvas:messages.saveFirst'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -179,7 +211,7 @@ const CanvasHeader = ({
             // Check if canvas has an ID
             if (!canvas || !canvas.id) {
                 enqueueSnackbar({
-                    message: t('messages.exportError') + ' ' + title + '!',
+                    message: t('canvas:messages.exportError') + ' ' + title + '!',
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error',
@@ -329,7 +361,9 @@ const CanvasHeader = ({
     }
 
     const onSaveChatflowClick = () => {
-        if (canvas?.id) handleSaveFlow(flowName)
+        // Use spaceId to determine if this is an existing space (more reliable than canvas?.id)
+        // After creating a new space, canvas prop may not update immediately, but spaceId does
+        if (spaceId) handleSaveFlow(flowName)
         else setFlowDialogOpen(true)
     }
 
@@ -366,7 +400,7 @@ const CanvasHeader = ({
             <Stack flexDirection='row' justifyContent='space-between' sx={{ width: '100%' }}>
                 <Stack flexDirection='row' sx={{ width: '100%', maxWidth: '50%' }}>
                     <Box>
-                        <ButtonBase title={t('canvas.back')} sx={{ borderRadius: '50%' }}>
+                        <ButtonBase title={t('canvas:back')} sx={{ borderRadius: '50%' }}>
                             <Avatar
                                 variant='rounded'
                                 sx={{
@@ -487,7 +521,7 @@ const CanvasHeader = ({
                                         }
                                     }}
                                 />
-                                <ButtonBase title={t('canvas.saveName')} sx={{ borderRadius: '50%' }}>
+                                <ButtonBase title={t('canvas:saveName')} sx={{ borderRadius: '50%' }}>
                                     <Avatar
                                         variant='rounded'
                                         sx={{
@@ -508,7 +542,7 @@ const CanvasHeader = ({
                                         <IconCheck stroke={1.5} size='1.3rem' />
                                     </Avatar>
                                 </ButtonBase>
-                                <ButtonBase title={t('canvas.cancel')} sx={{ borderRadius: '50%' }}>
+                                <ButtonBase title={t('canvas:cancel')} sx={{ borderRadius: '50%' }}>
                                     <Avatar
                                         variant='rounded'
                                         sx={{
@@ -535,18 +569,18 @@ const CanvasHeader = ({
                 </Stack>
                 <Box>
                     {canvas?.id && (
-                        <ButtonBase title={t('publishAndExport', 'Publish and Export')} sx={{ borderRadius: '50%', mr: 2 }}>
+                        <ButtonBase title={t('canvas:publishAndExport')} sx={{ borderRadius: '50%', mr: 2 }}>
                             <Avatar
                                 variant='rounded'
                                 sx={{
                                     ...theme.typography.commonAvatar,
                                     ...theme.typography.mediumAvatar,
                                     transition: 'all .2s ease-in-out',
-                                    background: theme.palette.canvasHeader.deployLight,
-                                    color: theme.palette.canvasHeader.deployDark,
+                                    background: canvasHeaderPalette.deployLight,
+                                    color: canvasHeaderPalette.deployDark,
                                     '&:hover': {
-                                        background: theme.palette.canvasHeader.deployDark,
-                                        color: theme.palette.canvasHeader.deployLight
+                                        background: canvasHeaderPalette.deployDark,
+                                        color: canvasHeaderPalette.deployLight
                                     }
                                 }}
                                 color='inherit'
@@ -556,18 +590,18 @@ const CanvasHeader = ({
                             </Avatar>
                         </ButtonBase>
                     )}
-                    <ButtonBase title={t('canvas.saveFlow') + ' ' + titleLabel} sx={{ borderRadius: '50%', mr: 2 }}>
+                    <ButtonBase title={t('canvas:saveFlow') + ' ' + titleLabel} sx={{ borderRadius: '50%', mr: 2 }}>
                         <Avatar
                             variant='rounded'
                             sx={{
                                 ...theme.typography.commonAvatar,
                                 ...theme.typography.mediumAvatar,
                                 transition: 'all .2s ease-in-out',
-                                background: theme.palette.canvasHeader.saveLight,
-                                color: theme.palette.canvasHeader.saveDark,
+                                background: canvasHeaderPalette.saveLight,
+                                color: canvasHeaderPalette.saveDark,
                                 '&:hover': {
-                                    background: theme.palette.canvasHeader.saveDark,
-                                    color: theme.palette.canvasHeader.saveLight
+                                    background: canvasHeaderPalette.saveDark,
+                                    color: canvasHeaderPalette.saveLight
                                 }
                             }}
                             color='inherit'
@@ -576,18 +610,18 @@ const CanvasHeader = ({
                             <IconDeviceFloppy stroke={1.5} size='1.3rem' />
                         </Avatar>
                     </ButtonBase>
-                    <ButtonBase ref={settingsRef} title={t('canvas.settings')} sx={{ borderRadius: '50%' }}>
+                    <ButtonBase ref={settingsRef} title={t('canvas:settings')} sx={{ borderRadius: '50%' }}>
                         <Avatar
                             variant='rounded'
                             sx={{
                                 ...theme.typography.commonAvatar,
                                 ...theme.typography.mediumAvatar,
                                 transition: 'all .2s ease-in-out',
-                                background: theme.palette.canvasHeader.settingsLight,
-                                color: theme.palette.canvasHeader.settingsDark,
+                                background: canvasHeaderPalette.settingsLight,
+                                color: canvasHeaderPalette.settingsDark,
                                 '&:hover': {
-                                    background: theme.palette.canvasHeader.settingsDark,
-                                    color: theme.palette.canvasHeader.settingsLight
+                                    background: canvasHeaderPalette.settingsDark,
+                                    color: canvasHeaderPalette.settingsLight
                                 }
                             }}
                             onClick={() => setSettingsOpen(!isSettingsOpen)}
@@ -610,8 +644,8 @@ const CanvasHeader = ({
                 show={flowDialogOpen}
                 dialogProps={{
                     title: isAgentCanvas ? t('saveNewAgent','Save New Agent') : t('saveNewSpace','Save New Space'),
-                    confirmButtonName: t('common.save'),
-                    cancelButtonName: t('common.cancel'),
+                    confirmButtonName: t('common:save'),
+                    cancelButtonName: t('common:cancel'),
                     placeholder: isAgentCanvas ? t('newAgentPlaceholder','My new agent') : t('newSpacePlaceholder','Моё новое пространство')
                 }}
                 onCancel={() => setFlowDialogOpen(false)}
@@ -666,8 +700,10 @@ CanvasHeader.propTypes = {
     handleLoadFlow: PropTypes.func,
     isAgentCanvas: PropTypes.bool,
     spaceId: PropTypes.string,
+    activeCanvasId: PropTypes.string,
     spaceName: PropTypes.string,
     spaceLoading: PropTypes.bool,
+    onRenameSpace: PropTypes.func,
     onRefreshCanvases: PropTypes.func,
     onSelectCanvas: PropTypes.func
 }

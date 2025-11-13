@@ -442,7 +442,7 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
                         {error}
                     </Box>
                     <Button variant='outlined' color='inherit' size='small' onClick={handleRetryLoadSettings}>
-                        {t('common.retry', 'Повторить')}
+                        {t('common:retry', 'Повторить')}
                     </Button>
                 </Alert>
             )}
@@ -458,11 +458,11 @@ const PlayCanvasPublisherComponent = ({ flow }) => {
                         onChange={(e) => setProjectTitle(e.target.value)}
                         helperText={
                             autoSaveStatus === 'saving'
-                                ? t('common.saving')
+                                ? t('common:saving')
                                 : autoSaveStatus === 'saved'
-                                ? t('common.saved')
+                                ? t('common:saved')
                                 : autoSaveStatus === 'error'
-                                ? t('common.saveError')
+                                ? t('common:saveError')
                                 : ''
                         }
                     />

@@ -1,5 +1,23 @@
 import type { ElementType } from 'react'
-import { IconFiles, IconWorld, IconFolder, IconUser, IconFileText, IconUsers, IconBoxMultiple, IconHierarchy3 } from '@tabler/icons-react'
+import {
+    IconFiles,
+    IconWorld,
+    IconFolder,
+    IconUser,
+    IconFileText,
+    IconUsers,
+    IconBoxMultiple,
+    IconHierarchy3,
+    IconBuildingStore,
+    IconMap,
+    IconTool,
+    IconKey,
+    IconVariable,
+    IconApi,
+    IconDatabase,
+    IconRobot,
+    IconChartBar
+} from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
     id: string
@@ -12,6 +30,70 @@ export interface TemplateMenuItem {
         label: string
     }
 }
+
+// Function to generate unik menu items for a specific unik
+export const getUnikMenuItems = (unikId: string): TemplateMenuItem[] => [
+    {
+        id: 'unik-board',
+        titleKey: 'unikboard',
+        url: `/unik/${unikId}`,
+        icon: IconBuildingStore
+    },
+    {
+        id: 'unik-spaces',
+        titleKey: 'spaces',
+        url: `/unik/${unikId}/spaces`,
+        icon: IconMap
+    },
+    {
+        id: 'unik-tools',
+        titleKey: 'tools',
+        url: `/unik/${unikId}/tools`,
+        icon: IconTool
+    },
+    {
+        id: 'unik-credentials',
+        titleKey: 'credentials',
+        url: `/unik/${unikId}/credentials`,
+        icon: IconKey
+    },
+    {
+        id: 'unik-variables',
+        titleKey: 'variables',
+        url: `/unik/${unikId}/variables`,
+        icon: IconVariable
+    },
+    {
+        id: 'unik-apikey',
+        titleKey: 'apiKeys',
+        url: `/unik/${unikId}/apikey`,
+        icon: IconApi
+    },
+    {
+        id: 'unik-document-stores',
+        titleKey: 'documentStores',
+        url: `/unik/${unikId}/document-stores`,
+        icon: IconDatabase
+    },
+    {
+        id: 'unik-assistants',
+        titleKey: 'assistants',
+        url: `/unik/${unikId}/assistants`,
+        icon: IconRobot
+    },
+    {
+        id: 'unik-analytics',
+        titleKey: 'analytics',
+        url: `/unik/${unikId}/analytics`,
+        icon: IconChartBar
+    },
+    {
+        id: 'unik-access',
+        titleKey: 'access',
+        url: `/unik/${unikId}/access`,
+        icon: IconUsers
+    }
+]
 
 // Function to generate metaverse menu items for a specific metaverse
 export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] => [

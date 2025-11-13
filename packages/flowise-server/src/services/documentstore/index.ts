@@ -966,12 +966,14 @@ const getDocumentLoaders = async () => {
     }
 }
 
-const updateDocumentStoreUsage = async (canvasId: string, storeId: string | undefined) => {
+const updateDocumentStoreUsage = async (canvasId: string, storeId: string | undefined, unikId: string) => {
     try {
         // find the document store
         const appServer = getRunningExpressApp()
-        // find all entities that have the chatId in their whereUsed
-        const entities = await appServer.AppDataSource.getRepository(DocumentStore).find()
+        // find all entities that have the chatId in their whereUsed, filtered by unikId for security
+        const entities = await appServer.AppDataSource.getRepository(DocumentStore).find({
+            where: { unik: { id: unikId } }
+        })
         entities.map(async (entity: DocumentStore) => {
             const whereUsed = JSON.parse(entity.whereUsed)
             const found = whereUsed.find((w: string) => w === canvasId)

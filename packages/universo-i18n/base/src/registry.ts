@@ -13,7 +13,7 @@ export function registerNamespace(namespace: string, translations: NamespaceTran
     const register = () => {
         i18n.addResourceBundle('en', namespace, translations.en, true, true)
         i18n.addResourceBundle('ru', namespace, translations.ru, true, true)
-        
+
         // Debug: confirm registration
         console.log(`[registry] Registered namespace '${namespace}':`, {
             currentLang: i18n.language,

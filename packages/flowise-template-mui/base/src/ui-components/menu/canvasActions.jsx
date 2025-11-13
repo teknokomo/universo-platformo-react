@@ -168,7 +168,8 @@ export const canvasActions = [
             loader: () => import('../dialog/SpeechToTextDialog'),
             buildProps: (ctx) => ({
                 show: true,
-                dialogProps: { title: buildTitle(ctx, 'dialogs.speechToText.title'), ...buildCanvasDialogContext(ctx) },
+                // Use speechToTextDialog namespace direct key
+                dialogProps: { title: ctx.t('speechToTextDialog:title'), ...buildCanvasDialogContext(ctx) },
                 onCancel: () => {}
             })
         }

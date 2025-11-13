@@ -641,10 +641,10 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
 
             <PublicationSettingsCard
                 isLoading={state.settingsLoading}
-                loadingMessage={t('common.loadingSettings', 'Загрузка сохраненных настроек...')}
+                loadingMessage={t('common:loadingSettings', 'Загрузка сохраненных настроек...')}
                 error={state.error}
                 onRetry={handleRetryLoadSettings}
-                retryLabel={t('common.retry', 'Повторить')}
+                retryLabel={t('common:retry', 'Повторить')}
             >
                 <Box sx={{ position: 'relative' }}>
                     {state.loading && (

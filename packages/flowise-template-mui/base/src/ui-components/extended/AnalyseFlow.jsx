@@ -247,7 +247,7 @@ const AnalyseFlow = ({ dialogProps }) => {
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.analyseChatflow.configSaved'),
+                    message: t('canvas:configuration.analyseChatflow.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -263,7 +263,7 @@ const AnalyseFlow = ({ dialogProps }) => {
         } catch (error) {
             const errorMessage = typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('canvas.configuration.analyseChatflow.failedToSave')}: ${errorMessage}`,
+                message: `${t('canvas:configuration.analyseChatflow.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -377,7 +377,7 @@ const AnalyseFlow = ({ dialogProps }) => {
                                         }}
                                     />
                                     <span style={{ color: '#006400', marginLeft: 10 }}>
-                                        {t('canvas.configuration.analyseChatflow.status.on')}
+                                        {t('canvas:configuration.analyseChatflow.status.on')}
                                     </span>
                                 </div>
                             )}
@@ -428,7 +428,7 @@ const AnalyseFlow = ({ dialogProps }) => {
                 </Accordion>
             ))}
             <StyledButton style={{ marginBottom: 10, marginTop: 10 }} variant='contained' onClick={onSave}>
-                {t('canvas.configuration.analyseChatflow.save')}
+                {t('canvas:configuration.analyseChatflow.save')}
             </StyledButton>
         </>
     )

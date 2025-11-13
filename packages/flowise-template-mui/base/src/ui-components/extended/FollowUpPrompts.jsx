@@ -393,7 +393,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.followUpPrompts.configSaved'),
+                    message: t('canvas:configuration.followUpPrompts.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -409,7 +409,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
         } catch (error) {
             const errorData = error?.response?.data || `${error?.response?.status}: ${error?.response?.statusText || 'Unknown Error'}`
             enqueueSnackbar({
-                message: `${t('canvas.configuration.followUpPrompts.failedToSave')}: ${errorData}`,
+                message: `${t('canvas:configuration.followUpPrompts.failedToSave')}: ${errorData}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -474,13 +474,13 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 }}
             >
                 <SwitchInput
-                    label={t('canvas.configuration.followUpPrompts.enable')}
+                    label={t('canvas:configuration.followUpPrompts.enable')}
                     onChange={(value) => handleChange('status', value)}
                     value={followUpPromptsConfig.status}
                 />
                 {followUpPromptsConfig && followUpPromptsConfig.status && (
                     <>
-                        <Typography variant='h5'>{t('canvas.configuration.followUpPrompts.providers')}</Typography>
+                        <Typography variant='h5'>{t('canvas:configuration.followUpPrompts.providers')}</Typography>
                         <FormControl fullWidth>
                             <Select size='small' value={selectedProvider} onChange={handleSelectedProviderChange}>
                                 {Object.values(followUpPromptsOptions).map((provider) => (
@@ -606,7 +606,7 @@ const FollowUpPrompts = ({ dialogProps }) => {
                 )}
             </Box>
             <StyledButton disabled={checkDisabled()} variant='contained' onClick={onSave}>
-                {t('canvas.configuration.followUpPrompts.save')}
+                {t('canvas:configuration.followUpPrompts.save')}
             </StyledButton>
         </>
     )

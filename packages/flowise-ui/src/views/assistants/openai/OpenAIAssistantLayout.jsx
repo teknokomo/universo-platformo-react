@@ -30,7 +30,7 @@ import { gridSpacing } from '@flowise/template-mui'
 const OpenAIAssistantLayout = () => {
     const navigate = useNavigate()
     const { unikId } = useParams()
-    const { t } = useTranslation('assistants')
+    const { t } = useTranslation()
 
     const getAllAssistantsApi = useApi(api.assistants.getAllAssistants)
 
@@ -43,7 +43,7 @@ const OpenAIAssistantLayout = () => {
 
     const loadExisting = () => {
         const dialogProp = {
-            title: t('assistants.loadExisting'),
+            title: t('assistants:loadExisting'),
             unikId
         }
         setLoadDialogProps(dialogProp)
@@ -62,10 +62,10 @@ const OpenAIAssistantLayout = () => {
 
     const addNew = (selectedOpenAIAssistantId, credential) => {
         const dialogProp = {
-            title: t('assistants.addNewAssistant'),
+            title: t('assistants:addNewAssistant'),
             type: 'ADD',
-            cancelButtonName: t('assistants.common.cancel'),
-            confirmButtonName: t('assistants.common.add'),
+            cancelButtonName: t('assistants:common.cancel'),
+            confirmButtonName: t('assistants:common.add'),
             selectedOpenAIAssistantId,
             credential,
             unikId
@@ -76,10 +76,10 @@ const OpenAIAssistantLayout = () => {
 
     const edit = (selectedAssistant) => {
         const dialogProp = {
-            title: t('assistants.editAssistant'),
+            title: t('assistants:editAssistant'),
             type: 'EDIT',
-            cancelButtonName: t('assistants.common.cancel'),
-            confirmButtonName: t('assistants.common.save'),
+            cancelButtonName: t('assistants:common.cancel'),
+            confirmButtonName: t('assistants:common.save'),
             data: selectedAssistant,
             unikId
         }
@@ -125,8 +125,8 @@ const OpenAIAssistantLayout = () => {
                             isBackButton={true}
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder={t('assistants.searchPlaceholder')}
-                            title={t('assistants.openai.title')}
+                            searchPlaceholder={t('assistants:searchPlaceholder')}
+                            title={t('assistants:openai.title')}
                             onBack={() => navigate(-1)}
                         >
                             <Button
@@ -135,7 +135,7 @@ const OpenAIAssistantLayout = () => {
                                 startIcon={<IconFileUpload />}
                                 sx={{ borderRadius: 2, height: 40 }}
                             >
-                                {t('assistants.openai.load')}
+                                {t('assistants:openai.load')}
                             </Button>
                             <StyledButton
                                 variant='contained'
@@ -143,7 +143,7 @@ const OpenAIAssistantLayout = () => {
                                 onClick={() => addNew()}
                                 startIcon={<IconPlus />}
                             >
-                                {t('assistants.common.add')}
+                                {t('assistants:common.add')}
                             </StyledButton>
                         </ViewHeader>
                         {isLoading ? (
@@ -177,7 +177,7 @@ const OpenAIAssistantLayout = () => {
                                         alt='AssistantEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('assistants.noAssistantsYet', { type: 'OpenAI' })}</div>
+                                <div>{t('assistants:noAssistantsYet', { type: 'OpenAI' })}</div>
                             </Stack>
                         )}
                     </Stack>

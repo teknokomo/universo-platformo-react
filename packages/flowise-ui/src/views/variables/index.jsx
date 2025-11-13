@@ -104,8 +104,8 @@ const Variables = () => {
     const addNew = () => {
         const dialogProp = {
             type: 'ADD',
-            cancelButtonName: t('variables.common.cancel'),
-            confirmButtonName: t('variables.common.add'),
+            cancelButtonName: t('variables:common.cancel'),
+            confirmButtonName: t('variables:common.add'),
             customBtnId: 'btn_confirmAddingVariable',
             data: {},
             unikId: unikId
@@ -117,8 +117,8 @@ const Variables = () => {
     const edit = (variable) => {
         const dialogProp = {
             type: 'EDIT',
-            cancelButtonName: t('variables.common.cancel'),
-            confirmButtonName: t('variables.common.save'),
+            cancelButtonName: t('variables:common.cancel'),
+            confirmButtonName: t('variables:common.save'),
             data: variable,
             unikId: unikId
         }
@@ -128,10 +128,10 @@ const Variables = () => {
 
     const deleteVariable = async (variable) => {
         const confirmPayload = {
-            title: t('variables.common.delete'),
-            description: t('variables.deleteConfirm').replace('{name}', variable.name),
-            confirmButtonName: t('variables.common.delete'),
-            cancelButtonName: t('variables.common.cancel')
+            title: t('variables:common.delete'),
+            description: t('variables:deleteConfirm').replace('{name}', variable.name),
+            confirmButtonName: t('variables:common.delete'),
+            cancelButtonName: t('variables:common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -140,7 +140,7 @@ const Variables = () => {
                 const deleteResp = await api.variables.deleteVariable(unikId, variable.id)
                 if (deleteResp.data) {
                     enqueueSnackbar({
-                        message: t('variables.deleteSuccess'),
+                        message: t('variables:deleteSuccess'),
                         options: {
                             key: new Date().getTime() + Math.random(),
                             variant: 'success',
@@ -155,7 +155,7 @@ const Variables = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('variables.deleteError', {
+                    message: t('variables:deleteError', {
                         error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                     }),
                     options: {
@@ -213,11 +213,11 @@ const Variables = () => {
                         <ViewHeader
                             onSearchChange={onSearchChange}
                             search={true}
-                            searchPlaceholder={t('variables.searchPlaceholder')}
-                            title={t('variables.title')}
+                            searchPlaceholder={t('variables:searchPlaceholder')}
+                            title={t('variables:title')}
                         >
                             <Button variant='outlined' sx={{ borderRadius: 2, height: '100%' }} onClick={() => setShowHowToDialog(true)}>
-                                {t('variables.howToUse')}
+                                {t('variables:howToUse')}
                             </Button>
                             <StyledButton
                                 variant='contained'
@@ -226,7 +226,7 @@ const Variables = () => {
                                 startIcon={<IconPlus />}
                                 id='btn_createVariable'
                             >
-                                {t('variables.addVariable')}
+                                {t('variables:addVariable')}
                             </StyledButton>
                         </ViewHeader>
                         {!isLoading && variables.length === 0 ? (
@@ -238,7 +238,7 @@ const Variables = () => {
                                         alt='VariablesEmptySVG'
                                     />
                                 </Box>
-                                <div>{t('variables.noVariablesYet')}</div>
+                                <div>{t('variables:noVariablesYet')}</div>
                             </Stack>
                         ) : (
                             <TableContainer
@@ -255,11 +255,11 @@ const Variables = () => {
                                         }}
                                     >
                                         <TableRow>
-                                            <StyledTableCell>{t('variables.grid.name')}</StyledTableCell>
-                                            <StyledTableCell>{t('variables.grid.value')}</StyledTableCell>
-                                            <StyledTableCell>{t('variables.grid.type')}</StyledTableCell>
-                                            <StyledTableCell>{t('variables.grid.lastUpdated')}</StyledTableCell>
-                                            <StyledTableCell>{t('variables.grid.created')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables:grid.name')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables:grid.value')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables:grid.type')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables:grid.lastUpdated')}</StyledTableCell>
+                                            <StyledTableCell>{t('variables:grid.created')}</StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                             <StyledTableCell> </StyledTableCell>
                                         </TableRow>

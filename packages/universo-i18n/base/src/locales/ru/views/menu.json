@@ -12,6 +12,7 @@
         "analytics": "Аналитика",
         "templates": "Шаблоны",
         "uniks": "Уники",
+        "unikboard": "Уникборд",
         "metaverses": "Метавселенные",
         "metaverseboard": "Метаверсборд",
         "clusters": "Кластеры",
@@ -22,7 +23,16 @@
         "entities": "Сущности",
         "docs": "Справка",
         "profile": "Профиль",
-        "access": "Доступ"
+        "access": "Доступ",
+        "rename": "Переименовать",
+        "duplicate": "Дублировать",
+        "export": "Экспортировать",
+        "exportTemplate": "Экспортировать как шаблон",
+        "starterPrompts": "Стартовые подсказки",
+        "chatFeedback": "Обратная связь чата",
+        "allowedDomains": "Разрешённые домены",
+        "speechToText": "Речь в текст",
+        "updateCategory": "Обновить категорию"
     }
 }
 

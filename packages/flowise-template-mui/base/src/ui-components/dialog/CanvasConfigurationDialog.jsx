@@ -86,7 +86,8 @@ function a11yProps(index) {
 const CanvasConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')
     const [tabValue, setTabValue] = useState(0)
-    const { t } = useTranslation()
+    // Bind directly to 'canvas' namespace so keys can omit the namespace prefix
+    const { t } = useTranslation('canvas')
 
     const filteredTabs = CANVAS_CONFIGURATION_TABS.filter((tab) => !isAgentCanvas || !tab.hideInAgentFlow)
 
@@ -100,7 +101,7 @@ const CanvasConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel 
             aria-describedby='alert-dialog-description'
         >
             <DialogTitle sx={{ fontSize: '1.25rem' }} id='alert-dialog-title'>
-                {t('canvas.configuration.title')}
+                {t('configuration.title')}
             </DialogTitle>
             <DialogContent>
                 <Tabs
@@ -128,7 +129,7 @@ const CanvasConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCancel 
                                 mb: 1
                             }}
                             key={index}
-                            label={t(`canvas.configuration.tabs.${item.label}`)}
+                            label={t(`configuration.tabs.${item.label}`)}
                             {...a11yProps(index)}
                         ></Tab>
                     ))}

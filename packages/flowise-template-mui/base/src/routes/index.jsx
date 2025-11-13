@@ -6,12 +6,15 @@ import CanvasRoutes from '@universo/spaces-frt/src/entry/CanvasRoutes'
 import ChatbotRoutes from './ChatbotRoutes'
 
 // Import new MUI routes to replace main routes
+// MainRoutesMUI now exports an array: [MinimalRoutes, MainRoutesMUI]
+// MinimalRoutes handles Canvas paths without sidebar (must be first to match specific paths)
 import { MainRoutesMUI } from '@universo/template-mui'
 
 // ==============================|| ROUTING RENDER ||============================== //
 
 export default function ThemeRoutes() {
-    const routeTree = [AuthRoutes, MainRoutesMUI, MainRoutes, CanvasRoutes, ChatbotRoutes, PublicFlowRoutes]
+    // Spread MainRoutesMUI array to flatten MinimalRoutes and MainRoutesMUI into routeTree
+    const routeTree = [AuthRoutes, ...MainRoutesMUI, MainRoutes, CanvasRoutes, ChatbotRoutes, PublicFlowRoutes]
     const sanitizedRoutes = routeTree.filter(Boolean)
 
     return useRoutes(sanitizedRoutes)

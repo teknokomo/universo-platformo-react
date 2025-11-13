@@ -54,7 +54,7 @@ const Leads = ({ dialogProps }) => {
             chatbotConfig.leads = value.leads
             if (!canvasId || !unikId) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.leads.missingCanvas'),
+                    message: t('canvas:configuration.leads.missingCanvas'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error'
@@ -72,7 +72,7 @@ const Leads = ({ dialogProps }) => {
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.leads.configSaved'),
+                    message: t('canvas:configuration.leads.configSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -88,7 +88,7 @@ const Leads = ({ dialogProps }) => {
         } catch (error) {
             const errorData = error?.response?.data || `${error?.response?.status}: ${error?.response?.statusText || 'Unknown Error'}`
             enqueueSnackbar({
-                message: `${t('canvas.configuration.leads.failedToSave')}: ${errorData}`,
+                message: `${t('canvas:configuration.leads.failedToSave')}: ${errorData}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -129,14 +129,14 @@ const Leads = ({ dialogProps }) => {
                 }}
             >
                 <SwitchInput
-                    label={t('canvas.configuration.leads.enable')}
+                    label={t('canvas:configuration.leads.enable')}
                     onChange={(value) => handleChange('status', value)}
                     value={leadsConfig.status}
                 />
                 {leadsConfig && leadsConfig['status'] && (
                     <>
                         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-                            <Typography>{t('canvas.configuration.leads.formTitle')}</Typography>
+                            <Typography>{t('canvas:configuration.leads.formTitle')}</Typography>
                             <OutlinedInput
                                 id='form-title'
                                 type='text'
@@ -153,7 +153,7 @@ const Leads = ({ dialogProps }) => {
                             />
                         </Box>
                         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-                            <Typography>{t('canvas.configuration.leads.messageAfterCapture')}</Typography>
+                            <Typography>{t('canvas:configuration.leads.messageAfterCapture')}</Typography>
                             <OutlinedInput
                                 id='success-message'
                                 type='text'
@@ -169,21 +169,21 @@ const Leads = ({ dialogProps }) => {
                                 }}
                             />
                         </Box>
-                        <Typography variant='h4'>{t('canvas.configuration.leads.formFields')}</Typography>
+                        <Typography variant='h4'>{t('canvas:configuration.leads.formFields')}</Typography>
                         <Box sx={{ width: '100%' }}>
                             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
                                 <SwitchInput
-                                    label={t('canvas.configuration.leads.name')}
+                                    label={t('canvas:configuration.leads.name')}
                                     onChange={(value) => handleChange('name', value)}
                                     value={leadsConfig.name}
                                 />
                                 <SwitchInput
-                                    label={t('canvas.configuration.leads.email')}
+                                    label={t('canvas:configuration.leads.email')}
                                     onChange={(value) => handleChange('email', value)}
                                     value={leadsConfig.email}
                                 />
                                 <SwitchInput
-                                    label={t('canvas.configuration.leads.phone')}
+                                    label={t('canvas:configuration.leads.phone')}
                                     onChange={(value) => handleChange('phone', value)}
                                     value={leadsConfig.phone}
                                 />
@@ -198,7 +198,7 @@ const Leads = ({ dialogProps }) => {
                 variant='contained'
                 onClick={onSave}
             >
-                {t('canvas.configuration.leads.save')}
+                {t('canvas:configuration.leads.save')}
             </StyledButton>
         </>
     )

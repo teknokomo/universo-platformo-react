@@ -5,6 +5,8 @@ import { Navigate, Outlet } from 'react-router-dom'
 import MainLayout from '../layout/MainLayout'
 import MinimalLayout from '../layout/MinimalLayout'
 import Loadable from '../ui-components/loading/Loadable'
+// Ensure analytics translations registered early for legacy UI route
+import '@universo/analytics-frt/i18n'
 import AuthGuard from './AuthGuard'
 
 // Universo Platformo | Universal Public Flow Viewer
@@ -12,14 +14,6 @@ const PublicFlowView = Loadable(lazy(() => import('@universo/publish-frt/pages/p
 
 // Components for authentication / lists
 const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
-const UnikList = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikList')))
-// Legacy pages removed from metaverses-frt (old implementations, will be recreated with new architecture) - 2025-01-18:
-// - MetaverseDetail, SectionDetail, EntityDetail
-// Legacy resources-frt package removed (obsolete) - 2025-01-18:
-// - ClusterDetail, DomainDetail, ResourceDetail
-
-// Workspace dashboard component
-const UnikDetail = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikDetail')))
 
 // canvases routing (Flowise list view)
 const Canvases = Loadable(lazy(() => import('@/views/canvases')))
@@ -68,130 +62,15 @@ const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
 // Legacy finance-frt package removed (obsolete) - 2025-01-18:
 // - AccountList, CurrencyList
 
-const UniksContainer = () => <Outlet />
-const MetaversesContainer = () => <Outlet />
-
 const MainRoutes = {
     path: '/',
     element: <MainLayout />,
     children: [
-        {
-            path: 'unik',
-            children: [
-                {
-                    index: true,
-                    element: (
-                        <AuthGuard>
-                            <UnikList />
-                        </AuthGuard>
-                    )
-                },
-                {
-                    path: ':unikId',
-                    element: (
-                        <AuthGuard>
-                            <UniksContainer />
-                        </AuthGuard>
-                    ),
-                    children: [
-                        {
-                            index: true,
-                            element: <UnikDetail />
-                        },
-                        {
-                            path: 'canvases',
-                            element: <Canvases />
-                        },
-                        {
-                            path: 'spaces',
-                            element: <Spaces />
-                        },
-                        {
-                            path: 'agentflows',
-                            element: <Agentflows />
-                        },
-                        {
-                            path: 'apikey',
-                            element: <APIKey />
-                        },
-                        {
-                            path: 'tools',
-                            element: <Tools />
-                        },
-                        {
-                            path: 'assistants',
-                            element: <Assistants />
-                        },
-                        {
-                            path: 'assistants/openai',
-                            element: <OpenAIAssistantLayout />
-                        },
-                        {
-                            path: 'assistants/custom',
-                            element: <CustomAssistantLayout />
-                        },
-                        {
-                            path: 'assistants/custom/:id',
-                            element: <CustomAssistantConfigurePreview />
-                        },
-                        {
-                            path: 'assistants/custom/preview',
-                            element: <CustomAssistantConfigurePreview />
-                        },
-                        {
-                            path: 'credentials',
-                            element: <Credentials />
-                        },
-                        {
-                            path: 'variables',
-                            element: <Variables />
-                        },
-                        {
-                            path: 'document-stores',
-                            element: <Documents />
-                        },
-                        {
-                            path: 'document-stores/:storeId',
-                            element: <DocumentStoreDetail />
-                        },
-                        {
-                            path: 'document-stores/chunks/:storeId/:fileId',
-                            element: <ShowStoredChunks />
-                        },
-                        {
-                            path: 'document-stores/:storeId/:name',
-                            element: <LoaderConfigPreviewChunks />
-                        },
-                        {
-                            path: 'document-stores/vector/:storeId',
-                            element: <VectorStoreConfigure />
-                        },
-                        {
-                            path: 'document-stores/vector/:storeId/:docId',
-                            element: <VectorStoreConfigure />
-                        },
-                        {
-                            path: 'document-stores/query/:storeId',
-                            element: <VectorStoreQuery />
-                        },
-                        {
-                            path: 'analytics',
-                            element: <Analytics />
-                        },
-                        {
-                            path: 'templates',
-                            element: <Marketplaces />
-                        }
-                    ]
-                }
-            ]
-        },
         // Legacy metaverses subtree removed. New routes are provided by MainRoutesMUI from @universo/template-mui.
         {
             path: 'clusters/:clusterId/*',
-            element: <Navigate to='/' replace />
+            element: <Navigate to="/" replace />
         },
-
         {
             path: 'admin',
             element: <AdminPanel />

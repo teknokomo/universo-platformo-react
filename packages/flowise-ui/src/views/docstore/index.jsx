@@ -77,10 +77,10 @@ const Documents = () => {
 
     const addNew = () => {
         const dialogProp = {
-            title: t('documentStore.addDocumentStore'),
+            title: t('document-store:addDocumentStore'),
             type: 'ADD',
-            cancelButtonName: t('documentStore.common.cancel'),
-            confirmButtonName: t('documentStore.common.add'),
+            cancelButtonName: t('document-store:common.cancel'),
+            confirmButtonName: t('document-store:common.add'),
             unikId: unikId
         }
         setDialogProps(dialogProp)
@@ -146,7 +146,7 @@ const Documents = () => {
                 <ErrorBoundary error={error} />
             ) : (
                 <Stack flexDirection='column' sx={{ gap: 3 }}>
-                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('documentStore.searchPlaceholder')} title={t('documentStore.title')}>
+                    <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('document-store:searchPlaceholder')} title={t('document-store:title')}>
                         <ToggleButtonGroup
                             sx={{ borderRadius: 2, maxHeight: 40 }}
                             value={view}
@@ -162,7 +162,7 @@ const Documents = () => {
                                 }}
                                 variant='contained'
                                 value='card'
-                                title={t('documentStore.common.cardView')}
+                                title={t('document-store:common.cardView')}
                             >
                                 <IconLayoutGrid />
                             </ToggleButton>
@@ -174,7 +174,7 @@ const Documents = () => {
                                 }}
                                 variant='contained'
                                 value='list'
-                                title={t('documentStore.common.listView')}
+                                title={t('document-store:common.listView')}
                             >
                                 <IconList />
                             </ToggleButton>
@@ -186,7 +186,7 @@ const Documents = () => {
                             startIcon={<IconPlus />}
                             id='btn_createVariable'
                         >
-                            {t('documentStore.addNew')}
+                            {t('document-store:addNew')}
                         </StyledButton>
                     </ViewHeader>
                     {!view || view === 'card' ? (
@@ -221,12 +221,12 @@ const Documents = () => {
                                 >
                                     <TableRow>
                                         <TableCell>&nbsp;</TableCell>
-                                        <TableCell>{t('documentStore.table.name')}</TableCell>
-                                        <TableCell>{t('documentStore.table.description')}</TableCell>
-                                        <TableCell>{t('documentStore.table.connectedFlows')}</TableCell>
-                                        <TableCell>{t('documentStore.table.totalCharacters')}</TableCell>
-                                        <TableCell>{t('documentStore.table.totalChunks')}</TableCell>
-                                        <TableCell>{t('documentStore.table.loaderTypes')}</TableCell>
+                                        <TableCell>{t('document-store:table.name')}</TableCell>
+                                        <TableCell>{t('document-store:table.description')}</TableCell>
+                                        <TableCell>{t('document-store:table.connectedFlows')}</TableCell>
+                                        <TableCell>{t('document-store:table.totalCharacters')}</TableCell>
+                                        <TableCell>{t('document-store:table.totalChunks')}</TableCell>
+                                        <TableCell>{t('document-store:table.loaderTypes')}</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -312,7 +312,7 @@ const Documents = () => {
                                                                     fontWeight: 200
                                                                 }}
                                                             >
-                                                                + {images.length - 3} {t('documentStore.table.more')}
+                                                                + {images.length - 3} {t('document-store:table.more')}
                                                             </Typography>
                                                         )}
                                                     </Box>
@@ -333,7 +333,7 @@ const Documents = () => {
                                     alt='doc_store_empty'
                                 />
                             </Box>
-                            <div>{t('documentStore.noDocumentStoresYet')}</div>
+                            <div>{t('document-store:noDocumentStoresYet')}</div>
                         </Stack>
                     )}
                 </Stack>

@@ -10,6 +10,14 @@ let appDataSource: DataSource
 
 export const init = async (): Promise<void> => {
     const databaseType = process.env.DATABASE_TYPE ?? 'postgres'
+    console.log('[DataSource] Initializing', {
+        type: databaseType,
+        host: process.env.DATABASE_HOST,
+        port: process.env.DATABASE_PORT || '5432',
+        database: process.env.DATABASE_NAME,
+        user: process.env.DATABASE_USER ? '***' : undefined,
+        ssl: !!getDatabaseSSLFromEnv()
+    })
     if (databaseType !== 'postgres') {
         throw new Error(
             `Unsupported database type "${databaseType}". This build supports only PostgreSQL configurations.`
@@ -24,6 +32,7 @@ export const init = async (): Promise<void> => {
         ensureDirectory(configuredDatabasePath)
     }
 
+    console.log('[DataSource] Creating DataSource with entities:', Object.keys(entities).length, 'migrations:', postgresMigrations.length)
     appDataSource = new DataSource({
         type: 'postgres',
         host: process.env.DATABASE_HOST,
@@ -35,8 +44,10 @@ export const init = async (): Promise<void> => {
         synchronize: false,
         migrationsRun: false,
         entities: Object.values(entities),
-        migrations: postgresMigrations
+        migrations: postgresMigrations,
+        logging: ['error', 'warn', 'migration'] // Enable SQL logging for debugging
     })
+    console.log('[DataSource] DataSource created successfully')
 }
 
 export function getDataSource(): DataSource {

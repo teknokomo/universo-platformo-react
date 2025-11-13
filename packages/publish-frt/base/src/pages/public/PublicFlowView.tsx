@@ -31,7 +31,7 @@ const PublicFlowView: React.FC = () => {
     useEffect(() => {
         const loadPublication = async () => {
             if (!slug) {
-                setError(t('publish.publicFlow.errors.missingSlug', 'Slug is missing'))
+                setError(t('publicFlow.errors.missingSlug', 'Slug is missing'))
                 setLoading(false)
                 return
             }
@@ -69,7 +69,7 @@ const PublicFlowView: React.FC = () => {
                 }
 
                 if (technologies.length === 0) {
-                    throw new Error(t('publish.publicFlow.errors.noPublicTech', 'No published technologies are available'))
+                    throw new Error(t('publicFlow.errors.noPublicTech', 'No published technologies are available'))
                 }
 
                 const normalizedTechnology =
@@ -84,7 +84,7 @@ const PublicFlowView: React.FC = () => {
                 const message =
                     loadError instanceof Error && loadError.message
                         ? loadError.message
-                        : t('publish.publicFlow.errors.loadFailed', 'Failed to load publication')
+                        : t('publicFlow.errors.loadFailed', 'Failed to load publication')
                 setError(message)
             } finally {
                 setLoading(false)
@@ -176,10 +176,10 @@ const PublicFlowView: React.FC = () => {
                 >
                     <Alert severity='warning' sx={{ maxWidth: 600 }}>
                         <Typography variant='h6' gutterBottom>
-                            {t('publish.publicFlow.errors.unsupportedTechnology', 'Technology is not supported')}
+                            {t('publicFlow.errors.unsupportedTechnology', 'Technology is not supported')}
                         </Typography>
                         <Typography variant='body1'>
-                            {t('publish.publicFlow.errors.noRenderer', 'No compatible viewer is available for this publication.')}
+                            {t('publicFlow.errors.noRenderer', 'No compatible viewer is available for this publication.')}
                         </Typography>
                     </Alert>
                 </Box>

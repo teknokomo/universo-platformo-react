@@ -47,7 +47,7 @@ const ChatFeedback = ({ dialogProps }) => {
             chatbotConfig.chatFeedback = value.chatFeedback
             if (!canvasId || !unikId) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.chatFeedback.missingCanvas'),
+                    message: t('canvas:configuration.chatFeedback.missingCanvas'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'error'
@@ -66,7 +66,7 @@ const ChatFeedback = ({ dialogProps }) => {
             )
             if (saveResp.data) {
                 enqueueSnackbar({
-                    message: t('canvas.configuration.chatFeedback.settingsSaved'),
+                    message: t('canvas:configuration.chatFeedback.settingsSaved'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -82,7 +82,7 @@ const ChatFeedback = ({ dialogProps }) => {
         } catch (error) {
             const errorMessage = typeof error?.response?.data === 'object' ? error?.response?.data?.message : error?.response?.data
             enqueueSnackbar({
-                message: `${t('canvas.configuration.chatFeedback.failedToSave')}: ${errorMessage}`,
+                message: `${t('canvas:configuration.chatFeedback.failedToSave')}: ${errorMessage}`,
                 options: {
                     key: new Date().getTime() + Math.random(),
                     variant: 'error',
@@ -112,10 +112,10 @@ const ChatFeedback = ({ dialogProps }) => {
     return (
         <>
             <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <SwitchInput label={t('canvas.configuration.chatFeedback.enable')} onChange={handleChange} value={chatFeedbackStatus} />
+                <SwitchInput label={t('canvas:configuration.chatFeedback.enable')} onChange={handleChange} value={chatFeedbackStatus} />
             </Box>
             <StyledButton style={{ marginBottom: 10, marginTop: 10 }} variant='contained' onClick={onSave}>
-                {t('canvas.configuration.chatFeedback.save')}
+                {t('canvas:configuration.chatFeedback.save')}
             </StyledButton>
         </>
     )

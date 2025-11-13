@@ -1,0 +1,45 @@
+{
+  "speechToText": {
+    "providersTitle": "Speech-to-Text Providers",
+    "providers": {
+      "openai": "OpenAI Whisper",
+      "assemblyai": "AssemblyAI Transcribe",
+      "localai": "LocalAI STT",
+      "azure": "Azure Cognitive Speech",
+      "groq": "Groq Whisper"
+    },
+    "labels": {
+      "none": "None",
+      "credential": "Credential",
+      "language": "Language",
+      "languageDescription": "ISO language code (e.g. en, fr, de)",
+      "prompt": "Prompt",
+      "promptDescription": "Optional prompt to guide transcription",
+      "temperature": "Temperature",
+      "temperatureDescription": "Sampling temperature (0.0 – 1.0)",
+      "baseUrl": "Base URL",
+      "baseUrlDescription": "Root URL of LocalAI server",
+      "model": "Model",
+      "modelDescription": "Model identifier (e.g. whisper-1)",
+      "profanityFilter": "Profanity Filter",
+      "profanityFilterDescription": "How detected profanity should be handled",
+      "profanityOptions": {
+        "none": "None",
+        "masked": "Masked",
+        "removed": "Removed"
+      },
+      "audioChannels": "Audio Channels",
+      "audioChannelsDescription": "Comma-separated channel indices (e.g. 0,1)"
+    },
+    "configSaved": "Speech-to-Text configuration saved",
+    "failedToSave": "Failed to save configuration",
+    "missingCanvas": "Canvas id missing",
+    "common": {
+      "save": "Save"
+    }
+  },
+  "speechToTextDialog": {
+    "title": "Speech-to-Text",
+    "description": "Configure real-time audio transcription providers"
+  }
+}

@@ -165,63 +165,101 @@ export class SpacesService {
      * Create a new space with default canvas
      */
     async createSpace(unikId: string, data: CreateSpaceDto): Promise<SpaceResponse> {
-        return await this.dataSource.transaction(async (manager) => {
-            const spaceRepo = manager.getRepository(Space)
-            const canvasRepo = manager.getRepository(Canvas)
-            const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
+        console.log('[SpacesService.createSpace] START', { unikId, spaceName: data.name, hasDefaultCanvas: !!data.defaultCanvasName })
+        try {
+            return await this.dataSource.transaction(async (manager) => {
+                console.log('[SpacesService.createSpace] Transaction started')
+                const spaceRepo = manager.getRepository(Space)
+                const canvasRepo = manager.getRepository(Canvas)
+                const spaceCanvasRepo = manager.getRepository(SpaceCanvas)
 
-            const { defaultCanvasName, defaultCanvasFlowData, ...spacePayload } = data
-            const sanitizedSpace: Partial<Space> = {
-                ...spacePayload,
-                name: spacePayload.name?.trim(),
-                description: spacePayload.description?.trim() || undefined
-            }
+                const { defaultCanvasName, defaultCanvasFlowData, ...spacePayload } = data
+                const sanitizedSpace: Partial<Space> = {
+                    ...spacePayload,
+                    name: spacePayload.name?.trim(),
+                    description: spacePayload.description?.trim() || undefined
+                }
 
-            const resolvedCanvasName = (defaultCanvasName ?? 'Main Canvas').trim() || 'Main Canvas'
-            const normalizedCanvasName = resolvedCanvasName.slice(0, 200)
-            const canvasFlowData =
-                typeof defaultCanvasFlowData === 'string' && defaultCanvasFlowData.trim().length ? defaultCanvasFlowData : '{}'
+                console.log('[SpacesService.createSpace] Received data', {
+                    hasDefaultCanvasFlowData: !!defaultCanvasFlowData,
+                    flowDataType: typeof defaultCanvasFlowData,
+                    flowDataLength: typeof defaultCanvasFlowData === 'string' ? defaultCanvasFlowData.length : 'N/A',
+                    flowDataPreview: typeof defaultCanvasFlowData === 'string' ? defaultCanvasFlowData.slice(0, 100) : String(defaultCanvasFlowData).slice(0, 100)
+                })
 
-            // Create space
-            const space = spaceRepo.create({
-                ...sanitizedSpace,
-                unik: { id: unikId } as any
+                const resolvedCanvasName = (defaultCanvasName ?? 'Main Canvas').trim() || 'Main Canvas'
+                const normalizedCanvasName = resolvedCanvasName.slice(0, 200)
+                const canvasFlowData =
+                    typeof defaultCanvasFlowData === 'string' && defaultCanvasFlowData.trim().length ? defaultCanvasFlowData : '{}'
+
+                console.log('[SpacesService.createSpace] Final canvasFlowData', {
+                    length: canvasFlowData.length,
+                    preview: canvasFlowData.slice(0, 100),
+                    isEmpty: canvasFlowData === '{}'
+                })
+
+                console.log('[SpacesService.createSpace] Creating space entity', { sanitizedSpace, unikId })
+                // Create space
+                const space = spaceRepo.create({
+                    ...sanitizedSpace,
+                    unik: { id: unikId } as any
+                })
+                console.log('[SpacesService.createSpace] Space entity created', { spaceId: space.id })
+                const savedSpace = await spaceRepo.save(space)
+                console.log('[SpacesService.createSpace] Space saved to DB', { savedSpaceId: savedSpace.id, name: savedSpace.name })
+
+                // Create default canvas
+                const versionGroupId = randomUUID()
+                console.log('[SpacesService.createSpace] Creating canvas entity', { normalizedCanvasName, versionGroupId })
+                const canvas = canvasRepo.create({
+                    name: normalizedCanvasName,
+                    flowData: canvasFlowData,
+                    versionGroupId,
+                    versionUuid: randomUUID(),
+                    versionLabel: 'v1',
+                    versionIndex: 1,
+                    isActive: true
+                })
+                console.log('[SpacesService.createSpace] Canvas entity created', { canvasId: canvas.id })
+                const savedCanvas = await canvasRepo.save(canvas)
+                console.log('[SpacesService.createSpace] Canvas saved to DB', { savedCanvasId: savedCanvas.id, name: savedCanvas.name })
+
+                // Link space and canvas
+                console.log('[SpacesService.createSpace] Creating space-canvas link', { spaceId: savedSpace.id, canvasId: savedCanvas.id })
+                const spaceCanvas = spaceCanvasRepo.create({
+                    space: savedSpace,
+                    canvas: savedCanvas,
+                    versionGroupId,
+                    sortOrder: 1
+                })
+                await spaceCanvasRepo.save(spaceCanvas)
+                console.log('[SpacesService.createSpace] Space-canvas link saved')
+
+                const response = {
+                    id: savedSpace.id,
+                    name: savedSpace.name,
+                    description: savedSpace.description,
+                    visibility: savedSpace.visibility,
+                    canvasCount: 1,
+                    createdDate: savedSpace.createdDate,
+                    updatedDate: savedSpace.updatedDate,
+                    defaultCanvas: toCanvasResponse(savedCanvas, 1)
+                }
+                console.log('[SpacesService.createSpace] Transaction complete, returning response', {
+                    spaceId: response.id,
+                    canvasId: response.defaultCanvas?.id
+                })
+                return response
             })
-            const savedSpace = await spaceRepo.save(space)
-
-            // Create default canvas
-            const versionGroupId = randomUUID()
-            const canvas = canvasRepo.create({
-                name: normalizedCanvasName,
-                flowData: canvasFlowData,
-                versionGroupId,
-                versionUuid: randomUUID(),
-                versionLabel: 'v1',
-                versionIndex: 1,
-                isActive: true
+        } catch (error) {
+            console.error('[SpacesService.createSpace] ERROR', {
+                unikId,
+                spaceName: data.name,
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
             })
-            const savedCanvas = await canvasRepo.save(canvas)
-
-            // Link space and canvas
-            const spaceCanvas = spaceCanvasRepo.create({
-                space: savedSpace,
-                canvas: savedCanvas,
-                versionGroupId,
-                sortOrder: 1
-            })
-            await spaceCanvasRepo.save(spaceCanvas)
-
-            return {
-                id: savedSpace.id,
-                name: savedSpace.name,
-                description: savedSpace.description,
-                visibility: savedSpace.visibility,
-                canvasCount: 1,
-                createdDate: savedSpace.createdDate,
-                updatedDate: savedSpace.updatedDate,
-                defaultCanvas: toCanvasResponse(savedCanvas, 1)
-            }
-        })
+            throw error
+        }
     }
 
     /**

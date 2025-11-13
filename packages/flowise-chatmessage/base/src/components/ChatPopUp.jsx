@@ -87,10 +87,10 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
 
     const clearChat = async () => {
         const confirmPayload = {
-            title: t('chatMessage.chat.clearChatHistory'),
-            description: t('chatMessage.chat.clearChatHistoryConfirm'),
-            confirmButtonName: t('chatMessage.chat.clear'),
-            cancelButtonName: t('chatMessage.common.cancel')
+            title: t('chat.clearChatHistory'),
+            description: t('chat.clearChatHistoryConfirm'),
+            confirmButtonName: t('chat.clear'),
+            cancelButtonName: t('common.cancel')
         }
         const isConfirmed = await confirm(confirmPayload)
 
@@ -105,7 +105,7 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
                 removeLocalStorageChatHistory(canvasId)
                 resetChatDialog()
                 enqueueSnackbar({
-                    message: t('chatMessage.chat.clearedChatHistory'),
+                    message: t('chat.clearedChatHistory'),
                     options: {
                         key: new Date().getTime() + Math.random(),
                         variant: 'success',
@@ -151,7 +151,7 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
                 size='small'
                 color='secondary'
                 aria-label='chat'
-                title={t('chatMessage.chat.chat')}
+                title={t('chat.chat')}
                 onClick={handleToggle}
             >
                 {open ? <IconX /> : <IconMessage />}
@@ -163,7 +163,7 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
                     size='small'
                     color='error'
                     aria-label='clear'
-                    title={t('chatMessage.chat.clearChatHistory')}
+                    title={t('chat.clearChatHistory')}
                 >
                     <IconEraser />
                 </StyledFab>
@@ -175,7 +175,7 @@ export const ChatPopUp = ({ canvasId: propCanvasId, isAgentCanvas, unikId, space
                     size='small'
                     color='primary'
                     aria-label='expand'
-                    title={t('chatMessage.chat.expandChat')}
+                    title={t('chat.expandChat')}
                 >
                     <IconArrowsMaximize />
                 </StyledFab>

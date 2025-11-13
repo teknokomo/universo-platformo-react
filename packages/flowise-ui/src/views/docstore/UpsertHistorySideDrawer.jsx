@@ -42,7 +42,7 @@ const UpsertHistorySideDrawer = ({ show, dialogProps, onClickFunction, onSelectH
         <>
             <SwipeableDrawer anchor='right' open={show} onClose={() => onClickFunction()} onOpen={onOpen}>
                 <Button startIcon={<IconSquareRoundedChevronsRight />} onClick={() => onClickFunction()}>
-                    {t('documentStore.common.close')}
+                    {t('document-store:common.close')}
                 </Button>
                 <Box style={{ width: 350, margin: 10 }} role='presentation' onClick={onClickFunction}>
                     <Timeline

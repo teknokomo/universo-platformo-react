@@ -30,51 +30,51 @@ import type vectorStore from './locales/en/views/vector-store.json'
 /**
  * Type augmentation for i18next to enable autocomplete and type-checking
  * for all translation keys across the application.
- * 
+ *
  * This provides:
  * - Autocomplete for all translation keys in IDE
  * - Compile-time errors for non-existent keys
  * - Type-safe translation function calls
  */
 declare module 'i18next' {
-  interface CustomTypeOptions {
-    // Specify default namespace for unprefixed keys
-    defaultNS: 'common'
-    
-    // Define all available translation resources with proper types
-    resources: {
-      // Core namespaces (unwrapped from JSON structure)
-      common: typeof common.common
-      header: typeof header.header
-      spaces: typeof spaces.spaces
-      roles: typeof roles.roles
-      access: typeof access.access
-      
-      // View namespaces
-      // Flat files (no wrapper key in JSON)
-      admin: typeof admin
-      canvas: typeof canvas
-      canvases: typeof canvases
-      
-      // Wrapped files (have wrapper key matching namespace)
-      'api-keys': typeof apiKeys.apiKeys
-      assistants: typeof assistants.assistants
-      auth: typeof auth.auth
-      chatbot: typeof chatbot.chatbot
-      chatmessage: typeof chatmessage.chatmessage
-      credentials: typeof credentials.credentials
-      'document-store': typeof documentStore.documentStore
-      flowList: typeof flowList.flowList
-      menu: typeof menu.menu
-      'profile-menu': typeof profileMenu.profileMenu
-      templates: typeof templates.templates
-      tools: typeof tools.tools
-      variables: typeof variables.variables
-      'vector-store': typeof vectorStore.vectorStore
+    interface CustomTypeOptions {
+        // Specify default namespace for unprefixed keys
+        defaultNS: 'common'
+
+        // Define all available translation resources with proper types
+        resources: {
+            // Core namespaces (unwrapped from JSON structure)
+            common: typeof common.common
+            header: typeof header.header
+            spaces: typeof spaces.spaces
+            roles: typeof roles.roles
+            access: typeof access.access
+
+            // View namespaces
+            // Flat files (no wrapper key in JSON)
+            admin: typeof admin
+            canvas: typeof canvas
+            canvases: typeof canvases
+
+            // Wrapped files (have wrapper key matching namespace)
+            'api-keys': typeof apiKeys.apiKeys
+            assistants: typeof assistants.assistants
+            auth: typeof auth.auth
+            chatbot: typeof chatbot.chatbot
+            chatmessage: typeof chatmessage.chatmessage
+            credentials: typeof credentials.credentials
+            'document-store': typeof documentStore.documentStore
+            flowList: typeof flowList.flowList
+            menu: typeof menu.menu
+            'profile-menu': typeof profileMenu.profileMenu
+            templates: typeof templates.templates
+            tools: typeof tools.tools
+            variables: typeof variables.variables
+            'vector-store': typeof vectorStore.vectorStore
+        }
+
+        // Return type configuration
+        // Set to false to get actual translated string instead of string | null
+        returnNull: false
     }
-    
-    // Return type configuration
-    // Set to false to get actual translated string instead of string | null
-    returnNull: false
-  }
 }

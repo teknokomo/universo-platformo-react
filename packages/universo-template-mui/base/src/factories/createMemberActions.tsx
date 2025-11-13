@@ -79,7 +79,7 @@ export interface MemberActionsConfig<TMember extends BaseMemberEntity> {
 export function notifyMemberError(t: (key: string, defaultValue?: string) => string, enqueueSnackbar: any, error: unknown): void {
     if (!enqueueSnackbar) return
 
-    const fallback = t('common.error', 'Operation failed')
+    const fallback = t('common:error', 'Operation failed')
     const candidateMessage =
         error && typeof error === 'object' && 'response' in error && typeof (error as any)?.response?.data?.message === 'string'
             ? (error as any).response.data.message

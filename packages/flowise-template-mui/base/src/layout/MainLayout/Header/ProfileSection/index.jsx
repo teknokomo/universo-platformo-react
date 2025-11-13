@@ -141,7 +141,7 @@ const ExportDialog = ({ show, onCancel, onExport }) => {
             </DialogContent>
             {!isExporting && (
                 <DialogActions>
-                    <Button onClick={onCancel}>{t('common.cancel')}</Button>
+                    <Button onClick={onCancel}>{t('common:cancel')}</Button>
                     <Button
                         disabled={selectedData.length === 0}
                         variant='contained'
@@ -150,7 +150,7 @@ const ExportDialog = ({ show, onCancel, onExport }) => {
                             onExport(selectedData)
                         }}
                     >
-                        {t('common.export')}
+                        {t('common:export')}
                     </Button>
                 </DialogActions>
             )}

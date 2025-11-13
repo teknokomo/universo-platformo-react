@@ -9,19 +9,32 @@ export function useBlocker(blocker, when = true) {
     useEffect(() => {
         if (!when) return
 
-        const unblock = navigator.block((tx) => {
-            const autoUnblockingTx = {
-                ...tx,
-                retry() {
-                    unblock()
-                    tx.retry()
+        const canBlock = navigator && typeof navigator.block === 'function'
+
+        if (canBlock) {
+            const unblock = navigator.block((tx) => {
+                const autoUnblockingTx = {
+                    ...tx,
+                    retry() {
+                        unblock()
+                        tx.retry()
+                    }
                 }
-            }
 
-            blocker(autoUnblockingTx)
-        })
+                blocker(autoUnblockingTx)
+            })
 
-        return unblock
+            return unblock
+        }
+
+        const beforeUnload = (e) => {
+            e.preventDefault()
+            e.returnValue = ''
+            return ''
+        }
+
+        window.addEventListener('beforeunload', beforeUnload)
+        return () => window.removeEventListener('beforeunload', beforeUnload)
     }, [navigator, blocker, when])
 }
 

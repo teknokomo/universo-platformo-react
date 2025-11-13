@@ -179,7 +179,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                     ))}
                                     {renderActions && (
                                         <StyledTableCell style={{ width: '10%' }} key='actions'>
-                                            {t('table.columns.actions')}
+                                            {t('common:columns.actions')}
                                         </StyledTableCell>
                                     )}
                                 </>
@@ -191,20 +191,20 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                             direction={order}
                                             onClick={() => handleRequestSort('name')}
                                         >
-                                            {t('table.columns.name')}
+                                            {t('common:columns.name')}
                                         </TableSortLabel>
                                     </StyledTableCell>
                                     {isUnikTable ? (
                                         <StyledTableCell style={{ width: '55%' }} key='1'>
-                                            {t('table.columns.spaces')}
+                                            {t('common:columns.spaces')}
                                         </StyledTableCell>
                                     ) : (
                                         <>
                                             <StyledTableCell style={{ width: '25%' }} key='1'>
-                                                {t('table.columns.category')}
+                                                {t('common:columns.category')}
                                             </StyledTableCell>
                                             <StyledTableCell style={{ width: '30%' }} key='2'>
-                                                {t('table.columns.nodes')}
+                                                {t('common:columns.nodes')}
                                             </StyledTableCell>
                                         </>
                                     )}
@@ -214,11 +214,11 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                             direction={order}
                                             onClick={() => handleRequestSort('updatedDate')}
                                         >
-                                            {t('table.columns.lastModified')}
+                                            {t('common:columns.lastModified')}
                                         </TableSortLabel>
                                     </StyledTableCell>
                                     <StyledTableCell style={{ width: '10%' }} key='4'>
-                                        {t('table.columns.actions')}
+                                        {t('common:columns.actions')}
                                     </StyledTableCell>
                                 </>
                             )}
@@ -386,7 +386,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                                                     fontWeight: 200
                                                                                 }}
                                                                             >
-                                                                                {t('table.more', { count: images[row.id].length - 5 })}
+                                                                                {t('common:more', { count: images[row.id].length - 5 })}
                                                                             </Typography>
                                                                         )}
                                                                     </Box>
