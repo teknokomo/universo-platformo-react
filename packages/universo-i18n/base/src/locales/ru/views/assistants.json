@@ -16,7 +16,7 @@
       "title": "OpenAI Ассистент",
       "description": "Создать ассистента с использованием OpenAI Assistant API",
       "load": "Загрузить",
-      "credential": "Учетные данные OpenAI",
+      "credential": "Учётные данные OpenAI",
       "deleteConfirm": {
         "onlyFlowise": "Только из Flowise",
         "openaiAndFlowise": "Из OpenAI и Flowise"
@@ -35,7 +35,7 @@
       "description": "Создать ассистента с использованием Azure Assistant API"
     },
     "vectorStore": {
-      "credential": "Подключить учетные данные",
+      "credential": "Подключить учётные данные",
       "createNew": "Создать новое",
       "files": "файлов",
       "name": "Название хранилища",

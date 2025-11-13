@@ -54,7 +54,9 @@
         "warning": "Warning",
         "info": "Info",
         "noData": "No Data",
-        "clearSearch": "Clear Search"
+        "clearSearch": "Clear Search",
+        "untitledSpace": "Untitled Space",
+        "untitledAgent": "Untitled Agent"
     },
     "spaces": "Spaces",
     "space": "Space",

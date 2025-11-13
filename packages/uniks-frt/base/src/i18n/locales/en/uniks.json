@@ -43,6 +43,26 @@
                     "title": "Members",
                     "interval": "All time",
                     "description": "Users with access to this unik"
+                },
+                "credentials": {
+                    "title": "Credentials",
+                    "interval": "All time",
+                    "description": "Total credentials in this unik"
+                },
+                "variables": {
+                    "title": "Variables",
+                    "interval": "All time",
+                    "description": "Total variables in this unik"
+                },
+                "apiKeys": {
+                    "title": "API Keys",
+                    "interval": "All time",
+                    "description": "Total API keys in this unik"
+                },
+                "documentStores": {
+                    "title": "Documents",
+                    "interval": "All time",
+                    "description": "Total document stores in this unik"
                 }
             },
             "documentation": {

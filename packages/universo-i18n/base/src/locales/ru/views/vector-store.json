@@ -23,7 +23,7 @@
     "deleteSuccess": "Хранилище векторов успешно удалено",
     "deleteError": "Ошибка при удалении хранилища векторов: {{error}}",
     "formFields": {
-      "connectCredential": "Подключить учетные данные",
+      "connectCredential": "Подключить учётные данные",
       "model": "Модель",
       "endpoint": "Конечная точка",
       "tableName": "Название таблицы",

@@ -144,8 +144,12 @@ describe('UnikBoard', () => {
             id: 'test-unik-id',
             name: 'Test Unik',
             description: 'A test unik for unit tests',
-            sectionsCount: 11,
-            entitiesCount: 42,
+            spacesCount: 11,
+            toolsCount: 23,
+            credentialsCount: 5,
+            variablesCount: 8,
+            apiKeysCount: 3,
+            documentStoresCount: 2,
             membersCount: 4,
             createdAt: '2024-01-01T00:00:00Z',
             updatedAt: '2024-01-15T00:00:00Z'
@@ -166,18 +170,20 @@ describe('UnikBoard', () => {
             })
         })
 
-        it('should display all stat cards with correct values', async () => {
+        it('should display all 7 stat cards with correct values', async () => {
             renderWithProviders(<UnikBoard />)
 
             await waitFor(() => {
-                // Check sections count
-                expect(screen.getByText('11')).toBeInTheDocument()
+                // Row 1: Spaces, Members, Credentials
+                expect(screen.getByText('11')).toBeInTheDocument() // spacesCount
+                expect(screen.getByText('4')).toBeInTheDocument() // membersCount
+                expect(screen.getByText('5')).toBeInTheDocument() // credentialsCount
 
-                // Check entities count
-                expect(screen.getByText('42')).toBeInTheDocument()
-
-                // Check members count
-                expect(screen.getByText('4')).toBeInTheDocument()
+                // Row 2: Tools, Variables, API Keys, Document Stores
+                expect(screen.getByText('23')).toBeInTheDocument() // toolsCount
+                expect(screen.getByText('8')).toBeInTheDocument() // variablesCount
+                expect(screen.getByText('3')).toBeInTheDocument() // apiKeysCount
+                expect(screen.getByText('2')).toBeInTheDocument() // documentStoresCount
             })
         })
 
@@ -212,8 +218,12 @@ describe('UnikBoard', () => {
             id: 'test-unik-id',
             name: 'Interactive Test',
             description: 'Testing user interactions',
-            sectionsCount: 5,
-            entitiesCount: 10,
+            spacesCount: 5,
+            toolsCount: 10,
+            credentialsCount: 2,
+            variablesCount: 3,
+            apiKeysCount: 1,
+            documentStoresCount: 1,
             membersCount: 2,
             createdAt: '2024-01-01T00:00:00Z',
             updatedAt: '2024-01-15T00:00:00Z'
@@ -254,8 +264,12 @@ describe('UnikBoard', () => {
                     id: 'empty-unik',
                     name: 'Empty Unik',
                     description: 'No content yet',
-                    sectionsCount: 0,
-                    entitiesCount: 0,
+                    spacesCount: 0,
+                    toolsCount: 0,
+                    credentialsCount: 0,
+                    variablesCount: 0,
+                    apiKeysCount: 0,
+                    documentStoresCount: 0,
                     membersCount: 0,
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: '2024-01-01T00:00:00Z'
@@ -268,9 +282,9 @@ describe('UnikBoard', () => {
                 expect(screen.getByText('Empty Unik')).toBeInTheDocument()
             })
 
-            // Should display zeros correctly
+            // Should display zeros correctly (7 stat cards with 0)
             const zeroValues = screen.getAllByText('0')
-            expect(zeroValues.length).toBeGreaterThanOrEqual(3) // At least 3 stat cards with 0
+            expect(zeroValues.length).toBeGreaterThanOrEqual(7)
         })
 
         it('should handle unik without description', async () => {
@@ -279,8 +293,12 @@ describe('UnikBoard', () => {
                     id: 'no-desc-unik',
                     name: 'No Description',
                     description: '', // Empty description
-                    sectionsCount: 1,
-                    entitiesCount: 1,
+                    spacesCount: 1,
+                    toolsCount: 1,
+                    credentialsCount: 1,
+                    variablesCount: 1,
+                    apiKeysCount: 1,
+                    documentStoresCount: 1,
                     membersCount: 1,
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: '2024-01-01T00:00:00Z'
@@ -303,7 +321,7 @@ describe('UnikBoard', () => {
                     id: 'partial-data',
                     name: 'Partial Data',
                     description: 'Testing missing fields',
-                    // Counts are undefined
+                    // All counts are undefined
                     createdAt: '2024-01-01T00:00:00Z',
                     updatedAt: '2024-01-01T00:00:00Z'
                 } as any
@@ -315,9 +333,9 @@ describe('UnikBoard', () => {
                 expect(screen.getByText('Partial Data')).toBeInTheDocument()
             })
 
-            // Should display 0 for missing counts (fallback behavior)
+            // Should display 0 for all undefined counts (using ?? 0 fallback)
             const zeroValues = screen.getAllByText('0')
-            expect(zeroValues.length).toBeGreaterThanOrEqual(3)
+            expect(zeroValues.length).toBeGreaterThanOrEqual(7) // 7 stat cards with 0
         })
     })
 

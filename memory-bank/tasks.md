@@ -40,6 +40,45 @@
 
 ## 🚧 IN PROGRESS
 
+### UnikBoard Dashboard Refactoring (2025-01-13)
+**Status**: Implementation complete, critical fixes applied, browser testing required
+
+#### Implementation Tasks (COMPLETED ✅)
+- [x] U-1: Backend endpoint - Add 4 COUNT queries (credentials, variables, API keys, document stores)
+- [x] U-2: TypeScript types - Extend Unik interface with 4 optional count fields
+- [x] U-3: UnikBoard component - Reorganize Grid to 3 rows with 7 metric cards
+- [x] U-4: Demo data - Add 5 trend arrays for new metrics
+- [x] U-5: i18n EN - Add translations for 4 new metrics
+- [x] U-6: i18n RU - Add translations for 4 new metrics
+- [x] U-7: Orthography - Fix "Учётные данные" (ё letter) in 8 i18n files
+- [x] U-8: Menu - Comment out Assistants menu item (route still accessible)
+- [x] U-9: Tests - Update UnikBoard.test.tsx mock data and assertions
+- [x] U-10: Validation - Backend build ✅, frontend build ✅, lint ✅
+- [x] U-11: Fix table name bug - Changed api_key → apikey in backend query
+- [x] U-12: Migration fix - Added apikey to flowiseTables in down() method
+- [x] U-13: Critical fix - Added custom_template to migration (up + down methods)
+
+#### Browser Testing (USER)
+- [ ] U-14: Navigate to /uniks/:id and verify 7 stat cards display correctly
+- [ ] U-15: Test EN ↔ RU language switching (verify new metrics translate)
+- [ ] U-16: Test responsive layout (mobile/tablet/desktop breakpoints)
+- [ ] U-17: Verify Assistants menu hidden but route /uniks/:id/assistants accessible
+- [ ] U-18: Check all metric cards show correct icons and demo trend lines
+- [ ] U-19: Test Custom Templates feature (depends on unik_id migration fix)
+
+#### Technical Notes
+- Row 1: 3 small cards (Spaces, Members, Credentials) + documentation card
+- Row 2: 4 small cards (Tools, Variables, API Keys, Documents)
+- Row 3: 2 large demo charts unchanged (Sessions, Page Views)
+- Grid breakpoints: xs=12, sm=6, lg=3 for responsive behavior
+- Demo data: 30-point arrays using `Array(30).fill(count).map((n, i) => n + i % 3)` pattern
+- **CRITICAL FIXES**: 
+  - Table name is `apikey` (not `api_key`) - verified from TypeORM entity
+  - Added `custom_template` to migration (was missing, but Entity has @ManyToOne Unik relation)
+- **Migration now handles 7 tables**: credential, tool, assistant, variable, apikey, document_store, custom_template
+
+---
+
 ### PR #539 Bot Review Fixes (QA Analysis)
 **Status**: All critical fixes completed ✅
 

@@ -98,14 +98,17 @@ const unikDashboard: MenuItem = {
             icon: icons.IconDatabase,
             breadcrumbs: true
         },
-        {
-            id: 'assistants',
-            title: 'menu:assistants',
-            type: 'item',
-            url: '/assistants',
-            icon: icons.IconRobot,
-            breadcrumbs: true
-        },
+        // TEMPORARILY DISABLED: Assistants functionality is under refactoring
+        // User can still access via direct URL /assistants
+        // Uncomment when refactoring is complete
+        // {
+        //     id: 'assistants',
+        //     title: 'menu:assistants',
+        //     type: 'item',
+        //     url: '/assistants',
+        //     icon: icons.IconRobot,
+        //     breadcrumbs: true
+        // },
         {
             id: 'analytics',
             title: 'menu:analytics',

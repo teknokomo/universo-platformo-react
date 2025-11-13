@@ -37,6 +37,10 @@ export interface Unik {
     // Optional aggregated counters provided by backend
     spacesCount?: number
     toolsCount?: number
+    credentialsCount?: number
+    variablesCount?: number
+    apiKeysCount?: number
+    documentStoresCount?: number
     membersCount?: number
     role?: UnikRole
     permissions?: UnikPermissions
