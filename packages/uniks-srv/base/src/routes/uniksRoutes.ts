@@ -330,6 +330,42 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 .getRawOne()
                 .then((result) => parseInt(result?.count || '0', 10))
 
+            // Count credentials (from public.credential table)
+            const credentialsCount = await dataSource
+                .createQueryBuilder()
+                .select('COUNT(*)', 'count')
+                .from('credential', 'c')
+                .where('c.unik_id = :unikId', { unikId: req.params.id })
+                .getRawOne()
+                .then((result) => parseInt(result?.count || '0', 10))
+
+            // Count variables (from public.variable table)
+            const variablesCount = await dataSource
+                .createQueryBuilder()
+                .select('COUNT(*)', 'count')
+                .from('variable', 'v')
+                .where('v.unik_id = :unikId', { unikId: req.params.id })
+                .getRawOne()
+                .then((result) => parseInt(result?.count || '0', 10))
+
+            // Count API keys (from public.apikey table)
+            const apiKeysCount = await dataSource
+                .createQueryBuilder()
+                .select('COUNT(*)', 'count')
+                .from('apikey', 'ak')
+                .where('ak.unik_id = :unikId', { unikId: req.params.id })
+                .getRawOne()
+                .then((result) => parseInt(result?.count || '0', 10))
+
+            // Count document stores (from public.document_store table)
+            const documentStoresCount = await dataSource
+                .createQueryBuilder()
+                .select('COUNT(*)', 'count')
+                .from('document_store', 'ds')
+                .where('ds.unik_id = :unikId', { unikId: req.params.id })
+                .getRawOne()
+                .then((result) => parseInt(result?.count || '0', 10))
+
             // Count members
             const membersCount = await membershipRepo.count({
                 where: { unik_id: req.params.id }
@@ -339,6 +375,10 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 ...unik,
                 spacesCount,
                 toolsCount,
+                credentialsCount,
+                variablesCount,
+                apiKeysCount,
+                documentStoresCount,
                 membersCount
             })
         })

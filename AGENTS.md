@@ -20,9 +20,7 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 
 9. If the user message starts with GIT command, then you need to work and perform all the actions according to Custom Mode .gemini/rules/custom_modes/git_mode.md and then execute the instructions indicated in this file, upload the files specified in this Custom Mode.
 
-10. If the user message starts with MB command, then you need to work and perform all the actions according to Custom Mode .github/chatmodes/mb.chatmode.md and then execute the instructions indicated in this file. This mode compresses Memory Bank files to target sizes while preserving critical information, following the compression strategies defined in .github/instructions/memory-bank-compression.instructions.md.
-
-11. All these Custom Modes use the rules that are in .gemini/rules/custom_modes
+10. All these Custom Modes use the rules that are in .gemini/rules/custom_modes
 
 # Repository Guidelines
 

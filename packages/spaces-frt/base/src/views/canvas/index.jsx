@@ -3,6 +3,7 @@ import ReactFlow, { addEdge, Controls, Background, useNodesState, useEdgesState 
 import 'reactflow/dist/style.css'
 import './index.css'
 import { useTranslation } from '@universo/i18n'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -123,6 +124,7 @@ const buildCanvasAsChatflow = (canvas, context) => {
 const Canvas = () => {
     const theme = useTheme()
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const params = useParams()
     const { unikId, spaceId: routeSpaceId, canvasId: routeCanvasId, id: legacyId } = params
     console.log('[Canvas] URL params:', { unikId, routeSpaceId, routeCanvasId, legacyId, fullParams: params })
@@ -740,6 +742,8 @@ const Canvas = () => {
                     ? `/unik/${parentUnikId}/agentcanvas/${defaultCanvas?.id || payload.id}`
                     : `/unik/${parentUnikId}/space/${payload.id}`
                 console.log('[Canvas] Navigating to:', redirectPath)
+                // Invalidate spaces cache to refresh the list when user navigates back
+                queryClient.invalidateQueries({ queryKey: ['spaces', 'list', parentUnikId] })
                 navigate(redirectPath, { replace: true })
             } else {
                 console.error('[Canvas] Cannot navigate: no payload.id!', { payload })

@@ -84,6 +84,19 @@ const UnikBoard = () => {
 
     const membersData = [2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
+    // New metrics trend data
+    const credentialsCount = unik.credentialsCount ?? 0
+    const credentialsData = Array(30).fill(credentialsCount)
+
+    const variablesCount = unik.variablesCount ?? 0
+    const variablesData = Array(30).fill(variablesCount)
+
+    const apiKeysCount = unik.apiKeysCount ?? 0
+    const apiKeysData = Array(30).fill(apiKeysCount)
+
+    const documentStoresCount = unik.documentStoresCount ?? 0
+    const documentStoresData = Array(30).fill(documentStoresCount)
+
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
             {/* ViewHeader with horizontal padding */}
@@ -105,7 +118,7 @@ const UnikBoard = () => {
                         </Typography>
                     </Grid>
 
-                    {/* Spaces Count */}
+                    {/* Row 1: Spaces, Members, Credentials + Documentation */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
                             title={t('board.stats.spaces.title')}
@@ -116,18 +129,6 @@ const UnikBoard = () => {
                         />
                     </Grid>
 
-                    {/* Tools Count */}
-                    <Grid item xs={12} sm={6} lg={3}>
-                        <StatCard
-                            title={t('board.stats.tools.title')}
-                            value={unik.toolsCount ?? 0}
-                            interval={t('board.stats.tools.interval')}
-                            description={t('board.stats.tools.description')}
-                            data={toolsData}
-                        />
-                    </Grid>
-
-                    {/* Members Count */}
                     <Grid item xs={12} sm={6} lg={3}>
                         <StatCard
                             title={t('board.stats.members.title')}
@@ -135,6 +136,16 @@ const UnikBoard = () => {
                             interval={t('board.stats.members.interval')}
                             description={t('board.stats.members.description')}
                             data={membersData}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.credentials.title')}
+                            value={unik.credentialsCount ?? 0}
+                            interval={t('board.stats.credentials.interval')}
+                            description={t('board.stats.credentials.description')}
+                            data={credentialsData}
                         />
                     </Grid>
 
@@ -150,12 +161,52 @@ const UnikBoard = () => {
                         />
                     </Grid>
 
-                    {/* Activity Chart (Demo Data) */}
+                    {/* Row 2: Tools, Variables, API Keys, Document Stores */}
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.tools.title')}
+                            value={unik.toolsCount ?? 0}
+                            interval={t('board.stats.tools.interval')}
+                            description={t('board.stats.tools.description')}
+                            data={toolsData}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.variables.title')}
+                            value={unik.variablesCount ?? 0}
+                            interval={t('board.stats.variables.interval')}
+                            description={t('board.stats.variables.description')}
+                            data={variablesData}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.apiKeys.title')}
+                            value={unik.apiKeysCount ?? 0}
+                            interval={t('board.stats.apiKeys.interval')}
+                            description={t('board.stats.apiKeys.description')}
+                            data={apiKeysData}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} lg={3}>
+                        <StatCard
+                            title={t('board.stats.documentStores.title')}
+                            value={unik.documentStoresCount ?? 0}
+                            interval={t('board.stats.documentStores.interval')}
+                            description={t('board.stats.documentStores.description')}
+                            data={documentStoresData}
+                        />
+                    </Grid>
+
+                    {/* Row 3: Demo Charts (unchanged) */}
                     <Grid item xs={12} md={6}>
                         <SessionsChart title={t('board.charts.activity.title')} description={t('board.charts.activity.description')} />
                     </Grid>
 
-                    {/* Resources Chart (Demo Data) */}
                     <Grid item xs={12} md={6}>
                         <PageViewsBarChart
                             title={t('board.charts.resources.title')}

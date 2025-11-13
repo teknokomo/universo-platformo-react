@@ -43,6 +43,26 @@
                     "title": "Участники",
                     "interval": "За всё время",
                     "description": "Пользователи с доступом к этому унику"
+                },
+                "credentials": {
+                    "title": "Учётные данные",
+                    "interval": "За всё время",
+                    "description": "Всего учётных данных в этом унике"
+                },
+                "variables": {
+                    "title": "Переменные",
+                    "interval": "За всё время",
+                    "description": "Всего переменных в этом унике"
+                },
+                "apiKeys": {
+                    "title": "API-ключи",
+                    "interval": "За всё время",
+                    "description": "Всего API-ключей в этом унике"
+                },
+                "documentStores": {
+                    "title": "Документы",
+                    "interval": "За всё время",
+                    "description": "Всего хранилищ документов в этом унике"
                 }
             },
             "documentation": {
