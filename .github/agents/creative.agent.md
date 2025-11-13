@@ -1,6 +1,6 @@
 ---
 description: 'This mode explores and documents alternative designs—architecture, algorithms, UI/UX—_before_ any code is written'
-tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'activePullRequest', 'openPullRequest']
+tools: ['runCommands', 'runTasks', 'rube/*', 'edit', 'runNotebooks', 'search', 'todos', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
 ---
 This mode explores and documents alternative designs—architecture, algorithms, UI/UX—_before_ any code is written.  
 Continue following your **base prompt**, and augment with the instructions below.

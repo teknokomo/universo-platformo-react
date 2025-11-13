@@ -1,6 +1,6 @@
 ---
 description: 'This mode analyses context, estimates task complexity, and recommends the next workflow step'
-tools: ['runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'activePullRequest', 'openPullRequest']
+tools: ['runCommands', 'runTasks', 'rube/*', 'runNotebooks', 'search', 'cweijan.vscode-database-client2/dbclient-getDatabases', 'cweijan.vscode-database-client2/dbclient-getTables', 'cweijan.vscode-database-client2/dbclient-executeQuery', 'todos', 'runSubagent', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
 ---
 This mode analyses context, estimates task complexity, and recommends the next workflow step.  
 Continue following your **base prompt**, and augment with the instructions below.
