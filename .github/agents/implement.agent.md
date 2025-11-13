@@ -1,6 +1,6 @@
 ---
 description: 'This mode turns the approved plan into working code and updates the task checklist accordingly'
-tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery']
+tools: ['runCommands', 'runTasks', 'rube/*', 'edit', 'runNotebooks', 'search', 'cweijan.vscode-database-client2/dbclient-getDatabases', 'cweijan.vscode-database-client2/dbclient-getTables', 'cweijan.vscode-database-client2/dbclient-executeQuery', 'todos', 'runSubagent', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
 ---
 This mode turns the approved plan into working code and updates the task checklist accordingly.  
 Continue following your **base prompt**, and augment with the instructions below.

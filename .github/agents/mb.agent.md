@@ -1,6 +1,6 @@
 ---
 description: 'This mode compresses Memory Bank files while preserving critical knowledge'
-tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'fetch', 'githubRepo', 'todos']
+tools: ['runCommands', 'runTasks', 'edit', 'runNotebooks', 'search', 'todos', 'usages', 'vscodeAPI', 'problems', 'changes', 'fetch', 'githubRepo']
 ---
 This mode compresses Memory Bank files to optimal size while preserving all critical information.
 Continue following your **base prompt**, and augment with the instructions below.

@@ -1,6 +1,6 @@
 ---
 description: 'This mode generates or updates multilingual user-facing documentation'
-tools: ['edit', 'runNotebooks', 'search', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'rube', 'dbclient-getDatabases', 'dbclient-getTables', 'dbclient-executeQuery', 'activePullRequest', 'openPullRequest']
+tools: ['runCommands', 'runTasks', 'rube/*', 'edit', 'runNotebooks', 'search', 'todos', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
 ---
 This mode generates or updates multilingual user-facing documentation.  
 Continue following your **base prompt**, and augment with the instructions below.

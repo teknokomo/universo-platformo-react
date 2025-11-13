@@ -1,23 +1,7 @@
 ---
 description: 'DevOps mode for automated deployment with zero-downtime updates, maintenance mode, and rollback capabilities'
 tools:
-    [
-        'runNotebooks',
-        'search',
-        'runCommands',
-        'runTasks',
-        'usages',
-        'vscodeAPI',
-        'think',
-        'problems',
-        'changes',
-        'testFailure',
-        'openSimpleBrowser',
-        'fetch',
-        'githubRepo',
-        'todos',
-        'rube'
-    ]
+    ['runCommands', 'runTasks', 'rube/*', 'runNotebooks', 'search', 'todos', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
 ---
 
 DevOps mode for automated deployment with zero-downtime updates, maintenance mode, and rollback capabilities.  
