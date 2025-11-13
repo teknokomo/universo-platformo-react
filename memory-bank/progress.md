@@ -23,6 +23,40 @@
 
 ## November 2025 (Latest)
 
+### 2025-11-14: Cluster Breadcrumbs Implementation ✅
+**Problem**: Breadcrumbs navigation working for Metaverses (`/metaverses/:id/entities`) but missing for Clusters (`/clusters/:id/resources`). No cluster name displayed in navigation path.
+
+**Solution**: Implemented cluster breadcrumbs following same pattern as Metaverses:
+1. **Custom Hook**: Created `useClusterName.ts` hook:
+   - Fetches cluster name from `/api/v1/clusters/:id` endpoint
+   - Implements Map-based in-memory caching (same as useMetaverseName)
+   - Includes `truncateClusterName()` helper for long names (30 char max + ellipsis)
+   - Returns `string | null` with proper loading state handling
+
+2. **Breadcrumbs Update**: Modified `NavbarBreadcrumbs.tsx`:
+   - Added cluster context extraction: `const clusterIdMatch = location.pathname.match(/^\/clusters\/([^/]+)/)`
+   - Added `useClusterName(clusterId)` hook call
+   - Implemented cluster breadcrumb logic with 3 sub-pages:
+     - `/clusters/:id` → Clusters → [ClusterName]
+     - `/clusters/:id/access` → Clusters → [ClusterName] → Access
+     - `/clusters/:id/resources` → Clusters → [ClusterName] → Resources
+     - `/clusters/:id/domains` → Clusters → [ClusterName] → Domains
+
+3. **Export Management**: Updated `/packages/universo-template-mui/base/src/hooks/index.ts` with `useClusterName` export
+
+**Build Results**:
+- @universo/template-mui: ✅ 3203.41 kB CJS, 271.88 kB ESM (1285ms)
+- flowise-ui: ✅ 1m 10s compilation
+- Full workspace: ✅ 32/32 tasks successful (3m 35s)
+
+**Pattern Consistency**: Clusters now have same breadcrumb functionality as Metaverses (name display, truncation, sub-page navigation)
+
+**Browser Testing Required**:
+- Navigate to cluster pages and verify breadcrumbs display with actual cluster names
+- Test truncation for long cluster names
+- Verify all sub-pages (access, resources, domains) show correct breadcrumb paths
+- Confirm Name column visible in all entity lists (Domains, Resources, Sections, Entities)
+
 ### 2025-01-13: UnikBoard Dashboard Refactoring ✅
 **Problem**: UnikBoard showed only 3 metric cards (Spaces, Tools, Members). User requested expansion with 4 additional metrics: Credentials, Variables, API Keys, Document Stores. Dashboard layout needed reorganization from 2 rows to 3 rows to accommodate 7 small cards plus existing documentation card and 2 large demo charts.
 

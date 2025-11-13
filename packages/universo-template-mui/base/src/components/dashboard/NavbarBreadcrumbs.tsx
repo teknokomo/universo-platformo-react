@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetaverseName'
+import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),
@@ -27,6 +28,11 @@ export default function NavbarBreadcrumbs() {
     const metaverseIdMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = metaverseIdMatch ? metaverseIdMatch[1] : null
     const metaverseName = useMetaverseName(metaverseId)
+
+    // Extract clusterId from URL for dynamic name loading
+    const clusterIdMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
+    const clusterId = clusterIdMatch ? clusterIdMatch[1] : null
+    const clusterName = useClusterName(clusterId)
 
     // Clean keys without 'menu.' prefix since we're already using 'menu' namespace
     const menuMap: Record<string, string> = {
@@ -71,6 +77,29 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('sections'), to: location.pathname })
                 } else if (segments[2] === 'entities') {
                     items.push({ label: t('entities'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'clusters') {
+            const items = [{ label: t(menuMap.clusters), to: '/clusters' }]
+
+            if (segments[1] && clusterName) {
+                // Use actual cluster name with truncation for long names
+                items.push({
+                    label: truncateClusterName(clusterName),
+                    to: `/clusters/${segments[1]}`
+                })
+
+                // Sub-pages (access, resources, domains) - use keys from menu namespace
+                if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'resources') {
+                    items.push({ label: t('resources'), to: location.pathname })
+                } else if (segments[2] === 'domains') {
+                    items.push({ label: t('domains'), to: location.pathname })
                 }
             }
 

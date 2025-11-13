@@ -19,6 +19,7 @@ export const ROLE_HIERARCHY: Record<BaseRole, number> = {
 
 // Entity-specific role types
 export type MetaverseRole = BaseRole
+export type ClusterRole = BaseRole
 export type UnikRole = BaseRole
 export type SectionRole = Exclude<BaseRole, 'owner'> // Sections don't have separate owners
 export type EntityRole = 'viewer' | 'editor' // Entities have simpler roles
@@ -46,6 +47,10 @@ export function isValidRole(role: string): role is BaseRole {
 }
 
 export function isValidMetaverseRole(role: string): role is MetaverseRole {
+    return isValidRole(role)
+}
+
+export function isValidClusterRole(role: string): role is ClusterRole {
     return isValidRole(role)
 }
 

@@ -1,12 +1,26 @@
 # Active Context
 
-> **Last Updated**: 2025-11-13
+> **Last Updated**: 2025-11-14
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: i18n Residual Keys & Space Builder Refactor
+## Current Focus: Cluster Breadcrumbs & UI Parity
+
+### Cluster Breadcrumbs Implementation (2025-11-14) ✅
+- Implemented useClusterName hook with Map-based caching (mirrored useMetaverseName pattern)
+- Updated NavbarBreadcrumbs.tsx with cluster context detection and rendering
+- Added breadcrumb support for 3 cluster sub-pages: access, resources, domains
+- Name truncation at 30 chars for long cluster names
+- Builds: @universo/template-mui ✅ (3203 kB CJS, 271 kB ESM), flowise-ui ✅ (1m 10s), full workspace ✅ (32/32 tasks, 3m 35s)
+- Next: Browser verification - navigate to cluster pages and confirm breadcrumbs display correctly (tasks.md#2025-11-14)
+
+### Clusters/Metaverses UI Improvements (2025-11-13) ✅
+- Added "Name" column as first column to all entity lists (Domains, Resources, Sections, Entities)
+- Fixed sidebar menu for Cluster context (now shows: Clusterboard, Resources, Domains, Access)
+- Builds: All packages successful
+- Next: Browser verification - check Name columns, test cluster sidebar menu (tasks.md#2025-11-13)
 
 ### i18n Phase 5 – Canvas Dialogs & Speech-to-Text (2025-11-13)
 - Fixed CanvasConfigurationDialog, UpsertHistoryDialog, SpeechToText namespace binding

@@ -2,17 +2,21 @@
 	"compilerOptions": {
 		"target": "ES2020",
 		"module": "Node16",
-                "moduleResolution": "node16",
-                "esModuleInterop": true,
-                "forceConsistentCasingInFileNames": true,
-                "strict": true,
-                "skipLibCheck": true,
-                "outDir": "dist",
-                "rootDir": "src",
-                "resolveJsonModule": true,
-                "declaration": true,
-                "declarationDir": "dist"
-        },
+		"lib": ["ES2020"],
+		"moduleResolution": "node16",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"outDir": "dist",
+		"rootDir": "src",
+		"resolveJsonModule": true,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true
+	},
 	"include": ["src/**/*"],
 	"exclude": ["node_modules", "dist"]
 }

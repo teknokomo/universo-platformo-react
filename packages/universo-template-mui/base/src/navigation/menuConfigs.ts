@@ -124,6 +124,34 @@ export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] =
     }
 ]
 
+// Function to generate cluster menu items for a specific cluster
+export const getClusterMenuItems = (clusterId: string): TemplateMenuItem[] => [
+    {
+        id: 'cluster-board',
+        titleKey: 'clusterboard',
+        url: `/clusters/${clusterId}`,
+        icon: IconBuildingStore
+    },
+    {
+        id: 'cluster-resources',
+        titleKey: 'resources',
+        url: `/clusters/${clusterId}/resources`,
+        icon: IconBoxMultiple
+    },
+    {
+        id: 'cluster-domains',
+        titleKey: 'domains',
+        url: `/clusters/${clusterId}/domains`,
+        icon: IconHierarchy3
+    },
+    {
+        id: 'cluster-access',
+        titleKey: 'access',
+        url: `/clusters/${clusterId}/access`,
+        icon: IconUsers
+    }
+]
+
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',

@@ -6,3 +6,6 @@ export { createEnsureAuthWithRls } from './middlewares/ensureAuthWithRls'
 export { applyRlsContext } from './utils/rlsContext'
 export type { SessionTokens, AuthenticatedRequest, SessionWithTokens } from './services/supabaseSession'
 export type { RequestWithDbContext, EnsureAuthWithRlsOptions } from './middlewares/ensureAuthWithRls'
+
+// Database entities
+export { AuthUser } from './database/entities'

@@ -180,6 +180,24 @@ const MetaverseList = () => {
     const metaverseColumns = useMemo(
         () => [
             {
+                id: 'name',
+                label: tc('table.name', 'Name'),
+                width: '20%',
+                align: 'left',
+                render: (row: Metaverse) => (
+                    <Typography
+                        sx={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word'
+                        }}
+                    >
+                        {row.name || '—'}
+                    </Typography>
+                )
+            },
+            {
                 id: 'description',
                 label: tc('table.description', 'Description'),
                 width: '26%',

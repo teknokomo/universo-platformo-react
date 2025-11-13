@@ -27,6 +27,7 @@ import { Telemetry } from './utils/telemetry'
 import flowiseApiV1Router from './routes'
 import { passport, createAuthRouter } from '@universo/auth-srv'
 import { initializeRateLimiters } from '@universo/metaverses-srv'
+import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-srv'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { validateAPIKey } from './utils/validateKey'
@@ -324,6 +325,9 @@ export class App {
 
         // Initialize rate limiters for metaverses service
         await initializeRateLimiters()
+
+        // Initialize rate limiters for clusters service
+        await initializeClustersRateLimiters()
 
         this.app.use('/api/v1', flowiseApiV1Router)
 

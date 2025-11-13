@@ -41,6 +41,7 @@ import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-srv'
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
+import { initializeRateLimiters as initializeClustersRateLimiters, getRateLimiters as getClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -200,6 +201,22 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (metaversesRouter) {
         metaversesRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Clusters, Domains, Resources
+// Note: Rate limiters initialized via initializeClustersRateLimiters() in server startup
+// This mounts: /clusters, /domains, /resources
+// Lazy initialization: router created on first request (after initializeClustersRateLimiters called)
+let clustersRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!clustersRouter) {
+        clustersRouter = createClustersServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (clustersRouter) {
+        clustersRouter(req, res, next)
     } else {
         next()
     }

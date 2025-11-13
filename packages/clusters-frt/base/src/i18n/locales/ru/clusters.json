@@ -1,0 +1,169 @@
+﻿{
+    "clusters": {
+        "title": "Кластеры",
+        "searchPlaceholder": "Поиск кластеров...",
+        "noClustersFound": "Кластеры не найдены",
+        "createCluster": "Создать кластер",
+        "editTitle": "Редактировать кластер",
+        "confirmDelete": "Удалить кластер?",
+        "confirmDeleteDescription": "Вы уверены, что хотите удалить кластер \"{{name}}\"?",
+        "deleteSuccess": "Кластер успешно удален",
+        "deleteError": "Не удалось удалить кластер",
+        "saveError": "Не удалось сохранить кластер",
+        "errors": {
+            "connectionFailed": "Ошибка подключения",
+            "checkConnection": "Пожалуйста, проверьте подключение к сети и попробуйте снова",
+            "pleaseTryLater": "Что-то пошло не так. Пожалуйста, попробуйте позже",
+            "invalidCluster": "Неверный кластер",
+            "pleaseSelectCluster": "Пожалуйста, выберите кластер из списка"
+        },
+        "actions": {
+            "retry": "Повторить",
+            "edit": "Редактировать",
+            "delete": "Удалить",
+            "backToList": "Назад к кластерам"
+        },
+        "board": {
+            "title": "Кластерборд",
+            "description": "Здесь будет аналитика и статистика кластера (в разработке)",
+            "defaultDescription": "Аналитика и статистика кластера",
+            "overview": "Обзор",
+            "stats": {
+                "domains": {
+                    "title": "Домены",
+                    "interval": "За всё время",
+                    "description": "Всего доменов в этом кластере"
+                },
+                "resources": {
+                    "title": "Ресурсы",
+                    "interval": "За всё время",
+                    "description": "Всего ресурсов во всех доменах"
+                },
+                "members": {
+                    "title": "Участники",
+                    "interval": "За всё время",
+                    "description": "Пользователи с доступом к этому кластеру"
+                }
+            },
+            "documentation": {
+                "title": "Изучить документацию",
+                "description": "Узнайте о возможностях кластера, API и лучших практиках",
+                "button": "Открыть документацию"
+            },
+            "charts": {
+                "activity": {
+                    "title": "Активность пользователей",
+                    "interval": "Последние 30 дней",
+                    "description": "Метрики активности (демо данные - в разработке)"
+                },
+                "resources": {
+                    "title": "Ресурсы",
+                    "interval": "Последние 6 месяцев",
+                    "description": "Использование ресурсов (демо данные - в разработке)"
+                }
+            },
+            "loading": "Загрузка дашборда...",
+            "error": "Не удалось загрузить данные дашборда"
+        },
+        "detail": {
+            "title": "Детали кластера"
+        },
+        "table": {
+            "description": "Описание",
+            "role": "Роль",
+            "domains": "Домены",
+            "resources": "Ресурсы"
+        },
+        "domains": {
+            "title": "Домены",
+            "searchPlaceholder": "Поиск доменов...",
+            "noDomainsFound": "Домены не найдены",
+            "createDomain": "Создать домен",
+            "editTitle": "Редактировать домен",
+            "confirmDelete": "Удалить домен?",
+            "confirmDeleteDescription": "Вы уверены, что хотите удалить домен \"{{name}}\"? Все ресурсы в этом домене также будут удалены.",
+            "deleteSuccess": "Домен успешно удален",
+            "deleteError": "Не удалось удалить домен",
+            "saveError": "Не удалось сохранить домен",
+            "resourceCount_one": "{{count}} ресурс",
+            "resourceCount_few": "{{count}} ресурса",
+            "resourceCount_many": "{{count}} ресурсов",
+            "resourceCount_other": "{{count}} ресурсов",
+            "actions": {
+                "edit": "Редактировать домен",
+                "delete": "Удалить домен"
+            },
+            "table": {
+                "description": "Описание",
+                "resources": "Ресурсы"
+            }
+        },
+        "resources": {
+            "title": "Ресурсы",
+            "searchPlaceholder": "Поиск ресурсов...",
+            "noResourcesFound": "Ресурсы не найдены",
+            "createResource": "Создать ресурс",
+            "editTitle": "Редактировать ресурс",
+            "confirmDelete": "Удалить ресурс?",
+            "confirmDeleteDescription": "Вы уверены, что хотите удалить ресурс \"{{name}}\"?",
+            "deleteSuccess": "Ресурс успешно удален",
+            "deleteError": "Не удалось удалить ресурс",
+            "saveError": "Не удалось сохранить ресурс",
+            "domainLabel": "Домен",
+            "noDomainsAvailable": "Нет доступных доменов",
+            "errors": {
+                "domainRequired": "Домен обязателен"
+            },
+            "actions": {
+                "edit": "Редактировать ресурс",
+                "delete": "Удалить ресурс"
+            },
+            "table": {
+                "description": "Описание"
+            }
+        },
+        "members": {
+            "title": "Доступ",
+            "searchPlaceholder": "Поиск участников...",
+            "noMembersFound": "Участники не найдены",
+            "inviteMember": "Добавить",
+            "editTitle": "Редактировать участника",
+            "confirmRemove": "Удалить участника?",
+            "confirmRemoveDescription": "Вы уверены, что хотите удалить участника \"{{email}}\"?",
+            "removeSuccess": "Участник успешно удален",
+            "removeError": "Не удалось удалить участника",
+            "saveError": "Не удалось сохранить участника",
+            "inviteSuccess": "Участник успешно добавлен",
+            "inviteError": "Не удалось добавить участника",
+            "userNotFound": "Пользователь с email \"{{email}}\" не найден. Пожалуйста, проверьте адрес электронной почты.",
+            "userAlreadyMember": "Пользователь с email \"{{email}}\" уже имеет доступ к этому кластеру.",
+            "emailLabel": "Email",
+            "roleLabel": "Роль",
+            "commentLabel": "Комментарий (необязательно)",
+            "commentPlaceholder": "Добавьте заметку об этом участнике...",
+            "selfActionWarning": "Вы изменяете свой собственный доступ. Будьте осторожны!",
+            "roles": {
+                "admin": "Админ",
+                "editor": "Редактор",
+                "member": "Участник"
+            },
+            "validation": {
+                "emailRequired": "Email обязателен",
+                "emailInvalid": "Неверный формат email",
+                "roleRequired": "Роль обязательна",
+                "commentCharacterCount": "{{count}}/{{max}} символов (после обрезки)"
+            },
+            "actions": {
+                "edit": "Редактировать участника",
+                "remove": "Удалить участника"
+            },
+            "table": {
+                "email": "Email",
+                "nickname": "Никнейм",
+                "comment": "Комментарий",
+                "role": "Роль",
+                "added": "Добавлен"
+            }
+        }
+    }
+}

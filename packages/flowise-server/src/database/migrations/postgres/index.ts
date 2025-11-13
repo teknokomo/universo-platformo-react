@@ -31,6 +31,7 @@ import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssist
 import { uniksMigrations } from '@universo/uniks-srv'
 import { profileMigrations } from '@universo/profile-srv'
 import { metaversesMigrations } from '@universo/metaverses-srv'
+import { clustersMigrations } from '@universo/clusters-srv'
 import { spacesMigrations } from '@universo/spaces-srv'
 import { publishMigrations } from '@universo/publish-srv'
 
@@ -68,6 +69,7 @@ export const postgresMigrations = [
   ...uniksMigrations,
   ...profileMigrations,
   ...metaversesMigrations,
+  ...clustersMigrations,
   ...spacesMigrations,
   ...publishMigrations
 ]

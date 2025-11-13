@@ -1,5 +1,4 @@
 export { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from './routes/uniksRoutes'
 export { Unik } from './database/entities/Unik'
 export { UnikUser } from './database/entities/UnikUser'
-export { AuthUser } from './database/entities/AuthUser'
 export { uniksMigrations } from './database/migrations/postgres'
