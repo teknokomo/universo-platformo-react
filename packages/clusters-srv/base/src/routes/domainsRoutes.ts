@@ -203,8 +203,7 @@ export function createDomainsRoutes(
 
             // Validate required fields
             if (!name) return res.status(400).json({ error: 'name is required' })
-            if (!clusterId)
-                return res.status(400).json({ error: 'clusterId is required - domains must be associated with a cluster' })
+            if (!clusterId) return res.status(400).json({ error: 'clusterId is required - domains must be associated with a cluster' })
 
             await ensureClusterAccess(getDataSource(), userId, clusterId, 'createContent')
 

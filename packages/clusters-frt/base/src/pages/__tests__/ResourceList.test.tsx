@@ -70,10 +70,7 @@ const createTestQueryClient = () =>
         }
     })
 
-const renderWithProviders = (
-    ui: React.ReactElement,
-    { route = '/clusters/test-cluster-id/domains/test-domain-id/resources' } = {}
-) => {
+const renderWithProviders = (ui: React.ReactElement, { route = '/clusters/test-cluster-id/domains/test-domain-id/resources' } = {}) => {
     const queryClient = createTestQueryClient()
 
     return {

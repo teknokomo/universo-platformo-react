@@ -23,8 +23,7 @@ export const getCluster = (id: string) => apiClient.get<Cluster>(`/clusters/${id
 
 export const createCluster = (data: { name: string; description?: string }) => apiClient.post<Cluster>('/clusters', data)
 
-export const updateCluster = (id: string, data: { name: string; description?: string }) =>
-    apiClient.put<Cluster>(`/clusters/${id}`, data)
+export const updateCluster = (id: string, data: { name: string; description?: string }) => apiClient.put<Cluster>(`/clusters/${id}`, data)
 
 export const deleteCluster = (id: string) => apiClient.delete<void>(`/clusters/${id}`)
 
@@ -67,11 +66,8 @@ export const listClusterMembers = async (clusterId: string, params?: PaginationP
 export const inviteClusterMember = (clusterId: string, data: { email: string; role: ClusterAssignableRole; comment?: string }) =>
     apiClient.post<ClusterMember>(`/clusters/${clusterId}/members`, data)
 
-export const updateClusterMemberRole = (
-    clusterId: string,
-    memberId: string,
-    data: { role: ClusterAssignableRole; comment?: string }
-) => apiClient.patch<ClusterMember>(`/clusters/${clusterId}/members/${memberId}`, data)
+export const updateClusterMemberRole = (clusterId: string, memberId: string, data: { role: ClusterAssignableRole; comment?: string }) =>
+    apiClient.patch<ClusterMember>(`/clusters/${clusterId}/members/${memberId}`, data)
 
 export const removeClusterMember = (clusterId: string, memberId: string) =>
     apiClient.delete<void>(`/clusters/${clusterId}/members/${memberId}`)

@@ -269,9 +269,7 @@ export class AddClustersDomainsResources1741277700000 implements MigrationInterf
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rd_dom ON clusters.resources_domains(domain_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rc_res ON clusters.resources_clusters(resource_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rc_clu ON clusters.resources_clusters(cluster_id)`)
-        await queryRunner.query(
-            `CREATE INDEX IF NOT EXISTS idx_rc_cluster_sort ON clusters.resources_clusters(cluster_id, sort_order)`
-        )
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rc_cluster_sort ON clusters.resources_clusters(cluster_id, sort_order)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_dc_dom ON clusters.domains_clusters(domain_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_dc_clu ON clusters.domains_clusters(cluster_id)`)
 

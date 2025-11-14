@@ -21,8 +21,7 @@ export const listDomains = async (params?: PaginationParams): Promise<PaginatedR
 
 export const getDomain = (id: string) => apiClient.get<Domain>(`/domains/${id}`)
 
-export const createDomain = (data: { name: string; description?: string; clusterId: string }) =>
-    apiClient.post<Domain>('/domains', data)
+export const createDomain = (data: { name: string; description?: string; clusterId: string }) => apiClient.post<Domain>('/domains', data)
 
 export const updateDomain = (id: string, data: { name: string; description?: string }) => apiClient.put<Domain>(`/domains/${id}`, data)
 
