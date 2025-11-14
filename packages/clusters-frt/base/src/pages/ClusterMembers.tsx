@@ -322,7 +322,7 @@ const ClusterMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, clusterId, queryClient, removeMemberApi, updateMemberRoleApi, user?.id]
+        [confirm, enqueueSnackbar, clusterId, queryClient, removeMemberApi, updateMemberRoleApi]
     )
 
     if (!clusterId) {

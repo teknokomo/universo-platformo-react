@@ -464,9 +464,6 @@ importers:
       '@mui/material':
         specifier: 'catalog:'
         version: 6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@mui/x-tree-view':
-        specifier: ^7.0.0
-        version: 7.29.10(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tabler/icons-react':
         specifier: ^3.30.0
         version: 3.35.0(react@18.3.1)
@@ -479,6 +476,9 @@ importers:
       axios:
         specifier: 1.7.9
         version: 1.7.9(debug@4.4.3)
+      i18next:
+        specifier: 'catalog:'
+        version: 23.16.8
       react:
         specifier: 'catalog:'
         version: 18.3.1
@@ -495,42 +495,12 @@ importers:
         specifier: ^9.0.0
         version: 9.0.1
     devDependencies:
-      '@codemirror/lang-javascript':
-        specifier: 'catalog:'
-        version: 6.2.4
-      '@codemirror/lang-json':
-        specifier: 'catalog:'
-        version: 6.0.2
-      '@codemirror/state':
-        specifier: 'catalog:'
-        version: 6.5.2
-      '@codemirror/theme-one-dark':
-        specifier: 'catalog:'
-        version: 6.1.3
-      '@codemirror/view':
-        specifier: 'catalog:'
-        version: 6.38.6
       '@hookform/resolvers':
         specifier: 'catalog:'
         version: 3.10.0(react-hook-form@7.66.0(react@18.3.1))
       '@mui/icons-material':
-        specifier: 'catalog:'
+        specifier: ^6.0.0
         version: 6.5.0(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/react@18.3.26)(react@18.3.1)
-      '@mui/x-charts':
-        specifier: 'catalog:'
-        version: 7.29.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@mui/x-data-grid':
-        specifier: 'catalog:'
-        version: 7.29.9(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@mui/x-data-grid-pro':
-        specifier: 'catalog:'
-        version: 7.29.9(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@mui/x-date-pickers':
-        specifier: 'catalog:'
-        version: 7.29.4(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(date-fns@2.30.0)(dayjs@1.11.19)(luxon@3.7.2)(moment@2.30.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@mui/x-date-pickers-pro':
-        specifier: 'catalog:'
-        version: 7.29.4(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(date-fns@2.30.0)(dayjs@1.11.19)(luxon@3.7.2)(moment@2.30.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.6(react@18.3.1)
@@ -549,42 +519,12 @@ importers:
       '@types/react':
         specifier: ^18.0.0
         version: 18.3.26
-      '@uiw/codemirror-theme-sublime':
-        specifier: 'catalog:'
-        version: 4.25.2(@codemirror/language@6.11.3)(@codemirror/state@6.5.2)(@codemirror/view@6.38.6)
-      '@uiw/codemirror-theme-vscode':
-        specifier: 'catalog:'
-        version: 4.25.2(@codemirror/language@6.11.3)(@codemirror/state@6.5.2)(@codemirror/view@6.38.6)
-      '@uiw/react-codemirror':
-        specifier: 'catalog:'
-        version: 4.25.2(@babel/runtime@7.28.4)(@codemirror/autocomplete@6.19.1)(@codemirror/language@6.11.3)(@codemirror/lint@6.9.1)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/theme-one-dark@6.1.3)(@codemirror/view@6.38.6)(codemirror@6.0.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       axe-core:
         specifier: ^4.8.0
         version: 4.11.0
-      codemirror:
-        specifier: 'catalog:'
-        version: 6.0.2
-      dayjs:
-        specifier: 'catalog:'
-        version: 1.11.19
       eslint:
         specifier: 'catalog:'
         version: 8.57.1
-      flowise-react-json-view:
-        specifier: 'catalog:'
-        version: 1.21.7(@types/react@18.3.26)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      framer-motion:
-        specifier: 'catalog:'
-        version: 10.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      html-react-parser:
-        specifier: 'catalog:'
-        version: 5.2.7(@types/react@18.3.26)(react@18.3.1)
-      i18next:
-        specifier: 'catalog:'
-        version: 23.16.8
-      i18next-browser-languagedetector:
-        specifier: 'catalog:'
-        version: 8.2.0
       jest-axe:
         specifier: ^9.0.0
         version: 9.0.0
@@ -594,45 +534,18 @@ importers:
       notistack:
         specifier: 'catalog:'
         version: 3.0.2(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-code-blocks:
-        specifier: 'catalog:'
-        version: 0.1.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-color:
-        specifier: 'catalog:'
-        version: 2.19.3(react@18.3.1)
-      react-datepicker:
-        specifier: 'catalog:'
-        version: 4.25.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-hook-form:
         specifier: 'catalog:'
         version: 7.66.0(react@18.3.1)
-      react-markdown:
-        specifier: 'catalog:'
-        version: 8.0.7(@types/react@18.3.26)(react@18.3.1)
-      react-perfect-scrollbar:
-        specifier: 'catalog:'
-        version: 1.5.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-redux:
-        specifier: 'catalog:'
-        version: 8.1.3(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@5.0.1)
       react-router-dom:
         specifier: ^6.0.0
         version: 6.30.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-syntax-highlighter:
-        specifier: 'catalog:'
-        version: 15.6.6(react@18.3.1)
-      reactflow:
-        specifier: 'catalog:'
-        version: 11.11.4(@types/react@18.3.26)(immer@10.2.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(typescript@5.8.3)
-      use-debounce:
-        specifier: 'catalog:'
-        version: 10.0.6(react@18.3.1)
       vitest:
         specifier: 'catalog:'
         version: 2.1.9(@types/node@20.12.12)(happy-dom@20.0.10)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(msw@2.12.1(@types/node@20.12.12)(typescript@5.8.3))(sass@1.93.3)(terser@5.44.0)
@@ -7613,7 +7526,6 @@ packages:
   '@rolldown/binding-linux-x64-gnu@1.0.0-beta.43':
     resolution: {integrity: sha512-BgynXKMjeaX4AfWLARhOKDetBOOghnSiVRjAHVvhiAaDXgdQN8e65mSmXRiVoVtD3cHXx/cfU8Gw0p0K+qYKVQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [x64]
     os: [linux]
 
   '@rolldown/binding-linux-x64-gnu@1.0.0-beta.45':

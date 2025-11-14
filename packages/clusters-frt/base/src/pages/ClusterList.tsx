@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useCallback, useEffect } from 'react'
+﻿import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -70,33 +70,10 @@ const ClusterList = () => {
     const { data: clusters, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { searchValue: _searchValue, handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
-
-    // DEBUG: Log pagination state changes for troubleshooting
-    useEffect(() => {
-        // eslint-disable-next-line no-console
-        console.log('[ClusterList Pagination Debug]', {
-            currentPage: paginationResult.pagination.currentPage,
-            pageSize: paginationResult.pagination.pageSize,
-            totalItems: paginationResult.pagination.totalItems,
-            totalPages: paginationResult.pagination.totalPages,
-            offset: (paginationResult.pagination.currentPage - 1) * paginationResult.pagination.pageSize,
-            search: paginationResult.pagination.search,
-            isLoading: paginationResult.isLoading,
-            searchValue
-        })
-    }, [
-        paginationResult.pagination.currentPage,
-        paginationResult.pagination.pageSize,
-        paginationResult.pagination.totalItems,
-        paginationResult.pagination.totalPages,
-        paginationResult.pagination.search,
-        paginationResult.isLoading,
-        searchValue
-    ])
 
     // State for independent ConfirmDeleteDialog (not managed by BaseEntityMenu)
     const [deleteDialogState, setDeleteDialogState] = useState<{

@@ -317,7 +317,7 @@ describe('Clusters Routes', () => {
         }
 
         it('should return members when user has manageMembers permission', async () => {
-            const { app, clusterUserRepo, authUserRepo, dataSource } = buildApp()
+            const { app, clusterUserRepo, dataSource } = buildApp()
 
             const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -460,10 +460,7 @@ describe('Clusters Routes', () => {
 
             authUserRepo.findOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
 
-            const response = await request(app)
-                .patch('/clusters/cluster-1/members/membership-target')
-                .send({ role: 'editor' })
-                .expect(200)
+            const response = await request(app).patch('/clusters/cluster-1/members/membership-target').send({ role: 'editor' }).expect(200)
 
             expect(response.body).toMatchObject({
                 id: 'membership-target',
@@ -559,7 +556,7 @@ describe('Clusters Routes', () => {
                 ])
 
                 // Mock dataSource.manager.find for both AuthUser and Profile
-                dataSource.manager.find.mockImplementation((resource: any, options: any) => {
+                dataSource.manager.find.mockImplementation((resource: any) => {
                     const resourceName = resource.name || (typeof resource === 'function' ? resource.name : String(resource))
                     if (resourceName === 'AuthUser') {
                         return Promise.resolve([
@@ -739,6 +736,9 @@ describe('Clusters Routes', () => {
                         comment: commentWithWhitespace
                     })
                     .expect(201)
+
+                // Verify response structure
+                expect(response.body.data).toBeDefined()
 
                 // Verify comment was trimmed before saving
                 expect(clusterUserRepo.create).toHaveBeenCalledWith(

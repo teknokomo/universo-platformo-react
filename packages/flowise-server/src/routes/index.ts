@@ -41,7 +41,7 @@ import versionRouter from './versions'
 import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-srv'
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
-import { initializeRateLimiters as initializeClustersRateLimiters, getRateLimiters as getClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
+import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger

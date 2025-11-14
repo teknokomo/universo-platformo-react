@@ -107,8 +107,10 @@ export async function ensureDomainAccess(
     permission?: RolePermission
 ): Promise<DomainAccessContext> {
     const domainClusterRepo = ds.getRepository(DomainCluster)
-    const domainCluster = await domainClusterRepo.findOne({ where: { domain: { id: domainId } }, relations: ['cluster'] })
-    if (!domainCluster) {
+    // Find ALL cluster links for this domain (M2M relationship)
+    const domainClusters = await domainClusterRepo.find({ where: { domain: { id: domainId } }, relations: ['cluster'] })
+
+    if (domainClusters.length === 0) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
             userId,
@@ -119,8 +121,21 @@ export async function ensureDomainAccess(
         throw createError(404, 'Domain not found')
     }
 
-    const context = await ensureClusterAccess(ds, userId, domainCluster.cluster.id, permission)
-    return { ...context, domainLink: domainCluster }
+    // Try to find at least ONE cluster where user has membership
+    let lastError: any = null
+    for (const domainCluster of domainClusters) {
+        try {
+            const context = await ensureClusterAccess(ds, userId, domainCluster.cluster.id, permission)
+            // Success! User has access via this cluster
+            return { ...context, domainLink: domainCluster }
+        } catch (err) {
+            // Remember error but continue checking other clusters
+            lastError = err
+        }
+    }
+
+    // If no cluster grants access, throw the last error
+    throw lastError || createError(403, 'Access denied to domain')
 }
 
 export interface ResourceAccessContext extends ClusterMembershipContext {
@@ -199,9 +214,7 @@ export async function ensureResourceAccess(
         return { membership: memberships[0], clusterId: memberships[0].cluster_id, viaClusterIds: uniqueClusterIds }
     }
 
-    const allowedMembership = memberships.find(
-        (membership) => ROLE_PERMISSIONS[(membership.role || 'member') as ClusterRole]?.[permission]
-    )
+    const allowedMembership = memberships.find((membership) => ROLE_PERMISSIONS[(membership.role || 'member') as ClusterRole]?.[permission])
     if (!allowedMembership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
