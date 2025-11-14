@@ -1,0 +1,84 @@
+{
+    "name": "@universo/clusters-frt",
+    "version": "0.1.0",
+    "description": "Frontend module for Clusters management",
+    "main": "./src/index.ts",
+    "module": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts",
+            "require": "./src/index.ts"
+        },
+        "./i18n": {
+            "types": "./dist/i18n/index.d.ts",
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        },
+        "./pages/*": {
+            "default": "./src/pages/*"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": [
+        "dist/i18n/index.mjs",
+        "dist/i18n/index.js"
+    ],
+    "files": ["dist", "src"],
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown",
+        "dev": "tsdown --watch",
+        "lint": "eslint --ext .ts,.tsx,.jsx src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "keywords": [
+        "universo",
+        "clusters",
+        "frontend"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.1",
+        "@mui/lab": "^6.0.0-beta.32",
+        "@mui/material": "catalog:",
+        "@tabler/icons-react": "^3.30.0",
+        "@universo/auth-frt": "workspace:*",
+        "@universo/template-mui": "workspace:*",
+        "react": "catalog:",
+        "react-i18next": "catalog:",
+        "i18next": "catalog:",
+        "typescript": "catalog:",
+        "uuid": "^9.0.0",
+        "axios": "catalog:"
+    },
+    "peerDependencies": {
+        "react": ">=18",
+        "react-dom": ">=18",
+        "react-router-dom": "^6.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "vitest": "catalog:",
+        "@testing-library/react": "catalog:",
+        "@testing-library/jest-dom": "catalog:",
+        "@testing-library/user-event": "catalog:",
+        "msw": "^2.0.0",
+        "jest-axe": "^9.0.0",
+        "axe-core": "^4.8.0",
+        "@tanstack/react-query": "catalog:",
+        "notistack": "catalog:",
+        "react-router-dom": "^6.0.0",
+        "@mui/icons-material": "^6.0.0",
+        "zod": "catalog:",
+        "react-hook-form": "catalog:",
+        "@hookform/resolvers": "catalog:"
+    }
+}

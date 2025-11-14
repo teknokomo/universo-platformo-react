@@ -101,8 +101,18 @@
       "role": "Role",
       "sections": "Sections",
       "entities": "Entities",
+      "domains": "Domains",
+      "resources": "Resources",
       "added": "Added",
       "email": "Email"
+    },
+    "columns": {
+      "actions": "Actions",
+      "name": "Name",
+      "category": "Category",
+      "nodes": "Nodes",
+      "spaces": "Spaces",
+      "lastModified": "Last Modified Date"
     },
     "dialog": {
       "title": "Title",

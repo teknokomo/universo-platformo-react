@@ -10,7 +10,7 @@ import Stack from '@mui/material/Stack'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
-import { rootMenuItems, getMetaverseMenuItems, getUnikMenuItems } from '../../navigation/menuConfigs'
+import { rootMenuItems, getMetaverseMenuItems, getUnikMenuItems, getClusterMenuItems } from '../../navigation/menuConfigs'
 
 // const secondaryListItems = [
 //   { text: 'Settings', icon: <SettingsRoundedIcon /> },
@@ -30,8 +30,18 @@ export default function MenuContent() {
     const isMetaverseContext = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = isMetaverseContext ? isMetaverseContext[1] : null
 
+    // Check if we're in a cluster context
+    const isClusterContext = location.pathname.match(/^\/clusters\/([^/]+)/)
+    const clusterId = isClusterContext ? isClusterContext[1] : null
+
     // Use context-specific menu or root menu
-    const menuItems = unikId ? getUnikMenuItems(unikId) : metaverseId ? getMetaverseMenuItems(metaverseId) : rootMenuItems
+    const menuItems = unikId
+        ? getUnikMenuItems(unikId)
+        : metaverseId
+        ? getMetaverseMenuItems(metaverseId)
+        : clusterId
+        ? getClusterMenuItems(clusterId)
+        : rootMenuItems
 
     // Debug diagnostics for i18n menu resolution
     try {

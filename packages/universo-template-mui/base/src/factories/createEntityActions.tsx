@@ -123,9 +123,11 @@ export function createEntityActions<TEntity extends { id: string; name: string }
     } = config
 
     // Default i18n key patterns
-    const editTitleKey = i18nKeys.editTitle || `${i18nPrefix}.editTitle`
-    const confirmDeleteKey = i18nKeys.confirmDelete || `${i18nPrefix}.confirmDelete`
-    const confirmDeleteDescKey = i18nKeys.confirmDeleteDescription || `${i18nPrefix}.confirmDeleteDescription`
+    // Keys should be relative to the namespace (no prefix)
+    // When namespace='clusters', t('editTitle') resolves to 'clusters:editTitle'
+    const editTitleKey = i18nKeys.editTitle || `editTitle`
+    const confirmDeleteKey = i18nKeys.confirmDelete || `confirmDelete`
+    const confirmDeleteDescKey = i18nKeys.confirmDeleteDescription || `confirmDeleteDescription`
 
     type ExtendedActionContext = ActionContext<TEntity, TFormData> & {
         helpers?: ActionContext<TEntity, TFormData>['helpers'] & {

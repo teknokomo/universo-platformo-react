@@ -6,6 +6,66 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-01-14: PR #545 QA Fixes Implementation ✅
+All critical and code quality issues from bot reviewers (Copilot, Gemini, ChatGPT Codex) resolved:
+- [x] **CRITICAL**: Fixed ensureDomainAccess M2M security vulnerability (findOne → find)
+- [x] **HIGH**: Cleaned devDependencies in clusters-frt (51 → 19 packages)
+- [x] **MEDIUM**: Removed debug console.log from ClusterList
+- [x] **LOW**: Removed unused getClustersRateLimiters import
+- [x] **LOW**: Removed unused authUserRepo variable from test
+- [x] **LOW**: Added response.body.data validation to test
+- [x] **LOW**: Fixed all prettier formatting issues
+- [x] **LOW**: Fixed unused useEffect import
+- [x] Build verification: Both clusters-srv and clusters-frt build successfully
+- [x] Lint verification: No errors, 2 minor warnings (unused test variable, React Hook deps)
+- [ ] Browser testing (USER): Verify multi-cluster domain access works correctly
+
+### 2025-11-14: AuthUser Entity Migration & Build Fix ✅
+- [x] Create database/entities structure in auth-srv
+- [x] Move AuthUser entity from uniks-srv to auth-srv
+- [x] Update all imports in uniks-srv, metaverses-srv, clusters-srv
+- [x] Update flowise-server to import AuthUser from @universo/auth-srv
+- [x] Remove duplicate AuthUser files from all services
+- [x] **FIX: Replace tsdown with tsc in auth-srv** (decorator syntax errors)
+- [x] **FIX: Add experimentalDecorators/emitDecoratorMetadata to tsconfig**
+- [x] Build all affected packages (auth-srv, uniks-srv, metaverses-srv, clusters-srv, flowise)
+- [x] Verify no TypeScript errors
+- [x] Verify server starts without "Invalid or unexpected token" error
+- [ ] Browser verification (USER):
+  - Test Metaverses dashboard loads without 500 error
+  - Test Clusters dashboard loads without 500 error
+  - Test Uniks dashboard loads correctly
+  - Verify member lists display properly in all three
+
+### 2025-11-14: Cluster Breadcrumbs Implementation ✅
+- [x] Create useClusterName hook with fetch from `/api/v1/clusters/:id`
+- [x] Add Map-based caching for cluster names
+- [x] Add truncateClusterName helper (30 char limit)
+- [x] Export useClusterName from hooks/index.ts
+- [x] Update NavbarBreadcrumbs with cluster context detection
+- [x] Add cluster breadcrumb rendering logic (3 sub-pages: access, resources, domains)
+- [x] Build @universo/template-mui package (✅ 3203.41 kB CJS, 271.88 kB ESM)
+- [x] Build flowise-ui package (✅ 1m 10s)
+- [x] Full workspace build (✅ 32/32 tasks successful, 3m 35s)
+- [ ] Browser verification (USER):
+  - Navigate to `/clusters/:id` and verify breadcrumbs: Clusters → [ClusterName]
+  - Navigate to `/clusters/:id/resources` and verify: Clusters → [ClusterName] → Resources
+  - Navigate to `/clusters/:id/domains` and verify: Clusters → [ClusterName] → Domains
+  - Navigate to `/clusters/:id/access` and verify: Clusters → [ClusterName] → Access
+  - Test long cluster names (verify truncation at 30 chars)
+  - Verify Name column displays in all entity lists
+
+### 2025-11-13: Clusters/Metaverses UI Improvements ✅
+- [x] Add "Название" (Name) column as first column in Clusters/Metaverses tables
+- [x] Fix "columns.actions" translation key (added to common.json)
+- [x] Fix delete/edit dialog translation keys (removed i18nPrefix from keys)
+- [x] Rebuild affected packages (template-mui, clusters-frt, metaverses-frt, i18n)
+- [ ] Browser verification (USER): 
+  - Check Clusters/Metaverses tables show Name column first
+  - Verify "Действия" column shows correct translation (not key)
+  - Test delete dialog shows proper Russian text
+  - Test edit dialog shows proper Russian title
+
 ### i18n Residual Keys – TemplateSelect, SpeechToText, Space Builder
 - [x] R1: TemplateSelect (PlayCanvas) namespace registration
 - [x] R2: SpeechToText namespace binding cleanup

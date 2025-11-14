@@ -4,22 +4,14 @@
         "description": "Passport.js + Supabase session toolkit for Universo Platformo",
         "private": true,
         "main": "dist/index.js",
-        "module": "dist/index.mjs",
         "types": "dist/index.d.ts",
-        "exports": {
-                ".": {
-                        "types": "./dist/index.d.ts",
-                        "import": "./dist/index.mjs",
-                        "require": "./dist/index.js"
-                }
-        },
         "engines": {
                 "node": ">=18.15.0 <19 || >=20"
         },
         "scripts": {
                 "clean": "rimraf dist",
-                "build": "tsdown",
-                "dev": "tsdown --watch",
+                "build": "pnpm run clean && tsc",
+                "dev": "tsc -w",
                 "lint": "eslint --ext .ts src"
         },
         "dependencies": {
@@ -42,7 +34,6 @@
                 "@types/passport": "^1.0.16",
                 "@types/passport-local": "^1.0.38",
                 "rimraf": "^5.0.5",
-                "tsdown": "catalog:",
                 "typescript": "catalog:"
         }
 }

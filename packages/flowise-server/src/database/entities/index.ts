@@ -10,15 +10,21 @@ import { Lead } from './Lead'
 import { UpsertHistory } from './UpsertHistory'
 import { ApiKey } from './ApiKey'
 import { CustomTemplate } from './CustomTemplate'
-import { Unik, UnikUser, AuthUser } from '@universo/uniks-srv'
+import { Unik, UnikUser } from '@universo/uniks-srv'
+import { AuthUser } from '@universo/auth-srv'
 import { Profile } from '@universo/profile-srv'
 import { metaversesEntities } from '@universo/metaverses-srv'
+import { clustersEntities } from '@universo/clusters-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
 import { PublishCanvas } from '@universo/publish-srv'
 
 // TypeORM entities here are constructor functions/classes; we only need their names and references
 const metaversesEntitiesObject = Object.fromEntries(
   metaversesEntities.map((entity) => [entity.name, entity])
+)
+
+const clustersEntitiesObject = Object.fromEntries(
+  clustersEntities.map((entity) => [entity.name, entity])
 )
 
 export const entities = {
@@ -36,6 +42,8 @@ export const entities = {
   CustomTemplate,
   // Metaverses service entities
   ...metaversesEntitiesObject,
+  // Clusters service entities
+  ...clustersEntitiesObject,
   // Uniks entities
   Unik,
   UnikUser,

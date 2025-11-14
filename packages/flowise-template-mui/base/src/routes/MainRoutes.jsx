@@ -68,10 +68,6 @@ const MainRoutes = {
     children: [
         // Legacy metaverses subtree removed. New routes are provided by MainRoutesMUI from @universo/template-mui.
         {
-            path: 'clusters/:clusterId/*',
-            element: <Navigate to="/" replace />
-        },
-        {
             path: 'admin',
             element: <AdminPanel />
         },

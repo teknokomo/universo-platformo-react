@@ -1,10 +1,19 @@
 {
   "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
     "baseUrl": "./",
     "paths": {
       "@testing/backend/*": ["tools/testing/backend/*"],
       "@testing/frontend": ["tools/testing/frontend/index.ts"],
       "@testing/frontend/*": ["tools/testing/frontend/*"]
-    }
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "resolveJsonModule": true
   }
 }

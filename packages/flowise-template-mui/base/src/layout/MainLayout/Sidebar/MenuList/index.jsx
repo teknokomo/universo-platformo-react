@@ -5,14 +5,19 @@ import NavGroup from './NavGroup'
 import dashboard from '../../../../menu-items/dashboard'
 import unikDashboard from '@universo/uniks-frt/menu-items/unikDashboard'
 import { metaversesDashboard } from '@universo/metaverses-frt'
+import { clustersDashboard } from '@universo/clusters-frt'
 
 const MenuList = () => {
     const location = useLocation()
     const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = metaverseMatch ? metaverseMatch[1] : null
+    const clusterMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
+    const clusterId = clusterMatch ? clusterMatch[1] : null
     const [metaversePermissions, setMetaversePermissions] = useState({})
+    const [clusterPermissions, setClusterPermissions] = useState({})
     const knownMetaversePermission = metaverseId ? metaversePermissions[metaverseId] : undefined
+    const knownClusterPermission = clusterId ? clusterPermissions[clusterId] : undefined
 
     useEffect(() => {
         if (!metaverseId) {
@@ -57,6 +62,48 @@ const MenuList = () => {
         }
     }, [metaverseId, knownMetaversePermission])
 
+    useEffect(() => {
+        if (!clusterId) {
+            return
+        }
+        if (knownClusterPermission !== undefined) {
+            return
+        }
+
+        let isActive = true
+
+        const fetchPermissions = async () => {
+            try {
+                const response = await api.$client.get(`/clusters/${clusterId}`)
+
+                if (!isActive) return
+
+                setClusterPermissions((prev) => ({
+                    ...prev,
+                    [clusterId]: Boolean(response?.data?.permissions?.manageMembers)
+                }))
+            } catch (error) {
+                if (!isActive) return
+
+                console.error('Failed to load cluster permissions', {
+                    clusterId,
+                    error
+                })
+
+                setClusterPermissions((prev) => ({
+                    ...prev,
+                    [clusterId]: false
+                }))
+            }
+        }
+
+        fetchPermissions()
+
+        return () => {
+            isActive = false
+        }
+    }, [clusterId, knownClusterPermission])
+
     let menuItems
     if (unikMatch) {
         const unikId = unikMatch[1]
@@ -87,6 +134,26 @@ const MenuList = () => {
             children: filteredChildren.map((item) => ({
                 ...item,
                 url: `/metaverses/${metaverseId}${item.url}`
+            }))
+        }
+    } else if (clusterMatch && clusterId) {
+        const filteredChildren = clustersDashboard.children.filter((item) => {
+            if (item.id !== 'access') {
+                return true
+            }
+
+            if (knownClusterPermission === undefined) {
+                return true
+            }
+
+            return Boolean(knownClusterPermission)
+        })
+
+        menuItems = {
+            ...clustersDashboard,
+            children: filteredChildren.map((item) => ({
+                ...item,
+                url: `/clusters/${clusterId}${item.url}`
             }))
         }
     } else {

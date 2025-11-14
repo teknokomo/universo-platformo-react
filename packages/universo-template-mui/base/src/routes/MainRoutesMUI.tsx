@@ -5,6 +5,7 @@ import { Outlet } from 'react-router-dom'
 // Ensures namespaces are registered before route components try to use translations
 import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
+import '@universo/clusters-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
 
@@ -52,6 +53,19 @@ const EntityList = Loadable(lazy(() => import('@universo/metaverses-frt/pages/En
 const MetaverseMembers = Loadable(lazy(() => import('@universo/metaverses-frt/pages/MetaverseMembers')))
 // Removed: SectionDetail, EntityDetail (old implementations deleted during cleanup)
 // Removed: ClusterList from @universo/resources-frt (package deleted)
+
+// Cluster module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ClusterList = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ClusterBoard = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const DomainList = Loadable(lazy(() => import('@universo/clusters-frt/pages/DomainList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ResourceList = Loadable(lazy(() => import('@universo/clusters-frt/pages/ResourceList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ClusterMembers = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterMembers')))
+
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile.jsx')))
 
 // Main routes configuration object
@@ -268,6 +282,77 @@ const MainRoutesMUI = {
             element: (
                 <AuthGuard>
                     <EntityList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'clusters',
+            element: <Outlet />, // ← CRITICAL: Required for nested routes to render children
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <ClusterList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':clusterId',
+                    element: (
+                        <AuthGuard>
+                            <ClusterBoard />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':clusterId/members',
+                    element: (
+                        <AuthGuard>
+                            <ClusterMembers />
+                        </AuthGuard>
+                    )
+                },
+                // Nested lists inside a specific cluster
+                {
+                    path: ':clusterId/resources',
+                    element: (
+                        <AuthGuard>
+                            <ResourceList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':clusterId/domains',
+                    element: (
+                        <AuthGuard>
+                            <DomainList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':clusterId/access',
+                    element: (
+                        <AuthGuard>
+                            <ClusterMembers />
+                        </AuthGuard>
+                    )
+                }
+            ]
+        },
+        {
+            path: 'domains',
+            element: (
+                <AuthGuard>
+                    <DomainList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'resources',
+            element: (
+                <AuthGuard>
+                    <ResourceList />
                 </AuthGuard>
             )
         },

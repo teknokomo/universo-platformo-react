@@ -23,6 +23,96 @@
 
 ## November 2025 (Latest)
 
+### 2025-01-14: PR #545 QA Fixes Implementation ✅
+**Problem**: Three AI bot reviewers (GitHub Copilot, Gemini Code Assist, ChatGPT Codex Connector) identified 8 issues in PR #545:
+1. **CRITICAL**: ensureDomainAccess() using findOne() instead of find() for M2M relationships
+2. **HIGH**: clusters-frt package.json with 51 devDependencies (30+ unused)
+3. **MEDIUM**: Production debug console.log in ClusterList.tsx
+4. **LOW**: Unused imports, variables, missing test assertions
+
+**Security Impact**: ensureDomainAccess vulnerability allowed users with legitimate access to domains via secondary clusters to be incorrectly denied access (403 errors) because findOne() returned only the first domain-cluster link from junction table.
+
+**Implementation** (8 fixes + verification):
+1. **CRITICAL FIX - ensureDomainAccess M2M Support**:
+   - File: `packages/clusters-srv/base/src/routes/guards.ts` (lines 103-137)
+   - Changed `findOne()` → `find()` to retrieve ALL domain-cluster links
+   - Added iteration loop: tries each cluster until finding one with user membership
+   - Returns first successful cluster context or throws 403 after exhausting all options
+   - **Before**: `const domainCluster = await domainClusterRepo.findOne(...)`
+   - **After**: `const domainClusters = await domainClusterRepo.find(...); for (const domainCluster of domainClusters) { try { ... } catch { continue } }`
+   - **Security Test**: ensureResourceAccess already handled M2M correctly (verified)
+
+2. **HIGH PRIORITY - devDependencies Cleanup**:
+   - File: `packages/clusters-frt/base/package.json`
+   - Reduced from 51 to 19 devDependencies (~200-300 MB savings)
+   - **Removed 32 packages**: react-redux, reactflow, flowise-react-json-view, react-syntax-highlighter, react-markdown, react-datepicker, react-color, framer-motion, react-perfect-scrollbar, html-react-parser, use-debounce, i18next-browser-languagedetector, dayjs, react-code-blocks, @mui/x-data-grid*, @mui/x-date-pickers*, @mui/x-tree-view (duplicate), codemirror suite (7 pkgs)
+   - **Kept 19 essential**: testing libraries (@testing-library/*, vitest, msw, jest-axe, axe-core), build tools (tsdown, rimraf, eslint), form validation (react-hook-form, zod, @hookform/resolvers), Material-UI icons, React Query, notistack, react-router-dom
+
+3. **MEDIUM PRIORITY - Debug Log Removal**:
+   - File: `packages/clusters-frt/base/src/pages/ClusterList.tsx` (deleted lines 79-99)
+   - Removed entire 21-line useEffect block with console.log tracking 8 pagination fields
+   - Cleaned 8-item dependency array
+
+4. **LOW PRIORITY - Code Quality Fixes**:
+   - **Unused import**: `packages/flowise-server/src/routes/index.ts` - removed `getClustersRateLimiters`
+   - **Unused variable**: `packages/clusters-srv/base/src/tests/routes/clustersRoutes.test.ts:320` - removed `authUserRepo`
+   - **Test assertion**: Same file line 740 - added `expect(response.body.data).toBeDefined()`
+   - **Prettier formatting**: Auto-fixed 12 formatting issues (whitespace, line breaks) across guards.ts, domainsRoutes.ts, clustersRoutes.test.ts
+   - **Unused imports**: ClusterList.tsx - removed useEffect from imports, renamed unused searchValue to _searchValue
+
+**Build & Lint Verification**:
+- clusters-srv: ✅ Build successful, lint clean (1 warning: unused options param in test mock)
+- clusters-frt: ✅ Build successful (tsdown 4217ms), lint clean (1 warning: React Hook deps)
+- pnpm install: ✅ Completed (2m 13s), 47 peer dependency warnings (acceptable)
+
+**Deferred Work** (Architectural Changes - Separate PR Recommended):
+- **HIGH PRIORITY** (4-6 hours): Refactor useApi → useMutation throughout clusters-frt for React Query consistency
+- **MEDIUM PRIORITY** (1 hour): Migrate useClusterName from raw fetch() to shared @universo/api-client
+
+**Testing Status**:
+- Unit tests: SKIPPED (Jest configuration issue with TypeORM decorators - requires root tsconfig.json fix)
+- Build tests: ✅ PASSED (both packages compile without errors)
+- Lint tests: ✅ PASSED (no errors, 2 acceptable warnings)
+- Browser tests: ⏳ PENDING USER (verify multi-cluster domain access works correctly)
+
+**Technical Debt Identified**:
+- Root `tsconfig.json` missing `experimentalDecorators` and `emitDecoratorMetadata` (breaks Jest for TypeORM entities)
+- Consider upgrading to newer TypeScript eslint version (currently 5.8.3 vs supported <5.2.0)
+
+### 2025-11-14: Cluster Breadcrumbs Implementation ✅
+**Problem**: Breadcrumbs navigation working for Metaverses (`/metaverses/:id/entities`) but missing for Clusters (`/clusters/:id/resources`). No cluster name displayed in navigation path.
+
+**Solution**: Implemented cluster breadcrumbs following same pattern as Metaverses:
+1. **Custom Hook**: Created `useClusterName.ts` hook:
+   - Fetches cluster name from `/api/v1/clusters/:id` endpoint
+   - Implements Map-based in-memory caching (same as useMetaverseName)
+   - Includes `truncateClusterName()` helper for long names (30 char max + ellipsis)
+   - Returns `string | null` with proper loading state handling
+
+2. **Breadcrumbs Update**: Modified `NavbarBreadcrumbs.tsx`:
+   - Added cluster context extraction: `const clusterIdMatch = location.pathname.match(/^\/clusters\/([^/]+)/)`
+   - Added `useClusterName(clusterId)` hook call
+   - Implemented cluster breadcrumb logic with 3 sub-pages:
+     - `/clusters/:id` → Clusters → [ClusterName]
+     - `/clusters/:id/access` → Clusters → [ClusterName] → Access
+     - `/clusters/:id/resources` → Clusters → [ClusterName] → Resources
+     - `/clusters/:id/domains` → Clusters → [ClusterName] → Domains
+
+3. **Export Management**: Updated `/packages/universo-template-mui/base/src/hooks/index.ts` with `useClusterName` export
+
+**Build Results**:
+- @universo/template-mui: ✅ 3203.41 kB CJS, 271.88 kB ESM (1285ms)
+- flowise-ui: ✅ 1m 10s compilation
+- Full workspace: ✅ 32/32 tasks successful (3m 35s)
+
+**Pattern Consistency**: Clusters now have same breadcrumb functionality as Metaverses (name display, truncation, sub-page navigation)
+
+**Browser Testing Required**:
+- Navigate to cluster pages and verify breadcrumbs display with actual cluster names
+- Test truncation for long cluster names
+- Verify all sub-pages (access, resources, domains) show correct breadcrumb paths
+- Confirm Name column visible in all entity lists (Domains, Resources, Sections, Entities)
+
 ### 2025-01-13: UnikBoard Dashboard Refactoring ✅
 **Problem**: UnikBoard showed only 3 metric cards (Spaces, Tools, Members). User requested expansion with 4 additional metrics: Credentials, Variables, API Keys, Document Stores. Dashboard layout needed reorganization from 2 rows to 3 rows to accommodate 7 small cards plus existing documentation card and 2 large demo charts.
 

@@ -125,9 +125,27 @@ const SectionList = () => {
     const sectionColumns = useMemo(
         () => [
             {
+                id: 'name',
+                label: tc('table.name', 'Name'),
+                width: '20%',
+                align: 'left',
+                render: (row: Section) => (
+                    <Typography
+                        sx={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word'
+                        }}
+                    >
+                        {row.name || '—'}
+                    </Typography>
+                )
+            },
+            {
                 id: 'description',
                 label: tc('table.description', 'Description'),
-                width: '50%',
+                width: '40%',
                 align: 'left',
                 render: (row: Section) => (
                     <Typography

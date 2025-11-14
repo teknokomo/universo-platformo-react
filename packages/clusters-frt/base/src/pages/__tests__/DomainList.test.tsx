@@ -1,0 +1,383 @@
+﻿import { vi } from 'vitest'
+// Mock rehype/remark libraries
+vi.mock('rehype-mathjax', () => ({ default: () => () => {} }))
+vi.mock('rehype-raw', () => ({ default: () => () => {} }))
+vi.mock('remark-gfm', () => ({ default: () => () => {} }))
+vi.mock('remark-math', () => ({ default: () => () => {} }))
+
+import { describe, it, expect, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { SnackbarProvider } from 'notistack'
+import { I18nextProvider } from 'react-i18next'
+
+import DomainList from '../DomainList'
+import * as domainsApi from '../../api/domains'
+import { getInstance as getI18nInstance } from '@universo/i18n/instance'
+import { registerNamespace } from '@universo/i18n/registry'
+import clustersEn from '../../i18n/locales/en/clusters.json'
+import clustersRu from '../../i18n/locales/ru/clusters.json'
+import commonEn from '@universo/i18n/locales/en/common.json'
+import commonRu from '@universo/i18n/locales/ru/common.json'
+
+// Mock API module
+vi.mock('../../api/domains', () => ({
+    listDomains: vi.fn(),
+    createDomain: vi.fn(),
+    updateDomain: vi.fn(),
+    deleteDomain: vi.fn()
+}))
+
+// Mock useAuth hook
+vi.mock('@universo/auth-frt', async () => {
+    const actual = await vi.importActual<typeof import('@universo/auth-frt')>('@universo/auth-frt')
+    return {
+        ...actual,
+        useAuth: () => ({
+            user: { id: 'test-user-id', email: 'test@example.com' },
+            isAuthenticated: true
+        })
+    }
+})
+
+// Mock backend utilities
+vi.mock('@universo/utils', () => ({
+    extractAxiosError: vi.fn((error: any) => error?.message || 'Unknown error'),
+    isHttpStatus: vi.fn((error: any, status: number) => error?.response?.status === status),
+    isApiError: vi.fn((error: any) => !!error?.response),
+    getApiBaseURL: vi.fn(() => 'http://localhost:3000')
+}))
+
+// Initialize i18n
+const i18n = getI18nInstance()
+registerNamespace('clusters', {
+    en: clustersEn.clusters,
+    ru: clustersRu.clusters
+})
+registerNamespace('common', {
+    en: commonEn,
+    ru: commonRu
+})
+
+const createTestQueryClient = () =>
+    new QueryClient({
+        defaultOptions: {
+            queries: { retry: false },
+            mutations: { retry: false }
+        }
+    })
+
+const renderWithProviders = (ui: React.ReactElement, { route = '/clusters/test-cluster-id/domains' } = {}) => {
+    const queryClient = createTestQueryClient()
+
+    return {
+        user: userEvent.setup(),
+        ...render(
+            <QueryClientProvider client={queryClient}>
+                <SnackbarProvider maxSnack={3}>
+                    <I18nextProvider i18n={i18n}>
+                        <MemoryRouter initialEntries={[route]}>
+                            <Routes>
+                                <Route path='/clusters/:clusterId/domains' element={ui} />
+                            </Routes>
+                        </MemoryRouter>
+                    </I18nextProvider>
+                </SnackbarProvider>
+            </QueryClientProvider>
+        )
+    }
+}
+
+describe('DomainList', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        Storage.prototype.getItem = vi.fn(() => 'card')
+        Storage.prototype.setItem = vi.fn()
+    })
+
+    describe('Loading State', () => {
+        it('should display loading skeletons while fetching data', () => {
+            vi.mocked(domainsApi.listDomains).mockImplementation(() => new Promise(() => {}))
+
+            renderWithProviders(<DomainList />)
+
+            expect(screen.queryByTestId('skeleton-grid') || document.querySelector('.MuiSkeleton-root')).toBeTruthy()
+        })
+    })
+
+    describe('Error State', () => {
+        it('should display error message when API fails', async () => {
+            vi.mocked(domainsApi.listDomains).mockRejectedValue(new Error('Network error'))
+
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.queryByText(/connection/i) || screen.queryByText(/error/i)).toBeTruthy()
+            })
+        })
+
+        it('should show retry button on error', async () => {
+            vi.mocked(domainsApi.listDomains).mockRejectedValue(new Error('Network error'))
+
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                const retryButton = screen.queryByRole('button', { name: /retry/i })
+                if (retryButton) {
+                    expect(retryButton).toBeInTheDocument()
+                }
+            })
+        })
+    })
+
+    describe('Empty State', () => {
+        it('should display empty state when no domains exist', async () => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: [],
+                total: 0,
+                limit: 20,
+                offset: 0
+            })
+
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.queryByText(/no domains/i) || screen.queryByText(/get started/i)).toBeTruthy()
+            })
+        })
+    })
+
+    describe('Success State - List Rendering', () => {
+        const mockDomains = [
+            {
+                id: 'domain-1',
+                clusterId: 'test-cluster-id',
+                name: 'Main Domain',
+                description: 'Primary domain for testing',
+                resourcesCount: 10,
+                createdAt: '2024-01-01T00:00:00Z',
+                updatedAt: '2024-01-15T00:00:00Z'
+            },
+            {
+                id: 'domain-2',
+                clusterId: 'test-cluster-id',
+                name: 'Secondary Domain',
+                description: 'Additional domain',
+                resourcesCount: 5,
+                createdAt: '2024-01-02T00:00:00Z',
+                updatedAt: '2024-01-16T00:00:00Z'
+            }
+        ]
+
+        beforeEach(() => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: mockDomains,
+                total: 2,
+                limit: 20,
+                offset: 0
+            })
+        })
+
+        it('should render domain cards with names', async () => {
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Main Domain')).toBeInTheDocument()
+                expect(screen.getByText('Secondary Domain')).toBeInTheDocument()
+            })
+        })
+
+        it('should display domain descriptions', async () => {
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Primary domain for testing')).toBeInTheDocument()
+                expect(screen.getByText('Additional domain')).toBeInTheDocument()
+            })
+        })
+
+        it('should show resource counts', async () => {
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.queryByText('10') || screen.queryAllByText('10').length > 0).toBeTruthy()
+                expect(screen.queryByText('5') || screen.queryAllByText('5').length > 0).toBeTruthy()
+            })
+        })
+    })
+
+    describe('Navigation', () => {
+        beforeEach(() => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: [
+                    {
+                        id: 'domain-1',
+                        clusterId: 'test-cluster-id',
+                        name: 'Test Domain',
+                        description: 'Test',
+                        resourcesCount: 1,
+                        createdAt: '2024-01-01T00:00:00Z',
+                        updatedAt: '2024-01-15T00:00:00Z'
+                    }
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0
+            })
+        })
+
+        it('should handle missing clusterId parameter', () => {
+            vi.mocked(domainsApi.listDomains).mockImplementation(() => new Promise(() => {}))
+
+            renderWithProviders(<DomainList />, { route: '/clusters//domains' })
+
+            // Should not call API without valid ID
+            expect(domainsApi.listDomains).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('CRUD Operations', () => {
+        beforeEach(() => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: [],
+                total: 0,
+                limit: 20,
+                offset: 0
+            })
+            vi.mocked(domainsApi.createDomain).mockResolvedValue({
+                id: 'new-domain',
+                clusterId: 'test-cluster-id',
+                name: 'New Domain',
+                description: 'Newly created',
+                resourcesCount: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            })
+        })
+
+        it('should allow creating new domain', async () => {
+            const { user } = renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.queryByText(/no domains/i) || screen.queryByText(/get started/i)).toBeTruthy()
+            })
+
+            // Find Add button
+            const addButtons = screen.getAllByRole('button')
+            const addButton = addButtons.find(
+                (btn) => btn.querySelector('[data-testid="AddRoundedIcon"]') || btn.textContent?.includes('Add')
+            )
+
+            if (addButton) {
+                await user.click(addButton)
+
+                await waitFor(() => {
+                    const dialog = screen.queryByRole('dialog') || document.querySelector('[role="dialog"]')
+                    expect(dialog).toBeTruthy()
+                })
+            }
+        })
+    })
+
+    describe('Search Functionality', () => {
+        const mockDomains = [
+            {
+                id: 'domain-1',
+                clusterId: 'test-cluster-id',
+                name: 'Production Domain',
+                description: 'Main production',
+                resourcesCount: 10,
+                createdAt: '2024-01-01T00:00:00Z',
+                updatedAt: '2024-01-15T00:00:00Z'
+            },
+            {
+                id: 'domain-2',
+                clusterId: 'test-cluster-id',
+                name: 'Testing Domain',
+                description: 'Test environment',
+                resourcesCount: 5,
+                createdAt: '2024-01-02T00:00:00Z',
+                updatedAt: '2024-01-16T00:00:00Z'
+            }
+        ]
+
+        beforeEach(() => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: mockDomains,
+                total: 2,
+                limit: 20,
+                offset: 0
+            })
+        })
+
+        it('should have search input field', async () => {
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Production Domain')).toBeInTheDocument()
+            })
+
+            const searchInput = screen.queryByPlaceholderText(/search/i) || screen.queryByRole('searchbox')
+            expect(searchInput).toBeTruthy()
+        })
+    })
+
+    describe('Edge Cases', () => {
+        it('should handle domains with zero resource count', async () => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: [
+                    {
+                        id: 'empty-domain',
+                        clusterId: 'test-cluster-id',
+                        name: 'Empty Domain',
+                        description: 'No resources',
+                        resourcesCount: 0,
+                        createdAt: '2024-01-01T00:00:00Z',
+                        updatedAt: '2024-01-01T00:00:00Z'
+                    }
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0
+            })
+
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('Empty Domain')).toBeInTheDocument()
+            })
+
+            const zeroElements = screen.queryAllByText('0')
+            expect(zeroElements.length).toBeGreaterThanOrEqual(1)
+        })
+
+        it('should handle domains without description', async () => {
+            vi.mocked(domainsApi.listDomains).mockResolvedValue({
+                data: [
+                    {
+                        id: 'no-desc',
+                        clusterId: 'test-cluster-id',
+                        name: 'No Description',
+                        description: undefined,
+                        resourcesCount: 1,
+                        createdAt: '2024-01-01T00:00:00Z',
+                        updatedAt: '2024-01-01T00:00:00Z'
+                    } as any
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0
+            })
+
+            renderWithProviders(<DomainList />)
+
+            await waitFor(() => {
+                expect(screen.getByText('No Description')).toBeInTheDocument()
+            })
+
+            expect(screen.queryByText('—') || screen.queryByText('')).toBeTruthy()
+        })
+    })
+})

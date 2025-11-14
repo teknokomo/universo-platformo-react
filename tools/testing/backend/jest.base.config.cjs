@@ -12,11 +12,14 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
+  setupFiles: [path.join(__dirname, 'setupFiles.ts')],
   setupFilesAfterEnv: [path.join(__dirname, 'setupAfterEnv.ts')],
   testMatch: ['**/__tests__/**/*.test.[tj]s?(x)', '**/?(*.)+(spec|test).[tj]s?(x)'],
   moduleNameMapper: {
     '^@testing/backend/(.*)$': path.join(__dirname, '$1'),
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@universo/auth-srv$': path.join(repoRoot, 'packages/auth-srv/base/dist/index.js'),
+    '^@universo/auth-srv/(.*)$': path.join(repoRoot, 'packages/auth-srv/base/dist/$1')
   },
   collectCoverageFrom: [
     '<rootDir>/src/**/*.{ts,tsx}',
@@ -28,8 +31,15 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'cobertura'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: path.join(repoRoot, 'tsconfig.json'),
+      tsconfig: path.join(repoRoot, 'tsconfig.test.json'),
       isolatedModules: true
     }]
-  }
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!@universo)',
+    'packages/.*/base/dist'
+  ],
+  modulePathIgnorePatterns: [
+    '<rootDir>/dist'
+  ]
 }

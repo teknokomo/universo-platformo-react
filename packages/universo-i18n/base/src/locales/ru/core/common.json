@@ -101,8 +101,18 @@
       "role": "Роль",
       "sections": "Секции",
       "entities": "Сущности",
+      "domains": "Домены",
+      "resources": "Ресурсы",
       "added": "Добавлен",
       "email": "Email"
+    },
+    "columns": {
+      "actions": "Действия",
+      "name": "Название",
+      "category": "Категория",
+      "nodes": "Узлы",
+      "spaces": "Пространства",
+      "lastModified": "Дата изменения"
     },
     "dialog": {
       "title": "Название",

@@ -284,9 +284,56 @@ export class AddMetaversesSectionsEntities1730600000000 implements MigrationInte
             CREATE INDEX IF NOT EXISTS idx_metaverse_description_lower 
             ON metaverses.metaverses (LOWER("description"))
         `)
+
+        // Full-text search indexes for sections
+        await queryRunner.query(`
+            CREATE INDEX idx_sections_name_fts 
+            ON metaverses.sections 
+            USING GIN (to_tsvector('english', name))
+        `)
+
+        await queryRunner.query(`
+            CREATE INDEX idx_sections_description_fts 
+            ON metaverses.sections 
+            USING GIN (to_tsvector('english', description))
+        `)
+
+        // Full-text search indexes for entities
+        await queryRunner.query(`
+            CREATE INDEX idx_entities_name_fts 
+            ON metaverses.entities 
+            USING GIN (to_tsvector('english', name))
+        `)
+
+        await queryRunner.query(`
+            CREATE INDEX idx_entities_description_fts 
+            ON metaverses.entities 
+            USING GIN (to_tsvector('english', description))
+        `)
+
+        // Combined full-text search indexes
+        await queryRunner.query(`
+            CREATE INDEX idx_sections_combined_fts 
+            ON metaverses.sections 
+            USING GIN (to_tsvector('english', COALESCE(name, '') || ' ' || COALESCE(description, '')))
+        `)
+
+        await queryRunner.query(`
+            CREATE INDEX idx_entities_combined_fts 
+            ON metaverses.entities 
+            USING GIN (to_tsvector('english', COALESCE(name, '') || ' ' || COALESCE(description, '')))
+        `)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        // Drop full-text search indexes
+        await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_entities_combined_fts`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_sections_combined_fts`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_entities_description_fts`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_entities_name_fts`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_sections_description_fts`)
+        await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_sections_name_fts`)
+
         // Drop search indexes
         await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_metaverse_description_lower`)
         await queryRunner.query(`DROP INDEX IF EXISTS metaverses.idx_metaverse_name_lower`)
