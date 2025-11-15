@@ -1,6 +1,6 @@
 import { Router, Request, Response, RequestHandler, NextFunction } from 'express'
 import { DataSource, In } from 'typeorm'
-import { z } from 'zod'
+import { z, ZodError } from 'zod'
 import type { RequestWithDbContext } from '@universo/auth-srv'
 import { AuthUser } from '@universo/auth-srv'
 import { Unik } from '../database/entities/Unik'
@@ -272,7 +272,7 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 res.json(response)
             } catch (error) {
                 // Handle Zod validation errors
-                if (error instanceof z.ZodError) {
+                if (error instanceof ZodError) {
                     return res.status(400).json({
                         error: 'Invalid query parameters',
                         details: error.errors.map((e) => ({
