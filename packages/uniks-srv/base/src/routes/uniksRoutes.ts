@@ -782,7 +782,6 @@ export function createUniksRouter(
                 return
             }
 
-            // Load user email and profile (using dataSource from line 672)
             const user = await dataSource.manager.findOne(AuthUser, { where: { id: membership.user_id } })
             const profile = await dataSource.manager.findOne(Profile, { where: { user_id: membership.user_id } })
 
