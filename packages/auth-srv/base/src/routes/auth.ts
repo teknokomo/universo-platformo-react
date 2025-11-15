@@ -94,8 +94,9 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter) =>
             const supa = getSupabaseForReq(request)
             await supa.auth.setSession({ access_token: tokens.access, refresh_token: tokens.refresh })
             await supa.auth.signOut()
-        } catch {
-            // Ignore signout errors
+        } catch (e) {
+            // Log the error for debugging, but don't block the user logout.
+            console.error('[auth] Supabase signOut failed, proceeding with local logout', e);
         }
         request.logout(() => request.session?.destroy?.(() => res.json({ success: true })))
     })
