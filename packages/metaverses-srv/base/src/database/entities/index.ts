@@ -6,6 +6,14 @@ import { Entity } from './Entity'
 import { EntityMetaverse } from './EntityMetaverse'
 import { EntitySection } from './EntitySection'
 
-export const metaversesEntities = [Metaverse, MetaverseUser, Section, SectionMetaverse, Entity, EntityMetaverse, EntitySection]
+export const metaversesEntities = [
+    Metaverse,
+    MetaverseUser,
+    Section,
+    SectionMetaverse,
+    Entity,
+    EntityMetaverse,
+    EntitySection
+]
 
 export { Metaverse, MetaverseUser, Section, SectionMetaverse, Entity, EntityMetaverse, EntitySection }
