@@ -9,3 +9,7 @@ export type { RequestWithDbContext, EnsureAuthWithRlsOptions } from './middlewar
 
 // Database entities
 export { AuthUser } from './database/entities'
+
+// Access guards
+export { createAccessGuards } from './guards'
+export type { AccessGuardsConfig, MembershipContext, RolePermission } from './guards'

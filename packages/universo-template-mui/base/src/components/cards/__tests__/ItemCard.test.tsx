@@ -2,11 +2,16 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { BrowserRouter } from 'react-router-dom'
 import { ItemCard, type ItemCardData } from '../ItemCard'
 
 const theme = createTheme()
 
-const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => <ThemeProvider theme={theme}>{children}</ThemeProvider>
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <BrowserRouter>
+        <ThemeProvider theme={theme}>{children}</ThemeProvider>
+    </BrowserRouter>
+)
 
 describe('ItemCard', () => {
     const mockData: ItemCardData = {
@@ -195,6 +200,73 @@ describe('ItemCard', () => {
             render(
                 <TestWrapper>
                     <ItemCard data={mockData} onClick={() => {}} />
+                </TestWrapper>
+            )
+
+            const card = screen.getByText('Test Item').closest('.MuiCard-root')
+            expect(card).toBeInTheDocument()
+        })
+    })
+
+    describe('Link Navigation (href)', () => {
+        it('should render as RouterLink when href is provided', () => {
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} href='/test-path' />
+                </TestWrapper>
+            )
+
+            const card = screen.getByText('Test Item').closest('a')
+            expect(card).toBeInTheDocument()
+            expect(card).toHaveAttribute('href', '/test-path')
+        })
+
+        it('should render as div when onClick is provided', () => {
+            const handleClick = jest.fn()
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} onClick={handleClick} />
+                </TestWrapper>
+            )
+
+            const card = screen.getByText('Test Item').closest('.MuiCard-root')
+            expect(card?.tagName.toLowerCase()).not.toBe('a')
+        })
+
+        it('should prioritize href over onClick when both provided', () => {
+            const handleClick = jest.fn()
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} href='/priority-test' onClick={handleClick} />
+                </TestWrapper>
+            )
+
+            const card = screen.getByText('Test Item').closest('a')
+            expect(card).toBeInTheDocument()
+            expect(card).toHaveAttribute('href', '/priority-test')
+        })
+
+        it('should not have onClick when href is provided', () => {
+            const handleClick = jest.fn()
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} href='/test-path' onClick={handleClick} />
+                </TestWrapper>
+            )
+
+            const card = screen.getByText('Test Item').closest('a')
+            if (card) {
+                fireEvent.click(card)
+            }
+
+            // onClick should not be called when href is present
+            expect(handleClick).not.toHaveBeenCalled()
+        })
+
+        it('should render without href or onClick', () => {
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} />
                 </TestWrapper>
             )
 

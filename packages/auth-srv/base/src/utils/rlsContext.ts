@@ -10,7 +10,7 @@ import { jwtVerify } from 'jose'
  */
 export async function applyRlsContext(runner: QueryRunner, accessToken: string): Promise<void> {
     console.log('[RLS:applyContext] Starting RLS context setup')
-    
+
     const secret = process.env.SUPABASE_JWT_SECRET
     if (!secret) {
         console.error('[RLS:applyContext] ❌ SUPABASE_JWT_SECRET environment variable is missing')
@@ -31,7 +31,7 @@ export async function applyRlsContext(runner: QueryRunner, accessToken: string):
 
         // Set PostgreSQL session variables for RLS
         // 1. Set role to 'authenticated' (matches Supabase RLS policies)
-        console.log('[RLS:applyContext] Executing: SET LOCAL role = \'authenticated\'')
+        console.log("[RLS:applyContext] Executing: SET LOCAL role = 'authenticated'")
         await runner.query(`SET LOCAL role = 'authenticated'`)
         console.log('[RLS:applyContext] ✅ Role set to authenticated')
 
@@ -39,7 +39,7 @@ export async function applyRlsContext(runner: QueryRunner, accessToken: string):
         console.log('[RLS:applyContext] Setting request.jwt.claims in PostgreSQL session')
         await runner.query(`SELECT set_config('request.jwt.claims', $1::text, true)`, [JSON.stringify(payload)])
         console.log('[RLS:applyContext] ✅ JWT claims configured in session')
-        
+
         console.log('[RLS:applyContext] ✅ RLS context fully applied')
     } catch (error) {
         console.error('[RLS:applyContext] ❌ Error during RLS context setup', {

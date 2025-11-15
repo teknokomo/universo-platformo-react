@@ -1,13 +1,14 @@
 import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { ClusterRole } from '@universo/types'
-
-// Handle both ESM and CJS imports
-const createError = (httpErrors as any).default || httpErrors
+import { createAccessGuards } from '@universo/auth-srv'
 import { ClusterUser } from '../database/entities/ClusterUser'
 import { DomainCluster } from '../database/entities/DomainCluster'
 import { ResourceDomain } from '../database/entities/ResourceDomain'
 import { ResourceCluster } from '../database/entities/ResourceCluster'
+
+// Handle both ESM and CJS imports
+const createError = (httpErrors as any).default || httpErrors
 
 // Re-export ClusterRole for convenience
 export type { ClusterRole }
@@ -52,25 +53,28 @@ export interface ClusterMembershipContext {
     clusterId: string
 }
 
-export async function getClusterMembership(ds: DataSource, userId: string, clusterId: string): Promise<ClusterUser | null> {
-    const repo = ds.getRepository(ClusterUser)
-    return repo.findOne({ where: { cluster_id: clusterId, user_id: userId } })
-}
+// Create base guards using generic factory from auth-srv
+const baseGuards = createAccessGuards<ClusterRole, ClusterUser>({
+    entityName: 'cluster',
+    roles: ['owner', 'admin', 'editor', 'member'] as const,
+    permissions: ROLE_PERMISSIONS,
+    getMembership: async (ds: DataSource, userId: string, clusterId: string) => {
+        const repo = ds.getRepository(ClusterUser)
+        return repo.findOne({ where: { cluster_id: clusterId, user_id: userId } })
+    },
+    extractRole: (m) => (m.role || 'member') as ClusterRole,
+    extractUserId: (m) => m.user_id,
+    extractEntityId: (m) => m.cluster_id
+})
 
-export function assertPermission(membership: ClusterUser, permission: RolePermission): void {
-    const role = (membership.role || 'member') as ClusterRole
-    const allowed = ROLE_PERMISSIONS[role]?.[permission]
-    if (!allowed) {
-        console.warn('[SECURITY] Permission denied', {
-            timestamp: new Date().toISOString(),
-            userId: membership.user_id,
-            clusterId: membership.cluster_id,
-            action: permission,
-            userRole: role,
-            reason: 'insufficient_permissions'
-        })
-        throw createError(403, 'Forbidden for this role')
-    }
+// Re-export base guards (assertPermission, hasPermission are re-exported directly)
+// Note: assertNotOwner is customized below for cluster-specific behavior
+const { getMembershipSafe, assertPermission, hasPermission, ensureAccess } = baseGuards
+export { assertPermission, hasPermission }
+
+// Helpers for external use
+export async function getClusterMembership(ds: DataSource, userId: string, clusterId: string): Promise<ClusterUser | null> {
+    return getMembershipSafe(ds, userId, clusterId)
 }
 
 export async function ensureClusterAccess(
@@ -79,21 +83,8 @@ export async function ensureClusterAccess(
     clusterId: string,
     permission?: RolePermission
 ): Promise<ClusterMembershipContext> {
-    const membership = await getClusterMembership(ds, userId, clusterId)
-    if (!membership) {
-        console.warn('[SECURITY] Permission denied', {
-            timestamp: new Date().toISOString(),
-            userId,
-            clusterId,
-            action: permission || 'access',
-            reason: 'not_member'
-        })
-        throw createError(403, 'Access denied to this cluster')
-    }
-    if (permission) {
-        assertPermission(membership, permission)
-    }
-    return { membership, clusterId }
+    const baseContext = await ensureAccess(ds, userId, clusterId, permission)
+    return { ...baseContext, clusterId: baseContext.entityId }
 }
 
 export interface DomainAccessContext extends ClusterMembershipContext {

@@ -8,6 +8,7 @@ import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetaverseName'
 import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
+import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),
@@ -24,15 +25,20 @@ export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
 
-    // Extract metaverseId from URL for dynamic name loading
-    const metaverseIdMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
+    // Extract metaverseId from URL for dynamic name loading (both singular and plural routes)
+    const metaverseIdMatch = location.pathname.match(/^\/metaverses?\/([^/]+)/)
     const metaverseId = metaverseIdMatch ? metaverseIdMatch[1] : null
     const metaverseName = useMetaverseName(metaverseId)
 
-    // Extract clusterId from URL for dynamic name loading
-    const clusterIdMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
+    // Extract clusterId from URL for dynamic name loading (both singular and plural routes)
+    const clusterIdMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
     const clusterId = clusterIdMatch ? clusterIdMatch[1] : null
     const clusterName = useClusterName(clusterId)
+
+    // Extract unikId from URL for dynamic name loading
+    const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
+    const unikId = unikIdMatch ? unikIdMatch[1] : null
+    const unikName = useUnikName(unikId)
 
     // Clean keys without 'menu.' prefix since we're already using 'menu' namespace
     const menuMap: Record<string, string> = {
@@ -54,26 +60,49 @@ export default function NavbarBreadcrumbs() {
         const primary = segments[0]
         if (primary === 'unik') {
             const items = [{ label: t(menuMap.uniks), to: '/uniks' }]
-            if (segments.includes('spaces')) {
-                items.push({ label: t(menuMap.spaces), to: location.pathname })
+
+            if (segments[1] && unikName) {
+                // Use actual unik name with truncation for long names
+                items.push({
+                    label: truncateUnikName(unikName),
+                    to: `/unik/${segments[1]}`
+                })
+
+                // Sub-pages (spaces, tools, credentials, etc.) - use keys from menu namespace
+                if (segments[2] === 'spaces') {
+                    items.push({ label: t('spaces'), to: location.pathname })
+                } else if (segments[2] === 'tools') {
+                    items.push({ label: t('tools'), to: location.pathname })
+                } else if (segments[2] === 'credentials') {
+                    items.push({ label: t('credentials'), to: location.pathname })
+                } else if (segments[2] === 'variables') {
+                    items.push({ label: t('variables'), to: location.pathname })
+                } else if (segments[2] === 'apikeys') {
+                    items.push({ label: t('apiKeys'), to: location.pathname })
+                } else if (segments[2] === 'documents') {
+                    items.push({ label: t('documents'), to: location.pathname })
+                } else if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'analytics') {
+                    items.push({ label: t('analytics'), to: location.pathname })
+                }
             }
+
             return items
         }
 
         if (primary === 'metaverses') {
             const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
 
+            // Handle nested routes like /metaverses/:id/sections or /metaverses/:id/entities
             if (segments[1] && metaverseName) {
-                // Use actual metaverse name with truncation for long names
                 items.push({
                     label: truncateMetaverseName(metaverseName),
-                    to: `/metaverses/${segments[1]}`
+                    to: `/metaverse/${segments[1]}`
                 })
 
-                // Sub-pages (access, sections, entities) - use keys from menu namespace
-                if (segments[2] === 'access') {
-                    items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'sections') {
+                // Sub-pages (sections, entities) - use keys from menu namespace
+                if (segments[2] === 'sections') {
                     items.push({ label: t('sections'), to: location.pathname })
                 } else if (segments[2] === 'entities') {
                     items.push({ label: t('entities'), to: location.pathname })
@@ -83,14 +112,60 @@ export default function NavbarBreadcrumbs() {
             return items
         }
 
+        if (primary === 'metaverse') {
+            const items = [{ label: t(menuMap.metaverses), to: '/metaverses' }]
+
+            if (segments[1] && metaverseName) {
+                // Use actual metaverse name with truncation for long names
+                items.push({
+                    label: truncateMetaverseName(metaverseName),
+                    to: `/metaverse/${segments[1]}`
+                })
+
+                // Sub-pages (access, sections, entities) - use keys from menu namespace
+                if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'sections') {
+                    items.push({ label: t('sections'), to: location.pathname })
+                } else if (segments[2] === 'entities') {
+                    items.push({ label: t('entities'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('access'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
         if (primary === 'clusters') {
+            const items = [{ label: t(menuMap.clusters), to: '/clusters' }]
+
+            // Handle nested routes like /clusters/:id/domains or /clusters/:id/resources
+            if (segments[1] && clusterName) {
+                items.push({
+                    label: truncateClusterName(clusterName),
+                    to: `/cluster/${segments[1]}`
+                })
+
+                // Sub-pages (domains, resources) - use keys from menu namespace
+                if (segments[2] === 'domains') {
+                    items.push({ label: t('domains'), to: location.pathname })
+                } else if (segments[2] === 'resources') {
+                    items.push({ label: t('resources'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'cluster') {
             const items = [{ label: t(menuMap.clusters), to: '/clusters' }]
 
             if (segments[1] && clusterName) {
                 // Use actual cluster name with truncation for long names
                 items.push({
                     label: truncateClusterName(clusterName),
-                    to: `/clusters/${segments[1]}`
+                    to: `/cluster/${segments[1]}`
                 })
 
                 // Sub-pages (access, resources, domains) - use keys from menu namespace
@@ -100,6 +175,8 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('resources'), to: location.pathname })
                 } else if (segments[2] === 'domains') {
                     items.push({ label: t('domains'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('access'), to: location.pathname })
                 }
             }
 

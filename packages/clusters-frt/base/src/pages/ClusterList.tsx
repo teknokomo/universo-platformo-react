@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -144,10 +144,6 @@ const ClusterList = () => {
         }
     }
 
-    const goToCluster = (cluster: any) => {
-        navigate(`/clusters/${cluster.id}`)
-    }
-
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
         localStorage.setItem('resourcesClusterDisplayStyle', nextView)
@@ -162,16 +158,25 @@ const ClusterList = () => {
                 width: '20%',
                 align: 'left',
                 render: (row: Cluster) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word'
-                        }}
+                    <Link
+                        to={`/cluster/${row.id}`}
+                        style={{ textDecoration: 'none', color: 'inherit' }}
                     >
-                        {row.name || '—'}
-                    </Typography>
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                    color: 'primary.main'
+                                }
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
+                    </Link>
                 )
             },
             {
@@ -356,7 +361,7 @@ const ClusterList = () => {
                                                 key={cluster.id}
                                                 data={cluster}
                                                 images={images[cluster.id] || []}
-                                                onClick={() => goToCluster(cluster)}
+                                                href={`/cluster/${cluster.id}`}
                                                 footerEndContent={cluster.role ? <RoleChip role={cluster.role} /> : null}
                                                 headerAction={
                                                     descriptors.length > 0 ? (
@@ -391,7 +396,7 @@ const ClusterList = () => {
                                         data={clusters}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: Cluster) => (row?.id ? `/clusters/${row.id}` : undefined)}
+                                        getRowLink={(row: Cluster) => (row?.id ? `/cluster/${row.id}` : undefined)}
                                         customColumns={clusterColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: Cluster) => {

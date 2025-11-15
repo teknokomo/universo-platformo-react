@@ -8,6 +8,8 @@ import { UnikUser } from '../database/entities/UnikUser'
 import { Profile } from '@universo/profile-srv'
 import { removeFolderFromStorage } from 'flowise-components'
 import { purgeSpacesForUnik, cleanupCanvasStorage, createSpacesRoutes, type CreateSpacesRoutesOptions } from '@universo/spaces-srv'
+import { ensureUnikAccess, assertNotOwner, ROLE_PERMISSIONS, type UnikRole } from './guards'
+import { validateListQuery } from '../schemas/queryParams'
 
 /**
  * Get the appropriate manager for the request (RLS-enabled if available)
@@ -24,9 +26,9 @@ const resolveUserId = (req: Request): string | undefined => {
 }
 
 const asyncHandler =
-    <T extends Request, U extends Response>(fn: (req: T, res: U) => Promise<void>) =>
-    (req: T, res: U, next: NextFunction) => {
-        Promise.resolve(fn(req, res)).catch(next)
+    (fn: (req: Request, res: Response) => Promise<any>): RequestHandler =>
+    (req, res, next) => {
+        fn(req, res).catch(next)
     }
 
 const getRepositories = (req: Request, getDataSource: () => DataSource) => {
@@ -169,50 +171,116 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
         '/',
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
-            if (!userId) {
-                res.status(401).json({ error: 'Unauthorized: User not found' })
-                return
-            }
+            if (!userId) return res.status(401).json({ error: 'Unauthorized: User not found' })
 
-            const { membershipRepo } = getRepositories(req, getDataSource)
+            try {
+                // Validate and parse query parameters with Zod
+                const { limit = 100, offset = 0, sortBy = 'updated', sortOrder = 'desc', search } = validateListQuery(req.query)
 
-            // Use QueryBuilder to aggregate spaces count per unik in a single query
-            const qb = membershipRepo
-                .createQueryBuilder('m')
-                .leftJoin('m.unik', 'u')
-                // spaces lives in public schema; join by FK unik_id
-                .leftJoin('spaces', 's', 's.unik_id = u.id')
-                .where('m.user_id = :userId', { userId })
-                .select(['m.role as role', 'u.id as id', 'u.name as name', 'u.created_at as created_at', 'u.updated_at as updated_at'])
-                .addSelect('COUNT(s.id)', 'spacesCount')
-                .groupBy('m.id')
-                .addGroupBy('u.id')
-                .orderBy('m.role', 'ASC')
+                // Parse search parameter
+                const normalizedSearch = search ? search.toLowerCase() : ''
 
-            const raw = await qb.getRawMany<{
-                role: string
-                id: string
-                name: string
-                created_at: Date
-                updated_at: Date
-                spacesCount: string
-            }>()
+                // Safe sorting with whitelist
+                const ALLOWED_SORT_FIELDS = {
+                    name: 'u.name',
+                    created: 'u.created_at',
+                    updated: 'u.updated_at'
+                } as const
 
-            const response = raw.map(
-                (row: { role: string; id: string; name: string; created_at: Date; updated_at: Date; spacesCount: string }) => ({
-                    id: row.id,
-                    name: row.name,
-                    role: row.role,
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
-                    // expose camelCase for UI convenience as well
-                    createdAt: row.created_at,
-                    updatedAt: row.updated_at,
-                    spacesCount: parseInt(row.spacesCount || '0', 10) || 0
+                const sortByField = ALLOWED_SORT_FIELDS[sortBy]
+                const sortDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+                const { unikRepo } = getRepositories(req, getDataSource)
+
+                // Aggregate counts per unik in a single query filtered by current user membership
+                const qb = unikRepo
+                    .createQueryBuilder('u')
+                    .innerJoin(UnikUser, 'm', 'm.unik_id = u.id')
+                    .leftJoin('spaces', 's', 's.unik_id = u.id')
+                    .where('m.user_id = :userId', { userId })
+
+                // Add search filter if provided
+                if (normalizedSearch) {
+                    qb.andWhere('(LOWER(u.name) LIKE :search OR LOWER(u.description) LIKE :search)', {
+                        search: `%${normalizedSearch}%`
+                    })
+                }
+
+                qb.select([
+                    'u.id as id',
+                    'u.name as name',
+                    'u.description as description',
+                    'u.created_at as created_at',
+                    'u.updated_at as updated_at'
+                ])
+                    .addSelect('COUNT(DISTINCT s.id)', 'spacesCount')
+                    .addSelect('m.role', 'role')
+                    // Use window function to get total count in single query
+                    .addSelect('COUNT(*) OVER()', 'window_total')
+                    .groupBy('u.id')
+                    .addGroupBy('u.name')
+                    .addGroupBy('u.description')
+                    .addGroupBy('u.created_at')
+                    .addGroupBy('u.updated_at')
+                    .addGroupBy('m.role')
+                    .orderBy(sortByField, sortDirection)
+                    .limit(limit)
+                    .offset(offset)
+
+                const raw = await qb.getRawMany<{
+                    id: string
+                    name: string
+                    description: string | null
+                    created_at: Date
+                    updated_at: Date
+                    spacesCount: string
+                    role: UnikRole | null
+                    window_total?: string
+                }>()
+
+                // Extract total count from window function (same value in all rows)
+                const total = raw.length > 0 ? Math.max(0, parseInt(String(raw[0].window_total || '0'), 10)) || 0 : 0
+
+                const response = raw.map((row) => {
+                    const role = (row.role || 'member') as UnikRole
+                    const permissions = ROLE_PERMISSIONS[role]
+
+                    return {
+                        id: row.id,
+                        name: row.name,
+                        description: row.description || undefined,
+                        role: row.role,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        createdAt: row.created_at,
+                        updatedAt: row.updated_at,
+                        spacesCount: parseInt(row.spacesCount || '0', 10) || 0,
+                        permissions
+                    }
                 })
-            )
 
-            res.json(response)
+                // Add pagination metadata headers
+                const hasMore = offset + raw.length < total
+                res.setHeader('X-Pagination-Limit', limit.toString())
+                res.setHeader('X-Pagination-Offset', offset.toString())
+                res.setHeader('X-Pagination-Count', raw.length.toString())
+                res.setHeader('X-Total-Count', total.toString())
+                res.setHeader('X-Pagination-Has-More', hasMore.toString())
+
+                res.json(response)
+            } catch (error) {
+                // Handle Zod validation errors
+                if (error instanceof z.ZodError) {
+                    return res.status(400).json({
+                        error: 'Invalid query parameters',
+                        details: error.errors.map((e) => ({
+                            field: e.path.join('.'),
+                            message: e.message
+                        }))
+                    })
+                }
+                throw error
+            }
         })
     )
 
@@ -260,15 +328,10 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
                 return
             }
 
-            const { membershipRepo } = getRepositories(req, getDataSource)
-            const ownerMembership = await membershipRepo.findOne({
-                where: { unik_id: parsed.data.unik_id, user_id: ownerId }
-            })
+            const { membershipRepo, dataSource } = getRepositories(req, getDataSource)
 
-            if (!ownerMembership || ownerMembership.role !== 'owner') {
-                res.status(403).json({ error: 'Not authorized to manage members of this Unik' })
-                return
-            }
+            // Check if requester has permission to manage members
+            await ensureUnikAccess(dataSource, ownerId, parsed.data.unik_id, 'manageMembers')
 
             const membership = membershipRepo.create({
                 unik_id: parsed.data.unik_id,
@@ -371,6 +434,19 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 where: { unik_id: req.params.id }
             })
 
+            // Calculate permissions for current user
+            const userId = resolveUserId(req)
+            let permissions = undefined
+            if (userId) {
+                const membership = await membershipRepo.findOne({
+                    where: { unik_id: req.params.id, user_id: userId }
+                })
+                if (membership) {
+                    const role = (membership.role || 'member') as UnikRole
+                    permissions = ROLE_PERMISSIONS[role]
+                }
+            }
+
             res.json({
                 ...unik,
                 spacesCount,
@@ -379,7 +455,8 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 variablesCount,
                 apiKeysCount,
                 documentStoresCount,
-                membersCount
+                membersCount,
+                permissions
             })
         })
     )
@@ -399,15 +476,10 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 return
             }
 
-            const { unikRepo, membershipRepo } = getRepositories(req, getDataSource)
-            const membership = await membershipRepo.findOne({
-                where: { unik_id: req.params.id, user_id: userId }
-            })
+            const { unikRepo, dataSource } = getRepositories(req, getDataSource)
 
-            if (!membership || !['owner', 'editor'].includes(membership.role)) {
-                res.status(403).json({ error: 'Not authorized to update this Unik' })
-                return
-            }
+            // Check if user has permission to edit content
+            await ensureUnikAccess(dataSource, userId, req.params.id, 'editContent')
 
             const updateResult = await unikRepo
                 .createQueryBuilder()
@@ -439,15 +511,10 @@ export function createUnikIndividualRouter(ensureAuth: RequestHandler, getDataSo
                 return
             }
 
-            const { membershipRepo, dataSource } = getRepositories(req, getDataSource)
-            const membership = await membershipRepo.findOne({
-                where: { unik_id: req.params.id, user_id: userId }
-            })
+            const { dataSource } = getRepositories(req, getDataSource)
 
-            if (!membership || membership.role !== 'owner') {
-                res.status(403).json({ error: 'Not authorized to delete this Unik' })
-                return
-            }
+            // Check if user has permission to manage unik (owner only)
+            await ensureUnikAccess(dataSource, userId, req.params.id, 'manageUnik')
 
             const unikId = req.params.id
             let deletedCanvasIds: string[] = []
@@ -532,7 +599,17 @@ export function createUniksRouter(
     router.get(
         '/:unikId/members',
         asyncHandler(async (req: Request, res: Response) => {
+            const userId = resolveUserId(req)
+            if (!userId) {
+                res.status(401).json({ error: 'Unauthorized: User not found' })
+                return
+            }
+
             const unikId = req.params.unikId
+            const { dataSource } = getRepositories(req, getDataSource)
+
+            // Check if user has permission to view members
+            await ensureUnikAccess(dataSource, userId, unikId, 'manageMembers')
 
             // Parse pagination parameters
             const limit = parseInt(req.query.limit as string) || 20
@@ -605,15 +682,8 @@ export function createUniksRouter(
 
             const { membershipRepo, dataSource } = getRepositories(req, getDataSource)
 
-            // Check if requester has permission
-            const requesterMembership = await membershipRepo.findOne({
-                where: { unik_id: unikId, user_id: userId }
-            })
-
-            if (!requesterMembership || !['owner', 'admin'].includes(requesterMembership.role)) {
-                res.status(403).json({ error: 'Not authorized to invite members' })
-                return
-            }
+            // Check if requester has permission to manage members
+            await ensureUnikAccess(dataSource, userId, unikId, 'manageMembers')
 
             // Find target user by email using AuthUser entity
             const targetUser = await dataSource.manager
@@ -666,17 +736,23 @@ export function createUniksRouter(
             const { unikId, memberId } = req.params
             const { role, comment } = req.body
 
-            const { membershipRepo } = getRepositories(req, getDataSource)
+            const { membershipRepo, dataSource } = getRepositories(req, getDataSource)
 
             // Check requester permissions
-            const requesterMembership = await membershipRepo.findOne({
-                where: { unik_id: unikId, user_id: userId }
+            await ensureUnikAccess(dataSource, userId, unikId, 'manageMembers')
+
+            // Get target membership to check if owner
+            const targetMembership = await membershipRepo.findOne({
+                where: { id: memberId, unik_id: unikId }
             })
 
-            if (!requesterMembership || !['owner', 'admin'].includes(requesterMembership.role)) {
-                res.status(403).json({ error: 'Not authorized to update members' })
+            if (!targetMembership) {
+                res.status(404).json({ error: 'Member not found' })
                 return
             }
+
+            // Prevent modifying owner
+            assertNotOwner(targetMembership, 'modify')
 
             // Update membership
             const updateResult = await membershipRepo
@@ -706,9 +782,7 @@ export function createUniksRouter(
                 return
             }
 
-            const { dataSource } = getRepositories(req, getDataSource)
-
-            // Load user email and profile
+            // Load user email and profile (using dataSource from line 672)
             const user = await dataSource.manager.findOne(AuthUser, { where: { id: membership.user_id } })
             const profile = await dataSource.manager.findOne(Profile, { where: { user_id: membership.user_id } })
 
@@ -726,19 +800,12 @@ export function createUniksRouter(
             }
 
             const { unikId, memberId } = req.params
-            const { membershipRepo } = getRepositories(req, getDataSource)
+            const { membershipRepo, dataSource } = getRepositories(req, getDataSource)
 
             // Check requester permissions
-            const requesterMembership = await membershipRepo.findOne({
-                where: { unik_id: unikId, user_id: userId }
-            })
+            await ensureUnikAccess(dataSource, userId, unikId, 'manageMembers')
 
-            if (!requesterMembership || !['owner', 'admin'].includes(requesterMembership.role)) {
-                res.status(403).json({ error: 'Not authorized to remove members' })
-                return
-            }
-
-            // Prevent removing the owner
+            // Get target membership and prevent removing the owner
             const targetMembership = await membershipRepo.findOne({
                 where: { id: memberId, unik_id: unikId }
             })
@@ -748,10 +815,8 @@ export function createUniksRouter(
                 return
             }
 
-            if (targetMembership.role === 'owner') {
-                res.status(403).json({ error: 'Cannot remove owner' })
-                return
-            }
+            // Prevent removing owner
+            assertNotOwner(targetMembership, 'remove')
 
             await membershipRepo.delete({ id: memberId, unik_id: unikId })
 
