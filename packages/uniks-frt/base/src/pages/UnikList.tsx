@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -167,10 +167,6 @@ const UnikList = () => {
         }
     }
 
-    const goToUnik = (unik: any) => {
-        navigate(`/unik/${unik.id}`)
-    }
-
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
         localStorage.setItem('entitiesUnikDisplayStyle', nextView)
@@ -179,6 +175,33 @@ const UnikList = () => {
 
     const unikColumns = useMemo(
         () => [
+            {
+                id: 'name',
+                label: tc('table.name', 'Name'),
+                width: '20%',
+                align: 'left',
+                render: (row: Unik) => (
+                    <Link
+                        to={`/unik/${row.id}`}
+                        style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                    color: 'primary.main'
+                                }
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
+                    </Link>
+                )
+            },
             {
                 id: 'description',
                 label: tc('table.description', 'Description'),
@@ -204,18 +227,11 @@ const UnikList = () => {
                 render: (row: Unik) => (row.role ? <RoleChip role={row.role} /> : '—')
             },
             {
-                id: 'sections',
-                label: tc('table.sections', 'Sections'),
+                id: 'spaces',
+                label: tc('table.spaces', 'Spaces'),
                 width: '10%',
                 align: 'center',
-                render: (row: Unik) => (typeof row.sectionsCount === 'number' ? row.sectionsCount : '—')
-            },
-            {
-                id: 'entities',
-                label: tc('table.entities', 'Entities'),
-                width: '10%',
-                align: 'center',
-                render: (row: Unik) => (typeof row.entitiesCount === 'number' ? row.entitiesCount : '—')
+                render: (row: Unik) => (typeof row.spacesCount === 'number' ? row.spacesCount : '—')
             }
         ],
         [tc]
@@ -361,7 +377,7 @@ const UnikList = () => {
                                                 key={unik.id}
                                                 data={unik}
                                                 images={images[unik.id] || []}
-                                                onClick={() => goToUnik(unik)}
+                                                href={`/unik/${unik.id}`}
                                                 footerEndContent={unik.role ? <RoleChip role={unik.role} /> : null}
                                                 headerAction={
                                                     descriptors.length > 0 ? (

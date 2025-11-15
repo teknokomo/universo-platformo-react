@@ -101,6 +101,7 @@
       "role": "Role",
       "sections": "Sections",
       "entities": "Entities",
+      "spaces": "Spaces",
       "domains": "Domains",
       "resources": "Resources",
       "added": "Added",

@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class CreateUniksSchema1731200000000 implements MigrationInterface {
-    name = 'CreateUniksSchema1731200000000'
+export class AddUniksAndLinked1731200000000 implements MigrationInterface {
+    name = 'AddUniksAndLinked1731200000000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Enable UUID extension

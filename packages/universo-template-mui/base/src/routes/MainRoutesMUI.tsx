@@ -226,22 +226,6 @@ const MainRoutesMUI = {
                         </AuthGuard>
                     )
                 },
-                {
-                    path: ':metaverseId',
-                    element: (
-                        <AuthGuard>
-                            <MetaverseBoard />
-                        </AuthGuard>
-                    )
-                },
-                {
-                    path: ':metaverseId/members',
-                    element: (
-                        <AuthGuard>
-                            <MetaverseMembers />
-                        </AuthGuard>
-                    )
-                },
                 // Aliases and nested lists inside a specific metaverse
                 {
                     path: ':metaverseId/entities',
@@ -258,16 +242,32 @@ const MainRoutesMUI = {
                             <SectionList />
                         </AuthGuard>
                     )
-                },
-                {
-                    path: ':metaverseId/access',
-                    element: (
-                        <AuthGuard>
-                            <MetaverseMembers />
-                        </AuthGuard>
-                    )
                 }
             ]
+        },
+        {
+            path: 'metaverse/:metaverseId',
+            element: (
+                <AuthGuard>
+                    <MetaverseBoard />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverse/:metaverseId/members',
+            element: (
+                <AuthGuard>
+                    <MetaverseMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'metaverse/:metaverseId/access',
+            element: (
+                <AuthGuard>
+                    <MetaverseMembers />
+                </AuthGuard>
+            )
         },
         {
             path: 'sections',
@@ -297,22 +297,6 @@ const MainRoutesMUI = {
                         </AuthGuard>
                     )
                 },
-                {
-                    path: ':clusterId',
-                    element: (
-                        <AuthGuard>
-                            <ClusterBoard />
-                        </AuthGuard>
-                    )
-                },
-                {
-                    path: ':clusterId/members',
-                    element: (
-                        <AuthGuard>
-                            <ClusterMembers />
-                        </AuthGuard>
-                    )
-                },
                 // Nested lists inside a specific cluster
                 {
                     path: ':clusterId/resources',
@@ -329,16 +313,32 @@ const MainRoutesMUI = {
                             <DomainList />
                         </AuthGuard>
                     )
-                },
-                {
-                    path: ':clusterId/access',
-                    element: (
-                        <AuthGuard>
-                            <ClusterMembers />
-                        </AuthGuard>
-                    )
                 }
             ]
+        },
+        {
+            path: 'cluster/:clusterId',
+            element: (
+                <AuthGuard>
+                    <ClusterBoard />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'cluster/:clusterId/members',
+            element: (
+                <AuthGuard>
+                    <ClusterMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'cluster/:clusterId/access',
+            element: (
+                <AuthGuard>
+                    <ClusterMembers />
+                </AuthGuard>
+            )
         },
         {
             path: 'domains',

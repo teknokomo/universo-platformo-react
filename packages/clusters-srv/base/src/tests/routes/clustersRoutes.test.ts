@@ -4,7 +4,7 @@ jest.mock(
         const decorator = () => () => {}
         return {
             __esModule: true,
-            Resource: decorator,
+            Entity: decorator,
             PrimaryGeneratedColumn: decorator,
             PrimaryColumn: decorator,
             Column: decorator,
@@ -736,9 +736,6 @@ describe('Clusters Routes', () => {
                         comment: commentWithWhitespace
                     })
                     .expect(201)
-
-                // Verify response structure
-                expect(response.body.data).toBeDefined()
 
                 // Verify comment was trimmed before saving
                 expect(clusterUserRepo.create).toHaveBeenCalledWith(

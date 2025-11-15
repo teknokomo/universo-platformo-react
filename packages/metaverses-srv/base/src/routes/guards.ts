@@ -1,13 +1,14 @@
 import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { MetaverseRole } from '@universo/types'
-
-// Handle both ESM and CJS imports
-const createError = (httpErrors as any).default || httpErrors
+import { createAccessGuards } from '@universo/auth-srv'
 import { MetaverseUser } from '../database/entities/MetaverseUser'
 import { SectionMetaverse } from '../database/entities/SectionMetaverse'
 import { EntitySection } from '../database/entities/EntitySection'
 import { EntityMetaverse } from '../database/entities/EntityMetaverse'
+
+// Handle both ESM and CJS imports
+const createError = (httpErrors as any).default || httpErrors
 
 // Re-export MetaverseRole for convenience
 export type { MetaverseRole }
@@ -52,25 +53,28 @@ export interface MetaverseMembershipContext {
     metaverseId: string
 }
 
-export async function getMetaverseMembership(ds: DataSource, userId: string, metaverseId: string): Promise<MetaverseUser | null> {
-    const repo = ds.getRepository(MetaverseUser)
-    return repo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
-}
+// Create base guards using generic factory from auth-srv
+const baseGuards = createAccessGuards<MetaverseRole, MetaverseUser>({
+    entityName: 'metaverse',
+    roles: ['owner', 'admin', 'editor', 'member'] as const,
+    permissions: ROLE_PERMISSIONS,
+    getMembership: async (ds: DataSource, userId: string, metaverseId: string) => {
+        const repo = ds.getRepository(MetaverseUser)
+        return repo.findOne({ where: { metaverse_id: metaverseId, user_id: userId } })
+    },
+    extractRole: (m) => (m.role || 'member') as MetaverseRole,
+    extractUserId: (m) => m.user_id,
+    extractEntityId: (m) => m.metaverse_id
+})
 
-export function assertPermission(membership: MetaverseUser, permission: RolePermission): void {
-    const role = (membership.role || 'member') as MetaverseRole
-    const allowed = ROLE_PERMISSIONS[role]?.[permission]
-    if (!allowed) {
-        console.warn('[SECURITY] Permission denied', {
-            timestamp: new Date().toISOString(),
-            userId: membership.user_id,
-            metaverseId: membership.metaverse_id,
-            action: permission,
-            userRole: role,
-            reason: 'insufficient_permissions'
-        })
-        throw createError(403, 'Forbidden for this role')
-    }
+// Re-export base guards (assertPermission, hasPermission are re-exported directly)
+// Note: assertNotOwner is customized below for metaverse-specific behavior
+const { getMembershipSafe, assertPermission, hasPermission, ensureAccess } = baseGuards
+export { assertPermission, hasPermission }
+
+// Helpers for external use
+export async function getMetaverseMembership(ds: DataSource, userId: string, metaverseId: string): Promise<MetaverseUser | null> {
+    return getMembershipSafe(ds, userId, metaverseId)
 }
 
 export async function ensureMetaverseAccess(
@@ -79,21 +83,8 @@ export async function ensureMetaverseAccess(
     metaverseId: string,
     permission?: RolePermission
 ): Promise<MetaverseMembershipContext> {
-    const membership = await getMetaverseMembership(ds, userId, metaverseId)
-    if (!membership) {
-        console.warn('[SECURITY] Permission denied', {
-            timestamp: new Date().toISOString(),
-            userId,
-            metaverseId,
-            action: permission || 'access',
-            reason: 'not_member'
-        })
-        throw createError(403, 'Access denied to this metaverse')
-    }
-    if (permission) {
-        assertPermission(membership, permission)
-    }
-    return { membership, metaverseId }
+    const baseContext = await ensureAccess(ds, userId, metaverseId, permission)
+    return { ...baseContext, metaverseId: baseContext.entityId }
 }
 
 export interface SectionAccessContext extends MetaverseMembershipContext {
@@ -107,8 +98,10 @@ export async function ensureSectionAccess(
     permission?: RolePermission
 ): Promise<SectionAccessContext> {
     const sectionMetaverseRepo = ds.getRepository(SectionMetaverse)
-    const sectionMetaverse = await sectionMetaverseRepo.findOne({ where: { section: { id: sectionId } }, relations: ['metaverse'] })
-    if (!sectionMetaverse) {
+    // Find ALL metaverse links for this section (M2M relationship)
+    const sectionMetaverses = await sectionMetaverseRepo.find({ where: { section: { id: sectionId } }, relations: ['metaverse'] })
+
+    if (sectionMetaverses.length === 0) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
             userId,
@@ -119,8 +112,21 @@ export async function ensureSectionAccess(
         throw createError(404, 'Section not found')
     }
 
-    const context = await ensureMetaverseAccess(ds, userId, sectionMetaverse.metaverse.id, permission)
-    return { ...context, sectionLink: sectionMetaverse }
+    // Try to find at least ONE metaverse where user has membership
+    let lastError: any = null
+    for (const sectionMetaverse of sectionMetaverses) {
+        try {
+            const context = await ensureMetaverseAccess(ds, userId, sectionMetaverse.metaverse.id, permission)
+            // Success! User has access via this metaverse
+            return { ...context, sectionLink: sectionMetaverse }
+        } catch (err) {
+            // Remember error but continue checking other metaverses
+            lastError = err
+        }
+    }
+
+    // If no metaverse grants access, throw the last error
+    throw lastError || createError(403, 'Access denied to section')
 }
 
 export interface EntityAccessContext extends MetaverseMembershipContext {

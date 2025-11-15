@@ -23,6 +23,236 @@
 
 ## November 2025 (Latest)
 
+### 2025-01-14: Uniks Refactoring – Guards, Migration Rename, UI Columns ✅
+**Context**: Comparative analysis with metaverses-srv and clusters-srv revealed 4 improvement opportunities in uniks package.
+
+**Problems Identified**:
+1. **No Guards Module**: uniks-srv had no guards.ts file (unlike metaverses/clusters)
+   - Inline permission checks scattered across 8 endpoints
+   - Manual `if (role !== 'owner')` checks without DRY pattern
+   - Inconsistent error messages and logging
+   
+2. **Missing Edit/Delete Menu**: Frontend actions menu not showing for non-owner members
+   - Root cause: Backend GET /:id endpoint didn't include `permissions` field in response
+   - Frontend already had correct filtering logic: `unik.permissions?.manageUnik`
+   
+3. **Wrong Table Columns**: UnikList.tsx had incorrect columns
+   - Missing "Название" (Name) column as first column
+   - Showed "Секции" (Sections) and "Сущности" (Entities) - not applicable to Uniks
+   - Pattern: Should match MetaverseList/ClusterList structure with spaces column
+   
+4. **Migration Naming Inconsistency**: Named "CreateUniksSchema" instead of "Add<Domain><Relations>" pattern
+   - Other migrations: AddMetaversesSectionsEntities, AddClustersDomainsResources
+   - Should be: AddUniksAndLinked (describes what it creates: uniks + links to Flowise tables)
+
+**Implementation** (9 tasks, all completed ✅):
+
+**Backend Refactoring**:
+
+1. **Created Guards Module** (`packages/uniks-srv/base/src/routes/guards.ts`, 98 lines):
+   - Used `createAccessGuards` factory from `@universo/auth-srv`
+   - Defined ROLE_PERMISSIONS: owner (5 perms) → admin (4) → editor (3) → member (1)
+   - Created `baseGuards`: assertPermission, ensureAccess, getMembershipSafe, hasPermission
+   - Wrapper `ensureUnikAccess(ds, userId, unikId, permission)` for unik-specific checks
+   - Helper `assertNotOwner(membership, action)` to protect owner from modification/removal
+   - Pattern: Mirrors metaverses-srv/guards.ts and clusters-srv/guards.ts exactly
+
+2. **Refactored 8 Endpoints** in `uniksRoutes.ts`:
+   - **POST /members**: Replaced inline membership check with `ensureUnikAccess(ds, userId, unikId, 'manageMembers')`
+   - **GET /:id**: Added permissions calculation based on user's role, included in response
+     ```typescript
+     const permissions = membership 
+       ? { manageUnik: hasPermission(membership.role, 'manageUnik'), ... } 
+       : null
+     ```
+   - **PUT /:id**: Replaced inline role check with `ensureUnikAccess(ds, userId, id, 'editContent')`
+   - **DELETE /:id**: Replaced inline owner check with `ensureUnikAccess(ds, userId, id, 'manageUnik')`
+   - **GET /:unikId/members**: Added NEW permission check (was missing!)
+   - **POST /:unikId/members**: Replaced inline role array check with guards
+   - **PATCH /:unikId/members/:memberId**: Added `assertNotOwner(targetMembership, 'modify')` protection
+   - **DELETE /:unikId/members/:memberId**: Replaced inline owner check with `assertNotOwner(targetMembership, 'remove')`
+
+**Migration Refactoring**:
+
+3. **Renamed Migration File**: `1731200000000-CreateUniksSchema.ts` → `1731200000000-AddUniksAndLinked.ts`
+4. **Updated Class Name**: `CreateUniksSchema1731200000000` → `AddUniksAndLinked1731200000000`
+5. **Updated Export**: Modified `migrations/postgres/index.ts` to import/export new class name
+
+**Frontend Refactoring**:
+
+6. **Updated UnikList Columns** (`packages/uniks-frt/base/src/pages/UnikList.tsx`):
+   - **Before**: [description, role, sections, entities] (4 columns)
+   - **After**: [name, description, role, spaces] (4 columns)
+   - Added **name** column FIRST (20% width, fontWeight 500 for emphasis)
+   - Removed **sections** column (sectionsCount not relevant for Uniks)
+   - Removed **entities** column (entitiesCount not relevant for Uniks)
+   - Added **spaces** column (shows spacesCount from backend)
+   - Pattern: Now matches MetaverseList.tsx column structure exactly
+   - Note: Actions menu filtering already correct (`unik.permissions?.manageUnik`)
+
+**i18n Updates**:
+
+7. **Added Translations**: 
+   - EN: `packages/universo-i18n/base/src/locales/en/core/common.json` → `"table.spaces": "Spaces"`
+   - RU: `packages/universo-i18n/base/src/locales/ru/core/common.json` → `"table.spaces": "Пространства"`
+
+**Build & Lint Verification**:
+
+8. **uniks-srv**: ✅ Build successful, ✅ Lint clean (1 acceptable console warning in migration)
+9. **uniks-frt**: ✅ Build successful (tsdown 40.11 kB CJS + 39.41 kB ESM), ✅ Lint clean (0 errors)
+
+**Impact**:
+- Security: Consistent permission checks across all endpoints, owner protection
+- UX: Edit/Delete menu now visible for authorized users, correct table columns
+- Maintainability: Guards pattern reduces duplication, follows established conventions
+- Consistency: Migration naming matches metaverses/clusters pattern
+
+**Pending** (browser verification by user):
+- [ ] Navigate to /uniks and verify Name column displays first in table
+- [ ] Click on a Unik and verify Edit/Delete menu appears (for owner/admin)
+- [ ] Verify Spaces column shows correct count
+- [ ] Test member management (add/edit/remove members with role-based permissions)
+
+**Related**: 
+- Guards factory creation: progress.md#2025-11-14 (Code Quality Improvements)
+- Metaverses guards refactor: Same session (M2M logic fix)
+- Clusters guards refactor: Same session (guards DRY)
+
+---
+
+### 2025-11-14: Code Quality Improvements - M2M Logic, Email Index, Guards DRY ✅
+**Context**: Comparative analysis of metaverses-srv and clusters-srv implementations revealed 3 improvement opportunities.
+
+**Problem 1 - M2M Access Logic Bug**:
+- `ensureSectionAccess` in metaverses-srv used `findOne()` for M2M relationship
+- Sections can link to MULTIPLE metaverses (M2M via sections_metaverses junction)
+- User with access to ANY linked metaverse should access the section
+- Bug: only checked FIRST link, denied access even if user was member of other linked metaverses
+
+**Problem 2 - Missing Database Index**:
+- All services perform case-insensitive email lookups: `LOWER(email) = LOWER(?)`
+- No functional index on `LOWER(email)` → full table scans
+- TODO comment in code: "Add a functional index to keep this lookup performant"
+
+**Problem 3 - Code Duplication**:
+- metaverses-srv/routes/guards.ts and clusters-srv/routes/guards.ts: ~95% identical
+- 230 lines of duplicated logic for assertPermission, ensureAccess, getMemb ership, assertNotOwner
+- Copy-paste pattern without abstraction → maintenance burden
+
+**Implementation** (3 tasks):
+
+**Task 1 - Fixed ensureSectionAccess M2M Logic**:
+- File: `packages/metaverses-srv/base/src/routes/guards.ts` (lines 90-123)
+- Changed from `.findOne()` to `.find()` to get ALL section-metaverse links
+- Added iteration: loop through all linked metaverses, grant access if user is member of ANY
+- Pattern source: mirrors clusters-srv/ensureDomainAccess (which was already correct)
+- **Before**: 
+  ```typescript
+  const sectionMetaverse = await repo.findOne({ where: { section: { id: sectionId } }, relations: ['metaverse'] })
+  if (!sectionMetaverse) throw 404
+  return ensureMetaverseAccess(ds, userId, sectionMetaverse.metaverse.id, permission)
+  ```
+- **After**:
+  ```typescript
+  const sectionMetaverses = await repo.find({ where: { section: { id: sectionId } }, relations: ['metaverse'] })
+  if (sectionMetaverses.length === 0) throw 404
+  for (const link of sectionMetaverses) {
+    try { return await ensureMetaverseAccess(ds, userId, link.metaverse.id, permission) }
+    catch { continue } // Try next metaverse
+  }
+  throw lastError || 403 // No metaverse granted access
+  ```
+
+**Task 2 - Added LOWER(email) Functional Index**:
+- Modified 3 migration files to add index on `LOWER(email)` in auth.users table:
+  1. `packages/metaverses-srv/base/src/database/migrations/postgres/1730600000000-AddMetaversesSectionsEntities.ts`
+  2. `packages/clusters-srv/base/src/database/migrations/postgres/1741277700000-AddClustersDomainsResources.ts`
+  3. `packages/uniks-srv/base/src/database/migrations/postgres/1731200000000-CreateUniksSchema.ts`
+- Added to `up()`: `CREATE INDEX IF NOT EXISTS idx_auth_users_email_lower ON auth.users (LOWER(email))`
+- Added to `down()`: `DROP INDEX IF EXISTS auth.idx_auth_users_email_lower`
+- Location: After full-text search indexes, before closing comment
+- Impact: Case-insensitive email lookups now use index instead of full table scan
+
+**Task 3 - Extracted Guards to Common Package @universo/auth-srv**:
+- Created generic access control factory to eliminate duplication
+
+**3.1 - New Infrastructure in auth-srv**:
+- `packages/auth-srv/base/src/guards/types.ts`: 
+  - `AccessGuardsConfig<TRole, TMembership>` interface
+  - `MembershipContext`, `RolePermission` types
+- `packages/auth-srv/base/src/guards/createAccessGuards.ts`:
+  - Generic factory accepting config object (entityName, roles, permissions, getMembership, extractors)
+  - Returns 5 guard functions: `assertPermission`, `ensureAccess`, `getMembershipSafe`, `hasPermission`, `assertNotOwner`
+  - Handles ESM/CJS compatibility, structured logging with ISO timestamps
+- `packages/auth-srv/base/src/guards/index.ts`: Barrel export
+- `packages/auth-srv/base/src/index.ts`: Exported guard utilities
+- Fixed lint error: empty catch block in auth.ts (added comment)
+- Build: ✅ successful (tsc, no errors, 16 pre-existing console warnings)
+
+**3.2 - Refactored metaverses-srv Guards**:
+- File: `packages/metaverses-srv/base/src/routes/guards.ts`
+- **Before**: 230 lines with manual implementations
+- **After**: ~75 lines using factory pattern
+- Changed:
+  ```typescript
+  // Before: manual implementation
+  export function assertPermission(membership: MetaverseUser, permission: RolePermission): void {
+    const role = (membership.role || 'member') as MetaverseRole
+    const allowed = ROLE_PERMISSIONS[role]?.[permission]
+    if (!allowed) { /* logging */ throw createError(403, ...) }
+  }
+  
+  // After: use factory
+  const baseGuards = createAccessGuards<MetaverseRole, MetaverseUser>({
+    entityName: 'metaverse',
+    roles: ['owner', 'admin', 'editor', 'member'] as const,
+    permissions: ROLE_PERMISSIONS,
+    getMembership: async (ds, userId, metaverseId) => ...,
+    extractRole: (m) => (m.role || 'member') as MetaverseRole,
+    extractUserId: (m) => m.user_id,
+    extractEntityId: (m) => m.metaverse_id
+  })
+  export const { assertPermission, hasPermission } = baseGuards
+  ```
+- Kept specialized functions: `ensureSectionAccess`, `ensureEntityAccess` (M2M logic specific to metaverses)
+- Kept custom `assertNotOwner` with metaverse-specific error messages
+- Build: ✅ successful
+- Tests: ✅ 25/25 passing (3 skipped Redis rate limit tests)
+
+**3.3 - Refactored clusters-srv Guards**:
+- File: `packages/clusters-srv/base/src/routes/guards.ts`
+- Same pattern as metaverses-srv: ~230 lines → ~75 lines
+- Factory config uses ClusterRole, ClusterUser, cluster_id field names
+- Kept specialized: `ensureDomainAccess`, `ensureResourceAccess` (M2M logic)
+- Kept custom `assertNotOwner` with cluster-specific messages
+- Build: ✅ successful
+- Tests: ✅ 25/25 passing (3 skipped Redis rate limit tests)
+
+**Benefits**:
+1. **M2M Logic Fix**: ensureSectionAccess now correctly handles multi-metaverse sections
+2. **Performance**: LOWER(email) lookups now use index (prevents full table scan)
+3. **Code Quality**: Eliminated ~460 lines of duplicate code across 2 services
+4. **Maintainability**: Single source of truth for access control logic in @universo/auth-srv
+5. **Type Safety**: Generic factory preserves TypeScript typing for roles/permissions
+6. **Consistency**: Identical security logging format across all services
+
+**Files Changed** (10 total):
+- metaverses-srv: guards.ts (refactored), migration (index added)
+- clusters-srv: guards.ts (refactored), migration (index added)
+- uniks-srv: migration (index added)
+- auth-srv: guards/types.ts (new), guards/createAccessGuards.ts (new), guards/index.ts (new), src/index.ts (updated), routes/auth.ts (lint fix)
+
+**Validation**:
+- auth-srv: ✅ build successful
+- metaverses-srv: ✅ build + 25/25 tests passing
+- clusters-srv: ✅ build + 25/25 tests passing
+- All lint checks: ✅ (minor pre-existing warnings only)
+
+**Next Steps** (if migrations need deployment):
+1. Review migration SQL for correctness
+2. Test on staging database
+3. Apply to production (backward-compatible, idempotent)
+
 ### 2025-01-14: PR #545 QA Fixes Implementation ✅
 **Problem**: Three AI bot reviewers (GitHub Copilot, Gemini Code Assist, ChatGPT Codex Connector) identified 8 issues in PR #545:
 1. **CRITICAL**: ensureDomainAccess() using findOne() instead of find() for M2M relationships

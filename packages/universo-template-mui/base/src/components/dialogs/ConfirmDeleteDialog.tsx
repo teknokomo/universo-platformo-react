@@ -76,7 +76,8 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
         setIsDeleting(true)
         try {
             await onConfirm()
-            // If onConfirm doesn't throw, dialog will be closed by parent
+            // Close dialog after successful delete
+            onCancel()
         } catch (e) {
             // Error handling is done via the `error` prop from parent
             console.error('ConfirmDeleteDialog: Delete operation failed', e)

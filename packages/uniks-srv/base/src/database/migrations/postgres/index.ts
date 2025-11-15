@@ -1,3 +1,3 @@
-import { CreateUniksSchema1731200000000 } from './1731200000000-CreateUniksSchema'
+import { AddUniksAndLinked1731200000000 } from './1731200000000-AddUniksAndLinked'
 
-export const uniksMigrations = [CreateUniksSchema1731200000000]
+export const uniksMigrations = [AddUniksAndLinked1731200000000]

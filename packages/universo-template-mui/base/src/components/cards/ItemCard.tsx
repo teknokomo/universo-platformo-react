@@ -1,6 +1,7 @@
 import React from 'react'
 import { styled } from '@mui/material/styles'
 import { Box, Grid, Typography, useTheme, Card } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
 import type { SxProps, Theme } from '@mui/material'
 
 // Generic data interface with common fields
@@ -17,6 +18,7 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     data: T
     images?: any[]
     onClick?: () => void
+    href?: string
     allowStretch?: boolean
     footerEndContent?: React.ReactNode
     headerAction?: React.ReactNode
@@ -51,6 +53,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     data,
     images,
     onClick,
+    href,
     allowStretch = false,
     footerEndContent = null,
     headerAction = null,
@@ -62,10 +65,10 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     const hasFooterEndContent = Boolean(footerEndContent)
     const showFooter = hasImages || hasFooterEndContent
 
-    return (
+    const cardContent = (
         <CardWrapper
             allowStretch={allowStretch}
-            onClick={onClick}
+            onClick={!href ? onClick : undefined}
             sx={{ border: 1, borderColor: theme.palette.grey[300], borderRadius: 1, ...sx }}
         >
             <Box sx={{ height: '100%', p: 2, position: 'relative' }}>
@@ -207,6 +210,17 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
             </Box>
         </CardWrapper>
     )
+
+    // Wrap in RouterLink if href provided
+    if (href) {
+        return (
+            <RouterLink to={href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                {cardContent}
+            </RouterLink>
+        )
+    }
+
+    return cardContent
 }
 
 export default ItemCard

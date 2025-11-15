@@ -107,7 +107,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 // Connect and apply RLS context
                 console.log('[RLS] Connecting QueryRunner', { path: req.path })
                 await runner.connect()
-                
+
                 console.log('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path })
                 await applyRlsContext(runner, access)
 

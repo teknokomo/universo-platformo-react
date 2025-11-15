@@ -26,13 +26,13 @@ export default function MenuContent() {
     const isUnikContext = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = isUnikContext ? isUnikContext[1] : null
 
-    // Check if we're in a metaverse context
-    const isMetaverseContext = location.pathname.match(/^\/metaverses\/([^/]+)/)
-    const metaverseId = isMetaverseContext ? isMetaverseContext[1] : null
+    // Check if we're in a metaverse context (both /metaverse/:id and /metaverses/:id paths)
+    const metaverseMatch = location.pathname.match(/^\/metaverses?\/([^/]+)/)
+    const metaverseId = metaverseMatch ? metaverseMatch[1] : null
 
-    // Check if we're in a cluster context
-    const isClusterContext = location.pathname.match(/^\/clusters\/([^/]+)/)
-    const clusterId = isClusterContext ? isClusterContext[1] : null
+    // Check if we're in a cluster context (both /cluster/:id and /clusters/:id paths)
+    const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
+    const clusterId = clusterMatch ? clusterMatch[1] : null
 
     // Use context-specific menu or root menu
     const menuItems = unikId

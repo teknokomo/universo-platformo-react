@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -167,10 +167,6 @@ const MetaverseList = () => {
         }
     }
 
-    const goToMetaverse = (metaverse: any) => {
-        navigate(`/metaverses/${metaverse.id}`)
-    }
-
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
         localStorage.setItem('entitiesMetaverseDisplayStyle', nextView)
@@ -185,16 +181,25 @@ const MetaverseList = () => {
                 width: '20%',
                 align: 'left',
                 render: (row: Metaverse) => (
-                    <Typography
-                        sx={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word'
-                        }}
+                    <Link
+                        to={`/metaverse/${row.id}`}
+                        style={{ textDecoration: 'none', color: 'inherit' }}
                     >
-                        {row.name || '—'}
-                    </Typography>
+                        <Typography
+                            sx={{
+                                fontSize: 14,
+                                fontWeight: 500,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                    color: 'primary.main'
+                                }
+                            }}
+                        >
+                            {row.name || '—'}
+                        </Typography>
+                    </Link>
                 )
             },
             {
@@ -379,7 +384,7 @@ const MetaverseList = () => {
                                                 key={metaverse.id}
                                                 data={metaverse}
                                                 images={images[metaverse.id] || []}
-                                                onClick={() => goToMetaverse(metaverse)}
+                                                href={`/metaverse/${metaverse.id}`}
                                                 footerEndContent={metaverse.role ? <RoleChip role={metaverse.role} /> : null}
                                                 headerAction={
                                                     descriptors.length > 0 ? (
@@ -414,7 +419,7 @@ const MetaverseList = () => {
                                         data={metaverses}
                                         images={images}
                                         isLoading={isLoading}
-                                        getRowLink={(row: Metaverse) => (row?.id ? `/metaverses/${row.id}` : undefined)}
+                                        getRowLink={(row: Metaverse) => (row?.id ? `/metaverse/${row.id}` : undefined)}
                                         customColumns={metaverseColumns}
                                         i18nNamespace='flowList'
                                         renderActions={(row: Metaverse) => {

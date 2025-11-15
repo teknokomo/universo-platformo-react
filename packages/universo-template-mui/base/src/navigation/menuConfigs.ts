@@ -101,7 +101,7 @@ export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] =
         id: 'metaverse-board',
         // Keys are used within the 'menu' namespace context
         titleKey: 'metaverseboard',
-        url: `/metaverses/${metaverseId}`,
+        url: `/metaverse/${metaverseId}`,
         icon: IconWorld
     },
     {
@@ -119,7 +119,7 @@ export const getMetaverseMenuItems = (metaverseId: string): TemplateMenuItem[] =
     {
         id: 'metaverse-access',
         titleKey: 'access',
-        url: `/metaverses/${metaverseId}/access`,
+        url: `/metaverse/${metaverseId}/access`,
         icon: IconUsers
     }
 ]
@@ -129,7 +129,7 @@ export const getClusterMenuItems = (clusterId: string): TemplateMenuItem[] => [
     {
         id: 'cluster-board',
         titleKey: 'clusterboard',
-        url: `/clusters/${clusterId}`,
+        url: `/cluster/${clusterId}`,
         icon: IconBuildingStore
     },
     {
@@ -147,7 +147,7 @@ export const getClusterMenuItems = (clusterId: string): TemplateMenuItem[] => [
     {
         id: 'cluster-access',
         titleKey: 'access',
-        url: `/clusters/${clusterId}/access`,
+        url: `/cluster/${clusterId}/access`,
         icon: IconUsers
     }
 ]

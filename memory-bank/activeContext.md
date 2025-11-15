@@ -1,12 +1,43 @@
 # Active Context
 
-> **Last Updated**: 2025-11-14
+> **Last Updated**: 2025-01-14
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Cluster Breadcrumbs & UI Parity
+## Current Focus: Uniks Package Refactoring Complete
+
+### Uniks Guards, Migration, and UI Columns (2025-01-14) ✅
+**Implementation completed** - Applied best practices from Metaverses/Clusters to Uniks package:
+
+**Backend Changes**:
+- Created `guards.ts` with createAccessGuards factory (ROLE_PERMISSIONS, ensureUnikAccess, assertNotOwner)
+- Refactored 8 endpoints in `uniksRoutes.ts` to use guards pattern instead of inline permission checks
+- Added `permissions` field to GET /:id response (enables Edit/Delete menu in UI)
+- Renamed migration: CreateUniksSchema → AddUniksAndLinked (follows naming convention, no Flowise mention)
+
+**Frontend Changes**:
+- Updated UnikList.tsx columns: added Name column first (20% width, bold), replaced Sections/Entities with Spaces
+- Added i18n translations for "table.spaces" in EN and RU common.json files
+
+**Build & Lint**: ✅ Both packages compile successfully, lint clean (1 acceptable console warning in migration)
+
+**Next**: Browser verification by user:
+- [ ] Navigate to /uniks and verify Name column displays first in table
+- [ ] Click on a Unik and verify Edit/Delete menu appears for authorized users
+- [ ] Verify Spaces column shows correct count
+- [ ] Test member management with role-based permissions
+
+**Technical Notes**:
+- Guards pattern provides DRY, type-safe permission checks with structured logging
+- Frontend actions menu already had correct filtering logic (`unik.permissions?.manageUnik`)
+- Fixed compilation error: removed duplicate `dataSource` destructuring in PATCH route
+- Pattern source: metaverses-srv/guards.ts and clusters-srv/guards.ts
+
+---
+
+## Recent Completed Work
 
 ### Cluster Breadcrumbs Implementation (2025-11-14) ✅
 - Implemented useClusterName hook with Map-based caching (mirrored useMetaverseName pattern)

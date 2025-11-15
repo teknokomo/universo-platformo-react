@@ -6,6 +6,130 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-15: Card Link Preview on Hover ✅
+**Status**: Implementation complete, browser testing required
+
+#### Implementation Tasks (COMPLETED)
+- [x] Step 1: Add `href` prop to ItemCard component
+- [x] Step 2: Implement RouterLink wrapper pattern
+- [x] Step 3: Update UnikList.tsx (replace onClick with href)
+- [x] Step 4: Update MetaverseList.tsx (replace onClick with href)
+- [x] Step 5: Update ClusterList.tsx (replace onClick with href)
+- [x] Step 6: Add tests for new href functionality
+- [x] Step 7: Build @universo/template-mui package (✅ 3207.55 kB CJS, 275.94 kB ESM)
+- [x] Step 8: Build frontend packages (uniks-frt, metaverses-frt, clusters-frt) (✅ all successful)
+
+#### Browser Testing (USER)
+- [ ] Test 1: Hover over Unik card → verify URL preview shows in browser status bar
+- [ ] Test 2: Hover over Metaverse card → verify URL preview
+- [ ] Test 3: Hover over Cluster card → verify URL preview
+- [ ] Test 4: Right-click card → verify "Open in new tab" works
+- [ ] Test 5: Click headerAction menu → verify doesn't navigate
+- [ ] Test 6: Verify hover effects still work (background change)
+
+#### Technical Details
+- **Solution**: Wrap CardWrapper in RouterLink when href provided
+- **Pattern**: `href ? <RouterLink to={href}>{card}</RouterLink> : {card}`
+- **Backward Compatible**: Keep onClick for other ItemCard uses
+- **Files Modified**:
+  1. `packages/universo-template-mui/base/src/components/cards/ItemCard.tsx` - Added href prop and RouterLink wrapper
+  2. `packages/uniks-frt/base/src/pages/UnikList.tsx` - Removed goToUnik, use href
+  3. `packages/metaverses-frt/base/src/pages/MetaverseList.tsx` - Removed goToMetaverse, use href
+  4. `packages/clusters-frt/base/src/pages/ClusterList.tsx` - Removed goToCluster, use href
+  5. `packages/universo-template-mui/base/src/components/cards/__tests__/ItemCard.test.tsx` - Added 6 new tests for href
+
+### 2025-01-15: Uniks Pagination Fix ✅
+**Status**: Implementation complete, browser testing required
+
+#### Implementation Tasks (COMPLETED)
+- [x] Add total count query to GET /uniks endpoint
+- [x] Set pagination headers (X-Total-Count, X-Pagination-Count, X-Pagination-Limit, X-Pagination-Offset, X-Pagination-Has-More)
+- [x] Set default values for limit (20) and offset (0)
+- [x] Fix pagination with GROUP BY - use two-step query approach
+- [x] Build uniks-srv package (2 times)
+
+#### Browser Testing (USER)
+- [ ] Test 1: With 12 uniks, set page size to 10 → verify shows ONLY first 10 uniks and "1-10 of 12"
+- [ ] Test 2: Navigate to page 2 → verify shows ONLY remaining 2 uniks and "11-12 of 12"
+- [ ] Test 3: Change page size to 20 → verify all 12 uniks appear on single page
+- [ ] Test 4: Test pagination with search filter active
+
+#### Technical Changes
+- **Problem 1**: GET /uniks returned data array without pagination headers. Frontend couldn't calculate totalPages because `totalItems: 0`.
+- **Solution 1**: Added separate count query and pagination headers (X-Total-Count, etc.)
+
+- **Problem 2**: TypeORM `.skip()` and `.take()` don't work correctly with `GROUP BY` - they apply to pre-aggregated rows, not grouped results. Result: all 12 items shown on every page.
+- **Solution 2**: Two-step query approach:
+  1. **Step 1**: Get paginated list of unik IDs with roles (no aggregation) - apply OFFSET/LIMIT here
+  2. **Step 2**: Get full unik details + spaces count for those specific IDs (with GROUP BY)
+  3. Merge results preserving pagination order using Map
+  
+- **Why this works**: OFFSET/LIMIT applied to simple SELECT (before GROUP BY), then aggregation only on needed rows.
+- **File**: `packages/uniks-srv/base/src/routes/uniksRoutes.ts`
+
+---
+
+### 2025-01-15: Uniks List - Delete Modal & Search Fixes ✅
+**Status**: Implementation complete, browser testing required
+
+#### Implementation Tasks (COMPLETED)
+- [x] Task 1: Fix ConfirmDeleteDialog - call onCancel() after successful onConfirm()
+- [x] Task 2: Fix GET /uniks endpoint - add search WHERE clause + pagination support
+- [x] Task 3: Build template-mui package (contains dialog fix)
+- [x] Task 4: Build uniks-srv package (contains search fix)
+- [x] Task 5: Build uniks-frt package
+- [x] Task 6: Full workspace build (32/32 tasks successful, 4m 23s)
+
+#### Browser Testing (USER)
+- [ ] Test 1: Delete unik, verify modal closes automatically after success
+- [ ] Test 2: Enter search text "для", verify filtering works (shows matching uniks)
+- [ ] Test 3: Enter search text "технокомо", verify it finds "Технокомо" unik
+- [ ] Test 4: Test partial matches in name field (e.g., "техн")
+- [ ] Test 5: Test partial matches in description field
+- [ ] Test 6: Clear search, verify all uniks return
+
+#### Technical Changes
+- **Fix 1 (Modal closing)**: Modified `ConfirmDeleteDialog.tsx` handleConfirm() to call `onCancel()` after successful `onConfirm()`. This closes the dialog managed by BaseEntityMenu's dialogState.
+- **Fix 2 (Search support)**: Added search parameter extraction in GET /uniks route. Added WHERE clause: `(LOWER(u.name) LIKE :search OR LOWER(u.description) LIKE :search)` with escaped search term. Also added optional limit/offset pagination support for future use.
+
+#### Files Modified
+1. `packages/universo-template-mui/base/src/components/dialogs/ConfirmDeleteDialog.tsx` - Added `onCancel()` call after successful delete
+2. `packages/uniks-srv/base/src/routes/uniksRoutes.ts` - Added search and pagination to GET /uniks endpoint
+
+#### Root Cause Analysis
+- **Issue 1**: ConfirmDeleteDialog didn't signal parent (BaseEntityMenu) to close dialog after successful onConfirm(). Dialog component has comment "dialog will be closed by parent" but never called onCancel/onClose.
+- **Issue 2**: GET /uniks endpoint ignored search query parameter. Frontend usePaginated hook passed search correctly via API client, but backend QueryBuilder had no WHERE clause for filtering.
+
+---
+
+### 2025-01-14: Uniks Refactoring – Guards, Migration, UI Columns ✅
+Applied best practices from Metaverses/Clusters implementation to Uniks package:
+- [x] **Backend Guards**: Created guards.ts with createAccessGuards factory (ROLE_PERMISSIONS, ensureUnikAccess, assertNotOwner)
+- [x] **Routes Refactoring**: Updated 8 endpoints in uniksRoutes.ts to use guards pattern (DRY)
+  - POST /members, GET /:id (added permissions field), PUT /:id, DELETE /:id
+  - GET /:unikId/members, POST /:unikId/members, PATCH /:unikId/members/:memberId, DELETE /:unikId/members/:memberId
+- [x] **Migration Rename**: CreateUniksSchema → AddUniksAndLinked (removed Flowise mention, follows naming convention)
+- [x] **Frontend Columns**: Updated UnikList.tsx columns (added name first, replaced sections/entities with spaces)
+- [x] **i18n Translations**: Added "table.spaces" key to EN and RU common.json files
+- [x] **Build & Lint**: Both packages compile successfully, lint clean (1 acceptable console warning in migration)
+- [ ] **Browser Testing (USER)**: Verify Edit/Delete menu visible, Name column displays, Spaces column shows count
+
+### 2025-11-14: Code Quality Improvements (M2M Logic, Email Index, Guards DRY)
+Implementing 3 fixes identified in comparative analysis of metaverses-srv and clusters-srv:
+- [x] **Task 1**: Fix ensureSectionAccess M2M logic - changed findOne → find with loop (mirrors clusters pattern)
+- [x] **Task 2**: Add LOWER(email) functional index to auth.users table in 3 migrations (metaverses, clusters, uniks)
+- [x] **Task 3**: Extract guards to @universo/auth-srv - created generic createAccessGuards factory
+  - [x] Create guards/types.ts with AccessGuardsConfig interface
+  - [x] Create guards/createAccessGuards.ts with generic factory (assertPermission, ensureAccess, getMembershipSafe, hasPermission, assertNotOwner)
+  - [x] Create guards/index.ts barrel export
+  - [x] Export guards from auth-srv/src/index.ts
+  - [x] Fix lint error in auth-srv/routes/auth.ts (empty catch block)
+  - [x] Build auth-srv successfully
+  - [x] Refactor metaverses-srv/routes/guards.ts to use createAccessGuards factory
+  - [x] Build and test metaverses-srv (✅ 25/25 tests passing)
+  - [x] Refactor clusters-srv/routes/guards.ts to use createAccessGuards factory
+  - [x] Build and test clusters-srv (✅ 25/25 tests passing)
+
 ### 2025-01-14: PR #545 QA Fixes Implementation ✅
 All critical and code quality issues from bot reviewers (Copilot, Gemini, ChatGPT Codex) resolved:
 - [x] **CRITICAL**: Fixed ensureDomainAccess M2M security vulnerability (findOne → find)
