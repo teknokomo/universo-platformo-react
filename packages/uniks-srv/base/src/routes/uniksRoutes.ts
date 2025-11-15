@@ -26,9 +26,11 @@ const resolveUserId = (req: Request): string | undefined => {
 }
 
 const asyncHandler =
-    (fn: (req: Request, res: Response) => Promise<any>): RequestHandler =>
+    <T extends Request = Request, U extends Response = Response>(
+        fn: (req: T, res: U) => Promise<void>
+    ): RequestHandler =>
     (req, res, next) => {
-        fn(req, res).catch(next)
+        fn(req as T, res as U).catch(next)
     }
 
 const getRepositories = (req: Request, getDataSource: () => DataSource) => {
