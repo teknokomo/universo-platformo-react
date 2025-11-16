@@ -15,6 +15,7 @@ import { AuthUser } from '@universo/auth-srv'
 import { Profile } from '@universo/profile-srv'
 import { metaversesEntities } from '@universo/metaverses-srv'
 import { clustersEntities } from '@universo/clusters-srv'
+import { projectsEntities } from '@universo/projects-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
 import { PublishCanvas } from '@universo/publish-srv'
 
@@ -25,6 +26,10 @@ const metaversesEntitiesObject = Object.fromEntries(
 
 const clustersEntitiesObject = Object.fromEntries(
   clustersEntities.map((entity) => [entity.name, entity])
+)
+
+const projectsEntitiesObject = Object.fromEntries(
+  projectsEntities.map((entity) => [entity.name, entity])
 )
 
 export const entities = {
@@ -44,6 +49,8 @@ export const entities = {
   ...metaversesEntitiesObject,
   // Clusters service entities
   ...clustersEntitiesObject,
+  // Projects service entities
+  ...projectsEntitiesObject,
   // Uniks entities
   Unik,
   UnikUser,

@@ -1,14 +1,63 @@
 # Active Context
 
-> **Last Updated**: 2025-01-14
+> **Last Updated**: 2025-11-17
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Uniks Package Refactoring Complete
+## Current Focus: Projects Integration 100% Complete (Production-Ready) ✅
 
-### Uniks Guards, Migration, and UI Columns (2025-01-14) ✅
+### Final i18n Consistency Fix (2025-11-17) ✅
+**Issue #23**: Mixed Russian terminology - "Вехи" (milestones) vs "Этапы" (stages)
+**User Request**: Единообразное название - оставить только "Этапы"
+**Implementation**:
+- Replaced all 14 occurrences of "Вех*" forms with "Этап*" in `projects.json`
+- Grammatical forms handled: Вехи→Этапы, веха→этап, веху→этап, вехе→этапе, вех→этапов
+- Updated: stats titles, table headers, section titles, search placeholders, empty states, dialogs, form labels, validation messages
+- Build: projects-frt ✅ (3.7s), flowise-ui ✅ (1m 11s)
+- i18n bundle size: 14.23 kB → 14.26 kB (+30 bytes due to longer word "этап")
+**Status**: ✅ Complete - all Russian text now uses consistent "Этапы" terminology
+**Next**: User hard refresh browser (Ctrl+F5) to verify consistent terminology
+
+---
+
+## Recent Completed Work
+
+### Projects Runtime Fixes & UX Improvements (2025-11-17) ✅
+**Context**: After completing 11 QA fixes, discovered 12 additional runtime/UX issues during browser testing. All fixed.
+
+**Backend Critical Fixes**:
+- **Issue #12**: Build error in uniks-srv - removed return from res.json() calls (TypeScript compliance)
+- **Issue #13**: Migration error "must be owner of table users" - removed auth.users index creation (Supabase system table)
+- **Issue #14**: ".map is not a function" error - backend returning HTML instead of JSON
+- **Issue #15**: Namespace capitalization - changed 'Projects' to 'projects' across 9+ files
+- **Issue #16**: **CRITICAL** - Projects router never mounted! Added registration to flowise-server/apiRoutes.ts
+- **Issue #17**: Duplicate AuthUser entity - deleted local copy, imported from @universo/auth-srv (TypeORM metadata conflict fix)
+
+**Frontend UX Fixes**:
+- **Issue #18**: Russian translations wrong - showing "Метавселенные" instead of "Проекты" - fixed all namespace references
+- **Issue #19**: Main menu showing instead of internal project menu - added projectMatch regex and menu detection to MenuContent.tsx
+- **Issue #20**: Wrong menu order (Milestones→Tasks) - swapped to Tasks→Milestones (matches Resources→Domains pattern)
+- **Issue #21**: URL param mismatch - MilestoneList used PascalCase ProjectId but route defines camelCase projectId - fixed useParams
+- **Issue #22**: Browser verification passed ✅ - all pages loading correctly
+- **Issue #23**: Terminology consistency - replaced "Вехи" with "Этапы" throughout Russian UI (14 replacements)
+
+**Final Validation**:
+- ✅ All 23 issues fixed (11 QA + 12 runtime)
+- ✅ Build: TypeScript 0 errors, ESLint clean, all packages successful
+- ✅ Backend: Router registered, all routes working, entities migrated
+- ✅ Frontend: All pages loading, correct menu navigation, proper breadcrumbs
+- ✅ i18n: Consistent terminology in both English and Russian
+- ✅ Pattern Compliance: 100% match with Metaverses/Clusters reference
+
+**Impact**: Projects module now **production-ready** with full feature parity to Metaverses/Clusters.
+
+---
+
+## Recent Completed Work
+
+### Uniks Package Refactoring (2025-01-14) ✅
 **Implementation completed** - Applied best practices from Metaverses/Clusters to Uniks package:
 
 **Backend Changes**:

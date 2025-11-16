@@ -8,6 +8,7 @@ import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetaverseName'
 import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
+import { useProjectName, truncateProjectName } from '../../hooks/useProjectName'
 import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
@@ -35,6 +36,11 @@ export default function NavbarBreadcrumbs() {
     const clusterId = clusterIdMatch ? clusterIdMatch[1] : null
     const clusterName = useClusterName(clusterId)
 
+    // Extract projectId from URL for dynamic name loading (both singular and plural routes)
+    const projectIdMatch = location.pathname.match(/^\/projects?\/([^/]+)/)
+    const projectId = projectIdMatch ? projectIdMatch[1] : null
+    const projectName = useProjectName(projectId)
+
     // Extract unikId from URL for dynamic name loading
     const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = unikIdMatch ? unikIdMatch[1] : null
@@ -45,6 +51,7 @@ export default function NavbarBreadcrumbs() {
         uniks: 'uniks',
         metaverses: 'metaverses',
         clusters: 'clusters',
+        projects: 'projects',
         profile: 'profile',
         docs: 'docs',
         spaces: 'spaces'
@@ -175,6 +182,52 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('resources'), to: location.pathname })
                 } else if (segments[2] === 'domains') {
                     items.push({ label: t('domains'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('access'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'projects') {
+            const items = [{ label: t(menuMap.projects), to: '/projects' }]
+
+            // Handle nested routes like /projects/:id/milestones or /projects/:id/tasks
+            if (segments[1] && projectName) {
+                items.push({
+                    label: truncateProjectName(projectName),
+                    to: `/project/${segments[1]}`
+                })
+
+                // Sub-pages (milestones, tasks) - use keys from menu namespace
+                if (segments[2] === 'milestones') {
+                    items.push({ label: t('milestones'), to: location.pathname })
+                } else if (segments[2] === 'tasks') {
+                    items.push({ label: t('tasks'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'project') {
+            const items = [{ label: t(menuMap.projects), to: '/projects' }]
+
+            if (segments[1] && projectName) {
+                // Use actual project name with truncation for long names
+                items.push({
+                    label: truncateProjectName(projectName),
+                    to: `/project/${segments[1]}`
+                })
+
+                // Sub-pages (access, milestones, tasks) - use keys from menu namespace
+                if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'milestones') {
+                    items.push({ label: t('milestones'), to: location.pathname })
+                } else if (segments[2] === 'tasks') {
+                    items.push({ label: t('tasks'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
                 }

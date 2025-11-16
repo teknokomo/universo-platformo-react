@@ -173,7 +173,10 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
         '/',
         asyncHandler(async (req: Request, res: Response) => {
             const userId = resolveUserId(req)
-            if (!userId) return res.status(401).json({ error: 'Unauthorized: User not found' })
+            if (!userId) {
+                res.status(401).json({ error: 'Unauthorized: User not found' })
+                return
+            }
 
             try {
                 // Validate and parse query parameters with Zod
@@ -273,13 +276,14 @@ export function createUniksCollectionRouter(ensureAuth: RequestHandler, getDataS
             } catch (error) {
                 // Handle Zod validation errors
                 if (error instanceof ZodError) {
-                    return res.status(400).json({
+                    res.status(400).json({
                         error: 'Invalid query parameters',
                         details: error.errors.map((e) => ({
                             field: e.path.join('.'),
                             message: e.message
                         }))
                     })
+                    return
                 }
                 throw error
             }

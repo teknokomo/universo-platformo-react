@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom'
 import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
 import '@universo/clusters-frt/i18n'
+import '@universo/projects-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
 
@@ -65,6 +66,18 @@ const DomainList = Loadable(lazy(() => import('@universo/clusters-frt/pages/Doma
 const ResourceList = Loadable(lazy(() => import('@universo/clusters-frt/pages/ResourceList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ClusterMembers = Loadable(lazy(() => import('@universo/clusters-frt/pages/ClusterMembers')))
+
+// Project module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ProjectList = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ProjectBoard = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const MilestoneList = Loadable(lazy(() => import('@universo/projects-frt/pages/MilestoneList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const TaskList = Loadable(lazy(() => import('@universo/projects-frt/pages/TaskList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ProjectMembers = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectMembers')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile.jsx')))
 
@@ -341,7 +354,78 @@ const MainRoutesMUI = {
             )
         },
         {
-            path: 'domains',
+            path: 'projects',
+            element: <Outlet />, // ← CRITICAL: Required for nested routes to render children
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <ProjectList />
+                        </AuthGuard>
+                    )
+                },
+                // Nested lists inside a specific project
+                {
+                    path: ':projectId/milestones',
+                    element: (
+                        <AuthGuard>
+                            <MilestoneList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':projectId/tasks',
+                    element: (
+                        <AuthGuard>
+                            <TaskList />
+                        </AuthGuard>
+                    )
+                }
+            ]
+        },
+        {
+            path: 'project/:projectId',
+            element: (
+                <AuthGuard>
+                    <ProjectBoard />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'project/:projectId/members',
+            element: (
+                <AuthGuard>
+                    <ProjectMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'project/:projectId/access',
+            element: (
+                <AuthGuard>
+                    <ProjectMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'milestones',
+            element: (
+                <AuthGuard>
+                    <MilestoneList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'tasks',
+            element: (
+                <AuthGuard>
+                    <TaskList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'resources',
             element: (
                 <AuthGuard>
                     <DomainList />

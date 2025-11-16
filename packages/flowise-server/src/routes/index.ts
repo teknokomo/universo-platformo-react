@@ -42,6 +42,7 @@ import nvidiaNimRouter from './nvidia-nim'
 import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRouter } from '@universo/uniks-srv'
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
+import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -217,6 +218,22 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (clustersRouter) {
         clustersRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Projects, Milestones, Tasks
+// Note: Rate limiters initialized via initializeProjectsRateLimiters() in server startup
+// This mounts: /projects, /milestones, /tasks
+// Lazy initialization: router created on first request (after initializeProjectsRateLimiters called)
+let projectsRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!projectsRouter) {
+        projectsRouter = createProjectsServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (projectsRouter) {
+        projectsRouter(req, res, next)
     } else {
         next()
     }
