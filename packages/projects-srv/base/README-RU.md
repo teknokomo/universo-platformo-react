@@ -160,7 +160,7 @@ Content-Type: application/json
 
 ### Основные сущности
 ```typescript
-@Task({ name: 'projects' })
+@Entity({ name: 'projects' })
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -178,7 +178,7 @@ export class Project {
   updatedAt: Date
 }
 
-@Task({ name: 'milestones' })
+@Entity({ name: 'milestones' })
 export class Milestone {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -196,7 +196,7 @@ export class Milestone {
   updatedAt: Date
 }
 
-@Task({ name: 'tasks' })
+@Entity({ name: 'tasks' })
 export class Task {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -221,7 +221,7 @@ export class Task {
 ### Таблицы связей
 ```typescript
 // Отношения многие-ко-многим с CASCADE удалением
-@Task({ name: 'tasks_projects' })
+@Entity({ name: 'tasks_projects' })
 export class TaskProject {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -238,12 +238,12 @@ export class TaskProject {
   // UNIQUE ограничение на (task_id, project_id)
 }
 
-@Task({ name: 'tasks_milestones' })
+@Entity({ name: 'tasks_milestones' })
 export class TaskMilestone {
-  // Аналогичная структура для связи задач и вех
+  // Аналогичная структура для связей задач-вех
 }
 
-@Task({ name: 'milestones_projects' })  
+@Entity({ name: 'milestones_projects' })  
 export class MilestoneProject {
   // Аналогичная структура для связи вех и проектов
 }
@@ -392,7 +392,7 @@ const rateLimiter = rateLimit({
   standardHeaders: true
 })
 
-// Продакшен: рекехадуется Redis хранилище
+// Продакшен: рекомендуется Redis хранилище
 const redisStore = new RedisStore({
   client: redisClient,
   prefix: 'rate-limit:'

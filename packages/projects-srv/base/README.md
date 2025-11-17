@@ -161,7 +161,7 @@ Content-Type: application/json
 ### Core Tasks
 
 ```typescript
-@Task({ name: 'projects' })
+@Entity({ name: 'projects' })
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -179,7 +179,7 @@ export class Project {
   updatedAt: Date
 }
 
-@Task({ name: 'milestones' })
+@Entity({ name: 'milestones' })
 export class Milestone {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -197,7 +197,7 @@ export class Milestone {
   updatedAt: Date
 }
 
-@Task({ name: 'tasks' })
+@Entity({ name: 'tasks' })
 export class Task {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -222,7 +222,7 @@ export class Task {
 ### Junction Tables
 ```typescript
 // Many-to-many relationship tables with CASCADE delete
-@Task({ name: 'tasks_projects' })
+@Entity({ name: 'tasks_projects' })
 export class TaskProject {
   @PrimaryGeneratedColumn('uuid')
   id: string
@@ -239,12 +239,12 @@ export class TaskProject {
   // UNIQUE constraint on (task_id, project_id)
 }
 
-@Task({ name: 'tasks_milestones' })
+@Entity({ name: 'tasks_milestones' })
 export class TaskMilestone {
   // Similar structure for task-milestone relationships
 }
 
-@Task({ name: 'milestones_projects' })  
+@Entity({ name: 'milestones_projects' })
 export class MilestoneProject {
   // Similar structure for milestone-project relationships
 }
