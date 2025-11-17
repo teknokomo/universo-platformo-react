@@ -63,7 +63,7 @@ const TaskList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('TasksTaskDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('projectsTaskDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -177,7 +177,7 @@ const TaskList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('TasksTaskDisplayStyle', nextView)
+        localStorage.setItem('projectsTaskDisplayStyle', nextView)
         setView(nextView)
     }
 

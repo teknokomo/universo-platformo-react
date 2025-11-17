@@ -391,7 +391,7 @@ export function createTasksRouter(
             const exists = await TaskmilestoneRepo.findOne({ where: { task: { id: taskId }, milestone: { id: milestoneId } } })
             if (exists) return res.status(200).json(exists)
 
-            const link = TaskmilestoneRepo.create({ task: Milestone })
+            const link = TaskmilestoneRepo.create({ task: Task, milestone: Milestone })
             const saved = await TaskmilestoneRepo.save(link)
 
             // Auto-sync Task-Project links after adding Milestone

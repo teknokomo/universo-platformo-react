@@ -211,15 +211,15 @@ export function createMilestonesRoutes(
 
             try {
                 // Validate Project exists
-                const Project = await projectRepo.findOne({ where: { id: projectId } })
-                if (!Project) return res.status(400).json({ error: 'Invalid projectId' })
+                const project = await projectRepo.findOne({ where: { id: projectId } })
+                if (!project) return res.status(400).json({ error: 'Invalid projectId' })
 
-                const Task = milestoneRepo.create({ name, description })
-                const saved = await milestoneRepo.save(Task)
+                const milestone = milestoneRepo.create({ name, description })
+                const saved = await milestoneRepo.save(milestone)
 
                 // Create mandatory Milestone-Project link
-                const MilestoneProjectLink = MilestoneprojectRepo.create({ milestone: saved, project: Project })
-                await MilestoneprojectRepo.save(MilestoneProjectLink)
+                const milestoneProjectLink = MilestoneprojectRepo.create({ milestone: saved, project })
+                await MilestoneprojectRepo.save(milestoneProjectLink)
 
                 res.status(201).json(saved)
             } catch (error) {

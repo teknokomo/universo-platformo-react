@@ -300,17 +300,17 @@ export function createProjectsRoutes(
             try {
                 // Create Project
                 // Creating Project
-                const Task = projectRepo.create({ name, description })
-                const saved = await projectRepo.save(Task)
+                const project = projectRepo.create({ name, description })
+                const saved = await projectRepo.save(project)
 
                 // Create Project-user relationship (user becomes owner)
                 // Creating Project-user relationship
-                const ProjectUser = projectUserRepo.create({
+                const projectUser = projectUserRepo.create({
                     project_id: saved.id,
                     user_id: userId,
                     role: 'owner'
                 })
-                const _savedProjectUser = await projectUserRepo.save(ProjectUser)
+                const _savedProjectUser = await projectUserRepo.save(projectUser)
 
                 res.status(201).json(saved)
             } catch (error) {
@@ -338,8 +338,8 @@ export function createProjectsRoutes(
 
             const { membership } = await ensureProjectAccess(getDataSource(), userId, projectId)
 
-            const Project = await projectRepo.findOne({ where: { id: projectId } })
-            if (!Project) {
+            const project = await projectRepo.findOne({ where: { id: projectId } })
+            if (!project) {
                 return res.status(404).json({ error: 'Project not found' })
             }
 
@@ -355,11 +355,11 @@ export function createProjectsRoutes(
             const membersPayload = permissions.manageMembers ? (await loadMembers(req, projectId)).members : undefined
 
             const response: ProjectDetailsResponse = {
-                id: Project.id,
-                name: Project.name,
-                description: Project.description ?? undefined,
-                createdAt: Project.createdAt,
-                updatedAt: Project.updatedAt,
+                id: project.id,
+                name: project.name,
+                description: project.description ?? undefined,
+                createdAt: project.createdAt,
+                updatedAt: project.updatedAt,
                 MilestonesCount,
                 TasksCount,
                 membersCount,
@@ -561,15 +561,15 @@ export function createProjectsRoutes(
             const { projectRepo } = repos(req)
             await ensureProjectAccess(getDataSource(), userId, projectId, 'manageProject')
 
-            const Project = await projectRepo.findOne({ where: { id: projectId } })
-            if (!Project) {
+            const project = await projectRepo.findOne({ where: { id: projectId } })
+            if (!project) {
                 return res.status(404).json({ error: 'Project not found' })
             }
 
-            Project.name = name
-            Project.description = description
+            project.name = name
+            project.description = description
 
-            const saved = await projectRepo.save(Project)
+            const saved = await projectRepo.save(project)
             res.json(saved)
         })
     )
@@ -587,12 +587,12 @@ export function createProjectsRoutes(
             const { projectRepo } = repos(req)
             await ensureProjectAccess(getDataSource(), userId, projectId, 'manageProject')
 
-            const Project = await projectRepo.findOne({ where: { id: projectId } })
-            if (!Project) {
+            const project = await projectRepo.findOne({ where: { id: projectId } })
+            if (!project) {
                 return res.status(404).json({ error: 'Project not found' })
             }
 
-            await projectRepo.remove(Project)
+            await projectRepo.remove(project)
             res.status(204).send()
         })
     )
@@ -636,13 +636,13 @@ export function createProjectsRoutes(
             if (!userId) return res.status(401).json({ error: 'User not authenticated' })
             await ensureProjectAccess(getDataSource(), userId, projectId, 'createContent')
             const { linkRepo, projectRepo, taskRepo } = repos(req)
-            const Project = await projectRepo.findOne({ where: { id: projectId } })
-            const Task = await taskRepo.findOne({ where: { id: taskId } })
-            if (!Project || !Task) return res.status(404).json({ error: 'Not found' })
+            const project = await projectRepo.findOne({ where: { id: projectId } })
+            const task = await taskRepo.findOne({ where: { id: taskId } })
+            if (!project || !task) return res.status(404).json({ error: 'Not found' })
             // Avoid duplicates at API level (no UNIQUE in DB as per requirements)
             const exists = await linkRepo.findOne({ where: { project: { id: projectId }, task: { id: taskId } } })
             if (exists) return res.status(200).json(exists)
-            const link = linkRepo.create({ project: Task })
+            const link = linkRepo.create({ project, task })
             const saved = await linkRepo.save(link)
             res.status(201).json(saved)
         })
@@ -732,14 +732,14 @@ export function createProjectsRoutes(
             await ensureProjectAccess(getDataSource(), userId, projectId, 'createContent')
             await ensureMilestoneAccess(getDataSource(), userId, milestoneId)
             const { projectRepo, milestoneRepo, MilestoneLinkRepo } = repos(req)
-            const Project = await projectRepo.findOne({ where: { id: projectId } })
-            const Milestone = await milestoneRepo.findOne({ where: { id: milestoneId } })
-            if (!Project || !Milestone) return res.status(404).json({ error: 'Not found' })
+            const project = await projectRepo.findOne({ where: { id: projectId } })
+            const milestone = await milestoneRepo.findOne({ where: { id: milestoneId } })
+            if (!project || !milestone) return res.status(404).json({ error: 'Not found' })
 
             const exists = await MilestoneLinkRepo.findOne({ where: { project: { id: projectId }, milestone: { id: milestoneId } } })
             if (exists) return res.status(200).json(exists)
 
-            const link = MilestoneLinkRepo.create({ project: Milestone })
+            const link = MilestoneLinkRepo.create({ project, milestone })
             const saved = await MilestoneLinkRepo.save(link)
             res.status(201).json(saved)
         })

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
@@ -51,7 +51,7 @@ const MilestoneList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('TasksMilestoneDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('projectsMilestoneDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -74,29 +74,6 @@ const MilestoneList = () => {
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
-
-    // DEBUG: Log pagination state changes for troubleshooting
-    useEffect(() => {
-        // eslint-disable-next-line no-console
-        console.log('[MilestoneList Pagination Debug]', {
-            currentPage: paginationResult.pagination.currentPage,
-            pageSize: paginationResult.pagination.pageSize,
-            totalItems: paginationResult.pagination.totalItems,
-            totalPages: paginationResult.pagination.totalPages,
-            offset: (paginationResult.pagination.currentPage - 1) * paginationResult.pagination.pageSize,
-            search: paginationResult.pagination.search,
-            isLoading: paginationResult.isLoading,
-            searchValue
-        })
-    }, [
-        paginationResult.pagination.currentPage,
-        paginationResult.pagination.pageSize,
-        paginationResult.pagination.totalItems,
-        paginationResult.pagination.totalPages,
-        paginationResult.pagination.search,
-        paginationResult.isLoading,
-        searchValue
-    ])
 
     // State for independent ConfirmDeleteDialog
     const [deleteDialogState, setDeleteDialogState] = useState<{
@@ -291,7 +268,7 @@ const MilestoneList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('TasksMilestoneDisplayStyle', nextView)
+        localStorage.setItem('projectsMilestoneDisplayStyle', nextView)
         setView(nextView)
     }
 
