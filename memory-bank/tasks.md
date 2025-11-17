@@ -263,6 +263,88 @@
   - **Rebuilt**: projects-frt ✅ (4.1s), flowise-ui ✅ (1m 9s)
 - [ ] **Task 37**: Browser test final (USER) - Verify project cards open correctly and Access page loads without errors
 
+---
+
+### 2025-11-17: PR #550 Bot Review - Critical Bugfixes (QA Analysis)
+**Status**: Implementation COMPLETE ✅ - All fixes applied, validation required
+
+#### Summary of Changes
+- 🔴 **Commit 1**: 3 critical link creation bugs FIXED (ProjectsRoutes, TasksRoutes)
+- 🟡 **Commit 2**: Naming convention refactored globally (ProjectsRoutes, MilestonesRoutes)
+- 🟢 **Commit 3**: Documentation typos fixed, localStorage keys corrected, debug code removed
+
+#### Commit 1: Critical Bugfixes (MUST fix before merge) 🔴
+- [x] **Bug-1**: ProjectsRoutes.ts:645 - Task-Project link creation
+  - **Problem**: `const link = linkRepo.create({ project: Task })` assigns Task to project field, task_id stays NULL
+  - **Fix**: Changed to `const link = linkRepo.create({ project: Project, task: Task })` (both fields filled)
+  - **Impact**: Database constraint violation on task_id NOT NULL - FIXED ✅
+- [x] **Bug-2**: ProjectsRoutes.ts:742 - Milestone-Project link creation
+  - **Problem**: `const link = MilestoneLinkRepo.create({ project: Milestone })` assigns Milestone to project field
+  - **Fix**: Changed to `const link = MilestoneLinkRepo.create({ project: Project, milestone: Milestone })`
+  - **Impact**: Database constraint violation on milestone_id NOT NULL - FIXED ✅
+- [x] **Bug-3**: TasksRoutes.ts:394 - Task-Milestone link creation
+  - **Problem**: `const link = TaskmilestoneRepo.create({ task: Milestone })` assigns Milestone to task field
+  - **Fix**: Changed to `const link = TaskmilestoneRepo.create({ task: Task, milestone: Milestone })`
+  - **Impact**: Database constraint violation on milestone_id NOT NULL - FIXED ✅
+
+#### Commit 2: Naming Convention Refactoring (Global) 🟡
+- [x] **Refactor-1**: ProjectsRoutes.ts - All PascalCase → camelCase
+  - **Problem**: ~50 occurrences of `const Project`, `const Task`, `const Milestone` (PascalCase)
+  - **Root Cause**: TypeORM entity properties are lowercase (`project`, `task`, `milestone`)
+  - **Fix**: Global replacement throughout file for consistency with Metaverses/Clusters - FIXED ✅
+  - **Pattern**: Metaverses uses `const metaverse` (lowercase), Clusters uses `const cluster` (lowercase)
+  - **Changed**: Lines 303, 341, 564, 590, 639-645, 735-742 (8 locations + all usages)
+- [x] **Refactor-2**: MilestonesRoutes.ts:217 - Confusing variable name
+  - **Problem**: `const Task = milestoneRepo.create(...)` - misleading name
+  - **Fix**: Changed to `const milestone = milestoneRepo.create(...)` + all related variables (project, milestoneProjectLink) - FIXED ✅
+  - **Impact**: Code readability improved
+
+#### Commit 3: Documentation & UX Cleanup 🟢
+- [x] **Doc-1**: README-RU.md:76-78 - Three typos
+  - Line 76: "Кроекты" → "Проекты"
+  - Line 77: "Дехи" → "Этапы" (NOT "Вехи"!)
+  - Line 78: "Радачи" → "Задачи"
+  - **Status**: Already fixed in previous tasks ✅
+- [x] **UX-1**: MilestoneList.tsx:54 - Wrong localStorage key
+  - **Problem**: `'TasksMilestoneDisplayStyle'` (copied from Tasks)
+  - **Fix**: Changed to `'projectsMilestoneDisplayStyle'` (2 locations: lines 54, 294) - FIXED ✅
+  - **Impact**: Display style persistence
+- [x] **UX-2**: TaskList.tsx:~54 - localStorage key (bonus fix)
+  - **Problem**: Used `'TasksTaskDisplayStyle'` (inconsistent naming)
+  - **Fix**: Changed to `'projectsTaskDisplayStyle'` (2 locations: lines 66, 180) - FIXED ✅
+- [x] **Debug-1**: MilestoneList.tsx:79-99 - Remove debug code block
+  - **Problem**: 21-line console.log block left from development
+  - **Fix**: Deleted entire block + removed unused `useEffect` import - FIXED ✅
+  - **Impact**: Code cleanliness
+
+#### False Positives (Ignore) ✅
+- **FP-1**: `initializeProjectsRateLimiters` - Copilot says unused, but IS used in flowise-server/src/index.ts:334
+- **FP-2**: `searchValue` - Copilot says unused, but required for `useDebouncedSearch` hook
+
+#### Optional (Out of Scope) 🔵
+- **Opt-1**: uniksRoutes.ts return statements - Separate PR later
+
+#### Validation Required 🔍
+- [x] **Val-1**: Build projects-srv - Verify TypeScript compiles without errors ✅ PASSED
+- [x] **Val-2**: Build projects-frt - Verify frontend compiles without errors ✅ PASSED (4.06s)
+- [x] **Val-3**: Lint projects-srv - Check for new linting issues ✅ PASSED (3 acceptable warnings - unchanged)
+- [x] **Val-4**: Lint projects-frt - Check for new linting issues ✅ PASSED (4 acceptable warnings - unchanged)
+- [ ] **Val-5**: Browser test (USER) - Create project → milestone → task, verify links work
+- [ ] **Val-6**: Browser test (USER) - Test localStorage persistence (view switching)
+- [ ] **Val-7**: Browser test (USER) - Verify no debug logs in browser console
+
+#### Files Modified (Total: 5)
+**Backend (2 files)**:
+1. `packages/projects-srv/base/src/routes/ProjectsRoutes.ts` - 3 bug fixes + global naming refactor (8 locations)
+2. `packages/projects-srv/base/src/routes/MilestonesRoutes.ts` - Variable naming clarity (4 variables)
+3. `packages/projects-srv/base/src/routes/TasksRoutes.ts` - 1 bug fix (line 394)
+
+**Frontend (2 files)**:
+4. `packages/projects-frt/base/src/pages/MilestoneList.tsx` - localStorage key + debug removal
+5. `packages/projects-frt/base/src/pages/TaskList.tsx` - localStorage key fix
+
+**Documentation**: README-RU.md already fixed previously ✅
+
 #### Technical Notes
 - **Pattern Sources**: Metaverses (guards factory), Clusters (M2M security fix)
 - **Build Order**: types → auth-srv → projects-srv → projects-frt → template-mui → flowise-server → flowise-ui
