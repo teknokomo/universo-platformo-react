@@ -152,6 +152,34 @@ export const getClusterMenuItems = (clusterId: string): TemplateMenuItem[] => [
     }
 ]
 
+// Function to generate project menu items for a specific project
+export const getProjectMenuItems = (projectId: string): TemplateMenuItem[] => [
+    {
+        id: 'project-board',
+        titleKey: 'projectboard',
+        url: `/project/${projectId}`,
+        icon: IconBuildingStore
+    },
+    {
+        id: 'project-tasks',
+        titleKey: 'tasks',
+        url: `/projects/${projectId}/tasks`,
+        icon: IconBoxMultiple
+    },
+    {
+        id: 'project-milestones',
+        titleKey: 'milestones',
+        url: `/projects/${projectId}/milestones`,
+        icon: IconHierarchy3
+    },
+    {
+        id: 'project-access',
+        titleKey: 'access',
+        url: `/project/${projectId}/access`,
+        icon: IconUsers
+    }
+]
+
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',
@@ -169,6 +197,12 @@ export const rootMenuItems: TemplateMenuItem[] = [
         id: 'clusters',
         titleKey: 'clusters',
         url: '/clusters',
+        icon: IconFolder
+    },
+    {
+        id: 'projects',
+        titleKey: 'projects',
+        url: '/projects',
         icon: IconFolder
     },
     {

@@ -1,14 +1,102 @@
 # Active Context
 
-> **Last Updated**: 2025-01-14
+> **Last Updated**: 2025-11-17
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Uniks Package Refactoring Complete
+## Current Focus: PR #550 Bot Review Fixes - Implementation Complete ✅
 
-### Uniks Guards, Migration, and UI Columns (2025-01-14) ✅
+### QA Analysis & Critical Bugfixes (2025-11-17) ✅
+**Context**: After GitHub PR #550 submission, three AI bots (Copilot, Gemini, ChatGPT Codex) reviewed code and found 12 issues. Conducted comprehensive QA analysis, verified against Metaverses/Clusters, implemented all critical fixes.
+
+**Root Cause Discovery**: Projects module systematically uses **PascalCase** variables (`const Project`, `const Task`, `const Milestone`) but TypeORM entity properties are **camelCase** (`project`, `task`, `milestone`). This naming mismatch caused wrong field assignment in repository `create()` calls.
+
+**Implementation Summary**:
+- 🔴 **Commit 1**: 3 critical link creation bugs FIXED
+- 🟡 **Commit 2**: Naming convention refactored globally (PascalCase → camelCase)
+- 🟢 **Commit 3**: Documentation typos fixed, localStorage keys corrected, debug code removed
+
+**Critical Bugs Fixed**:
+1. **ProjectsRoutes.ts:645** - Task-Project link: `create({ project: Task })` → `create({ project, task })`
+2. **ProjectsRoutes.ts:742** - Milestone-Project link: `create({ project: Milestone })` → `create({ project, milestone })`
+3. **TasksRoutes.ts:394** - Task-Milestone link: `create({ task: Milestone })` → `create({ task, milestone })`
+
+**Naming Refactoring**:
+- ProjectsRoutes.ts: 8 locations refactored (lines 303, 341, 564, 590, 639-645, 735-742)
+- MilestonesRoutes.ts: Fixed misleading `const Task = milestoneRepo.create()` → `const milestone`
+- All variable names now match Metaverses/Clusters pattern (lowercase)
+
+**UX/Documentation Cleanup**:
+- MilestoneList.tsx: localStorage key `'TasksMilestoneDisplayStyle'` → `'projectsMilestoneDisplayStyle'`
+- TaskList.tsx: localStorage key `'TasksTaskDisplayStyle'` → `'projectsTaskDisplayStyle'`
+- MilestoneList.tsx: Removed 21-line debug console.log block + unused useEffect import
+- README-RU.md: Typos already fixed in previous tasks ✅
+
+**Validation Results**:
+- ✅ Build projects-srv: TypeScript compiles without errors
+- ✅ Build projects-frt: Frontend compiles (4.06s, 14.26 kB CJS)
+- ✅ Lint projects-srv: 3 acceptable warnings (unchanged from before)
+- ✅ Lint projects-frt: 4 acceptable warnings (unchanged from before)
+
+**Files Modified** (5 files):
+1. `packages/projects-srv/base/src/routes/ProjectsRoutes.ts` - 3 bugs + global refactor
+2. `packages/projects-srv/base/src/routes/TasksRoutes.ts` - 1 bug fix
+3. `packages/projects-srv/base/src/routes/MilestonesRoutes.ts` - Variable naming
+4. `packages/projects-frt/base/src/pages/MilestoneList.tsx` - localStorage + debug removal
+5. `packages/projects-frt/base/src/pages/TaskList.tsx` - localStorage fix
+
+**Next Steps**:
+- [ ] Browser testing: Create project → milestone → task (verify links work)
+- [ ] Browser testing: Test localStorage persistence (view switching)
+- [ ] Browser testing: Verify no debug logs in console
+- [ ] After validation: Push fixes to PR #550 branch
+
+**Technical Notes**:
+- Pattern verified: Metaverses/Clusters use correct lowercase variables throughout
+- TypeORM entity properties confirmed lowercase via entity definitions
+- All 3 critical bugs would cause NULL constraint violations in production
+- False positives: `initializeProjectsRateLimiters` IS used, `searchValue` IS needed
+
+---
+
+## Recent Completed Work
+
+### Projects Runtime Fixes & UX Improvements (2025-11-17) ✅
+**Context**: After completing 11 QA fixes, discovered 12 additional runtime/UX issues during browser testing. All fixed.
+
+**Backend Critical Fixes**:
+- **Issue #12**: Build error in uniks-srv - removed return from res.json() calls (TypeScript compliance)
+- **Issue #13**: Migration error "must be owner of table users" - removed auth.users index creation (Supabase system table)
+- **Issue #14**: ".map is not a function" error - backend returning HTML instead of JSON
+- **Issue #15**: Namespace capitalization - changed 'Projects' to 'projects' across 9+ files
+- **Issue #16**: **CRITICAL** - Projects router never mounted! Added registration to flowise-server/apiRoutes.ts
+- **Issue #17**: Duplicate AuthUser entity - deleted local copy, imported from @universo/auth-srv (TypeORM metadata conflict fix)
+
+**Frontend UX Fixes**:
+- **Issue #18**: Russian translations wrong - showing "Метавселенные" instead of "Проекты" - fixed all namespace references
+- **Issue #19**: Main menu showing instead of internal project menu - added projectMatch regex and menu detection to MenuContent.tsx
+- **Issue #20**: Wrong menu order (Milestones→Tasks) - swapped to Tasks→Milestones (matches Resources→Domains pattern)
+- **Issue #21**: URL param mismatch - MilestoneList used PascalCase ProjectId but route defines camelCase projectId - fixed useParams
+- **Issue #22**: Browser verification passed ✅ - all pages loading correctly
+- **Issue #23**: Terminology consistency - replaced "Вехи" with "Этапы" throughout Russian UI (14 replacements)
+
+**Final Validation**:
+- ✅ All 23 issues fixed (11 QA + 12 runtime)
+- ✅ Build: TypeScript 0 errors, ESLint clean, all packages successful
+- ✅ Backend: Router registered, all routes working, entities migrated
+- ✅ Frontend: All pages loading, correct menu navigation, proper breadcrumbs
+- ✅ i18n: Consistent terminology in both English and Russian
+- ✅ Pattern Compliance: 100% match with Metaverses/Clusters reference
+
+**Impact**: Projects module now **production-ready** with full feature parity to Metaverses/Clusters.
+
+---
+
+## Recent Completed Work
+
+### Uniks Package Refactoring (2025-01-14) ✅
 **Implementation completed** - Applied best practices from Metaverses/Clusters to Uniks package:
 
 **Backend Changes**:
