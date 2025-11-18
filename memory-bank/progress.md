@@ -23,6 +23,64 @@
 
 ## November 2025 (Latest)
 
+### 2025-11-18: AR.js InteractionMode + Line Endings Normalization ✅
+**Context**: Fixed AR.js interactionMode persistence bug and `quizState` error, then resolved CRLF vs LF line ending inconsistencies across entire project.
+
+**Issue #1: InteractionMode Not Persisting After Reload**:
+- **Problem**: User selected "Соединение узлов" (nodes mode), but after page reload UI showed "Кнопки ответов" (buttons mode)
+- **Root Cause**: `LOAD_SETTINGS` action in ARJSPublisher.tsx missing `interactionMode` field when dispatching saved settings
+- **Fix Applied**: Added `interactionMode: savedSettings.interactionMode || 'buttons'` to payload (line 340)
+- **Files Modified**: 7 files (4 frontend logic, 1 frontend debug, 2 backend)
+
+**Issue #2: Runtime Error on Public Page**:
+- **Problem**: After interactionMode fix, getting `ReferenceError: quizState is not defined at generateNodeBasedScript`
+- **Root Cause**: Nested template string interpolation - `${DataHandler.DANGER_THRESHOLD_SECONDS}` inside outer template string
+- **Fix Applied**: 
+  - Extracted constants BEFORE template string: `const dangerThreshold = DataHandler.DANGER_THRESHOLD_SECONDS` (line 2093)
+  - Fixed nested interpolation in finishQuiz (line 2559): converted to string concatenation
+  - Replaced static refs: `${DataHandler.DANGER_THRESHOLD_SECONDS}` → `${dangerThreshold}` (line 2285)
+- **File Modified**: `packages/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` (3 critical changes)
+- **Build**: Full workspace rebuild ✅ (34/34 tasks, 3m 40s)
+
+**Issue #3: CRLF vs LF Line Endings Mass Changes**:
+- **Problem**: 157 files showing changes without visible content differences (code edited in Windows, viewed on Linux)
+- **Diagnosis**: Used `file` command to confirm CRLF (`\r\n`) vs LF (`\n`) issue
+- **Solution Implemented**:
+  1. **Created 5 automation scripts**:
+     - `find-real-changes.sh` (4.6KB) - Analyzes files with `git diff --ignore-cr-at-eol`, identifies 24 real changes vs 133 line endings only
+     - `create-gitattributes.sh` (2.9KB) - Generates Git configuration for consistent LF enforcement
+     - `reset-line-endings.sh` (2.4KB) - Selectively resets line-ending-only files
+     - `fix-line-endings.sh` (3.2KB) - Master script with interactive menu
+     - `LINE_ENDINGS_FIX.md` (7.0KB) - Comprehensive documentation
+  2. **Created `.gitattributes`** (85 lines):
+     - Enforces `eol=lf` for all text files (.ts, .tsx, .js, .jsx, .json, .md)
+     - Preserves `eol=crlf` for Windows scripts (.bat, .cmd, .ps1)
+     - Marks binaries (.png, .jpg, .gif) to prevent conversion
+  3. **Executed normalization**:
+     - Ran `find-real-changes.sh` - identified 24 files with real code changes, 138 with only line endings
+     - Added `.gitattributes` to repository
+     - Ran `git add --renormalize .` - normalized all line endings to LF
+     - Created 2 commits: fix commit (interactionMode + quizState + normalization) + feat commit (InteractionModeSelect component)
+- **Impact**: Repository now has consistent LF line endings enforced by `.gitattributes`, preventing future CRLF issues on cross-platform development
+
+**Commits Created**:
+1. `fix(publish): AR.js interactionMode persistence & quizState error + line endings normalization` (260 files changed)
+2. `feat(publish): add InteractionModeSelect component` (1 file added)
+
+**Files Modified** (Code Changes):
+- Frontend: ARJSPublisher.tsx, ARJSPublicationApi.ts, ARViewPage.tsx, types (4 files)
+- Backend: FlowDataService.ts, publication.types.ts (2 files)
+- Template: DataHandler/index.ts (1 file - critical nested template string fixes)
+
+**Testing Status**:
+- ✅ TypeScript compiles without errors
+- ✅ Full workspace rebuild successful (34/34 tasks)
+- ✅ Line endings normalized (260 files, real changes: 24 files)
+- ✅ .gitattributes configuration active
+- 🧪 Browser testing pending (USER): verify interactionMode loads, public page renders nodes mode, no console errors
+
+---
+
 ### 2025-11-17: Projects Integration – UX Polish (3 issues) ✅
 **Context**: After fixing backend entity relations, Tasks created successfully but three UX issues discovered during testing.
 

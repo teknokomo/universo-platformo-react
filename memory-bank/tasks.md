@@ -6,8 +6,8 @@
 
 ## 🔥 ACTIVE TASKS
 
-### 2025-01-18: AR.js InteractionMode Persistence Fix ✅ 🧪
-**Status**: Implementation complete, LOAD_SETTINGS fix applied, template-quiz rebuilt, ready for browser testing
+### 2025-01-18: AR.js InteractionMode Persistence Fix ✅ COMPLETE
+**Status**: Implementation complete, template-quiz rebuilt, line endings normalized, ready for browser testing
 
 #### Overview
 **Problem 1 (FIXED)**: UI component `InteractionModeSelect` exists, user can select "Соединение узлов", but value not loaded from saved settings on page reload.
