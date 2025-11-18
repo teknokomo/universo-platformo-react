@@ -153,8 +153,6 @@ export class PublicationApi {
 
                     // Return technology settings from specific block
                     if (config[technology]) {
-                        console.log(`✅ [PublicationApi] ${technology} settings loaded successfully for canvas ${canvasId}`)
-                        console.log(`[PublicationApi] Loaded settings:`, config[technology])
                         return config[technology]
                     }
                 } catch (parseError) {

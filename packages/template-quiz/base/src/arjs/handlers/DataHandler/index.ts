@@ -2135,6 +2135,8 @@ export class DataHandler {
                 timeRemaining: ${timerConfig?.enabled ? timerConfig.limitSeconds : 0}
             };
 
+            let leadSaved = false;
+
             // Scene data
             const scenes = ${JSON.stringify(sceneQuestions, null, 2)};
 
@@ -2166,6 +2168,45 @@ export class DataHandler {
                 // Setup button handlers
                 checkBtn.addEventListener('click', handleCheckConnections);
                 clearBtn.addEventListener('click', handleClearConnections);
+            }
+
+            async function saveLeadDataToSupabase(leadInfo, totalPoints = 0, origin = 'unknown') {
+                if (!leadCollection) return;
+
+                if (!leadInfo || (!leadInfo.name && !leadInfo.email && !leadInfo.phone)) {
+                    return;
+                }
+
+                if (leadSaved) {
+                    return;
+                }
+
+                const leadPayload = {
+                    canvasId: window.canvasId || null,
+                    name: leadInfo.name || null,
+                    email: leadInfo.email || null,
+                    phone: leadInfo.phone || null,
+                    points: totalPoints,
+                    createdDate: new Date().toISOString()
+                };
+
+                try {
+                    const response = await fetch('/api/v1/leads', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(leadPayload)
+                    });
+
+                    if (response.ok) {
+                        leadSaved = true;
+                    } else {
+                        console.error('[LeadCollection] Failed to save lead data (origin=' + origin + '):', response.status, response.statusText);
+                    }
+                } catch (error) {
+                    console.error('[LeadCollection] Error saving lead data (origin=' + origin + '):', error);
+                }
             }
 
             function setupLeadForm() {
@@ -2556,7 +2597,8 @@ export class DataHandler {
             function finishQuiz() {
                 console.log('[NodeQuiz] Quiz finished');
                 ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
-                container.innerHTML = `<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${showPoints ? 'Ваши баллы: ' + quizState.points : ''}</div>`;
+                saveLeadDataToSupabase(quizState.leadData, quizState.points, 'nodes-finish');
+                container.innerHTML = \`<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${showPoints ? 'Ваши баллы: ' + quizState.points : ''}</div>\`;
             }
             function shuffleArray(array) {
                 for (let i = array.length - 1; i > 0; i--) {

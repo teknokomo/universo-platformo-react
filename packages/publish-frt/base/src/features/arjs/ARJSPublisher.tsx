@@ -321,9 +321,7 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                 if (cancelled) return
 
                 if (savedSettings) {
-                    console.log('[ARJSPublisher] Loading saved settings:', savedSettings)
-                    console.log('[ARJSPublisher] interactionMode from savedSettings:', savedSettings.interactionMode)
-                    
+
                     // Load basic settings
                     dispatch({
                         type: 'LOAD_SETTINGS',
@@ -342,8 +340,6 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                             interactionMode: savedSettings.interactionMode || 'buttons'
                         }
                     })
-                    
-                    console.log('[ARJSPublisher] LOAD_SETTINGS dispatched with interactionMode:', savedSettings.interactionMode || 'buttons')
 
                     // Handle library configuration with legacy detection
                     if (state.globalSettings?.enforceGlobalLibraryManagement) {

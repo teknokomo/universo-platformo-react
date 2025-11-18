@@ -238,15 +238,12 @@ export function arjsReducer(state: ARJSState, action: ARJSAction): ARJSState {
         case 'SET_ALERT':
             return { ...state, alert: action.payload }
         case 'LOAD_SETTINGS':
-            console.log('[arjsReducer] LOAD_SETTINGS action.payload:', action.payload)
-            console.log('[arjsReducer] interactionMode in payload:', action.payload.interactionMode)
             const newState = {
                 ...state,
                 ...action.payload,
                 libraryConfig: action.payload.libraryConfig || state.libraryConfig,
                 timerConfig: action.payload.timerConfig || state.timerConfig
             }
-            console.log('[arjsReducer] New state interactionMode:', newState.interactionMode)
             return newState
         case 'RESET_SETTINGS':
             return { ...initialARJSState, globalSettings: state.globalSettings, globalSettingsLoaded: state.globalSettingsLoaded }
