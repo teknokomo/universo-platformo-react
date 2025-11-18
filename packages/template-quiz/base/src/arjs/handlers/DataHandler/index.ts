@@ -2352,7 +2352,7 @@ export class DataHandler {
                     z-index: 10;
                     user-select: none;
                     transition: transform 0.2s ease, box-shadow 0.2s ease;
-                \`;
+                `;
 
                 node.textContent = text;
 
