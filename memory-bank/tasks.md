@@ -6,6 +6,103 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-01-18: AR.js InteractionMode Persistence Fix ✅ COMPLETE
+**Status**: Implementation complete, template-quiz rebuilt, line endings normalized, ready for browser testing
+
+#### Overview
+**Problem 1 (FIXED)**: UI component `InteractionModeSelect` exists, user can select "Соединение узлов", but value not loaded from saved settings on page reload.
+
+**Root Cause 1**: LOAD_SETTINGS action in ARJSPublisher.tsx (line 326) was missing `interactionMode` field when dispatching saved settings to reducer.
+
+**Solution 1**: Added `interactionMode: savedSettings.interactionMode || 'buttons'` to LOAD_SETTINGS payload + comprehensive debug logging.
+
+**Problem 2 (FIXED)**: After fix #1, getting runtime error on public page: `ReferenceError: quizState is not defined at generateNodeBasedScript`
+
+**Root Cause 2**: Nested template string interpolation issue - `${DataHandler.DANGER_THRESHOLD_SECONDS}` and `${...quizState.points...}` inside outer template string.
+
+**Solution 2**: 
+- Extracted constants BEFORE template string: `const dangerThreshold = DataHandler.DANGER_THRESHOLD_SECONDS` (line 2093)
+- Fixed nested interpolation in finishQuiz: Changed `'<div>...${showPoints ? '...' + quizState.points : ''}</div>'` to `'<div>...' + ${showPoints ? "'Ваши баллы: ' + quizState.points" : "''"} + '</div>'` (line 2559)
+- Replaced static refs: `${DataHandler.DANGER_THRESHOLD_SECONDS}` → `${dangerThreshold}` (line 2285)
+
+#### Phase 1: Frontend State Management (publish-frt) ✅
+- [x] **Task 1.1**: Add `interactionMode` to `settingsData` useMemo (ARJSPublisher.tsx line 244-256)
+- [x] **Task 1.2**: Add `interactionMode` to `ARJSPublicationSettings` interface (ARJSPublicationApi.ts line 8-26)
+- [x] **Task 1.3**: **CRITICAL FIX** - Add `interactionMode` to LOAD_SETTINGS action payload (ARJSPublisher.tsx line 340)
+
+#### Phase 2: Backend Data Extraction (publish-srv) ✅
+- [x] **Task 2.1**: Add `interactionMode` to `RenderConfig` interface (publication.types.ts line 394-406)
+- [x] **Task 2.2**: Extract `interactionMode` from `chatbotConfig.arjs` (FlowDataService.ts line 110-122)
+
+#### Phase 3: Frontend Rendering (publish-frt) ✅
+- [x] **Task 3.1**: Add `interactionMode` to `buildOptions` (ARViewPage.tsx line 36-56)
+
+#### Phase 4: Build & Validation ✅
+- [x] **Task 4.1**: Rebuild packages - publish-srv ✅ (tsc clean), publish-frt ✅ (4.0s, 155KB CJS + 183KB ESM)
+- [x] **Task 4.2**: Lint validation - No new warnings (68 errors pre-existing react/prop-types, 35 warnings pre-existing no-console)
+
+#### Phase 5: Debugging Logs ✅
+- [x] **Task 5.1**: Add log in PublicationApi.loadPublicationSettings (show loaded settings object)
+- [x] **Task 5.2**: Add logs in ARJSPublisher LOAD_SETTINGS dispatch (show interactionMode before/after)
+- [x] **Task 5.3**: Add logs in arjsReducer LOAD_SETTINGS case (show payload and new state)
+- [x] **Task 5.4**: Rebuild publish-frt ✅ (4.4s)
+
+#### Phase 6: Template Code Fix (Nested Template Strings) ✅
+- [x] **Task 6.1**: Extract static constants BEFORE template string (dangerThreshold, warningThreshold)
+- [x] **Task 6.2**: Fix nested interpolation in finishQuiz (line 2559 - convert to string concatenation)
+- [x] **Task 6.3**: Replace ${DataHandler.DANGER_THRESHOLD_SECONDS} with ${dangerThreshold} (line 2285)
+- [x] **Task 6.4**: Rebuild template-quiz ✅ (3.9s, 140.91 KB arjs-BnYccYh6.mjs)
+- [x] **Task 6.5**: Full workspace rebuild ✅ (3m 40s, 34/34 tasks successful)
+
+#### Phase 7: Browser Testing (USER) 🧪
+- [ ] **Test 1**: Verify UI loads saved setting
+  - Action: Open `/uniks/:id/spaces/:canvasId/publish/arjs`, check "Режим взаимодействия" dropdown
+  - Expected: Shows "Соединение узлов" (NOT "Кнопки ответов") after page reload
+- [ ] **Test 2**: Verify public page renders without errors
+  - Action: Click "Опубликовать", open public link
+  - Expected: NO `ReferenceError: quizState is not defined` error in console
+  - Expected: UI shows drag-and-drop quiz interface (questions on left, answers on right)
+- [ ] **Test 3**: Test interaction functionality
+  - Action: Drag question node to answer node
+  - Expected: Line drawn connecting question and answer
+  - Expected: "Проверить связи" button validates answers
+- [ ] **Test 4**: Verify fallback for legacy publications
+  - Action: Create NEW canvas, publish WITHOUT changing interactionMode
+  - Expected: Public view shows buttons mode (default)
+
+#### Technical Summary
+**Files Modified**: 7 files total (4 frontend logic, 1 frontend debug, 2 backend)
+
+**Logic Changes**:
+- `packages/publish-frt/base/src/features/arjs/ARJSPublisher.tsx` - **CRITICAL**: Added interactionMode to LOAD_SETTINGS payload (line 340) + 3 debug logs
+- `packages/publish-frt/base/src/api/publication/ARJSPublicationApi.ts` - Added to interface (line 26)
+- `packages/publish-frt/base/src/pages/public/ARViewPage.tsx` - Added to buildOptions (line 48)
+- `packages/publish-srv/base/src/types/publication.types.ts` - Added to RenderConfig (line 406)
+- `packages/publish-srv/base/src/services/FlowDataService.ts` - Extract from chatbotConfig (line 119-121)
+- `packages/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` - **CRITICAL**: Fixed nested template strings (3 changes: extracted constants, fixed finishQuiz interpolation, replaced static refs)
+
+**Debug Logs**:
+- `packages/publish-frt/base/src/api/publication/PublicationApi.ts` - Added log showing loaded settings (line 157)
+- `packages/publish-frt/base/src/features/arjs/types/arjsState.ts` - Added 3 logs in LOAD_SETTINGS reducer (lines 241-251)
+
+**Rebuilt Packages**:
+- `template-quiz` - Source code fixed with nested template string corrections (3 changes in DataHandler/index.ts)
+- Full workspace rebuild - 34/34 tasks successful (3m 40s)
+
+**Database Confirmation**: User provided actual `chatbotConfig` JSON showing `"interactionMode":"nodes"` correctly saved ✅
+
+**Success Criteria**: 
+- ✅ TypeScript compiles without errors
+- ✅ No new lint warnings
+- ✅ Database stores correct value
+- ✅ Template-quiz source code fixed (nested template strings)
+- ✅ Full workspace rebuild successful (34/34 tasks)
+- 🧪 Browser console shows complete loading sequence
+- 🧪 UI reflects saved value after page reload
+- 🧪 Public page renders nodes mode without errors
+
+---
+
 ### 2025-01-16: Projects Integration – Migrate Patterns from Metaverses/Clusters ✅ 🚧
 **Status**: Backend refactoring 100% complete (7/7 tasks done), frontend integration 100% complete, critical AuthUser fix applied, browser testing required
 

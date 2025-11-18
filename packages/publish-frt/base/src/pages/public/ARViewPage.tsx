@@ -44,6 +44,7 @@ const ARViewPage: React.FC<ARViewPageProps> = ({ flowData, renderConfig, library
                     cameraUsage: config.cameraUsage || 'standard',
                     backgroundColor: config.backgroundColor,
                     timerConfig,
+                    interactionMode: config.interactionMode || 'buttons',
                     ...(displayType === 'wallpaper'
                         ? {
                               arDisplayType: 'wallpaper',

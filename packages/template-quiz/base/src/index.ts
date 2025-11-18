@@ -2,7 +2,16 @@
 export * from './arjs'
 
 // Common types and interfaces
-export type { IQuizTemplateConfig, QuizPlan, QuizItem, QuizAnswer, IFlowData, BuildOptions, BuildResult, ITemplateBuilder } from './common/types'
+export type {
+    IQuizTemplateConfig,
+    QuizPlan,
+    QuizItem,
+    QuizAnswer,
+    IFlowData,
+    BuildOptions,
+    BuildResult,
+    ITemplateBuilder
+} from './common/types'
 
 // Template configuration
 export { QuizTemplateConfig, getQuizTemplateConfig } from './common/config'

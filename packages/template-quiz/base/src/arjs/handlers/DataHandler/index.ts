@@ -3,24 +3,24 @@
 
 // Local types to avoid circular dependency
 interface IUPDLData {
-    id: string;
-    name: string;
-    dataType: string;
-    content: string;
-    isCorrect: boolean;
+    id: string
+    name: string
+    dataType: string
+    content: string
+    isCorrect: boolean
     [key: string]: any
 }
 interface IUPDLMultiScene {
-    scenes: any[];
-    currentSceneIndex: number;
-    totalScenes: number;
+    scenes: any[]
+    currentSceneIndex: number
+    totalScenes: number
     isCompleted: boolean
 }
 interface IUPDLScene {
-    spaceId: string;
-    spaceData: any;
-    dataNodes: any[];
-    objectNodes: any[];
+    spaceId: string
+    spaceData: any
+    dataNodes: any[]
+    objectNodes: any[]
     [key: string]: any
 }
 import { BuildOptions } from '../../../common/types'
@@ -68,7 +68,6 @@ export class DataHandler {
      */
     process(datas: IUPDLData[], options: BuildOptions = {}): string {
         try {
-
             // If no data nodes, return empty content
             if (!datas || datas.length === 0) {
                 return ''
@@ -77,7 +76,6 @@ export class DataHandler {
             // Separate data by type
             const questions = datas.filter((data) => data.dataType?.toLowerCase() === 'question')
             const answers = datas.filter((data) => data.dataType?.toLowerCase() === 'answer')
-
 
             // Generate quiz UI and logic
             let content = ''
@@ -101,7 +99,10 @@ export class DataHandler {
      * @param options Build options including showPoints option
      * @returns HTML string with multi-scene quiz UI and JavaScript logic
      */
-    processMultiScene(multiScene: IUPDLMultiScene, options: BuildOptions & { showPoints?: boolean } = {}): string {
+    processMultiScene(
+        multiScene: IUPDLMultiScene,
+        options: BuildOptions & { showPoints?: boolean; interactionMode?: 'buttons' | 'nodes' } = {}
+    ): string {
         // Points system configuration logged only in debug mode
         try {
             console.log(`[DataHandler] Processing multi-scene with ${multiScene.totalScenes} scenes`)
@@ -155,14 +156,26 @@ export class DataHandler {
 
             debugLog('🔧 [DataHandler] Timer configuration:', safeTimerConfig)
 
+            // Get interaction mode (default to 'buttons' for backward compatibility)
+            const interactionMode = options.interactionMode || 'buttons'
+            debugLog('🔧 [DataHandler] Interaction mode:', interactionMode)
+
             // Generate multi-scene UI and logic
             let content = ''
 
-            // Add multi-scene UI elements (all scenes, but hidden initially)
-            content += this.generateMultiSceneUI(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
+            // Add multi-scene UI elements based on interaction mode
+            if (interactionMode === 'nodes') {
+                content += this.generateNodeBasedUI(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
+            } else {
+                content += this.generateMultiSceneUI(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
+            }
 
-            // Add multi-scene JavaScript logic with state management
-            content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
+            // Add multi-scene JavaScript logic based on interaction mode
+            if (interactionMode === 'nodes') {
+                content += this.generateNodeBasedScript(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
+            } else {
+                content += this.generateMultiSceneScript(multiScene, finalShowPoints, leadCollection, safeTimerConfig)
+            }
 
             // (quiet) multi-scene generation summary suppressed
 
@@ -207,7 +220,9 @@ export class DataHandler {
 
         // Universo Platformo | Add timer UI if enabled
         if (timerConfig?.enabled) {
-            const position = DataHandler.TIMER_POSITIONS[timerConfig.position as keyof typeof DataHandler.TIMER_POSITIONS] || DataHandler.TIMER_POSITIONS['top-center']
+            const position =
+                DataHandler.TIMER_POSITIONS[timerConfig.position as keyof typeof DataHandler.TIMER_POSITIONS] ||
+                DataHandler.TIMER_POSITIONS['top-center']
 
             html += `
             <!-- Universo Platformo | Timer Display -->
@@ -251,20 +266,22 @@ export class DataHandler {
                 z-index: 9999;
                 font-family: Arial, sans-serif;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                ${leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
-                ? 'display: none;'
-                : ''
-            }
+                ${
+                    leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
+                        ? 'display: none;'
+                        : ''
+                }
             ">
                 <div id="scene-progress" style="margin-bottom: 15px; font-size: 12px; opacity: 0.8;">
                     Вопрос <span id="current-scene-number">1</span> из ${totalQuestionScenes}
                 </div>
-                ${showPoints
-                ? `<div id="points-counter" style="margin-bottom: 15px; font-size: 14px; font-weight: bold; color: #FFD700;">
+                ${
+                    showPoints
+                        ? `<div id="points-counter" style="margin-bottom: 15px; font-size: 14px; font-weight: bold; color: #FFD700;">
                     Баллы: <span id="current-points">0</span>
                 </div>`
-                : ''
-            }
+                        : ''
+                }
         `
 
         // Scene order and content analysis - detailed logs disabled for production
@@ -426,7 +443,7 @@ export class DataHandler {
 
         // Scene mapping logged only in debug mode
 
-    return `
+        return `
             <script>
                 // Universo Platformo | Multi-Scene Quiz Logic
         // Lightweight debug facility
@@ -450,7 +467,9 @@ export class DataHandler {
                 let leadSaved = false;
                 
                 // Universo Platformo | Timer management system
-                ${timerConfig?.enabled ? `
+                ${
+                    timerConfig?.enabled
+                        ? `
                 const RESULTS_SCENE_INDEX = ${multiScene.scenes.findIndex((scene) => scene.isResultsScene)};
 
                 class TimerManager {
@@ -579,7 +598,9 @@ export class DataHandler {
                 }
 
                 const timerManager = new TimerManager(${timerConfig.limitSeconds});
-                ` : ''}
+                `
+                        : ''
+                }
                 
                 // Universo Platformo | Points management system
                 class PointsManager {
@@ -761,10 +782,11 @@ export class DataHandler {
                         dbg('[MultiSceneQuiz] setup interactions');
                     
                     // Universo Platformo | Lead form initialization
-                    ${leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
-                ? 'initializeLeadForm();'
-                : '// No lead collection configured'
-            }
+                    ${
+                        leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
+                            ? 'initializeLeadForm();'
+                            : '// No lead collection configured'
+                    }
                     
                     // Universo Platformo | Debug initial state
                     dbg(\`[MultiSceneQuiz] start sceneIndex=\${sceneManager.getCurrentScene()}\`);
@@ -776,18 +798,26 @@ export class DataHandler {
                     pointsManager.initialize();
                     
                     // Universo Platformo | Initialize timer manager
-                    ${timerConfig?.enabled ? `
+                    ${
+                        timerConfig?.enabled
+                            ? `
                     timerManager.initialize();
                     
                     // Auto-start timer if no lead collection
-                    ${!leadCollection ? `
+                    ${
+                        !leadCollection
+                            ? `
                     setTimeout(() => {
                         if (timerManager && !timerManager.isRunning) {
                             timerManager.start();
                         }
                     }, 500);
-                    ` : '// Timer will start after lead form'}
-                    ` : '// Timer disabled'}
+                    `
+                            : '// Timer will start after lead form'
+                    }
+                    `
+                            : '// Timer disabled'
+                    }
                     
                     // Universo Platformo | Debug scene elements after initialization
                     // (verbose scene enumeration removed; re-enable via QUIZ_DEBUG if needed)
@@ -1053,8 +1083,9 @@ export class DataHandler {
                 }
                 
                 // Universo Platformo | Lead data collection functions
-                ${leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
-                ? `
+                ${
+                    leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
+                        ? `
                 function initializeLeadForm() {
                     dbg('[LeadCollection] init form');
                     
@@ -1091,17 +1122,19 @@ export class DataHandler {
                     let isValid = true;
                     let errorMessage = '';
                     
-                    ${leadCollection.collectName
-                    ? `
+                    ${
+                        leadCollection.collectName
+                            ? `
                     if (!leadData.name) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите ваше имя';
                     }`
-                    : ''
-                }
+                            : ''
+                    }
                     
-                    ${!leadCollection.collectName && leadCollection.collectEmail
-                    ? `
+                    ${
+                        !leadCollection.collectName && leadCollection.collectEmail
+                            ? `
                     if (!leadData.email) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите ваш email';
@@ -1109,17 +1142,18 @@ export class DataHandler {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите корректный email';
                     }`
-                    : ''
-                }
+                            : ''
+                    }
                     
-                    ${!leadCollection.collectName && !leadCollection.collectEmail && leadCollection.collectPhone
-                    ? `
+                    ${
+                        !leadCollection.collectName && !leadCollection.collectEmail && leadCollection.collectPhone
+                            ? `
                     if (!leadData.phone) {
                         isValid = false;
                         errorMessage = 'Пожалуйста, введите ваш телефон';
                     }`
-                    : ''
-                }
+                            : ''
+                    }
                     
                     // Validate email format if provided
                     if (leadData.email && !isValidEmail(leadData.email)) {
@@ -1208,11 +1242,15 @@ export class DataHandler {
                     console.log('[QuizResults] Results screen points=' + totalPoints);
                     
                     // Universo Platformo | Stop timer when quiz ends
-                    ${timerConfig?.enabled ? `
+                    ${
+                        timerConfig?.enabled
+                            ? `
                     if (timerManager) {
                         timerManager.stop();
                     }
-                    ` : ''}
+                    `
+                            : ''
+                    }
                     
                     dbg('[QuizResults] ctx fromCompletion=' + fromCompletionFlag + ' leadSaved=' + leadSaved + ' hasData=' + leadData.hasData);
                     // Attempt guarded save here (primary point for results-ending quizzes)
@@ -1353,8 +1391,9 @@ export class DataHandler {
                     });
                     
                     // Hide results screen and show appropriate starting screen
-                    ${leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
-                    ? `
+                    ${
+                        leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
+                            ? `
                     // Show lead collection form again
                     const leadForm = document.getElementById('lead-collection-form');
                     const quizContainer = document.getElementById('multi-scene-quiz-container');
@@ -1373,12 +1412,12 @@ export class DataHandler {
                     if (quizContainer) {
                         quizContainer.style.display = 'none';
                     }`
-                    : `
+                            : `
                     // Start directly with first quiz scene
                     sceneManager.setCurrentScene(1); // Start with scene 1 (first question scene)
                     sceneManager.showCurrentScene();
                     sceneManager.showObjectsOfCurrentScene();`
-                }
+                    }
                     
                     console.log('[QuizResults] Quiz restarted successfully');
                 }
@@ -1404,17 +1443,21 @@ export class DataHandler {
                     sceneManager.showObjectsOfCurrentScene();
                     
                     // Universo Platformo | Start timer when quiz begins
-                    ${timerConfig?.enabled ? `
+                    ${
+                        timerConfig?.enabled
+                            ? `
                     if (timerManager && !timerManager.isRunning) {
                         timerManager.start();
                     }
-                    ` : ''}
+                    `
+                            : ''
+                    }
                     
                     console.log('[LeadCollection] Transitioned to quiz scene 1');
                 }
                 `
-                : '// No lead collection functions needed'
-            }
+                        : '// No lead collection functions needed'
+                }
             </script>
         `
     }
@@ -1838,5 +1881,736 @@ export class DataHandler {
         `
 
         return formHtml
+    }
+
+    /**
+     * Universo Platformo | Generate node-based UI for quiz (drag-and-drop interaction)
+     * @param multiScene Multi-scene data structure
+     * @param showPoints Whether to show points counter
+     * @param leadCollection Lead collection configuration
+     * @param timerConfig Timer configuration
+     * @returns HTML string with node-based quiz UI
+     */
+    private generateNodeBasedUI(
+        multiScene: IUPDLMultiScene,
+        showPoints: boolean = false,
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
+    ): string {
+        debugLog('🔧 [DataHandler] Generating node-based UI')
+
+        let html = ''
+
+        // Add lead collection form if configured
+        if (leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)) {
+            html += this.generateLeadCollectionForm(leadCollection)
+        }
+
+        // Add timer UI if enabled
+        if (timerConfig?.enabled) {
+            const position =
+                DataHandler.TIMER_POSITIONS[timerConfig.position as keyof typeof DataHandler.TIMER_POSITIONS] ||
+                DataHandler.TIMER_POSITIONS['top-center']
+
+            html += `
+            <!-- Universo Platformo | Timer Display -->
+            <div id="quiz-timer" style="
+                position: fixed;
+                top: ${position.top};
+                right: ${position.right};
+                bottom: ${position.bottom};
+                left: ${position.left};
+                background: rgba(0, 0, 0, 0.85);
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-family: Arial, sans-serif;
+                font-size: 16px;
+                font-weight: bold;
+                z-index: ${DataHandler.TIMER_Z_INDEX};
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                min-width: 80px;
+                text-align: center;
+                transform: ${position.transform};
+                display: none;
+            ">
+                ⏱️ <span id="timer-display">--:--</span>
+            </div>
+            `
+        }
+
+        // Generate node-based UI container with CSS Grid layout
+        html += `
+        <!-- Universo Platformo | Node-Based Quiz UI Container -->
+        <div id="node-quiz-container" style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            max-width: 800px;
+            height: 70vh;
+            max-height: 600px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: ${DataHandler.QUIZ_CONTAINER_Z_INDEX};
+            display: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        ">
+            <!-- Quiz Title -->
+            <div id="node-quiz-title" style="
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                text-align: center;
+                font-family: Arial, sans-serif;
+            ">
+                Соедините вопросы с ответами
+            </div>
+
+            <!-- Grid Layout Container -->
+            <div id="node-grid" style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 40px;
+                height: calc(100% - 140px);
+                position: relative;
+            ">
+                <!-- Questions Column -->
+                <div id="questions-column" style="
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-around;
+                    padding: 10px;
+                "></div>
+
+                <!-- Answers Column -->
+                <div id="answers-column" style="
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-around;
+                    padding: 10px;
+                "></div>
+            </div>
+
+            <!-- SVG Overlay for Connection Lines -->
+            <svg id="connection-svg" style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1;
+            " viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+
+            <!-- Action Buttons -->
+            <div style="
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+                margin-top: 20px;
+            ">
+                <button id="check-connections-btn" style="
+                    padding: 12px 24px;
+                    background: linear-gradient(45deg, #4CAF50, #45a049);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    Проверить
+                </button>
+                <button id="clear-connections-btn" style="
+                    padding: 12px 24px;
+                    background: linear-gradient(45deg, #f44336, #d32f2f);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    Очистить
+                </button>
+            </div>
+
+            <!-- Feedback Message -->
+            <div id="node-feedback" style="
+                color: white;
+                text-align: center;
+                margin-top: 15px;
+                font-size: 14px;
+                min-height: 20px;
+                font-family: Arial, sans-serif;
+            "></div>
+
+            <!-- Points Display (if enabled) -->
+            ${
+                showPoints
+                    ? `
+            <div id="node-points-display" style="
+                color: #FFD700;
+                text-align: center;
+                margin-top: 10px;
+                font-size: 18px;
+                font-weight: bold;
+                font-family: Arial, sans-serif;
+            ">
+                Баллы: <span id="node-current-points">0</span>
+            </div>
+            `
+                    : ''
+            }
+        </div>
+        `
+
+        return html
+    }
+
+    /**
+     * Universo Platformo | Generate node-based JavaScript logic for quiz
+     * @param multiScene Multi-scene data structure
+     * @param showPoints Whether to show points counter
+     * @param leadCollection Lead collection configuration
+     * @param timerConfig Timer configuration
+     * @returns JavaScript string with node-based quiz logic
+     */
+    private generateNodeBasedScript(
+        multiScene: IUPDLMultiScene,
+        showPoints: boolean = false,
+        leadCollection?: { collectName?: boolean; collectEmail?: boolean; collectPhone?: boolean },
+        timerConfig?: { enabled: boolean; limitSeconds: number; position: string }
+    ): string {
+        debugLog('🔧 [DataHandler] Generating node-based script')
+
+        // Extract constants BEFORE template string to avoid scoping issues
+        const dangerThreshold = DataHandler.DANGER_THRESHOLD_SECONDS
+        const warningThreshold = DataHandler.WARNING_THRESHOLD_SECONDS
+
+        // Build scene-to-question mapping
+        const sceneQuestions = multiScene.scenes
+            .map((scene, index) => {
+                const questions = scene.dataNodes.filter((node) => node.dataType?.toLowerCase() === 'question')
+                const answers = scene.dataNodes.filter((node) => node.dataType?.toLowerCase() === 'answer')
+                return {
+                    sceneIndex: index,
+                    questions: questions.map((q) => ({
+                        id: q.id,
+                        text: q.content,
+                        correctAnswerId: answers.find((a) => a.isCorrect)?.id || null
+                    })),
+                    answers: answers.map((a) => ({
+                        id: a.id,
+                        text: a.content,
+                        isCorrect: a.isCorrect
+                    }))
+                }
+            })
+            .filter((scene) => scene.questions.length > 0)
+
+        let script = `
+        <script>
+        (function() {
+            'use strict';
+            console.log('[NodeQuiz] Initializing node-based quiz system');
+
+            // Global state
+            const quizState = {
+                currentSceneIndex: 0,
+                totalScenes: ${sceneQuestions.length},
+                points: 0,
+                connections: new Map(), // questionId -> answerId
+                dragState: null,
+                leadData: {},
+                timerInterval: null,
+                timeRemaining: ${timerConfig?.enabled ? timerConfig.limitSeconds : 0}
+            };
+
+            let leadSaved = false;
+
+            // Scene data
+            const scenes = ${JSON.stringify(sceneQuestions, null, 2)};
+
+            // DOM elements
+            let container, questionsCol, answersCol, svg, checkBtn, clearBtn, feedback, pointsDisplay;
+
+            // Initialize on DOM ready
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('[NodeQuiz] DOM ready, setting up UI');
+                initializeElements();
+                setupLeadForm();
+            });
+
+            function initializeElements() {
+                container = document.getElementById('node-quiz-container');
+                questionsCol = document.getElementById('questions-column');
+                answersCol = document.getElementById('answers-column');
+                svg = document.getElementById('connection-svg');
+                checkBtn = document.getElementById('check-connections-btn');
+                clearBtn = document.getElementById('clear-connections-btn');
+                feedback = document.getElementById('node-feedback');
+                ${showPoints ? "pointsDisplay = document.getElementById('node-current-points');" : ''}
+
+                if (!container || !questionsCol || !answersCol || !svg) {
+                    console.error('[NodeQuiz] Critical UI elements not found');
+                    return;
+                }
+
+                // Setup button handlers
+                checkBtn.addEventListener('click', handleCheckConnections);
+                clearBtn.addEventListener('click', handleClearConnections);
+            }
+
+            async function saveLeadDataToSupabase(leadInfo, totalPoints = 0, origin = 'unknown') {
+                if (!leadCollection) return;
+
+                if (!leadInfo || (!leadInfo.name && !leadInfo.email && !leadInfo.phone)) {
+                    return;
+                }
+
+                if (leadSaved) {
+                    return;
+                }
+
+                const leadPayload = {
+                    canvasId: window.canvasId || null,
+                    name: leadInfo.name || null,
+                    email: leadInfo.email || null,
+                    phone: leadInfo.phone || null,
+                    points: totalPoints,
+                    createdDate: new Date().toISOString()
+                };
+
+                try {
+                    const response = await fetch('/api/v1/leads', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(leadPayload)
+                    });
+
+                    if (response.ok) {
+                        leadSaved = true;
+                    } else {
+                        console.error('[LeadCollection] Failed to save lead data (origin=' + origin + '):', response.status, response.statusText);
+                    }
+                } catch (error) {
+                    console.error('[LeadCollection] Error saving lead data (origin=' + origin + '):', error);
+                }
+            }
+
+            function setupLeadForm() {
+                ${
+                    leadCollection && (leadCollection.collectName || leadCollection.collectEmail || leadCollection.collectPhone)
+                        ? `
+                const leadForm = document.getElementById('lead-collection-form');
+                const startBtn = document.getElementById('start-quiz-btn');
+                const errorDiv = document.getElementById('lead-form-error');
+
+                if (!startBtn || !leadForm) {
+                    console.error('[NodeQuiz] Lead form elements not found');
+                    startQuiz();
+                    return;
+                }
+
+                startBtn.addEventListener('click', function() {
+                    const nameInput = document.getElementById('lead-name');
+                    const emailInput = document.getElementById('lead-email');
+                    const phoneInput = document.getElementById('lead-phone');
+
+                    let isValid = true;
+                    ${
+                        leadCollection.collectName
+                            ? `
+                    if (nameInput && nameInput.value.trim() === '') {
+                        isValid = false;
+                    } else if (nameInput) {
+                        quizState.leadData.name = nameInput.value.trim();
+                    }
+                    `
+                            : ''
+                    }
+                    ${
+                        leadCollection.collectEmail
+                            ? `
+                    if (emailInput && emailInput.value.trim() === '') {
+                        isValid = false;
+                    } else if (emailInput) {
+                        quizState.leadData.email = emailInput.value.trim();
+                    }
+                    `
+                            : ''
+                    }
+                    ${
+                        leadCollection.collectPhone
+                            ? `
+                    if (phoneInput && phoneInput.value.trim() === '') {
+                        isValid = false;
+                    } else if (phoneInput) {
+                        quizState.leadData.phone = phoneInput.value.trim();
+                    }
+                    `
+                            : ''
+                    }
+
+                    if (!isValid) {
+                        errorDiv.style.display = 'block';
+                        return;
+                    }
+
+                    console.log('[NodeQuiz] Lead data collected:', quizState.leadData);
+                    leadForm.style.display = 'none';
+                    startQuiz();
+                });
+                `
+                        : `
+                startQuiz();
+                `
+                }
+            }
+
+            function startQuiz() {
+                console.log('[NodeQuiz] Starting quiz');
+                container.style.display = 'block';
+                ${
+                    timerConfig?.enabled
+                        ? `
+                startTimer();
+                `
+                        : ''
+                }
+                loadScene(0);
+            }
+
+            ${
+                timerConfig?.enabled
+                    ? `
+            function startTimer() {
+                const timerDisplay = document.getElementById('timer-display');
+                const timerContainer = document.getElementById('quiz-timer');
+                if (!timerDisplay || !timerContainer) return;
+
+                timerContainer.style.display = 'block';
+                updateTimerDisplay();
+
+                quizState.timerInterval = setInterval(function() {
+                    quizState.timeRemaining--;
+                    updateTimerDisplay();
+
+                    if (quizState.timeRemaining <= 0) {
+                        clearInterval(quizState.timerInterval);
+                        handleTimeUp();
+                    }
+                }, 1000);
+            }
+
+            function updateTimerDisplay() {
+                const timerDisplay = document.getElementById('timer-display');
+                if (!timerDisplay) return;
+
+                const minutes = Math.floor(quizState.timeRemaining / 60);
+                const seconds = quizState.timeRemaining % 60;
+                timerDisplay.textContent = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+
+                const timerContainer = document.getElementById('quiz-timer');
+                if (quizState.timeRemaining <= ${dangerThreshold}) {
+                    timerContainer.style.background = 'rgba(244, 67, 54, 0.9)';
+                } else if (quizState.timeRemaining <= ${warningThreshold}) {
+                    timerContainer.style.background = 'rgba(255, 152, 0, 0.9)';
+                }
+            }
+
+            function handleTimeUp() {
+                feedback.textContent = 'Время вышло!';
+                feedback.style.color = '#ff6b6b';
+                checkBtn.disabled = true;
+                clearBtn.disabled = true;
+                setTimeout(function() {
+                    finishQuiz();
+                }, 2000);
+            }
+            `
+                    : ''
+            }
+
+            function loadScene(sceneIndex) {
+                console.log('[NodeQuiz] Loading scene:', sceneIndex);
+                quizState.currentSceneIndex = sceneIndex;
+                quizState.connections.clear();
+
+                const scene = scenes[sceneIndex];
+                if (!scene) {
+                    console.error('[NodeQuiz] Scene not found:', sceneIndex);
+                    return;
+                }
+
+                // Clear columns and SVG
+                questionsCol.innerHTML = '';
+                answersCol.innerHTML = '';
+                svg.innerHTML = '';
+                feedback.textContent = '';
+
+                // Render questions
+                scene.questions.forEach(function(question, index) {
+                    const node = createNode(question.id, question.text, 'question', index);
+                    questionsCol.appendChild(node);
+                });
+
+                // Render answers (shuffled for challenge)
+                const shuffledAnswers = shuffleArray([...scene.answers]);
+                shuffledAnswers.forEach(function(answer, index) {
+                    const node = createNode(answer.id, answer.text, 'answer', index);
+                    answersCol.appendChild(node);
+                });
+            }
+
+            function createNode(id, text, type, index) {
+                const node = document.createElement('div');
+                node.id = type + '-node-' + id;
+                node.className = 'quiz-node';
+                node.dataset.id = id;
+                node.dataset.type = type;
+                node.style.cssText = \`
+                    background: linear-gradient(135deg, \${type === 'question' ? '#2196F3' : '#9C27B0'}, \${type === 'question' ? '#1976D2' : '#7B1FA2'});
+                    color: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    cursor: \${type === 'question' ? 'grab' : 'default'};
+                    font-size: 14px;
+                    text-align: center;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    position: relative;
+                    z-index: 10;
+                    user-select: none;
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                `;
+
+                node.textContent = text;
+
+                // Add drag functionality only to questions
+                if (type === 'question') {
+                    node.addEventListener('pointerdown', handlePointerDown);
+                }
+
+                return node;
+            }
+
+            function handlePointerDown(e) {
+                const node = e.currentTarget;
+                quizState.dragState = {
+                    questionId: node.dataset.id,
+                    startX: e.clientX,
+                    startY: e.clientY
+                };
+
+                node.style.cursor = 'grabbing';
+                node.style.transform = 'scale(1.05)';
+                node.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+
+                // Create temporary line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.id = 'temp-line';
+                line.setAttribute('stroke', '#FFD700');
+                line.setAttribute('stroke-width', '3');
+                line.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line);
+
+                updateTempLine(e);
+
+                document.addEventListener('pointermove', handlePointerMove);
+                document.addEventListener('pointerup', handlePointerUp);
+
+                e.preventDefault();
+            }
+
+            function handlePointerMove(e) {
+                if (!quizState.dragState) return;
+                updateTempLine(e);
+            }
+
+            function handlePointerUp(e) {
+                if (!quizState.dragState) return;
+
+                const questionNode = document.querySelector('[data-id="' + quizState.dragState.questionId + '"]');
+                if (questionNode) {
+                    questionNode.style.cursor = 'grab';
+                    questionNode.style.transform = 'scale(1)';
+                    questionNode.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                }
+
+                // Remove temp line
+                const tempLine = document.getElementById('temp-line');
+                if (tempLine) {
+                    svg.removeChild(tempLine);
+                }
+
+                // Check if released over answer node
+                const answerNode = document.elementFromPoint(e.clientX, e.clientY);
+                if (answerNode && answerNode.classList.contains('quiz-node') && answerNode.dataset.type === 'answer') {
+                    createConnection(quizState.dragState.questionId, answerNode.dataset.id);
+                }
+
+                quizState.dragState = null;
+                document.removeEventListener('pointermove', handlePointerMove);
+                document.removeEventListener('pointerup', handlePointerUp);
+            }
+
+            function updateTempLine(e) {
+                const line = document.getElementById('temp-line');
+                if (!line || !quizState.dragState) return;
+
+                const questionNode = document.querySelector('[data-id="' + quizState.dragState.questionId + '"]');
+                if (!questionNode) return;
+
+                const containerRect = container.getBoundingClientRect();
+                const questionRect = questionNode.getBoundingClientRect();
+
+                const x1 = ((questionRect.right - containerRect.left) / containerRect.width) * 100;
+                const y1 = ((questionRect.top + questionRect.height / 2 - containerRect.top) / containerRect.height) * 100;
+                const x2 = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+                const y2 = ((e.clientY - containerRect.top) / containerRect.height) * 100;
+
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+            }
+
+            function createConnection(questionId, answerId) {
+                console.log('[NodeQuiz] Creating connection:', questionId, '->', answerId);
+
+                // Remove old connection for this question
+                removeConnectionForQuestion(questionId);
+
+                // Store new connection
+                quizState.connections.set(questionId, answerId);
+
+                // Draw line
+                drawConnection(questionId, answerId);
+            }
+
+            function removeConnectionForQuestion(questionId) {
+                const oldLine = document.getElementById('line-' + questionId);
+                if (oldLine) {
+                    svg.removeChild(oldLine);
+                }
+                quizState.connections.delete(questionId);
+            }
+
+            function drawConnection(questionId, answerId) {
+                const questionNode = document.querySelector('[data-id="' + questionId + '"]');
+                const answerNode = document.querySelector('[data-id="' + answerId + '"]');
+                if (!questionNode || !answerNode) return;
+
+                const containerRect = container.getBoundingClientRect();
+                const questionRect = questionNode.getBoundingClientRect();
+                const answerRect = answerNode.getBoundingClientRect();
+
+                const x1 = ((questionRect.right - containerRect.left) / containerRect.width) * 100;
+                const y1 = ((questionRect.top + questionRect.height / 2 - containerRect.top) / containerRect.height) * 100;
+                const x2 = ((answerRect.left - containerRect.left) / containerRect.width) * 100;
+                const y2 = ((answerRect.top + answerRect.height / 2 - containerRect.top) / containerRect.height) * 100;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.id = 'line-' + questionId;
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', '#4CAF50');
+                line.setAttribute('stroke-width', '3');
+                svg.appendChild(line);
+            }
+
+            function handleCheckConnections() {
+                console.log('[NodeQuiz] Checking connections');
+                feedback.textContent = '';
+
+                const scene = scenes[quizState.currentSceneIndex];
+                let correctCount = 0;
+                let totalQuestions = scene.questions.length;
+
+                scene.questions.forEach(function(question) {
+                    const userAnswer = quizState.connections.get(question.id);
+                    const isCorrect = userAnswer === question.correctAnswerId;
+
+                    if (isCorrect) {
+                        correctCount++;
+                        ${showPoints ? 'quizState.points++;' : ''}
+                    }
+
+                    // Visual feedback
+                    const line = document.getElementById('line-' + question.id);
+                    if (line) {
+                        line.setAttribute('stroke', isCorrect ? '#4CAF50' : '#f44336');
+                        line.setAttribute('stroke-width', '4');
+                    }
+                });
+
+                ${
+                    showPoints
+                        ? `
+                if (pointsDisplay) {
+                    pointsDisplay.textContent = quizState.points;
+                }
+                `
+                        : ''
+                }
+
+                if (correctCount === totalQuestions) {
+                    feedback.textContent = 'Отлично! Все правильно!';
+                    feedback.style.color = '#4CAF50';
+                    setTimeout(function() {
+                        nextScene();
+                    }, 1500);
+                } else {
+                    feedback.textContent = 'Правильно: ' + correctCount + ' из ' + totalQuestions;
+                    feedback.style.color = '#ff9800';
+                }
+            }
+
+            function handleClearConnections() {
+                console.log('[NodeQuiz] Clearing connections');
+                quizState.connections.clear();
+                svg.innerHTML = '';
+                feedback.textContent = '';
+            }
+
+            function nextScene() {
+                if (quizState.currentSceneIndex + 1 < quizState.totalScenes) {
+                    loadScene(quizState.currentSceneIndex + 1);
+                } else {
+                    finishQuiz();
+                }
+            }
+
+            function finishQuiz() {
+                console.log('[NodeQuiz] Quiz finished');
+                ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
+                saveLeadDataToSupabase(quizState.leadData, quizState.points, 'nodes-finish');
+                container.innerHTML = \`<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${showPoints ? 'Ваши баллы: ' + quizState.points : ''}</div>\`;
+            }
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+        })();
+        </script>
+        `
+
+        return script
     }
 }
