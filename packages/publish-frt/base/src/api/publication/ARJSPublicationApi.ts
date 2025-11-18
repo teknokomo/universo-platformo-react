@@ -27,6 +27,7 @@ export interface ARJSPublicationSettings {
         limitSeconds: number
         position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-right'
     }
+    interactionMode?: 'buttons' | 'nodes'
 }
 
 /**

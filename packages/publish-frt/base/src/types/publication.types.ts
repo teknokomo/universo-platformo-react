@@ -39,6 +39,11 @@ export type MarkerType = 'preset' | 'custom'
 export type TimerPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-right'
 
 /**
+ * Quiz interaction modes for AR.js quiz templates
+ */
+export type QuizInteractionMode = 'buttons' | 'nodes'
+
+/**
  * Available demo modes for PlayCanvas publication
  */
 export type DemoMode = 'off' | 'primitives'
@@ -141,6 +146,8 @@ export interface ARJSSettings {
     libraryConfig: ARJSLibraryConfig
     /** Timer configuration */
     timerConfig?: TimerConfig
+    /** Quiz interaction mode (buttons or nodes) */
+    interactionMode?: QuizInteractionMode
 }
 
 /**
@@ -156,7 +163,8 @@ export const DEFAULT_ARJS_SETTINGS: Partial<ARJSSettings> = {
     markerType: 'preset',
     markerValue: 'hiro',
     isPublic: false,
-    timerConfig: DEFAULT_TIMER_CONFIG
+    timerConfig: DEFAULT_TIMER_CONFIG,
+    interactionMode: 'buttons'
 }
 
 // ============================================================================

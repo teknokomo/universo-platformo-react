@@ -1,14 +1,227 @@
 # Active Context
 
-> **Last Updated**: 2025-11-17
+> **Last Updated**: 2025-01-18
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: PR #550 Bot Review Fixes - Implementation Complete ✅
+## Current Focus: AR.js InteractionMode Load Fix - Debug Logs Added ✅ 🧪
 
-### QA Analysis & Critical Bugfixes (2025-11-17) ✅
+### Overview (2025-01-18 Update 2)
+**Previous Issue RESOLVED**: Data saving worked correctly (confirmed in DB: `"interactionMode":"nodes"`)
+**New Issue Found**: Value **not loaded** from saved settings on page reload → LOAD_SETTINGS action was missing `interactionMode` field
+
+**Root Cause**: ARJSPublisher.tsx line 326-340 - dispatch LOAD_SETTINGS payload had 10 fields BUT missing `interactionMode`
+
+**Solution**: Added `interactionMode: savedSettings.interactionMode || 'buttons'` to LOAD_SETTINGS payload + comprehensive debug logging
+
+### Critical Fix Applied ✅
+
+**File Modified**: `packages/publish-frt/base/src/features/arjs/ARJSPublisher.tsx`
+
+**Before** (line 323-340):
+```tsx
+if (savedSettings) {
+    // Load basic settings
+    dispatch({
+        type: 'LOAD_SETTINGS',
+        payload: {
+            isPublic: savedSettings.isPublic || false,
+            projectTitle: savedSettings.projectTitle || flow?.name || '',
+            markerType: (savedSettings.markerType as MarkerType) || 'preset',
+            markerValue: savedSettings.markerValue || 'hiro',
+            generationMode: 'streaming',
+            templateId: savedSettings.templateId || 'quiz',
+            arDisplayType: savedSettings.arDisplayType || (savedSettings.markerType ? 'marker' : 'wallpaper'),
+            wallpaperType: savedSettings.wallpaperType || 'standard',
+            cameraUsage: savedSettings.cameraUsage || 'none',
+            backgroundColor: savedSettings.backgroundColor || '#1976d2',
+            timerConfig: normalizeTimerConfig(savedSettings.timerConfig)
+            // ❌ interactionMode MISSING
+        }
+    })
+```
+
+**After** (with debug logs):
+```tsx
+if (savedSettings) {
+    console.log('[ARJSPublisher] Loading saved settings:', savedSettings)
+    console.log('[ARJSPublisher] interactionMode from savedSettings:', savedSettings.interactionMode)
+    
+    // Load basic settings
+    dispatch({
+        type: 'LOAD_SETTINGS',
+        payload: {
+            isPublic: savedSettings.isPublic || false,
+            projectTitle: savedSettings.projectTitle || flow?.name || '',
+            markerType: (savedSettings.markerType as MarkerType) || 'preset',
+            markerValue: savedSettings.markerValue || 'hiro',
+            generationMode: 'streaming',
+            templateId: savedSettings.templateId || 'quiz',
+            arDisplayType: savedSettings.arDisplayType || (savedSettings.markerType ? 'marker' : 'wallpaper'),
+            wallpaperType: savedSettings.wallpaperType || 'standard',
+            cameraUsage: savedSettings.cameraUsage || 'none',
+            backgroundColor: savedSettings.backgroundColor || '#1976d2',
+            timerConfig: normalizeTimerConfig(savedSettings.timerConfig),
+            interactionMode: savedSettings.interactionMode || 'buttons' // ✅ ADDED
+        }
+    })
+    
+    console.log('[ARJSPublisher] LOAD_SETTINGS dispatched with interactionMode:', savedSettings.interactionMode || 'buttons')
+}
+```
+
+### Additional Debug Logs ✅
+
+**File 2**: `packages/publish-frt/base/src/api/publication/PublicationApi.ts`
+- Added log to show loaded settings object (line 157)
+
+**File 3**: `packages/publish-frt/base/src/features/arjs/types/arjsState.ts`
+- Added logs in LOAD_SETTINGS reducer case (lines 241-251)
+- Shows: payload object, interactionMode value, new state interactionMode
+
+### Expected Console Output on Page Load
+
+When user opens `/uniks/:id/spaces/:canvasId/publish/arjs`:
+
+```
+1. [PublicationApi] arjs settings loaded successfully for canvas ad6c66ec-c752-4eae-931a-3b02fad2eaea
+2. [PublicationApi] Loaded settings: {isPublic: true, projectTitle: "Новый холст", ..., interactionMode: "nodes"}
+3. [ARJSPublisher] Loading saved settings: {isPublic: true, ..., interactionMode: "nodes"}
+4. [ARJSPublisher] interactionMode from savedSettings: nodes
+5. [ARJSPublisher] LOAD_SETTINGS dispatched with interactionMode: nodes
+6. [arjsReducer] LOAD_SETTINGS action.payload: {isPublic: true, ..., interactionMode: "nodes"}
+7. [arjsReducer] interactionMode in payload: nodes
+8. [arjsReducer] New state interactionMode: nodes
+```
+
+### Build Results ✅
+
+**Frontend Build**:
+```bash
+✅ publish-frt: Build complete in 4378ms
+   - CJS: 155.34 kB (5 files)
+   - ESM: 183.21 kB (6 files)
+   - Types: 30.02 kB (2 files)
+```
+
+### Database Confirmation ✅
+
+User provided actual `chatbotConfig` JSON from database:
+```json
+{
+  "arjs": {
+    "isPublic": true,
+    "projectTitle": "Новый холст",
+    "markerType": "preset",
+    "markerValue": "hiro",
+    "templateId": "quiz",
+    "generationMode": "streaming",
+    "arDisplayType": "wallpaper",
+    "wallpaperType": "standard",
+    "cameraUsage": "none",
+    "backgroundColor": "#1976d2",
+    "libraryConfig": {...},
+    "timerConfig": {...},
+    "interactionMode": "nodes" // ✅ CORRECTLY SAVED
+  }
+}
+```
+
+### Next Steps (USER Browser Testing) 🧪
+
+1. **Hard refresh** page `/uniks/:id/spaces/:canvasId/publish/arjs` (Ctrl+Shift+R)
+2. **Open DevTools Console** and verify all 8 log messages appear
+3. **Check UI** - "Режим взаимодействия" dropdown should show **"Соединение узлов"** (NOT "Кнопки ответов")
+4. **If still showing wrong value**: Screenshot console logs and report
+
+### Technical Summary
+
+**Files Modified**: 3 files (all frontend)
+- `ARJSPublisher.tsx` - **CRITICAL FIX**: Added interactionMode to LOAD_SETTINGS payload (line 340) + 3 debug logs
+- `PublicationApi.ts` - Added 1 debug log showing loaded settings object
+- `arjsState.ts` - Added 3 debug logs in LOAD_SETTINGS reducer case
+
+**Data Flow Verified**:
+- ✅ Save: UI → settingsData → API → Backend → Database (working before)
+- 🧪 Load: Database → Backend → API → **LOAD_SETTINGS (NOW FIXED)** → Reducer → State → UI (testing pending)
+
+**Previous Implementation** (2025-01-18 Update 1):
+- Fixed 5 integration points for data flow (settingsData, API interface, backend types, extraction, render)
+- All builds successful, lint clean
+- Database saves correctly
+
+---
+✅ publish-frt: tsdown 4.5s
+   - CJS: 155.34 kB (5 files)
+   - ESM: 183.21 kB (6 files)
+   - Types: 30.02 kB (2 files)
+```
+
+**Lint Validation**:
+```
+✅ publish-srv: 2 pre-existing warnings (no-console in logger.ts)
+✅ publish-frt: 68 pre-existing errors (react/prop-types), 35 pre-existing warnings (no-console)
+   - NO NEW WARNINGS OR ERRORS from our changes
+```
+
+### Browser Testing Required 🧪
+
+**Test 1: Verify Saving (USER)**
+1. Navigate to `/uniks/:id/spaces/:canvasId/publish/arjs`
+2. Change "Режим взаимодействия" from "Кнопки ответов" to "Соединение узлов"
+3. Wait for auto-save indicator (bottom right corner)
+4. Open DevTools → Application → IndexedDB → check `chatbotConfig.arjs`
+5. **Expected**: Field `interactionMode: 'nodes'` present in saved data
+
+**Test 2: Verify Backend Extraction (USER)**
+1. Click "Опубликовать" button
+2. Open DevTools Network tab
+3. Find request `GET /api/v1/publish/arjs/:slug`
+4. Check response JSON
+5. **Expected**: Response contains `renderConfig.interactionMode: 'nodes'`
+
+**Test 3: Verify Rendering (USER)**
+1. Open public link in new tab
+2. After AR scene loads, check UI mode
+3. Open browser console for logs
+4. **Expected**: 
+   - UI shows lines for connecting questions (NOT buttons)
+   - Console log: `[DataHandler] Interaction mode: nodes`
+
+**Test 4: Verify Fallback (USER)**
+1. Create NEW Canvas without changing interactionMode
+2. Publish immediately
+3. Open public link
+4. **Expected**: UI shows buttons (default fallback for legacy)
+
+### Technical Notes
+
+**Design Decisions**:
+- ✅ Optional field (`interactionMode?`) for legacy compatibility
+- ✅ Fallback strategy: `|| 'buttons'` at 3 points (settingsData, buildOptions, DataHandler)
+- ✅ No database migration needed (JSON field, backward compatible)
+- ✅ TypeScript discriminated union sufficient (no Zod validation needed for 2-value enum)
+
+**Rollback Plan** (if issues found):
+1. Revert settingsData changes (1 file, 2 lines)
+2. Revert backend extraction (1 file, 2 lines)
+3. Revert ARViewPage (1 file, 1 line)
+4. Rebuild packages
+5. Zero downtime (no DB schema changes)
+
+**Success Criteria**:
+- ✅ TypeScript compiles without errors
+- ✅ No new lint warnings
+- ✅ Proper fallback handling
+- 🧪 Browser tests pending
+
+---
+
+## Recent Completed Work
+
+### PR #550 Bot Review Fixes (2025-11-17) ✅
 **Context**: After GitHub PR #550 submission, three AI bots (Copilot, Gemini, ChatGPT Codex) reviewed code and found 12 issues. Conducted comprehensive QA analysis, verified against Metaverses/Clusters, implemented all critical fixes.
 
 **Root Cause Discovery**: Projects module systematically uses **PascalCase** variables (`const Project`, `const Task`, `const Milestone`) but TypeORM entity properties are **camelCase** (`project`, `task`, `milestone`). This naming mismatch caused wrong field assignment in repository `create()` calls.

@@ -3,12 +3,12 @@
 
 // Local type to avoid circular dependency
 interface IUPDLSpace {
-    id: string;
-    name: string;
-    objects: any[];
-    cameras: any[];
-    lights: any[];
-    datas: any[];
+    id: string
+    name: string
+    objects: any[]
+    cameras: any[]
+    lights: any[]
+    datas: any[]
     [key: string]: any
 }
 import { BuildOptions } from '../../../common/types'

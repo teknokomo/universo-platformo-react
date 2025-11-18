@@ -217,6 +217,13 @@
           "legacyRecommendationMessage": "Administrator recommends changing library source to {{source}} to comply with global settings",
           "officialSource": "Official server",
           "kiberplanoSource": "Kiberplano server"
+        },
+        "interactionMode": {
+          "label": "Interaction Mode",
+          "buttons": "Answer Buttons",
+          "nodes": "Node Connections",
+          "buttonsDescription": "Traditional mode with answer selection buttons",
+          "nodesDescription": "Connect questions to answers by dragging lines"
         }
       },
     "playcanvas": {

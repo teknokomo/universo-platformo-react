@@ -4,23 +4,22 @@
 
 // Local types to avoid circular dependency
 interface IUPDLObject {
-    id: string;
-    name: string;
-    type: string;
-    position: { x: number; y: number; z: number };
-    rotation: { x: number; y: number; z: number };
-    scale: { x: number; y: number; z: number };
-    color: string;
+    id: string
+    name: string
+    type: string
+    position: { x: number; y: number; z: number }
+    rotation: { x: number; y: number; z: number }
+    scale: { x: number; y: number; z: number }
+    color: string
     [key: string]: any
 }
 interface IUPDLMultiScene {
-    scenes: any[];
-    currentSceneIndex: number;
-    totalScenes: number;
+    scenes: any[]
+    currentSceneIndex: number
+    totalScenes: number
     isCompleted: boolean
 }
 import { BuildOptions } from '../../common/types'
-import { SimpleValidator } from '../utils/SimpleValidator'
 
 /**
  * Processes UPDL Object nodes for AR.js generation

@@ -145,9 +145,7 @@ const QRCodeSection: React.FC<QRCodeSectionProps> = ({ publishedUrl, disabled = 
                                 role: 'switch'
                             }}
                         />
-                        {isGenerating && (
-                            <CircularProgress size={20} sx={{ ml: 1 }} aria-label={t('common:loading', 'Loading...')} />
-                        )}
+                        {isGenerating && <CircularProgress size={20} sx={{ ml: 1 }} aria-label={t('common:loading', 'Loading...')} />}
                     </Box>
                 }
                 label={t('qrCode.toggle')}

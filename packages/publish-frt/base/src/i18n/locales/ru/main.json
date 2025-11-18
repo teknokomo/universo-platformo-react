@@ -217,6 +217,13 @@
           "legacyRecommendationMessage": "Администратор рекомендует изменить источник библиотек на {{source}} в соответствии с глобальными настройками",
           "officialSource": "Официальный сервер",
           "kiberplanoSource": "Сервер Kiberplano"
+        },
+        "interactionMode": {
+          "label": "Режим взаимодействия",
+          "buttons": "Кнопки ответов",
+          "nodes": "Соединение узлов",
+          "buttonsDescription": "Традиционный режим с кнопками выбора ответа",
+          "nodesDescription": "Соедините вопросы с ответами перетаскиванием линий"
         }
       },
     "playcanvas": {

@@ -9,7 +9,8 @@ import type {
     CameraUsage,
     TimerPosition,
     PublicationLink,
-    GlobalLibrarySettings
+    GlobalLibrarySettings,
+    QuizInteractionMode
 } from '../../../types'
 import type { LibrarySource } from '../../../types/library.types'
 
@@ -52,6 +53,7 @@ export type ARJSAction =
     | { type: 'SET_TIMER_ENABLED'; payload: boolean }
     | { type: 'SET_TIMER_LIMIT_SECONDS'; payload: number }
     | { type: 'SET_TIMER_POSITION'; payload: TimerPosition }
+    | { type: 'SET_INTERACTION_MODE'; payload: QuizInteractionMode }
     | { type: 'SET_ARJS_VERSION'; payload: string }
     | { type: 'SET_ARJS_SOURCE'; payload: LibrarySource }
     | { type: 'SET_AFRAME_VERSION'; payload: string }
@@ -97,6 +99,7 @@ export const initialARJSState: ARJSState = {
         limitSeconds: 60,
         position: 'top-center'
     },
+    interactionMode: 'buttons',
 
     // UI State
     loading: false,
@@ -166,6 +169,8 @@ export function arjsReducer(state: ARJSState, action: ARJSAction): ARJSState {
                     position: action.payload
                 }
             }
+        case 'SET_INTERACTION_MODE':
+            return { ...state, interactionMode: action.payload }
         case 'SET_ARJS_VERSION':
             return {
                 ...state,
@@ -233,12 +238,16 @@ export function arjsReducer(state: ARJSState, action: ARJSAction): ARJSState {
         case 'SET_ALERT':
             return { ...state, alert: action.payload }
         case 'LOAD_SETTINGS':
-            return {
+            console.log('[arjsReducer] LOAD_SETTINGS action.payload:', action.payload)
+            console.log('[arjsReducer] interactionMode in payload:', action.payload.interactionMode)
+            const newState = {
                 ...state,
                 ...action.payload,
                 libraryConfig: action.payload.libraryConfig || state.libraryConfig,
                 timerConfig: action.payload.timerConfig || state.timerConfig
             }
+            console.log('[arjsReducer] New state interactionMode:', newState.interactionMode)
+            return newState
         case 'RESET_SETTINGS':
             return { ...initialARJSState, globalSettings: state.globalSettings, globalSettingsLoaded: state.globalSettingsLoaded }
         default:

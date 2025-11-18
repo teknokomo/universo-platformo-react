@@ -30,7 +30,7 @@ import type { ARDisplayType, CameraUsage, LibrarySource, MarkerType, WallpaperTy
 import GenerationModeSelect from '../../components/GenerationModeSelect'
 import TemplateSelect from '../../components/TemplateSelect'
 import { PublishVersionSection } from '../../components/PublishVersionSection'
-import { MarkerSettings, TimerSettings, LibrarySettings, ARPreviewPane } from './components'
+import { MarkerSettings, TimerSettings, InteractionModeSelect, LibrarySettings, ARPreviewPane } from './components'
 import { PublicationToggle, PublicationSettingsCard, AsyncStatusBar } from '../../components/shared'
 
 // Type imports
@@ -254,7 +254,8 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
             cameraUsage: state.cameraUsage,
             backgroundColor: state.backgroundColor,
             libraryConfig: state.libraryConfig,
-            timerConfig: normalizedTimerConfig
+            timerConfig: normalizedTimerConfig,
+            interactionMode: state.interactionMode ?? 'buttons'
         }),
         [
             state.isPublic,
@@ -268,7 +269,8 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
             state.cameraUsage,
             state.backgroundColor,
             state.libraryConfig,
-            normalizedTimerConfig
+            normalizedTimerConfig,
+            state.interactionMode
         ]
     )
 
@@ -319,6 +321,9 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                 if (cancelled) return
 
                 if (savedSettings) {
+                    console.log('[ARJSPublisher] Loading saved settings:', savedSettings)
+                    console.log('[ARJSPublisher] interactionMode from savedSettings:', savedSettings.interactionMode)
+                    
                     // Load basic settings
                     dispatch({
                         type: 'LOAD_SETTINGS',
@@ -333,9 +338,12 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                             wallpaperType: savedSettings.wallpaperType || 'standard',
                             cameraUsage: savedSettings.cameraUsage || 'none',
                             backgroundColor: savedSettings.backgroundColor || '#1976d2',
-                            timerConfig: normalizeTimerConfig(savedSettings.timerConfig)
+                            timerConfig: normalizeTimerConfig(savedSettings.timerConfig),
+                            interactionMode: savedSettings.interactionMode || 'buttons'
                         }
                     })
+                    
+                    console.log('[ARJSPublisher] LOAD_SETTINGS dispatched with interactionMode:', savedSettings.interactionMode || 'buttons')
 
                     // Handle library configuration with legacy detection
                     if (state.globalSettings?.enforceGlobalLibraryManagement) {
@@ -792,6 +800,13 @@ const ARJSPublisherComponent: React.FC<PublisherProps> = ({ flow, unikId, onPubl
                         onEnabledChange={(enabled) => dispatch({ type: 'SET_TIMER_ENABLED', payload: enabled })}
                         onLimitSecondsChange={(seconds) => dispatch({ type: 'SET_TIMER_LIMIT_SECONDS', payload: seconds })}
                         onPositionChange={(position) => dispatch({ type: 'SET_TIMER_POSITION', payload: position })}
+                    />
+
+                    {/* Interaction Mode Select */}
+                    <InteractionModeSelect
+                        value={state.interactionMode ?? 'buttons'}
+                        disabled={state.isPublishing || state.loading}
+                        onChange={(mode) => dispatch({ type: 'SET_INTERACTION_MODE', payload: mode })}
                     />
 
                     {/* Library Settings */}

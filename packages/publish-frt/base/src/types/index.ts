@@ -13,6 +13,7 @@ export type {
     DemoMode,
     PublicationTargetType,
     TechnologyType,
+    QuizInteractionMode,
     // Configuration interfaces
     TimerConfig,
     LibraryVersion,
