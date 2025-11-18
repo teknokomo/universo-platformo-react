@@ -2556,11 +2556,8 @@ export class DataHandler {
             function finishQuiz() {
                 console.log('[NodeQuiz] Quiz finished');
                 ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
-                container.innerHTML = '<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>' + ${
-                    showPoints ? "'Ваши баллы: ' + quizState.points" : "''"
-                } + '</div>';
+                container.innerHTML = `<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${showPoints ? 'Ваши баллы: ' + quizState.points : ''}</div>`;
             }
-
             function shuffleArray(array) {
                 for (let i = array.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
