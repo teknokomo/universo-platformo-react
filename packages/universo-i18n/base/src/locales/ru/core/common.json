@@ -36,7 +36,8 @@
       "confirm": "Подтвердить",
       "copy": "Копировать",
       "download": "Скачать",
-      "upload": "Загрузить"
+      "upload": "Загрузить",
+      "retry": "Повторить"
     },
     "fields": {
       "name": "Название",
@@ -99,13 +100,6 @@
       "description": "Описание",
       "id": "ID",
       "role": "Роль",
-      "sections": "Секции",
-      "entities": "Сущности",
-      "spaces": "Пространства",
-      "domains": "Домены",
-      "resources": "Ресурсы",
-      "milestones": "Этапы",
-      "tasks": "Задачи",
       "added": "Добавлен",
       "email": "Email"
     },
@@ -139,7 +133,53 @@
       "updateFailed": "Не удалось обновить",
       "createFailed": "Не удалось создать",
       "required": "Это поле обязательно для заполнения",
-      "invalidInput": "Неверный ввод"
+      "invalidInput": "Неверный ввод",
+      "connectionFailed": "Ошибка подключения",
+      "checkConnection": "Пожалуйста, проверьте подключение к сети и попробуйте снова",
+      "pleaseTryLater": "Что-то пошло не так. Пожалуйста, попробуйте позже"
+    },
+    "members": {
+      "title": "Доступ",
+      "searchPlaceholder": "Поиск участников...",
+      "noMembersFound": "Участники не найдены",
+      "inviteMember": "Добавить",
+      "editTitle": "Редактировать участника",
+      "confirmRemove": "Удалить участника?",
+      "confirmRemoveDescription": "Вы уверены, что хотите удалить участника \"{{email}}\"?",
+      "removeSuccess": "Участник успешно удалён",
+      "removeError": "Не удалось удалить участника",
+      "saveError": "Не удалось сохранить участника",
+      "inviteSuccess": "Участник успешно добавлен",
+      "inviteError": "Не удалось добавить участника",
+      "userNotFound": "Пользователь с email \"{{email}}\" не найден. Пожалуйста, проверьте адрес электронной почты.",
+      "userAlreadyMember": "Пользователь с email \"{{email}}\" уже имеет доступ.",
+      "emailLabel": "Email",
+      "roleLabel": "Роль",
+      "commentLabel": "Комментарий (необязательно)",
+      "commentPlaceholder": "Добавьте заметку об этом участнике...",
+      "selfActionWarning": "Вы изменяете свой собственный доступ. Будьте осторожны!",
+      "roles": {
+        "admin": "Админ",
+        "editor": "Редактор",
+        "member": "Участник"
+      },
+      "validation": {
+        "emailRequired": "Email обязателен",
+        "emailInvalid": "Неверный формат email",
+        "roleRequired": "Роль обязательна",
+        "commentCharacterCount": "{{count}}/{{max}} символов (после обрезки)"
+      },
+      "actions": {
+        "edit": "Редактировать участника",
+        "remove": "Удалить участника"
+      },
+      "table": {
+        "email": "Email",
+        "nickname": "Никнейм",
+        "comment": "Комментарий",
+        "role": "Роль",
+        "added": "Добавлен"
+      }
     },
     "confirm": {
       "title": "Подтверждение действия",

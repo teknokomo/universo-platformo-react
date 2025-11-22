@@ -63,7 +63,7 @@ const EntityList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('entitiesEntityDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('metaversesEntityDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -200,7 +200,7 @@ const EntityList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('entitiesEntityDisplayStyle', nextView)
+        localStorage.setItem('metaversesEntityDisplayStyle', nextView)
         setView(nextView)
     }
 

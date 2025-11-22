@@ -21,6 +21,10 @@
         "projectboard": "Projectboard",
         "milestones": "Milestones",
         "tasks": "Tasks",
+        "organizations": "Organizations",
+        "organizationboard": "Organizationboard",
+        "departments": "Departments",
+        "positions": "Positions",
         "resources": "Resources",
         "domains": "Domains",
         "sections": "Sections",
@@ -39,4 +43,3 @@
         "updateCategory": "Update Category"
     }
 }
-

@@ -11,14 +11,10 @@
         "deleteError": "Не удалось удалить проект",
         "saveError": "Не удалось сохранить проект",
         "errors": {
-            "connectionFailed": "Ошибка подключения",
-            "checkConnection": "Пожалуйста, проверьте подключение к сети и попробуйте снова",
-            "pleaseTryLater": "Что-то пошло не так. Пожалуйста, попробуйте позже",
             "invalidProject": "Неверный проект",
             "pleaseSelectProject": "Пожалуйста, выберите проект из списка"
         },
         "actions": {
-            "retry": "Повторить",
             "edit": "Редактировать",
             "delete": "Удалить",
             "backToList": "Назад к проектам"
@@ -29,12 +25,12 @@
             "defaultDescription": "Аналитика и статистика проекта",
             "overview": "Обзор",
             "stats": {
-                "Milestones": {
+                "milestones": {
                     "title": "Этапы",
                     "interval": "За всё время",
                     "description": "Всего этапов в этом проекте"
                 },
-                "Tasks": {
+                "tasks": {
                     "title": "Задачи",
                     "interval": "За всё время",
                     "description": "Всего задач во всех этапах"
@@ -56,7 +52,7 @@
                     "interval": "Последние 30 дней",
                     "description": "Метрики активности (демо данные - в разработке)"
                 },
-                "Tasks": {
+                "tasks": {
                     "title": "Задачи",
                     "interval": "Последние 6 месяцев",
                     "description": "Использование задач (демо данные - в разработке)"
@@ -71,10 +67,10 @@
         "table": {
             "description": "Описание",
             "role": "Роль",
-            "Milestones": "Этапы",
-            "Tasks": "Задачи"
+            "milestones": "Этапы",
+            "tasks": "Задачи"
         },
-        "Milestones": {
+        "milestones": {
             "title": "Этапы",
             "searchPlaceholder": "Поиск этапов...",
             "noMilestonesFound": "Этапы не найдены",
@@ -85,20 +81,20 @@
             "deleteSuccess": "Этап успешно удалён",
             "deleteError": "Не удалось удалить этап",
             "saveError": "Не удалось сохранить этап",
-            "TaskCount_one": "{{count}} задача",
-            "TaskCount_few": "{{count}} задачи",
-            "TaskCount_many": "{{count}} задач",
-            "TaskCount_other": "{{count}} задач",
+            "taskCount_one": "{{count}} задача",
+            "taskCount_few": "{{count}} задачи",
+            "taskCount_many": "{{count}} задач",
+            "taskCount_other": "{{count}} задач",
             "actions": {
                 "edit": "Редактировать этап",
                 "delete": "Удалить этап"
             },
             "table": {
                 "description": "Описание",
-                "Tasks": "Задачи"
+                "tasks": "Задачи"
             }
         },
-        "Tasks": {
+        "tasks": {
             "title": "Задачи",
             "searchPlaceholder": "Поиск задач...",
             "noTasksFound": "Задачи не найдены",
@@ -109,10 +105,10 @@
             "deleteSuccess": "Задача успешно удалена",
             "deleteError": "Не удалось удалить задачу",
             "saveError": "Не удалось сохранить задачу",
-            "MilestoneLabel": "Этап",
+            "milestoneLabel": "Этап",
             "noMilestonesAvailable": "Нет доступных этапов",
             "errors": {
-                "MilestoneRequired": "Этап обязателен"
+                "milestoneRequired": "Этап обязателен"
             },
             "actions": {
                 "edit": "Редактировать задачу",
@@ -120,49 +116,6 @@
             },
             "table": {
                 "description": "Описание"
-            }
-        },
-        "members": {
-            "title": "Доступ",
-            "searchPlaceholder": "Поиск участников...",
-            "noMembersFound": "Участники не найдены",
-            "inviteMember": "Добавить",
-            "editTitle": "Редактировать участника",
-            "confirmRemove": "Удалить участника?",
-            "confirmRemoveDescription": "Вы уверены, что хотите удалить участника \"{{email}}\"?",
-            "removeSuccess": "Участник успешно удален",
-            "removeError": "Не удалось удалить участника",
-            "saveError": "Не удалось сохранить участника",
-            "inviteSuccess": "Участник успешно добавлен",
-            "inviteError": "Не удалось добавить участника",
-            "userNotFound": "Пользователь с email \"{{email}}\" не найден. Пожалуйста, проверьте адрес электронной почты.",
-            "userAlreadyMember": "Пользователь с email \"{{email}}\" уже имеет доступ к этому проекту.",
-            "emailLabel": "Email",
-            "roleLabel": "Роль",
-            "commentLabel": "Комментарий (необязательно)",
-            "commentPlaceholder": "Добавьте заметку об этом участнике...",
-            "selfActionWarning": "Вы изменяете свой собственный доступ. Будьте осторожны!",
-            "roles": {
-                "admin": "Админ",
-                "editor": "Редактор",
-                "member": "Участник"
-            },
-            "validation": {
-                "emailRequired": "Email обязателен",
-                "emailInvalid": "Неверный формат email",
-                "roleRequired": "Роль обязательна",
-                "commentCharacterCount": "{{count}}/{{max}} символов (после обрезки)"
-            },
-            "actions": {
-                "edit": "Редактировать участника",
-                "remove": "Удалить участника"
-            },
-            "table": {
-                "email": "Email",
-                "nickname": "Никнейм",
-                "comment": "Комментарий",
-                "role": "Роль",
-                "added": "Добавлен"
             }
         }
     }

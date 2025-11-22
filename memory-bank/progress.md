@@ -23,6 +23,35 @@
 
 ## November 2025 (Latest)
 
+### 2025-11-22: PR #554 Fixes (RLS, Cleanup, Tests) ✅
+**Context**: Addressed feedback from PR #554 regarding RLS policy, unused variables, and frontend test practices.
+
+**Fixes Implemented**:
+1.  **Backend RLS Policy**:
+    -   **Problem**: `organizations_users` RLS policy was too restrictive (only allowed users to see their own membership), preventing listing all members of an organization.
+    -   **Fix**: Created migration `1741500000001-FixOrganizationsRLS.ts` to update the policy. Now allows users to view all members if they have a membership in the same organization (using `EXISTS` subquery).
+    -   **File**: `packages/organizations-srv/base/src/database/migrations/postgres/1741500000001-FixOrganizationsRLS.ts`
+
+2.  **Code Cleanup**:
+    -   **Problem**: Unused variables in tests and server routes.
+    -   **Fix**: Removed unused `authUserRepo` in `organizationsRoutes.test.ts` and unused `initializeOrganizationsRateLimiters` import in `flowise-server/src/routes/index.ts`.
+
+3.  **Frontend Tests (ItemCard)**:
+    -   **Problem**: `ItemCard.test.tsx` was testing implementation details (mocking `useNavigate`) instead of behavior (checking `<a>` tag `href`).
+    -   **Fix**: Updated test to verify that the card renders an `<a>` tag with the correct `href` attribute, aligning with the new "Overlay Link" pattern.
+    -   **File**: `packages/universo-template-mui/base/src/components/cards/__tests__/ItemCard.test.tsx`
+
+4.  **Test Environment Fix**:
+    -   **Problem**: `organizationsRoutes.test.ts` failed because `typeorm` mock was missing `Entity`, `Unique`, etc. decorators.
+    -   **Fix**: Updated the mock in `organizationsRoutes.test.ts` to include missing decorators.
+
+**Validation**:
+-   ✅ `ItemCard.test.tsx` passed.
+-   ✅ `organizationsRoutes.test.ts` passed.
+-   ✅ Builds for `organizations-srv`, `flowise-server`, and `template-mui` successful.
+
+---
+
 ### 2025-11-18: AR.js InteractionMode + Line Endings Normalization ✅
 **Context**: Fixed AR.js interactionMode persistence bug and `quizState` error, then resolved CRLF vs LF line ending inconsistencies across entire project.
 

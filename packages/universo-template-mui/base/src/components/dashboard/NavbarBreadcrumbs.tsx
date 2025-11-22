@@ -10,6 +10,7 @@ import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetavers
 import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
 import { useProjectName, truncateProjectName } from '../../hooks/useProjectName'
 import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
+import { useOrganizationName, truncateOrganizationName } from '../../hooks/useOrganizationName'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),
@@ -41,6 +42,11 @@ export default function NavbarBreadcrumbs() {
     const projectId = projectIdMatch ? projectIdMatch[1] : null
     const projectName = useProjectName(projectId)
 
+    // Extract organizationId from URL for dynamic name loading (both singular and plural routes)
+    const organizationIdMatch = location.pathname.match(/^\/organizations?\/([^/]+)/)
+    const organizationId = organizationIdMatch ? organizationIdMatch[1] : null
+    const organizationName = useOrganizationName(organizationId)
+
     // Extract unikId from URL for dynamic name loading
     const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = unikIdMatch ? unikIdMatch[1] : null
@@ -52,6 +58,7 @@ export default function NavbarBreadcrumbs() {
         metaverses: 'metaverses',
         clusters: 'clusters',
         projects: 'projects',
+        organizations: 'organizations',
         profile: 'profile',
         docs: 'docs',
         spaces: 'spaces'
@@ -228,6 +235,52 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('milestones'), to: location.pathname })
                 } else if (segments[2] === 'tasks') {
                     items.push({ label: t('tasks'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('access'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'organizations') {
+            const items = [{ label: t(menuMap.organizations), to: '/organizations' }]
+
+            // Handle nested routes like /organizations/:id/departments or /organizations/:id/positions
+            if (segments[1] && organizationName) {
+                items.push({
+                    label: truncateOrganizationName(organizationName),
+                    to: `/organization/${segments[1]}`
+                })
+
+                // Sub-pages (departments, positions) - use keys from menu namespace
+                if (segments[2] === 'departments') {
+                    items.push({ label: t('departments'), to: location.pathname })
+                } else if (segments[2] === 'positions') {
+                    items.push({ label: t('positions'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'organization') {
+            const items = [{ label: t(menuMap.organizations), to: '/organizations' }]
+
+            if (segments[1] && organizationName) {
+                // Use actual organization name with truncation for long names
+                items.push({
+                    label: truncateOrganizationName(organizationName),
+                    to: `/organization/${segments[1]}`
+                })
+
+                // Sub-pages (access, departments, positions) - use keys from menu namespace
+                if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'departments') {
+                    items.push({ label: t('departments'), to: location.pathname })
+                } else if (segments[2] === 'positions') {
+                    items.push({ label: t('positions'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
                 }

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -43,7 +43,6 @@ type MetaverseData = {
 }
 
 const MetaverseList = () => {
-    const navigate = useNavigate()
     // Use metaverses namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['metaverses', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
@@ -52,7 +51,7 @@ const MetaverseList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('entitiesMetaverseDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('metaversesMetaverseDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -169,7 +168,7 @@ const MetaverseList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('entitiesMetaverseDisplayStyle', nextView)
+        localStorage.setItem('metaversesMetaverseDisplayStyle', nextView)
         setView(nextView)
     }
 
@@ -181,10 +180,7 @@ const MetaverseList = () => {
                 width: '20%',
                 align: 'left',
                 render: (row: Metaverse) => (
-                    <Link
-                        to={`/metaverse/${row.id}`}
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
+                    <Link to={`/metaverse/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,

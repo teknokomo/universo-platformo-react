@@ -1,14 +1,173 @@
 # Active Context
 
-> **Last Updated**: 2025-01-18
+> **Last Updated**: 2025-11-22
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: AR.js InteractionMode Load Fix - Debug Logs Added ✅ 🧪
+## Current Focus: i18n Refactoring - Members & Tables ✅
 
-### Overview (2025-01-18 Update 2)
+### Overview (2025-11-22)
+**Issue**: Translation keys for "members" were duplicated across all modules (organizations, clusters, etc.), while some specific table keys (like departments) were incorrectly in common.json.
+
+**Solution Applied**: ✅
+- Centralized `members` keys in `common.json` (RU & EN)
+- Decentralized specific `table` keys to module JSONs (RU & EN)
+- Updated React components to use `tc` (common) for members and `t` (module) for specific table keys.
+
+### Technical Implementation ✅
+
+**Files Modified**:
+- `packages/universo-i18n/base/src/locales/en/core/common.json` (Added members keys)
+- `packages/universo-i18n/base/src/locales/ru/core/common.json` (Added members keys)
+- `packages/organizations-frt/base/src/i18n/locales/en/organizations.json` (Removed members, added table keys)
+- `packages/organizations-frt/base/src/i18n/locales/ru/organizations.json` (Removed members, added table keys)
+- `packages/clusters-frt/base/src/i18n/locales/en/clusters.json` (Removed members, added table keys)
+- `packages/clusters-frt/base/src/i18n/locales/ru/clusters.json` (Removed members, added table keys)
+- `packages/metaverses-frt/base/src/i18n/locales/en/metaverses.json` (Removed members, added table keys)
+- `packages/metaverses-frt/base/src/i18n/locales/ru/metaverses.json` (Removed members, added table keys)
+- `packages/projects-frt/base/src/i18n/locales/en/projects.json` (Removed members, added table keys, lowercased keys)
+- `packages/projects-frt/base/src/i18n/locales/ru/projects.json` (Removed members, added table keys, lowercased keys)
+- `packages/uniks-frt/base/src/i18n/locales/en/uniks.json` (Removed members, added table keys)
+- `packages/uniks-frt/base/src/i18n/locales/ru/uniks.json` (Removed members, added table keys)
+- `packages/organizations-frt/base/src/pages/OrganizationMembers.tsx` (Updated to use `tc`)
+- `packages/clusters-frt/base/src/pages/ClusterMembers.tsx` (Updated to use `tc`)
+- `packages/metaverses-frt/base/src/pages/MetaverseMembers.tsx` (Updated to use `tc`)
+- `packages/projects-frt/base/src/pages/ProjectMembers.tsx` (Updated to use `tc`)
+- `packages/uniks-frt/base/src/pages/UnikMember.tsx` (Updated to use `tc`)
+- `packages/projects-frt/base/src/pages/ProjectList.tsx` (Updated table headers)
+
+### Next Steps (USER Browser Testing) 🧪
+
+**Test 1: Verify Members Pages**
+1. Navigate to Organizations -> Access. Verify table headers and invite dialog.
+2. Navigate to Clusters -> Access. Verify table headers and invite dialog.
+3. Navigate to Metaverses -> Access. Verify table headers and invite dialog.
+4. Navigate to Projects -> Access. Verify table headers and invite dialog.
+5. Navigate to Uniks -> Access. Verify table headers and invite dialog.
+
+**Test 2: Verify Project List**
+1. Navigate to Projects. Verify table headers (Name, Description, Role, Milestones, Tasks).
+
+## Current Focus: ItemCard Click Handling Fix ✅ 🧪
+
+### Overview (2025-11-22)
+**Issue**: In ItemCard component (Organizations, Metaverses, Clusters, Projects), clicking the "3 dots" headerAction menu triggers card navigation instead of opening the menu.
+
+**Root Cause**: RouterLink wrapper intercepts ALL clicks (including headerAction) because it's higher in DOM hierarchy than the Box with stopPropagation.
+
+**Solution Applied**: ✅
+- Replaced RouterLink wrapper with "Overlay Link" pattern
+- Rendered `Link` (react-router-dom) with absolute positioning covering the card
+- Placed `headerAction` (menu button) above the link using z-index (10 vs 5)
+- Added `stopPropagation` to `headerAction` container
+- Removed `useNavigate` hook usage for cleaner, declarative navigation
+
+### Technical Implementation ✅
+
+**Files Modified**: 1 file in `@universo/template-mui`
+
+**File 1**: `packages/universo-template-mui/base/src/components/cards/ItemCard.tsx`
+- Removed: `import { useNavigate } from 'react-router-dom'`
+- Added: `import { Link } from 'react-router-dom'`
+- Removed: `handleCardClick` function and `useNavigate` hook
+- Updated CardWrapper: `onClick={!href ? onClick : undefined}`
+- Updated headerAction container:
+  ```tsx
+  <Box
+      data-header-action
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      sx={{
+          position: 'absolute',
+          top: -12,
+          right: -12,
+          zIndex: 10 // Higher z-index
+      }}
+  >
+  ```
+- Added Overlay Link:
+  ```tsx
+  {href && (
+      <Link
+          to={href}
+          style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 5, // Lower z-index than headerAction
+              opacity: 0
+          }}
+      />
+  )}
+  ```
+
+### Build Results ✅
+
+**@universo/template-mui Build**:
+```bash
+✅ Build complete in 1239ms
+   - CJS: 3243.71 kB (3 files)
+   - ESM: 306.08 kB (3 files)
+```
+
+**flowise-ui Build**:
+```bash
+✅ Built in 1m 19s
+   - ItemCard chunk: 2.42 kB (gzip: 1.06 kB)
+```
+
+**Lint Validation**: ✅ No ItemCard-related errors after prettier fixes
+
+### Next Steps (USER Browser Testing) 🧪
+
+**Test 1: Organizations Card Navigation**
+1. Navigate to `/organizations`
+2. Hover over card body → should show URL in browser status bar (Link behavior)
+3. Right-click card body → should show "Open link in new tab"
+4. Click on card body → should navigate to `/organizations/:id`
+
+**Test 2: Organizations Menu Click**
+1. Navigate to `/organizations`
+2. Click "3 dots" menu button
+3. Expected: Menu opens WITHOUT navigating
+
+**Test 3: Visual Check**
+1. Verify "3 dots" menu button is visible and correctly positioned (top-right corner)
+2. Verify no "dead zones" on card edges (Link covers 100%)
+
+**Test 4: Metaverses/Clusters/Projects**
+1. Repeat Tests 1-3 for `/metaverses`, `/clusters`, `/projects`
+
+### Technical Notes
+
+**Affected Components**: All modules using ItemCard
+- Organizations (OrganizationList, DepartmentList, PositionList)
+- Metaverses (MetaverseList)
+- Clusters (ClusterList)
+- Projects (ProjectList)
+- Uniks (UnikList)
+
+**Design Decision**: useNavigate over RouterLink wrapper
+- ✅ Allows fine-grained click event control
+- ✅ Supports data-attribute-based exclusion
+- ✅ Maintains href prop API backward compatibility
+- ✅ No changes needed in consuming components
+
+**Success Criteria**:
+- ✅ TypeScript compiles without errors
+- ✅ No new lint warnings
+- ✅ All tests pass (6 navigation tests updated)
+- 🧪 Browser verification pending
+
+---
+
+## Recent Completed Work
+
+### AR.js InteractionMode Load Fix (2025-01-18) ✅
 **Previous Issue RESOLVED**: Data saving worked correctly (confirmed in DB: `"interactionMode":"nodes"`)
 **New Issue Found**: Value **not loaded** from saved settings on page reload → LOAD_SETTINGS action was missing `interactionMode` field
 

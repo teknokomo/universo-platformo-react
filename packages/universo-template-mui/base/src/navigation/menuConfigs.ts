@@ -180,6 +180,34 @@ export const getProjectMenuItems = (projectId: string): TemplateMenuItem[] => [
     }
 ]
 
+// Function to generate organization menu items for a specific organization
+export const getOrganizationMenuItems = (organizationId: string): TemplateMenuItem[] => [
+    {
+        id: 'organization-board',
+        titleKey: 'organizationboard',
+        url: `/organization/${organizationId}`,
+        icon: IconBuildingStore
+    },
+    {
+        id: 'organization-departments',
+        titleKey: 'departments',
+        url: `/organizations/${organizationId}/departments`,
+        icon: IconHierarchy3
+    },
+    {
+        id: 'organization-positions',
+        titleKey: 'positions',
+        url: `/organizations/${organizationId}/positions`,
+        icon: IconBoxMultiple
+    },
+    {
+        id: 'organization-access',
+        titleKey: 'access',
+        url: `/organization/${organizationId}/access`,
+        icon: IconUsers
+    }
+]
+
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',
@@ -204,6 +232,12 @@ export const rootMenuItems: TemplateMenuItem[] = [
         titleKey: 'projects',
         url: '/projects',
         icon: IconFolder
+    },
+    {
+        id: 'organizations',
+        titleKey: 'organizations',
+        url: '/organizations',
+        icon: IconBuildingStore
     },
     {
         id: 'profile',

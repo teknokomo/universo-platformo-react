@@ -29,6 +29,7 @@ import { passport, createAuthRouter } from '@universo/auth-srv'
 import { initializeRateLimiters } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters } from '@universo/projects-srv'
+import { initializeRateLimiters as initializeOrganizationsRateLimiters } from '@universo/organizations-srv'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { validateAPIKey } from './utils/validateKey'
@@ -140,7 +141,9 @@ export class App {
             }
 
             // Diagnostics: ensure Spaces entities are registered
-            const entityNames = getDataSource().entityMetadatas.map((m) => m.name).sort()
+            const entityNames = getDataSource()
+                .entityMetadatas.map((m) => m.name)
+                .sort()
             logger.info(`📦 [server]: Data Source has been initialized!`)
             logger.info(`[diag] Entities loaded: ${entityNames.join(', ')}`)
         } catch (error) {
@@ -193,7 +196,7 @@ export class App {
                 secret: sessionSecret ?? 'change-me',
                 resave: false,
                 saveUninitialized: false,
-                cookie: cookieConfig,
+                cookie: cookieConfig
             })
         )
 
@@ -238,7 +241,7 @@ export class App {
         this.app.use('/api/v1', async (req: Request, res: Response, next: NextFunction) => {
             // console.log(`[AUTH DEBUG] Request path: ${req.path}`)
             // console.log(`[AUTH DEBUG] Whitelist URLs:`, whitelistURLs)
-            
+
             // Universo Platformo | If the path does not contain /api/v1, skip
             if (!URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
                 // console.log(`[AUTH DEBUG] Path doesn't contain /api/v1, skipping`)
@@ -263,10 +266,7 @@ export class App {
             }
 
             const headerValue = req.headers['authorization'] || req.headers['Authorization']
-            const bearerToken =
-                typeof headerValue === 'string' && headerValue.startsWith('Bearer ')
-                    ? headerValue.substring(7)
-                    : null
+            const bearerToken = typeof headerValue === 'string' && headerValue.startsWith('Bearer ') ? headerValue.substring(7) : null
 
             const tokenToVerify = bearerToken ?? (hasSession ? sessionTokens?.access : null)
 
@@ -332,6 +332,9 @@ export class App {
 
         // Initialize rate limiters for projects service
         await initializeProjectsRateLimiters()
+
+        // Initialize rate limiters for organizations service
+        await initializeOrganizationsRateLimiters()
 
         this.app.use('/api/v1', flowiseApiV1Router)
 

@@ -51,7 +51,7 @@ const DomainList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('resourcesDomainDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('clustersDomainDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -291,7 +291,7 @@ const DomainList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('resourcesDomainDisplayStyle', nextView)
+        localStorage.setItem('clustersDomainDisplayStyle', nextView)
         setView(nextView)
     }
 

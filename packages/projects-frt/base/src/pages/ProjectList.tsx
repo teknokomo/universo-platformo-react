@@ -206,14 +206,14 @@ const ProjectList = () => {
             },
             {
                 id: 'milestones',
-                label: tc('table.milestones', 'Milestones'),
+                label: t('table.milestones', 'Milestones'),
                 width: '10%',
                 align: 'center',
                 render: (row: Project) => (typeof row.MilestonesCount === 'number' ? row.MilestonesCount : '—')
             },
             {
                 id: 'tasks',
-                label: tc('table.tasks', 'Tasks'),
+                label: t('table.tasks', 'Tasks'),
                 width: '10%',
                 align: 'center',
                 render: (row: Project) => (typeof row.TasksCount === 'number' ? row.TasksCount : '—')
@@ -294,10 +294,10 @@ const ProjectList = () => {
                 <EmptyListState
                     image={APIEmptySVG}
                     imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    title={tc('errors.connectionFailed')}
+                    description={!(error as any)?.response?.status ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
                     action={{
-                        label: t('actions.retry'),
+                        label: tc('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)
                     }}
                 />
