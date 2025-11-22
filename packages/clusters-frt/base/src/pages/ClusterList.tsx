@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -43,7 +43,6 @@ type ClusterData = {
 }
 
 const ClusterList = () => {
-    const navigate = useNavigate()
     // Use clusters namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['clusters', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
@@ -52,7 +51,7 @@ const ClusterList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('resourcesClusterDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('clustersClusterDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -146,7 +145,7 @@ const ClusterList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('resourcesClusterDisplayStyle', nextView)
+        localStorage.setItem('clustersClusterDisplayStyle', nextView)
         setView(nextView)
     }
 
@@ -158,10 +157,7 @@ const ClusterList = () => {
                 width: '20%',
                 align: 'left',
                 render: (row: Cluster) => (
-                    <Link
-                        to={`/cluster/${row.id}`}
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
+                    <Link to={`/cluster/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,

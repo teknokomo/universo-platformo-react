@@ -21,6 +21,10 @@
         "projectboard": "Проектборд",
         "milestones": "Этапы",
         "tasks": "Задачи",
+        "organizations": "Организации",
+        "organizationboard": "Организацияборд",
+        "departments": "Отделы",
+        "positions": "Должности",
         "resources": "Ресурсы",
         "domains": "Домены",
         "sections": "Секции",
@@ -39,4 +43,3 @@
         "updateCategory": "Обновить категорию"
     }
 }
-

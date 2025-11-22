@@ -79,6 +79,7 @@
         "@universo/clusters-srv": "workspace:*",
         "@universo/metaverses-srv": "workspace:*",
         "@universo/multiplayer-colyseus-srv": "workspace:*",
+        "@universo/organizations-srv": "workspace:*",
         "@universo/profile-srv": "workspace:*",
         "@universo/projects-srv": "workspace:*",
         "@universo/publish-srv": "workspace:*",

@@ -51,7 +51,7 @@ const SectionList = () => {
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const [isDialogOpen, setDialogOpen] = useState(false)
-    const [view, setView] = useState(localStorage.getItem('entitiesSectionDisplayStyle') || 'card')
+    const [view, setView] = useState(localStorage.getItem('metaversesSectionDisplayStyle') || 'card')
 
     // State management for dialog
     const [isCreating, setCreating] = useState(false)
@@ -291,7 +291,7 @@ const SectionList = () => {
 
     const handleChange = (_event: any, nextView: string | null) => {
         if (nextView === null) return
-        localStorage.setItem('entitiesSectionDisplayStyle', nextView)
+        localStorage.setItem('metaversesSectionDisplayStyle', nextView)
         setView(nextView)
     }
 

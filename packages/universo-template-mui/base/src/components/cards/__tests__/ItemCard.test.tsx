@@ -7,6 +7,13 @@ import { ItemCard, type ItemCardData } from '../ItemCard'
 
 const theme = createTheme()
 
+// Mock useNavigate
+const mockNavigate = jest.fn()
+jest.mock('react-router-dom', () => ({
+    ...jest.requireActual('react-router-dom'),
+    useNavigate: () => mockNavigate
+}))
+
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <BrowserRouter>
         <ThemeProvider theme={theme}>{children}</ThemeProvider>
@@ -20,6 +27,10 @@ describe('ItemCard', () => {
         iconSrc: 'test-icon.png',
         color: '#ff0000'
     }
+
+    beforeEach(() => {
+        mockNavigate.mockClear()
+    })
 
     describe('Rendering', () => {
         it('should render with basic data', () => {
@@ -209,19 +220,40 @@ describe('ItemCard', () => {
     })
 
     describe('Link Navigation (href)', () => {
-        it('should render as RouterLink when href is provided', () => {
+        it('should call navigate when card is clicked with href', () => {
             render(
                 <TestWrapper>
                     <ItemCard data={mockData} href='/test-path' />
                 </TestWrapper>
             )
 
-            const card = screen.getByText('Test Item').closest('a')
-            expect(card).toBeInTheDocument()
-            expect(card).toHaveAttribute('href', '/test-path')
+            const card = screen.getByText('Test Item').closest('.MuiCard-root')
+            if (card) {
+                fireEvent.click(card)
+            }
+
+            expect(mockNavigate).toHaveBeenCalledWith('/test-path')
+            expect(mockNavigate).toHaveBeenCalledTimes(1)
         })
 
-        it('should render as div when onClick is provided', () => {
+        it('should not call navigate when headerAction is clicked', () => {
+            const handleMenuClick = jest.fn()
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} href='/test-path' headerAction={<button onClick={handleMenuClick}>Menu</button>} />
+                </TestWrapper>
+            )
+
+            const menuButton = screen.getByRole('button', { name: 'Menu' })
+            fireEvent.click(menuButton)
+
+            // Navigate should NOT be called
+            expect(mockNavigate).not.toHaveBeenCalled()
+            // Menu click handler should be called
+            expect(handleMenuClick).toHaveBeenCalledTimes(1)
+        })
+
+        it('should call onClick when provided without href', () => {
             const handleClick = jest.fn()
             render(
                 <TestWrapper>
@@ -230,7 +262,12 @@ describe('ItemCard', () => {
             )
 
             const card = screen.getByText('Test Item').closest('.MuiCard-root')
-            expect(card?.tagName.toLowerCase()).not.toBe('a')
+            if (card) {
+                fireEvent.click(card)
+            }
+
+            expect(handleClick).toHaveBeenCalledTimes(1)
+            expect(mockNavigate).not.toHaveBeenCalled()
         })
 
         it('should prioritize href over onClick when both provided', () => {
@@ -241,26 +278,32 @@ describe('ItemCard', () => {
                 </TestWrapper>
             )
 
-            const card = screen.getByText('Test Item').closest('a')
-            expect(card).toBeInTheDocument()
-            expect(card).toHaveAttribute('href', '/priority-test')
-        })
-
-        it('should not have onClick when href is provided', () => {
-            const handleClick = jest.fn()
-            render(
-                <TestWrapper>
-                    <ItemCard data={mockData} href='/test-path' onClick={handleClick} />
-                </TestWrapper>
-            )
-
-            const card = screen.getByText('Test Item').closest('a')
+            const card = screen.getByText('Test Item').closest('.MuiCard-root')
             if (card) {
                 fireEvent.click(card)
             }
 
-            // onClick should not be called when href is present
+            expect(mockNavigate).toHaveBeenCalledWith('/priority-test')
             expect(handleClick).not.toHaveBeenCalled()
+        })
+
+        it('should not call navigate when onClick is provided', () => {
+            const handleClick = jest.fn()
+            render(
+                <TestWrapper>
+                    <ItemCard data={mockData} onClick={handleClick} />
+                </TestWrapper>
+            )
+
+            const card = screen.getByText('Test Item').closest('.MuiCard-root')
+            if (card) {
+                fireEvent.click(card)
+            }
+
+            // onClick should be called
+            expect(handleClick).toHaveBeenCalledTimes(1)
+            // Navigate should NOT be called
+            expect(mockNavigate).not.toHaveBeenCalled()
         })
 
         it('should render without href or onClick', () => {
@@ -272,6 +315,12 @@ describe('ItemCard', () => {
 
             const card = screen.getByText('Test Item').closest('.MuiCard-root')
             expect(card).toBeInTheDocument()
+
+            if (card) {
+                fireEvent.click(card)
+            }
+
+            expect(mockNavigate).not.toHaveBeenCalled()
         })
     })
 })

@@ -1,7 +1,7 @@
 import React from 'react'
 import { styled } from '@mui/material/styles'
 import { Box, Grid, Typography, useTheme, Card } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import type { SxProps, Theme } from '@mui/material'
 
 // Generic data interface with common fields
@@ -75,11 +75,14 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                 {/* Header action positioned tighter to the top-right corner */}
                 {headerAction && (
                     <Box
+                        data-header-action
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
                         sx={{
                             position: 'absolute',
                             top: -12,
                             right: -12,
-                            zIndex: 1
+                            zIndex: 10
                         }}
                     >
                         {headerAction}
@@ -208,17 +211,22 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                     )}
                 </Grid>
             </Box>
+            {href && (
+                <Link
+                    to={href}
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        zIndex: 5,
+                        opacity: 0
+                    }}
+                />
+            )}
         </CardWrapper>
     )
-
-    // Wrap in RouterLink if href provided
-    if (href) {
-        return (
-            <RouterLink to={href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                {cardContent}
-            </RouterLink>
-        )
-    }
 
     return cardContent
 }

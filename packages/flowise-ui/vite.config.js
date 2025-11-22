@@ -42,6 +42,7 @@ export default defineConfig(async ({ mode }) => {
                 '@universo/profile-frt',
                 '@universo/uniks-frt',
                 '@universo/metaverses-frt',
+                '@universo/organizations-frt',
                 '@universo/spaces-frt',
                 '@universo/space-builder-frt'
             ],
@@ -84,11 +85,26 @@ export default defineConfig(async ({ mode }) => {
                 { find: '@', replacement: resolve(__dirname, 'src') },
                 { find: '@ui', replacement: resolve(__dirname, 'src') },
                 // Source alias removed - all @universo/auth-frt imports now resolve via package.json dist
-                { find: 'use-sync-external-store/with-selector', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js') },
-                { find: 'use-sync-external-store/with-selector.js', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js') },
-                { find: 'use-sync-external-store/shim/with-selector', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js') },
-                { find: 'use-sync-external-store/shim/with-selector.js', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js') },
-                { find: 'use-sync-external-store/shim/index.js', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
+                {
+                    find: 'use-sync-external-store/with-selector',
+                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
+                },
+                {
+                    find: 'use-sync-external-store/with-selector.js',
+                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
+                },
+                {
+                    find: 'use-sync-external-store/shim/with-selector',
+                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
+                },
+                {
+                    find: 'use-sync-external-store/shim/with-selector.js',
+                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/with-selector.js')
+                },
+                {
+                    find: 'use-sync-external-store/shim/index.js',
+                    replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js')
+                },
                 { find: 'use-sync-external-store/shim', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
                 { find: 'use-sync-external-store/index.js', replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
                 { find: /^use-sync-external-store$/, replacement: resolve(__dirname, 'src/shims/useSyncExternalStore/index.js') },
@@ -102,8 +118,14 @@ export default defineConfig(async ({ mode }) => {
                 { find: '@codemirror/lang-javascript', replacement: resolve(__dirname, '../../node_modules/@codemirror/lang-javascript') },
                 { find: '@codemirror/lang-json', replacement: resolve(__dirname, '../../node_modules/@codemirror/lang-json') },
                 { find: '@uiw/react-codemirror', replacement: resolve(__dirname, '../../node_modules/@uiw/react-codemirror') },
-                { find: '@uiw/codemirror-theme-vscode', replacement: resolve(__dirname, '../../node_modules/@uiw/codemirror-theme-vscode') },
-                { find: '@uiw/codemirror-theme-sublime', replacement: resolve(__dirname, '../../node_modules/@uiw/codemirror-theme-sublime') },
+                {
+                    find: '@uiw/codemirror-theme-vscode',
+                    replacement: resolve(__dirname, '../../node_modules/@uiw/codemirror-theme-vscode')
+                },
+                {
+                    find: '@uiw/codemirror-theme-sublime',
+                    replacement: resolve(__dirname, '../../node_modules/@uiw/codemirror-theme-sublime')
+                },
                 { find: '@lezer/common', replacement: resolve(__dirname, '../../node_modules/@lezer/common') },
                 { find: '@lezer/highlight', replacement: resolve(__dirname, '../../node_modules/@lezer/highlight') }
             ]
@@ -113,10 +135,7 @@ export default defineConfig(async ({ mode }) => {
             outDir: './build',
             sourcemap: true,
             commonjsOptions: {
-                include: [
-                    /@universo\//,
-                    /node_modules/
-                ],
+                include: [/@universo\//, /node_modules/],
                 transformMixedEsModules: true
             },
             rollupOptions: {
@@ -126,7 +145,7 @@ export default defineConfig(async ({ mode }) => {
                         // by NOT returning a chunk name - let Rollup decide based on first import
                         if (id.includes('auth-frt')) {
                             console.log('[vite-manualChunks] auth-frt detected, using default chunking:', id)
-                            return undefined  // Let Rollup include it where it's first imported
+                            return undefined // Let Rollup include it where it's first imported
                         }
                     }
                 }

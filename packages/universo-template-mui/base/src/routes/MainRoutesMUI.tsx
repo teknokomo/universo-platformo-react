@@ -7,6 +7,7 @@ import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
 import '@universo/clusters-frt/i18n'
 import '@universo/projects-frt/i18n'
+import '@universo/organizations-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
 
@@ -78,6 +79,18 @@ const MilestoneList = Loadable(lazy(() => import('@universo/projects-frt/pages/M
 const TaskList = Loadable(lazy(() => import('@universo/projects-frt/pages/TaskList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ProjectMembers = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectMembers')))
+
+// Organization module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const OrganizationList = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const OrganizationBoard = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const DepartmentList = Loadable(lazy(() => import('@universo/organizations-frt/pages/DepartmentList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const PositionList = Loadable(lazy(() => import('@universo/organizations-frt/pages/PositionList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const OrganizationMembers = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationMembers')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile.jsx')))
 
@@ -421,6 +434,77 @@ const MainRoutesMUI = {
             element: (
                 <AuthGuard>
                     <TaskList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'organizations',
+            element: <Outlet />, // ← CRITICAL: Required for nested routes to render children
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <OrganizationList />
+                        </AuthGuard>
+                    )
+                },
+                // Nested lists inside a specific organization
+                {
+                    path: ':organizationId/departments',
+                    element: (
+                        <AuthGuard>
+                            <DepartmentList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':organizationId/positions',
+                    element: (
+                        <AuthGuard>
+                            <PositionList />
+                        </AuthGuard>
+                    )
+                }
+            ]
+        },
+        {
+            path: 'organization/:organizationId',
+            element: (
+                <AuthGuard>
+                    <OrganizationBoard />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'organization/:organizationId/members',
+            element: (
+                <AuthGuard>
+                    <OrganizationMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'organization/:organizationId/access',
+            element: (
+                <AuthGuard>
+                    <OrganizationMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'departments',
+            element: (
+                <AuthGuard>
+                    <DepartmentList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'positions',
+            element: (
+                <AuthGuard>
+                    <PositionList />
                 </AuthGuard>
             )
         },

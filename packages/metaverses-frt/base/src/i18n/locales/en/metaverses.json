@@ -11,14 +11,10 @@
         "deleteError": "Failed to delete metaverse",
         "saveError": "Failed to save metaverse",
         "errors": {
-            "connectionFailed": "Connection Failed",
-            "checkConnection": "Please check your network connection and try again",
-            "pleaseTryLater": "Something went wrong. Please try again later",
             "invalidMetaverse": "Invalid Metaverse",
             "pleaseSelectMetaverse": "Please select a metaverse from the list"
         },
         "actions": {
-            "retry": "Retry",
             "edit": "Edit",
             "delete": "Delete",
             "backToList": "Back to Metaverses"
@@ -118,49 +114,6 @@
             },
             "table": {
                 "description": "Description"
-            }
-        },
-        "members": {
-            "title": "Access",
-            "searchPlaceholder": "Search members...",
-            "noMembersFound": "No members found",
-            "inviteMember": "Add",
-            "editTitle": "Edit Member",
-            "confirmRemove": "Remove Member?",
-            "confirmRemoveDescription": "Are you sure you want to remove member \"{{email}}\"?",
-            "removeSuccess": "Member removed successfully",
-            "removeError": "Failed to remove member",
-            "saveError": "Failed to save member",
-            "inviteSuccess": "Member added successfully",
-            "inviteError": "Failed to add member",
-            "userNotFound": "User with email \"{{email}}\" not found. Please check the email address.",
-            "userAlreadyMember": "User with email \"{{email}}\" already has access to this metaverse.",
-            "emailLabel": "Email",
-            "roleLabel": "Role",
-            "commentLabel": "Comment (optional)",
-            "commentPlaceholder": "Add a note about this member...",
-            "selfActionWarning": "You are modifying your own access. Be careful!",
-            "roles": {
-                "admin": "Admin",
-                "editor": "Editor",
-                "member": "Member"
-            },
-            "validation": {
-                "emailRequired": "Email is required",
-                "emailInvalid": "Invalid email format",
-                "roleRequired": "Role is required",
-                "commentCharacterCount": "{{count}}/{{max}} characters (after trim)"
-            },
-            "actions": {
-                "edit": "Edit Member",
-                "remove": "Remove Member"
-            },
-            "table": {
-                "email": "Email",
-                "nickname": "Nickname",
-                "comment": "Comment",
-                "role": "Role",
-                "added": "Added"
             }
         }
     }

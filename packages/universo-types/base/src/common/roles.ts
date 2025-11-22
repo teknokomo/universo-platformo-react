@@ -22,6 +22,7 @@ export type MetaverseRole = BaseRole
 export type ClusterRole = BaseRole
 export type UnikRole = BaseRole
 export type ProjectRole = BaseRole
+export type OrganizationRole = BaseRole
 export type SectionRole = Exclude<BaseRole, 'owner'> // Sections don't have separate owners
 export type EntityRole = 'viewer' | 'editor' // Entities have simpler roles
 
@@ -60,6 +61,10 @@ export function isValidUnikRole(role: string): role is UnikRole {
 }
 
 export function isValidProjectRole(role: string): role is ProjectRole {
+    return isValidRole(role)
+}
+
+export function isValidOrganizationRole(role: string): role is OrganizationRole {
     return isValidRole(role)
 }
 

@@ -2343,68 +2343,7 @@ export class DataHandler {
                     : ''
             }
 
-            function loadScene(sceneIndex) {
-                console.log('[NodeQuiz] Loading scene:', sceneIndex);
-                quizState.currentSceneIndex = sceneIndex;
-                quizState.connections.clear();
-
-                const scene = scenes[sceneIndex];
-                if (!scene) {
-                    console.error('[NodeQuiz] Scene not found:', sceneIndex);
-                    return;
-                }
-
-                // Clear columns and SVG
-                questionsCol.innerHTML = '';
-                answersCol.innerHTML = '';
-                svg.innerHTML = '';
-                feedback.textContent = '';
-
-                // Render questions
-                scene.questions.forEach(function(question, index) {
-                    const node = createNode(question.id, question.text, 'question', index);
-                    questionsCol.appendChild(node);
-                });
-
-                // Render answers (shuffled for challenge)
-                const shuffledAnswers = shuffleArray([...scene.answers]);
-                shuffledAnswers.forEach(function(answer, index) {
-                    const node = createNode(answer.id, answer.text, 'answer', index);
-                    answersCol.appendChild(node);
-                });
-            }
-
-            function createNode(id, text, type, index) {
-                const node = document.createElement('div');
-                node.id = type + '-node-' + id;
-                node.className = 'quiz-node';
-                node.dataset.id = id;
-                node.dataset.type = type;
-                node.style.cssText = \`
-                    background: linear-gradient(135deg, \${type === 'question' ? '#2196F3' : '#9C27B0'}, \${type === 'question' ? '#1976D2' : '#7B1FA2'});
-                    color: white;
-                    padding: 15px;
-                    border-radius: 8px;
-                    cursor: \${type === 'question' ? 'grab' : 'default'};
-                    font-size: 14px;
-                    text-align: center;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    position: relative;
-                    z-index: 10;
-                    user-select: none;
-                    transition: transform 0.2s ease, box-shadow 0.2s ease;
-                `;
-
-                node.textContent = text;
-
-                // Add drag functionality only to questions
-                if (type === 'question') {
-                    node.addEventListener('pointerdown', handlePointerDown);
-                }
-
-                return node;
-            }
-
+            // Drag and connection handlers
             function handlePointerDown(e) {
                 const node = e.currentTarget;
                 quizState.dragState = {
@@ -2532,6 +2471,69 @@ export class DataHandler {
                 svg.appendChild(line);
             }
 
+            // Scene and node management
+            function loadScene(sceneIndex) {
+                console.log('[NodeQuiz] Loading scene:', sceneIndex);
+                quizState.currentSceneIndex = sceneIndex;
+                quizState.connections.clear();
+
+                const scene = scenes[sceneIndex];
+                if (!scene) {
+                    console.error('[NodeQuiz] Scene not found:', sceneIndex);
+                    return;
+                }
+
+                // Clear columns and SVG
+                questionsCol.innerHTML = '';
+                answersCol.innerHTML = '';
+                svg.innerHTML = '';
+                feedback.textContent = '';
+
+                // Render questions
+                scene.questions.forEach(function(question, index) {
+                    const node = createNode(question.id, question.text, 'question', index);
+                    questionsCol.appendChild(node);
+                });
+
+                // Render answers (shuffled for challenge)
+                const shuffledAnswers = shuffleArray([...scene.answers]);
+                shuffledAnswers.forEach(function(answer, index) {
+                    const node = createNode(answer.id, answer.text, 'answer', index);
+                    answersCol.appendChild(node);
+                });
+            }
+
+            function createNode(id, text, type, index) {
+                const node = document.createElement('div');
+                node.id = type + '-node-' + id;
+                node.className = 'quiz-node';
+                node.dataset.id = id;
+                node.dataset.type = type;
+                node.style.cssText = \`
+                    background: linear-gradient(135deg, \${type === 'question' ? '#2196F3' : '#9C27B0'}, \${type === 'question' ? '#1976D2' : '#7B1FA2'});
+                    color: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    cursor: \${type === 'question' ? 'grab' : 'default'};
+                    font-size: 14px;
+                    text-align: center;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    position: relative;
+                    z-index: 10;
+                    user-select: none;
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                \`;
+
+                node.textContent = text;
+
+                // Add drag functionality only to questions
+                if (type === 'question') {
+                    node.addEventListener('pointerdown', handlePointerDown);
+                }
+
+                return node;
+            }
+
             function handleCheckConnections() {
                 console.log('[NodeQuiz] Checking connections');
                 feedback.textContent = '';
@@ -2598,7 +2600,9 @@ export class DataHandler {
                 console.log('[NodeQuiz] Quiz finished');
                 ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
                 saveLeadDataToSupabase(quizState.leadData, quizState.points, 'nodes-finish');
-                container.innerHTML = \`<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${showPoints ? 'Ваши баллы: ' + quizState.points : ''}</div>\`;
+                container.innerHTML = \`<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${
+                    showPoints ? 'Ваши баллы: ' + quizState.points : ''
+                }</div>\`;
             }
             function shuffleArray(array) {
                 for (let i = array.length - 1; i > 0; i--) {

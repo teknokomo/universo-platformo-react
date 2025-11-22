@@ -43,6 +43,10 @@ import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRou
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-srv'
+import {
+    initializeRateLimiters as initializeOrganizationsRateLimiters,
+    createOrganizationsServiceRoutes
+} from '@universo/organizations-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -114,7 +118,10 @@ router.use('/openai-assistants-vector-store', openaiAssistantsVectorStoreRouter)
 router.use('/openai-realtime', openaiRealtimeRouter)
 router.use('/prediction', predictionRouter)
 router.use('/prompts-list', promptListsRouter)
-router.use('/public', createCanvasPublicRoutes(() => getDataSource(), canvasServiceConfig))
+router.use(
+    '/public',
+    createCanvasPublicRoutes(() => getDataSource(), canvasServiceConfig)
+)
 router.use('/stats', statsRouter)
 // Global route for tools has been removed
 // router.use('/tools', toolsRouter)
@@ -128,10 +135,7 @@ router.use('/nvidia-nim', nvidiaNimRouter)
 // Apply ensureAuthWithRls middleware to /uniks route (collection operations: list, create)
 router.use(
     '/uniks',
-    createUniksCollectionRouter(
-        ensureAuthWithRls,
-        () => getDataSource()
-    )
+    createUniksCollectionRouter(ensureAuthWithRls, () => getDataSource())
 )
 
 // Mount nested routes for Unik-specific resources at /unik/:id
@@ -180,10 +184,7 @@ router.use(
 // Apply ensureAuthWithRls middleware to /unik route (individual operations: get, update, delete)
 router.use(
     '/unik',
-    createUnikIndividualRouter(
-        ensureAuthWithRls,
-        () => getDataSource()
-    )
+    createUnikIndividualRouter(ensureAuthWithRls, () => getDataSource())
 )
 
 // Legacy resources-srv routes removed (package obsolete) - 2025-01-18:
@@ -234,6 +235,22 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (projectsRouter) {
         projectsRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Organizations, Departments, Positions
+// Note: Rate limiters initialized via initializeOrganizationsRateLimiters() in server startup
+// This mounts: /organizations, /departments, /positions
+// Lazy initialization: router created on first request (after initializeOrganizationsRateLimiters called)
+let organizationsRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!organizationsRouter) {
+        organizationsRouter = createOrganizationsServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (organizationsRouter) {
+        organizationsRouter(req, res, next)
     } else {
         next()
     }
@@ -298,13 +315,28 @@ router.use(
         },
         listChatModelNodes: async () => {
             // Return only Chat Models category
-            try { return await nodesService.getAllNodesForCategory('Chat Models') } catch (e) { logger.error('[SpaceBuilder] Failed to list chat model nodes:', e); return [] }
+            try {
+                return await nodesService.getAllNodesForCategory('Chat Models')
+            } catch (e) {
+                logger.error('[SpaceBuilder] Failed to list chat model nodes:', e)
+                return []
+            }
         },
         listComponentCredentials: async () => {
-            try { return await componentsCredentialsService.getAllComponentsCredentials() } catch (e) { logger.error('[SpaceBuilder] Failed to list component credentials:', e); return [] }
+            try {
+                return await componentsCredentialsService.getAllComponentsCredentials()
+            } catch (e) {
+                logger.error('[SpaceBuilder] Failed to list component credentials:', e)
+                return []
+            }
         },
         listUserCredentials: async (unikId?: string, names?: string | string[]) => {
-            try { return await credentialsService.getAllCredentials(names, unikId) } catch (e) { logger.error('[SpaceBuilder] Failed to list user credentials:', e); return [] }
+            try {
+                return await credentialsService.getAllCredentials(names, unikId)
+            } catch (e) {
+                logger.error('[SpaceBuilder] Failed to list user credentials:', e)
+                return []
+            }
         }
     })
 )
@@ -326,12 +358,12 @@ router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
         method: req.method,
         timestamp: new Date().toISOString()
     })
-    
+
     // If headers already sent, delegate to default Express error handler
     if (res.headersSent) {
         return next(err)
     }
-    
+
     // Send error response
     res.status(500).json({
         error: 'Internal Server Error',

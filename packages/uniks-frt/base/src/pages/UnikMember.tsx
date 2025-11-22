@@ -172,15 +172,15 @@ const UnikMembers = () => {
 
             // Success: close dialog and show notification
             handleInviteDialogSave()
-            enqueueSnackbar(t('inviteSuccess'), { variant: 'success' })
+            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
-            let message = t('uniks:members.inviteError')
+            let message = tc('members.inviteError')
 
             // Use type-safe axios error utilities
             if (isHttpStatus(error, 404)) {
-                message = t('uniks:members.userNotFound', { email: data.email })
+                message = tc('members.userNotFound', { email: data.email })
             } else if (isHttpStatus(error, 409) && isApiError(error, 'UNIK_MEMBER_EXISTS')) {
-                message = t('uniks:members.userAlreadyMember', { email: data.email })
+                message = tc('members.userAlreadyMember', { email: data.email })
             } else {
                 // Extract generic error message
                 const apiError = extractAxiosError(error)
@@ -199,7 +199,7 @@ const UnikMembers = () => {
     const memberColumns = [
         {
             id: 'email',
-            label: t('members.table.email'),
+            label: tc('members.table.email'),
             width: '25%',
             align: 'left',
             render: (row: UnikMember) => {
@@ -209,7 +209,7 @@ const UnikMembers = () => {
         },
         {
             id: 'nickname',
-            label: t('members.table.nickname'),
+            label: tc('members.table.nickname'),
             width: '20%',
             align: 'left',
             render: (row: UnikMember) => {
@@ -219,7 +219,7 @@ const UnikMembers = () => {
         },
         {
             id: 'comment',
-            label: t('members.table.comment'),
+            label: tc('members.table.comment'),
             width: '25%',
             align: 'left',
             render: (row: UnikMember) => {
@@ -233,7 +233,7 @@ const UnikMembers = () => {
         },
         {
             id: 'role',
-            label: t('members.table.role'),
+            label: tc('members.table.role'),
             width: '15%',
             align: 'center',
             render: (row: UnikMember) => {
@@ -243,7 +243,7 @@ const UnikMembers = () => {
         },
         {
             id: 'added',
-            label: t('members.table.added'),
+            label: tc('members.table.added'),
             width: '15%',
             align: 'left',
             render: (row: UnikMember) => {
@@ -339,7 +339,7 @@ const UnikMembers = () => {
                 border={false}
                 shadow={false}
             >
-                <EmptyListState image={APIEmptySVG} imageAlt='Invalid unik' title={t('errors.connectionFailed')} />
+                <EmptyListState image={APIEmptySVG} imageAlt='Invalid unik' title={tc('errors.connectionFailed')} />
             </MainCard>
         )
     }
@@ -357,10 +357,10 @@ const UnikMembers = () => {
                 <EmptyListState
                     image={APIEmptySVG}
                     imageAlt='Connection error'
-                    title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    title={tc('errors.connectionFailed')}
+                    description={!(error as any)?.response?.status ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
                     action={{
-                        label: t('actions.retry'),
+                        label: tc('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)
                     }}
                 />
@@ -368,9 +368,9 @@ const UnikMembers = () => {
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
                         search={true}
-                        searchPlaceholder={t('members.searchPlaceholder')}
+                        searchPlaceholder={tc('members.searchPlaceholder')}
                         onSearchChange={handleSearchChange}
-                        title={t('members.title')}
+                        title={tc('members.title')}
                     >
                         <ToolbarControls
                             viewToggleEnabled
@@ -380,7 +380,7 @@ const UnikMembers = () => {
                             cardViewTitle={tc('cardView')}
                             listViewTitle={tc('listView')}
                             primaryAction={{
-                                label: t('members.inviteMember'),
+                                label: tc('members.inviteMember'),
                                 onClick: handleAddNew,
                                 startIcon: <AddRoundedIcon />
                             }}
@@ -394,7 +394,7 @@ const UnikMembers = () => {
                             <Skeleton variant='rectangular' height={120} />
                         )
                     ) : !isLoading && safeMembers.length === 0 ? (
-                        <EmptyListState image={APIEmptySVG} imageAlt='No members' title={t('members.noMembersFound')} />
+                        <EmptyListState image={APIEmptySVG} imageAlt='No members' title={tc('members.noMembersFound')} />
                     ) : (
                         <>
                             {view === 'card' ? (
@@ -528,12 +528,12 @@ const UnikMembers = () => {
             <MemberFormDialog
                 open={isInviteDialogOpen}
                 mode='create'
-                title={t('members.inviteMember')}
-                emailLabel={t('members.emailLabel')}
-                roleLabel={t('members.roleLabel')}
-                commentLabel={t('members.commentLabel')}
-                commentPlaceholder={t('members.commentPlaceholder')}
-                commentCharacterCountFormatter={(count, max) => t('members.validation.commentCharacterCount', { count, max })}
+                title={tc('members.inviteMember')}
+                emailLabel={tc('members.emailLabel')}
+                roleLabel={tc('members.roleLabel')}
+                commentLabel={tc('members.commentLabel')}
+                commentPlaceholder={tc('members.commentPlaceholder')}
+                commentCharacterCountFormatter={(count, max) => tc('members.validation.commentCharacterCount', { count, max })}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -544,20 +544,20 @@ const UnikMembers = () => {
                 autoCloseOnSuccess={false}
                 availableRoles={['admin', 'editor', 'member']}
                 roleLabels={{
-                    admin: t('members.roles.admin'),
-                    editor: t('members.roles.editor'),
-                    member: t('members.roles.member')
+                    admin: tc('members.roles.admin'),
+                    editor: tc('members.roles.editor'),
+                    member: tc('members.roles.member')
                 }}
             />
 
             {/* Independent ConfirmDeleteDialog for Remove button in edit dialog */}
             <ConfirmDeleteDialog
                 open={removeDialogState.open}
-                title={removeDialogState.member?.userId === user?.id ? t('confirmSelfRemove') : t('members.confirmRemove')}
+                title={removeDialogState.member?.userId === user?.id ? tc('members.selfActionWarning') : tc('members.confirmRemove')}
                 description={
                     removeDialogState.member?.userId === user?.id
-                        ? t('warnings.selfRemove')
-                        : t('members.confirmRemoveDescription', { email: removeDialogState.member?.email || '' })
+                        ? tc('members.selfActionWarning')
+                        : tc('members.confirmRemoveDescription', { email: removeDialogState.member?.email || '' })
                 }
                 confirmButtonText={tc('actions.remove', 'Remove')}
                 deletingButtonText={tc('actions.deleting', 'Removing...')}
@@ -574,7 +574,7 @@ const UnikMembers = () => {
                                 queryKey: uniksQueryKeys.members(unikId)
                             })
 
-                            enqueueSnackbar(t('members.removeSuccess'), { variant: 'success' })
+                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
@@ -585,7 +585,7 @@ const UnikMembers = () => {
                                     ? err.message
                                     : typeof err === 'string'
                                     ? err
-                                    : t('members.removeError')
+                                    : tc('members.removeError')
                             enqueueSnackbar(message, { variant: 'error' })
                             setRemoveDialogState({ open: false, member: null })
                         }
