@@ -1,9 +1,14 @@
-﻿jest.mock(
+jest.mock(
     'typeorm',
     () => {
         const decorator = () => () => {}
         return {
             __esModule: true,
+            Entity: decorator,
+            Unique: decorator,
+            OneToOne: decorator,
+            ManyToMany: decorator,
+            JoinTable: decorator,
             Position: decorator,
             PrimaryGeneratedColumn: decorator,
             PrimaryColumn: decorator,
@@ -317,7 +322,7 @@ describe('Organizations Routes', () => {
         }
 
         it('should return members when user has manageMembers permission', async () => {
-            const { app, organizationUserRepo, authUserRepo, dataSource } = buildApp()
+            const { app, organizationUserRepo, dataSource } = buildApp()
 
             const now = new Date('2024-01-01T00:00:00.000Z')
 

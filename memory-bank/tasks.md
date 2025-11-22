@@ -181,4 +181,20 @@
 
 ---
 
+### 2025-11-22: PR #554 Fixes (RLS, Cleanup, Tests) ✅ COMPLETE
+
+**Status**: Implementation complete ✅
+
+**Context**: Addressed feedback from PR #554 regarding RLS policy, unused variables, and frontend test practices.
+
+**Tasks**:
+- [x] Task 1: Fix RLS policy for `organizations_users` (migration)
+- [x] Task 2: Remove unused variables in `organizationsRoutes.test.ts`
+- [x] Task 3: Remove unused import in `flowise-server/src/routes/index.ts`
+- [x] Task 4: Update `ItemCard.test.tsx` to test `<a>` tags
+- [x] Task 5: Fix `organizationsRoutes.test.ts` environment (mocking)
+- [x] Task 6: Verify tests and builds
+
+---
+
 **Note**: For completed tasks older than 30 days, see progress.md. For detailed implementation steps, see progress.md entries by date.
