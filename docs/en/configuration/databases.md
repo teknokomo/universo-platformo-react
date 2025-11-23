@@ -1,5 +1,5 @@
 ---
-description: Learn how to connect your Flowise instance to a database
+description: Learn how to connect your Universo Platformo instance to a database
 ---
 
 # Databases
@@ -8,7 +8,7 @@ description: Learn how to connect your Flowise instance to a database
 
 ## Setup
 
-Flowise supports 4 database types:
+Universo Platformo supports 4 database types:
 
 - SQLite
 - MySQL
@@ -62,13 +62,13 @@ DATABASE_USER="flowise"
 DATABASE_PASSWORD="mypassword"
 ```
 
-### How to use Flowise databases SQLite and MySQL/MariaDB
+### How to use Universo Platformo databases SQLite and MySQL/MariaDB
 
 {% embed url="https://youtu.be/R-6uV1Cb8I8" %}
 
 ## Backup
 
-1. Shut down FlowiseAI application.
+1. Shut down Universo Platformo application.
 2. Ensure that the database connection to other applications is turned off.
 3. Backup your database.
 4. Test backup database.
@@ -103,7 +103,7 @@ DATABASE_PASSWORD="mypassword"
    cp DATABASE_PATH/BACKUP_FILE_NAME.sqlite DATABASE_PATH/database.sqlite
    ```
 
-3. Test backup database by running Flowise.
+3. Test backup database by running Universo Platformo.
 
 ### PostgreSQL
 
@@ -118,7 +118,7 @@ DATABASE_PASSWORD="mypassword"
    ```bash
    psql -U USERNAME -h HOST -p PORT -d TEST_DATABASE_NAME -f /PATH/TO/BACKUP_FILE_NAME.sql
    ```
-4. Test the backup database by running Flowise with the `.env` file modified to point to the backup database.
+4. Test the backup database by running Universo Platformo with the `.env` file modified to point to the backup database.
 
 ### MySQL & MariaDB
 
@@ -133,4 +133,4 @@ DATABASE_PASSWORD="mypassword"
    ```bash
    mysql -u USERNAME -p TEST_DATABASE_NAME < BACKUP_FILE_NAME.sql
    ```
-4. Test the backup database by running Flowise with the `.env` file modified to point to the backup database.
+4. Test the backup database by running Universo Platformo with the `.env` file modified to point to the backup database.

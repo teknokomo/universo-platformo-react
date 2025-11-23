@@ -1,6 +1,6 @@
 # UPDL Node System
 
-> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo React. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
 
 The Universal Platform Description Language (UPDL) Node System is the core of Universo Platformo's 3D/AR/VR content creation capabilities.
 

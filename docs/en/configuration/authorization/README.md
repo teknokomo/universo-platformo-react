@@ -1,14 +1,14 @@
 ---
-description: Learn how to secure your Flowise Instances
+description: Learn how to secure your Universo Platformo Instances
 ---
 
 # Auth
 
 ***
 
-This section guides you through configuring security with Flowise, focusing on authentication mechanisms at the application and canvas levels.
+This section guides you through configuring security with Universo Platformo, focusing on authentication mechanisms at the application and canvas levels.
 
-By implementing robust authentication, you can protect your Flowise instances and ensure only authorized users can access and interact with your canvases.
+By implementing robust authentication, you can protect your Universo Platformo instances and ensure only authorized users can access and interact with your canvases.
 
 ## Supported Methods
 

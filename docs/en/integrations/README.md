@@ -1,12 +1,12 @@
 ---
-description: Learn about all available integrations / nodes in Flowise
+description: Learn about all available integrations / nodes in Universo Platformo
 ---
 
 # Integrations
 
 ***
 
-In Flowise, nodes are referred to as integrations. Similar to LEGO, you can build a customized LLM ochestration flow, a chatbot, an agent with all the integrations available in Flowise.
+In Universo Platformo, nodes are referred to as integrations. Similar to LEGO, you can build a customized LLM ochestration flow, a chatbot, an agent with all the integrations available in Universo Platformo.
 
 ### LangChain
 

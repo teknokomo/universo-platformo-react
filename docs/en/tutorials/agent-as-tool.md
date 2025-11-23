@@ -1,5 +1,7 @@
 # Agent as Tool
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 In this tutorial, we are going to take a look at how to leverage other flows as tools to a parent Agent. This approach allows you to create a parent agent that can delegate specific tasks to specialized child agents
 
 ## Overview

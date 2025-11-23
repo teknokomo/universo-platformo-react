@@ -1,5 +1,7 @@
 # Agentic RAG
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 Agentic RAG is an agent based approach to perform [RAG](rag.md) in an orchestrated fashion. It may involve retrieving data from various document sources, comparing summaries, and implementing an automatic self-correction mechanism.
 
 In this tutorial, we'll explore how to build a self-correcting RAG system that checks the relevance of retrieved data and automatically re-generates the query if the results are not relevant.
