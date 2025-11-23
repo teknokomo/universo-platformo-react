@@ -4,7 +4,7 @@
 
 ## Overview
 
-Frontend-only  for   and metrics .  backend  -   from  .
+Frontend-only module for quiz analytics and engagement metrics. There is no backend package - it uses data from other modules.
 
 ## Technology Stack
 
@@ -15,10 +15,10 @@ Frontend-only  for   and metrics .  backend  -   from  .
 
 ## Main Components
 
-- **AnalyticsDashboard**:   
-- **QuizMetricsChart**:  metrics 
-- **EngagementStats**:  
-- **UserActivityTimeline**:   
+- **AnalyticsDashboard**: Main analytics dashboard
+- **QuizMetricsChart**: Quiz metrics charts
+- **EngagementStats**: Engagement statistics
+- **UserActivityTimeline**: Activity timeline
 
 ## Hooks
 

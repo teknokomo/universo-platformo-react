@@ -2,16 +2,16 @@
 
 > **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality,          Universo Platformo.
 
-##  
+## Application Components
 
-- **Frontend **: `@universo/organizations-frt`
-- **Backend **: `@universo/organizations-srv`
+- **Frontend Package**: `@universo/organizations-frt`
+- **Backend Package**: `@universo/organizations-srv`
 
-## Overview 
+## Functionality Overview
 
- Organizations         .    ,        ()         .
+The Organizations application provides a comprehensive organization management system with a three-level hierarchical structure. The module allows you to create organizations, manage departments within them, and control positions (roles) in each department with full data isolation between organizations.
 
-### : Organizations → Departments → Positions
+### Architecture: Organizations → Departments → Positions
 
 ```
 ┌─────────────────────────────────────┐
@@ -25,67 +25,67 @@
 └─────────────────────────────────────┘
 ```
 
-##  
+## Key Features
 
-### 🏢  
-- ,    
--      
-- -   (RBAC)
--     
+### 🏢 Organization Management
+- Creating, editing, and deleting organizations
+- Hierarchical structure with full data isolation
+- Role-based access control (RBAC)
+- Managing organization members with roles
 
 ### 📊 Departments
--    
--    
--    
+- Logical groups within the organization
+- Binding to a specific organization
+- Managing positions within the department
 
-### 👤 Positions ()
--    
--     (  )
--    
--    
+### 👤 Positions (Roles)
+- Individual positions in departments
+- Mandatory department membership (no empty options)
+- Metadata for each position
+- Full isolation between organizations
 
-### 🎨  
-- Material-UI component   
--     
--   
--    CRUD 
-- Responsive   desktop  mobile
+### 🎨 User Interface
+- Material-UI components with modern design
+- Table and card data views
+- Pagination and search
+- Dialog forms for CRUD operations
+- Responsive design for desktop and mobile
 
 ### 🌍 Internationalization
--      
-- i18next 
--    `@universo/i18n`
+- Full support for English and Russian languages
+- i18next integration
+- Centralized translations in `@universo/i18n`
 
-##  
+## Technical Details
 
 ### Frontend
-- **[  frontend  →](frontend.md)**
+- **[More about frontend package →](frontend.md)**
 - React 18 + TypeScript + Material-UI
-- React Query   
--   (CJS + ESM)
+- React Query for data caching
+- Dual build (CJS + ESM)
 
 ### Backend
-- **[  backend  →](backend.md)**
+- **[More about backend package →](backend.md)**
 - Express.js + TypeORM
-- PostgreSQL  
+- PostgreSQL with migrations
 - RESTful API endpoints
 
-## Integration   
+## Integration with Other Applications
 
-### 
-- **Workspaces (Uniks)**: Organizations    workspace
-- **Authentication**: Passport.js + Supabase  
-- **Profile**:      
+### Dependencies
+- **Workspaces (Uniks)**: Organizations work in the workspace context
+- **Authentication**: Passport.js + Supabase for authentication
+- **Profile**: Connection to user profiles through roles
 
-###   
-- `@universo/types` -   (OrganizationRole, validation schemas)
-- `@universo/i18n` -  (organizations namespace)
-- `@universo/template-mui` - UI component (ItemCard, tables, dialogs)
-- `@universo/api-client` - HTTP   API 
+### Infrastructure Packages Used
+- `@universo/types` - Common types (OrganizationRole, validation schemas)
+- `@universo/i18n` - Translations (organizations namespace)
+- `@universo/template-mui` - UI components (ItemCard, tables, dialogs)
+- `@universo/api-client` - HTTP client for API requests 
 
-##   
+## Database Schema
 
-### 
+### Tables
 
 #### `organizations`
 - `id` (uuid, PK)
@@ -94,7 +94,7 @@
 - `createdDate` (timestamp)
 - `updatedDate` (timestamp)
 
-#### `organizations_users` ( many-to-many)
+#### `organizations_users` (many-to-many relationship)
 - `id` (uuid, PK)
 - `organizationId` (uuid, FK)
 - `userId` (uuid, FK)
@@ -105,9 +105,9 @@
 - `id` (uuid, PK)
 - `name` (text, NOT NULL)
 - `description` (text)
-- `organizationId` (uuid, FK) -  
+- `organizationId` (uuid, FK) - mandatory relationship
 
-#### `departments_organizations` ( many-to-many)
+#### `departments_organizations` (many-to-many relationship)
 - `id` (uuid, PK)
 - `departmentId` (uuid, FK)
 - `organizationId` (uuid, FK)
@@ -117,47 +117,47 @@
 - `id` (uuid, PK)
 - `name` (text, NOT NULL)
 - `description` (text)
-- `metadata` (jsonb) -  
-- `departmentId` (uuid, FK) -  
+- `metadata` (jsonb) - additional fields
+- `departmentId` (uuid, FK) - mandatory relationship
 
-#### `positions_departments` ( many-to-many)
+#### `positions_departments` (many-to-many relationship)
 - `id` (uuid, PK)
 - `positionId` (uuid, FK)
 - `departmentId` (uuid, FK)
 - `@Unique(['positionId', 'departmentId'])`
 
-#### `positions_organizations` ( many-to-many)
+#### `positions_organizations` (many-to-many relationship)
 - `id` (uuid, PK)
 - `positionId` (uuid, FK)
 - `organizationId` (uuid, FK)
 - `@Unique(['positionId', 'organizationId'])`
 
-##  
+## Usage Examples
 
-###    API
+### Creating Organization via API
 ```typescript
 POST /api/v1/organizations
 {
   "name": "Acme Corp",
-  "description": "  "
+  "description": "Main company organization"
 }
 ```
 
-###  
+### Adding Department
 ```typescript
 POST /api/v1/organizations/:orgId/departments
 {
   "name": "IT Department",
-  "description": "form "
+  "description": "Information Technology"
 }
 ```
 
-###    
+### Creating Position in Department
 ```typescript
 POST /api/v1/organizations/:orgId/departments/:deptId/positions
 {
   "name": "Senior Developer",
-  "description": " ",
+  "description": "Experienced developer",
   "metadata": {
     "level": "senior",
     "experience": "5+ years"
@@ -167,38 +167,38 @@ POST /api/v1/organizations/:orgId/departments/:deptId/positions
 
 ## Security
 
-###  
--       
--  cross-organization 
-- Frontend  backend     
+### Data Isolation
+- Full isolation of positions and departments between organizations
+- No cross-organization visibility
+- Frontend and backend validation to prevent data leaks
 
-###  
-- -   (Owner, Admin, Editor, Member)
-- TypeORM middleware   membership
-- Row-Level Security (RLS)    
+### Access Control
+- Role-based access rights (Owner, Admin, Editor, Member)
+- TypeORM middleware for membership checking
+- Row-Level Security (RLS) policies as an additional layer
 
-###  
-- **Owner** (4):    
-- **Admin** (3):    
-- **Editor** (2):  
-- **Member** (1):  
+### Role Hierarchy
+- **Owner** (4): Full control over the organization
+- **Admin** (3): Managing members and structure
+- **Editor** (2): Editing content
+- **Member** (1): Viewing data  
 
-##  
+## Development Status
 
 - ✅ Backend entities (Organizations, Departments, Positions)
 - ✅ TypeORM migrations (PostgreSQL)
 - ✅ RESTful API endpoints
 - ✅ Frontend components (List, Board, Forms)
 - ✅ i18n (EN, RU)
-- ✅ Integration  flowise-ui
-- ✅   (CJS + ESM)
-- ✅ Vitest 
+- ✅ Integration with flowise-ui
+- ✅ Dual build (CJS + ESM)
+- ✅ Vitest tests
 
-** **: Q4 2024
-** **: 0.1.0
+**Launch Date**: Q4 2024
+**Current Version**: 0.1.0
 
-##  
+## Next Steps
 
--  [Frontend ](frontend.md)   UI component
--  [Backend ](backend.md)   API   
-- . [  ](../README.md)    
+- Study [Frontend Package](frontend.md) to understand UI components
+- Study [Backend Package](backend.md) to understand API and database
+- See [Applications Main Page](../README.md) to understand overall architecture    

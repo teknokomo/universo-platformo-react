@@ -4,7 +4,7 @@
 
 ## Overview
 
-Backend for   with Passport.js and Supabase JWT.
+Backend for hybrid authentication with Passport.js and Supabase JWT.
 
 ## Technology Stack
 

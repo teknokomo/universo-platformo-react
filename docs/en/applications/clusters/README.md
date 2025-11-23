@@ -2,42 +2,42 @@
 
 > **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality,          Universo Platformo.
 
-##  
+## Application Components
 
-- **Frontend **: `@universo/clusters-frt`
-- **Backend **: `@universo/clusters-srv`
+- **Frontend package**: `@universo/clusters-frt`
+- **Backend package**: `@universo/clusters-srv`
 
-## Overview 
+## Functionality Overview
 
- Clusters        : Clusters → Domains → Resources.         -  .
+The Clusters application provides a cluster management system with a three-level hierarchical structure: Clusters → Domains → Resources. The module provides complete data isolation between clusters and role-based access control.
 
-### 
+### Architecture
 ```
-Cluster ()
-  └── Domain ()
-        └── Resource ()
+Cluster (Cluster)
+  └── Domain (Domain)
+        └── Resource (Resource)
 ```
 
-##  
+## Key Features
 
--     
--   (domains)  
--    
--     
-- Material-UI   pagination  
+- Cluster management with hierarchical structure
+- Logical groups (domains) within clusters
+- Resource management in domains
+- Complete data isolation between clusters
+- Material-UI interface with pagination and search
 - Internationalization (EN, RU)
 
-##  
+## Technical Details
 
-- **[Frontend  →](frontend.md)**: React 18 + TypeScript + Material-UI
-- **[Backend  →](backend.md)**: Express.js + TypeORM + PostgreSQL
+- **[Frontend package →](frontend.md)**: React 18 + TypeScript + Material-UI
+- **[Backend package →](backend.md)**: Express.js + TypeORM + PostgreSQL
 
 ## Integration
 
-- **Workspaces (Uniks)**:    workspace
+- **Workspaces (Uniks)**: Works in workspace context
 - **Authentication**: Passport.js + Supabase
-- ****: `@universo/types`, `@universo/i18n`, `@universo/template-mui`
+- **Infrastructure**: `@universo/types`, `@universo/i18n`, `@universo/template-mui`
 
-## 
+## Status
 
-✅  (Q4 2024) | : 0.1.0
+✅ Active (Q4 2024) | Version: 0.1.0
