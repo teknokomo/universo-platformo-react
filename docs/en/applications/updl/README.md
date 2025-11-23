@@ -1,6 +1,6 @@
 # UPDL (Universal Platform Definition Language)
 
-> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo React. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
 
 Node definitions system for creating universal 3D/AR/VR spaces in Flowise.
 

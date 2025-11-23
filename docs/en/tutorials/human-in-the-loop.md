@@ -1,5 +1,7 @@
 # Human In The Loop
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 In the previous tutorials, we explored how an Agent can dynamically use tools to answer queries or complete assigned tasks. **Human-in-the-loop** adds a layer of control by allowing the Agent to request human input, approval, or feedback before proceeding.
 
 There are 2 ways human in the loop can be used:

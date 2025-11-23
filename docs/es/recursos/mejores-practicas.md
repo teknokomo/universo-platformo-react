@@ -1,2 +1,0 @@
-# Mejores Prácticas
-

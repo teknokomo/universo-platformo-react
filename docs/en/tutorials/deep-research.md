@@ -1,5 +1,7 @@
 # Deep Research
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 Deep Research Agent is a sophisticated multi-agent system that can conduct comprehensive research on any topic by breaking down complex queries into manageable tasks, deploying specialized research agents, and synthesizing findings into detailed reports.
 
 This approach is inspired by Anthropic's blog - [How we built our multi-agent research system](https://www.anthropic.com/engineering/built-multi-agent-research-system)

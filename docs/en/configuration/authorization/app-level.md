@@ -1,5 +1,5 @@
 ---
-description: Learn how to set up app-level access control for your Flowise instances
+description: Learn how to set up app-level access control for your Universo Platformo instances
 ---
 
 # Application

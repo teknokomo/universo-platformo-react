@@ -1,5 +1,7 @@
 # Structured Output
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 In numerous use cases, such as chatbots, models are expected to reply to users in natural language. However, there are situations where natural language responses aren’t ideal. For instance, if we need to take the model’s output, pass it as a body for HTTP request, or store into a database, it's essential that the output aligns with a predefined schema. This requirement gives rise to the concept of **structured output**, where models are guided to generate responses in a specific, structured format.
 
 In this tutorial we are going to take a look at how to generate a structured output from LLM, and pass it as the body for HTTP request.

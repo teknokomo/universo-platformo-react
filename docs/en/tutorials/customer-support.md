@@ -1,5 +1,7 @@
 # Customer Support
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 Customer support is one of the biggest use cases in AI right now. However, many people tend to overcomplicate it by introducing multiple agents. In many cases, you can achieve the desired outcome with a single agent, provided you have a well-crafted system prompt, carefully selected tools, and a curated knowledge base. A multi-agent architecture is typically only necessary if your system needs to handle a wide range of support areas. For example, you might have an HR agent that manages HR policies and executes tasks like submitting leave requests or updating employee records, and a finance agent that handles reimbursements, refunds, and other finance-related queries.
 
 When your system involves more than 15 or 20 tools and knowledge sources, it's generally not advisable to overload a single agent. Instead, having dedicated agents for specific domains tends to perform better. Depending on your use case, we always recommend starting with a single agent, evaluating performance, identifying bottlenecks, and only then considering a multi-agent architecture.

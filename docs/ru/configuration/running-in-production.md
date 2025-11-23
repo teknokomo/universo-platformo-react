@@ -1,38 +1,34 @@
-# Запуск в продакшене
+# Running in Production
 
-> **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и в настоящее время адаптируется для Universo Platformo React. Некоторые разделы могут все еще ссылаться на функциональность Flowise, которая еще не была полностью обновлена для специфичных возможностей Universo Platformo.
+## Mode
 
-> **🔄 Статус перевода**: Этот документ переведен с английского языка и проходит процесс адаптации для русскоязычной аудитории. Если вы заметили неточности в переводе или терминологии, пожалуйста, создайте issue в репозитории.
+When running in production, we highly recommend using [Queue](running-flowise-using-queue.md) mode with the following settings:
 
-## Режим
+* 2 main servers with load balancing, each starting from 1 vCPU 2GB RAM
+* 4 workers, each starting from 2 vCPU 4GB RAM
 
-При запуске в продакшене мы настоятельно рекомендуем использовать режим [Очереди](running-flowise-using-queue.md) со следующими настройками:
+You can configure auto scaling depending on the traffic and volume.
 
-* 2 основных сервера с балансировкой нагрузки, каждый начиная с 1 vCPU 2GB RAM
-* 4 воркера, каждый начиная с 2 vCPU 4GB RAM
+## Database
 
-Вы можете настроить автомасштабирование в зависимости от трафика и объема.
+By default, Flowise will use SQLite as the database. However when running at scale, its recommended to use PostgresQL.
 
-## База данных
+## Storage
 
-По умолчанию Flowise будет использовать SQLite в качестве базы данных. Однако при работе в масштабе рекомендуется использовать PostgreSQL.
+Currently Flowise only supports [AWS S3](https://aws.amazon.com/s3/) with plan to support more blob storage providers. This will allow files and logs to be stored on S3, instead of local file path. Refer [#for-storage](environment-variables.md#for-storage "mention")
 
-## Хранилище
+## Encryption
 
-В настоящее время Flowise поддерживает только [AWS S3](https://aws.amazon.com/s3/) с планами поддержки большего количества провайдеров blob-хранилищ. Это позволит хранить файлы и логи в S3, вместо локального пути к файлам. Обратитесь к [#for-storage](environment-variables.md#for-storage "mention")
+Flowise uses an encryption key to encrypt/decrypt credentials you use such as OpenAI API keys. [AWS Secret Manager](https://aws.amazon.com/secrets-manager/) is recommended to be used in production for better security control and key rotation. Refer [#for-credentials](environment-variables.md#for-credentials "mention")
 
-## Шифрование
+## API Key Storage
 
-Flowise использует ключ шифрования для шифрования/дешифрования учетных данных, которые вы используете, таких как API ключи OpenAI. [AWS Secret Manager](https://aws.amazon.com/secrets-manager/) рекомендуется использовать в продакшене для лучшего контроля безопасности и ротации ключей. Обратитесь к [#for-credentials](environment-variables.md#for-credentials "mention")
+Users can create multiple API keys within Flowise in order to authenticate with the [APIs](broken-reference). By default, keys get stored as a JSON file to your local file path. However when you have multiple instances, each instance will create a new JSON file, causing confusion. You can change the behaviour to store into database instead. Refer [#for-flowise-api-keys](environment-variables.md#for-flowise-api-keys "mention")
 
-## Хранение API ключей
+## Rate Limit
 
-Пользователи могут создавать несколько API ключей в Flowise для аутентификации с [APIs](broken-reference). По умолчанию ключи сохраняются как JSON файл в ваш локальный путь к файлам. Однако когда у вас есть несколько экземпляров, каждый экземпляр создаст новый JSON файл, вызывая путаницу. Вы можете изменить поведение для сохранения в базу данных вместо этого. Обратитесь к [#for-flowise-api-keys](environment-variables.md#for-flowise-api-keys "mention")
+When deployed to cloud/on-prem, most likely the instances are behind a proxy/load balancer. The IP address of the request might be the IP of the load balancer/reverse proxy, making the rate limiter effectively a global one and blocking all requests once the limit is reached or `undefined`. Setting the correct `NUMBER_OF_PROXIES` can resolve the issue. Refer [#rate-limit-setup](rate-limit.md#rate-limit-setup "mention")
 
-## Ограничение скорости
+## Load Testing
 
-При развертывании в облаке/on-prem, скорее всего экземпляры находятся за прокси/балансировщиком нагрузки. IP адрес запроса может быть IP балансировщика нагрузки/обратного прокси, делая ограничитель скорости фактически глобальным и блокирующим все запросы после достижения лимита или `undefined`. Установка правильного `NUMBER_OF_PROXIES` может решить проблему. Обратитесь к [#rate-limit-setup](rate-limit.md#rate-limit-setup "mention")
-
-## Нагрузочное тестирование
-
-Artillery может использоваться для нагрузочного тестирования вашего развернутого приложения Flowise. Пример скрипта можно найти [здесь](https://github.com/FlowiseAI/Flowise/blob/main/artillery-load-test.yml).
+Artillery can be used to load testing your deployed Flowise application. Example script can be found [here](https://github.com/FlowiseAI/Flowise/blob/main/artillery-load-test.yml).

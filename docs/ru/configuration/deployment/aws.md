@@ -1,57 +1,53 @@
 ---
-description: Узнайте, как развернуть Flowise на AWS
+description: Learn how to deploy Flowise on AWS
 ---
 
 # AWS
 
-> **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и в настоящее время адаптируется для Universo Platformo React. Некоторые разделы могут все еще ссылаться на функциональность Flowise, которая еще не была полностью обновлена для специфичных возможностей Universo Platformo.
-
-> **🔄 Статус перевода**: Этот документ переведен с английского языка и проходит процесс адаптации для русскоязычной аудитории. Если вы заметили неточности в переводе или терминологии, пожалуйста, создайте issue в репозитории.
-
 ***
 
-## Предварительные требования
+## Prerequisite
 
-Это требует базового понимания того, как работает AWS.
+This requires some basic understanding of how AWS works.
 
-Доступны два варианта развертывания Flowise на AWS:
+Two options are available to deploy Flowise on AWS:
 
-* [Развертывание на ECS с использованием CloudFormation](aws.md#развертывание-на-ecs-с-использованием-cloudformation)
-* [Ручная настройка экземпляра EC2](aws.md#запуск-экземпляра-ec2)
+* [Deploy on ECS using CloudFormation](aws.md#deploy-on-ecs-using-cloudformation)
+* [Manually configure an EC2 Instance](aws.md#launch-ec2-instance)
 
-## Развертывание на ECS с использованием CloudFormation
+## Deploy on ECS using CloudFormation
 
-Шаблон CloudFormation доступен здесь: [https://gist.github.com/MrHertal/549b31a18e350b69c7200ae8d26ed691](https://gist.github.com/MrHertal/549b31a18e350b69c7200ae8d26ed691)
+CloudFormation template is available here: [https://gist.github.com/MrHertal/549b31a18e350b69c7200ae8d26ed691](https://gist.github.com/MrHertal/549b31a18e350b69c7200ae8d26ed691)
 
-Он развертывает Flowise на кластере ECS, доступном через ELB.
+It deploys Flowise on an ECS cluster exposed through ELB.
 
-Он был вдохновлен этой эталонной архитектурой: [https://github.com/aws-samples/ecs-refarch-cloudformation](https://github.com/aws-samples/ecs-refarch-cloudformation)
+It was inspired by this reference architecture: [https://github.com/aws-samples/ecs-refarch-cloudformation](https://github.com/aws-samples/ecs-refarch-cloudformation)
 
-Не стесняйтесь редактировать этот шаблон для адаптации таких вещей, как версия образа Flowise, переменные окружения и т.д.
+Feel free to edit this template to adapt things like Flowise image version, environment variables etc.
 
-Пример команды для развертывания Flowise с использованием [AWS CLI](https://aws.amazon.com/fr/cli/):
+Example of command to deploy Flowise using the [AWS CLI](https://aws.amazon.com/fr/cli/):
 
 ```bash
 aws cloudformation create-stack --stack-name flowise --template-body file://flowise-cloudformation.yml --capabilities CAPABILITY_IAM
 ```
 
-После развертывания URL вашего приложения Flowise доступен в выводах стека CloudFormation.
+After deployment, the URL of your Flowise application is available in the CloudFormation stack outputs.
 
-## Развертывание на ECS с использованием Terraform
+## Deploy on ECS using Terraform
 
-Файлы Terraform (`variables.tf`, `main.tf`) доступны в этом репозитории GitHub: [terraform-flowise-setup](https://github.com/huiseo/terraform-flowise-setup/tree/main).
+The Terraform files (`variables.tf`, `main.tf`) are available in this GitHub repository: [terraform-flowise-setup](https://github.com/huiseo/terraform-flowise-setup/tree/main).
 
-Эта настройка развертывает Flowise на кластере ECS, доступном через Application Load Balancer (ALB). Она основана на лучших практиках AWS для развертываний ECS.
+This setup deploys Flowise on an ECS cluster exposed through an Application Load Balancer (ALB). It is based on AWS best practices for ECS deployments.
 
-Вы можете изменить шаблон Terraform для настройки:
+You can modify the Terraform template to adjust:
 
-* Версии образа Flowise
-* Переменных окружения
-* Конфигураций ресурсов (CPU, память и т.д.)
+* Flowise image version
+* Environment variables
+* Resource configurations (CPU, memory, etc.)
 
-### Примеры команд для развертывания:
+### Example Commands for Deployment:
 
-1. **Инициализация Terraform:**
+1. **Initialize Terraform:**
 
 ```bash
 terraform init
@@ -59,203 +55,282 @@ terraform apply
 terraform destroy
 ```
 
-## Запуск экземпляра EC2
+## Launch EC2 Instance
 
-1. В панели управления EC2 нажмите **Launch Instance** (Запустить экземпляр)
+1. In the EC2 dashboard, click **Launch Instance**
 
-2. Выберите **Amazon Linux 2 AMI (HVM), SSD Volume Type**
+<figure><img src="../../.gitbook/assets/image (19) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-3. Выберите тип экземпляра. Для тестирования подойдет **t2.micro** (включен в бесплатный уровень)
+2. Scroll down and **Create new key pair** if you don't have one
 
-4. В разделе **Configure Instance Details** (Настроить детали экземпляра):
-   - Убедитесь, что **Auto-assign Public IP** (Автоматическое назначение публичного IP) включено
-   - В **Advanced Details** (Дополнительные детали) добавьте следующий скрипт в **User data** (Пользовательские данные):
+<figure><img src="../../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt="" width="375"><figcaption></figcaption></figure>
 
-```bash
-#!/bin/bash
-yum update -y
-yum install -y docker
-service docker start
-usermod -a -G docker ec2-user
+3. Fill in your preferred key pair name. For Windows, we will use `.ppk` and PuTTY to connect to the instance. For Mac and Linux, we will use `.pem` and OpenSSH
 
-# Установка Docker Compose
-curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
+<figure><img src="../../.gitbook/assets/image (15) (2) (1).png" alt="" width="370"><figcaption></figcaption></figure>
 
-# Создание директории для Flowise
-mkdir -p /home/ec2-user/flowise
-cd /home/ec2-user/flowise
+4. Click **Create key pair** and select a location path to save the `.ppk` file
+5. Open the left side bar, and open a new tab from **Security Groups**. Then **Create security group**
 
-# Создание docker-compose.yml
-cat > docker-compose.yml << EOF
-version: '3.1'
+<figure><img src="../../.gitbook/assets/image (20) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-services:
-  flowise:
-    image: flowiseai/flowise
-    restart: always
-    environment:
-      - PORT=3000
-      - SESSION_SECRET=super-secret
-      - SUPABASE_URL=https://xyz.supabase.co
-      - SUPABASE_ANON_KEY=public-anon
-      - SUPABASE_JWT_SECRET=service-secret
-      - FLOWISE_FILE_SIZE_LIMIT=50mb
-    ports:
-      - '3000:3000'
-    volumes:
-      - ~/.flowise:/root/.flowise
-    command: /bin/sh -c "sleep 3; flowise start"
-EOF
+6. Fill in your preferred security group name and description. Next, add the following to Inbound Rules and **Create security group**
 
-# Запуск Flowise
-docker-compose up -d
-```
+<figure><img src="../../.gitbook/assets/image (12) (1) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-5. **Настройка группы безопасности:**
-   - Создайте новую группу безопасности или используйте существующую
-   - Добавьте правило входящего трафика:
-     - Тип: Custom TCP Rule
-     - Порт: 3000
-     - Источник: 0.0.0.0/0 (для тестирования) или ваш IP
+7. Back to the first tab (EC2 Launch an instance) and scroll down to **Network settings**. Select the security group you've just created
 
-6. **Запуск экземпляра:**
-   - Просмотрите настройки и нажмите **Launch** (Запустить)
-   - Выберите существующую пару ключей или создайте новую
+<figure><img src="../../.gitbook/assets/image (7) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt="" width="375"><figcaption></figcaption></figure>
 
-## Настройка базы данных
+8. Click **Launch instance**. Navigate back to EC2 Dashboard, after few mins we should be able to see a new instance up and running [🎉](https://emojipedia.org/party-popper/)
 
-### Использование RDS для продакшена
+<figure><img src="../../.gitbook/assets/image (17) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-Для продакшенного развертывания рекомендуется использовать Amazon RDS:
+## How to Connect to your instance (Windows)
 
-1. **Создание экземпляра RDS:**
-   - Выберите PostgreSQL или MySQL
-   - Настройте параметры подключения
-   - Убедитесь, что группа безопасности разрешает подключения от EC2
+1. For Windows, we are going to use PuTTY. You can download one from [here](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html).
+2. Open PuTTY and fill in the **HostName** with your instance's Public IPv4 DNS name
 
-2. **Обновление переменных окружения:**
+<figure><img src="../../.gitbook/assets/image (9) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-```yaml
-environment:
-  - DATABASE_TYPE=postgres
-  - DATABASE_HOST=your-rds-endpoint.amazonaws.com
-  - DATABASE_PORT=5432
-  - DATABASE_USER=flowise
-  - DATABASE_PASSWORD=your-secure-password
-  - DATABASE_NAME=flowise
-  - DATABASE_SSL=true
-```
+3. From the left hand side bar of PuTTY Configuration, expand **SSH** and click on **Auth**. Click Browse and select the `.ppk` file you downloaded earlier.
 
-## Настройка хранилища
+<figure><img src="../../.gitbook/assets/image (23) (1) (1).png" alt="" width="296"><figcaption></figcaption></figure>
 
-### Использование S3 для файлов
+4. Click **Open** and **Accept** the pop up message
 
-Для хранения загруженных файлов используйте S3:
+<figure><img src="../../.gitbook/assets/image (18) (1) (1) (1) (1).png" alt="" width="375"><figcaption></figcaption></figure>
 
-1. **Создание S3 корзины:**
-   - Создайте корзину в том же регионе
-   - Настройте политики доступа
+5. Then login as `ec2-user`
 
-2. **Настройка IAM роли:**
-   - Создайте роль с доступом к S3
-   - Прикрепите роль к EC2 экземпляру
+<figure><img src="../../.gitbook/assets/image (5) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt="" width="375"><figcaption></figcaption></figure>
 
-3. **Обновление переменных окружения:**
+6. Now you are connected to the EC2 instance
 
-```yaml
-environment:
-  - STORAGE_TYPE=s3
-  - S3_STORAGE_BUCKET_NAME=your-flowise-bucket
-  - S3_STORAGE_REGION=us-east-1
-```
+## How to Connect to your instance (Mac and Linux)
 
-## Мониторинг и логирование
-
-### CloudWatch интеграция
-
-1. **Настройка CloudWatch агента:**
+1. Open the Terminal application on your Mac/Linux.
+2. _(Optional)_ Set the permissions of the private key file to restrict access to it:
 
 ```bash
-# Установка CloudWatch агента
-wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
-sudo rpm -U ./amazon-cloudwatch-agent.rpm
+chmod 400 /path/to/mykey.pem
 ```
 
-2. **Конфигурация логирования:**
+3. Use the `ssh` command to connect to your EC2 instance, specifying the username (`ec2-user`), Public IPv4 DNS, and the path to the `.pem` file.
 
-```json
-{
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/home/ec2-user/flowise/logs/*.log",
-            "log_group_name": "flowise-logs",
-            "log_stream_name": "{instance_id}"
-          }
-        ]
-      }
+```bash
+ssh -i /Users/username/Documents/mykey.pem ec2-user@ec2-123-45-678-910.compute-1.amazonaws.com
+```
+
+4. Press Enter, and if everything is configured correctly, you should successfully establish an SSH connection to your EC2 instance
+
+## Install Docker
+
+1. Apply pending updates using the yum command:
+
+```bash
+sudo yum update
+```
+
+2. Search for Docker package:
+
+```bash
+sudo yum search docker
+```
+
+3. Get version information:
+
+```bash
+sudo yum info docker
+```
+
+4. Install docker, run:
+
+```bash
+sudo yum install docker
+```
+
+5. Add group membership for the default ec2-user so you can run all docker commands without using the sudo command:
+
+```bash
+sudo usermod -a -G docker ec2-user
+id ec2-user
+newgrp docker
+```
+
+6. Install docker-compose:
+
+```bash
+sudo yum install docker-compose-plugin
+```
+
+7. Enable docker service at AMI boot time:
+
+```bash
+sudo systemctl enable docker.service
+```
+
+8. Start the Docker service:
+
+```bash
+sudo systemctl start docker.service
+```
+
+## Install Git
+
+```bash
+sudo yum install git -y
+```
+
+## Setup
+
+1. Clone the repo
+
+```bash
+git clone https://github.com/FlowiseAI/Flowise.git
+```
+
+2. Cd into docker folder
+
+```bash
+cd Flowise && cd docker
+```
+
+3. Create a `.env` file. You can use your favourite editor. I'll use `nano`
+
+```bash
+nano .env
+```
+
+<figure><img src="../../.gitbook/assets/image (13) (1) (1) (1) (1) (1) (1).png" alt="" width="375"><figcaption></figcaption></figure>
+
+4. Specify the env variables:
+
+```sh
+PORT=3000
+DATABASE_PATH=/root/.flowise
+SECRETKEY_PATH=/root/.flowise
+LOG_PATH=/root/.flowise/logs
+BLOB_STORAGE_PATH=/root/.flowise/storage
+```
+
+5. Then press `Ctrl + X` to Exit, and `Y` to save the file
+6. Run docker compose
+
+```bash
+docker compose up -d
+```
+
+7. Your application is now ready at your Public IPv4 DNS on port 3000:
+
+```
+http://ec2-123-456-789.compute-1.amazonaws.com:3000
+```
+
+8. You can bring the app down by:
+
+```bash
+docker compose stop
+```
+
+9. You can pull from latest image by:
+
+```bash
+docker pull flowiseai/flowise
+```
+
+Alternatively:
+
+```bash
+docker-compose pull
+docker-compose up --build -d
+```
+
+## Using NGINX
+
+If you want to get rid of the :3000 on the url and have a custom domain, you can use NGINX to reverse proxy port 80 to 3000 So user will be able to open the app using your domain. Example: `http://yourdomain.com`.
+
+1. ```bash
+   sudo yum install nginx
+   ```
+2. ```bash
+   nginx -v
+   ```
+3. <pre class="language-bash"><code class="lang-bash"><strong>sudo systemctl start nginx
+   </strong></code></pre>
+4. <pre class="language-bash"><code class="lang-bash"><strong>sudo nano /etc/nginx/conf.d/flowise.conf
+   </strong></code></pre>
+5. Copy paste the following and change to your domain:
+
+```shell
+server {
+    listen 80;
+    listen [::]:80;
+    server_name yourdomain.com; #Example: demo.flowiseai.com
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
-  }
 }
 ```
 
-## Безопасность
+press `Ctrl + X` to Exit, and `Y` to save the file
 
-### Лучшие практики безопасности
+6. ```bash
+   sudo systemctl restart nginx
+   ```
+7. Go to your DNS provider, and add a new A record. Name will be your domain name, and value will be the Public IPv4 address from EC2 instance
 
-1. **Сетевая безопасность:**
-   - Используйте VPC с приватными подсетями
-   - Настройте NAT Gateway для исходящего трафика
-   - Ограничьте доступ через Security Groups
+<figure><img src="../../.gitbook/assets/image (3) (2).png" alt="" width="367"><figcaption></figcaption></figure>
 
-2. **Шифрование:**
-   - Включите шифрование EBS томов
-   - Используйте SSL/TLS для всех подключений
-   - Настройте шифрование в покое для RDS
+6. You should now be able to open the app: `http://yourdomain.com`.
 
-3. **Управление доступом:**
-   - Используйте IAM роли вместо ключей доступа
-   - Применяйте принцип минимальных привилегий
-   - Регулярно ротируйте пароли и ключи
+### Install Certbot to have HTTPS
 
-## Масштабирование
+If you like your app to have `https://yourdomain.com`. Here is how:
 
-### Auto Scaling настройка
+1. For installing Certbot and enabling HTTPS on NGINX, we will rely on Python. So, first of all, let's set up a virtual environment:
 
-1. **Создание Launch Template:**
-   - Определите конфигурацию экземпляра
-   - Включите пользовательские данные для автоматической настройки
+```bash
+sudo python3 -m venv /opt/certbot/
+sudo /opt/certbot/bin/pip install --upgrade pip
+```
 
-2. **Настройка Auto Scaling Group:**
-   - Определите минимальное и максимальное количество экземпляров
-   - Настройте политики масштабирования на основе метрик
+2. Afterwards, run this command to install Certbot:
 
-3. **Load Balancer конфигурация:**
-   - Используйте Application Load Balancer
-   - Настройте health checks
-   - Включите sticky sessions если необходимо
+```bash
+sudo /opt/certbot/bin/pip install certbot certbot-nginx
+```
 
-## Резервное копирование
+3. Now, execute the following command to ensure that the `certbot` command can be run:
 
-### Стратегия резервного копирования
+```bash
+sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
+```
 
-1. **Автоматические снимки EBS:**
-   - Настройте ежедневные снимки
-   - Определите политику хранения
+4. Finally, run the following command to obtain a certificate and let Certbot automatically modify the NGINX configuration, enabling HTTPS:
 
-2. **Резервное копирование базы данных:**
-   - Включите автоматические резервные копии RDS
-   - Настройте cross-region репликацию для критических данных
+```bash
+sudo certbot --nginx
+```
 
-## Заключение
+5. After following the certificate generation wizard, we will be able to access our EC2 instance via HTTPS using the address `https://yourdomain.com`
 
-Развертывание Flowise на AWS предоставляет масштабируемое и надежное решение. Выберите подходящий метод развертывания в зависимости от ваших требований:
+## Set up automatic renewal
 
-- **CloudFormation/Terraform** - для автоматизированного развертывания
-- **EC2** - для простых установок и тестирования
-- **ECS** - для контейнеризованных продакшенных развертываний
+To enable Certbot to automatically renew the certificates, it is sufficient to add a cron job by running the following command:
 
-Всегда следуйте лучшим практикам безопасности и мониторинга для продакшенных сред.
+```bash
+echo "0 0,12 * * * root /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q" | sudo tee -a /etc/crontab > /dev/null
+```
+
+## Congratulations!
+
+You have successfully setup Flowise apps on EC2 instance with SSL certificate on your domain[🥳](https://emojipedia.org/partying-face/)

@@ -1,5 +1,7 @@
 # RAG
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 Large Language Models (LLMs) have unlocked the potential to create advanced Q\&A chatbots capable of delivering precise answers based on specific content. These systems rely on a method called Retrieval-Augmented Generation (RAG), which enhances their responses by grounding them in relevant source material.
 
 In this tutorial, you’ll learn how to create a basic Q\&A application that can extract and answer questions from given document sources.

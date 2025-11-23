@@ -1,43 +1,39 @@
 # Streamlit
 
-> **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и в настоящее время адаптируется для Universo Platformo React. Некоторые разделы могут все еще ссылаться на функциональность Flowise, которая еще не была полностью обновлена для специфичных возможностей Universo Platformo.
-
-> **🔄 Статус перевода**: Этот документ переведен с английского языка и проходит процесс адаптации для русскоязычной аудитории. Если вы заметили неточности в переводе или терминологии, пожалуйста, создайте issue в репозитории.
-
-[Python SDK](https://github.com/FlowiseAI/FlowisePy) может использоваться для создания приложения [Streamlit](https://streamlit.io/):
+[Python SDK](https://github.com/FlowiseAI/FlowisePy) can be used to create a [Streamlit](https://streamlit.io/) app:
 
 ```python
 import streamlit as st
 from flowise import Flowise, PredictionData
 import json
 
-# Базовый URL приложения Flowise
+# Flowise app base url
 base_url = st.secrets["APP_URL"] or "https://your-flowise-url.com"
 
-# ID Canvas/Agentflow
+# Canvas/Agentflow ID
 flow_id = st.secrets["FLOW_ID"] or "abc"
 
-# Показать заголовок и описание.
-st.title("💬 Flowise Streamlit Чат")
+# Show title and description.
+st.title("💬 Flowise Streamlit Chat")
 st.write(
-    "Это простой чат-бот, который использует Flowise Python SDK"
+    "This is a simple chatbot that uses Flowise Python SDK"
 )
 
-# Создать клиент Flowise.
+# Create a Flowise client.
 client = Flowise(base_url=base_url)
 
-# Создать переменную состояния сессии для хранения чат-сообщений. Это обеспечивает
-# сохранение сообщений между перезапусками.
+# Create a session state variable to store the chat messages. This ensures that the
+# messages persist across reruns.
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Отобразить существующие чат-сообщения через `st.chat_message`.
+# Display the existing chat messages via `st.chat_message`.
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 def generate_response(prompt: str):
-    print('генерация ответа')
+    print('generating response')
     completion = client.create_prediction(
         PredictionData(
             canvasId=flow_id,
@@ -55,21 +51,21 @@ def generate_response(prompt: str):
         if (parsed_chunk['event'] == 'token' and parsed_chunk['data'] != ''):
             yield str(parsed_chunk['data'])
 
-# Создать поле ввода чата, чтобы позволить пользователю ввести сообщение. Это будет
-# автоматически отображаться внизу страницы.
-if prompt := st.chat_input("Как дела?"):
+# Create a chat input field to allow the user to enter a message. This will display
+# automatically at the bottom of the page.
+if prompt := st.chat_input("What is up?"):
 
-    # Сохранить и отобразить текущий промпт.
+    # Store and display the current prompt.
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Потоково передать ответ в чат, используя `st.write_stream`, затем сохранить его в 
-    # состоянии сессии.
+    # Stream the response to the chat using `st.write_stream`, then store it in 
+    # session state.
     with st.chat_message("assistant"):
         response = generate_response(prompt)
         full_response = st.write_stream(response)
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 ```
 
-Полный репозиторий Github: [https://github.com/HenryHengZJ/flowise-streamlit](https://github.com/HenryHengZJ/flowise-streamlit)
+Full Github Repo: [https://github.com/HenryHengZJ/flowise-streamlit](https://github.com/HenryHengZJ/flowise-streamlit)

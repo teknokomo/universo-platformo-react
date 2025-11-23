@@ -1,26 +1,22 @@
 ---
-description: Изучите, как Flowise интегрируется с LiteLLM Proxy
+description: Learn how Flowise integrates with LiteLLM Proxy
 ---
 
 # LiteLLM Proxy
 
-> **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и в настоящее время адаптируется для Universo Platformo React. Некоторые разделы могут все еще ссылаться на функциональность Flowise, которая еще не была полностью обновлена для специфичных возможностей Universo Platformo.
+Use [LiteLLM Proxy](https://docs.litellm.ai/docs/simple_proxy) with Flowise to:
 
-> **🔄 Статус перевода**: Этот документ переведен с английского языка и проходит процесс адаптации для русскоязычной аудитории. Если вы заметили неточности в переводе или терминологии, пожалуйста, создайте issue в репозитории.
+- Load balance Azure OpenAI/LLM endpoints
+- Call 100+ LLMs in the OpenAI Format 
+- Use Virtual Keys to set budgets, rate limits and track usage
 
-Используйте [LiteLLM Proxy](https://docs.litellm.ai/docs/simple_proxy) с Flowise для:
+## How to use LiteLLM Proxy with Flowise
 
-- Балансировки нагрузки конечных точек Azure OpenAI/LLM
-- Вызова 100+ LLM в формате OpenAI 
-- Использования виртуальных ключей для установки бюджетов, ограничений скорости и отслеживания использования
+### Step 1: Define your LLM Models in the LiteLLM config.yaml file
 
-## Как использовать LiteLLM Proxy с Flowise
+LiteLLM Requires a config with all your models defined - we will call this file `litellm_config.yaml`
 
-### Шаг 1: Определите ваши LLM модели в файле конфигурации LiteLLM config.yaml
-
-LiteLLM требует конфигурацию со всеми вашими определенными моделями - мы назовем этот файл `litellm_config.yaml`
-
-[Подробная документация о том, как настроить конфигурацию litellm - здесь](https://docs.litellm.ai/docs/proxy/configs)
+[Detailed docs on how to setup litellm config - here](https://docs.litellm.ai/docs/proxy/configs)
 
 ```yaml
 model_list:
@@ -43,7 +39,7 @@ model_list:
 ```
 
 
-### Шаг 2. Запустите litellm proxy
+### Step 2. Start litellm proxy
 
 ```shell
 docker run \
@@ -53,11 +49,12 @@ docker run \
     --config /app/config.yaml --detailed_debug
 ```
 
-При успехе прокси начнет работать на `http://localhost:4000/`
+On success, the proxy will start running on `http://localhost:4000/`
 
-### Шаг 3: Используйте LiteLLM Proxy в Flowise
+### Step 3: Use the LiteLLM Proxy in Flowise
 
-В Flowise укажите **стандартные узлы OpenAI (не узлы Azure OpenAI)** -- это касается **чат-моделей, эмбеддингов, llm -- всего**
+In Flowise, specify the **standard OpenAI nodes (not the Azure OpenAI nodes)** -- this goes for **chat models, embeddings, llms -- everything**
 
-- Установите `BasePath` на URL LiteLLM Proxy (`http://localhost:4000` при локальном запуске)
-- Установите следующие заголовки `Authorization: Bearer <your-litellm-master-key>`
+- Set `BasePath` to LiteLLM Proxy URL (`http://localhost:4000` when running locally)
+- Set the following headers `Authorization: Bearer <your-litellm-master-key>`
+

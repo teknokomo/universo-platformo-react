@@ -1,46 +1,42 @@
 ---
-description: Изучите, как развернуть Flowise на Railway
+description: Learn how to deploy Flowise on Railway
 ---
 
 # Railway
 
-> **📋 Уведомление**: Данная документация основана на оригинальной документации Flowise и в настоящее время адаптируется для Universo Platformo React. Некоторые разделы могут все еще ссылаться на функциональность Flowise, которая еще не была полностью обновлена для специфичных возможностей Universo Platformo.
-
-> **🔄 Статус перевода**: Этот документ переведен с английского языка и проходит процесс адаптации для русскоязычной аудитории. Если вы заметили неточности в переводе или терминологии, пожалуйста, создайте issue в репозитории.
-
 ***
 
-1. Нажмите на следующий предварительно созданный [шаблон](https://railway.app/template/pn4G8S?referralCode=WVNPD9)
-2. Нажмите Deploy Now
+1. Click the following prebuilt [template](https://railway.app/template/pn4G8S?referralCode=WVNPD9)
+2. Click Deploy Now
 
 <figure><img src="../../.gitbook/assets/image (1) (1) (2) (1).png" alt=""><figcaption></figcaption></figure>
 
-3. Измените на предпочитаемое имя репозитория и нажмите Deploy
+3. Change to your preferred repository name and click Deploy
 
 <figure><img src="../../.gitbook/assets/image (2) (1) (2) (1).png" alt="" width="375"><figcaption></figcaption></figure>
 
-4. Если успешно, вы должны увидеть развернутый URL
+4. If succeeds, you should be able to see a deployed URL
 
 <figure><img src="../../.gitbook/assets/image (2) (2).png" alt=""><figcaption></figcaption></figure>
 
-5. Чтобы добавить авторизацию, перейдите на вкладку Variables и добавьте:
+5. To add authorization, navigate to Variables tab and add:
 
 * FLOWISE\_USERNAME
 * FLOWISE\_PASSWORD
 
 <figure><img src="../../.gitbook/assets/image (15) (2) (1) (1).png" alt=""><figcaption></figcaption></figure>
 
-6. Есть список переменных окружения, которые вы можете настроить. Обратитесь к [environment-variables.md](../environment-variables.md "mention")
+6. There are list of env variables you can configure. Refer to [environment-variables.md](../environment-variables.md "mention")
 
-Вот и все! Теперь у вас есть развернутый Flowise на Railway [🎉](https://emojipedia.org/party-popper/)[🎉](https://emojipedia.org/party-popper/)
+That's it! You now have a deployed Flowise on Railway [🎉](https://emojipedia.org/party-popper/)[🎉](https://emojipedia.org/party-popper/)
 
-## Постоянный том
+## Persistent Volume
 
-Файловая система по умолчанию для сервисов, работающих на Railway, является эфемерной. Данные Flowise не сохраняются между развертываниями и перезапусками. Чтобы решить эту проблему, мы можем использовать [Railway Volume](https://docs.railway.app/reference/volumes).
+The default filesystem for services running on Railway is ephemeral. Flowise data isn’t persisted across deploys and restarts. To solve this issue, we can use [Railway Volume](https://docs.railway.app/reference/volumes).
 
-Для упрощения шагов у нас есть шаблон Railway с подключенным томом: [https://railway.app/template/nEGbjR](https://railway.app/template/nEGbjR)
+To ease the steps, we have a Railway template with volume mounted: [https://railway.app/template/nEGbjR](https://railway.app/template/nEGbjR)
 
-Просто нажмите Deploy и заполните переменные окружения, как показано ниже:
+Just click Deploy and fill in the Env Variables like below:
 
 * DATABASE\_PATH - `/opt/railway/.flowise`
 * APIKEY\_PATH - `/opt/railway/.flowise`
@@ -50,4 +46,4 @@ description: Изучите, как развернуть Flowise на Railway
 
 <figure><img src="../../.gitbook/assets/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png" alt="" width="420"><figcaption></figcaption></figure>
 
-Теперь попробуйте создать поток и сохранить его в Flowise. Затем попробуйте перезапустить сервис или повторно развернуть, вы все еще должны видеть поток, который вы сохранили ранее.
+Now try creating a flow and save it in Flowise. Then try restarting service or redeploy, you should still be able to see the flow you have saved previously.

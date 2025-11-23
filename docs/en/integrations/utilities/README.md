@@ -1,5 +1,5 @@
 ---
-description: Learn how to use Flowise utility nodes
+description: Learn how to use Universo Platformo utility nodes
 ---
 
 # Utilities

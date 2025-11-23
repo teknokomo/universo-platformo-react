@@ -6,7 +6,259 @@
 
 ---
 
-## Current Focus: i18n Refactoring - Members & Tables ✅
+## Documentation File Naming Standardization (2025-11-23) ✅
+
+**Goal**: Standardize naming of package documentation files across all application modules to use consistent `frontend.md` and `backend.md` naming pattern.
+
+**Status**: COMPLETE ✅
+
+### Problem
+
+Documentation files had inconsistent naming:
+- **New modules** (Organizations, Clusters, Projects, etc.): `frontend.md` and `backend.md` ✅
+- **Old modules** (Metaverse, Publish, Technical Systems): package-specific names like `metaverse-frt.md`, `metaverse-srv.md`, `embed-frt.md`, `world-coordinator-srv.md` ❌
+
+### Solution Implemented
+
+Renamed all old-style filenames to the new standard `frontend.md` / `backend.md` pattern:
+
+**Files Renamed (6 files total)**:
+1. `docs/ru/applications/metaverse/metaverse-frt.md` → `frontend.md`
+2. `docs/en/applications/metaverse/metaverse-frt.md` → `frontend.md`
+3. `docs/ru/applications/metaverse/metaverse-srv.md` → `backend.md`
+4. `docs/en/applications/metaverse/metaverse-srv.md` → `backend.md`
+5. `docs/ru/applications/publish/embed-frt.md` → `frontend.md`
+6. `docs/en/applications/publish/frontend.md` (created and translated)
+7. `docs/ru/applications/technical-systems/world-coordinator-srv.md` → `backend.md`
+
+### Results
+
+✅ **Unified naming convention** - all package documentation now uses `frontend.md` and `backend.md`
+✅ **Consistent structure** - same pattern across all 14+ application modules
+✅ **No broken links** - verified no references to old filenames in SUMMARY.md or other docs
+✅ **Bilingual parity** - English versions created/translated where missing
+
+### Final Structure
+
+```
+docs/
+├── ru/applications/
+│   ├── organizations/     (frontend.md + backend.md)
+│   ├── clusters/          (frontend.md + backend.md)
+│   ├── projects/          (frontend.md + backend.md)
+│   ├── spaces/            (frontend.md + backend.md)
+│   ├── analytics/         (frontend.md only)
+│   ├── profile/           (frontend.md + backend.md)
+│   ├── auth/              (frontend.md + backend.md)
+│   ├── metaverse/         (frontend.md + backend.md) ← renamed
+│   ├── publish/           (frontend.md) ← renamed
+│   └── technical-systems/ (backend.md) ← renamed
+└── en/applications/
+    └── (identical structure)
+```
+
+### Impact
+
+- **Developers**: Easier to find documentation (consistent naming across modules)
+- **Documentation**: Cleaner structure, better maintainability
+- **Future modules**: Clear pattern to follow when creating new documentation
+
+---
+
+## Package Documentation Pages Creation (2025-11-22) ✅
+
+**Goal**: Create detailed frontend.md and backend.md pages for all Domain Application packages to provide complete technical documentation.
+
+**Status**: COMPLETE ✅ - Russian version 100%, English version 100%
+
+### Russian Documentation Created (15 files) ✅
+
+**Detailed Pages (Organizations - largest module)**:
+1. `docs/ru/applications/organizations/frontend.md` (~600 lines)
+   - Complete component documentation
+   - API integration examples
+   - Hooks usage
+   - i18n setup
+   - Integration guide
+   
+2. `docs/ru/applications/organizations/backend.md` (~600 lines)
+   - Complete entity definitions
+   - REST API documentation
+   - RLS policies
+   - Services architecture
+   - Migration examples
+
+**Compact Pages** (remaining modules):
+3-4. `docs/ru/applications/clusters/` - frontend.md (~100 lines), backend.md (~100 lines)
+5-6. `docs/ru/applications/projects/` - frontend.md (~60 lines), backend.md (~70 lines)
+7-8. `docs/ru/applications/spaces/` - frontend.md (~70 lines), backend.md (~70 lines)
+9. `docs/ru/applications/analytics/frontend.md` (~60 lines, frontend-only package)
+10-11. `docs/ru/applications/profile/` - frontend.md (~60 lines), backend.md (~80 lines)
+12-13. `docs/ru/applications/auth/` - frontend.md (~60 lines), backend.md (~80 lines)
+
+### English Version Completed ✅
+
+**Translation Process**:
+- ✅ Created directory structure for all modules
+- ✅ Deleted obsolete directories: `docs/en/applications/{entities,finance,resources}/`
+- ✅ Copied all README.md files from RU to EN (4 files)
+- ✅ Copied all frontend.md and backend.md files from RU to EN (15 files)
+- ✅ Translated all content from Russian to English (~2000+ lines)
+  - Used Python scripts for common term translation
+  - Used sed for precise pattern replacements
+  - Manual review and corrections
+
+**Translation Methods Used**:
+1. Python dictionary-based translation for common terms
+2. Sed-based replacements for specific patterns
+3. Multiple passes to ensure complete translation
+4. Verification of key files
+
+### Statistics
+
+**Total Files Created**: 30 files (15 RU + 15 EN)
+**Total Lines Written**: ~2500+ lines of technical documentation (RU)
+**Total Lines Translated**: ~2000+ lines (RU → EN)
+**Modules Documented**: 7 modules (Organizations, Clusters, Projects, Spaces, Analytics, Profile, Auth)
+**Coverage**: All Q4 2024 modules + core user system modules
+
+### File Structure
+
+```
+docs/
+├── ru/applications/
+│   ├── organizations/
+│   │   ├── README.md (main overview)
+│   │   ├── frontend.md (detailed @universo/organizations-frt)
+│   │   └── backend.md (detailed @universo/organizations-srv)
+│   ├── clusters/
+│   │   ├── README.md
+│   │   ├── frontend.md
+│   │   └── backend.md
+│   ├── projects/ (same structure)
+│   ├── spaces/ (same structure)
+│   ├── analytics/ (frontend.md only)
+│   ├── profile/ (same structure)
+│   └── auth/ (same structure)
+└── en/applications/
+    └── (identical structure, fully translated to English)
+```
+
+### Implementation Summary
+
+**Phase 1: Russian Documentation Creation**
+- Created 15 documentation files with ~2500+ lines
+- Established two documentation patterns:
+  - Detailed format (Organizations): ~600 lines per file
+  - Compact format (other modules): ~60-100 lines per file
+- Covered all technical aspects: components, API, hooks, entities, migrations, RLS
+
+**Phase 2: English Version Translation**
+- Prepared directory structure (deleted obsolete, created new)
+- Copied all files from Russian to English
+- Translated ~2000+ lines of content using multiple methods:
+  - Python scripts with comprehensive translation dictionaries
+  - Sed-based pattern replacements for specific Russian phrases
+  - Multiple verification passes
+
+**Phase 3: Quality Assurance**
+- Verified translation completeness
+- Checked file structure consistency
+- Ensured all modules documented
+
+### Outcome
+
+✅ **Complete bilingual technical documentation** for all 7 Domain Application modules
+✅ **Production-ready** - both Russian and English versions fully usable
+✅ **Consistent structure** - same organization in both languages
+✅ **Comprehensive coverage** - frontend, backend, integration for each module
+
+### Next Steps (Optional Enhancements)
+
+1. Add code examples from actual project files
+2. Include architecture diagrams (ERD for databases, component trees)
+3. Add screenshots of UI components
+4. Create API endpoint testing examples
+5. Add troubleshooting sections
+
+---
+
+## Current Focus: Applications Documentation Major Refactoring ✅
+
+### Overview (2025-11-22)
+**Goal**: Complete refactoring of Applications documentation (`docs/*/applications/`) to reflect current package structure and eliminate outdated content.
+
+**Implementation Summary**: ✅ 7 of 9 phases completed
+- **Phase 1**: Analyzed 39 packages, categorized into 4 groups (Core, Infrastructure, Domain Apps, Specialized)
+- **Phase 2**: Completely rewrote main Applications README (RU): 593 → 234 lines of current content
+- **Phase 3**: Created 4 new module pages (Organizations, Clusters, Projects, Spaces)
+- **Phase 4**: Deferred (detailed frontend/backend pages for each package)
+- **Phase 5**: Deleted obsolete directories (finance, resources, entities)
+- **Phase 6**: Updated Russian SUMMARY.md with new categorized navigation
+- **Phase 7**: Translated entire structure to English (README + SUMMARY.md)
+- **Phase 8**: Deferred (link validation can be done later)
+- **Phase 9**: Updated Memory Bank (this file + progress.md)
+
+### New Applications Structure ✅
+
+**Categories Created**:
+1. **Core Platform** (3 packages): flowise-components, flowise-server, flowise-ui
+2. **Infrastructure** (7 packages): types, utils, api-client, i18n, template-mui, chatmessage, store
+3. **Domain Applications** (14 modules across 4 subcategories):
+   - Content Management: Workspaces (Uniks), Spaces, Metaverses
+   - Organization Management: Organizations, Clusters, Projects (Q4 2024)
+   - User System: Authentication, Profile, Analytics
+   - Publishing: Publish System, Space Builder
+4. **Specialized** (3 packages): UPDL, Template MMOOMM, Multiplayer Server
+
+**Files Modified/Created** (11 files):
+1. `docs/ru/applications/README.md` - Complete rewrite (234 lines, -359 lines)
+2. `docs/en/applications/README.md` - English translation (234 lines)
+3. `docs/ru/applications/organizations/README.md` - New detailed page
+4. `docs/ru/applications/clusters/README.md` - New page
+5. `docs/ru/applications/projects/README.md` - New page
+6. `docs/ru/applications/spaces/README.md` - New page
+7. `docs/ru/SUMMARY.md` - Updated Applications navigation with 5 categories
+8. `docs/en/SUMMARY.md` - Updated Applications navigation (English)
+9. Deleted: `docs/ru/applications/finance/` - Obsolete (package doesn't exist)
+10. Deleted: `docs/ru/applications/resources/` - Obsolete (package doesn't exist)
+11. Deleted: `docs/ru/applications/entities/` - Obsolete (package doesn't exist)
+
+### Key Content Updates ✅
+
+**Main Applications README** includes:
+- Architectural pattern explanation (Frontend/Backend package structure)
+- Complete package categorization tables
+- 14 application modules with status indicators
+- Application interaction diagram (ASCII art)
+- Development guidelines for adding new applications
+- Integration points documentation
+
+**SUMMARY.md Navigation** now features:
+- Hierarchical structure matching categories
+- Anchor links to main README sections
+- Clean removal of obsolete links (finance, resources)
+- Bilingual consistency (EN/RU identical structure)
+
+### Next Steps (User Action Required) 🧪
+
+**GitBook UI Refactoring**:
+1. Navigate to GitBook.com editor
+2. Edit "FLOWISE" Group → Rename to "Teknokomo"
+3. Update links: Flowise GitHub/Cloud → Teknokomo GitHub/Universo.pro
+4. Verify both EN and RU versions display correctly
+
+**Success Criteria**:
+- ✅ All tutorial pages have consistent Notice
+- ✅ Terminology unified ("Universo Platformo", not "React" in notices)
+- ✅ Russian documentation has Teknokomo section
+- 🧪 GitBook UI Groups updated (pending user action)
+
+---
+
+## Recent Completed Work
+
+### i18n Refactoring - Members & Tables (2025-11-22) ✅
 
 ### Overview (2025-11-22)
 **Issue**: Translation keys for "members" were duplicated across all modules (organizations, clusters, etc.), while some specific table keys (like departments) were incorrectly in common.json.

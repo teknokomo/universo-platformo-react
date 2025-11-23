@@ -1,5 +1,7 @@
 # Interacting with API
 
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+
 Almost all of the web applications relies on RESTful APIs. Enabling LLM to interact with them expand its practical utility.
 
 This tutorial showcases how LLM can be used to make API calls through tool calling.

@@ -1,16 +1,16 @@
 ---
-description: Learn how to deploy Flowise to the cloud
+description: Learn how to deploy Universo Platformo to the cloud
 ---
 
 # Deployment
 
 ***
 
-Flowise is designed with a platform-agnostic architecture, ensuring compatibility with a wide range of deployment environments to suit your infrastructure needs.
+Universo Platformo is designed with a platform-agnostic architecture, ensuring compatibility with a wide range of deployment environments to suit your infrastructure needs.
 
 ## Local Machine
 
-To deploy Flowise locally, follow our [Get Started](../../getting-started/) guide.
+To deploy Universo Platformo locally, follow our [Get Started](../../getting-started/) guide.
 
 ## Modern Cloud Providers
 

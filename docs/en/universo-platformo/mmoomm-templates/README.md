@@ -1,6 +1,6 @@
 # MMOOMM Templates
 
-> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo React. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
+> **📋 Notice**: This documentation is based on the original Flowise documentation and is currently being adapted for Universo Platformo. Some sections may still reference Flowise functionality that has not yet been fully updated for Universo Platformo-specific features.
 
 Massive Multiplayer Online Open Metaverse (MMOOMM) Templates provide pre-built solutions for creating immersive multiplayer experiences.
 

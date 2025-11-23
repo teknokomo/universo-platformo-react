@@ -4,7 +4,7 @@
 SSO is only available for Enterprise plan
 {% endhint %}
 
-Flowise supports [OIDC](https://openid.net/) that allows users to use _single sign_-on (_SSO_) to access application. Currently only the [Organization Admin](../using-flowise/workspaces.md#setting-up-admin-account) can configure the SSO configurations.
+Universo Platformo supports [OIDC](https://openid.net/) that allows users to use _single sign_-on (_SSO_) to access application. Currently only the [Organization Admin](../using-flowise/workspaces.md#setting-up-admin-account) can configure the SSO configurations.
 
 ## Microsoft
 
@@ -36,7 +36,7 @@ Flowise supports [OIDC](https://openid.net/) that allows users to use _single si
 
 <figure><img src="../.gitbook/assets/image (201).png" alt=""><figcaption></figcaption></figure>
 
-8. Fill in the redirect URIs. This will need to be changed depending on how you are hosting it: `http[s]://[your-flowise-instance.com]/api/v1/azure/callback`:
+8. Fill in the redirect URIs. This will need to be changed depending on how you are hosting it: `http[s]://[your-universo-platformo-instance.com]/api/v1/azure/callback`:
 
 <figure><img src="../.gitbook/assets/image (218).png" alt="" width="514"><figcaption></figcaption></figure>
 
@@ -44,7 +44,7 @@ Flowise supports [OIDC](https://openid.net/) that allows users to use _single si
 
 <figure><img src="../.gitbook/assets/image (219).png" alt=""><figcaption></figcaption></figure>
 
-10. Back to Flowise app, login as Organization Admin. Navigate to SSO Config from left side bar. Fill in the Azure Tenant ID and Client ID from Step 4, and Client Secret from Step 6. Click Test Configuration to see if the connection can be established successfully:
+10. Back to Universo Platformo app, login as Organization Admin. Navigate to SSO Config from left side bar. Fill in the Azure Tenant ID and Client ID from Step 4, and Client Secret from Step 6. Click Test Configuration to see if the connection can be established successfully:
 
 <figure><img src="../.gitbook/assets/image (220).png" alt="" width="563"><figcaption></figcaption></figure>
 
