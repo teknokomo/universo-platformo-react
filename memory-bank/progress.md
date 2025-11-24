@@ -1,5 +1,74 @@
 # Progress Log
 
+## November 2025 (Latest)
+
+### 2025-11-24: Storages i18n Architecture Fix ✅
+**Problem**: After QA analysis discovered critical i18n architecture violations:
+1. Module-specific keys (`containers`, `slots`) incorrectly placed in `common.json`
+2. Duplicate keys (`name`, `description`, `role`) in `storages.json` table section
+3. Wrong translation function used: `tc()` (common-only) instead of `t()` (with fallback) for module-specific keys
+4. DEBUG code remaining in ContainerList and SlotList (absent in ClusterList)
+5. Potential bug in all modules: English text showing in Russian locale due to `tc()` misuse
+
+**Root Cause**: 
+- `tc()` = `useCommonTranslations()` searches ONLY in `common` namespace without fallback
+- `t()` = `useTranslation(['storages', 'roles', 'access'])` searches with fallback chain
+- When `tc('table.containers')` is called, it searches `common:table.containers` (doesn't exist), returns default English value "Containers"
+- Correct pattern: module-specific keys in local files (`clusters.json`, `metaverses.json`, `storages.json`), common keys in `common.json`
+
+**Solution Implemented**:
+1. **Removed duplicates from storages.json**: Deleted `name`, `description`, `role` from table section (9 lines removed: 3 from EN, 3 from RU, 3 from table definitions)
+   - Before: `"table": {"name": "...", "description": "...", "role": "...", "containers": "...", "slots": "..."}`
+   - After: `"table": {"containers": "Контейнеры", "slots": "Слоты"}`
+
+2. **Removed module-specific keys from common.json**: Deleted `containers` and `slots` from both EN and RU (4 lines removed)
+   - These keys belong in `storages.json`, not in shared `common.json`
+   - Pattern matches Clusters (`domains`, `resources` in clusters.json) and Metaverses (`sections`, `entities` in metaverses.json)
+
+3. **Fixed translation function in StorageList**: Changed `tc('table.containers')` → `t('table.containers')` and `tc('table.slots')` → `t('table.slots')`
+   - Updated dependencies array from `[tc]` to `[t, tc]`
+   - Now uses fallback chain: searches `storages:table.containers` first, then falls back to `roles`, `access`, `flowList` if needed
+
+4. **Removed DEBUG code**: Deleted useEffect pagination debug logging from ContainerList.tsx and SlotList.tsx (46 lines removed)
+   - Removed `useEffect` from imports in both files
+   - Renamed unused `searchValue` to `_searchValue` to satisfy linter
+
+5. **Fixed linter issues**: 
+   - Auto-fixed prettier formatting errors (8 fixes)
+   - Renamed unused variables to use `_` prefix convention
+   - One remaining non-critical warning in StorageMembers (unnecessary dependency)
+
+**Files Modified (9 files, 67 lines changed)**:
+- `packages/storages-frt/base/src/i18n/locales/ru/storages.json` - removed duplicates
+- `packages/storages-frt/base/src/i18n/locales/en/storages.json` - removed duplicates
+- `packages/universo-i18n/base/src/locales/ru/core/common.json` - removed containers/slots
+- `packages/universo-i18n/base/src/locales/en/core/common.json` - removed containers/slots
+- `packages/storages-frt/base/src/pages/StorageList.tsx` - changed tc() to t(), updated deps
+- `packages/storages-frt/base/src/pages/ContainerList.tsx` - removed DEBUG, renamed searchValue
+- `packages/storages-frt/base/src/pages/SlotList.tsx` - removed DEBUG, renamed searchValue
+
+**Build Results**:
+- storages-frt: ✅ Built in 4.9s (10.27 kB → 10.27 kB, no size change)
+- flowise-ui: ✅ Built in 1m 28s
+- Linter: ✅ 1 non-critical warning remaining
+
+**Architecture Verification**:
+- ✅ Module-specific keys now in local files only
+- ✅ Common keys remain in common.json (name, description, role, email, added, actions, id)
+- ✅ Correct translation functions used (t() for module-specific, tc() for common)
+- ✅ No DEBUG code in production
+- ✅ Follows same pattern as Clusters and Metaverses
+
+**Impact**: 
+- Russian locale will now correctly show "Контейнеры" and "Слоты" instead of fallback English
+- Clean separation between common and module-specific translations
+- Consistent with project architecture across all modules
+- Removed unnecessary debug code improving performance
+
+**Next Steps**: User needs to refresh browser (Ctrl+Shift+R) to verify Russian translations display correctly.
+
+---
+
 > **Note**: Completed work with dates and outcomes. Active tasks → tasks.md, architectural patterns → systemPatterns.md.
 
 ---

@@ -34,6 +34,7 @@ import { metaversesMigrations } from '@universo/metaverses-srv'
 import { clustersMigrations } from '@universo/clusters-srv'
 import { projectsMigrations } from '@universo/projects-srv'
 import { organizationsMigrations } from '@universo/organizations-srv'
+import { storagesMigrations } from '@universo/storages-srv'
 import { spacesMigrations } from '@universo/spaces-srv'
 import { publishMigrations } from '@universo/publish-srv'
 
@@ -74,6 +75,7 @@ export const postgresMigrations = [
     ...clustersMigrations,
     ...projectsMigrations,
     ...organizationsMigrations,
+    ...storagesMigrations,
     ...spacesMigrations,
     ...publishMigrations
 ]

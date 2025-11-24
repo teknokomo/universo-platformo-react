@@ -17,6 +17,7 @@ import { metaversesEntities } from '@universo/metaverses-srv'
 import { clustersEntities } from '@universo/clusters-srv'
 import { projectsEntities } from '@universo/projects-srv'
 import { organizationsEntities } from '@universo/organizations-srv'
+import { storagesEntities } from '@universo/storages-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
 import { PublishCanvas } from '@universo/publish-srv'
 
@@ -28,6 +29,8 @@ const clustersEntitiesObject = Object.fromEntries(clustersEntities.map((entity) 
 const projectsEntitiesObject = Object.fromEntries(projectsEntities.map((entity) => [entity.name, entity]))
 
 const organizationsEntitiesObject = Object.fromEntries(organizationsEntities.map((entity) => [entity.name, entity]))
+
+const storagesEntitiesObject = Object.fromEntries(storagesEntities.map((entity) => [entity.name, entity]))
 
 export const entities = {
     ChatMessage,
@@ -50,6 +53,8 @@ export const entities = {
     ...projectsEntitiesObject,
     // Organizations service entities
     ...organizationsEntitiesObject,
+    // Storages service entities
+    ...storagesEntitiesObject,
     // Uniks entities
     Unik,
     UnikUser,

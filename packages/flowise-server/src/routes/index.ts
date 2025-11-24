@@ -43,9 +43,8 @@ import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRou
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-srv'
-import {
-    createOrganizationsServiceRoutes
-} from '@universo/organizations-srv'
+import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
+import { initializeRateLimiters as initializeStoragesRateLimiters, createStoragesServiceRoutes } from '@universo/storages-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -250,6 +249,22 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     }
     if (organizationsRouter) {
         organizationsRouter(req, res, next)
+    } else {
+        next()
+    }
+})
+
+// Universo Platformo | Storages, Containers, Slots
+// Note: Rate limiters initialized via initializeStoragesRateLimiters() in server startup
+// This mounts: /storages, /containers, /slots
+// Lazy initialization: router created on first request (after initializeStoragesRateLimiters called)
+let storagesRouter: ExpressRouter | null = null
+router.use((req: Request, res: Response, next: NextFunction) => {
+    if (!storagesRouter) {
+        storagesRouter = createStoragesServiceRoutes(ensureAuthWithRls, () => getDataSource())
+    }
+    if (storagesRouter) {
+        storagesRouter(req, res, next)
     } else {
         next()
     }

@@ -23,6 +23,7 @@ import '@universo/profile-frt/i18n'
 import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
 import '@universo/organizations-frt/i18n'
+import '@universo/storages-frt/i18n'
 import '@universo/template-mmoomm/i18n'
 import '@universo/template-quiz/i18n'
 

@@ -30,6 +30,7 @@ import { initializeRateLimiters } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters } from '@universo/projects-srv'
 import { initializeRateLimiters as initializeOrganizationsRateLimiters } from '@universo/organizations-srv'
+import { initializeRateLimiters as initializeStoragesRateLimiters } from '@universo/storages-srv'
 import errorHandlerMiddleware from './middlewares/errors'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { validateAPIKey } from './utils/validateKey'
@@ -335,6 +336,9 @@ export class App {
 
         // Initialize rate limiters for organizations service
         await initializeOrganizationsRateLimiters()
+
+        // Initialize rate limiters for storages service
+        await initializeStoragesRateLimiters()
 
         this.app.use('/api/v1', flowiseApiV1Router)
 
