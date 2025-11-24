@@ -1,4 +1,4 @@
-﻿import { z } from 'zod'
+import { z } from 'zod'
 
 /**
  * Schema for list query parameters with pagination, sorting, and search

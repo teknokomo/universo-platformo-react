@@ -1,4 +1,4 @@
-﻿import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm'
 import { Storage } from './Storage'
 
 @Entity({ name: 'storages_users', schema: 'storages' })

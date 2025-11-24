@@ -44,7 +44,7 @@ import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes 
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
-import { initializeRateLimiters as initializeStoragesRateLimiters, createStoragesServiceRoutes } from '@universo/storages-srv'
+import { createStoragesServiceRoutes } from '@universo/storages-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger

@@ -1,4 +1,4 @@
-﻿export { storagesEntities } from './database/entities/index'
+export { storagesEntities } from './database/entities/index'
 export { Storage } from './database/entities/Storage'
 export { StorageUser } from './database/entities/StorageUser'
 export { Container } from './database/entities/Container'

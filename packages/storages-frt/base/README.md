@@ -60,14 +60,14 @@ pnpm --filter @universo/storages-frt dev
 ### Integration
 ```tsx
 // Import components in your React application
-import { ClusterList, ClusterBoard, clustersDashboard } from '@universo/storages-frt'
+import { StorageList, StorageBoard, storagesDashboard } from '@universo/storages-frt'
 
 // Import i18n Slots
-import { clustersTranslations } from '@universo/storages-frt'
+import { storagesTranslations } from '@universo/storages-frt'
 
 // Use in routes
-<Route path="/Storages" element={<ClusterList />} />
-<Route path="/Storages/:id/board" element={<ClusterBoard />} />
+<Route path="/Storages" element={<StorageList />} />
+<Route path="/Storages/:id/board" element={<StorageBoard />} />
 ```
 
 ## Architecture
@@ -87,27 +87,27 @@ import { clustersTranslations } from '@universo/storages-frt'
 
 ### Basic Components
 ```tsx
-import { ClusterList, ClusterBoard } from '@universo/storages-frt'
+import { StorageList, StorageBoard } from '@universo/storages-frt'
 
 // Storage listing with management capabilities
-function ClustersPage() {
-  return <ClusterList />
+function StoragesPage() {
+  return <StorageList />
 }
 
 // Storage dashboard and analytics
-function ClusterBoardPage() {
-  return <ClusterBoard />
+function StorageBoardPage() {
+  return <StorageBoard />
 }
 ```
 
 ### API Integration
 ```tsx
 import { useApi } from '@universo/storages-frt/hooks'
-import * as clustersApi from '@universo/storages-frt/api'
+import * as storagesApi from '@universo/storages-frt/api'
 
 function ClusterData() {
   const { data: Storages, isLoading } = useApi(
-    clustersApi.getStorages
+    storagesApi.getStorages
   )
   
   if (isLoading) return <div>Loading...</div>
@@ -117,12 +117,12 @@ function ClusterData() {
 
 ### Menu Integration
 ```tsx
-import { clustersDashboard } from '@universo/storages-frt'
+import { storagesDashboard } from '@universo/storages-frt'
 
 // Add to navigation menu
 const menuItems = [
   ...otherMenuItems,
-  clustersDashboard
+  storagesDashboard
 ]
 ```
 
@@ -145,8 +145,8 @@ packages/Storages-frt/base/
 ¦   ¦   ¦   L-- ru.json     # Russian translations
 ¦   ¦   L-- index.ts        # i18n configuration
 ¦   +-- pages/            # Main page components
-¦   ¦   +-- ClusterList.tsx   # Main listing component
-¦   ¦   +-- ClusterBoard.tsx  # Dashboard component
+¦   ¦   +-- StorageList.tsx   # Main listing component
+¦   ¦   +-- StorageBoard.tsx  # Dashboard component
 ¦   ¦   L-- ClusterActions.ts # Action definitions
 ¦   +-- menu-items/       # Navigation configuration
 ¦   ¦   L-- clusterDashboard.ts
@@ -166,11 +166,11 @@ L-- README-RU.md          # Russian documentation
 
 ## Core Components
 
-### ClusterList
+### StorageList
 Main component for displaying and managing Storages:
 
 ```tsx
-import { ClusterList } from '@universo/storages-frt'
+import { StorageList } from '@universo/storages-frt'
 
 // Features:
 // - Paginated table view with search functionality
@@ -180,11 +180,11 @@ import { ClusterList } from '@universo/storages-frt'
 // - Internationalization support
 ```
 
-### ClusterBoard  
+### StorageBoard  
 Dashboard component for Storage analytics:
 
 ```tsx
-import { ClusterBoard } from '@universo/storages-frt'
+import { StorageBoard } from '@universo/storages-frt'
 
 // Features:
 // - Storage-specific dashboard
@@ -197,37 +197,37 @@ import { ClusterBoard } from '@universo/storages-frt'
 
 ### Basic API Operations
 ```typescript
-import * as clustersApi from '@universo/storages-frt/api'
+import * as storagesApi from '@universo/storages-frt/api'
 
 // Get all Storages
-const Storages = await clustersApi.getStorages()
+const Storages = await storagesApi.getStorages()
 
 // Get specific Storage
-const Storage = await clustersApi.getStorage(id)
+const Storage = await storagesApi.getStorage(id)
 
 // Create new Storage
-const newCluster = await clustersApi.createStorage({
+const newStorage = await storagesApi.createStorage({
   name: 'My Storage',
   description: 'Storage description'
 })
 
 // Update Storage
-const updated = await clustersApi.updateStorage(id, data)
+const updated = await storagesApi.updateStorage(id, data)
 
 // Delete Storage
-await clustersApi.deleteStorage(id)
+await storagesApi.deleteStorage(id)
 ```
 
 ### Storage-Scoped Operations
 ```typescript
 // Get Containers for specific Storage
-const Containers = await clustersApi.getClusterDomains(clusterId)
+const Containers = await storagesApi.getStorageDomains(clusterId)
 
 // Get Slots for specific Storage  
-const Slots = await clustersApi.getClusterResources(clusterId)
+const Slots = await storagesApi.getStorageResources(clusterId)
 
 // Link Container to Storage
-await clustersApi.addContainerToStorage(clusterId, domainId)
+await storagesApi.addContainerToStorage(clusterId, domainId)
 ```
 
 ### React Query Integration
@@ -238,7 +238,7 @@ import { storagesQueryKeys } from '@universo/storages-frt/api'
 function useStorages() {
   return useQuery({
     queryKey: storagesQueryKeys.all,
-    queryFn: clustersApi.getStorages
+    queryFn: storagesApi.getStorages
   })
 }
 ```
@@ -316,10 +316,10 @@ L-- vitest.config.ts
 ```typescript
 // Component testing with React Testing Library
 import { render, screen } from '@testing-library/react'
-import { ClusterList } from '../ClusterList'
+import { StorageList } from '../StorageList'
 
 test('renders Storage list', () => {
-  render(<ClusterList />)
+  render(<StorageList />)
   expect(screen.getByText('Storages')).toBeInTheDocument()
 })
 ```

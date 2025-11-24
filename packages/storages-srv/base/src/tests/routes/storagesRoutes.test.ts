@@ -1,4 +1,4 @@
-﻿jest.mock(
+jest.mock(
     'typeorm',
     () => {
         const decorator = () => () => {}
@@ -317,7 +317,7 @@ describe('Storages Routes', () => {
         }
 
         it('should return members when user has manageMembers permission', async () => {
-            const { app, storageUserRepo, authUserRepo, dataSource } = buildApp()
+            const { app, storageUserRepo, dataSource } = buildApp()
 
             const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -460,10 +460,7 @@ describe('Storages Routes', () => {
 
             authUserRepo.findOne.mockResolvedValue({ id: 'target-user', email: 'target@example.com' })
 
-            const response = await request(app)
-                .patch('/storages/storage-1/members/membership-target')
-                .send({ role: 'editor' })
-                .expect(200)
+            const response = await request(app).patch('/storages/storage-1/members/membership-target').send({ role: 'editor' }).expect(200)
 
             expect(response.body).toMatchObject({
                 id: 'membership-target',
@@ -559,7 +556,7 @@ describe('Storages Routes', () => {
                 ])
 
                 // Mock dataSource.manager.find for both AuthUser and Profile
-                dataSource.manager.find.mockImplementation((slot: any, options: any) => {
+                dataSource.manager.find.mockImplementation((slot: any, _options: any) => {
                     const slotName = slot.name || (typeof slot === 'function' ? slot.name : String(slot))
                     if (slotName === 'AuthUser') {
                         return Promise.resolve([
@@ -731,7 +728,7 @@ describe('Storages Routes', () => {
 
                 const commentWithWhitespace = '   This comment has leading and trailing spaces   '
 
-                const response = await request(app)
+                await request(app)
                     .post('/storages/storage-1/members')
                     .send({
                         email: 'target@example.com',

@@ -1,4 +1,4 @@
-﻿import { Router, Request, Response, RequestHandler } from 'express'
+import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource, In } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'

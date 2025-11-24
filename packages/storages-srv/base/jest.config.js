@@ -2,10 +2,10 @@
 
 module.exports = {
   ...base,
-  displayName: 'clusters-srv',
+  displayName: 'storages-srv',
   rootDir: __dirname,
   moduleNameMapper: {
     ...base.moduleNameMapper,
-    '^@clusters/(.*)$': '<rootDir>/src/$1'
+    '^@storages/(.*)$': '<rootDir>/src/$1'
   }
 }

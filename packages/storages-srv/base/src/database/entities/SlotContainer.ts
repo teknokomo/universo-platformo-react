@@ -1,4 +1,4 @@
-﻿import { Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm'
 import { Slot } from './Slot'
 import { Container } from './Container'
 

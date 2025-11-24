@@ -1,4 +1,4 @@
-﻿import { Router, Request, Response, RequestHandler } from 'express'
+import { Router, Request, Response, RequestHandler } from 'express'
 import { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { RequestWithDbContext } from '@universo/auth-srv'
@@ -203,8 +203,7 @@ export function createContainersRoutes(
 
             // Validate required fields
             if (!name) return res.status(400).json({ error: 'name is required' })
-            if (!storageId)
-                return res.status(400).json({ error: 'storageId is required - containers must be associated with a storage' })
+            if (!storageId) return res.status(400).json({ error: 'storageId is required - containers must be associated with a storage' })
 
             await ensureStorageAccess(getDataSource(), userId, storageId, 'createContent')
 

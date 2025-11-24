@@ -1,4 +1,4 @@
-﻿import { Router, type RequestHandler } from 'express'
+import { Router, type RequestHandler } from 'express'
 import type { DataSource } from 'typeorm'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo/utils/rate-limiting'

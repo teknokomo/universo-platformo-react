@@ -1,4 +1,4 @@
-﻿import { MigrationInterface, QueryRunner } from 'typeorm'
+import { MigrationInterface, QueryRunner } from 'typeorm'
 
 export class InitStorages1741364300000 implements MigrationInterface {
     name = 'InitStorages1741364300000'
@@ -269,9 +269,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rd_dom ON storages.slots_containers(container_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rc_res ON storages.slots_storages(slot_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rc_clu ON storages.slots_storages(storage_id)`)
-        await queryRunner.query(
-            `CREATE INDEX IF NOT EXISTS idx_rc_storage_sort ON storages.slots_storages(storage_id, sort_order)`
-        )
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_rc_storage_sort ON storages.slots_storages(storage_id, sort_order)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_dc_dom ON storages.containers_storages(container_id)`)
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_dc_clu ON storages.containers_storages(storage_id)`)
 
@@ -326,7 +324,7 @@ export class InitStorages1741364300000 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX IF EXISTS storages.idx_slots_name_fts`)
         await queryRunner.query(`DROP INDEX IF EXISTS storages.idx_containers_description_fts`)
         await queryRunner.query(`DROP INDEX IF EXISTS storages.idx_containers_name_fts`)
-        
+
         // Drop search indexes
         await queryRunner.query(`DROP INDEX IF EXISTS storages.idx_storage_description_lower`)
         await queryRunner.query(`DROP INDEX IF EXISTS storages.idx_storage_name_lower`)

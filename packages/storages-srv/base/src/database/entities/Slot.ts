@@ -1,4 +1,4 @@
-﻿import { Entity as ORMEntity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
+import { Entity as ORMEntity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
 
 // Comments in English only
 @ORMEntity({ name: 'slots', schema: 'storages' })

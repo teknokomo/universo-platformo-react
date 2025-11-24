@@ -1,4 +1,4 @@
-﻿export type MockRepository<_T> = {
+export type MockRepository<_T> = {
     createQueryBuilder: jest.Mock
     find: jest.Mock
     findOne: jest.Mock

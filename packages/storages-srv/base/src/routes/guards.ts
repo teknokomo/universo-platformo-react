@@ -1,4 +1,4 @@
-﻿import { DataSource } from 'typeorm'
+import { DataSource } from 'typeorm'
 import * as httpErrors from 'http-errors'
 import { StorageRole } from '@universo/types'
 import { createAccessGuards } from '@universo/auth-srv'
@@ -192,9 +192,7 @@ export async function ensureSlotAccess(
         return { membership: memberships[0], storageId: memberships[0].storage_id, viaStorageIds: uniqueStorageIds }
     }
 
-    const allowedMembership = memberships.find(
-        (membership) => ROLE_PERMISSIONS[(membership.role || 'member') as StorageRole]?.[permission]
-    )
+    const allowedMembership = memberships.find((membership) => ROLE_PERMISSIONS[(membership.role || 'member') as StorageRole]?.[permission])
     if (!allowedMembership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),

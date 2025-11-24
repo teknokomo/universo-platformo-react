@@ -4,7 +4,7 @@
 
 ## Обзор
 
-Фронтенд-приложение для управления хранилищами, контейнерами и слотами в экосистеме Universo Platformo. storages Frontend предоставляет комплексные UI-процессы для управления трёхуровневой архитектурой хранилищы → контейнеры → слоты с полной изоляцией данных и безопасностью.
+Фронтенд-приложение для управления хранилищами, контейнерами и слотами в экосистеме Universo Platformo. storages Frontend предоставляет комплексные UI-процессы для управления трёхуровневой архитектурой хранилища → контейнеры → слоты с полной изоляцией данных и безопасностью.
 
 ## Информация о пакете
 
@@ -18,7 +18,7 @@
 ## Ключевые функции
 
 ### 🌍 Управление хранилищами
-- **Иерархическая организация**: Трёхуровневая архитектура (хранилищы → контейнеры → слоты)
+- **Иерархическая организация**: Трёхуровневая архитектура (хранилища → контейнеры → слоты)
 - **Полная изоляция данных**: слоты и контейнеры из разных хранилищов полностью разделены
 - **Ролевой доступ**: Пользовательские роли и разрешения для контроля доступа к хранилищам
 - **Контекстная навигация**: Навигация с учётом хранилища с хлебными крошками и сохранением сайдбара
@@ -60,20 +60,20 @@ pnpm --filter @universo/storages-frt dev
 ### Интеграция
 ```tsx
 // Импорт компонентов в ваше React-приложение
-import { ClusterList, ClusterBoard, clustersDashboard } from '@universo/storages-frt'
+import { StorageList, StorageBoard, storagesDashboard } from '@universo/storages-frt'
 
 // Импорт i18n слотов
-import { clustersTranslations } from '@universo/storages-frt'
+import { storagesTranslations } from '@universo/storages-frt'
 
 // Использование в маршрутах
-<Route path="/storages" element={<ClusterList />} />
-<Route path="/storages/:id/board" element={<ClusterBoard />} />
+<Route path="/storages" element={<StorageList />} />
+<Route path="/storages/:id/board" element={<StorageBoard />} />
 ```
 
 ## Архитектура
 
 ### Трёхуровневая модель данных
-- **хранилищы**: Организационные единицы верхнего уровня, обеспечивающие полную изоляцию данных
+- **хранилища**: Организационные единицы верхнего уровня, обеспечивающие полную изоляцию данных
 - **контейнеры**: Логические группировки внутри хранилищов (например, "Веб-сервисы", "Мобильные приложения")
 - **слоты**: Отдельные активы, принадлежащие конкретным контейнерам внутри хранилищов
 
@@ -87,27 +87,27 @@ import { clustersTranslations } from '@universo/storages-frt'
 
 ### Базовые компоненты
 ```tsx
-import { ClusterList, ClusterBoard } from '@universo/storages-frt'
+import { StorageList, StorageBoard } from '@universo/storages-frt'
 
 // Список хранилищов с возможностями управления
-function ClustersPage() {
-  return <ClusterList />
+function StoragesPage() {
+  return <StorageList />
 }
 
 // Панель управления и аналитика хранилища
-function ClusterBoardPage() {
-  return <ClusterBoard />
+function StorageBoardPage() {
+  return <StorageBoard />
 }
 ```
 
 ### Интеграция API
 ```tsx
 import { useApi } from '@universo/storages-frt/hooks'
-import * as clustersApi from '@universo/storages-frt/api'
+import * as storagesApi from '@universo/storages-frt/api'
 
 function ClusterData() {
   const { data: storages, isLoading } = useApi(
-    clustersApi.getClusters
+    storagesApi.getStorages
   )
   
   if (isLoading) return <div>Загрузка...</div>
@@ -117,12 +117,12 @@ function ClusterData() {
 
 ### Интеграция меню
 ```tsx
-import { clustersDashboard } from '@universo/storages-frt'
+import { storagesDashboard } from '@universo/storages-frt'
 
 // Добавить в навигационное меню
 const menuItems = [
   ...otherMenuItems,
-  clustersDashboard
+  storagesDashboard
 ]
 ```
 
@@ -145,8 +145,8 @@ packages/storages-frt/base/
 │   │   │   └── ru.json     # Русские переводы
 │   │   └── index.ts        # Конфигурация i18n
 │   ├── pages/            # Основные компоненты страниц
-│   │   ├── ClusterList.tsx   # Основной компонент списка
-│   │   ├── ClusterBoard.tsx  # Компонент панели управления
+│   │   ├── StorageList.tsx   # Основной компонент списка
+│   │   ├── StorageBoard.tsx  # Компонент панели управления
 │   │   └── ClusterActions.ts # Определения действий
 │   ├── menu-items/       # Конфигурация навигации
 │   │   └── clusterDashboard.ts
@@ -166,11 +166,11 @@ packages/storages-frt/base/
 
 ## Основные компоненты
 
-### ClusterList
+### StorageList
 Основной компонент для отображения и управления хранилищами:
 
 ```tsx
-import { ClusterList } from '@universo/storages-frt'
+import { StorageList } from '@universo/storages-frt'
 
 // Функции:
 // - Пагинированный табличный вид с функцией поиска
@@ -180,11 +180,11 @@ import { ClusterList } from '@universo/storages-frt'
 // - Поддержка интернационализации
 ```
 
-### ClusterBoard  
+### StorageBoard  
 Компонент панели управления для аналитики хранилищов:
 
 ```tsx
-import { ClusterBoard } from '@universo/storages-frt'
+import { StorageBoard } from '@universo/storages-frt'
 
 // Функции:
 // - Специфичная для хранилища панель управления
@@ -197,37 +197,37 @@ import { ClusterBoard } from '@universo/storages-frt'
 
 ### Базовые операции API
 ```typescript
-import * as clustersApi from '@universo/storages-frt/api'
+import * as storagesApi from '@universo/storages-frt/api'
 
-// Получить все хранилищы
-const storages = await clustersApi.getClusters()
+// Получить все хранилища
+const storages = await storagesApi.getStorages()
 
 // Получить конкретный хранилищ
-const storage = await clustersApi.getCluster(id)
+const storage = await storagesApi.getStorage(id)
 
 // Создать новый хранилищ
-const newCluster = await clustersApi.createCluster({
+const newStorage = await storagesApi.createCluster({
   name: 'Мой хранилищ',
   description: 'Описание хранилища'
 })
 
 // Обновить хранилищ
-const updated = await clustersApi.updateCluster(id, data)
+const updated = await storagesApi.updateStorage(id, data)
 
 // Удалить хранилищ
-await clustersApi.deleteCluster(id)
+await storagesApi.deleteStorage(id)
 ```
 
 ### Операции в контексте хранилища
 ```typescript
 // Получить контейнеры для конкретного хранилища
-const containers = await clustersApi.getClusterDomains(clusterId)
+const containers = await storagesApi.getStorageDomains(clusterId)
 
 // Получить слоты для конкретного хранилища  
-const slots = await clustersApi.getClusterResources(clusterId)
+const slots = await storagesApi.getStorageResources(clusterId)
 
 // Связать контейнер с хранилищом
-await clustersApi.addDomainToCluster(clusterId, domainId)
+await storagesApi.addDomainToCluster(clusterId, domainId)
 ```
 
 ### Интеграция React Query
@@ -238,7 +238,7 @@ import { clustersQueryKeys } from '@universo/storages-frt/api'
 function useClusters() {
   return useQuery({
     queryKey: clustersQueryKeys.all,
-    queryFn: clustersApi.getClusters
+    queryFn: storagesApi.getStorages
   })
 }
 ```
@@ -277,7 +277,7 @@ pnpm type-check       # Проверка типов TypeScript
 ### Рекомендации по разработке
 
 #### Архитектурные паттерны
-- **Трёхуровневая модель**: хранилищы → контейнеры → слоты
+- **Трёхуровневая модель**: хранилища → контейнеры → слоты
 - **Изоляция данных**: Строгие границы контекста между хранилищами
 - **React Query**: Централизованная загрузка и кэширование данных
 - **Material-UI**: Согласованное использование библиотеки компонентов
@@ -316,11 +316,11 @@ src/
 ```typescript
 // Тестирование компонентов с React Testing Library
 import { render, screen } from '@testing-library/react'
-import { ClusterList } from '../ClusterList'
+import { StorageList } from '../StorageList'
 
 test('отображает список хранилищов', () => {
-  render(<ClusterList />)
-  expect(screen.getByText('хранилищы')).toBeInTheDocument()
+  render(<StorageList />)
+  expect(screen.getByText('хранилища')).toBeInTheDocument()
 })
 ```
 
