@@ -208,6 +208,34 @@ export const getOrganizationMenuItems = (organizationId: string): TemplateMenuIt
     }
 ]
 
+// Function to generate storage menu items for a specific storage
+export const getStorageMenuItems = (storageId: string): TemplateMenuItem[] => [
+    {
+        id: 'storage-board',
+        titleKey: 'storageboard',
+        url: `/storage/${storageId}/board`,
+        icon: IconDatabase
+    },
+    {
+        id: 'storage-containers',
+        titleKey: 'containers',
+        url: `/storages/${storageId}/containers`,
+        icon: IconBoxMultiple
+    },
+    {
+        id: 'storage-slots',
+        titleKey: 'slots',
+        url: `/storages/${storageId}/slots`,
+        icon: IconFolder
+    },
+    {
+        id: 'storage-members',
+        titleKey: 'members',
+        url: `/storage/${storageId}/members`,
+        icon: IconUsers
+    }
+]
+
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',
@@ -238,6 +266,12 @@ export const rootMenuItems: TemplateMenuItem[] = [
         titleKey: 'organizations',
         url: '/organizations',
         icon: IconBuildingStore
+    },
+    {
+        id: 'storages',
+        titleKey: 'storages',
+        url: '/storages',
+        icon: IconDatabase
     },
     {
         id: 'profile',

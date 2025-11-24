@@ -11,6 +11,7 @@ import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
 import { useProjectName, truncateProjectName } from '../../hooks/useProjectName'
 import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
 import { useOrganizationName, truncateOrganizationName } from '../../hooks/useOrganizationName'
+import { useStorageName, truncateStorageName } from '../../hooks/useStorageName'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),
@@ -47,6 +48,11 @@ export default function NavbarBreadcrumbs() {
     const organizationId = organizationIdMatch ? organizationIdMatch[1] : null
     const organizationName = useOrganizationName(organizationId)
 
+    // Extract storageId from URL for dynamic name loading (both singular and plural routes)
+    const storageIdMatch = location.pathname.match(/^\/storages?\/([^/]+)/)
+    const storageId = storageIdMatch ? storageIdMatch[1] : null
+    const storageName = useStorageName(storageId)
+
     // Extract unikId from URL for dynamic name loading
     const unikIdMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const unikId = unikIdMatch ? unikIdMatch[1] : null
@@ -59,6 +65,7 @@ export default function NavbarBreadcrumbs() {
         clusters: 'clusters',
         projects: 'projects',
         organizations: 'organizations',
+        storages: 'storages',
         profile: 'profile',
         docs: 'docs',
         spaces: 'spaces'
@@ -283,6 +290,48 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('positions'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'storages') {
+            const items = [{ label: t(menuMap.storages), to: '/storages' }]
+
+            // Handle nested routes like /storages/:id/containers or /storages/:id/slots
+            if (segments[1] && storageName) {
+                items.push({
+                    label: truncateStorageName(storageName),
+                    to: `/storage/${segments[1]}/board`
+                })
+
+                // Sub-pages (containers, slots) - use keys from menu namespace
+                if (segments[2] === 'containers') {
+                    items.push({ label: t('containers'), to: location.pathname })
+                } else if (segments[2] === 'slots') {
+                    items.push({ label: t('slots'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'storage') {
+            const items = [{ label: t(menuMap.storages), to: '/storages' }]
+
+            if (segments[1] && storageName) {
+                // Use actual storage name with truncation for long names
+                items.push({
+                    label: truncateStorageName(storageName),
+                    to: `/storage/${segments[1]}/board`
+                })
+
+                // Sub-pages (board, members) - use keys from menu namespace
+                if (segments[2] === 'board') {
+                    items.push({ label: t('storageboard'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('members'), to: location.pathname })
                 }
             }
 

@@ -23,6 +23,7 @@ export type ClusterRole = BaseRole
 export type UnikRole = BaseRole
 export type ProjectRole = BaseRole
 export type OrganizationRole = BaseRole
+export type StorageRole = BaseRole
 export type SectionRole = Exclude<BaseRole, 'owner'> // Sections don't have separate owners
 export type EntityRole = 'viewer' | 'editor' // Entities have simpler roles
 
@@ -65,6 +66,10 @@ export function isValidProjectRole(role: string): role is ProjectRole {
 }
 
 export function isValidOrganizationRole(role: string): role is OrganizationRole {
+    return isValidRole(role)
+}
+
+export function isValidStorageRole(role: string): role is StorageRole {
     return isValidRole(role)
 }
 

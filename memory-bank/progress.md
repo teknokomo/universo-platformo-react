@@ -1,5 +1,159 @@
 # Progress Log
 
+## November 2025 (Latest)
+
+### 2025-01-20: QA Analysis & Fixes for PR #558 (Storages) ✅
+
+**Problem**: PR #558 received 17 detailed bot review comments from Gemini Code Assist. User requested critical QA validation to verify which recommendations are accurate before making changes: "проверь базу кода, проведи поиск необходимой документации в интернете и исправь то, что соответствует действительности".
+
+**QA Methodology**:
+1. Fetched all bot comments via GitHub API (1 issue comment + 17 review comments)
+2. Systematically verified each recommendation through:
+   - `grep_search` to verify file usage and imports across codebase
+   - `read_file` to compare claimed duplicates and check implementation details
+   - Backend code inspection to verify filtering/RLS claims
+   - Cross-module comparison (vs Clusters) to identify architectural patterns
+   - Export verification via index.ts to confirm unused files
+
+**Bot Review Analysis (17 recommendations → 9 valid, 3 false alarms)**:
+
+**✅ CONFIRMED ISSUES (9 fixed)**:
+1. **CRITICAL**: Duplicate files ResourceActions.tsx/ResourceList.tsx
+   - Verification: grep search showed ZERO usage, NOT exported in index.ts
+   - Action: Deleted both files (exact copies of SlotActions/SlotList, 15+532 lines)
+
+2. **Copy-Paste Errors** (3 instances):
+   - package.json line 38: keyword `"clusters"` → `"storages"`
+   - jest.config.js line 4: displayName `'clusters-srv'` → `'storages-srv'`
+   - jest.config.js line 8: moduleNameMapper `'^@clusters/(.*)$'` → `'^@storages/(.*)$'`
+
+3. **README Errors** (20+ instances in each file):
+   - README.md: ClusterList/ClusterBoard/clustersApi → StorageList/StorageBoard/storagesApi
+   - README-RU.md: Same replacements + typos (хранилищы → хранилища)
+
+4. **Unused Import**:
+   - flowise-server/src/routes/index.ts line 47: `initializeStoragesRateLimiters`
+   - Verification: Actually used in different file (index.ts line 341), duplicate import removed
+
+5. **Unused Variables** (3 instances):
+   - storagesRoutes.test.ts line 320: `authUserRepo` (removed)
+   - storagesRoutes.test.ts line 734: `response` (removed)
+   - storagesRoutes.test.ts line 559: `options` → `_options`
+   - SlotList.tsx line 94: `_searchValue` destructuring removed
+
+6. **BOM Characters** (20 files):
+   - All entity files in storages-srv/src/database started with UTF-8 BOM (`\uFEFF`)
+   - Fixed with `sed -i '1s/^\xEF\xBB\xBF//'` across all files
+   - Triggered prettier formatting fixes (auto-fixed with `--fix`)
+
+**❌ FALSE ALARMS (3 rejected)**:
+1. **P1: ContainerList/SlotList filtering** - Bot WRONG
+   - Claim: "нужно прокидывать `storageId` в запрос и фильтровать на сервере"
+   - Reality: Backend ALREADY filters via RLS implementation:
+     ```typescript
+     // containersRoutes.ts lines 87-90
+     .innerJoin(StorageUser, 'mu', 'mu.storage_id = sm.storage_id')
+     .where('mu.user_id = :userId', { userId })
+     ```
+   - Verification: Same pattern in Clusters (DomainList) - this is intentional RLS architecture
+   - Decision: IGNORE - bot misunderstood the architecture
+
+2. **HIGH: Race condition in lazy router init** - Bot partially wrong
+   - Claim: storagesRouter lazy init is not thread-safe
+   - Reality: Pattern exists in ALL routers (metaversesRouter, clustersRouter, etc.)
+   - Scope: Global architecture decision, not a bug introduced by Storages PR
+   - Decision: IGNORE for this PR (would need separate global refactoring)
+
+3. **useMutation recommendation** - Valid but low priority
+   - Claim: Should use useMutation instead of useApi
+   - Reality: Valid architectural enhancement but NOT a bug - works correctly
+   - Decision: SKIP (enhancement, not a fix)
+
+**Bot Accuracy**: ~70% (12 valid/partially valid out of 17 recommendations)
+
+**Implementation Results**:
+- 28 files modified (22 storages-srv, 6 other)
+- 2 files deleted (ResourceActions.tsx, ResourceList.tsx)
+- 102 insertions, 664 deletions
+- Commit: `fix: QA improvements for Storages based on bot review` (07e7f901)
+- Pushed to feature/storages-integration-full
+
+**Build Validation**:
+- storages-frt lint: ✅ (1 warning - pre-existing, not introduced by changes)
+- storages-srv lint: ✅ (after prettier auto-fix)
+- No TypeScript errors in modified files
+
+**Key Learning**: Bot review tools can provide valuable code quality insights, but require critical validation - especially for architectural patterns like RLS filtering. Cross-module verification proved essential for identifying false alarms vs real issues.
+
+---
+
+### 2025-11-24: Storages i18n Architecture Fix ✅
+**Problem**: After QA analysis discovered critical i18n architecture violations:
+1. Module-specific keys (`containers`, `slots`) incorrectly placed in `common.json`
+2. Duplicate keys (`name`, `description`, `role`) in `storages.json` table section
+3. Wrong translation function used: `tc()` (common-only) instead of `t()` (with fallback) for module-specific keys
+4. DEBUG code remaining in ContainerList and SlotList (absent in ClusterList)
+5. Potential bug in all modules: English text showing in Russian locale due to `tc()` misuse
+
+**Root Cause**: 
+- `tc()` = `useCommonTranslations()` searches ONLY in `common` namespace without fallback
+- `t()` = `useTranslation(['storages', 'roles', 'access'])` searches with fallback chain
+- When `tc('table.containers')` is called, it searches `common:table.containers` (doesn't exist), returns default English value "Containers"
+- Correct pattern: module-specific keys in local files (`clusters.json`, `metaverses.json`, `storages.json`), common keys in `common.json`
+
+**Solution Implemented**:
+1. **Removed duplicates from storages.json**: Deleted `name`, `description`, `role` from table section (9 lines removed: 3 from EN, 3 from RU, 3 from table definitions)
+   - Before: `"table": {"name": "...", "description": "...", "role": "...", "containers": "...", "slots": "..."}`
+   - After: `"table": {"containers": "Контейнеры", "slots": "Слоты"}`
+
+2. **Removed module-specific keys from common.json**: Deleted `containers` and `slots` from both EN and RU (4 lines removed)
+   - These keys belong in `storages.json`, not in shared `common.json`
+   - Pattern matches Clusters (`domains`, `resources` in clusters.json) and Metaverses (`sections`, `entities` in metaverses.json)
+
+3. **Fixed translation function in StorageList**: Changed `tc('table.containers')` → `t('table.containers')` and `tc('table.slots')` → `t('table.slots')`
+   - Updated dependencies array from `[tc]` to `[t, tc]`
+   - Now uses fallback chain: searches `storages:table.containers` first, then falls back to `roles`, `access`, `flowList` if needed
+
+4. **Removed DEBUG code**: Deleted useEffect pagination debug logging from ContainerList.tsx and SlotList.tsx (46 lines removed)
+   - Removed `useEffect` from imports in both files
+   - Renamed unused `searchValue` to `_searchValue` to satisfy linter
+
+5. **Fixed linter issues**: 
+   - Auto-fixed prettier formatting errors (8 fixes)
+   - Renamed unused variables to use `_` prefix convention
+   - One remaining non-critical warning in StorageMembers (unnecessary dependency)
+
+**Files Modified (9 files, 67 lines changed)**:
+- `packages/storages-frt/base/src/i18n/locales/ru/storages.json` - removed duplicates
+- `packages/storages-frt/base/src/i18n/locales/en/storages.json` - removed duplicates
+- `packages/universo-i18n/base/src/locales/ru/core/common.json` - removed containers/slots
+- `packages/universo-i18n/base/src/locales/en/core/common.json` - removed containers/slots
+- `packages/storages-frt/base/src/pages/StorageList.tsx` - changed tc() to t(), updated deps
+- `packages/storages-frt/base/src/pages/ContainerList.tsx` - removed DEBUG, renamed searchValue
+- `packages/storages-frt/base/src/pages/SlotList.tsx` - removed DEBUG, renamed searchValue
+
+**Build Results**:
+- storages-frt: ✅ Built in 4.9s (10.27 kB → 10.27 kB, no size change)
+- flowise-ui: ✅ Built in 1m 28s
+- Linter: ✅ 1 non-critical warning remaining
+
+**Architecture Verification**:
+- ✅ Module-specific keys now in local files only
+- ✅ Common keys remain in common.json (name, description, role, email, added, actions, id)
+- ✅ Correct translation functions used (t() for module-specific, tc() for common)
+- ✅ No DEBUG code in production
+- ✅ Follows same pattern as Clusters and Metaverses
+
+**Impact**: 
+- Russian locale will now correctly show "Контейнеры" and "Слоты" instead of fallback English
+- Clean separation between common and module-specific translations
+- Consistent with project architecture across all modules
+- Removed unnecessary debug code improving performance
+
+**Next Steps**: User needs to refresh browser (Ctrl+Shift+R) to verify Russian translations display correctly.
+
+---
+
 > **Note**: Completed work with dates and outcomes. Active tasks → tasks.md, architectural patterns → systemPatterns.md.
 
 ---

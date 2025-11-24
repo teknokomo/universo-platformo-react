@@ -8,6 +8,7 @@ import '@universo/metaverses-frt/i18n'
 import '@universo/clusters-frt/i18n'
 import '@universo/projects-frt/i18n'
 import '@universo/organizations-frt/i18n'
+import '@universo/storages-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
 
@@ -91,6 +92,18 @@ const DepartmentList = Loadable(lazy(() => import('@universo/organizations-frt/p
 const PositionList = Loadable(lazy(() => import('@universo/organizations-frt/pages/PositionList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const OrganizationMembers = Loadable(lazy(() => import('@universo/organizations-frt/pages/OrganizationMembers')))
+
+// Storage module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const StorageList = Loadable(lazy(() => import('@universo/storages-frt/pages/StorageList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const StorageBoard = Loadable(lazy(() => import('@universo/storages-frt/pages/StorageBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ContainerList = Loadable(lazy(() => import('@universo/storages-frt/pages/ContainerList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const SlotList = Loadable(lazy(() => import('@universo/storages-frt/pages/SlotList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const StorageMembers = Loadable(lazy(() => import('@universo/storages-frt/pages/StorageMembers')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile.jsx')))
 
@@ -505,6 +518,53 @@ const MainRoutesMUI = {
             element: (
                 <AuthGuard>
                     <PositionList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'storages',
+            element: <Outlet />, // ← CRITICAL: Required for nested routes to render children
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <StorageList />
+                        </AuthGuard>
+                    )
+                },
+                // Nested lists inside a specific storage
+                {
+                    path: ':storageId/containers',
+                    element: (
+                        <AuthGuard>
+                            <ContainerList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':storageId/slots',
+                    element: (
+                        <AuthGuard>
+                            <SlotList />
+                        </AuthGuard>
+                    )
+                }
+            ]
+        },
+        {
+            path: 'storage/:storageId/board',
+            element: (
+                <AuthGuard>
+                    <StorageBoard />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'storage/:storageId/members',
+            element: (
+                <AuthGuard>
+                    <StorageMembers />
                 </AuthGuard>
             )
         },

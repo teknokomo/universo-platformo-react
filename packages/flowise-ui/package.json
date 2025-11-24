@@ -34,6 +34,7 @@
         "@universo/i18n": "workspace:*",
         "@universo/metaverses-frt": "workspace:*",
         "@universo/organizations-frt": "workspace:*",
+        "@universo/storages-frt": "workspace:*",
         "@universo/publish-frt": "workspace:*",
         "@universo/space-builder-frt": "workspace:*",
         "@universo/spaces-frt": "workspace:*",
