@@ -6,18 +6,23 @@ import dashboard from '../../../../menu-items/dashboard'
 import unikDashboard from '@universo/uniks-frt/menu-items/unikDashboard'
 import { metaversesDashboard } from '@universo/metaverses-frt'
 import { clustersDashboard } from '@universo/clusters-frt'
+import { campaignsDashboard } from '@universo/campaigns-frt'
 
 const MenuList = () => {
     const location = useLocation()
     const unikMatch = location.pathname.match(/^\/unik\/([^/]+)/)
     const metaverseMatch = location.pathname.match(/^\/metaverses\/([^/]+)/)
     const metaverseId = metaverseMatch ? metaverseMatch[1] : null
-    const clusterMatch = location.pathname.match(/^\/clusters\/([^/]+)/)
+    const clusterMatch = location.pathname.match(/^\/clusters?\/([^/]+)/)
     const clusterId = clusterMatch ? clusterMatch[1] : null
+    const campaignMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
+    const campaignId = campaignMatch ? campaignMatch[1] : null
     const [metaversePermissions, setMetaversePermissions] = useState({})
     const [clusterPermissions, setClusterPermissions] = useState({})
+    const [campaignPermissions, setCampaignPermissions] = useState({})
     const knownMetaversePermission = metaverseId ? metaversePermissions[metaverseId] : undefined
     const knownClusterPermission = clusterId ? clusterPermissions[clusterId] : undefined
+    const knownCampaignPermission = campaignId ? campaignPermissions[campaignId] : undefined
 
     useEffect(() => {
         if (!metaverseId) {
@@ -104,6 +109,48 @@ const MenuList = () => {
         }
     }, [clusterId, knownClusterPermission])
 
+    useEffect(() => {
+        if (!campaignId) {
+            return
+        }
+        if (knownCampaignPermission !== undefined) {
+            return
+        }
+
+        let isActive = true
+
+        const fetchPermissions = async () => {
+            try {
+                const response = await api.$client.get(`/campaigns/${campaignId}`)
+
+                if (!isActive) return
+
+                setCampaignPermissions((prev) => ({
+                    ...prev,
+                    [campaignId]: Boolean(response?.data?.permissions?.manageMembers)
+                }))
+            } catch (error) {
+                if (!isActive) return
+
+                console.error('Failed to load campaign permissions', {
+                    campaignId,
+                    error
+                })
+
+                setCampaignPermissions((prev) => ({
+                    ...prev,
+                    [campaignId]: false
+                }))
+            }
+        }
+
+        fetchPermissions()
+
+        return () => {
+            isActive = false
+        }
+    }, [campaignId, knownCampaignPermission])
+
     let menuItems
     if (unikMatch) {
         const unikId = unikMatch[1]
@@ -151,10 +198,42 @@ const MenuList = () => {
 
         menuItems = {
             ...clustersDashboard,
-            children: filteredChildren.map((item) => ({
-                ...item,
-                url: `/clusters/${clusterId}${item.url}`
-            }))
+            children: filteredChildren.map((item) => {
+                // clusterboard (empty url) and access use singular /cluster/:id
+                // resources and domains use plural /clusters/:id/...
+                const useSingular = item.id === 'clusterboard' || item.id === 'access'
+                const prefix = useSingular ? `/cluster/${clusterId}` : `/clusters/${clusterId}`
+                return {
+                    ...item,
+                    url: `${prefix}${item.url}`
+                }
+            })
+        }
+    } else if (campaignMatch && campaignId) {
+        const filteredChildren = campaignsDashboard.children.filter((item) => {
+            if (item.id !== 'access') {
+                return true
+            }
+
+            if (knownCampaignPermission === undefined) {
+                return true
+            }
+
+            return Boolean(knownCampaignPermission)
+        })
+
+        menuItems = {
+            ...campaignsDashboard,
+            children: filteredChildren.map((item) => {
+                // campaignboard (empty url) and access use singular /campaign/:id
+                // events and activities use plural /campaigns/:id/...
+                const useSingular = item.id === 'campaignboard' || item.id === 'access'
+                const prefix = useSingular ? `/campaign/${campaignId}` : `/campaigns/${campaignId}`
+                return {
+                    ...item,
+                    url: `${prefix}${item.url}`
+                }
+            })
         }
     } else {
         menuItems = dashboard

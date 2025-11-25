@@ -1,8 +1,8 @@
 // Import required icons from @tabler/icons-react
-import { IconFiles, IconWorld, IconUser, IconFileText, IconFolder, IconDatabase } from '@tabler/icons-react'
+import { IconFiles, IconWorld, IconUser, IconFileText, IconFolder, IconDatabase, IconFlag } from '@tabler/icons-react'
 
 // Collect them in an icons object
-const icons = { IconFiles, IconWorld, IconUser, IconFileText, IconFolder, IconDatabase }
+const icons = { IconFiles, IconWorld, IconUser, IconFileText, IconFolder, IconDatabase, IconFlag }
 
 // ==============================|| MAIN DASHBOARD MENU ITEMS ||============================== //
 
@@ -33,6 +33,14 @@ const dashboard = {
             type: 'item',
             url: '/clusters',
             icon: icons.IconFolder,
+            breadcrumbs: false
+        },
+        {
+            id: 'campaigns',
+            title: 'menu:campaigns',
+            type: 'item',
+            url: '/campaigns',
+            icon: icons.IconFlag,
             breadcrumbs: false
         },
         {

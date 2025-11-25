@@ -67,7 +67,7 @@ import { clustersTranslations } from '@universo/clusters-frt'
 
 // Use in routes
 <Route path="/clusters" element={<ClusterList />} />
-<Route path="/clusters/:id/board" element={<ClusterBoard />} />
+<Route path="/cluster/:id/board" element={<ClusterBoard />} />
 ```
 
 ## Architecture
@@ -376,9 +376,9 @@ docs(readme): update installation guide
 ```
 
 ## Related Packages
-- [`@universo/clusters-srv`](../clusters-srv/base/README.md) - Backend service
-- [`@universo/template-mui`](../universo-template-mui/base/README.md) - UI components
-- [`@universo/types`](../universo-types/base/README.md) - Shared types
+- [`@universo/clusters-srv`](../../clusters-srv/base/README.md) - Backend service
+- [`@universo/template-mui`](../../universo-template-mui/base/README.md) - UI components
+- [`@universo/types`](../../universo-types/base/README.md) - Shared types
 
 ---
 *Part of [Universo Platformo](../../../README.md) - A comprehensive cluster management platform*

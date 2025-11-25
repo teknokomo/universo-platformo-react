@@ -16,6 +16,7 @@ import { Profile } from '@universo/profile-srv'
 import { metaversesEntities } from '@universo/metaverses-srv'
 import { clustersEntities } from '@universo/clusters-srv'
 import { projectsEntities } from '@universo/projects-srv'
+import { campaignsEntities } from '@universo/campaigns-srv'
 import { organizationsEntities } from '@universo/organizations-srv'
 import { storagesEntities } from '@universo/storages-srv'
 import { Space, Canvas, SpaceCanvas } from '@universo/spaces-srv'
@@ -27,6 +28,8 @@ const metaversesEntitiesObject = Object.fromEntries(metaversesEntities.map((enti
 const clustersEntitiesObject = Object.fromEntries(clustersEntities.map((entity) => [entity.name, entity]))
 
 const projectsEntitiesObject = Object.fromEntries(projectsEntities.map((entity) => [entity.name, entity]))
+
+const campaignsEntitiesObject = Object.fromEntries(campaignsEntities.map((entity) => [entity.name, entity]))
 
 const organizationsEntitiesObject = Object.fromEntries(organizationsEntities.map((entity) => [entity.name, entity]))
 
@@ -51,6 +54,8 @@ export const entities = {
     ...clustersEntitiesObject,
     // Projects service entities
     ...projectsEntitiesObject,
+    // Campaigns service entities
+    ...campaignsEntitiesObject,
     // Organizations service entities
     ...organizationsEntitiesObject,
     // Storages service entities

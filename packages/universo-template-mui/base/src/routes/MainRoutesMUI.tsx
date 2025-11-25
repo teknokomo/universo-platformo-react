@@ -7,6 +7,7 @@ import '@universo/uniks-frt/i18n'
 import '@universo/metaverses-frt/i18n'
 import '@universo/clusters-frt/i18n'
 import '@universo/projects-frt/i18n'
+import '@universo/campaigns-frt/i18n'
 import '@universo/organizations-frt/i18n'
 import '@universo/storages-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
@@ -80,6 +81,18 @@ const MilestoneList = Loadable(lazy(() => import('@universo/projects-frt/pages/M
 const TaskList = Loadable(lazy(() => import('@universo/projects-frt/pages/TaskList')))
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
 const ProjectMembers = Loadable(lazy(() => import('@universo/projects-frt/pages/ProjectMembers')))
+
+// Campaign module components
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const CampaignList = Loadable(lazy(() => import('@universo/campaigns-frt/pages/CampaignList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const CampaignBoard = Loadable(lazy(() => import('@universo/campaigns-frt/pages/CampaignBoard')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const EventList = Loadable(lazy(() => import('@universo/campaigns-frt/pages/EventList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const ActivityList = Loadable(lazy(() => import('@universo/campaigns-frt/pages/ActivityList')))
+// @ts-expect-error - Source-only imports resolved at runtime by bundler
+const CampaignMembers = Loadable(lazy(() => import('@universo/campaigns-frt/pages/CampaignMembers')))
 
 // Organization module components
 // @ts-expect-error - Source-only imports resolved at runtime by bundler
@@ -447,6 +460,77 @@ const MainRoutesMUI = {
             element: (
                 <AuthGuard>
                     <TaskList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'campaigns',
+            element: <Outlet />, // ← CRITICAL: Required for nested routes to render children
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <CampaignList />
+                        </AuthGuard>
+                    )
+                },
+                // Nested lists inside a specific campaign
+                {
+                    path: ':campaignId/events',
+                    element: (
+                        <AuthGuard>
+                            <EventList />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: ':campaignId/activities',
+                    element: (
+                        <AuthGuard>
+                            <ActivityList />
+                        </AuthGuard>
+                    )
+                }
+            ]
+        },
+        {
+            path: 'campaign/:campaignId',
+            element: (
+                <AuthGuard>
+                    <CampaignBoard />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'campaign/:campaignId/members',
+            element: (
+                <AuthGuard>
+                    <CampaignMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'campaign/:campaignId/access',
+            element: (
+                <AuthGuard>
+                    <CampaignMembers />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'events',
+            element: (
+                <AuthGuard>
+                    <EventList />
+                </AuthGuard>
+            )
+        },
+        {
+            path: 'activities',
+            element: (
+                <AuthGuard>
+                    <ActivityList />
                 </AuthGuard>
             )
         },

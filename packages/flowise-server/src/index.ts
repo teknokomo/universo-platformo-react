@@ -29,6 +29,7 @@ import { passport, createAuthRouter } from '@universo/auth-srv'
 import { initializeRateLimiters } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters } from '@universo/projects-srv'
+import { initializeRateLimiters as initializeCampaignsRateLimiters } from '@universo/campaigns-srv'
 import { initializeRateLimiters as initializeOrganizationsRateLimiters } from '@universo/organizations-srv'
 import { initializeRateLimiters as initializeStoragesRateLimiters } from '@universo/storages-srv'
 import errorHandlerMiddleware from './middlewares/errors'
@@ -333,6 +334,9 @@ export class App {
 
         // Initialize rate limiters for projects service
         await initializeProjectsRateLimiters()
+
+        // Initialize rate limiters for campaigns service
+        await initializeCampaignsRateLimiters()
 
         // Initialize rate limiters for organizations service
         await initializeOrganizationsRateLimiters()

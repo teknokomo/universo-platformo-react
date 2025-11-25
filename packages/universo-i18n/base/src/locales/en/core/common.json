@@ -2,6 +2,7 @@
   "common": {
     "loading": "Loading...",
     "notFound": "Global Workspace Not Found",
+    "noEmail": "No email",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
