@@ -9,6 +9,7 @@ import { useLocation, NavLink } from 'react-router-dom'
 import { useMetaverseName, truncateMetaverseName } from '../../hooks/useMetaverseName'
 import { useClusterName, truncateClusterName } from '../../hooks/useClusterName'
 import { useProjectName, truncateProjectName } from '../../hooks/useProjectName'
+import { useCampaignName, truncateCampaignName } from '../../hooks/useCampaignName'
 import { useUnikName, truncateUnikName } from '../../hooks/useUnikName'
 import { useOrganizationName, truncateOrganizationName } from '../../hooks/useOrganizationName'
 import { useStorageName, truncateStorageName } from '../../hooks/useStorageName'
@@ -43,6 +44,11 @@ export default function NavbarBreadcrumbs() {
     const projectId = projectIdMatch ? projectIdMatch[1] : null
     const projectName = useProjectName(projectId)
 
+    // Extract campaignId from URL for dynamic name loading (both singular and plural routes)
+    const campaignIdMatch = location.pathname.match(/^\/campaigns?\/([^/]+)/)
+    const campaignId = campaignIdMatch ? campaignIdMatch[1] : null
+    const campaignName = useCampaignName(campaignId)
+
     // Extract organizationId from URL for dynamic name loading (both singular and plural routes)
     const organizationIdMatch = location.pathname.match(/^\/organizations?\/([^/]+)/)
     const organizationId = organizationIdMatch ? organizationIdMatch[1] : null
@@ -64,6 +70,7 @@ export default function NavbarBreadcrumbs() {
         metaverses: 'metaverses',
         clusters: 'clusters',
         projects: 'projects',
+        campaigns: 'campaigns',
         organizations: 'organizations',
         storages: 'storages',
         profile: 'profile',
@@ -242,6 +249,52 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('milestones'), to: location.pathname })
                 } else if (segments[2] === 'tasks') {
                     items.push({ label: t('tasks'), to: location.pathname })
+                } else if (segments[2] === 'members') {
+                    items.push({ label: t('access'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'campaigns') {
+            const items = [{ label: t(menuMap.campaigns), to: '/campaigns' }]
+
+            // Handle nested routes like /campaigns/:id/events or /campaigns/:id/activities
+            if (segments[1] && campaignName) {
+                items.push({
+                    label: truncateCampaignName(campaignName),
+                    to: `/campaign/${segments[1]}`
+                })
+
+                // Sub-pages (events, activities) - use keys from menu namespace
+                if (segments[2] === 'events') {
+                    items.push({ label: t('events'), to: location.pathname })
+                } else if (segments[2] === 'activities') {
+                    items.push({ label: t('activities'), to: location.pathname })
+                }
+            }
+
+            return items
+        }
+
+        if (primary === 'campaign') {
+            const items = [{ label: t(menuMap.campaigns), to: '/campaigns' }]
+
+            if (segments[1] && campaignName) {
+                // Use actual campaign name with truncation for long names
+                items.push({
+                    label: truncateCampaignName(campaignName),
+                    to: `/campaign/${segments[1]}`
+                })
+
+                // Sub-pages (access, events, activities) - use keys from menu namespace
+                if (segments[2] === 'access') {
+                    items.push({ label: t('access'), to: location.pathname })
+                } else if (segments[2] === 'events') {
+                    items.push({ label: t('events'), to: location.pathname })
+                } else if (segments[2] === 'activities') {
+                    items.push({ label: t('activities'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
                 }

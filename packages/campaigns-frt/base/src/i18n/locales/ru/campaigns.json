@@ -1,0 +1,124 @@
+﻿{
+    "campaigns": {
+        "noEmail": "Нет email",
+        "title": "Кампании",
+        "searchPlaceholder": "Поиск кампаний...",
+        "noCampaignsFound": "Кампании не найдены",
+        "createCampaign": "Создать кампанию",
+        "editTitle": "Редактировать кампанию",
+        "confirmDelete": "Удалить кампанию?",
+        "confirmDeleteDescription": "Вы уверены, что хотите удалить кампанию \"{{name}}\"?",
+        "deleteSuccess": "Кампания успешно удалена",
+        "deleteError": "Не удалось удалить кампанию",
+        "saveError": "Не удалось сохранить кампанию",
+        "errors": {
+            "invalidCampaign": "Неверная кампания",
+            "pleaseSelectCampaign": "Пожалуйста, выберите кампанию из списка"
+        },
+        "actions": {
+            "edit": "Редактировать",
+            "delete": "Удалить",
+            "backToList": "Назад к кампаниям"
+        },
+        "board": {
+            "title": "Панель кампании",
+            "description": "Здесь будет аналитика и статистика кампании (в разработке)",
+            "defaultDescription": "Аналитика и статистика кампании",
+            "overview": "Обзор",
+            "stats": {
+                "events": {
+                    "title": "Мероприятия",
+                    "interval": "За всё время",
+                    "description": "Всего мероприятий в этой кампании"
+                },
+                "activities": {
+                    "title": "Активности",
+                    "interval": "За всё время",
+                    "description": "Всего активностей во всех мероприятиях"
+                },
+                "members": {
+                    "title": "Участники",
+                    "interval": "За всё время",
+                    "description": "Пользователи с доступом к этой кампании"
+                }
+            },
+            "documentation": {
+                "title": "Изучить документацию",
+                "description": "Узнайте о возможностях кампаний, API и лучших практиках",
+                "button": "Открыть документацию"
+            },
+            "charts": {
+                "activity": {
+                    "title": "Активность пользователей",
+                    "interval": "Последние 30 дней",
+                    "description": "Метрики активности (демо данные - в разработке)"
+                },
+                "activities": {
+                    "title": "Активности",
+                    "interval": "Последние 6 месяцев",
+                    "description": "Использование активностей (демо данные - в разработке)"
+                }
+            },
+            "loading": "Загрузка дашборда...",
+            "error": "Не удалось загрузить данные дашборда"
+        },
+        "detail": {
+            "title": "Детали кампании"
+        },
+        "table": {
+            "events": "Мероприятия",
+            "activities": "Активности"
+        },
+        "events": {
+            "title": "Мероприятия",
+            "searchPlaceholder": "Поиск мероприятий...",
+            "noEventsFound": "Мероприятия не найдены",
+            "createEvent": "Создать мероприятие",
+            "editTitle": "Редактировать мероприятие",
+            "confirmDelete": "Удалить мероприятие?",
+            "confirmDeleteDescription": "Вы уверены, что хотите удалить мероприятие \"{{name}}\"? Все активности в этом мероприятии также будут удалены.",
+            "deleteSuccess": "Мероприятие успешно удалено",
+            "deleteError": "Не удалось удалить мероприятие",
+            "saveError": "Не удалось сохранить мероприятие",
+            "activityCount_one": "{{count}} активность",
+            "activityCount_few": "{{count}} активности",
+            "activityCount_many": "{{count}} активностей",
+            "activityCount_other": "{{count}} активностей",
+            "actions": {
+                "edit": "Редактировать мероприятие",
+                "delete": "Удалить мероприятие"
+            },
+            "table": {
+                "description": "Описание",
+                "activities": "Активности"
+            }
+        },
+        "activities": {
+            "title": "Активности",
+            "searchPlaceholder": "Поиск активностей...",
+            "noActivitiesFound": "Активности не найдены",
+            "createActivity": "Создать активность",
+            "editTitle": "Редактировать активность",
+            "confirmDelete": "Удалить активность?",
+            "confirmDeleteDescription": "Вы уверены, что хотите удалить активность \"{{name}}\"?",
+            "deleteSuccess": "Активность успешно удалена",
+            "deleteError": "Не удалось удалить активность",
+            "saveError": "Не удалось сохранить активность",
+            "eventLabel": "Мероприятие",
+            "noEventsAvailable": "Нет доступных мероприятий",
+            "errors": {
+                "eventRequired": "Мероприятие обязательно"
+            },
+            "actions": {
+                "edit": "Редактировать активность",
+                "delete": "Удалить активность"
+            },
+            "table": {
+                "description": "Описание"
+            }
+        },
+        "members": {
+            "userAlreadyMember": "Пользователь с email \"{{email}}\" уже имеет доступ к этой кампании."
+        }
+    }
+}

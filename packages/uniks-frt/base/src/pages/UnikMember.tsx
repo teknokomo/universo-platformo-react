@@ -433,7 +433,7 @@ const UnikMembers = () => {
                                                 key={member.id}
                                                 data={{
                                                     ...member,
-                                                    name: member.email || t('noEmail'),
+                                                    name: member.email || tc('noEmail'),
                                                     description: [member.nickname, member.comment].filter(Boolean).join('\n') || undefined
                                                 }}
                                                 images={images[member.id] || []}

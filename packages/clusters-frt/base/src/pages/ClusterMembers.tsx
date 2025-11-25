@@ -75,7 +75,7 @@ interface ConfirmSpec {
 const ClusterMembers = () => {
     const { clusterId } = useParams<{ clusterId: string }>()
     const { user } = useAuth()
-    const { t, i18n } = useTranslation(['clusters', 'roles', 'common', 'flowList'])
+    const { i18n } = useTranslation(['clusters', 'roles', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
@@ -428,7 +428,7 @@ const ClusterMembers = () => {
                                                 key={member.id}
                                                 data={{
                                                     ...member,
-                                                    name: member.email || t('noEmail'),
+                                                    name: member.email || tc('noEmail'),
                                                     description: [member.nickname, member.comment].filter(Boolean).join('\n') || undefined
                                                 }}
                                                 images={images[member.id] || []}

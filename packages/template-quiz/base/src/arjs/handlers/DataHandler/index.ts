@@ -2600,9 +2600,11 @@ export class DataHandler {
                 console.log('[NodeQuiz] Quiz finished');
                 ${timerConfig?.enabled ? 'if (quizState.timerInterval) clearInterval(quizState.timerInterval);' : ''}
                 saveLeadDataToSupabase(quizState.leadData, quizState.points, 'nodes-finish');
-                container.innerHTML = \`<div style="color: white; text-align: center; font-size: 20px; padding: 40px;">Квиз завершён!<br>${
-                    showPoints ? 'Ваши баллы: ' + quizState.points : ''
-                }</div>\`;
+                ${
+                    showPoints
+                        ? "container.innerHTML = '<div style=\"color: white; text-align: center; font-size: 20px; padding: 40px;\">Квиз завершён!<br>Ваши баллы: ' + quizState.points + '</div>';"
+                        : "container.innerHTML = '<div style=\"color: white; text-align: center; font-size: 20px; padding: 40px;\">Квиз завершён!</div>';"
+                }
             }
             function shuffleArray(array) {
                 for (let i = array.length - 1; i > 0; i--) {

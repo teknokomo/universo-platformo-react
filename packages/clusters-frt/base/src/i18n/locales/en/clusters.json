@@ -65,8 +65,6 @@
             "title": "Cluster Details"
         },
         "table": {
-            "description": "Description",
-            "role": "Role",
             "domains": "Domains",
             "resources": "Resources"
         },

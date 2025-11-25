@@ -16,7 +16,8 @@ import {
     IconApi,
     IconDatabase,
     IconRobot,
-    IconChartBar
+    IconChartBar,
+    IconFlag
 } from '@tabler/icons-react'
 
 export interface TemplateMenuItem {
@@ -236,6 +237,34 @@ export const getStorageMenuItems = (storageId: string): TemplateMenuItem[] => [
     }
 ]
 
+// Function to generate campaign menu items for a specific campaign
+export const getCampaignMenuItems = (campaignId: string): TemplateMenuItem[] => [
+    {
+        id: 'campaign-board',
+        titleKey: 'campaignboard',
+        url: `/campaign/${campaignId}`,
+        icon: IconFlag
+    },
+    {
+        id: 'campaign-events',
+        titleKey: 'events',
+        url: `/campaigns/${campaignId}/events`,
+        icon: IconHierarchy3
+    },
+    {
+        id: 'campaign-activities',
+        titleKey: 'activities',
+        url: `/campaigns/${campaignId}/activities`,
+        icon: IconBoxMultiple
+    },
+    {
+        id: 'campaign-access',
+        titleKey: 'access',
+        url: `/campaign/${campaignId}/access`,
+        icon: IconUsers
+    }
+]
+
 export const rootMenuItems: TemplateMenuItem[] = [
     {
         id: 'uniks',
@@ -272,6 +301,12 @@ export const rootMenuItems: TemplateMenuItem[] = [
         titleKey: 'storages',
         url: '/storages',
         icon: IconDatabase
+    },
+    {
+        id: 'campaigns',
+        titleKey: 'campaigns',
+        url: '/campaigns',
+        icon: IconFlag
     },
     {
         id: 'profile',

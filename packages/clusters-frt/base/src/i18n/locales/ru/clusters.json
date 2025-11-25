@@ -65,8 +65,6 @@
             "title": "Детали кластера"
         },
         "table": {
-            "description": "Описание",
-            "role": "Роль",
             "domains": "Домены",
             "resources": "Ресурсы"
         },

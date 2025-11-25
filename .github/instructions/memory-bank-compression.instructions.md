@@ -8,6 +8,7 @@ description: 'Compression strategies and validation rules for Memory Bank files'
 ## 🎯 Compression Objectives
 
 **Core Principles:**
+
 1. **Information Density**: Maximize knowledge per line
 2. **Zero Loss**: Preserve all critical technical information
 3. **DRY Compliance**: Eliminate duplication across files
@@ -15,13 +16,80 @@ description: 'Compression strategies and validation rules for Memory Bank files'
 5. **Traceability**: Always provide links to detailed sources
 
 **Target Sizes:**
-- `activeContext.md`: ≤100 lines (focus: current work only)
-- `tasks.md`: ≤500 lines (focus: active + recent tasks)
-- `progress.md`: ≤500 lines (focus: version table + 3-month history)
-- `systemPatterns.md`: ≤500 lines (focus: reusable patterns)
-- `techContext.md`: ≤300 lines (usually within limit)
-- `productContext.md`: ≤300 lines (usually within limit)
-- `projectbrief.md`: ≤300 lines (usually within limit)
+
+-   `activeContext.md`: ≤100 lines (focus: current work only)
+-   `tasks.md`: ≤500 lines (focus: active + recent tasks)
+-   `progress.md`: ≤500 lines (focus: version table + 3-month history)
+-   `systemPatterns.md`: ≤500 lines (focus: reusable patterns)
+-   `techContext.md`: ≤300 lines (usually within limit)
+-   `productContext.md`: ≤300 lines (usually within limit)
+-   `projectbrief.md`: ≤300 lines (usually within limit)
+
+---
+
+## ⚠️ CRITICAL: Compression Trigger Rules
+
+**IMPORTANT**: Compression is NOT automatic. Apply compression ONLY when needed.
+
+### When to Compress (Trigger Conditions)
+
+**DO Compress**:
+
+-   File exceeds its target size limit (see Target Sizes above)
+-   User explicitly requests compression
+
+**DO NOT Compress**:
+
+-   File is already WITHIN the target size limit
+-   Example: `tasks.md` at 441 lines with 500-line limit → NO compression needed
+
+### Minimum Size After Compression
+
+**Rule**: After compression, file size must be at least **80% of the target limit**.
+
+| File                | Target Limit | Minimum After Compression |
+| ------------------- | ------------ | ------------------------- |
+| `activeContext.md`  | ≤100 lines   | ≥80 lines                 |
+| `tasks.md`          | ≤500 lines   | ≥400 lines                |
+| `progress.md`       | ≤500 lines   | ≥400 lines                |
+| `systemPatterns.md` | ≤500 lines   | ≥400 lines                |
+| `techContext.md`    | ≤300 lines   | ≥240 lines                |
+| `productContext.md` | ≤300 lines   | ≥240 lines                |
+| `projectbrief.md`   | ≤300 lines   | ≥240 lines                |
+
+**Rationale**: Over-compression loses valuable historical context. Memory Bank should retain enough detail to be useful for future AI sessions.
+
+### Compression Decision Flowchart
+
+```
+1. Check file size
+   ↓
+2. Is file > target limit?
+   ├─ NO → Skip compression (file is healthy)
+   └─ YES → Continue to step 3
+   ↓
+3. Calculate compression target:
+   - Upper bound: target limit (e.g., 500)
+   - Lower bound: 80% of limit (e.g., 400)
+   ↓
+4. Compress to fit within [lower bound, upper bound]
+   - Prioritize keeping recent content (last 3 months)
+   - Remove oldest detailed entries first
+   - Never go below minimum threshold
+```
+
+### Pre-Compression Diagnostic
+
+Before any compression work, run diagnostic:
+
+```bash
+wc -l memory-bank/{activeContext,tasks,progress,systemPatterns}.md
+```
+
+Report which files need compression:
+
+-   ✅ Within limit → "No compression needed"
+-   ⚠️ Exceeds limit → "Compression required (current: X, limit: Y)"
 
 ---
 
@@ -30,30 +98,34 @@ description: 'Compression strategies and validation rules for Memory Bank files'
 **Location**: Top of `progress.md` (before all other content)
 
 **API Endpoint**:
+
 ```
 GET https://api.github.com/repos/teknokomo/universo-platformo-react/releases
 ```
 
 **Required Fields**:
-- `tag_name` → Release column
-- `published_at` → Date column (format: YYYY-MM-DD)
-- `name` → Codename column
-- `body` (first paragraph) → Highlights column
+
+-   `tag_name` → Release column
+-   `published_at` → Date column (format: YYYY-MM-DD)
+-   `name` → Codename column
+-   `body` (first paragraph) → Highlights column
 
 **Table Format** (preserve exactly):
+
 ```markdown
-| Release | Date | Codename | Highlights |
-|---------|------|----------|------------|
+| Release      | Date       | Codename       | Highlights                     |
+| ------------ | ---------- | -------------- | ------------------------------ |
 | 0.34.0-alpha | 2025-10-23 | Black Hole ☕️ | Global monorepo refactoring... |
 ```
 
 **Fallback Strategy**:
 If API fails (rate limit, network error, authentication):
+
 1. Keep existing table unchanged
 2. Add HTML comment after table:
-   ```markdown
-   <!-- Last auto-update attempt: YYYY-MM-DD HH:MM, Status: [error message] -->
-   ```
+    ```markdown
+    <!-- Last auto-update attempt: YYYY-MM-DD HH:MM, Status: [error message] -->
+    ```
 3. Continue with compression workflow
 4. Report API failure in final summary
 
@@ -68,31 +140,36 @@ If API fails (rate limit, network error, authentication):
 **Compression Rules**:
 
 **DELETE Completely**:
-- All "Previous Focus" sections older than 1 week
-- Detailed implementation logs (move summaries to progress.md)
-- Completed work fully documented in progress.md
-- Build verification details (keep outcome only)
-- File modification lists (keep counts only: "Modified N files")
+
+-   All "Previous Focus" sections older than 1 week
+-   Detailed implementation logs (move summaries to progress.md)
+-   Completed work fully documented in progress.md
+-   Build verification details (keep outcome only)
+-   File modification lists (keep counts only: "Modified N files")
 
 **CONDENSE to 3-5 bullets**:
-- Current Focus section → key achievements + next step
-- Each bullet: 1 line max
-- Format:
-  ```markdown
-  ## Current Focus: [Feature] - [Status]
-  - Fixed [issue] via [solution] (YYYY-MM-DD)
-  - Completed [task], affected N files
-  - Next: [immediate action required]
-  ```
+
+-   Current Focus section → key achievements + next step
+-   Each bullet: 1 line max
+-   Format:
+    ```markdown
+    ## Current Focus: [Feature] - [Status]
+
+    -   Fixed [issue] via [solution] (YYYY-MM-DD)
+    -   Completed [task], affected N files
+    -   Next: [immediate action required]
+    ```
 
 **PRESERVE**:
-- Current blockers (if any)
-- Immediate next steps (if work in progress)
-- Critical context for ongoing work
+
+-   Current blockers (if any)
+-   Immediate next steps (if work in progress)
+-   Critical context for ongoing work
 
 **ARCHIVE to progress.md**:
-- Move "Previous Focus" summaries to progress.md if not there
-- Keep only completion date + 1-line outcome
+
+-   Move "Previous Focus" summaries to progress.md if not there
+-   Keep only completion date + 1-line outcome
 
 ---
 
@@ -103,35 +180,41 @@ If API fails (rate limit, network error, authentication):
 **Compression Rules**:
 
 **KEEP Unchanged**:
-- All `[ ]` unchecked tasks (active work)
-- All `[x]` tasks from last 14 days
-- Task hierarchy (sections like "🔥 CRITICAL", "Phase 1", etc.)
-- Checklists for ongoing work
+
+-   All `[ ]` unchecked tasks (active work)
+-   All `[x]` tasks from last 14 days
+-   Task hierarchy (sections like "🔥 CRITICAL", "Phase 1", etc.)
+-   Checklists for ongoing work
 
 **CONDENSE (Last 2 months)**:
-- Completed tasks 15-60 days old → summary format:
-  ```markdown
-  ## [Feature Name] - Complete ✅ (YYYY-MM-DD)
-  - Main outcome 1 (1 line)
-  - Main outcome 2 (1 line)
-  - Details: progress.md#YYYY-MM-DD-feature-name
-  ```
-- Remove verbose "Files Modified" lists → "Modified N files"
-- Remove detailed implementation steps → keep outcomes only
-- Remove build logs → "Build: ✅ All packages successful"
+
+-   Completed tasks 15-60 days old → summary format:
+    ```markdown
+    ## [Feature Name] - Complete ✅ (YYYY-MM-DD)
+
+    -   Main outcome 1 (1 line)
+    -   Main outcome 2 (1 line)
+    -   Details: progress.md#YYYY-MM-DD-feature-name
+    ```
+-   Remove verbose "Files Modified" lists → "Modified N files"
+-   Remove detailed implementation steps → keep outcomes only
+-   Remove build logs → "Build: ✅ All packages successful"
 
 **ARCHIVE to progress.md** (>2 months old):
-- Move entire completed task sections to progress.md
-- Replace with single reference line:
-  ```markdown
-  ## [2025-08] Historical Tasks ✅
-  - See progress.md for completed tasks before 2025-09
-  ```
+
+-   Move entire completed task sections to progress.md
+-   Replace with single reference line:
+    ```markdown
+    ## [2025-08] Historical Tasks ✅
+
+    -   See progress.md for completed tasks before 2025-09
+    ```
 
 **REMOVE Completely**:
-- Duplicate pattern descriptions (link to systemPatterns.md instead)
-- Obsolete/cancelled tasks marked as deprecated
-- Temporary debugging tasks (if issue resolved)
+
+-   Duplicate pattern descriptions (link to systemPatterns.md instead)
+-   Obsolete/cancelled tasks marked as deprecated
+-   Temporary debugging tasks (if issue resolved)
 
 ---
 
@@ -144,34 +227,40 @@ If API fails (rate limit, network error, authentication):
 **Compression Rules**:
 
 **PRESERVE Unchanged**:
-- Version history table (all releases)
-- Section: "## ⚠️ IMPORTANT: Version History Table"
-- Last 3 months of entries (full detail)
+
+-   Version history table (all releases)
+-   Section: "## ⚠️ IMPORTANT: Version History Table"
+-   Last 3 months of entries (full detail)
 
 **CONDENSE 50%** (3-6 months old):
-- Remove "Files Modified" detailed lists → "Modified N files (X backend, Y frontend)"
-- Remove verbose "What was completed" paragraphs → bullet list
-- Remove duplicate pattern descriptions → "Pattern: systemPatterns.md#link"
-- Remove build verification details → "Build: ✅ Success (Xm Ys)"
-- Keep dates, outcomes, critical metrics
+
+-   Remove "Files Modified" detailed lists → "Modified N files (X backend, Y frontend)"
+-   Remove verbose "What was completed" paragraphs → bullet list
+-   Remove duplicate pattern descriptions → "Pattern: systemPatterns.md#link"
+-   Remove build verification details → "Build: ✅ Success (Xm Ys)"
+-   Keep dates, outcomes, critical metrics
 
 **ARCHIVE 90%** (>6 months old):
-- Major features → 1-2 lines summary:
-  ```markdown
-  ### 2025-MM-DD: [Feature Name] ✅
-  - [Main outcome]. Files: N. Pattern: systemPatterns.md#link
-  ```
-- Group by month if multiple small features:
-  ```markdown
-  ### 2025-MM: [Month Name] Summary ✅
-  - Feature A (outcome)
-  - Feature B (outcome)
-  ```
+
+-   Major features → 1-2 lines summary:
+    ```markdown
+    ### 2025-MM-DD: [Feature Name] ✅
+
+    -   [Main outcome]. Files: N. Pattern: systemPatterns.md#link
+    ```
+-   Group by month if multiple small features:
+    ```markdown
+    ### 2025-MM: [Month Name] Summary ✅
+
+    -   Feature A (outcome)
+    -   Feature B (outcome)
+    ```
 
 **REMOVE Completely**:
-- Duplicate sections (merge if content overlaps)
-- Temporary notes marked as "TODO" (if already done)
-- Broken reference links (fix or remove)
+
+-   Duplicate sections (merge if content overlaps)
+-   Temporary notes marked as "TODO" (if already done)
+-   Broken reference links (fix or remove)
 
 **Chronological Order**: Newest first, oldest last
 
@@ -184,38 +273,44 @@ If API fails (rate limit, network error, authentication):
 **Compression Rules**:
 
 **KEEP Full**:
-- Pattern titles (all)
-- Core rule descriptions (what, why, when)
-- CRITICAL patterns (preserve in detail):
-  * Source-Only Package PeerDependencies
-  * RLS Integration Pattern
-  * i18n Architecture
-  * Universal List Pattern
-  * React StrictMode Pattern
+
+-   Pattern titles (all)
+-   Core rule descriptions (what, why, when)
+-   CRITICAL patterns (preserve in detail):
+    -   Source-Only Package PeerDependencies
+    -   RLS Integration Pattern
+    -   i18n Architecture
+    -   Universal List Pattern
+    -   React StrictMode Pattern
 
 **CONDENSE**:
-- Code examples → 1 representative snippet (remove variations)
-- Remove "Before/After" duplicate examples → keep 1 illustrative pair
-- "Why This Matters" → 1-2 sentences if not self-evident
-- Detection checklists → command examples only
-- Common symptoms → bullet list (remove paragraphs)
+
+-   Code examples → 1 representative snippet (remove variations)
+-   Remove "Before/After" duplicate examples → keep 1 illustrative pair
+-   "Why This Matters" → 1-2 sentences if not self-evident
+-   Detection checklists → command examples only
+-   Common symptoms → bullet list (remove paragraphs)
 
 **MERGE**:
-- Similar sub-patterns into parent pattern
-- Example: Pagination sub-patterns → single "Pagination Patterns" section
+
+-   Similar sub-patterns into parent pattern
+-   Example: Pagination sub-patterns → single "Pagination Patterns" section
 
 **SHORTEN**:
-- Historical bug examples → git reference:
-  ```markdown
-  **Example**: See git commit abc123 (YYYY-MM-DD) for [bug name] fix
-  ```
-- Verification checklists → essential steps only
+
+-   Historical bug examples → git reference:
+    ```markdown
+    **Example**: See git commit abc123 (YYYY-MM-DD) for [bug name] fix
+    ```
+-   Verification checklists → essential steps only
 
 **EXTERNAL LINKS**:
-- Replace long React/TypeScript explanations → official docs links
-- Example: "See [React docs](https://react.dev/...)" instead of long explanation
+
+-   Replace long React/TypeScript explanations → official docs links
+-   Example: "See [React docs](https://react.dev/...)" instead of long explanation
 
 **Standard Pattern Structure**:
+
 ```markdown
 ## [Pattern Name] [(CRITICAL)]
 
@@ -234,52 +329,80 @@ If API fails (rate limit, network error, authentication):
 **Scoring System** (2 points each criterion):
 
 ### 1. Size Compliance (2 pts)
-✅ **2 points**: All target files within line limits
-⚠️ **1 point**: 1 file over limit by <20%
-❌ **0 points**: 2+ files over limit OR any file >20% over
+
+✅ **2 points**: All criteria met:
+
+-   Files within target limits (upper bound)
+-   Compressed files ≥80% of limit (lower bound) — no over-compression
+-   Files already within limit were NOT unnecessarily compressed
+
+⚠️ **1 point**:
+
+-   1 file slightly over limit (<20% over) OR
+-   1 file over-compressed (<80% of limit but >60%)
+
+❌ **0 points**:
+
+-   2+ files over limit OR any file >20% over OR
+-   Any file over-compressed to <60% of limit OR
+-   Unnecessary compression of files already within limits
 
 **Verification**:
+
 ```bash
 # Linux/Mac
 wc -l memory-bank/{activeContext,tasks,progress,systemPatterns}.md
 
 # Windows PowerShell
-Get-ChildItem memory-bank\*.md | ForEach-Object { 
-  [PSCustomObject]@{File=$_.Name; Lines=(Get-Content $_.FullName | Measure-Object -Line).Lines} 
+Get-ChildItem memory-bank\*.md | ForEach-Object {
+  [PSCustomObject]@{File=$_.Name; Lines=(Get-Content $_.FullName | Measure-Object -Line).Lines}
 }
 ```
+
+**Size Check Table**:
+| File | Upper Limit | Lower Limit (80%) | Status |
+|------|-------------|-------------------|--------|
+| activeContext.md | ≤100 | ≥80 | ? |
+| tasks.md | ≤500 | ≥400 | ? |
+| progress.md | ≤500 | ≥400 | ? |
+| systemPatterns.md | ≤500 | ≥400 | ? |
 
 ---
 
 ### 2. Information Preservation (2 pts)
+
 ✅ **2 points**: All criteria met:
-- All CRITICAL patterns preserved (see checklist below)
-- Recent work (last 3 months) fully documented
-- Version history table intact and updated
-- No critical technical data lost vs backups
+
+-   All CRITICAL patterns preserved (see checklist below)
+-   Recent work (last 3 months) fully documented
+-   Version history table intact and updated
+-   No critical technical data lost vs backups
 
 ⚠️ **1 point**: Missing 1-2 non-critical items
 ❌ **0 points**: Missing 3+ items OR any CRITICAL pattern lost
 
 **CRITICAL Patterns Checklist**:
-- [ ] Source-Only Package PeerDependencies
-- [ ] RLS Integration Pattern
-- [ ] i18n Architecture
-- [ ] Universal List Pattern
-- [ ] React StrictMode Pattern
-- [ ] TypeORM Repository Pattern
-- [ ] Rate Limiting Pattern
+
+-   [ ] Source-Only Package PeerDependencies
+-   [ ] RLS Integration Pattern
+-   [ ] i18n Architecture
+-   [ ] Universal List Pattern
+-   [ ] React StrictMode Pattern
+-   [ ] TypeORM Repository Pattern
+-   [ ] Rate Limiting Pattern
 
 **Verification**: Compare compressed files with `.backup` files
 
 ---
 
 ### 3. Structure Compliance (2 pts)
+
 ✅ **2 points**: All files follow memory-bank.instructions.md:
-- activeContext.md = current focus only (no completed work)
-- tasks.md = task checklist format with `[ ]`/`[x]`
-- progress.md = chronological log (newest first)
-- systemPatterns.md = reusable patterns (no project history)
+
+-   activeContext.md = current focus only (no completed work)
+-   tasks.md = task checklist format with `[ ]`/`[x]`
+-   progress.md = chronological log (newest first)
+-   systemPatterns.md = reusable patterns (no project history)
 
 ⚠️ **1 point**: 1-2 minor violations
 ❌ **0 points**: Major structural errors (wrong content in wrong file)
@@ -289,10 +412,12 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ---
 
 ### 4. DRY Compliance (2 pts)
+
 ✅ **2 points**: Zero duplication across files:
-- No repeated pattern descriptions (use cross-refs)
-- No duplicate implementation details
-- Proper use of "Details: filename#anchor" links
+
+-   No repeated pattern descriptions (use cross-refs)
+-   No duplicate implementation details
+-   Proper use of "Details: filename#anchor" links
 
 ⚠️ **1 point**: 1-2 minor duplications
 ❌ **0 points**: Extensive duplication (same content in 2+ files)
@@ -302,19 +427,22 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ---
 
 ### 5. Markdown Quality (2 pts)
+
 ✅ **2 points**: All checks pass:
-- Valid heading hierarchy (no skipped levels: # → ## → ###)
-- Properly formatted tables (aligned columns, no broken rows)
-- Correct list syntax (consistent `- ` or `1. `)
-- All internal links work (`[text](file.md#anchor)`)
-- Code blocks have language tags (\`\`\`bash, \`\`\`typescript, etc.)
+
+-   Valid heading hierarchy (no skipped levels: # → ## → ###)
+-   Properly formatted tables (aligned columns, no broken rows)
+-   Correct list syntax (consistent `- ` or `1. `)
+-   All internal links work (`[text](file.md#anchor)`)
+-   Code blocks have language tags (\`\`\`bash, \`\`\`typescript, etc.)
 
 ⚠️ **1 point**: 1-2 formatting issues
 ❌ **0 points**: Multiple issues (3+ broken links, malformed tables)
 
-**Verification**: 
-- Check Markdown preview rendering
-- Test all `[link](#anchor)` references
+**Verification**:
+
+-   Check Markdown preview rendering
+-   Test all `[link](#anchor)` references
 
 ---
 
@@ -324,6 +452,7 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 **Target Score**: 10/10 before cleanup
 
 **Workflow**:
+
 ```
 1. Initial Compression → Assess Score
 2. If score < 10:
@@ -340,6 +469,7 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ```
 
 **Issue Resolution Priority**:
+
 1. Information Preservation (most critical)
 2. Structure Compliance
 3. Size Compliance
@@ -351,47 +481,63 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ## 🛡️ Safety Mechanisms
 
 ### Backup Strategy
+
 **Naming Convention**: `filename.md.backup-YYYYMMDD`
 **Location**: Same directory as original file (`memory-bank/`)
 **Retention**: Delete ONLY if final score = 10/10
 **Restoration**: If compression fails, restore from backups
 
 ### Exclusions (Do NOT Compress)
+
 ❌ Files in `memory-bank/reflection/` directory
 ❌ `implementation-plan.md` (keep as-is)
 ❌ `rls-integration-pattern.md` (specific documentation)
 ❌ Any file with `<!-- DO NOT COMPRESS -->` comment at top
 
 ### User Escalation Triggers
-- Final score < 10 after 3 iterations
-- GitHub API fails AND fallback strategy unclear
-- Critical information identified but unclear if safe to remove
-- Structural ambiguity in file purpose
+
+-   Final score < 10 after 3 iterations
+-   GitHub API fails AND fallback strategy unclear
+-   Critical information identified but unclear if safe to remove
+-   Structural ambiguity in file purpose
 
 ---
 
 ## 📈 Compression Metrics Template
 
 **Track and Report**:
+
 ```markdown
 ## Memory Bank Compression Report
 
-**Files Compressed**:
-- activeContext.md: XXX → YYY lines (-ZZ.Z%)
-- tasks.md: XXX → YYY lines (-ZZ.Z%)
-- progress.md: XXX → YYY lines (-ZZ.Z%)
-- systemPatterns.md: XXX → YYY lines (-ZZ.Z%)
+**Pre-Compression Diagnostic**:
+| File | Current | Limit | Status |
+|------|---------|-------|--------|
+| activeContext.md | XXX | ≤100 | [Needs compression / OK] |
+| tasks.md | XXX | ≤500 | [Needs compression / OK] |
+| progress.md | XXX | ≤500 | [Needs compression / OK] |
+| systemPatterns.md | XXX | ≤500 | [Needs compression / OK] |
+
+**Files Compressed** (only files that exceeded limits):
+| File | Before | After | Target Range | Status |
+|------|--------|-------|--------------|--------|
+| [file].md | XXX | YYY | 400-500 | [✅ OK / ⚠️ Over-compressed] |
+
+**Files Skipped** (already within limits):
+
+-   tasks.md (441 lines, limit 500) → No compression needed ✅
 
 **GitHub Releases**: [Updated to vX.X.X-alpha / Failed: reason / Kept existing]
 
 **Final Validation Score**: X/10
 
 **Criteria Scores**:
-- Size Compliance: X/2
-- Information Preservation: X/2
-- Structure Compliance: X/2
-- DRY Compliance: X/2
-- Markdown Quality: X/2
+
+-   Size Compliance: X/2 (includes over-compression check)
+-   Information Preservation: X/2
+-   Structure Compliance: X/2
+-   DRY Compliance: X/2
+-   Markdown Quality: X/2
 
 **Backup Files**: [Removed (success) / Kept for review]
 
@@ -405,15 +551,18 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 **Required Links to Check**:
 
 1. **activeContext.md** → `progress.md`, `tasks.md`
-   - Example: `Details: progress.md#2025-11-02`
+
+    - Example: `Details: progress.md#2025-11-02`
 
 2. **tasks.md** → `progress.md`, `systemPatterns.md`
-   - Example: `Pattern: systemPatterns.md#pagination-pattern`
+
+    - Example: `Pattern: systemPatterns.md#pagination-pattern`
 
 3. **progress.md** → `systemPatterns.md`
-   - Example: `Pattern: systemPatterns.md#rls-integration`
+    - Example: `Pattern: systemPatterns.md#rls-integration`
 
 **Verification Strategy**:
+
 1. Extract all internal links from compressed files
 2. Check each anchor exists in target file
 3. Update anchor names if section renamed
@@ -427,16 +576,19 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 **CRITICAL**: All Memory Bank content MUST be in English
 
 **Rationale**:
-- Consistency across project documentation
-- AI agents trained primarily on English technical content
-- International collaboration (English as lingua franca)
 
-**Exception**: 
-- Localized documentation in `docs/ru/`, `docs/es/` (not Memory Bank)
+-   Consistency across project documentation
+-   AI agents trained primarily on English technical content
+-   International collaboration (English as lingua franca)
 
-**Enforcement**: 
-- Validate no Russian/other language text in compressed files
-- If found, translate to English before finalizing
+**Exception**:
+
+-   Localized documentation in `docs/ru/`, `docs/es/` (not Memory Bank)
+
+**Enforcement**:
+
+-   Validate no Russian/other language text in compressed files
+-   If found, translate to English before finalizing
 
 ---
 
@@ -445,32 +597,38 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ### Information Density Techniques
 
 1. **Action-Oriented Language**:
-   - ❌ "We decided to implement a new feature that would allow users to..."
-   - ✅ "Implemented user authentication via OAuth2"
+
+    - ❌ "We decided to implement a new feature that would allow users to..."
+    - ✅ "Implemented user authentication via OAuth2"
 
 2. **Remove Redundant Context**:
-   - ❌ "In order to fix the bug, we first analyzed the root cause..."
-   - ✅ "Fixed authentication bug (root cause: expired JWT)"
+
+    - ❌ "In order to fix the bug, we first analyzed the root cause..."
+    - ✅ "Fixed authentication bug (root cause: expired JWT)"
 
 3. **Use Structured Data**:
-   - ❌ Paragraph describing 5 files modified
-   - ✅ "Modified 5 files (3 backend, 2 frontend)"
+
+    - ❌ Paragraph describing 5 files modified
+    - ✅ "Modified 5 files (3 backend, 2 frontend)"
 
 4. **Leverage Cross-References**:
-   - ❌ Repeat pattern description in progress.md
-   - ✅ "Pattern: systemPatterns.md#oauth-pattern"
+
+    - ❌ Repeat pattern description in progress.md
+    - ✅ "Pattern: systemPatterns.md#oauth-pattern"
 
 5. **Preserve Technical Precision**:
-   - ❌ "Made the code better"
-   - ✅ "Reduced DB queries via COUNT(*) OVER() (-50% load)"
+    - ❌ "Made the code better"
+    - ✅ "Reduced DB queries via COUNT(\*) OVER() (-50% load)"
 
 ### Common Compression Mistakes to Avoid
 
-1. ❌ **Removing dates**: Always keep YYYY-MM-DD timestamps
-2. ❌ **Deleting version numbers**: Keep all version references (v0.34.0-alpha)
-3. ❌ **Losing critical technical details**: Preserve algorithms, architectural decisions
-4. ❌ **Breaking cross-references**: Ensure links work after compression
-5. ❌ **Mixing file purposes**: Keep activeContext ≠ progress ≠ tasks ≠ systemPatterns
+1. ❌ **Compressing files already within limits**: Check size BEFORE compressing
+2. ❌ **Over-compression**: Never compress below 80% of target limit (e.g., <400 lines for 500-line limit)
+3. ❌ **Removing dates**: Always keep YYYY-MM-DD timestamps
+4. ❌ **Deleting version numbers**: Keep all version references (v0.34.0-alpha)
+5. ❌ **Losing critical technical details**: Preserve algorithms, architectural decisions
+6. ❌ **Breaking cross-references**: Ensure links work after compression
+7. ❌ **Mixing file purposes**: Keep activeContext ≠ progress ≠ tasks ≠ systemPatterns
 
 ---
 
@@ -479,6 +637,7 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 ### Example: activeContext.md Compression
 
 **Before (538 lines)**:
+
 ```markdown
 ## Current Focus: React StrictMode Production Bug - COMPLETED ✅
 
@@ -489,39 +648,43 @@ Get-ChildItem memory-bank\*.md | ForEach-Object {
 **Problem Evolution**:
 
 1. **First Issue**: Missing peerDependency in @flowise/template-mui ✅ FIXED
-   - NavigationScroll couldn't find Router context
-   - Fixed by adding `react-router-dom: ~6.3.0` to peerDependencies
+
+    - NavigationScroll couldn't find Router context
+    - Fixed by adding `react-router-dom: ~6.3.0` to peerDependencies
 
 2. **Second Issue**: React.StrictMode in production ✅ FIXED
-   - After login worked, app crashed on post-auth render
-   - StrictMode double-renders components (intentional in dev)
-   - React Router context became null on second render in production
-   - Fixed by making StrictMode development-only
+    - After login worked, app crashed on post-auth render
+    - StrictMode double-renders components (intentional in dev)
+    - React Router context became null on second render in production
+    - Fixed by making StrictMode development-only
 
 **What Was Completed**:
 
 ### Root Cause Discovery ✅
-- **Error**: React #321 (useContext returns null) after `/auth/me` success
-- **Evidence**: Console log showed `2index.jsx:27` - the "2" prefix = double render
-- **Analysis**: StrictMode wrapper active in production causing double-render
-- **Validation**: React docs confirm StrictMode should be development-only
+
+-   **Error**: React #321 (useContext returns null) after `/auth/me` success
+-   **Evidence**: Console log showed `2index.jsx:27` - the "2" prefix = double render
+-   **Analysis**: StrictMode wrapper active in production causing double-render
+-   **Validation**: React docs confirm StrictMode should be development-only
 
 [...300+ more lines of detailed implementation, code examples, verification steps...]
 ```
 
 **After (80 lines)**:
+
 ```markdown
 ## Current Focus: Router Context Fixes - Complete ✅
 
-- Fixed React StrictMode production bug (conditional wrapper, 2025-11-02)
-- Fixed missing peerDependency in @flowise/template-mui (react-router-dom)
-- Modified 1 file: flowise-ui/src/index.jsx
-- Pattern: systemPatterns.md#react-strictmode-pattern
-- Next: Browser QA verification
+-   Fixed React StrictMode production bug (conditional wrapper, 2025-11-02)
+-   Fixed missing peerDependency in @flowise/template-mui (react-router-dom)
+-   Modified 1 file: flowise-ui/src/index.jsx
+-   Pattern: systemPatterns.md#react-strictmode-pattern
+-   Next: Browser QA verification
 
 ## Previous Focus: Backend Pagination - Complete ✅ (2025-11-02)
-- COUNT(*) OVER() optimization, rate limiting
-- Details: progress.md#2025-11-02-backend-pagination
+
+-   COUNT(\*) OVER() optimization, rate limiting
+-   Details: progress.md#2025-11-02-backend-pagination
 ```
 
 ---
