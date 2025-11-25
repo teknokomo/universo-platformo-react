@@ -39,7 +39,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useCreateActivity, useUpdateActivity, useDeleteActivity } from '../hooks/mutations'
 import * as activitiesApi from '../api/activities'
 import * as eventsApi from '../api/events'
 import { activitiesQueryKeys, eventsQueryKeys } from '../api/queryKeys'
@@ -122,8 +122,10 @@ const ActivityList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateActivityApi = useApi<Activity, [string, { name: string; description?: string }]>(activitiesApi.updateActivity)
-    const deleteActivityApi = useApi<void, [string]>(activitiesApi.deleteActivity)
+    // Use mutation hooks instead of useApi
+    const createActivityMutation = useCreateActivity()
+    const updateActivityMutation = useUpdateActivity()
+    const deleteActivityMutation = useDeleteActivity()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -161,20 +163,16 @@ const ActivityList = () => {
                 return
             }
 
-            await activitiesApi.createActivity({
+            await createActivityMutation.mutateAsync({
                 name: data.name,
                 description: data.description,
                 eventId: data.eventId
             })
-
-            // Invalidate cache to refetch activities list
-            await queryClient.invalidateQueries({
-                queryKey: activitiesQueryKeys.lists()
-            })
-
+            // Cache invalidation is handled by the mutation hook
             handleDialogSave()
             setSelectedEvent(null) // Reset event selection
         } catch (e: unknown) {
+            // Error notification is handled by the mutation hook
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
             const message =
                 typeof responseMessage === 'string'
@@ -244,18 +242,12 @@ const ActivityList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateActivityApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: activitiesQueryKeys.lists()
-                    })
+                    await updateActivityMutation.mutateAsync({ id, data: patch })
+                    // Cache invalidation is handled by the mutation hook
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteActivityApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: activitiesQueryKeys.lists()
-                    })
+                    await deleteActivityMutation.mutateAsync(id)
+                    // Cache invalidation is handled by the mutation hook
                 }
             },
             helpers: {
@@ -293,7 +285,7 @@ const ActivityList = () => {
                 }
             }
         }),
-        [confirm, deleteActivityApi, enqueueSnackbar, queryClient, updateActivityApi]
+        [confirm, deleteActivityMutation, enqueueSnackbar, queryClient, updateActivityMutation]
     )
 
     return (
@@ -506,27 +498,11 @@ const ActivityList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.activity) {
                         try {
-                            await deleteActivityApi.request(deleteDialogState.activity.id)
+                            await deleteActivityMutation.mutateAsync(deleteDialogState.activity.id)
                             setDeleteDialogState({ open: false, activity: null })
-
-                            // Invalidate cache to refetch activities list
-                            await queryClient.invalidateQueries({
-                                queryKey: activitiesQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('activities.deleteSuccess'), { variant: 'success' })
+                            // Success notification is handled by the mutation hook
                         } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('activities.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
+                            // Error notification is handled by the mutation hook
                             setDeleteDialogState({ open: false, activity: null })
                         }
                     }

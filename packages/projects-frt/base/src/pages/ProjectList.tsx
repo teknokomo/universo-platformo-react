@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateProject, useDeleteProject } from '../hooks/mutations'
 import * as ProjectsApi from '../api/projects'
 import { ProjectsQueryKeys } from '../api/queryKeys'
 import { Project } from '../types'
@@ -43,7 +43,6 @@ type ProjectData = {
 }
 
 const ProjectList = () => {
-    const navigate = useNavigate()
     // Use Projects namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['projects', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
@@ -70,7 +69,7 @@ const ProjectList = () => {
     const { data: projects, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
@@ -83,8 +82,8 @@ const ProjectList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateProjectApi = useApi<Project, [string, { name: string; description?: string }]>(ProjectsApi.updateProject)
-    const deleteProjectApi = useApi<void, [string]>(ProjectsApi.deleteProject)
+    const updateProject = useUpdateProject()
+    const deleteProject = useDeleteProject()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -219,7 +218,7 @@ const ProjectList = () => {
                 render: (row: Project) => (typeof row.TasksCount === 'number' ? row.TasksCount : '—')
             }
         ],
-        [tc]
+        [t, tc]
     )
 
     // Removed N+1 counts loading; counts are provided by backend list response
@@ -229,18 +228,10 @@ const ProjectList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateProjectApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: ProjectsQueryKeys.lists()
-                    })
+                    await updateProject.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteProjectApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: ProjectsQueryKeys.lists()
-                    })
+                    await deleteProject.mutateAsync(id)
                 }
             },
             helpers: {
@@ -278,7 +269,7 @@ const ProjectList = () => {
                 }
             }
         }),
-        [confirm, deleteProjectApi, enqueueSnackbar, queryClient, updateProjectApi]
+        [confirm, deleteProject, enqueueSnackbar, queryClient, updateProject]
     )
 
     return (
@@ -471,15 +462,8 @@ const ProjectList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.project) {
                         try {
-                            await deleteProjectApi.request(deleteDialogState.project.id)
+                            await deleteProject.mutateAsync(deleteDialogState.project.id)
                             setDeleteDialogState({ open: false, project: null })
-
-                            // Invalidate cache to refetch Projects list
-                            await queryClient.invalidateQueries({
-                                queryKey: ProjectsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

@@ -28,7 +28,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateDomain, useDeleteDomain } from '../hooks/mutations'
 import * as domainsApi from '../api/domains'
 import { domainsQueryKeys } from '../api/queryKeys'
 import { Domain } from '../types'
@@ -106,8 +106,8 @@ const DomainList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateDomainApi = useApi<Domain, [string, { name: string; description?: string }]>(domainsApi.updateDomain)
-    const deleteDomainApi = useApi<void, [string]>(domainsApi.deleteDomain)
+    const updateDomainMutation = useUpdateDomain()
+    const deleteDomainMutation = useDeleteDomain()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -175,18 +175,10 @@ const DomainList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateDomainApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: domainsQueryKeys.lists()
-                    })
+                    await updateDomainMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteDomainApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: domainsQueryKeys.lists()
-                    })
+                    await deleteDomainMutation.mutateAsync(id)
                 }
             },
             helpers: {
@@ -224,7 +216,7 @@ const DomainList = () => {
                 }
             }
         }),
-        [confirm, deleteDomainApi, enqueueSnackbar, queryClient, updateDomainApi]
+        [confirm, deleteDomainMutation, enqueueSnackbar, queryClient, updateDomainMutation]
     )
 
     // Validate clusterId from URL AFTER all hooks
@@ -489,15 +481,8 @@ const DomainList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.domain) {
                         try {
-                            await deleteDomainApi.request(deleteDialogState.domain.id)
+                            await deleteDomainMutation.mutateAsync(deleteDialogState.domain.id)
                             setDeleteDialogState({ open: false, domain: null })
-
-                            // Invalidate cache to refetch domains list
-                            await queryClient.invalidateQueries({
-                                queryKey: domainsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('domains.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

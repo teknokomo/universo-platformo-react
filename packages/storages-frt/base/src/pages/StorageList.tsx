@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateStorage, useDeleteStorage } from '../hooks/mutations'
 import * as storagesApi from '../api/storages'
 import { storagesQueryKeys } from '../api/queryKeys'
 import { Storage } from '../types'
@@ -82,8 +82,8 @@ const StorageList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateStorageApi = useApi<Storage, [string, { name: string; description?: string }]>(storagesApi.updateStorage)
-    const deleteStorageApi = useApi<void, [string]>(storagesApi.deleteStorage)
+    const updateStorage = useUpdateStorage()
+    const deleteStorage = useDeleteStorage()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -224,18 +224,10 @@ const StorageList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateStorageApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: storagesQueryKeys.lists()
-                    })
+                    await updateStorage.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteStorageApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: storagesQueryKeys.lists()
-                    })
+                    await deleteStorage.mutateAsync(id)
                 }
             },
             helpers: {
@@ -273,7 +265,7 @@ const StorageList = () => {
                 }
             }
         }),
-        [confirm, deleteStorageApi, enqueueSnackbar, queryClient, updateStorageApi]
+        [confirm, deleteStorage, enqueueSnackbar, queryClient, updateStorage]
     )
 
     return (
@@ -466,15 +458,8 @@ const StorageList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.storage) {
                         try {
-                            await deleteStorageApi.request(deleteDialogState.storage.id)
+                            await deleteStorage.mutateAsync(deleteDialogState.storage.id)
                             setDeleteDialogState({ open: false, storage: null })
-
-                            // Invalidate cache to refetch storages list
-                            await queryClient.invalidateQueries({
-                                queryKey: storagesQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

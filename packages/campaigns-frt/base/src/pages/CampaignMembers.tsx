@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useMemberMutations } from '../hooks/mutations'
 import * as campaignsApi from '../api/campaigns'
 import { campaignsQueryKeys } from '../api/queryKeys'
 import { CampaignMember } from '../types'
@@ -113,10 +113,8 @@ const CampaignMembers = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMemberRoleApi = useApi<CampaignMember, [string, string, { role: AssignableRole; comment?: string }]>(
-        campaignsApi.updateCampaignMemberRole
-    )
-    const removeMemberApi = useApi<void, [string, string]>(campaignsApi.removeCampaignMember)
+    // Use mutation hooks instead of useApi
+    const memberMutations = useMemberMutations(campaignId || '')
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -149,20 +147,13 @@ const CampaignMembers = () => {
         setInviteDialogError(null)
         setInviting(true)
         try {
-            await campaignsApi.inviteCampaignMember(campaignId, {
+            await memberMutations.inviteMember({
                 email: data.email,
                 role: data.role,
                 comment: data.comment
             })
-
-            // Invalidate cache to refetch members list
-            await queryClient.invalidateQueries({
-                queryKey: campaignsQueryKeys.members(campaignId)
-            })
-
-            // Success: close dialog and show notification
+            // Cache invalidation and success notification are handled by the mutation hook
             handleInviteDialogSave()
-            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = tc('members.inviteError')
 
@@ -263,22 +254,16 @@ const CampaignMembers = () => {
                         throw new Error('Invalid member data format')
                     }
                     // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRoleApi.request(campaignId, id, {
+                    await memberMutations.updateMemberRole(id, {
                         role: data.role as AssignableRole,
                         comment: data.comment
                     })
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: campaignsQueryKeys.members(campaignId)
-                    })
+                    // Cache invalidation is handled by the mutation hook
                 },
                 deleteActivity: async (id: string) => {
                     if (!campaignId) return
-                    await removeMemberApi.request(campaignId, id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: campaignsQueryKeys.members(campaignId)
-                    })
+                    await memberMutations.removeMember(id)
+                    // Cache invalidation is handled by the mutation hook
                 }
             },
             helpers: {
@@ -322,7 +307,7 @@ const CampaignMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, campaignId, queryClient, removeMemberApi, updateMemberRoleApi]
+        [confirm, enqueueSnackbar, campaignId, queryClient, memberMutations]
     )
 
     if (!campaignId) {
@@ -560,27 +545,11 @@ const CampaignMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && campaignId) {
                         try {
-                            await removeMemberApi.request(campaignId, removeDialogState.member.id)
+                            await memberMutations.removeMember(removeDialogState.member.id)
                             setRemoveDialogState({ open: false, member: null })
-
-                            // Invalidate cache to refetch members list
-                            await queryClient.invalidateQueries({
-                                queryKey: campaignsQueryKeys.members(campaignId)
-                            })
-
-                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
+                            // Success notification is handled by the mutation hook
                         } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : tc('members.removeError')
-                            enqueueSnackbar(message, { variant: 'error' })
+                            // Error notification is handled by the mutation hook
                             setRemoveDialogState({ open: false, member: null })
                         }
                     }

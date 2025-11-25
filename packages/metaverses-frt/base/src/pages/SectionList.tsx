@@ -28,7 +28,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateSection, useDeleteSection } from '../hooks/mutations'
 import * as sectionsApi from '../api/sections'
 import { sectionsQueryKeys } from '../api/queryKeys'
 import { Section } from '../types'
@@ -106,8 +106,8 @@ const SectionList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateSectionApi = useApi<Section, [string, { name: string; description?: string }]>(sectionsApi.updateSection)
-    const deleteSectionApi = useApi<void, [string]>(sectionsApi.deleteSection)
+    const updateSectionMutation = useUpdateSection()
+    const deleteSectionMutation = useDeleteSection()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -175,18 +175,10 @@ const SectionList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateSectionApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: sectionsQueryKeys.lists()
-                    })
+                    await updateSectionMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteSectionApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: sectionsQueryKeys.lists()
-                    })
+                    await deleteSectionMutation.mutateAsync(id)
                 }
             },
             helpers: {
@@ -224,7 +216,7 @@ const SectionList = () => {
                 }
             }
         }),
-        [confirm, deleteSectionApi, enqueueSnackbar, queryClient, updateSectionApi]
+        [confirm, deleteSectionMutation, enqueueSnackbar, queryClient, updateSectionMutation]
     )
 
     // Validate metaverseId from URL AFTER all hooks
@@ -489,15 +481,8 @@ const SectionList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.section) {
                         try {
-                            await deleteSectionApi.request(deleteDialogState.section.id)
+                            await deleteSectionMutation.mutateAsync(deleteDialogState.section.id)
                             setDeleteDialogState({ open: false, section: null })
-
-                            // Invalidate cache to refetch sections list
-                            await queryClient.invalidateQueries({
-                                queryKey: sectionsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('sections.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

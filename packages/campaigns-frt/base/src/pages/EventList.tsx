@@ -28,7 +28,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useCreateEvent, useUpdateEvent, useDeleteEvent } from '../hooks/mutations'
 import * as eventsApi from '../api/events'
 import { eventsQueryKeys } from '../api/queryKeys'
 import { Event } from '../types'
@@ -105,8 +105,10 @@ const EventList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateEventApi = useApi<Event, [string, { name: string; description?: string }]>(eventsApi.updateEvent)
-    const deleteEventApi = useApi<void, [string]>(eventsApi.deleteEvent)
+    // Use mutation hooks instead of useApi
+    const createEventMutation = useCreateEvent()
+    const updateEventMutation = useUpdateEvent()
+    const deleteEventMutation = useDeleteEvent()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -174,18 +176,12 @@ const EventList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateEventApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: eventsQueryKeys.lists()
-                    })
+                    await updateEventMutation.mutateAsync({ id, data: patch })
+                    // Cache invalidation is handled by the mutation hook
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteEventApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: eventsQueryKeys.lists()
-                    })
+                    await deleteEventMutation.mutateAsync(id)
+                    // Cache invalidation is handled by the mutation hook
                 }
             },
             helpers: {
@@ -223,7 +219,7 @@ const EventList = () => {
                 }
             }
         }),
-        [confirm, deleteEventApi, enqueueSnackbar, queryClient, updateEventApi]
+        [confirm, deleteEventMutation, enqueueSnackbar, queryClient, updateEventMutation]
     )
 
     // Validate campaignId from URL AFTER all hooks
@@ -254,19 +250,15 @@ const EventList = () => {
         setDialogError(null)
         setCreating(true)
         try {
-            await eventsApi.createEvent({
+            await createEventMutation.mutateAsync({
                 name: data.name,
                 description: data.description,
                 campaignId: campaignId
             })
-
-            // Invalidate cache to refetch events list
-            await queryClient.invalidateQueries({
-                queryKey: eventsQueryKeys.lists()
-            })
-
+            // Cache invalidation is handled by the mutation hook
             handleDialogSave()
         } catch (e: unknown) {
+            // Error notification is handled by the mutation hook
             const responseMessage = e && typeof e === 'object' && 'response' in e ? (e as any)?.response?.data?.message : undefined
             const message =
                 typeof responseMessage === 'string'
@@ -484,27 +476,11 @@ const EventList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.event) {
                         try {
-                            await deleteEventApi.request(deleteDialogState.event.id)
+                            await deleteEventMutation.mutateAsync(deleteDialogState.event.id)
                             setDeleteDialogState({ open: false, event: null })
-
-                            // Invalidate cache to refetch events list
-                            await queryClient.invalidateQueries({
-                                queryKey: eventsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('events.deleteSuccess'), { variant: 'success' })
+                            // Success notification is handled by the mutation hook
                         } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('events.deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
+                            // Error notification is handled by the mutation hook
                             setDeleteDialogState({ open: false, event: null })
                         }
                     }

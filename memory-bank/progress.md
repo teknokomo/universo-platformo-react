@@ -23,7 +23,75 @@
 
 ---
 
+## January 2026
+
+### 2026-01-26: useApi → useMutation QA Fixes ✅
+
+**Summary**: QA analysis identified and fixed remaining issues after main useApi → useMutation refactoring.
+
+**Fixes Applied**:
+| Task | Files Changed | Status |
+|------|---------------|--------|
+| handleInviteMember migration | 5 *Members.tsx pages | ✅ |
+| uniks-frt useMemberMutations API | mutations.ts, UnikMember.tsx | ✅ |
+| Delete unused useApi.ts | 7 files deleted (spaces-frt kept) | ✅ |
+| refreshList duplication | N/A (part of ActionContext pattern) | ✅ |
+
+**handleInviteMember Migration**:
+- Replaced direct API calls with `useInviteMember().mutateAsync()`
+- Removed manual `isInviting` state - now uses `inviteMember.isPending`
+- Preserved special error handling (404 userNotFound, 409 alreadyMember)
+- Packages: organizations-frt, projects-frt, storages-frt, metaverses-frt, clusters-frt
+
+**uniks-frt API Unification**:
+- `useMemberMutations(unikId)` now accepts unikId parameter like other packages
+- Fixed incorrect usage in UnikMember.tsx (`useUpdateMemberRole(unikId)` → `useMemberMutations(unikId)`)
+
+**Deleted Files (7)**:
+- storages-frt/hooks/useApi.ts
+- projects-frt/hooks/useApi.ts
+- metaverses-frt/hooks/useApi.ts
+- organizations-frt/hooks/useApi.ts
+- uniks-frt/hooks/useApi.ts
+- campaigns-frt/hooks/useApi.ts
+- clusters-frt/hooks/useApi.ts
+- Note: spaces-frt/hooks/useApi.ts retained (still used by useCanvases.ts)
+
+**Build**: Full project (40/40 packages) ✅
+
+---
+
 ## November 2025
+
+### 2025-11-25: useApi → useMutation Refactoring ✅
+
+**Summary**: Replaced custom `useApi` hook with idiomatic `useMutation` from @tanstack/react-query across all 8 frontend packages.
+
+**Architecture Decision**: 1 consolidated `hooks/mutations.ts` per package (TkDodo colocation principle).
+
+**Completed Packages** (7 + 1 N/A):
+| Package | mutations.ts | Pages Updated | Status |
+|---------|-------------|---------------|--------|
+| campaigns-frt | ~350 lines | 3 | ✅ |
+| clusters-frt | ~350 lines | 3 | ✅ |
+| metaverses-frt | ~350 lines | 3 | ✅ |
+| organizations-frt | ~340 lines | 4 | ✅ |
+| projects-frt | ~330 lines | 4 | ✅ |
+| storages-frt | ~330 lines | 4 | ✅ |
+| uniks-frt | ~160 lines | 2 | ✅ |
+| spaces-frt | N/A | N/A | No useApi |
+
+**Pattern Applied**:
+- Each mutation hook: creates `useMutation` with entity API call
+- Success callback: `onSuccess: () => { queryClient.invalidateQueries(); enqueueSnackbar() }`
+- Cache invalidation handled in hooks, not in page components
+- Combined hooks: `useMemberMutations()` returns all member-related mutations
+
+**Total Changes**: ~2000 lines of mutations.ts, ~20 page files updated
+
+**Build**: Full project (40/40 packages) ✅
+
+---
 
 ### 2025-11-25: PR #560 Bot Comments QA ✅
 

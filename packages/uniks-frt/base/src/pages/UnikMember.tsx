@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useMemberMutations } from '../hooks/mutations'
 import * as uniksApi from '../api/uniks'
 import { uniksQueryKeys } from '../api/queryKeys'
 import { UnikMember } from '../types'
@@ -75,7 +75,7 @@ interface ConfirmSpec {
 const UnikMembers = () => {
     const { unikId } = useParams<{ unikId: string }>()
     const { user } = useAuth()
-    const { t, i18n } = useTranslation(['uniks', 'roles', 'common', 'flowList'])
+    const { i18n } = useTranslation(['uniks', 'roles', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
@@ -83,8 +83,7 @@ const UnikMembers = () => {
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('unikMembersDisplayStyle') || 'card')
 
-    // State management for invite dialog
-    const [isInviting, setInviting] = useState(false)
+    // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     // Use paginated hook for members list
@@ -123,10 +122,8 @@ const UnikMembers = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMemberRoleApi = useApi<UnikMember, [string, string, { role: AssignableRole; comment?: string }]>(
-        uniksApi.updateUnikMemberRole
-    )
-    const removeMemberApi = useApi<void, [string, string]>(uniksApi.removeUnikMember)
+    // Mutation hooks - unified API with unikId binding
+    const memberMutations = useMemberMutations(unikId || '')
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -157,26 +154,18 @@ const UnikMembers = () => {
         if (!unikId) return
 
         setInviteDialogError(null)
-        setInviting(true)
         try {
-            await uniksApi.inviteUnikMember(unikId, {
+            await memberMutations.inviteMember({
                 email: data.email,
-                role: data.role,
+                role: data.role as import('../types').UnikAssignableRole,
                 comment: data.comment
             })
-
-            // Invalidate cache to refetch members list
-            await queryClient.invalidateQueries({
-                queryKey: uniksQueryKeys.members(unikId)
-            })
-
-            // Success: close dialog and show notification
+            // Success: close dialog (notification handled by mutation hook)
             handleInviteDialogSave()
-            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = tc('members.inviteError')
 
-            // Use type-safe axios error utilities
+            // Use type-safe axios error utilities for special cases
             if (isHttpStatus(error, 404)) {
                 message = tc('members.userNotFound', { email: data.email })
             } else if (isHttpStatus(error, 409) && isApiError(error, 'UNIK_MEMBER_EXISTS')) {
@@ -191,8 +180,6 @@ const UnikMembers = () => {
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to invite member', error)
-        } finally {
-            setInviting(false)
         }
     }
 
@@ -267,22 +254,14 @@ const UnikMembers = () => {
                         throw new Error('Invalid member data format')
                     }
                     // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRoleApi.request(unikId, id, {
-                        role: data.role as AssignableRole,
+                    await memberMutations.updateMemberRole(id, {
+                        role: data.role as import('../types').UnikAssignableRole,
                         comment: data.comment
-                    })
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: uniksQueryKeys.members(unikId)
                     })
                 },
                 deleteEntity: async (id: string) => {
                     if (!unikId) return
-                    await removeMemberApi.request(unikId, id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: uniksQueryKeys.members(unikId)
-                    })
+                    await memberMutations.removeMember(id)
                 }
             },
             helpers: {
@@ -326,7 +305,7 @@ const UnikMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, unikId, queryClient, removeMemberApi, updateMemberRoleApi]
+        [confirm, enqueueSnackbar, unikId, queryClient, memberMutations]
     )
 
     if (!unikId) {
@@ -537,7 +516,7 @@ const UnikMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isInviting}
+                loading={memberMutations.isInviting}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
@@ -566,15 +545,8 @@ const UnikMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && unikId) {
                         try {
-                            await removeMemberApi.request(unikId, removeDialogState.member.id)
+                            await removeMember.mutateAsync(removeDialogState.member.id)
                             setRemoveDialogState({ open: false, member: null })
-
-                            // Invalidate cache to refetch members list
-                            await queryClient.invalidateQueries({
-                                queryKey: uniksQueryKeys.members(unikId)
-                            })
-
-                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

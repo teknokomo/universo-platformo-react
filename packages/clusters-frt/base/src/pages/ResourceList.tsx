@@ -40,7 +40,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateResource, useDeleteResource } from '../hooks/mutations'
 import * as resourcesApi from '../api/resources'
 import * as domainsApi from '../api/domains'
 import { resourcesQueryKeys, domainsQueryKeys } from '../api/queryKeys'
@@ -124,8 +124,8 @@ const ResourceList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateResourceApi = useApi<Resource, [string, { name: string; description?: string }]>(resourcesApi.updateResource)
-    const deleteResourceApi = useApi<void, [string]>(resourcesApi.deleteResource)
+    const updateResourceMutation = useUpdateResource()
+    const deleteResourceMutation = useDeleteResource()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -250,18 +250,10 @@ const ResourceList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateResourceApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: resourcesQueryKeys.lists()
-                    })
+                    await updateResourceMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteResourceApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: resourcesQueryKeys.lists()
-                    })
+                    await deleteResourceMutation.mutateAsync(id)
                 }
             },
             helpers: {
@@ -299,7 +291,7 @@ const ResourceList = () => {
                 }
             }
         }),
-        [confirm, deleteResourceApi, enqueueSnackbar, queryClient, updateResourceApi]
+        [confirm, deleteResourceMutation, enqueueSnackbar, queryClient, updateResourceMutation]
     )
 
     return (
@@ -514,15 +506,8 @@ const ResourceList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.resource) {
                         try {
-                            await deleteResourceApi.request(deleteDialogState.resource.id)
+                            await deleteResourceMutation.mutateAsync(deleteDialogState.resource.id)
                             setDeleteDialogState({ open: false, resource: null })
-
-                            // Invalidate cache to refetch resources list
-                            await queryClient.invalidateQueries({
-                                queryKey: resourcesQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('resources.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateCluster, useDeleteCluster } from '../hooks/mutations'
 import * as clustersApi from '../api/clusters'
 import { clustersQueryKeys } from '../api/queryKeys'
 import { Cluster } from '../types'
@@ -82,8 +82,8 @@ const ClusterList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateClusterApi = useApi<Cluster, [string, { name: string; description?: string }]>(clustersApi.updateCluster)
-    const deleteClusterApi = useApi<void, [string]>(clustersApi.deleteCluster)
+    const updateClusterMutation = useUpdateCluster()
+    const deleteClusterMutation = useDeleteCluster()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -224,18 +224,10 @@ const ClusterList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateClusterApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: clustersQueryKeys.lists()
-                    })
+                    await updateClusterMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteClusterApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: clustersQueryKeys.lists()
-                    })
+                    await deleteClusterMutation.mutateAsync(id)
                 }
             },
             helpers: {
@@ -273,7 +265,7 @@ const ClusterList = () => {
                 }
             }
         }),
-        [confirm, deleteClusterApi, enqueueSnackbar, queryClient, updateClusterApi]
+        [confirm, deleteClusterMutation, enqueueSnackbar, queryClient, updateClusterMutation]
     )
 
     return (
@@ -466,15 +458,8 @@ const ClusterList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.cluster) {
                         try {
-                            await deleteClusterApi.request(deleteDialogState.cluster.id)
+                            await deleteClusterMutation.mutateAsync(deleteDialogState.cluster.id)
                             setDeleteDialogState({ open: false, cluster: null })
-
-                            // Invalidate cache to refetch clusters list
-                            await queryClient.invalidateQueries({
-                                queryKey: clustersQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
