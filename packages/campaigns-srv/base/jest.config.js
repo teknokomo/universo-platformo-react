@@ -2,7 +2,7 @@
 
 module.exports = {
   ...base,
-  displayName: 'clusters-srv',
+  displayName: 'campaigns-srv',
   rootDir: __dirname,
   moduleNameMapper: {
     ...base.moduleNameMapper,

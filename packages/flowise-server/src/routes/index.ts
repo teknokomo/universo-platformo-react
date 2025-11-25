@@ -43,7 +43,7 @@ import { createUniksRouter, createUniksCollectionRouter, createUnikIndividualRou
 import { initializeRateLimiters, getRateLimiters, createMetaversesServiceRoutes } from '@universo/metaverses-srv'
 import { initializeRateLimiters as initializeClustersRateLimiters, createClustersServiceRoutes } from '@universo/clusters-srv'
 import { initializeRateLimiters as initializeProjectsRateLimiters, createProjectsServiceRoutes } from '@universo/projects-srv'
-import { initializeRateLimiters as initializeCampaignsRateLimiters, createCampaignsServiceRoutes } from '@universo/campaigns-srv'
+import { createCampaignsServiceRoutes } from '@universo/campaigns-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
 // Universo Platformo | Bots

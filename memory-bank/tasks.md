@@ -6,6 +6,28 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
+
+**Status**: All valid issues fixed
+
+**Summary**: QA analysis of Copilot and Gemini Code Assist comments on PR #560.
+
+**Copilot Issues (3)** ✅:
+- [x] Unused variable `authUserRepo` in `campaignsRoutes.test.ts:320` - Removed
+- [x] Unused variable `response` in `campaignsRoutes.test.ts:734` - Removed 
+- [x] Unused import `initializeCampaignsRateLimiters` in `routes/index.ts:46` - Removed
+
+**Gemini Issues (3)**:
+- [x] **HIGH**: `displayName: 'clusters-srv'` → `'campaigns-srv'` in `jest.config.js` ✅
+- [x] **MEDIUM**: Rename `clustersRoutes.test.ts` → `campaignsRoutes.test.ts` ✅
+- [x] **MEDIUM**: useApi vs useMutation - DEFERRED (architectural, separate PR)
+
+**Lint Results**: campaigns-srv ✅ 0 errors, 0 warnings
+
+**Deferred**: useApi → useMutation refactoring requires changes across multiple packages (storages-frt, campaigns-frt, metaverses-frt). Will be addressed in dedicated refactoring PR.
+
+---
+
 ### 2025-11-25: AR.js Node Connections Mode Fix ✅ COMPLETE
 
 **Status**: Implementation complete, browser testing pending 🧪

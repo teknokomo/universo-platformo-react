@@ -317,7 +317,7 @@ describe('Campaigns Routes', () => {
         }
 
         it('should return members when user has manageMembers permission', async () => {
-            const { app, campaignUserRepo, authUserRepo, dataSource } = buildApp()
+            const { app, campaignUserRepo, dataSource } = buildApp()
 
             const now = new Date('2024-01-01T00:00:00.000Z')
 
@@ -559,7 +559,7 @@ describe('Campaigns Routes', () => {
                 ])
 
                 // Mock dataSource.manager.find for both AuthUser and Profile
-                dataSource.manager.find.mockImplementation((activity: any, options: any) => {
+                dataSource.manager.find.mockImplementation((activity: any, _options: any) => {
                     const activityName = activity.name || (typeof activity === 'function' ? activity.name : String(activity))
                     if (activityName === 'AuthUser') {
                         return Promise.resolve([
@@ -731,7 +731,7 @@ describe('Campaigns Routes', () => {
 
                 const commentWithWhitespace = '   This comment has leading and trailing spaces   '
 
-                const response = await request(app)
+                await request(app)
                     .post('/campaigns/campaign-1/members')
                     .send({
                         email: 'target@example.com',
