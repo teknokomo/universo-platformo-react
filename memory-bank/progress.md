@@ -25,6 +25,23 @@
 
 ## November 2025
 
+### 2025-11-25: PR #560 Bot Comments QA ✅
+
+**Copilot Issues Fixed (3)**:
+- Removed unused `authUserRepo` variable in campaignsRoutes.test.ts:320
+- Removed unused `response` variable in campaignsRoutes.test.ts:734
+- Removed unused `initializeCampaignsRateLimiters` import from routes/index.ts
+
+**Gemini Issues Fixed (2)**:
+- Fixed displayName `'clusters-srv'` → `'campaigns-srv'` in jest.config.js (HIGH priority)
+- Renamed test file `clustersRoutes.test.ts` → `campaignsRoutes.test.ts`
+
+**Deferred**: useApi → useMutation refactoring (MEDIUM) - requires changes across multiple packages (storages-frt, campaigns-frt, metaverses-frt). Architectural decision for separate PR.
+
+**Lint**: campaigns-srv ✅ 0 errors, 0 warnings
+
+---
+
 ### 2025-11-25: QA Fixes & Documentation Cleanup ✅
 
 **Completed**:
