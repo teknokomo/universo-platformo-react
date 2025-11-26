@@ -40,7 +40,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateSlot, useDeleteSlot } from '../hooks/mutations'
 import * as slotsApi from '../api/slots'
 import * as containersApi from '../api/containers'
 import { slotsQueryKeys, containersQueryKeys } from '../api/queryKeys'
@@ -101,8 +101,8 @@ const SlotList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateSlotApi = useApi<Slot, [string, { name: string; description?: string }]>(slotsApi.updateSlot)
-    const deleteSlotApi = useApi<void, [string]>(slotsApi.deleteSlot)
+    const updateSlot = useUpdateSlot()
+    const deleteSlot = useDeleteSlot()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -227,18 +227,10 @@ const SlotList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateSlotApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: slotsQueryKeys.lists()
-                    })
+                    await updateSlot.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteSlotApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: slotsQueryKeys.lists()
-                    })
+                    await deleteSlot.mutateAsync(id)
                 }
             },
             helpers: {
@@ -276,7 +268,7 @@ const SlotList = () => {
                 }
             }
         }),
-        [confirm, deleteSlotApi, enqueueSnackbar, queryClient, updateSlotApi]
+        [confirm, deleteSlot, enqueueSnackbar, queryClient, updateSlot]
     )
 
     return (
@@ -491,15 +483,8 @@ const SlotList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.slot) {
                         try {
-                            await deleteSlotApi.request(deleteDialogState.slot.id)
+                            await deleteSlot.mutateAsync(deleteDialogState.slot.id)
                             setDeleteDialogState({ open: false, slot: null })
-
-                            // Invalidate cache to refetch slots list
-                            await queryClient.invalidateQueries({
-                                queryKey: slotsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('slots.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

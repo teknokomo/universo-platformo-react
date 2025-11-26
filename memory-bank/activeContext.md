@@ -1,51 +1,44 @@
 # Active Context
 
-> **Last Updated**: 2025-11-25
+> **Last Updated**: 2026-01-26
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: AR.js Node Connections Mode ✅ (2025-11-25)
+## Current Focus: useApi → useMutation QA Fixes ✅ (2026-01-26)
 
-**Status**: Implementation complete, browser testing pending 🧪
+**Status**: All 4 QA recommendations implemented, build passed (40/40 packages)
 
-**Problem**: `ReferenceError: quizState is not defined` in "Соединение узлов" mode when publishing UPDL nodes.
+**Summary**: QA analysis identified remaining issues after main refactoring.
 
-**Root Cause**: Template literal in `finishQuiz()` evaluated `quizState.points` at TypeScript compile-time.
+**Fixes Applied**:
+1. ✅ **handleInviteMember migration** - 5 *Members.tsx pages now use `useInviteMember().mutateAsync()`
+2. ✅ **uniks-frt useMemberMutations API** - unified to accept `unikId` parameter
+3. ✅ **Deleted 7 unused useApi.ts files** (spaces-frt retained - still used)
+4. ✅ **refreshList helpers** - reviewed, no action needed (part of ActionContext pattern)
 
-**Solution**: Fixed string generation pattern in `packages/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` line ~2605.
-
-**Build**: ✅ template-quiz (3.9s), full project (40/40 packages, 4m 13s)
-
-**Next**: User browser testing - verify quiz displays correctly in node connections mode.
+**Build**: Full project (40/40 packages) ✅, Lint: 0 errors
 
 ---
 
 ## Recent Completions (Last 7 Days)
 
-### 2025-11-25: QA Fixes & Documentation ✅
-- Fixed unused `t` in ClusterMembers.tsx
-- Fixed campaigns-frt/clusters-frt README files (19+ replacements)
+### 2025-11-25: useApi → useMutation Refactoring ✅
+- Replaced custom `useApi` hook with `useMutation` from @tanstack/react-query
+- 7 mutations.ts files created (~2000 lines total)
+- ~20 page files updated
 - Details: progress.md#2025-11-25
 
-### 2025-11-23: Documentation Major Refactoring ✅
-- Configuration docs: Full EN/RU sync, 7 files translated
-- Integrations docs: Full sync (249 files), 10 README files translated
-- Applications docs: 7/9 phases complete, 11 files modified
-- Details: progress.md#2025-11-23
+### 2025-11-25: AR.js Node Connections Mode ✅
+- Fixed `quizState is not defined` error
+- Build: template-quiz ✅, full project ✅
+- Details: progress.md#2025-11-25
 
-### 2025-11-22: i18n Members & Tables Refactoring ✅
-- Centralized `members` keys in common.json
-- Decentralized module-specific table keys
-- Pattern: `tc()` for common, `t()` for module-specific
-- Details: progress.md#2025-11-22
-
-### 2025-11-22: ItemCard Click Handling Fix ✅
-- Implemented "Overlay Link" pattern
-- Fixed menu button triggering navigation
-- Build: @universo/template-mui + flowise-ui successful
-- Details: progress.md#2025-11-22
+### 2025-11-25: QA Fixes & Documentation ✅
+- Fixed unused `t` in ClusterMembers.tsx
+- Fixed campaigns-frt/clusters-frt README files
+- Details: progress.md#2025-11-25
 
 ---
 
@@ -67,11 +60,11 @@
 - TypeORM Repository: systemPatterns.md#typeorm-repository-pattern
 
 ### Key Commands
-\`\`\`bash
+```bash
 pnpm --filter <package> build    # Build single package
 pnpm build                       # Full workspace build
 pnpm --filter <package> lint     # Lint single package
-\`\`\`
+```
 
 ---
 

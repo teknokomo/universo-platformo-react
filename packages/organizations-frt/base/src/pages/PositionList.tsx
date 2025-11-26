@@ -40,7 +40,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdatePosition, useDeletePosition } from '../hooks/mutations'
 import * as positionsApi from '../api/positions'
 import * as departmentsApi from '../api/departments'
 import { positionsQueryKeys, departmentsQueryKeys } from '../api/queryKeys'
@@ -124,8 +124,8 @@ const PositionList = () => {
 
     const { confirm } = useConfirm()
 
-    const updatePositionApi = useApi<Position, [string, { name: string; description?: string }]>(positionsApi.updatePosition)
-    const deletePositionApi = useApi<void, [string]>(positionsApi.deletePosition)
+    const updatePosition = useUpdatePosition()
+    const deletePosition = useDeletePosition()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -249,19 +249,11 @@ const PositionList = () => {
         (baseContext: any) => ({
             ...baseContext,
             api: {
-                updatePosition: async (id: string, patch: any) => {
-                    await updatePositionApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: positionsQueryKeys.lists()
-                    })
+                updateEntity: async (id: string, patch: any) => {
+                    await updatePosition.mutateAsync({ id, data: patch })
                 },
-                deletePosition: async (id: string) => {
-                    await deletePositionApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: positionsQueryKeys.lists()
-                    })
+                deleteEntity: async (id: string) => {
+                    await deletePosition.mutateAsync(id)
                 }
             },
             helpers: {
@@ -299,7 +291,7 @@ const PositionList = () => {
                 }
             }
         }),
-        [confirm, deletePositionApi, enqueueSnackbar, queryClient, updatePositionApi]
+        [confirm, deletePosition, enqueueSnackbar, queryClient, updatePosition]
     )
 
     return (
@@ -514,15 +506,8 @@ const PositionList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.position) {
                         try {
-                            await deletePositionApi.request(deleteDialogState.position.id)
+                            await deletePosition.mutateAsync(deleteDialogState.position.id)
                             setDeleteDialogState({ open: false, position: null })
-
-                            // Invalidate cache to refetch positions list
-                            await queryClient.invalidateQueries({
-                                queryKey: positionsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('positions.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useMemberMutations } from '../hooks/mutations'
 import * as storagesApi from '../api/storages'
 import { storagesQueryKeys } from '../api/queryKeys'
 import { StorageMember } from '../types'
@@ -83,8 +83,7 @@ const StorageMembers = () => {
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('storageMembersDisplayStyle') || 'card')
 
-    // State management for invite dialog
-    const [isInviting, setInviting] = useState(false)
+    // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     // Use paginated hook for members list
@@ -113,10 +112,8 @@ const StorageMembers = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMemberRoleApi = useApi<StorageMember, [string, string, { role: AssignableRole; comment?: string }]>(
-        storagesApi.updateStorageMemberRole
-    )
-    const removeMemberApi = useApi<void, [string, string]>(storagesApi.removeStorageMember)
+    // Use mutation hooks with unified API
+    const memberMutations = useMemberMutations(storageId || '')
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -147,26 +144,18 @@ const StorageMembers = () => {
         if (!storageId) return
 
         setInviteDialogError(null)
-        setInviting(true)
         try {
-            await storagesApi.inviteStorageMember(storageId, {
+            await memberMutations.inviteMember({
                 email: data.email,
                 role: data.role,
                 comment: data.comment
             })
-
-            // Invalidate cache to refetch members list
-            await queryClient.invalidateQueries({
-                queryKey: storagesQueryKeys.members(storageId)
-            })
-
-            // Success: close dialog and show notification
+            // Success: close dialog (notification handled by mutation hook)
             handleInviteDialogSave()
-            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = tc('members.inviteError')
 
-            // Use type-safe axios error utilities
+            // Use type-safe axios error utilities for special cases
             if (isHttpStatus(error, 404)) {
                 message = tc('members.userNotFound', { email: data.email })
             } else if (isHttpStatus(error, 409) && isApiError(error, 'STORAGE_MEMBER_EXISTS')) {
@@ -181,8 +170,6 @@ const StorageMembers = () => {
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to invite member', error)
-        } finally {
-            setInviting(false)
         }
     }
 
@@ -263,22 +250,14 @@ const StorageMembers = () => {
                         throw new Error('Invalid member data format')
                     }
                     // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRoleApi.request(storageId, id, {
+                    await memberMutations.updateMemberRole(id, {
                         role: data.role as AssignableRole,
                         comment: data.comment
-                    })
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: storagesQueryKeys.members(storageId)
                     })
                 },
                 deleteEntity: async (id: string) => {
                     if (!storageId) return
-                    await removeMemberApi.request(storageId, id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: storagesQueryKeys.members(storageId)
-                    })
+                    await memberMutations.removeMember(id)
                 }
             },
             helpers: {
@@ -322,7 +301,7 @@ const StorageMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, storageId, queryClient, removeMemberApi, updateMemberRoleApi, user?.id]
+        [confirm, enqueueSnackbar, storageId, queryClient, memberMutations]
     )
 
     if (!storageId) {
@@ -531,7 +510,7 @@ const StorageMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isInviting}
+                loading={memberMutations.isInviting}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
@@ -560,15 +539,8 @@ const StorageMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && storageId) {
                         try {
-                            await removeMemberApi.request(storageId, removeDialogState.member.id)
+                            await removeMember.mutateAsync(removeDialogState.member.id)
                             setRemoveDialogState({ open: false, member: null })
-
-                            // Invalidate cache to refetch members list
-                            await queryClient.invalidateQueries({
-                                queryKey: storagesQueryKeys.members(storageId)
-                            })
-
-                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

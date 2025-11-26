@@ -28,7 +28,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateDepartment, useDeleteDepartment } from '../hooks/mutations'
 import * as departmentsApi from '../api/departments'
 import { departmentsQueryKeys } from '../api/queryKeys'
 import { Department } from '../types'
@@ -106,8 +106,8 @@ const DepartmentList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateDepartmentApi = useApi<Department, [string, { name: string; description?: string }]>(departmentsApi.updateDepartment)
-    const deleteDepartmentApi = useApi<void, [string]>(departmentsApi.deleteDepartment)
+    const updateDepartment = useUpdateDepartment()
+    const deleteDepartment = useDeleteDepartment()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -174,19 +174,11 @@ const DepartmentList = () => {
         (baseContext: any) => ({
             ...baseContext,
             api: {
-                updatePosition: async (id: string, patch: any) => {
-                    await updateDepartmentApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: departmentsQueryKeys.lists()
-                    })
+                updateEntity: async (id: string, patch: any) => {
+                    await updateDepartment.mutateAsync({ id, data: patch })
                 },
-                deletePosition: async (id: string) => {
-                    await deleteDepartmentApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: departmentsQueryKeys.lists()
-                    })
+                deleteEntity: async (id: string) => {
+                    await deleteDepartment.mutateAsync(id)
                 }
             },
             helpers: {
@@ -224,7 +216,7 @@ const DepartmentList = () => {
                 }
             }
         }),
-        [confirm, deleteDepartmentApi, enqueueSnackbar, queryClient, updateDepartmentApi]
+        [confirm, deleteDepartment, enqueueSnackbar, queryClient, updateDepartment]
     )
 
     // Validate organizationId from URL AFTER all hooks
@@ -491,15 +483,8 @@ const DepartmentList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.department) {
                         try {
-                            await deleteDepartmentApi.request(deleteDialogState.department.id)
+                            await deleteDepartment.mutateAsync(deleteDialogState.department.id)
                             setDeleteDialogState({ open: false, department: null })
-
-                            // Invalidate cache to refetch departments list
-                            await queryClient.invalidateQueries({
-                                queryKey: departmentsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('departments.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

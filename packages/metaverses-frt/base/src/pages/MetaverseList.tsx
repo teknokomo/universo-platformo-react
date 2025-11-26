@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateMetaverse, useDeleteMetaverse } from '../hooks/mutations'
 import * as metaversesApi from '../api/metaverses'
 import { metaversesQueryKeys } from '../api/queryKeys'
 import { Metaverse } from '../types'
@@ -105,8 +105,8 @@ const MetaverseList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMetaverseApi = useApi<Metaverse, [string, { name: string; description?: string }]>(metaversesApi.updateMetaverse)
-    const deleteMetaverseApi = useApi<void, [string]>(metaversesApi.deleteMetaverse)
+    const updateMetaverseMutation = useUpdateMetaverse()
+    const deleteMetaverseMutation = useDeleteMetaverse()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -247,18 +247,10 @@ const MetaverseList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateMetaverseApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.lists()
-                    })
+                    await updateMetaverseMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteMetaverseApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.lists()
-                    })
+                    await deleteMetaverseMutation.mutateAsync(id)
                 }
             },
             helpers: {
@@ -296,7 +288,7 @@ const MetaverseList = () => {
                 }
             }
         }),
-        [confirm, deleteMetaverseApi, enqueueSnackbar, queryClient, updateMetaverseApi]
+        [confirm, deleteMetaverseMutation, enqueueSnackbar, queryClient, updateMetaverseMutation]
     )
 
     return (
@@ -489,15 +481,8 @@ const MetaverseList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.metaverse) {
                         try {
-                            await deleteMetaverseApi.request(deleteDialogState.metaverse.id)
+                            await deleteMetaverseMutation.mutateAsync(deleteDialogState.metaverse.id)
                             setDeleteDialogState({ open: false, metaverse: null })
-
-                            // Invalidate cache to refetch metaverses list
-                            await queryClient.invalidateQueries({
-                                queryKey: metaversesQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

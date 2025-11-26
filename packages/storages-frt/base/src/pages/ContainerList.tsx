@@ -28,7 +28,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateContainer, useDeleteContainer } from '../hooks/mutations'
 import * as containersApi from '../api/containers'
 import { containersQueryKeys } from '../api/queryKeys'
 import { Container } from '../types'
@@ -83,8 +83,8 @@ const ContainerList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateContainerApi = useApi<Container, [string, { name: string; description?: string }]>(containersApi.updateContainer)
-    const deleteContainerApi = useApi<void, [string]>(containersApi.deleteContainer)
+    const updateContainer = useUpdateContainer()
+    const deleteContainer = useDeleteContainer()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -152,18 +152,10 @@ const ContainerList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateContainerApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: containersQueryKeys.lists()
-                    })
+                    await updateContainer.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteContainerApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: containersQueryKeys.lists()
-                    })
+                    await deleteContainer.mutateAsync(id)
                 }
             },
             helpers: {
@@ -201,7 +193,7 @@ const ContainerList = () => {
                 }
             }
         }),
-        [confirm, deleteContainerApi, enqueueSnackbar, queryClient, updateContainerApi]
+        [confirm, deleteContainer, enqueueSnackbar, queryClient, updateContainer]
     )
 
     // Validate storageId from URL AFTER all hooks
@@ -466,15 +458,8 @@ const ContainerList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.container) {
                         try {
-                            await deleteContainerApi.request(deleteDialogState.container.id)
+                            await deleteContainer.mutateAsync(deleteDialogState.container.id)
                             setDeleteDialogState({ open: false, container: null })
-
-                            // Invalidate cache to refetch containers list
-                            await queryClient.invalidateQueries({
-                                queryKey: containersQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('containers.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
