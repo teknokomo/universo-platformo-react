@@ -84,7 +84,6 @@ const CampaignMembers = () => {
     const [view, setView] = useState(localStorage.getItem('campaignMembersDisplayStyle') || 'card')
 
     // State management for invite dialog
-    const [isInviting, setInviting] = useState(false)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     // Use paginated hook for members list
@@ -145,7 +144,6 @@ const CampaignMembers = () => {
         if (!campaignId) return
 
         setInviteDialogError(null)
-        setInviting(true)
         try {
             await memberMutations.inviteMember({
                 email: data.email,
@@ -172,8 +170,6 @@ const CampaignMembers = () => {
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to invite member', error)
-        } finally {
-            setInviting(false)
         }
     }
 
@@ -516,7 +512,7 @@ const CampaignMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isInviting}
+                loading={memberMutations.isInviting}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}

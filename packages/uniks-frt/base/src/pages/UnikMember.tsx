@@ -545,7 +545,7 @@ const UnikMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && unikId) {
                         try {
-                            await removeMember.mutateAsync(removeDialogState.member.id)
+                            await memberMutations.removeMember(removeDialogState.member.id)
                             setRemoveDialogState({ open: false, member: null })
                         } catch (err: unknown) {
                             const responseMessage =

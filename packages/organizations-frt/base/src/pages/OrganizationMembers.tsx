@@ -248,7 +248,7 @@ const OrganizationMembers = () => {
             positionKind: 'member',
             t: baseContext.t!,
             api: {
-                updatePosition: async (id: string, data: MemberData) => {
+                updateEntity: async (id: string, data: MemberData) => {
                     if (!organizationId) return
                     // Validate data
                     if (!isMemberFormData(data)) {
@@ -264,7 +264,7 @@ const OrganizationMembers = () => {
                         }
                     })
                 },
-                deletePosition: async (id: string) => {
+                deleteEntity: async (id: string) => {
                     if (!organizationId) return
                     await removeMember.mutateAsync({ organizationId, memberId: id })
                 }

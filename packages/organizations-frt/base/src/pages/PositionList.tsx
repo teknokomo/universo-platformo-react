@@ -249,10 +249,10 @@ const PositionList = () => {
         (baseContext: any) => ({
             ...baseContext,
             api: {
-                updatePosition: async (id: string, patch: any) => {
+                updateEntity: async (id: string, patch: any) => {
                     await updatePosition.mutateAsync({ id, data: patch })
                 },
-                deletePosition: async (id: string) => {
+                deleteEntity: async (id: string) => {
                     await deletePosition.mutateAsync(id)
                 }
             },

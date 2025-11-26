@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useInviteMember, useUpdateMemberRole, useRemoveMember } from '../hooks/mutations'
+import { useMemberMutations } from '../hooks/mutations'
 import * as storagesApi from '../api/storages'
 import { storagesQueryKeys } from '../api/queryKeys'
 import { StorageMember } from '../types'
@@ -112,10 +112,8 @@ const StorageMembers = () => {
 
     const { confirm } = useConfirm()
 
-    // Mutation hooks
-    const inviteMember = useInviteMember()
-    const updateMemberRole = useUpdateMemberRole(storageId || '')
-    const removeMember = useRemoveMember(storageId || '')
+    // Use mutation hooks with unified API
+    const memberMutations = useMemberMutations(storageId || '')
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -147,13 +145,10 @@ const StorageMembers = () => {
 
         setInviteDialogError(null)
         try {
-            await inviteMember.mutateAsync({
-                storageId,
-                data: {
-                    email: data.email,
-                    role: data.role,
-                    comment: data.comment
-                }
+            await memberMutations.inviteMember({
+                email: data.email,
+                role: data.role,
+                comment: data.comment
             })
             // Success: close dialog (notification handled by mutation hook)
             handleInviteDialogSave()
@@ -255,17 +250,14 @@ const StorageMembers = () => {
                         throw new Error('Invalid member data format')
                     }
                     // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRole.mutateAsync({
-                        memberId: id,
-                        data: {
-                            role: data.role as AssignableRole,
-                            comment: data.comment
-                        }
+                    await memberMutations.updateMemberRole(id, {
+                        role: data.role as AssignableRole,
+                        comment: data.comment
                     })
                 },
                 deleteEntity: async (id: string) => {
                     if (!storageId) return
-                    await removeMember.mutateAsync(id)
+                    await memberMutations.removeMember(id)
                 }
             },
             helpers: {
@@ -309,7 +301,7 @@ const StorageMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, storageId, queryClient, removeMember, updateMemberRole]
+        [confirm, enqueueSnackbar, storageId, queryClient, memberMutations]
     )
 
     if (!storageId) {
@@ -518,7 +510,7 @@ const StorageMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={inviteMember.isPending}
+                loading={memberMutations.isInviting}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
