@@ -2,7 +2,7 @@ import { Init1693891895163 } from './1693891895163-Init'
 import { ModifyChatFlow1693995626941 } from './1693995626941-ModifyChatFlow'
 import { ModifyChatMessage1693996694528 } from './1693996694528-ModifyChatMessage'
 import { ModifyCredential1693997070000 } from './1693997070000-ModifyCredential'
-import { ModifyTool1693997339912 } from './1693997339912-ModifyTool'
+// ModifyTool1693997339912 removed - consolidated into @universo/flowise-tools-srv
 import { AddApiConfig1694099183389 } from './1694099183389-AddApiConfig'
 import { AddAnalytic1694432361423 } from './1694432361423-AddAnalytic'
 import { AddChatHistory1694658756136 } from './1694658756136-AddChatHistory'
@@ -29,6 +29,7 @@ import { AddArtifactsToChatMessage1726156258465 } from './1726156258465-AddArtif
 import { AddFollowUpPrompts1726666309552 } from './1726666309552-AddFollowUpPrompts'
 import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssistant'
 import { uniksMigrations } from '@universo/uniks-srv'
+import { toolsMigrations } from '@universo/flowise-tools-srv'
 import { profileMigrations } from '@universo/profile-srv'
 import { metaversesMigrations } from '@universo/metaverses-srv'
 import { clustersMigrations } from '@universo/clusters-srv'
@@ -44,7 +45,7 @@ export const postgresMigrations = [
     ModifyChatFlow1693995626941,
     ModifyChatMessage1693996694528,
     ModifyCredential1693997070000,
-    ModifyTool1693997339912,
+    // ModifyTool removed - consolidated into toolsMigrations
     AddApiConfig1694099183389,
     AddAnalytic1694432361423,
     AddChatHistory1694658756136,
@@ -71,6 +72,7 @@ export const postgresMigrations = [
     AddFollowUpPrompts1726666309552,
     AddTypeToAssistant1733011290987,
     ...uniksMigrations,
+    ...toolsMigrations, // Must come after uniksMigrations (depends on uniks.uniks table)
     ...profileMigrations,
     ...metaversesMigrations,
     ...clustersMigrations,

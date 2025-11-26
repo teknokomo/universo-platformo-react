@@ -1,10 +1,12 @@
-/* eslint-disable */
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
-import { ITool } from '../../Interface'
 import { Unik } from '@universo/uniks-srv'
 
+/**
+ * Tool entity for custom tools in Universo Platformo
+ * Migrated from packages/flowise-server/src/database/entities/Tool.ts
+ */
 @Entity('tool')
-export class Tool implements ITool {
+export class Tool {
     @PrimaryGeneratedColumn('uuid')
     id: string
 
@@ -34,7 +36,6 @@ export class Tool implements ITool {
     @UpdateDateColumn()
     updatedDate: Date
 
-    // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
     unik: Unik

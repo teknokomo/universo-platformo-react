@@ -31,6 +31,7 @@
         "@uiw/react-codemirror": "^4.21.21",
         "@universo/api-client": "workspace:*",
         "@universo/auth-frt": "workspace:*",
+        "@universo/flowise-tools-frt": "workspace:*",
         "@universo/i18n": "workspace:*",
         "@universo/metaverses-frt": "workspace:*",
         "@universo/organizations-frt": "workspace:*",

@@ -1403,6 +1403,9 @@ importers:
       '@universo/clusters-srv':
         specifier: workspace:*
         version: link:../clusters-srv/base
+      '@universo/flowise-tools-srv':
+        specifier: workspace:*
+        version: link:../flowise-tools-srv/base
       '@universo/metaverses-srv':
         specifier: workspace:*
         version: link:../metaverses-srv/base
@@ -1681,6 +1684,9 @@ importers:
       '@universo/api-client':
         specifier: workspace:*
         version: link:../../universo-api-client
+      '@universo/flowise-tools-frt':
+        specifier: workspace:*
+        version: link:../../flowise-tools-frt/base
       '@universo/i18n':
         specifier: workspace:*
         version: link:../../universo-i18n/base
@@ -1740,6 +1746,83 @@ importers:
       '@tabler/icons-react':
         specifier: ^2.32.0
         version: 2.47.0(react@18.3.1)
+
+  packages/flowise-tools-frt/base:
+    dependencies:
+      '@flowise/template-mui':
+        specifier: workspace:*
+        version: link:../../flowise-template-mui/base
+      '@mui/material':
+        specifier: '>=5'
+        version: 5.15.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@universo/api-client':
+        specifier: workspace:*
+        version: link:../../universo-api-client
+      '@universo/i18n':
+        specifier: workspace:*
+        version: link:../../universo-i18n/base
+      react:
+        specifier: '>=18'
+        version: 18.3.1
+      react-dom:
+        specifier: '>=18'
+        version: 18.3.1(react@18.3.1)
+      react-router-dom:
+        specifier: ^6.0.0
+        version: 6.30.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+    devDependencies:
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.26
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
+  packages/flowise-tools-srv/base:
+    dependencies:
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
+      http-status-codes:
+        specifier: ^2.3.0
+        version: 2.3.0
+      uuid:
+        specifier: ^9.0.0
+        version: 9.0.1
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      '@universo/uniks-srv':
+        specifier: workspace:*
+        version: link:../../uniks-srv/base
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      typeorm:
+        specifier: 0.3.6
+        version: 0.3.6(ioredis@5.8.2)(mongodb@6.3.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.14.0(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/flowise-ui:
     dependencies:
@@ -1812,6 +1895,9 @@ importers:
       '@universo/auth-frt':
         specifier: workspace:*
         version: link:../auth-frt/base
+      '@universo/flowise-tools-frt':
+        specifier: workspace:*
+        version: link:../flowise-tools-frt/base
       '@universo/i18n':
         specifier: workspace:*
         version: link:../universo-i18n/base
@@ -3688,6 +3774,9 @@ importers:
       '@mui/x-tree-view':
         specifier: ^7.22.2
         version: 7.29.10(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@mui/material@6.5.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@mui/system@7.3.5(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@universo/flowise-tools-frt':
+        specifier: workspace:*
+        version: link:../../flowise-tools-frt/base
       '@universo/i18n':
         specifier: workspace:*
         version: link:../../universo-i18n/base

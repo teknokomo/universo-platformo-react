@@ -30,8 +30,8 @@ const Marketplaces = Loadable(lazy(() => import('@/views/marketplaces')))
 // apikey routing
 const APIKey = Loadable(lazy(() => import('@/views/apikey')))
 
-// tools routing
-const Tools = Loadable(lazy(() => import('@/views/tools')))
+// tools routing - moved to @universo/flowise-tools-frt
+const Tools = Loadable(lazy(() => import('@universo/flowise-tools-frt/pages/Tools')))
 
 // assistants routing
 const Assistants = Loadable(lazy(() => import('@/views/assistants')))

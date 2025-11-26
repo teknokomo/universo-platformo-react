@@ -32,7 +32,6 @@ import pingRouter from './ping'
 import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
 import statsRouter from './stats'
-import toolsRouter from './tools'
 import upsertHistoryRouter from './upsert-history'
 import variablesRouter from './variables'
 import vectorRouter from './vectors'
@@ -46,6 +45,7 @@ import { initializeRateLimiters as initializeProjectsRateLimiters, createProject
 import { createCampaignsServiceRoutes } from '@universo/campaigns-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
+import { createToolsService, createToolsRouter } from '@universo/flowise-tools-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -77,6 +77,18 @@ const router: ExpressRouter = express.Router()
 
 // Create RLS-enabled authentication middleware
 const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
+
+// Create tools service and router using new package
+const toolsService = createToolsService({
+    getDataSource,
+    telemetry: {
+        sendTelemetry: async (event: string, data: Record<string, unknown>) => {
+            const { getRunningExpressApp } = await import('../utils/getRunningExpressApp')
+            await getRunningExpressApp().telemetry.sendTelemetry(event, data)
+        }
+    }
+})
+const toolsRouter = createToolsRouter(toolsService)
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))

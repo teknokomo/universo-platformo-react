@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from '@universo/i18n'
 
 // material-ui
@@ -15,7 +15,7 @@ import { ToolDialog } from '@flowise/template-mui'
 import { ToolsTable } from '@flowise/template-mui'
 
 // API
-import { api } from '@universo/api-client' // Replaced import toolsApi from '@/api/tools'
+import { api } from '@universo/api-client'
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'
@@ -29,10 +29,9 @@ import { useTheme } from '@mui/material/styles'
 // ==============================|| TOOLS ||============================== //
 
 const Tools = () => {
-    const navigate = useNavigate()
     const { unikId } = useParams()
     const theme = useTheme()
-        const { t } = useTranslation(['tools'])
+    const { t } = useTranslation(['tools'])
     const getAllToolsApi = useApi(() => api.tools.getAllTools(unikId))
 
     const [isLoading, setLoading] = useState(true)
@@ -147,7 +146,12 @@ const Tools = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('tools:searchPlaceholder')} title={t('tools:title')}>
+                        <ViewHeader
+                            onSearchChange={onSearchChange}
+                            search={true}
+                            searchPlaceholder={t('tools:searchPlaceholder')}
+                            title={t('tools:title')}
+                        >
                             <ToggleButtonGroup
                                 sx={{ borderRadius: 2, maxHeight: 40 }}
                                 value={view}

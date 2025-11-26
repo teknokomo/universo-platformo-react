@@ -7,7 +7,7 @@ import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback
 import { CustomTemplate } from '../../database/entities/CustomTemplate'
 import { DocumentStore } from '../../database/entities/DocumentStore'
 import { DocumentStoreFileChunk } from '../../database/entities/DocumentStoreFileChunk'
-import { Tool } from '../../database/entities/Tool'
+import { Tool } from '@universo/flowise-tools-srv'
 import { Variable } from '../../database/entities/Variable'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
@@ -17,7 +17,6 @@ import canvasMessagesService from '../canvas-messages'
 import canvasService from '../spacesCanvas'
 import documenStoreService from '../documentstore'
 import marketplacesService from '../marketplaces'
-import toolsService from '../tools'
 import variableService from '../variables'
 import { Canvas, CanvasFlowResult } from '@universo/spaces-srv'
 
@@ -124,7 +123,7 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
         let DocumentStoreFileChunk: DocumentStoreFileChunk[] =
             exportInput.document_store === true ? await documenStoreService.getAllDocumentFileChunks() : []
 
-        let Tool: Tool[] = exportInput.tool === true ? await toolsService.getAllTools(unikId) : []
+        let tools: Tool[] = exportInput.tool === true ? await getRunningExpressApp().AppDataSource.getRepository(Tool).find({ where: { unik: { id: unikId } } }) : []
 
         let Variable: Variable[] = exportInput.variable === true ? await variableService.getAllVariables(unikId) : []
 
@@ -141,7 +140,7 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
             CustomTemplate,
             DocumentStore,
             DocumentStoreFileChunk,
-            Tool,
+            Tool: tools,
             Variable
         }
     } catch (error) {

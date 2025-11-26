@@ -1,7 +1,7 @@
 import { ChatMessage } from './ChatMessage'
 import { ChatMessageFeedback } from './ChatMessageFeedback'
 import { Credential } from './Credential'
-import { Tool } from './Tool'
+import { Tool } from '@universo/flowise-tools-srv'
 import { Assistant } from './Assistant'
 import { Variable } from './Variable'
 import { DocumentStore } from './DocumentStore'

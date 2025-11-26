@@ -47,3 +47,9 @@ declare module '@universo/resources-frt' {
     import type { ComponentType } from 'react'
     export const ClusterList: ComponentType<any>
 }
+
+declare module '@universo/flowise-tools-frt/pages/Tools' {
+    import type { ComponentType } from 'react'
+    const Component: ComponentType<any>
+    export default Component
+}
