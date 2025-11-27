@@ -6,6 +6,47 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-27: Tools Package Extraction ✅ COMPLETE (Pending Tests)
+
+**Status**: Implementation complete, user testing pending
+
+**Summary**: Extract tools functionality from flowise-ui/flowise-server into separate packages.
+
+**Phase 0: Prepare - Split Init migration** ✅
+- [x] 0.1 Modify `1693891895163-Init.ts` - remove tool table creation
+- [x] 0.2 Delete `1693997339912-ModifyTool.ts` from flowise-server
+- [x] 0.3 Modify `1731200000000-AddUniksAndLinked.ts` - remove 'tool' from flowiseTables
+
+**Phase 1: Backend Package (flowise-tools-srv)** ✅
+- [x] 1.1 Create package structure
+- [x] 1.2 Create consolidated migration `AddTools.ts`
+- [x] 1.3 Create migrations export index
+- [x] 1.4 Move and adapt Tool entity
+- [x] 1.5 Create toolsService with DI
+- [x] 1.6 Configure package.json exports
+
+**Phase 2: Update flowise-server** ✅
+- [x] 2.1 Import toolsMigrations in migrations index
+- [x] 2.2 Update entities/index.ts - import Tool from new package
+- [x] 2.3 Update utils/index.ts - databaseEntities
+- [x] 2.4 Delete old files (entity, service, controller, routes)
+- [x] 2.5 Update routes/index.ts
+- [x] 2.6 Update export-import service
+
+**Phase 3: Frontend Package (flowise-tools-frt)** ✅
+- [x] 3.1 Create package structure
+- [x] 3.2 Move Tools page from flowise-ui
+- [x] 3.3 Update API Client with CRUD methods
+- [x] 3.4 Update routes (MainRoutesMUI.tsx, MainRoutes.jsx)
+- [x] 3.5 Add TypeScript module declarations
+
+**Phase 4: Integration & Testing** ✅
+- [x] 4.1 Build all packages (41/41 successful)
+- [ ] 4.2 Test migrations (USER - database) 🧪
+- [ ] 4.3 Functional testing (USER - browser) 🧪
+
+---
+
 ### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
 
 **Status**: All valid issues fixed

@@ -1,28 +1,40 @@
 # Active Context
 
-> **Last Updated**: 2025-11-25
+> **Last Updated**: 2025-11-27
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: AR.js Node Connections Mode ✅ (2025-11-25)
+## Current Focus: Tools Package Extraction ✅ (2025-11-27)
 
-**Status**: Implementation complete, browser testing pending 🧪
+**Status**: Implementation complete, user testing pending 🧪
 
-**Problem**: `ReferenceError: quizState is not defined` in "Соединение узлов" mode when publishing UPDL nodes.
+**Summary**: Extracted tools functionality from flowise-ui/flowise-server into separate packages.
 
-**Root Cause**: Template literal in `finishQuiz()` evaluated `quizState.points` at TypeScript compile-time.
+**New Packages**:
+- `@universo/flowise-tools-srv` - Backend (entity, migrations, service, routes)
+- `@universo/flowise-tools-frt` - Frontend (Tools page, source-only)
 
-**Solution**: Fixed string generation pattern in `packages/template-quiz/base/src/arjs/handlers/DataHandler/index.ts` line ~2605.
+**Key Changes**:
+- Consolidated migration `1748400000000-AddTools.ts` (after uniks)
+- DI factory pattern: `createToolsService()`, `createToolsRouter()`
+- API client: `CustomTool` type with CRUD methods
+- Routes updated in MainRoutesMUI.tsx and MainRoutes.jsx
 
-**Build**: ✅ template-quiz (3.9s), full project (40/40 packages, 4m 13s)
+**Build**: ✅ 41/41 packages (4m 48s)
 
-**Next**: User browser testing - verify quiz displays correctly in node connections mode.
+**Next**: User testing - database migrations, browser functional testing
 
 ---
 
 ## Recent Completions (Last 7 Days)
+
+### 2025-11-25: AR.js Node Connections Mode Fix ✅
+- Fixed `quizState is not defined` error
+- File: template-quiz/base/src/arjs/handlers/DataHandler/index.ts
+- Browser testing pending
+- Details: progress.md#2025-11-25
 
 ### 2025-11-25: QA Fixes & Documentation ✅
 - Fixed unused `t` in ClusterMembers.tsx
@@ -34,18 +46,6 @@
 - Integrations docs: Full sync (249 files), 10 README files translated
 - Applications docs: 7/9 phases complete, 11 files modified
 - Details: progress.md#2025-11-23
-
-### 2025-11-22: i18n Members & Tables Refactoring ✅
-- Centralized `members` keys in common.json
-- Decentralized module-specific table keys
-- Pattern: `tc()` for common, `t()` for module-specific
-- Details: progress.md#2025-11-22
-
-### 2025-11-22: ItemCard Click Handling Fix ✅
-- Implemented "Overlay Link" pattern
-- Fixed menu button triggering navigation
-- Build: @universo/template-mui + flowise-ui successful
-- Details: progress.md#2025-11-22
 
 ---
 

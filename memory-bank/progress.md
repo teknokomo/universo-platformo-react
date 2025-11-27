@@ -25,6 +25,39 @@
 
 ## November 2025
 
+### 2025-11-27: Tools Package Extraction ✅
+
+**Summary**: Extracted tools functionality from flowise-ui/flowise-server into separate packages `@universo/flowise-tools-srv` (backend) and `@universo/flowise-tools-frt` (frontend).
+
+**Backend Package (@universo/flowise-tools-srv)**:
+- TypeORM entity `Tool` with ManyToOne relation to Unik
+- Consolidated migration `1748400000000-AddTools.ts` (idempotent, after uniks migration)
+- DI-based `createToolsService()` factory with telemetry/metrics
+- Express router factory `createToolsRouter()` with embedded controller logic
+- Removed old Init migration tool table, deleted ModifyTool migration
+
+**Frontend Package (@universo/flowise-tools-frt)**:
+- Source-only package with peerDependencies
+- Moved Tools page from flowise-ui/src/views/tools
+- TypeScript module declarations added to consuming packages
+
+**API Client Updates**:
+- Added `CustomTool` type (distinct from component Tool)
+- CRUD methods: `getCustomTools`, `createCustomTool`, `updateCustomTool`, `deleteCustomTool`
+- Endpoints: `/unik/${unikId}/tools` pattern
+
+**Files Deleted** (flowise-server):
+- `src/services/tools/` directory
+- `src/controllers/tools/` directory  
+- `src/routes/tools/` directory
+- Old migrations: `1693997339912-ModifyTool.ts`
+
+**Build**: 41/41 packages successful (4m 48s)
+
+**Testing Pending**: Database migrations, browser functional testing
+
+---
+
 ### 2025-11-25: PR #560 Bot Comments QA ✅
 
 **Copilot Issues Fixed (3)**:
