@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
     Box,
     Skeleton,
@@ -40,7 +39,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateTask, useDeleteTask } from '../hooks/mutations'
 import * as TasksApi from '../api/tasks'
 import * as MilestonesApi from '../api/milestones'
 import { TasksQueryKeys, MilestonesQueryKeys } from '../api/queryKeys'
@@ -54,7 +53,6 @@ type TaskData = {
 }
 
 const TaskList = () => {
-    const navigate = useNavigate()
     // Use Tasks namespace for view-specific keys
     const { t, i18n } = useTranslation(['projects', 'common', 'flowList'])
     // Use common namespace for table headers and common actions
@@ -88,7 +86,7 @@ const TaskList = () => {
     const { data: Tasks, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
@@ -101,8 +99,8 @@ const TaskList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateTaskApi = useApi<Task, [string, { name: string; description?: string }]>(TasksApi.updateTask)
-    const deleteTaskApi = useApi<void, [string]>(TasksApi.deleteTask)
+    const updateTask = useUpdateTask()
+    const deleteTask = useDeleteTask()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -227,18 +225,10 @@ const TaskList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateTaskApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: TasksQueryKeys.lists()
-                    })
+                    await updateTask.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteTaskApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: TasksQueryKeys.lists()
-                    })
+                    await deleteTask.mutateAsync(id)
                 }
             },
             helpers: {
@@ -276,7 +266,7 @@ const TaskList = () => {
                 }
             }
         }),
-        [confirm, deleteTaskApi, enqueueSnackbar, queryClient, updateTaskApi]
+        [confirm, deleteTask, enqueueSnackbar, queryClient, updateTask]
     )
 
     return (
@@ -491,15 +481,8 @@ const TaskList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.Task) {
                         try {
-                            await deleteTaskApi.request(deleteDialogState.Task.id)
+                            await deleteTask.mutateAsync(deleteDialogState.Task.id)
                             setDeleteDialogState({ open: false, Task: null })
-
-                            // Invalidate cache to refetch Tasks list
-                            await queryClient.invalidateQueries({
-                                queryKey: TasksQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('Tasks.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

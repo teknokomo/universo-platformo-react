@@ -40,7 +40,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateEntity, useDeleteEntity } from '../hooks/mutations'
 import * as entitiesApi from '../api/entities'
 import * as sectionsApi from '../api/sections'
 import { entitiesQueryKeys, sectionsQueryKeys } from '../api/queryKeys'
@@ -124,8 +124,8 @@ const EntityList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateEntityApi = useApi<Entity, [string, { name: string; description?: string }]>(entitiesApi.updateEntity)
-    const deleteEntityApi = useApi<void, [string]>(entitiesApi.deleteEntity)
+    const updateEntityMutation = useUpdateEntity()
+    const deleteEntityMutation = useDeleteEntity()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -250,18 +250,10 @@ const EntityList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateEntityApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: entitiesQueryKeys.lists()
-                    })
+                    await updateEntityMutation.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteEntityApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: entitiesQueryKeys.lists()
-                    })
+                    await deleteEntityMutation.mutateAsync(id)
                 }
             },
             helpers: {
@@ -299,7 +291,7 @@ const EntityList = () => {
                 }
             }
         }),
-        [confirm, deleteEntityApi, enqueueSnackbar, queryClient, updateEntityApi]
+        [confirm, deleteEntityMutation, enqueueSnackbar, queryClient, updateEntityMutation]
     )
 
     return (
@@ -514,15 +506,8 @@ const EntityList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.entity) {
                         try {
-                            await deleteEntityApi.request(deleteDialogState.entity.id)
+                            await deleteEntityMutation.mutateAsync(deleteDialogState.entity.id)
                             setDeleteDialogState({ open: false, entity: null })
-
-                            // Invalidate cache to refetch entities list
-                            await queryClient.invalidateQueries({
-                                queryKey: entitiesQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('entities.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

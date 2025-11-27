@@ -67,11 +67,11 @@
 - TypeORM Repository: systemPatterns.md#typeorm-repository-pattern
 
 ### Key Commands
-\`\`\`bash
+```bash
 pnpm --filter <package> build    # Build single package
 pnpm build                       # Full workspace build
 pnpm --filter <package> lint     # Lint single package
-\`\`\`
+```
 
 ---
 

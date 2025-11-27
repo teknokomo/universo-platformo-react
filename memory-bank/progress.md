@@ -23,6 +23,44 @@
 
 ---
 
+## January 2026
+
+### 2026-01-26: useApi → useMutation QA Fixes ✅
+
+**Summary**: QA analysis identified and fixed remaining issues after main useApi → useMutation refactoring.
+
+**Fixes Applied**:
+| Task | Files Changed | Status |
+|------|---------------|--------|
+| handleInviteMember migration | 5 *Members.tsx pages | ✅ |
+| uniks-frt useMemberMutations API | mutations.ts, UnikMember.tsx | ✅ |
+| Delete unused useApi.ts | 7 files deleted (spaces-frt kept) | ✅ |
+| refreshList duplication | N/A (part of ActionContext pattern) | ✅ |
+
+**handleInviteMember Migration**:
+- Replaced direct API calls with `useInviteMember().mutateAsync()`
+- Removed manual `isInviting` state - now uses `inviteMember.isPending`
+- Preserved special error handling (404 userNotFound, 409 alreadyMember)
+- Packages: organizations-frt, projects-frt, storages-frt, metaverses-frt, clusters-frt
+
+**uniks-frt API Unification**:
+- `useMemberMutations(unikId)` now accepts unikId parameter like other packages
+- Fixed incorrect usage in UnikMember.tsx (`useUpdateMemberRole(unikId)` → `useMemberMutations(unikId)`)
+
+**Deleted Files (7)**:
+- storages-frt/hooks/useApi.ts
+- projects-frt/hooks/useApi.ts
+- metaverses-frt/hooks/useApi.ts
+- organizations-frt/hooks/useApi.ts
+- uniks-frt/hooks/useApi.ts
+- campaigns-frt/hooks/useApi.ts
+- clusters-frt/hooks/useApi.ts
+- Note: spaces-frt/hooks/useApi.ts retained (still used by useCanvases.ts)
+
+**Build**: Full project (40/40 packages) ✅
+
+---
+
 ## November 2025
 
 ### 2025-11-27: Tools Package Extraction ✅

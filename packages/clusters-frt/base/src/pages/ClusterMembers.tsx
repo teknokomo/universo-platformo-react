@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useInviteMember, useUpdateMemberRole, useRemoveMember } from '../hooks/mutations'
 import * as clustersApi from '../api/clusters'
 import { clustersQueryKeys } from '../api/queryKeys'
 import { ClusterMember } from '../types'
@@ -83,8 +83,7 @@ const ClusterMembers = () => {
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('clusterMembersDisplayStyle') || 'card')
 
-    // State management for invite dialog
-    const [isInviting, setInviting] = useState(false)
+    // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     // Use paginated hook for members list
@@ -113,10 +112,10 @@ const ClusterMembers = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMemberRoleApi = useApi<ClusterMember, [string, string, { role: AssignableRole; comment?: string }]>(
-        clustersApi.updateClusterMemberRole
-    )
-    const removeMemberApi = useApi<void, [string, string]>(clustersApi.removeClusterMember)
+    // Mutation hooks
+    const inviteMember = useInviteMember()
+    const updateMemberRoleMutation = useUpdateMemberRole()
+    const removeMemberMutation = useRemoveMember()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -147,26 +146,21 @@ const ClusterMembers = () => {
         if (!clusterId) return
 
         setInviteDialogError(null)
-        setInviting(true)
         try {
-            await clustersApi.inviteClusterMember(clusterId, {
-                email: data.email,
-                role: data.role,
-                comment: data.comment
+            await inviteMember.mutateAsync({
+                clusterId,
+                data: {
+                    email: data.email,
+                    role: data.role,
+                    comment: data.comment
+                }
             })
-
-            // Invalidate cache to refetch members list
-            await queryClient.invalidateQueries({
-                queryKey: clustersQueryKeys.members(clusterId)
-            })
-
-            // Success: close dialog and show notification
+            // Success: close dialog (notification handled by mutation hook)
             handleInviteDialogSave()
-            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = tc('members.inviteError')
 
-            // Use type-safe axios error utilities
+            // Use type-safe axios error utilities for special cases
             if (isHttpStatus(error, 404)) {
                 message = tc('members.userNotFound', { email: data.email })
             } else if (isHttpStatus(error, 409) && isApiError(error, 'CLUSTER_MEMBER_EXISTS')) {
@@ -181,8 +175,6 @@ const ClusterMembers = () => {
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to invite member', error)
-        } finally {
-            setInviting(false)
         }
     }
 
@@ -262,23 +254,18 @@ const ClusterMembers = () => {
                     if (!isMemberFormData(data)) {
                         throw new Error('Invalid member data format')
                     }
-                    // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRoleApi.request(clusterId, id, {
-                        role: data.role as AssignableRole,
-                        comment: data.comment
-                    })
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: clustersQueryKeys.members(clusterId)
+                    await updateMemberRoleMutation.mutateAsync({
+                        clusterId,
+                        memberId: id,
+                        data: {
+                            role: data.role as AssignableRole,
+                            comment: data.comment
+                        }
                     })
                 },
                 deleteEntity: async (id: string) => {
                     if (!clusterId) return
-                    await removeMemberApi.request(clusterId, id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: clustersQueryKeys.members(clusterId)
-                    })
+                    await removeMemberMutation.mutateAsync({ clusterId, memberId: id })
                 }
             },
             helpers: {
@@ -322,7 +309,7 @@ const ClusterMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, clusterId, queryClient, removeMemberApi, updateMemberRoleApi]
+        [confirm, enqueueSnackbar, clusterId, queryClient, removeMemberMutation, updateMemberRoleMutation]
     )
 
     if (!clusterId) {
@@ -531,7 +518,7 @@ const ClusterMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isInviting}
+                loading={inviteMember.isPending}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
@@ -560,15 +547,8 @@ const ClusterMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && clusterId) {
                         try {
-                            await removeMemberApi.request(clusterId, removeDialogState.member.id)
+                            await removeMemberMutation.mutateAsync({ clusterId, memberId: removeDialogState.member.id })
                             setRemoveDialogState({ open: false, member: null })
-
-                            // Invalidate cache to refetch members list
-                            await queryClient.invalidateQueries({
-                                queryKey: clustersQueryKeys.members(clusterId)
-                            })
-
-                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

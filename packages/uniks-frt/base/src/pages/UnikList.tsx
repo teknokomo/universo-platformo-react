@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateUnik, useDeleteUnik } from '../hooks/mutations'
 import * as uniksApi from '../api/uniks'
 import { uniksQueryKeys } from '../api/queryKeys'
 import { Unik } from '../types'
@@ -43,7 +43,6 @@ type UnikData = {
 }
 
 const UnikList = () => {
-    const navigate = useNavigate()
     // Use uniks namespace for view-specific keys, roles and access for role/permission labels
     const { t, i18n } = useTranslation(['uniks', 'roles', 'access', 'flowList'])
     // Use common namespace for table headers and common actions (with keyPrefix for cleaner usage)
@@ -106,8 +105,8 @@ const UnikList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateUnikApi = useApi<Unik, [string, { name: string; description?: string }]>(uniksApi.updateUnik)
-    const deleteUnikApi = useApi<void, [string]>(uniksApi.deleteUnik)
+    const updateUnik = useUpdateUnik()
+    const deleteUnik = useDeleteUnik()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -181,10 +180,7 @@ const UnikList = () => {
                 width: '20%',
                 align: 'left',
                 render: (row: Unik) => (
-                    <Link
-                        to={`/unik/${row.id}`}
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
+                    <Link to={`/unik/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <Typography
                             sx={{
                                 fontSize: 14,
@@ -244,18 +240,10 @@ const UnikList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateUnikApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: uniksQueryKeys.lists()
-                    })
+                    await updateUnik.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteUnikApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: uniksQueryKeys.lists()
-                    })
+                    await deleteUnik.mutateAsync(id)
                 }
             },
             helpers: {
@@ -293,7 +281,7 @@ const UnikList = () => {
                 }
             }
         }),
-        [confirm, deleteUnikApi, enqueueSnackbar, queryClient, updateUnikApi]
+        [confirm, deleteUnik, enqueueSnackbar, queryClient, updateUnik]
     )
 
     return (
@@ -486,15 +474,8 @@ const UnikList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.unik) {
                         try {
-                            await deleteUnikApi.request(deleteDialogState.unik.id)
+                            await deleteUnik.mutateAsync(deleteDialogState.unik.id)
                             setDeleteDialogState({ open: false, unik: null })
-
-                            // Invalidate cache to refetch uniks list
-                            await queryClient.invalidateQueries({
-                                queryKey: uniksQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

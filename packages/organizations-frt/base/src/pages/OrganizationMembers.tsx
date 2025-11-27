@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useInviteMember, useUpdateMemberRole, useRemoveMember } from '../hooks/mutations'
 import * as organizationsApi from '../api/organizations'
 import { organizationsQueryKeys } from '../api/queryKeys'
 import { OrganizationMember } from '../types'
@@ -75,7 +75,7 @@ interface ConfirmSpec {
 const OrganizationMembers = () => {
     const { organizationId } = useParams<{ organizationId: string }>()
     const { user } = useAuth()
-    const { t, i18n } = useTranslation(['organizations', 'roles', 'common', 'flowList'])
+    const { i18n } = useTranslation(['organizations', 'roles', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
@@ -83,8 +83,7 @@ const OrganizationMembers = () => {
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('organizationMembersDisplayStyle') || 'card')
 
-    // State management for invite dialog
-    const [isInviting, setInviting] = useState(false)
+    // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     // Use paginated hook for members list
@@ -113,10 +112,10 @@ const OrganizationMembers = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMemberRoleApi = useApi<OrganizationMember, [string, string, { role: AssignableRole; comment?: string }]>(
-        organizationsApi.updateOrganizationMemberRole
-    )
-    const removeMemberApi = useApi<void, [string, string]>(organizationsApi.removeOrganizationMember)
+    // Mutation hooks
+    const inviteMember = useInviteMember()
+    const updateMemberRole = useUpdateMemberRole()
+    const removeMember = useRemoveMember()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -147,26 +146,21 @@ const OrganizationMembers = () => {
         if (!organizationId) return
 
         setInviteDialogError(null)
-        setInviting(true)
         try {
-            await organizationsApi.inviteOrganizationMember(organizationId, {
-                email: data.email,
-                role: data.role,
-                comment: data.comment
+            await inviteMember.mutateAsync({
+                organizationId,
+                data: {
+                    email: data.email,
+                    role: data.role,
+                    comment: data.comment
+                }
             })
-
-            // Invalidate cache to refetch members list
-            await queryClient.invalidateQueries({
-                queryKey: organizationsQueryKeys.members(organizationId)
-            })
-
-            // Success: close dialog and show notification
+            // Success: close dialog (notification handled by mutation hook)
             handleInviteDialogSave()
-            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = tc('members.inviteError')
 
-            // Use type-safe axios error utilities
+            // Use type-safe axios error utilities for special cases
             if (isHttpStatus(error, 404)) {
                 message = tc('members.userNotFound', { email: data.email })
             } else if (isHttpStatus(error, 409) && isApiError(error, 'ORGANIZATION_MEMBER_EXISTS')) {
@@ -181,8 +175,6 @@ const OrganizationMembers = () => {
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to invite member', error)
-        } finally {
-            setInviting(false)
         }
     }
 
@@ -256,29 +248,25 @@ const OrganizationMembers = () => {
             positionKind: 'member',
             t: baseContext.t!,
             api: {
-                updatePosition: async (id: string, data: MemberData) => {
+                updateEntity: async (id: string, data: MemberData) => {
                     if (!organizationId) return
                     // Validate data
                     if (!isMemberFormData(data)) {
                         throw new Error('Invalid member data format')
                     }
                     // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRoleApi.request(organizationId, id, {
-                        role: data.role as AssignableRole,
-                        comment: data.comment
-                    })
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: organizationsQueryKeys.members(organizationId)
+                    await updateMemberRole.mutateAsync({
+                        organizationId,
+                        memberId: id,
+                        data: {
+                            role: data.role as AssignableRole,
+                            comment: data.comment
+                        }
                     })
                 },
-                deletePosition: async (id: string) => {
+                deleteEntity: async (id: string) => {
                     if (!organizationId) return
-                    await removeMemberApi.request(organizationId, id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: organizationsQueryKeys.members(organizationId)
-                    })
+                    await removeMember.mutateAsync({ organizationId, memberId: id })
                 }
             },
             helpers: {
@@ -322,7 +310,7 @@ const OrganizationMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, organizationId, queryClient, removeMemberApi, updateMemberRoleApi, user?.id]
+        [confirm, enqueueSnackbar, organizationId, queryClient, removeMember, updateMemberRole]
     )
 
     if (!organizationId) {
@@ -531,7 +519,7 @@ const OrganizationMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isInviting}
+                loading={inviteMember.isPending}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
@@ -560,15 +548,8 @@ const OrganizationMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && organizationId) {
                         try {
-                            await removeMemberApi.request(organizationId, removeDialogState.member.id)
+                            await removeMember.mutateAsync({ organizationId, memberId: removeDialogState.member.id })
                             setRemoveDialogState({ open: false, member: null })
-
-                            // Invalidate cache to refetch members list
-                            await queryClient.invalidateQueries({
-                                queryKey: organizationsQueryKeys.members(organizationId)
-                            })
-
-                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

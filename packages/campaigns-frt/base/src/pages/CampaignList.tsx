@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateCampaign, useDeleteCampaign } from '../hooks/mutations'
 import * as campaignsApi from '../api/campaigns'
 import { campaignsQueryKeys } from '../api/queryKeys'
 import { Campaign } from '../types'
@@ -105,8 +105,9 @@ const CampaignList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateCampaignApi = useApi<Campaign, [string, { name: string; description?: string }]>(campaignsApi.updateCampaign)
-    const deleteCampaignApi = useApi<void, [string]>(campaignsApi.deleteCampaign)
+    // Use mutation hooks instead of useApi
+    const updateCampaignMutation = useUpdateCampaign()
+    const deleteCampaignMutation = useDeleteCampaign()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -247,18 +248,12 @@ const CampaignList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateCampaignApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: campaignsQueryKeys.lists()
-                    })
+                    await updateCampaignMutation.mutateAsync({ id, data: patch })
+                    // Cache invalidation is handled by the mutation hook
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteCampaignApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: campaignsQueryKeys.lists()
-                    })
+                    await deleteCampaignMutation.mutateAsync(id)
+                    // Cache invalidation is handled by the mutation hook
                 }
             },
             helpers: {
@@ -296,7 +291,7 @@ const CampaignList = () => {
                 }
             }
         }),
-        [confirm, deleteCampaignApi, enqueueSnackbar, queryClient, updateCampaignApi]
+        [confirm, deleteCampaignMutation, enqueueSnackbar, queryClient, updateCampaignMutation]
     )
 
     return (
@@ -489,27 +484,11 @@ const CampaignList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.campaign) {
                         try {
-                            await deleteCampaignApi.request(deleteDialogState.campaign.id)
+                            await deleteCampaignMutation.mutateAsync(deleteDialogState.campaign.id)
                             setDeleteDialogState({ open: false, campaign: null })
-
-                            // Invalidate cache to refetch campaigns list
-                            await queryClient.invalidateQueries({
-                                queryKey: campaignsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
+                            // Success notification is handled by the mutation hook
                         } catch (err: unknown) {
-                            const responseMessage =
-                                err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
-                            const message =
-                                typeof responseMessage === 'string'
-                                    ? responseMessage
-                                    : err instanceof Error
-                                    ? err.message
-                                    : typeof err === 'string'
-                                    ? err
-                                    : t('deleteError')
-                            enqueueSnackbar(message, { variant: 'error' })
+                            // Error notification is handled by the mutation hook
                             setDeleteDialogState({ open: false, campaign: null })
                         }
                     }

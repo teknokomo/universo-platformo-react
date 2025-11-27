@@ -33,7 +33,7 @@ import type { TableColumn, TriggerProps, AssignableRole, ActionContext } from '@
 import { MemberFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useInviteMember, useUpdateMemberRole, useRemoveMember } from '../hooks/mutations'
 import * as metaversesApi from '../api/metaverses'
 import { metaversesQueryKeys } from '../api/queryKeys'
 import { MetaverseMember } from '../types'
@@ -75,7 +75,7 @@ interface ConfirmSpec {
 const MetaverseMembers = () => {
     const { metaverseId } = useParams<{ metaverseId: string }>()
     const { user } = useAuth()
-    const { t, i18n } = useTranslation(['metaverses', 'roles', 'common', 'flowList'])
+    const { i18n } = useTranslation(['metaverses', 'roles', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
     const { enqueueSnackbar } = useSnackbar()
@@ -83,8 +83,7 @@ const MetaverseMembers = () => {
     const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [view, setView] = useState(localStorage.getItem('metaverseMembersDisplayStyle') || 'card')
 
-    // State management for invite dialog
-    const [isInviting, setInviting] = useState(false)
+    // State management for invite dialog error (special handling for 404/409)
     const [inviteDialogError, setInviteDialogError] = useState<string | null>(null)
 
     // Use paginated hook for members list
@@ -113,10 +112,10 @@ const MetaverseMembers = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMemberRoleApi = useApi<MetaverseMember, [string, string, { role: AssignableRole; comment?: string }]>(
-        metaversesApi.updateMetaverseMemberRole
-    )
-    const removeMemberApi = useApi<void, [string, string]>(metaversesApi.removeMetaverseMember)
+    // Mutation hooks
+    const inviteMember = useInviteMember()
+    const updateMemberRoleMutation = useUpdateMemberRole()
+    const removeMemberMutation = useRemoveMember()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -147,26 +146,21 @@ const MetaverseMembers = () => {
         if (!metaverseId) return
 
         setInviteDialogError(null)
-        setInviting(true)
         try {
-            await metaversesApi.inviteMetaverseMember(metaverseId, {
-                email: data.email,
-                role: data.role,
-                comment: data.comment
+            await inviteMember.mutateAsync({
+                metaverseId,
+                data: {
+                    email: data.email,
+                    role: data.role,
+                    comment: data.comment
+                }
             })
-
-            // Invalidate cache to refetch members list
-            await queryClient.invalidateQueries({
-                queryKey: metaversesQueryKeys.members(metaverseId)
-            })
-
-            // Success: close dialog and show notification
+            // Success: close dialog (notification handled by mutation hook)
             handleInviteDialogSave()
-            enqueueSnackbar(tc('members.inviteSuccess'), { variant: 'success' })
         } catch (error: unknown) {
             let message = tc('members.inviteError')
 
-            // Use type-safe axios error utilities
+            // Use type-safe axios error utilities for special cases
             if (isHttpStatus(error, 404)) {
                 message = tc('members.userNotFound', { email: data.email })
             } else if (isHttpStatus(error, 409) && isApiError(error, 'METAVERSE_MEMBER_EXISTS')) {
@@ -181,8 +175,6 @@ const MetaverseMembers = () => {
             setInviteDialogError(message)
             // eslint-disable-next-line no-console
             console.error('Failed to invite member', error)
-        } finally {
-            setInviting(false)
         }
     }
 
@@ -262,23 +254,18 @@ const MetaverseMembers = () => {
                     if (!isMemberFormData(data)) {
                         throw new Error('Invalid member data format')
                     }
-                    // Convert MemberFormData to API format (email is readonly, only role and comment are updatable)
-                    await updateMemberRoleApi.request(metaverseId, id, {
-                        role: data.role as AssignableRole,
-                        comment: data.comment
-                    })
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.members(metaverseId)
+                    await updateMemberRoleMutation.mutateAsync({
+                        metaverseId,
+                        memberId: id,
+                        data: {
+                            role: data.role as AssignableRole,
+                            comment: data.comment
+                        }
                     })
                 },
                 deleteEntity: async (id: string) => {
                     if (!metaverseId) return
-                    await removeMemberApi.request(metaverseId, id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: metaversesQueryKeys.members(metaverseId)
-                    })
+                    await removeMemberMutation.mutateAsync({ metaverseId, memberId: id })
                 }
             },
             helpers: {
@@ -322,7 +309,7 @@ const MetaverseMembers = () => {
                 }
             }
         }),
-        [confirm, enqueueSnackbar, metaverseId, queryClient, removeMemberApi, updateMemberRoleApi, user?.id]
+        [confirm, enqueueSnackbar, metaverseId, queryClient, removeMemberMutation, updateMemberRoleMutation]
     )
 
     if (!metaverseId) {
@@ -531,7 +518,7 @@ const MetaverseMembers = () => {
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
-                loading={isInviting}
+                loading={inviteMember.isPending}
                 error={inviteDialogError || undefined}
                 onClose={handleInviteDialogClose}
                 onSave={handleInviteMember}
@@ -560,15 +547,8 @@ const MetaverseMembers = () => {
                 onConfirm={async () => {
                     if (removeDialogState.member && metaverseId) {
                         try {
-                            await removeMemberApi.request(metaverseId, removeDialogState.member.id)
+                            await removeMemberMutation.mutateAsync({ metaverseId, memberId: removeDialogState.member.id })
                             setRemoveDialogState({ open: false, member: null })
-
-                            // Invalidate cache to refetch members list
-                            await queryClient.invalidateQueries({
-                                queryKey: metaversesQueryKeys.members(metaverseId)
-                            })
-
-                            enqueueSnackbar(tc('members.removeSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

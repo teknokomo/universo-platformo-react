@@ -30,7 +30,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateOrganization, useDeleteOrganization } from '../hooks/mutations'
 import * as organizationsApi from '../api/organizations'
 import { organizationsQueryKeys } from '../api/queryKeys'
 import { Organization } from '../types'
@@ -105,10 +105,8 @@ const OrganizationList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateOrganizationApi = useApi<Organization, [string, { name: string; description?: string }]>(
-        organizationsApi.updateOrganization
-    )
-    const deleteOrganizationApi = useApi<void, [string]>(organizationsApi.deleteOrganization)
+    const updateOrganization = useUpdateOrganization()
+    const deleteOrganization = useDeleteOrganization()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -248,19 +246,11 @@ const OrganizationList = () => {
         (baseContext: any) => ({
             ...baseContext,
             api: {
-                updatePosition: async (id: string, patch: any) => {
-                    await updateOrganizationApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: organizationsQueryKeys.lists()
-                    })
+                updateEntity: async (id: string, patch: any) => {
+                    await updateOrganization.mutateAsync({ id, data: patch })
                 },
-                deletePosition: async (id: string) => {
-                    await deleteOrganizationApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: organizationsQueryKeys.lists()
-                    })
+                deleteEntity: async (id: string) => {
+                    await deleteOrganization.mutateAsync(id)
                 }
             },
             helpers: {
@@ -298,7 +288,7 @@ const OrganizationList = () => {
                 }
             }
         }),
-        [confirm, deleteOrganizationApi, enqueueSnackbar, queryClient, updateOrganizationApi]
+        [confirm, deleteOrganization, enqueueSnackbar, queryClient, updateOrganization]
     )
 
     return (
@@ -491,15 +481,8 @@ const OrganizationList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.organization) {
                         try {
-                            await deleteOrganizationApi.request(deleteDialogState.organization.id)
+                            await deleteOrganization.mutateAsync(deleteDialogState.organization.id)
                             setDeleteDialogState({ open: false, organization: null })
-
-                            // Invalidate cache to refetch organizations list
-                            await queryClient.invalidateQueries({
-                                queryKey: organizationsQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined

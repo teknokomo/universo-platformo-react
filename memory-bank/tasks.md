@@ -48,24 +48,76 @@
 ---
 
 ### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
+### 2025-11-26: DepartmentList.tsx Bug Fix ✅ COMPLETE
 
-**Status**: All valid issues fixed
+**Status**: Fixed copy-paste error in DepartmentList.tsx, all other List pages verified correct.
+
+**Summary**: Organization edit was not working due to wrong method names in createDepartmentContext.
+
+**Root Cause**: Copy-paste from PositionList.tsx left `updatePosition`/`deletePosition` instead of `updateEntity`/`deleteEntity`.
+
+**Fixed Files**:
+- [x] organizations-frt/DepartmentList.tsx - Changed `updatePosition` → `updateEntity`, `deletePosition` → `deleteEntity`
+
+**Verified Correct** (no changes needed):
+- [x] organizations-frt/OrganizationList.tsx ✅ (fixed in previous session)
+- [x] organizations-frt/PositionList.tsx ✅ (correctly uses position methods)
+- [x] projects-frt/ProjectList.tsx, MilestoneList.tsx, TaskList.tsx ✅
+- [x] metaverses-frt/MetaverseList.tsx, SectionList.tsx, EntityList.tsx ✅
+- [x] storages-frt/StorageList.tsx, ContainerList.tsx, SlotList.tsx ✅
+- [x] campaigns-frt/CampaignList.tsx, ActivityList.tsx, EventList.tsx ✅
+- [x] clusters-frt/ClusterList.tsx, ResourceList.tsx, DomainList.tsx ✅
+- [x] uniks-frt/UnikList.tsx ✅
+
+---
+
+### 2025-01-26: useApi → useMutation QA Fixes ✅ COMPLETE
+
+**Status**: All 4 QA recommendations implemented, build passed (40/40)
+
+**Summary**: QA analysis identified remaining issues after main refactoring.
+
+**Completed Tasks**:
+- [x] 1. Migrate handleInviteMember to use mutation hooks (5 packages)
+  - organizations-frt/OrganizationMembers.tsx ✅
+  - projects-frt/ProjectMembers.tsx ✅
+  - storages-frt/StorageMembers.tsx ✅
+  - metaverses-frt/MetaverseMembers.tsx ✅
+  - clusters-frt/ClusterMembers.tsx ✅
+  - Note: campaigns-frt already uses useMemberMutations correctly
+- [x] 2. Unify uniks-frt useMemberMutations API (added unikId parameter)
+  - Also fixed UnikMember.tsx to use unified API
+- [x] 3. Delete 7 unused useApi.ts files (spaces-frt kept - still used)
+- [x] 4. Reviewed refreshList helpers - no action needed (part of ActionContext pattern)
+
+---
+
+### 2025-11-25: useApi → useMutation Refactoring ✅ COMPLETE
+
+**Status**: All 8 packages migrated, full build passed
+
+**Summary**: Replaced custom useApi hook with idiomatic useMutation from @tanstack/react-query.
+**Architecture**: 1 consolidated `hooks/mutations.ts` per package (TkDodo colocation principle).
+
+**Completed Packages** (7 with mutations.ts + 1 N/A):
+- [x] campaigns-frt ✅ - hooks/mutations.ts (12 hooks), lint/build passed
+- [x] clusters-frt ✅ - hooks/mutations.ts (12 hooks), lint/build passed
+- [x] metaverses-frt ✅ - hooks/mutations.ts (12 hooks), lint/build passed
+- [x] organizations-frt ✅ - hooks/mutations.ts (~340 lines), 4 pages updated
+- [x] projects-frt ✅ - hooks/mutations.ts (~330 lines), 4 pages updated
+- [x] storages-frt ✅ - hooks/mutations.ts (~330 lines), 4 pages updated
+- [x] uniks-frt ✅ - hooks/mutations.ts (~160 lines), 2 pages updated
+- [x] spaces-frt - N/A (no useApi usage)
+
+**Total Changes**: ~20 page files updated, 7 mutations.ts created (~2000 lines)
+
+---
+
+### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
+
+**Status**: All valid issues fixed, PR merged
 
 **Summary**: QA analysis of Copilot and Gemini Code Assist comments on PR #560.
-
-**Copilot Issues (3)** ✅:
-- [x] Unused variable `authUserRepo` in `campaignsRoutes.test.ts:320` - Removed
-- [x] Unused variable `response` in `campaignsRoutes.test.ts:734` - Removed 
-- [x] Unused import `initializeCampaignsRateLimiters` in `routes/index.ts:46` - Removed
-
-**Gemini Issues (3)**:
-- [x] **HIGH**: `displayName: 'clusters-srv'` → `'campaigns-srv'` in `jest.config.js` ✅
-- [x] **MEDIUM**: Rename `clustersRoutes.test.ts` → `campaignsRoutes.test.ts` ✅
-- [x] **MEDIUM**: useApi vs useMutation - DEFERRED (architectural, separate PR)
-
-**Lint Results**: campaigns-srv ✅ 0 errors, 0 warnings
-
-**Deferred**: useApi → useMutation refactoring requires changes across multiple packages (storages-frt, campaigns-frt, metaverses-frt). Will be addressed in dedicated refactoring PR.
 
 ---
 

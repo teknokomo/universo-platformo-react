@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { Box, Skeleton, Stack, Typography, IconButton } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -28,7 +28,7 @@ import { EntityFormDialog, ConfirmDeleteDialog } from '@universo/template-mui/co
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 import type { TriggerProps } from '@universo/template-mui'
 
-import { useApi } from '../hooks/useApi'
+import { useUpdateMilestone, useDeleteMilestone } from '../hooks/mutations'
 import * as MilestonesApi from '../api/milestones'
 import { MilestonesQueryKeys } from '../api/queryKeys'
 import { Milestone } from '../types'
@@ -41,7 +41,6 @@ type MilestoneData = {
 }
 
 const MilestoneList = () => {
-    const navigate = useNavigate()
     const { projectId } = useParams<{ projectId: string }>()
     // Use Projects namespace with Milestones subkey
     const { t, i18n } = useTranslation(['projects', 'common', 'flowList'])
@@ -70,7 +69,7 @@ const MilestoneList = () => {
     const { data: Milestones, isLoading, error } = paginationResult
 
     // Instant search for better UX (backend has rate limiting protection)
-    const { searchValue, handleSearchChange } = useDebouncedSearch({
+    const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: paginationResult.actions.setSearch,
         delay: 0
     })
@@ -83,8 +82,8 @@ const MilestoneList = () => {
 
     const { confirm } = useConfirm()
 
-    const updateMilestoneApi = useApi<Milestone, [string, { name: string; description?: string }]>(MilestonesApi.updateMilestone)
-    const deleteMilestoneApi = useApi<void, [string]>(MilestonesApi.deleteMilestone)
+    const updateMilestone = useUpdateMilestone()
+    const deleteMilestone = useDeleteMilestone()
 
     // Memoize images object to prevent unnecessary re-creation on every render
     const images = useMemo(() => {
@@ -152,18 +151,10 @@ const MilestoneList = () => {
             ...baseContext,
             api: {
                 updateEntity: async (id: string, patch: any) => {
-                    await updateMilestoneApi.request(id, patch)
-                    // Invalidate cache after update
-                    await queryClient.invalidateQueries({
-                        queryKey: MilestonesQueryKeys.lists()
-                    })
+                    await updateMilestone.mutateAsync({ id, data: patch })
                 },
                 deleteEntity: async (id: string) => {
-                    await deleteMilestoneApi.request(id)
-                    // Invalidate cache after delete
-                    await queryClient.invalidateQueries({
-                        queryKey: MilestonesQueryKeys.lists()
-                    })
+                    await deleteMilestone.mutateAsync(id)
                 }
             },
             helpers: {
@@ -201,7 +192,7 @@ const MilestoneList = () => {
                 }
             }
         }),
-        [confirm, deleteMilestoneApi, enqueueSnackbar, queryClient, updateMilestoneApi]
+        [confirm, deleteMilestone, enqueueSnackbar, queryClient, updateMilestone]
     )
 
     // Validate projectId from URL AFTER all hooks
@@ -466,15 +457,8 @@ const MilestoneList = () => {
                 onConfirm={async () => {
                     if (deleteDialogState.Milestone) {
                         try {
-                            await deleteMilestoneApi.request(deleteDialogState.Milestone.id)
+                            await deleteMilestone.mutateAsync(deleteDialogState.Milestone.id)
                             setDeleteDialogState({ open: false, Milestone: null })
-
-                            // Invalidate cache to refetch Milestones list
-                            await queryClient.invalidateQueries({
-                                queryKey: MilestonesQueryKeys.lists()
-                            })
-
-                            enqueueSnackbar(t('Milestones.deleteSuccess'), { variant: 'success' })
                         } catch (err: unknown) {
                             const responseMessage =
                                 err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
