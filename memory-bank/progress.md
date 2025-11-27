@@ -90,7 +90,13 @@
 - `src/routes/tools/` directory
 - Old migrations: `1693997339912-ModifyTool.ts`
 
-**Build**: 41/41 packages successful (4m 48s)
+**Bot Review Fixes (PR #564)**:
+- Registered `toolsErrorHandler` middleware in flowise-server routes/index.ts
+- Removed duplicate `zod` from devDependencies in package.json
+- Removed 3 redundant `typeof req.params === 'undefined'` checks in toolsRoutes.ts
+- Kept `dbResponse.affected ?? undefined` (TypeORM DeleteResult.affected can be null)
+
+**Build**: 41/41 packages successful
 
 **Testing Pending**: Database migrations, browser functional testing
 

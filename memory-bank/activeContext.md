@@ -8,7 +8,7 @@
 
 ## Current Focus: Tools Package Extraction ✅ (2025-11-27)
 
-**Status**: Implementation complete, user testing pending 🧪
+**Status**: Implementation complete, PR #564 bot comments fixed, user testing pending 🧪
 
 **Summary**: Extracted tools functionality from flowise-ui/flowise-server into separate packages.
 
@@ -22,7 +22,13 @@
 - API client: `CustomTool` type with CRUD methods
 - Routes updated in MainRoutesMUI.tsx and MainRoutes.jsx
 
-**Build**: ✅ 41/41 packages (4m 48s)
+**Bot Review Fixes Applied**:
+- ✅ Registered `toolsErrorHandler` in routes/index.ts
+- ✅ Removed duplicate `zod` from devDependencies
+- ✅ Removed 3 redundant `typeof req.params === 'undefined'` checks
+- ✅ Kept `dbResponse.affected ?? undefined` (TypeORM null handling)
+
+**Build**: ✅ 41/41 packages
 
 **Next**: User testing - database migrations, browser functional testing
 
