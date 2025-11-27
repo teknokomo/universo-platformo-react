@@ -1,44 +1,57 @@
 # Active Context
 
-> **Last Updated**: 2026-01-26
+> **Last Updated**: 2025-11-27
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: useApi → useMutation QA Fixes ✅ (2026-01-26)
+## Current Focus: Tools Package Extraction ✅ (2025-11-27)
 
-**Status**: All 4 QA recommendations implemented, build passed (40/40 packages)
+**Status**: Implementation complete, PR #564 bot comments fixed, user testing pending 🧪
 
-**Summary**: QA analysis identified remaining issues after main refactoring.
+**Summary**: Extracted tools functionality from flowise-ui/flowise-server into separate packages.
 
-**Fixes Applied**:
-1. ✅ **handleInviteMember migration** - 5 *Members.tsx pages now use `useInviteMember().mutateAsync()`
-2. ✅ **uniks-frt useMemberMutations API** - unified to accept `unikId` parameter
-3. ✅ **Deleted 7 unused useApi.ts files** (spaces-frt retained - still used)
-4. ✅ **refreshList helpers** - reviewed, no action needed (part of ActionContext pattern)
+**New Packages**:
+- `@universo/flowise-tools-srv` - Backend (entity, migrations, service, routes)
+- `@universo/flowise-tools-frt` - Frontend (Tools page, source-only)
 
-**Build**: Full project (40/40 packages) ✅, Lint: 0 errors
+**Key Changes**:
+- Consolidated migration `1748400000000-AddTools.ts` (after uniks)
+- DI factory pattern: `createToolsService()`, `createToolsRouter()`
+- API client: `CustomTool` type with CRUD methods
+- Routes updated in MainRoutesMUI.tsx and MainRoutes.jsx
+
+**Bot Review Fixes Applied**:
+- ✅ Registered `toolsErrorHandler` in routes/index.ts
+- ✅ Removed duplicate `zod` from devDependencies
+- ✅ Removed 3 redundant `typeof req.params === 'undefined'` checks
+- ✅ Kept `dbResponse.affected ?? undefined` (TypeORM null handling)
+
+**Build**: ✅ 41/41 packages
+
+**Next**: User testing - database migrations, browser functional testing
 
 ---
 
 ## Recent Completions (Last 7 Days)
 
-### 2025-11-25: useApi → useMutation Refactoring ✅
-- Replaced custom `useApi` hook with `useMutation` from @tanstack/react-query
-- 7 mutations.ts files created (~2000 lines total)
-- ~20 page files updated
-- Details: progress.md#2025-11-25
-
-### 2025-11-25: AR.js Node Connections Mode ✅
+### 2025-11-25: AR.js Node Connections Mode Fix ✅
 - Fixed `quizState is not defined` error
-- Build: template-quiz ✅, full project ✅
+- File: template-quiz/base/src/arjs/handlers/DataHandler/index.ts
+- Browser testing pending
 - Details: progress.md#2025-11-25
 
 ### 2025-11-25: QA Fixes & Documentation ✅
 - Fixed unused `t` in ClusterMembers.tsx
-- Fixed campaigns-frt/clusters-frt README files
+- Fixed campaigns-frt/clusters-frt README files (19+ replacements)
 - Details: progress.md#2025-11-25
+
+### 2025-11-23: Documentation Major Refactoring ✅
+- Configuration docs: Full EN/RU sync, 7 files translated
+- Integrations docs: Full sync (249 files), 10 README files translated
+- Applications docs: 7/9 phases complete, 11 files modified
+- Details: progress.md#2025-11-23
 
 ---
 

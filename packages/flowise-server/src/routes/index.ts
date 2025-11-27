@@ -32,7 +32,6 @@ import pingRouter from './ping'
 import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
 import statsRouter from './stats'
-import toolsRouter from './tools'
 import upsertHistoryRouter from './upsert-history'
 import variablesRouter from './variables'
 import vectorRouter from './vectors'
@@ -46,6 +45,7 @@ import { initializeRateLimiters as initializeProjectsRateLimiters, createProject
 import { createCampaignsServiceRoutes } from '@universo/campaigns-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
+import { createToolsService, createToolsRouter, toolsErrorHandler } from '@universo/flowise-tools-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -77,6 +77,18 @@ const router: ExpressRouter = express.Router()
 
 // Create RLS-enabled authentication middleware
 const ensureAuthWithRls = createEnsureAuthWithRls({ getDataSource })
+
+// Create tools service and router using new package
+const toolsService = createToolsService({
+    getDataSource,
+    telemetry: {
+        sendTelemetry: async (event: string, data: Record<string, unknown>) => {
+            const { getRunningExpressApp } = await import('../utils/getRunningExpressApp')
+            await getRunningExpressApp().telemetry.sendTelemetry(event, data)
+        }
+    }
+})
+const toolsRouter = createToolsRouter(toolsService)
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -379,6 +391,9 @@ router.use('/publish', createPublishRoutes(getDataSource()))
 // Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints
 const createProfileRoutesWithAuth = createProfileRoutes as unknown as (dataSource: any, authMiddleware?: any) => ExpressRouter
 router.use('/profile', createProfileRoutesWithAuth(getDataSource(), ensureAuthWithRls))
+
+// Tools-specific error handler (before global handler)
+router.use(toolsErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {

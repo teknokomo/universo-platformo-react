@@ -129,8 +129,9 @@ export class AddUniksAndLinked1731200000000 implements MigrationInterface {
             ON uniks.uniks (LOWER("description"))
         `)
 
-        // 10) Attach unik_id to Flowise tables (restored from pre-refactoring migration)
-        const flowiseTables = ['credential', 'tool', 'assistant', 'variable', 'apikey', 'document_store', 'custom_template']
+        // 10) Attach unik_id to Flowise tables
+        // NOTE: 'tool' table is created by @universo/flowise-tools-srv migration (runs before this)
+        const flowiseTables = ['tool', 'credential', 'assistant', 'variable', 'apikey', 'document_store', 'custom_template']
 
         for (const tableName of flowiseTables) {
             // Add unik_id column (idempotent check)
@@ -171,7 +172,7 @@ export class AddUniksAndLinked1731200000000 implements MigrationInterface {
 
     public async down(queryRunner: QueryRunner): Promise<void> {
         // Rollback section 10: Remove unik_id from Flowise tables
-        const flowiseTables = ['credential', 'tool', 'assistant', 'variable', 'apikey', 'document_store', 'custom_template']
+        const flowiseTables = ['tool', 'credential', 'assistant', 'variable', 'apikey', 'document_store', 'custom_template']
 
         for (const tableName of flowiseTables) {
             await queryRunner.query(`DROP INDEX IF EXISTS "IDX_${tableName}_unik_id"`)

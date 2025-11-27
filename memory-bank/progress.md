@@ -63,33 +63,42 @@
 
 ## November 2025
 
-### 2025-11-25: useApi → useMutation Refactoring ✅
+### 2025-11-27: Tools Package Extraction ✅
 
-**Summary**: Replaced custom `useApi` hook with idiomatic `useMutation` from @tanstack/react-query across all 8 frontend packages.
+**Summary**: Extracted tools functionality from flowise-ui/flowise-server into separate packages `@universo/flowise-tools-srv` (backend) and `@universo/flowise-tools-frt` (frontend).
 
-**Architecture Decision**: 1 consolidated `hooks/mutations.ts` per package (TkDodo colocation principle).
+**Backend Package (@universo/flowise-tools-srv)**:
+- TypeORM entity `Tool` with ManyToOne relation to Unik
+- Consolidated migration `1748400000000-AddTools.ts` (idempotent, after uniks migration)
+- DI-based `createToolsService()` factory with telemetry/metrics
+- Express router factory `createToolsRouter()` with embedded controller logic
+- Removed old Init migration tool table, deleted ModifyTool migration
 
-**Completed Packages** (7 + 1 N/A):
-| Package | mutations.ts | Pages Updated | Status |
-|---------|-------------|---------------|--------|
-| campaigns-frt | ~350 lines | 3 | ✅ |
-| clusters-frt | ~350 lines | 3 | ✅ |
-| metaverses-frt | ~350 lines | 3 | ✅ |
-| organizations-frt | ~340 lines | 4 | ✅ |
-| projects-frt | ~330 lines | 4 | ✅ |
-| storages-frt | ~330 lines | 4 | ✅ |
-| uniks-frt | ~160 lines | 2 | ✅ |
-| spaces-frt | N/A | N/A | No useApi |
+**Frontend Package (@universo/flowise-tools-frt)**:
+- Source-only package with peerDependencies
+- Moved Tools page from flowise-ui/src/views/tools
+- TypeScript module declarations added to consuming packages
 
-**Pattern Applied**:
-- Each mutation hook: creates `useMutation` with entity API call
-- Success callback: `onSuccess: () => { queryClient.invalidateQueries(); enqueueSnackbar() }`
-- Cache invalidation handled in hooks, not in page components
-- Combined hooks: `useMemberMutations()` returns all member-related mutations
+**API Client Updates**:
+- Added `CustomTool` type (distinct from component Tool)
+- CRUD methods: `getCustomTools`, `createCustomTool`, `updateCustomTool`, `deleteCustomTool`
+- Endpoints: `/unik/${unikId}/tools` pattern
 
-**Total Changes**: ~2000 lines of mutations.ts, ~20 page files updated
+**Files Deleted** (flowise-server):
+- `src/services/tools/` directory
+- `src/controllers/tools/` directory  
+- `src/routes/tools/` directory
+- Old migrations: `1693997339912-ModifyTool.ts`
 
-**Build**: Full project (40/40 packages) ✅
+**Bot Review Fixes (PR #564)**:
+- Registered `toolsErrorHandler` middleware in flowise-server routes/index.ts
+- Removed duplicate `zod` from devDependencies in package.json
+- Removed 3 redundant `typeof req.params === 'undefined'` checks in toolsRoutes.ts
+- Kept `dbResponse.affected ?? undefined` (TypeORM DeleteResult.affected can be null)
+
+**Build**: 41/41 packages successful
+
+**Testing Pending**: Database migrations, browser functional testing
 
 ---
 

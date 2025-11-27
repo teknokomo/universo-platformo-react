@@ -6,6 +6,70 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-27: Tools Package Extraction ✅ COMPLETE (Pending Tests)
+
+**Status**: Implementation complete, user testing pending
+
+**Summary**: Extract tools functionality from flowise-ui/flowise-server into separate packages.
+
+**Phase 0: Prepare - Split Init migration** ✅
+- [x] 0.1 Modify `1693891895163-Init.ts` - remove tool table creation
+- [x] 0.2 Delete `1693997339912-ModifyTool.ts` from flowise-server
+- [x] 0.3 Modify `1731200000000-AddUniksAndLinked.ts` - remove 'tool' from flowiseTables
+
+**Phase 1: Backend Package (flowise-tools-srv)** ✅
+- [x] 1.1 Create package structure
+- [x] 1.2 Create consolidated migration `AddTools.ts`
+- [x] 1.3 Create migrations export index
+- [x] 1.4 Move and adapt Tool entity
+- [x] 1.5 Create toolsService with DI
+- [x] 1.6 Configure package.json exports
+
+**Phase 2: Update flowise-server** ✅
+- [x] 2.1 Import toolsMigrations in migrations index
+- [x] 2.2 Update entities/index.ts - import Tool from new package
+- [x] 2.3 Update utils/index.ts - databaseEntities
+- [x] 2.4 Delete old files (entity, service, controller, routes)
+- [x] 2.5 Update routes/index.ts
+- [x] 2.6 Update export-import service
+
+**Phase 3: Frontend Package (flowise-tools-frt)** ✅
+- [x] 3.1 Create package structure
+- [x] 3.2 Move Tools page from flowise-ui
+- [x] 3.3 Update API Client with CRUD methods
+- [x] 3.4 Update routes (MainRoutesMUI.tsx, MainRoutes.jsx)
+- [x] 3.5 Add TypeScript module declarations
+
+**Phase 4: Integration & Testing** ✅
+- [x] 4.1 Build all packages (41/41 successful)
+- [ ] 4.2 Test migrations (USER - database) 🧪
+- [ ] 4.3 Functional testing (USER - browser) 🧪
+
+**Phase 5: QA Bot Review Fixes** ✅
+- [x] 5.1 Add missing @universo/flowise-tools-srv to template-mui dependencies
+- [x] 5.2 Fix migration AddTools.ts - add PostgreSQL error codes for CREATE TABLE IF NOT EXISTS
+- [x] 5.3 Remove 19 unused lazy imports from MainRoutes.jsx
+- [x] 5.4 Add i18n support to flowise-tools-frt (en/ru translations migrated from universo-i18n)
+- [x] 5.5 Register tools namespace in MainRoutesMUI.tsx
+- [x] 5.6 Remove tools.json files from universo-i18n and update instance.ts
+
+**Phase 6: Migration Architecture Refactoring** ✅
+- [x] 6.1 Rename AddTools migration: 1748400000000 → 1693891895164 (right after Init)
+- [x] 6.2 Simplify AddTools: only creates table, unik_id handled by AddUniksAndLinked
+- [x] 6.3 Return 'tool' to flowiseTables in AddUniksAndLinked
+- [x] 6.4 Move toolsMigrations right after Init in postgresMigrations array
+- [x] 6.5 Fix importTools: don't mutate input array (create new objects)
+
+**Phase 7: Remaining Bot Review Fixes** ✅
+- [x] 7.1 Register toolsErrorHandler in flowise-server routes/index.ts
+- [x] 7.2 Fix package.json: remove zod from devDependencies (duplicate)
+- [x] 7.3 Remove redundant `typeof req.params === 'undefined'` checks in toolsRoutes.ts
+- [x] 7.4 Keep `dbResponse.affected ?? undefined` (TypeORM returns null, not undefined) - ⚠️ False positive
+- [x] 7.5 Improve type safety: use `Pick<Unik, 'id'>` instead of `as any` in toolsService.ts
+
+---
+
+### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
 ### 2025-11-26: DepartmentList.tsx Bug Fix ✅ COMPLETE
 
 **Status**: Fixed copy-paste error in DepartmentList.tsx, all other List pages verified correct.

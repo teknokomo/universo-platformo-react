@@ -54,7 +54,7 @@ export { PredictionApi, predictionQueryKeys } from './api/prediction'
 export { PromptApi, promptQueryKeys } from './api/prompt'
 export { ScraperApi, scraperQueryKeys } from './api/scraper'
 export { SpacesApi, spaceQueryKeys } from './api/spaces'
-export { ToolsApi, toolQueryKeys } from './api/tools'
+export { ToolsApi, toolQueryKeys, type CustomTool, type CreateToolBody, type UpdateToolBody } from './api/tools'
 export { VariablesApi, variablesQueryKeys } from './api/variables'
 export { VectorStoreApi, vectorstoreQueryKeys } from './api/vectorstore'
 

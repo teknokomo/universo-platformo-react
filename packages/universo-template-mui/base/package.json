@@ -39,6 +39,7 @@
     },
     "dependencies": {
         "@flowise/template-mui": "workspace:*",
+        "@universo/flowise-tools-frt": "workspace:*",
         "@mui/material": "catalog:",
         "@mui/icons-material": "catalog:",
         "@mui/x-charts": "^7.22.2",

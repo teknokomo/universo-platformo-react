@@ -1,5 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
+/**
+ * Initial migration for Flowise core tables.
+ * NOTE: Tool table creation moved to @universo/flowise-tools-srv (1748400000000-AddTools.ts)
+ */
 export class Init1693891895163 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
@@ -39,20 +43,6 @@ export class Init1693891895163 implements MigrationInterface {
                 CONSTRAINT "PK_3a5169bcd3d5463cefeec78be82" PRIMARY KEY (id)
             );`
         )
-        await queryRunner.query(
-            `CREATE TABLE IF NOT EXISTS tool (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "name" varchar NOT NULL,
-                description text NOT NULL,
-                color varchar NOT NULL,
-                "iconSrc" varchar NULL,
-                "schema" varchar NULL,
-                func varchar NULL,
-                "createdDate" timestamp NOT NULL DEFAULT now(),
-                "updatedDate" timestamp NOT NULL DEFAULT now(),
-                CONSTRAINT "PK_3bf5b1016a384916073184f99b7" PRIMARY KEY (id)
-            );`
-        )
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
@@ -60,6 +50,5 @@ export class Init1693891895163 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE chat_flow`)
         await queryRunner.query(`DROP TABLE chat_message`)
         await queryRunner.query(`DROP TABLE credential`)
-        await queryRunner.query(`DROP TABLE tool`)
     }
 }

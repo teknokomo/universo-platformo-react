@@ -64,6 +64,7 @@
     "@mui/material": "5.15.0",
     "@mui/x-data-grid": "^5.17.26",
     "@universo/api-client": "workspace:*",
+    "@universo/flowise-tools-frt": "workspace:*",
     "@universo/i18n": "workspace:*",
     "@uiw/codemirror-theme-sublime": "^4.23.0",
     "@uiw/codemirror-theme-vscode": "^4.23.0",

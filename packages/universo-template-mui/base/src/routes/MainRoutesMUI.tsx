@@ -12,6 +12,8 @@ import '@universo/organizations-frt/i18n'
 import '@universo/storages-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
+// Register tools translations before lazy loading Tools component
+import '@universo/flowise-tools-frt/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -31,8 +33,8 @@ const UnikMember = Loadable(lazy(() => import('@universo/uniks-frt/pages/UnikMem
 // Legacy components (temporarily loaded in new UI)
 const Spaces = Loadable(lazy(() => import('@universo/spaces-frt/src/views/spaces/index.jsx')))
 const Canvas = Loadable(lazy(() => import('@universo/spaces-frt/src/views/canvas/index.jsx')))
-// @ts-expect-error - Legacy JSX component from old UI
-const Tools = Loadable(lazy(() => import('@/views/tools')))
+// Tools page - moved to @universo/flowise-tools-frt
+const Tools = Loadable(lazy(() => import('@universo/flowise-tools-frt/pages/Tools')))
 // @ts-expect-error - Legacy JSX component from old UI
 const Credentials = Loadable(lazy(() => import('@/views/credentials')))
 // @ts-expect-error - Legacy JSX component from old UI
