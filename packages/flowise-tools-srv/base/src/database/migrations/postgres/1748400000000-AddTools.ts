@@ -55,8 +55,17 @@ export class AddTools1748400000000 implements MigrationInterface {
                 FOREIGN KEY ("unik_id") REFERENCES uniks.uniks(id) ON DELETE CASCADE;
             `)
             console.log('✅ [AddTools] Added FK constraint FK_tool_unik')
-        } catch {
-            console.log('ℹ️ [AddTools] FK constraint FK_tool_unik already exists, skipping')
+        } catch (error: unknown) {
+            // PostgreSQL error codes for duplicate objects:
+            // 42710 - duplicate_object (constraint already exists)
+            // 23505 - unique_violation
+            const pgError = error as { code?: string }
+            if (pgError.code === '42710' || pgError.code === '23505') {
+                console.log('ℹ️ [AddTools] FK constraint FK_tool_unik already exists, skipping')
+            } else {
+                // Re-throw other errors to fail the migration
+                throw error
+            }
         }
 
         // Add index on unik_id (idempotent)

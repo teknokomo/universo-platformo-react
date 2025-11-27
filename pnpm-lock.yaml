@@ -1798,6 +1798,9 @@ importers:
       uuid:
         specifier: ^9.0.0
         version: 9.0.1
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
@@ -1820,9 +1823,6 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
-      zod:
-        specifier: 3.25.76
-        version: 3.25.76
 
   packages/flowise-ui:
     dependencies:
