@@ -48,7 +48,7 @@ import { MemoizedReactMarkdown } from '../markdown/MemoizedReactMarkdown'
 import { CodeBlock } from '../markdown/CodeBlock'
 import promptEmptySVG from '../../assets/images/prompt_empty.svg'
 
-import useApi from '../../hooks/useApi.js'
+import useApi from '../../hooks/hooks/useApi'
 import { api } from '@universo/api-client'
 import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG } from '@flowise/store'
 

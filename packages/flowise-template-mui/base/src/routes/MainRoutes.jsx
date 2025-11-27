@@ -17,17 +17,11 @@ const Auth = Loadable(lazy(() => import('@/views/up-auth/Auth')))
 // Profile component from profile-frt package
 const Profile = Loadable(lazy(() => import('@universo/profile-frt/pages/Profile')))
 
-const AdminPanel = Loadable(lazy(() => import('@/views/up-admin/AdminPanel')))
-
 const MainRoutes = {
     path: '/',
     element: <MainLayout />,
     children: [
         // Legacy metaverses subtree removed. New routes are provided by MainRoutesMUI from @universo/template-mui.
-        {
-            path: 'admin',
-            element: <AdminPanel />
-        },
         {
             path: 'profile',
             element: (

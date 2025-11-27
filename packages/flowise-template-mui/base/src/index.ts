@@ -125,8 +125,8 @@ export { default as AuthGuard } from './routes/AuthGuard'
 
 // Hooks
 export { default as useNotifier } from './hooks/useNotifier'
-export { default as useConfirm } from './hooks/useConfirm'
-export { default as useApi } from './hooks/useApi'
+export { default as useConfirm } from './hooks/hooks/useConfirm'
+export { default as useApi } from './hooks/hooks/useApi'
 
 // Assets
 export { default as WorkflowEmptySVG } from './assets/images/workflow_empty.svg'

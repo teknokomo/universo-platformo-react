@@ -6,7 +6,6 @@ import attachmentsRouter from './attachments'
 import canvasMessageRouter from './canvas-messages'
 import componentsCredentialsRouter from './components-credentials'
 import componentsCredentialsIconRouter from './components-credentials-icon'
-import credentialsRouter from './credentials'
 import documentStoreRouter from './documentstore'
 import exportImportRouter from './export-import'
 import feedbackRouter from './feedback'
@@ -46,6 +45,7 @@ import { createCampaignsServiceRoutes } from '@universo/campaigns-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
 import { createToolsService, createToolsRouter, toolsErrorHandler } from '@universo/flowise-tools-srv'
+import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@universo/flowise-credentials-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -60,10 +60,8 @@ import { getDataSource } from '../DataSource'
 import { createSpaceBuilderRouter } from '@universo/space-builder-srv'
 import rateLimit from 'express-rate-limit'
 import helmet from 'helmet'
-import credentialsService from '../services/credentials'
 import { getRunningExpressApp } from '../utils/getRunningExpressApp'
-import { Credential } from '../database/entities/Credential'
-import { decryptCredentialData } from '../utils'
+import { encryptCredentialData, decryptCredentialData } from '../utils'
 import nodesService from '../services/nodes'
 import componentsCredentialsService from '../services/components-credentials'
 import { canvasServiceConfig } from '../services/spacesCanvas'
@@ -89,6 +87,20 @@ const toolsService = createToolsService({
     }
 })
 const toolsRouter = createToolsRouter(toolsService)
+
+// Create credentials service and router using new package with DI for encryption
+const credentialsService = createCredentialsService({
+    getDataSource,
+    encryptCredentialData: async (data: Record<string, unknown>) => {
+        return await encryptCredentialData(data as any)
+    },
+    decryptCredentialData: async (encrypted: string, componentName?: string, components?: any) => {
+        // If components not provided, get from running app
+        const actualComponents = components ?? getRunningExpressApp().nodesPool.componentCredentials
+        return await decryptCredentialData(encrypted, componentName, actualComponents) as Record<string, unknown>
+    }
+})
+const credentialsRouter = createCredentialsRouter(credentialsService)
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -394,6 +406,9 @@ router.use('/profile', createProfileRoutesWithAuth(getDataSource(), ensureAuthWi
 
 // Tools-specific error handler (before global handler)
 router.use(toolsErrorHandler)
+
+// Credentials-specific error handler
+router.use(credentialsErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {

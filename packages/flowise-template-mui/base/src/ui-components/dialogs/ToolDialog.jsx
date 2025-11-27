@@ -24,8 +24,8 @@ import { IconX, IconFileDownload, IconPlus, IconTemplate, IconCode } from '@tabl
 import { api } from '@universo/api-client' // Replaced import toolsApi from '@/api/tools'
 
 // Hooks
-import useConfirm from '../../hooks/useConfirm'
-import useApi from '../../hooks/useApi'
+import useConfirm from '../../hooks/hooks/useConfirm'
+import useApi from '../../hooks/hooks/useApi'
 
 // utils
 import { useNotifier } from '../../hooks'

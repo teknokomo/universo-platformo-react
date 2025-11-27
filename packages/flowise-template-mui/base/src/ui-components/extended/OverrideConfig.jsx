@@ -33,7 +33,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { IconX, IconBox, IconVariable } from '@tabler/icons-react'
 
 // API
-import useApi from '../../hooks/useApi.js'
+import useApi from '../../hooks/hooks/useApi'
 import { api } from '@universo/api-client'
 // TODO: use api.config
 

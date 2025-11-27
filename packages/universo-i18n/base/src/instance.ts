@@ -40,9 +40,6 @@ import canvasesRu from './locales/ru/views/canvases.json'
 import chatmessageEn from './locales/en/views/chatmessage.json'
 import chatmessageRu from './locales/ru/views/chatmessage.json'
 
-import credentialsEn from './locales/en/views/credentials.json'
-import credentialsRu from './locales/ru/views/credentials.json'
-
 import documentStoreEn from './locales/en/views/document-store.json'
 import documentStoreRu from './locales/ru/views/document-store.json'
 
@@ -173,7 +170,6 @@ export function getInstance(): typeof i18n {
                         canvases: canvasesEn.canvases,
                         chatmessage: chatmessageEn.chatMessage,
                         chatbot: chatbotEn.chatbot,
-                        credentials: credentialsEn.credentials,
                         'document-store': documentStoreEn.documentStore,
                         flowList: flowListEn.flowList,
                         menu: menuEn.menu,
@@ -224,7 +220,6 @@ export function getInstance(): typeof i18n {
                         canvases: canvasesRu.canvases,
                         chatmessage: chatmessageRu.chatMessage,
                         chatbot: chatbotRu.chatbot,
-                        credentials: credentialsRu.credentials,
                         'document-store': documentStoreRu.documentStore,
                         flowList: flowListRu.flowList,
                         menu: menuRu.menu,

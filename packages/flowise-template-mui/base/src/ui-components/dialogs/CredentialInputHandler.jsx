@@ -29,8 +29,8 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
             value,
             inputParam,
             disabled,
-            confirmButtonName: t('credentials.common.save'),
-            cancelButtonName: t('credentials.common.cancel')
+            confirmButtonName: t('common.save'),
+            cancelButtonName: t('common.cancel')
         }
         setExpandDialogProps(dialogProp)
         setShowExpandDialog(true)
@@ -60,7 +60,7 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
                                         height: 25,
                                         width: 25
                                     }}
-                                    title={t('credentials.common.expand')}
+                                    title={t('common.expand')}
                                     color='primary'
                                     onClick={() => onExpandDialogClicked(data[inputParam.name] ?? inputParam.default ?? '', inputParam)}
                                 >
@@ -119,7 +119,7 @@ const CredentialInputHandler = ({ inputParam, data, disabled = false }) => {
                                 name={inputParam.name}
                                 options={inputParam.options}
                                 onSelect={(newValue) => (data[inputParam.name] = newValue)}
-                                value={data[inputParam.name] ?? inputParam.default ?? t('credentials.chooseAnOption')}
+                                value={data[inputParam.name] ?? inputParam.default ?? t('chooseAnOption')}
                             />
                         )}
                     </Box>

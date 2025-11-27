@@ -22,7 +22,7 @@ import { IconX } from '@tabler/icons-react'
 
 // API
 // TODO: use api.marketplaces
-import useApi from '../../hooks/useApi.js'
+import useApi from '../../hooks/hooks/useApi'
 
 // Project imports
 

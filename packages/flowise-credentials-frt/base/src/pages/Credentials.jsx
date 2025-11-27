@@ -32,7 +32,7 @@ import { ConfirmDialog } from '@flowise/template-mui'
 import { AddEditCredentialDialog } from '@flowise/template-mui'
 
 // API
-import { api } from '@universo/api-client' // Replaced import credentialsApi from '@/api/credentials'
+import { api } from '@universo/api-client'
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'
@@ -95,8 +95,8 @@ const Credentials = () => {
 
     const { confirm } = useConfirm()
 
-    const getAllCredentialsApi = useApi(() => api.credentials.getAllCredentials(unikId))
-    const getAllComponentsCredentialsApi = useApi(api.credentials.getAllComponentsCredentials)
+    const getAllCredentialsApi = useApi(() => api.credentials.getAll(unikId))
+    const getAllComponentsCredentialsApi = useApi(() => api.credentials.getAllComponents())
 
     const [search, setSearch] = useState('')
     const onSearchChange = (event) => {
@@ -150,22 +150,20 @@ const Credentials = () => {
 
         if (isConfirmed) {
             try {
-                const deleteResp = await api.credentials.deleteCredential(unikId, credential.id)
-                if (deleteResp.data) {
-                    enqueueSnackbar({
-                        message: t('credentials:deleteSuccess'),
-                        options: {
-                            key: new Date().getTime() + Math.random(),
-                            variant: 'success',
-                            action: (key) => (
-                                <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                                    <IconX />
-                                </Button>
-                            )
-                        }
-                    })
-                    onConfirm()
-                }
+                await api.credentials.delete(unikId, credential.id)
+                enqueueSnackbar({
+                    message: t('credentials:deleteSuccess'),
+                    options: {
+                        key: new Date().getTime() + Math.random(),
+                        variant: 'success',
+                        action: (key) => (
+                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                                <IconX />
+                            </Button>
+                        )
+                    }
+                })
+                onConfirm()
             } catch (error) {
                 enqueueSnackbar({
                     message: t('credentials:deleteError', {
@@ -182,7 +180,6 @@ const Credentials = () => {
                         )
                     }
                 })
-                onCancel()
             }
         }
     }

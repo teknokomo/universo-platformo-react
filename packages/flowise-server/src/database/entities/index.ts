@@ -1,6 +1,6 @@
 import { ChatMessage } from './ChatMessage'
 import { ChatMessageFeedback } from './ChatMessageFeedback'
-import { Credential } from './Credential'
+import { Credential } from '@universo/flowise-credentials-srv'
 import { Tool } from '@universo/flowise-tools-srv'
 import { Assistant } from './Assistant'
 import { Variable } from './Variable'

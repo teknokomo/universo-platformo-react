@@ -6,6 +6,135 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-28: QA Fixes - useApi Universal Response Handling ✅ COMPLETE
+
+**Status**: All code fixes complete, build successful, user testing pending
+
+**Summary**: Fixed useApi.jsx to support both legacy axios responses and modern @universo/api-client direct data responses.
+
+**Root Cause**: `useApi.jsx` expected axios response format (`result.data`), but `@universo/api-client` methods already unwrap `.data` internally and return data directly. This caused `componentsCredentials` to be `undefined` in the Credentials dialog.
+
+**Fix Applied**:
+- [x] Modified `useApi.jsx` to detect response format automatically
+- [x] Uses `result.data` if response has `.data` property (legacy axios)
+- [x] Uses `result` directly if no `.data` property (modern API client)
+
+**Build**: 42/42 packages successful ✅
+
+---
+
+### 2025-11-28: QA Fixes - Credentials API Migration ✅ COMPLETE
+
+**Status**: All code fixes complete, build successful
+
+**Summary**: Fixed Credentials page API method calls to use @universo/api-client method names
+
+**Root Cause**: Credentials.jsx and related components used old flowise-ui API method names, but imported from @universo/api-client which has different method names.
+
+**API Method Mapping Applied**:
+| Old (flowise-ui) | New (@universo/api-client) |
+|------------------|----------------------------|
+| `getAllCredentials(unikId)` | `getAll(unikId)` |
+| `getAllComponentsCredentials()` | `getAllComponents()` |
+| `getSpecificCredential(unikId, id)` | `getById(unikId, id)` |
+| `getSpecificComponentCredential(name)` | `getComponentSchema(name)` |
+| `createCredential(unikId, body)` | `create(unikId, body)` |
+| `updateCredential(unikId, id, body)` | `update(unikId, id, body)` |
+| `deleteCredential(unikId, id)` | `delete(unikId, id)` |
+| `getCredentialsByName(unikId, name)` | `getByName(unikId, name)` |
+
+**Files Fixed**:
+- [x] `flowise-credentials-frt/pages/Credentials.jsx` - getAll, getAllComponents, delete
+- [x] `flowise-template-mui/CredentialInputHandler.jsx` - getComponentSchema
+- [x] `flowise-template-mui/AddEditCredentialDialog.jsx` - getById, getComponentSchema, create, update
+- [x] `flowise-template-mui/AsyncDropdown.jsx` - getByName
+
+**Additional Fixes**:
+- Removed `.data` wrapping (new API returns data directly)
+- Fixed useApi wrapper to use arrow functions
+
+**Build**: 42/42 packages successful ✅
+
+---
+
+### 2025-11-27: QA Fixes - useApi & i18n ✅ COMPLETE
+
+**Status**: All code fixes complete, build successful
+
+**Summary**: Fixed useApi shim, CredentialListDialog i18n, cleanup dead code
+
+**Phase 1: Fix useApi hooks (Critical - Tools/Credentials not working)** ✅
+- [x] 1.1 Update `hooks/index.ts` - export real hooks from `./hooks/` subfolder
+- [x] 1.2 Delete shim files `useApi.js`, `useConfirm.js`
+- [x] 1.3 Fix `index.ts` and `package.json` exports
+- [x] 1.4 Fix 12 component files with relative imports
+
+**Phase 2: Fix CredentialListDialog i18n** ✅
+- [x] 2.1 Fix double namespace in `t()` calls (removed 'credentials.' prefix)
+
+**Phase 3: Cleanup dead code** ✅
+- [x] 3.1 Delete `up-admin/AdminPanel.jsx` (unused backend)
+- [x] 3.2 Remove AdminPanel route from `MainRoutes.jsx`
+
+**Phase 4: Verification** ✅
+- [x] 4.1 Full build - 42/42 packages successful
+- [ ] 4.2 Browser testing (USER)
+
+---
+
+### 2025-11-27: Credentials Package Extraction ✅ COMPLETE (Pending Tests)
+
+**Status**: Implementation complete, user testing pending
+
+**Summary**: Extract credentials functionality from flowise-ui/flowise-server into separate packages `@universo/flowise-credentials-srv` and `@universo/flowise-credentials-frt`.
+
+**Phase 0: Prepare - Split Init migration** ✅
+- [x] 0.1 Remove credential table creation from `Init.ts`
+- [x] 0.2 Delete `1693997070000-ModifyCredential.ts`
+- [x] 0.3 Remove ModifyCredential import from `migrations/postgres/index.ts`
+
+**Phase 1: Backend Package (flowise-credentials-srv)** ✅
+- [x] 1.1 Create package structure
+- [x] 1.2 Create migration `1693891895165-AddCredentials.ts`
+- [x] 1.3 Move and adapt Credential entity
+- [x] 1.4 Create credentialsService with DI (encryptCredentialData, decryptCredentialData via config)
+- [x] 1.5 Create credentialsRoutes factory (transformToCredentialEntity now internal)
+- [x] 1.6 Export Credential, credentialsMigrations, createCredentialsService, createCredentialsRouter
+
+**Phase 2: Update flowise-server** ✅
+- [x] 2.1 Add @universo/flowise-credentials-srv to dependencies
+- [x] 2.2 Import credentialsMigrations in migrations index
+- [x] 2.3 Update entities/index.ts - import Credential from new package
+- [x] 2.4 Update databaseEntities in utils/index.ts
+- [x] 2.5 Delete old files (entity, service, controller, routes)
+- [x] 2.6 Update routes/index.ts - create credentials service with DI, register router
+- [x] 2.7 Update assistants, openai-assistants, openai-assistants-vector-store imports
+
+**Phase 3: Frontend Package (flowise-credentials-frt)** ✅
+- [x] 3.1 Create package structure
+- [x] 3.2 Move credentials page from flowise-ui
+- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
+- [x] 3.4 Update exports
+
+**Phase 4: Update templates and routing** ✅
+- [x] 4.1 Add dependency to flowise-template-mui, universo-template-mui
+- [x] 4.2 Update MainRoutesMUI.tsx with credentials route
+- [x] 4.3 Register i18n namespace via side-effect import
+- [x] 4.4 Add TypeScript module declarations
+
+**Phase 5: Cleanup & Integration** ✅
+- [x] 5.1 Delete old credentials from flowise-ui/views/credentials
+- [x] 5.2 Delete credentials.json from universo-i18n locales (en/ru)
+- [x] 5.3 Remove credentials imports from universo-i18n instance.ts
+- [x] 5.4 Remove credentials from universo-i18n i18next.d.ts
+- [x] 5.5 Full build `pnpm build` - 42/42 successful
+
+**Phase 6: Testing** 🧪
+- [ ] 6.1 Test migrations (USER - database)
+- [ ] 6.2 Functional testing (USER - browser)
+
+---
+
 ### 2025-11-27: Tools Package Extraction ✅ COMPLETE (Pending Tests)
 
 **Status**: Implementation complete, user testing pending
