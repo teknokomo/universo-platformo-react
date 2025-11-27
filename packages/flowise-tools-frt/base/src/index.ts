@@ -7,3 +7,6 @@
 
 // Pages
 export { default as ToolsPage } from './pages/Tools'
+
+// i18n
+export { toolsTranslations, getToolsTranslations } from './i18n'

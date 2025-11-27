@@ -12,6 +12,8 @@ import '@universo/organizations-frt/i18n'
 import '@universo/storages-frt/i18n'
 // IMPORTANT: Register analytics translations before lazy loading Analytics component
 import '@universo/analytics-frt/i18n'
+// Register tools translations before lazy loading Tools component
+import '@universo/flowise-tools-frt/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'

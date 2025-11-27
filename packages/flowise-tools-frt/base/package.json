@@ -14,6 +14,11 @@
         "./pages/*": {
             "default": "./src/pages/*"
         },
+        "./i18n": {
+            "types": "./src/i18n/index.ts",
+            "import": "./src/i18n/index.ts",
+            "require": "./src/i18n/index.ts"
+        },
         "./package.json": "./package.json"
     },
     "files": ["src"],
