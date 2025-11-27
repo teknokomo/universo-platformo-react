@@ -42,6 +42,7 @@ import { publishMigrations } from '@universo/publish-srv'
 
 export const postgresMigrations = [
     Init1693891895163,
+    ...toolsMigrations, // Must come right after Init - creates tool table
     ModifyChatFlow1693995626941,
     ModifyChatMessage1693996694528,
     ModifyCredential1693997070000,
@@ -71,8 +72,7 @@ export const postgresMigrations = [
     AddArtifactsToChatMessage1726156258465,
     AddFollowUpPrompts1726666309552,
     AddTypeToAssistant1733011290987,
-    ...uniksMigrations,
-    ...toolsMigrations, // Must come after uniksMigrations (depends on uniks.uniks table)
+    ...uniksMigrations, // Adds unik_id to tool and other Flowise tables
     ...profileMigrations,
     ...metaversesMigrations,
     ...clustersMigrations,

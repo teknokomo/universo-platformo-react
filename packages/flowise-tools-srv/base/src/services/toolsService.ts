@@ -267,12 +267,11 @@ export function createToolsService(config: ToolsServiceConfig): IToolsService {
                 : []
             const foundIds = selectResponse.map((response) => response.id)
 
-            // Remove duplicate IDs and rename tools
+            // Remove duplicate IDs and rename tools (create new objects to avoid mutating input)
             const prepTools: Partial<Tool>[] = newTools.map((newTool) => {
                 const id = newTool.id ?? ''
                 if (foundIds.includes(id)) {
-                    newTool.id = undefined
-                    newTool.name = (newTool.name ?? '') + ' (1)'
+                    return { ...newTool, id: undefined, name: (newTool.name ?? '') + ' (1)' }
                 }
                 return newTool
             })

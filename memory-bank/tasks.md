@@ -45,6 +45,14 @@
 - [ ] 4.2 Test migrations (USER - database) 🧪
 - [ ] 4.3 Functional testing (USER - browser) 🧪
 
+**Phase 5: QA Bot Review Fixes** ✅
+- [x] 5.1 Add missing @universo/flowise-tools-srv to template-mui dependencies
+- [x] 5.2 Fix migration AddTools.ts - add PostgreSQL error codes for CREATE TABLE IF NOT EXISTS
+- [x] 5.3 Remove 19 unused lazy imports from MainRoutes.jsx
+- [x] 5.4 Add i18n support to flowise-tools-frt (en/ru translations migrated from universo-i18n)
+- [x] 5.5 Register tools namespace in MainRoutesMUI.tsx
+- [x] 5.6 Remove tools.json files from universo-i18n and update instance.ts
+
 ---
 
 ### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE

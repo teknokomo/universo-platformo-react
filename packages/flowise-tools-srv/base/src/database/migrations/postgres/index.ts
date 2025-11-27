@@ -1,3 +1,3 @@
-import { AddTools1748400000000 } from './1748400000000-AddTools'
+import { AddTools1693891895164 } from './1693891895164-AddTools'
 
-export const toolsMigrations = [AddTools1748400000000]
+export const toolsMigrations = [AddTools1693891895164]
