@@ -36,7 +36,6 @@
         "eslint": "^8.56.0",
         "rimraf": "^5.0.5",
         "typeorm": "catalog:",
-        "typescript": "^5.4.5",
-        "zod": "^3.25.76"
+        "typescript": "^5.4.5"
     }
 }

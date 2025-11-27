@@ -45,7 +45,7 @@ import { initializeRateLimiters as initializeProjectsRateLimiters, createProject
 import { createCampaignsServiceRoutes } from '@universo/campaigns-srv'
 import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
-import { createToolsService, createToolsRouter } from '@universo/flowise-tools-srv'
+import { createToolsService, createToolsRouter, toolsErrorHandler } from '@universo/flowise-tools-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -391,6 +391,9 @@ router.use('/publish', createPublishRoutes(getDataSource()))
 // Do not wrap with ensureAuth here, the router itself applies auth to protected endpoints
 const createProfileRoutesWithAuth = createProfileRoutes as unknown as (dataSource: any, authMiddleware?: any) => ExpressRouter
 router.use('/profile', createProfileRoutesWithAuth(getDataSource(), ensureAuthWithRls))
+
+// Tools-specific error handler (before global handler)
+router.use(toolsErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {

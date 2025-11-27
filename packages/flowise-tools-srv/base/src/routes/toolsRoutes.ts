@@ -39,7 +39,7 @@ export function createToolsRouter(toolsService: IToolsService): Router {
 
     const deleteTool = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (typeof req.params === 'undefined' || !req.params.id) {
+            if (!req.params.id) {
                 throw new ToolsControllerError(StatusCodes.PRECONDITION_FAILED, 'Error: toolsController.deleteTool - id not provided!')
             }
             const unikId = req.params.unikId as string
@@ -65,7 +65,7 @@ export function createToolsRouter(toolsService: IToolsService): Router {
 
     const getToolById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (typeof req.params === 'undefined' || !req.params.id) {
+            if (!req.params.id) {
                 throw new ToolsControllerError(StatusCodes.PRECONDITION_FAILED, 'Error: toolsController.getToolById - id not provided!')
             }
             const unikId = req.params.unikId as string
@@ -81,7 +81,7 @@ export function createToolsRouter(toolsService: IToolsService): Router {
 
     const updateTool = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (typeof req.params === 'undefined' || !req.params.id) {
+            if (!req.params.id) {
                 throw new ToolsControllerError(StatusCodes.PRECONDITION_FAILED, 'Error: toolsController.updateTool - id not provided!')
             }
             if (!req.body) {

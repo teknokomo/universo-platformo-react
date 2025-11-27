@@ -3,6 +3,7 @@ import { DataSource, QueryRunner, In } from 'typeorm'
 import { validate as validateUuid } from 'uuid'
 import { z } from 'zod'
 import { Tool } from '../database/entities/Tool'
+import type { Unik } from '@universo/uniks-srv'
 
 /**
  * Zod schemas for input validation
@@ -118,7 +119,7 @@ export function createToolsService(config: ToolsServiceConfig): IToolsService {
                 iconSrc: validatedData.iconSrc,
                 schema: validatedData.schema,
                 func: validatedData.func,
-                unik: { id: validatedData.unikId } as any
+                unik: { id: validatedData.unikId } as Pick<Unik, 'id'>
             })
 
             const dbResponse = await repo.save(newTool)

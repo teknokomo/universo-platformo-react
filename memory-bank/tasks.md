@@ -53,6 +53,20 @@
 - [x] 5.5 Register tools namespace in MainRoutesMUI.tsx
 - [x] 5.6 Remove tools.json files from universo-i18n and update instance.ts
 
+**Phase 6: Migration Architecture Refactoring** ✅
+- [x] 6.1 Rename AddTools migration: 1748400000000 → 1693891895164 (right after Init)
+- [x] 6.2 Simplify AddTools: only creates table, unik_id handled by AddUniksAndLinked
+- [x] 6.3 Return 'tool' to flowiseTables in AddUniksAndLinked
+- [x] 6.4 Move toolsMigrations right after Init in postgresMigrations array
+- [x] 6.5 Fix importTools: don't mutate input array (create new objects)
+
+**Phase 7: Remaining Bot Review Fixes** ✅
+- [x] 7.1 Register toolsErrorHandler in flowise-server routes/index.ts
+- [x] 7.2 Fix package.json: remove zod from devDependencies (duplicate)
+- [x] 7.3 Remove redundant `typeof req.params === 'undefined'` checks in toolsRoutes.ts
+- [x] 7.4 Keep `dbResponse.affected ?? undefined` (TypeORM returns null, not undefined) - ⚠️ False positive
+- [x] 7.5 Improve type safety: use `Pick<Unik, 'id'>` instead of `as any` in toolsService.ts
+
 ---
 
 ### 2025-11-25: PR #560 Bot Comments QA ✅ COMPLETE
