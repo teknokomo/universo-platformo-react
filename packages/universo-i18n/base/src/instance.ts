@@ -22,8 +22,7 @@ import accessRu from './locales/ru/core/access.json'
 import adminEn from './locales/en/views/admin.json'
 import adminRu from './locales/ru/views/admin.json'
 
-import apiKeysEn from './locales/en/views/api-keys.json'
-import apiKeysRu from './locales/ru/views/api-keys.json'
+// apiKeys translations removed - now in @universo/flowise-apikey-frt
 
 import assistantsEn from './locales/en/views/assistants.json'
 import assistantsRu from './locales/ru/views/assistants.json'
@@ -160,7 +159,7 @@ export function getInstance(): typeof i18n {
                         access: accessEn.access,
                         // Views
                         admin: adminEn.admin,
-                        apiKeys: apiKeysEn.apiKeys,
+                        // apiKeys: now in @universo/flowise-apikey-frt
                         assistants: assistantsEn.assistants,
                         auth: authEn.auth,
                         canvas: canvasEn.canvas,
@@ -209,7 +208,7 @@ export function getInstance(): typeof i18n {
                         access: accessRu.access,
                         // Views
                         admin: adminRu.admin,
-                        apiKeys: apiKeysRu.apiKeys,
+                        // apiKeys: now in @universo/flowise-apikey-frt
                         assistants: assistantsRu.assistants,
                         auth: authRu.auth,
                         canvas: canvasRu.canvas,

@@ -36,7 +36,14 @@ import { getApiBaseURL } from '@universo/utils'
 export const api = createUniversoApiClient({ baseURL: `${getApiBaseURL()}/api/v1` })
 
 // API classes (for advanced use cases) - alphabetical order
-export { ApiKeyApi, apikeyQueryKeys } from './api/apikey'
+export {
+    ApiKeyApi,
+    apikeyQueryKeys,
+    type ApiKey,
+    type CreateApiKeyPayload,
+    type UpdateApiKeyPayload,
+    type ImportApiKeysPayload
+} from './api/apikey'
 export { AssistantsApi, assistantQueryKeys } from './api/assistants'
 export { AttachmentsApi, attachmentsQueryKeys } from './api/attachments'
 export { CanvasMessagesApi, canvasMessagesQueryKeys } from './api/canvasMessages'

@@ -25,7 +25,7 @@ import { StyledButton } from '@flowise/template-mui'
 import { IconX, IconCopy } from '@tabler/icons-react'
 
 // API
-import { api } from '@universo/api-client' // Replaced import apikeyApi from '@/api/apikey'
+import { api } from '@universo/api-client'
 
 // utils
 import { useNotifier } from '@flowise/template-mui/hooks'
@@ -63,7 +63,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
     const addNewKey = async () => {
         try {
             const createResp = await api.apiKeys.createNewAPI(dialogProps.unikId, { keyName })
-            if (createResp.data) {
+            if (createResp) {
                 enqueueSnackbar({
                     message: t('apiKeys:messages.newKeyAdded'),
                     options: {
@@ -82,7 +82,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             if (setError) setError(error)
             enqueueSnackbar({
                 message: t('apiKeys:messages.addKeyError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: typeof error.response?.data === 'object' ? error.response.data.message : error.response?.data
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),
@@ -102,7 +102,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
     const saveKey = async () => {
         try {
             const saveResp = await api.apiKeys.updateAPI(dialogProps.unikId, dialogProps.key.id, { keyName })
-            if (saveResp.data) {
+            if (saveResp) {
                 enqueueSnackbar({
                     message: t('apiKeys:messages.keySaved'),
                     options: {
@@ -121,7 +121,7 @@ const APIKeyDialog = ({ show, dialogProps, onCancel, onConfirm, setError }) => {
             if (setError) setError(error)
             enqueueSnackbar({
                 message: t('apiKeys:messages.saveKeyError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: typeof error.response?.data === 'object' ? error.response.data.message : error.response?.data
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),

@@ -84,7 +84,7 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                 jsonFile: selectedFile
             }
             const createResp = await api.apiKeys.importAPI(dialogProps.unikId, obj)
-            if (createResp.data) {
+            if (createResp) {
                 enqueueSnackbar({
                     message: t('apiKeys:messages.importSuccess'),
                     options: {
@@ -97,12 +97,12 @@ const UploadJSONFileDialog = ({ show, dialogProps, onCancel, onConfirm }) => {
                         )
                     }
                 })
-                onConfirm(createResp.data.id)
+                onConfirm()
             }
         } catch (error) {
             enqueueSnackbar({
                 message: t('apiKeys:messages.importError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: typeof error.response?.data === 'object' ? error.response.data.message : error.response?.data
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),

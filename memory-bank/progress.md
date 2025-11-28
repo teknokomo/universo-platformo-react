@@ -25,6 +25,49 @@
 
 ## November 2025
 
+### 2025-11-28: ApiKey Package Extraction ✅
+
+**Summary**: Extracted ApiKey functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-apikey-srv` and `@universo/flowise-apikey-frt`. Following DI factory pattern from Tools/Credentials/Variables.
+
+**New Packages Created**:
+- `packages/flowise-apikey-srv/base/` - Backend service with ApiKey entity, migration, service with dual storage mode (JSON + DB), routes
+- `packages/flowise-apikey-frt/base/` - Frontend pages (APIKey, APIKeyDialog, UploadJSONFileDialog) with i18n
+
+**Key Architectural Decisions**:
+- **Dual Storage Mode**: Service supports both JSON file storage and PostgreSQL via `ApikeyStorageConfig.type` ('json' | 'db')
+- **DI Pattern**: createApikeyService/createApikeyRouter factory functions with config injection
+- **Lazy Service Initialization**: validateKey.ts and verify routes use getApikeyService() for lazy loading
+- **Zod Validation**: Routes use Zod for request validation with validateUnikId/validateApiKeyId middleware
+- **i18n**: Namespace 'apiKeys' registration via registerNamespace from @universo/i18n/registry
+- **UUID for IDs**: All ID generation uses uuid v4 for consistency with PostgreSQL migration
+
+**QA Fixes Applied (2025-11-28)**:
+- Fixed critical useApi pattern bug: `useApi(() => api.apiKeys.getAllAPIKeys(unikId))` (arrow function required for lazy evaluation)
+- Unified ID format to UUID across Entity (`@PrimaryGeneratedColumn('uuid')`), Service (uuidv4()), and jsonStorage (uuidv4())
+- Added replaceAll mode handling in importKeysToJson()
+- Applied Prettier formatting to all 12 backend TypeScript files
+
+**API Client**:
+- Implemented ApiKeyApi class in universo-api-client with getAllAPIKeys, createNewAPI, updateAPI, deleteAPI, importAPI methods
+- Types: ApiKey, CreateApiKeyPayload, UpdateApiKeyPayload, ImportApiKeysPayload
+
+**Files Deleted**:
+- `flowise-server/src/routes/apikey/`
+- `flowise-server/src/controllers/apikey/`
+- `flowise-server/src/services/apikey/`
+- `flowise-server/src/utils/apiKey.ts`
+- `flowise-server/src/database/entities/ApiKey.ts`
+- `flowise-server/src/database/migrations/postgres/1720230151480-AddApiKey.ts`
+- `flowise-ui/src/views/apikey/`
+- `universo-i18n/base/src/locales/en/views/api-keys.json`
+- `universo-i18n/base/src/locales/ru/views/api-keys.json`
+- `spaces-frt/base/src/i18n/locales/en/views/api-keys.json`
+- `spaces-frt/base/src/i18n/locales/ru/views/api-keys.json`
+
+**Build**: 44/44 packages successful ✅
+
+---
+
 ### 2025-11-28: Variables Package Extraction ✅
 
 **Summary**: Extracted variables functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-variables-srv` and `@universo/flowise-variables-frt`.

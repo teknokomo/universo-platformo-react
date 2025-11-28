@@ -1,7 +1,25 @@
 import { Request } from 'express'
-import { compareKeys } from './apiKey'
-import apikeyService from '../services/apikey'
+import { compareKeys, createApikeyService, type IApikeyService, type ApikeyStorageConfig } from '@universo/flowise-apikey-srv'
+import { getDataSource } from '../DataSource'
+import { appConfig } from '../AppConfig'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
+
+/**
+ * Lazy-initialized ApiKey service singleton for validation utilities
+ */
+let _apikeyService: IApikeyService | null = null
+
+function getApikeyService(): IApikeyService {
+    if (!_apikeyService) {
+        _apikeyService = createApikeyService({
+            getDataSource,
+            storageConfig: {
+                type: appConfig.apiKeys.storageType as 'json' | 'db'
+            }
+        })
+    }
+    return _apikeyService
+}
 
 /**
  * Validate Canvas API Key
@@ -20,6 +38,7 @@ export const validateCanvasApiKey = async (req: Request, canvas: CanvasFlowResul
 
     const suppliedKey = authorizationHeader.split(`Bearer `).pop()
     if (suppliedKey) {
+        const apikeyService = getApikeyService()
         const keys = await apikeyService.getAllApiKeys()
         const apiSecret = keys.find((key: any) => key.id === canvasApiKeyId)?.apiSecret
         if (!apiSecret) return false
@@ -45,6 +64,7 @@ export const validateAPIKey = async (req: Request): Promise<boolean> => {
 
     const suppliedKey = authorizationHeader.split(`Bearer `).pop()
     if (suppliedKey) {
+        const apikeyService = getApikeyService()
         const keys = await apikeyService.getAllApiKeys()
         const apiSecret = keys.find((key: any) => key.apiKey === suppliedKey)?.apiSecret
         if (!apiSecret) return false
