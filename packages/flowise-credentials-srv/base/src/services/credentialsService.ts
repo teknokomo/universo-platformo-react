@@ -99,7 +99,17 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
             const dataSource = getDataSource()
             const repo = dataSource.getRepository(Credential)
 
-            const encryptedData = await encryptCredentialData(validatedData.plainDataObj)
+            // Encrypt with specific error handling
+            let encryptedData: string
+            try {
+                encryptedData = await encryptCredentialData(validatedData.plainDataObj)
+            } catch (encryptError) {
+                const message = encryptError instanceof Error ? encryptError.message : String(encryptError)
+                throw new CredentialsServiceError(
+                    StatusCodes.INTERNAL_SERVER_ERROR, 
+                    `Error: credentialsService.createCredential - encryption failed: ${message}`
+                )
+            }
 
             const newCredential = repo.create({
                 name: validatedData.name,
@@ -110,6 +120,9 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
 
             return await repo.save(newCredential)
         } catch (error) {
+            if (error instanceof CredentialsServiceError) {
+                throw error
+            }
             if (error instanceof z.ZodError) {
                 throw new CredentialsServiceError(StatusCodes.BAD_REQUEST, `Validation error: ${error.errors.map(e => e.message).join(', ')}`)
             }
@@ -120,6 +133,10 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
 
     const deleteCredential = async (credentialId: string, unikId?: string): Promise<{ affected?: number }> => {
         try {
+            if (!validateUuid(credentialId)) {
+                throw new CredentialsServiceError(StatusCodes.BAD_REQUEST, 'Invalid credential ID format')
+            }
+
             const dataSource = getDataSource()
             const repo = dataSource.getRepository(Credential)
 
@@ -139,29 +156,33 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
     const getAllCredentials = async (paramCredentialName: string | string[] | undefined, unikId?: string): Promise<Credential[]> => {
         try {
             const dataSource = getDataSource()
+            const repo = dataSource.getRepository(Credential)
             const dbResponse: Credential[] = []
-            let queryBuilder = dataSource.getRepository(Credential).createQueryBuilder('credential')
 
-            if (unikId) {
-                queryBuilder = queryBuilder.where('credential.unik_id = :unikId', { unikId })
+            // Helper to create fresh query builder with unikId filter
+            const createQueryBuilder = () => {
+                let qb = repo.createQueryBuilder('credential')
+                if (unikId) {
+                    qb = qb.where('credential.unik_id = :unikId', { unikId })
+                }
+                return qb
             }
 
             if (paramCredentialName) {
                 if (Array.isArray(paramCredentialName)) {
-                    for (const name of paramCredentialName) {
-                        const credentials = await queryBuilder
-                            .andWhere('credential.credentialName = :name', { name })
-                            .getMany()
-                        dbResponse.push(...credentials)
-                    }
+                    // Use IN clause for efficiency instead of N+1 queries
+                    const credentials = await createQueryBuilder()
+                        .andWhere('credential.credentialName IN (:...names)', { names: paramCredentialName })
+                        .getMany()
+                    dbResponse.push(...credentials)
                 } else {
-                    const credentials = await queryBuilder
+                    const credentials = await createQueryBuilder()
                         .andWhere('credential.credentialName = :name', { name: paramCredentialName })
                         .getMany()
                     dbResponse.push(...credentials)
                 }
             } else {
-                const credentials = await queryBuilder.getMany()
+                const credentials = await createQueryBuilder().getMany()
                 for (const credential of credentials) {
                     dbResponse.push(omit(credential, ['encryptedData']) as Credential)
                 }
@@ -175,6 +196,10 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
 
     const getCredentialById = async (credentialId: string, unikId?: string): Promise<CredentialWithPlainData> => {
         try {
+            if (!validateUuid(credentialId)) {
+                throw new CredentialsServiceError(StatusCodes.BAD_REQUEST, 'Invalid credential ID format')
+            }
+
             const dataSource = getDataSource()
             const repo = dataSource.getRepository(Credential)
 
@@ -208,6 +233,10 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
 
     const updateCredential = async (credentialId: string, requestBody: UpdateCredentialBody, unikId?: string): Promise<Credential> => {
         try {
+            if (!validateUuid(credentialId)) {
+                throw new CredentialsServiceError(StatusCodes.BAD_REQUEST, 'Invalid credential ID format')
+            }
+
             const validatedData = updateCredentialSchema.parse(requestBody)
             
             const dataSource = getDataSource()
@@ -223,10 +252,19 @@ export function createCredentialsService(config: CredentialsServiceConfig): ICre
                 throw new CredentialsServiceError(StatusCodes.NOT_FOUND, `Credential ${credentialId} not found`)
             }
 
-            // Merge existing decrypted data with new data
-            const existingData = await decryptCredentialData(credential.encryptedData)
-            const mergedData = { ...existingData, ...validatedData.plainDataObj }
-            const encryptedData = await encryptCredentialData(mergedData)
+            // Merge existing decrypted data with new data, with specific error handling
+            let encryptedData: string
+            try {
+                const existingData = await decryptCredentialData(credential.encryptedData)
+                const mergedData = { ...existingData, ...validatedData.plainDataObj }
+                encryptedData = await encryptCredentialData(mergedData)
+            } catch (cryptError) {
+                const message = cryptError instanceof Error ? cryptError.message : String(cryptError)
+                throw new CredentialsServiceError(
+                    StatusCodes.INTERNAL_SERVER_ERROR,
+                    `Error: credentialsService.updateCredential - encryption/decryption failed: ${message}`
+                )
+            }
 
             const updateData: Partial<Credential> = {
                 encryptedData

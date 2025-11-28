@@ -16,6 +16,33 @@ export class CredentialsControllerError extends Error {
 }
 
 /**
+ * Middleware to validate unikId parameter
+ */
+const validateUnikId = (req: Request, _res: Response, next: NextFunction): void => {
+    const unikId = req.params.unikId as string
+    if (!unikId) {
+        return next(new CredentialsControllerError(
+            StatusCodes.PRECONDITION_FAILED,
+            'Error: credentialsController - unikId not provided in request parameters!'
+        ))
+    }
+    next()
+}
+
+/**
+ * Middleware to validate id parameter (for credential ID)
+ */
+const validateCredentialId = (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.params.id) {
+        return next(new CredentialsControllerError(
+            StatusCodes.PRECONDITION_FAILED,
+            'Error: credentialsController - credential id not provided!'
+        ))
+    }
+    next()
+}
+
+/**
  * Factory function to create credentials router
  */
 export function createCredentialsRouter(credentialsService: ICredentialsService): Router {
@@ -32,13 +59,6 @@ export function createCredentialsRouter(credentialsService: ICredentialsService)
             }
 
             const unikId = req.params.unikId as string
-            if (!unikId) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.createCredential - unikId not provided!'
-                )
-            }
-
             const result = await credentialsService.createCredential({ ...req.body, unikId })
             res.json(result)
         } catch (error) {
@@ -61,21 +81,7 @@ export function createCredentialsRouter(credentialsService: ICredentialsService)
     // READ ONE
     const getCredentialById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (!req.params.id) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.getCredentialById - id not provided!'
-                )
-            }
-
             const unikId = req.params.unikId as string
-            if (!unikId) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.getCredentialById - unikId not provided!'
-                )
-            }
-
             const result = await credentialsService.getCredentialById(req.params.id, unikId)
             res.json(result)
         } catch (error) {
@@ -86,13 +92,6 @@ export function createCredentialsRouter(credentialsService: ICredentialsService)
     // UPDATE
     const updateCredential = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (!req.params.id) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.updateCredential - id not provided!'
-                )
-            }
-
             if (!req.body) {
                 throw new CredentialsControllerError(
                     StatusCodes.PRECONDITION_FAILED,
@@ -101,13 +100,6 @@ export function createCredentialsRouter(credentialsService: ICredentialsService)
             }
 
             const unikId = req.params.unikId as string
-            if (!unikId) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.updateCredential - unikId not provided!'
-                )
-            }
-
             const result = await credentialsService.updateCredential(req.params.id, req.body, unikId)
             res.json(result)
         } catch (error) {
@@ -118,21 +110,7 @@ export function createCredentialsRouter(credentialsService: ICredentialsService)
     // DELETE
     const deleteCredential = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (!req.params.id) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.deleteCredential - id not provided!'
-                )
-            }
-
             const unikId = req.params.unikId as string
-            if (!unikId) {
-                throw new CredentialsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: credentialsController.deleteCredential - unikId not provided!'
-                )
-            }
-
             const result = await credentialsService.deleteCredential(req.params.id, unikId)
             res.json(result)
         } catch (error) {
@@ -140,12 +118,12 @@ export function createCredentialsRouter(credentialsService: ICredentialsService)
         }
     }
 
-    // Register routes
-    router.post('/', createCredential)
-    router.get('/', getAllCredentials)
-    router.get('/:id', getCredentialById)
-    router.put('/:id', updateCredential)
-    router.delete('/:id', deleteCredential)
+    // Register routes with middleware validation
+    router.post('/', validateUnikId, createCredential)
+    router.get('/', validateUnikId, getAllCredentials)
+    router.get('/:id', validateUnikId, validateCredentialId, getCredentialById)
+    router.put('/:id', validateUnikId, validateCredentialId, updateCredential)
+    router.delete('/:id', validateUnikId, validateCredentialId, deleteCredential)
 
     return router
 }

@@ -36,6 +36,13 @@ export class AddCredentials1693891895165 implements MigrationInterface {
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP TABLE IF EXISTS "public"."credential";`)
+        const tableExists = await queryRunner.hasTable('credential')
+        if (tableExists) {
+            // Note: FK to unik will be removed by AddUniksAndLinked.down() which runs before this
+            await queryRunner.query(`DROP TABLE IF EXISTS "public"."credential";`)
+            console.log('✅ [AddCredentials] Dropped credential table')
+        } else {
+            console.log('ℹ️ [AddCredentials] Credential table does not exist, skipping drop')
+        }
     }
 }

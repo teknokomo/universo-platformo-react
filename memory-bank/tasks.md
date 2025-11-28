@@ -6,6 +6,32 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-28: QA Fixes - PR #566 Bot Review Comments ✅ COMPLETE
+
+**Status**: All code fixes complete, build successful (42/42 packages)
+
+**Summary**: Review and fix valid issues from Gemini Code Assist and Copilot code review
+
+**Critical Issues (Fixed)**:
+- [x] 1. Fix N+1 query / query builder reuse bug in `getAllCredentials` - used IN clause instead of loop
+- [x] 2. Add UUID validation for credentialId in `getCredentialById`, `updateCredential`, `deleteCredential`
+
+**Medium Issues (Fixed)**:
+- [x] 3. Extract unikId/credentialId validation to middleware in routes
+- [x] 4. Add specific error handling for encryption operation in `createCredential` and `updateCredential`
+- [x] 5. Improve migration `down()` method with existence check
+
+**Low / Nitpick Issues (Skipped - Low Priority)**:
+- ⏭️ TypeScript noUnusedLocals/noUnusedParameters - Consistent with other packages in monorepo
+- ⏭️ CredentialsTranslation interface specificity - Works as is, type safety not critical for JSON
+- ⏭️ Error handling order consistency - Minor style preference
+
+**False Positives (Already Valid)**:
+- ✅ zod version 3.25.76 exists (verified via npm registry)
+- ✅ decryptCredentialData callback has proper fallback logic
+
+---
+
 ### 2025-11-28: QA Fixes - useApi Universal Response Handling ✅ COMPLETE
 
 **Status**: All code fixes complete, build successful, user testing pending
