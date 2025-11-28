@@ -1,5 +1,5 @@
 export const WHITELIST_URLS = [
-    '/api/v1/verify/apikey/',
+    '/api/v1/verify/unik/',
     '/public/canvases',
     '/api/v1/bots/',
     '/api/v1/bots/config/',

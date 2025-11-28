@@ -80,6 +80,7 @@ interface ApiKeyWithCount {
 export interface IApikeyService {
     getAllApiKeys: (unikId?: string) => Promise<ApiKeyWithCount[]>
     getApiKey: (apiKey: string, unikId?: string) => Promise<IApiKey | JsonApiKey | undefined>
+    getApiKeyById: (id: string) => Promise<IApiKey | JsonApiKey | undefined>
     createApiKey: (keyName: string, unikId?: string) => Promise<ApiKeyWithCount[]>
     updateApiKey: (id: string, keyName: string, unikId?: string) => Promise<ApiKeyWithCount[]>
     deleteApiKey: (id: string, unikId?: string) => Promise<ApiKeyWithCount[]>
@@ -205,6 +206,29 @@ export function createApikeyService(config: ApikeyServiceConfig): IApikeyService
             if (error instanceof ApikeyServiceError) throw error
             const message = error instanceof Error ? error.message : String(error)
             throw new ApikeyServiceError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: apikeyService.getApiKey - ${message}`)
+        }
+    }
+
+    const getApiKeyById = async (id: string): Promise<IApiKey | JsonApiKey | undefined> => {
+        try {
+            if (isJsonMode()) {
+                const keys = await getAPIKeysFromJson(getJsonPath())
+                return keys.find((k) => k.id === id)
+            }
+
+            if (isDbMode()) {
+                const dataSource = getDataSource()
+                const currentKey = await dataSource.getRepository(ApiKey).findOne({
+                    where: { id }
+                })
+                return currentKey || undefined
+            }
+
+            throw new ApikeyServiceError(StatusCodes.INTERNAL_SERVER_ERROR, 'Unknown APIKEY_STORAGE_TYPE')
+        } catch (error) {
+            if (error instanceof ApikeyServiceError) throw error
+            const message = error instanceof Error ? error.message : String(error)
+            throw new ApikeyServiceError(StatusCodes.INTERNAL_SERVER_ERROR, `Error: apikeyService.getApiKeyById - ${message}`)
         }
     }
 
@@ -465,6 +489,7 @@ export function createApikeyService(config: ApikeyServiceConfig): IApikeyService
     return {
         getAllApiKeys,
         getApiKey,
+        getApiKeyById,
         createApiKey,
         updateApiKey,
         deleteApiKey,

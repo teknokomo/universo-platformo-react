@@ -42,7 +42,7 @@ const verifyApiKey = async (req: Request, res: Response, next: NextFunction) => 
     }
 }
 
-// READ
-router.get(['/apikey/', '/apikey/:apikey'], verifyApiKey)
+// READ - Route requires unikId for DB mode isolation
+router.get(['/unik/:unikId/apikey/', '/unik/:unikId/apikey/:apikey'], verifyApiKey)
 
 export default router

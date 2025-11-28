@@ -6,6 +6,31 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅ COMPLETE
+
+**Status**: Complete. Build successful (44/44 packages).
+
+**Summary**: Fix two P1 bugs from PR #570 bot review - verify route missing unikId param, and validateKey functions not passing unikId to getAllApiKeys().
+
+**Phase 1: Fix verify/index.ts route**
+- [x] 1.1 Change route from `/apikey/:apikey` to `/unik/:unikId/apikey/:apikey`
+- [x] 1.2 Update WHITELISTED_ENDPOINTS in constants.ts
+
+**Phase 2: Fix validateCanvasApiKey in validateKey.ts**
+- [x] 2.1 Add getApiKeyById method to IApikeyService interface
+- [x] 2.2 Implement getApiKeyById in apikeyService
+- [x] 2.3 Update validateCanvasApiKey to use getApiKeyById
+
+**Phase 3: Fix validateAPIKey in validateKey.ts**
+- [x] 3.1 Extract unikId from req.params (for unik-scoped routes)
+- [x] 3.2 Use getApiKey with optional unikId
+
+**Phase 4: Build & Test**
+- [x] 4.1 Run pnpm build - 44/44 packages successful
+- [x] 4.2 Verify no lint errors
+
+---
+
 ### 2025-11-28: ApiKey Package Extraction ✅ COMPLETE
 
 **Status**: All phases complete. Build successful (44/44 packages).
