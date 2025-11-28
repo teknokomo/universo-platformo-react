@@ -37,7 +37,7 @@ import ViewHeader from '@flowise/template-mui/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@flowise/template-mui/ErrorBoundary'
 
 // API
-import { api } from '@universo/api-client' // Replaced import apiKeyApi from '@/api/apikey'
+import { api } from '@universo/api-client'
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'
@@ -60,7 +60,7 @@ import {
     IconFileUpload
 } from '@tabler/icons-react'
 import APIEmptySVG from '@flowise/template-mui/assets/images/api_empty.svg'
-import UploadJSONFileDialog from '@/views/apikey/UploadJSONFileDialog'
+import UploadJSONFileDialog from './UploadJSONFileDialog'
 
 dayjs.extend(advancedFormat)
 
@@ -128,14 +128,14 @@ function APIKeyRow(props) {
                     </Popover>
                 </StyledTableCell>
                 <StyledTableCell>
-                    {props.apiKey.chatFlows.length}{' '}
-                    {props.apiKey.chatFlows.length > 0 && (
+                    {props.apiKey.chatFlows?.length || 0}{' '}
+                    {props.apiKey.chatFlows && props.apiKey.chatFlows.length > 0 && (
                         <IconButton aria-label='expand row' size='small' color='inherit' onClick={() => setOpen(!open)}>
                             {props.apiKey.chatFlows.length > 0 && open ? <IconChevronsUp /> : <IconChevronsDown />}
                         </IconButton>
                     )}
                 </StyledTableCell>
-                <StyledTableCell>{dayjs(props.apiKey.createdAt).format('MMMM Do, YYYY')}</StyledTableCell>
+                <StyledTableCell>{dayjs(props.apiKey.createdAt || props.apiKey.updatedDate).format('MMMM Do, YYYY')}</StyledTableCell>
                 <StyledTableCell>
                     <IconButton title={t('apiKeys:buttonTitles.edit')} color='primary' onClick={props.onEditClick}>
                         <IconEdit />
@@ -147,7 +147,7 @@ function APIKeyRow(props) {
                     </IconButton>
                 </StyledTableCell>
             </TableRow>
-            {open && (
+            {open && props.apiKey.chatFlows && (
                 <TableRow sx={{ '& td': { border: 0 } }}>
                     <StyledTableCell sx={{ p: 2 }} colSpan={6}>
                         <Collapse in={open} timeout='auto' unmountOnExit>
@@ -199,6 +199,7 @@ APIKeyRow.propTypes = {
     onEditClick: PropTypes.func,
     onDeleteClick: PropTypes.func
 }
+
 const APIKey = () => {
     const theme = useTheme()
     const customization = useSelector((state) => state.customization)
@@ -233,12 +234,12 @@ const APIKey = () => {
 
     const { confirm } = useConfirm()
 
-    const getAllAPIKeysApi = useApi(api.apiKeys.getAllAPIKeys)
+    // Note: Must wrap in arrow function to avoid calling undefined method on initial render
+    const getAllAPIKeysApi = useApi(() => api.apiKeys.getAllAPIKeys(unikId))
 
     const onShowApiKeyClick = (apikey) => {
         const index = showApiKeys.indexOf(apikey)
         if (index > -1) {
-            //showApiKeys.splice(index, 1)
             const newShowApiKeys = showApiKeys.filter(function (item) {
                 return item !== apikey
             })
@@ -295,9 +296,11 @@ const APIKey = () => {
         const confirmPayload = {
             title: t('apiKeys:common.delete'),
             description:
-                key.chatFlows.length === 0
+                !key.chatFlows || key.chatFlows.length === 0
                     ? t('apiKeys:deleteToolConfirm').replace('{name}', key.keyName)
-                    : `${t('apiKeys:common.delete')} ${key.keyName}? ${t('apiKeys:thereAre')} ${key.chatFlows.length} ${t('apiKeys:canvasesUsingKey')}`,
+                    : `${t('apiKeys:common.delete')} ${key.keyName}? ${t('apiKeys:thereAre')} ${key.chatFlows.length} ${t(
+                          'apiKeys:canvasesUsingKey'
+                      )}`,
             confirmButtonName: t('apiKeys:common.delete'),
             cancelButtonName: t('apiKeys:common.cancel'),
             customBtnId: 'btn_initiateDeleteApiKey'
@@ -307,7 +310,7 @@ const APIKey = () => {
         if (isConfirmed) {
             try {
                 const deleteResp = await api.apiKeys.deleteAPI(unikId, key.id)
-                if (deleteResp.data) {
+                if (deleteResp) {
                     enqueueSnackbar({
                         message: t('apiKeys:deleteSuccess'),
                         options: {
@@ -324,8 +327,8 @@ const APIKey = () => {
                 }
             } catch (error) {
                 enqueueSnackbar({
-                    message: t('apiKeys:deleteError', { 
-                        error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data 
+                    message: t('apiKeys:deleteError', {
+                        error: typeof error.response?.data === 'object' ? error.response.data.message : error.response?.data
                     }),
                     options: {
                         key: new Date().getTime() + Math.random(),
@@ -338,7 +341,6 @@ const APIKey = () => {
                         )
                     }
                 })
-                onCancel()
             }
         }
     }
@@ -346,14 +348,13 @@ const APIKey = () => {
     const onConfirm = () => {
         setShowDialog(false)
         setShowUploadDialog(false)
-        getAllAPIKeysApi.request(unikId)
+        getAllAPIKeysApi.request()
     }
 
     useEffect(() => {
         if (unikId) {
-            getAllAPIKeysApi.request(unikId)
+            getAllAPIKeysApi.request()
         }
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unikId])
 
@@ -380,7 +381,12 @@ const APIKey = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader onSearchChange={onSearchChange} search={true} searchPlaceholder={t('apiKeys:searchPlaceholder')} title={t('apiKeys:title')}>
+                        <ViewHeader
+                            onSearchChange={onSearchChange}
+                            search={true}
+                            searchPlaceholder={t('apiKeys:searchPlaceholder')}
+                            title={t('apiKeys:title')}
+                        >
                             <Button
                                 variant='outlined'
                                 sx={{ borderRadius: 2, height: '100%' }}

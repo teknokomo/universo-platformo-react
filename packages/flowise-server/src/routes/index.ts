@@ -1,6 +1,6 @@
 import express from 'express'
 import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
-import apikeyRouter from './apikey'
+// apikeyRouter removed - now created via @universo/flowise-apikey-srv
 import assistantsRouter from './assistants'
 import attachmentsRouter from './attachments'
 import canvasMessageRouter from './canvas-messages'
@@ -47,6 +47,7 @@ import { createStoragesServiceRoutes } from '@universo/storages-srv'
 import { createToolsService, createToolsRouter, toolsErrorHandler } from '@universo/flowise-tools-srv'
 import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@universo/flowise-credentials-srv'
 import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@universo/flowise-variables-srv'
+import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@universo/flowise-apikey-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -69,8 +70,9 @@ import { canvasServiceConfig } from '../services/spacesCanvas'
 import { createCanvasPublicRoutes } from '@universo/spaces-srv'
 import canvasStreamingRouter from './canvas-streaming'
 import { RateLimiterManager } from '../utils/rateLimit'
-import apiKeyService from '../services/apikey'
+// apiKeyService removed - now created via @universo/flowise-apikey-srv
 import { ensureUnikMembershipResponse } from '../services/access-control'
+import { appConfig } from '../AppConfig'
 
 const router: ExpressRouter = express.Router()
 
@@ -108,6 +110,15 @@ const variablesService = createVariablesService({
     getDataSource
 })
 const variablesRouter = createVariablesRouter(variablesService)
+
+// Create apikey service and router using new package with DI
+const apikeyService = createApikeyService({
+    getDataSource,
+    storageConfig: {
+        type: appConfig.apiKeys.storageType as 'json' | 'db'
+    }
+})
+const apikeyRouter = createApikeyRouter(apikeyService)
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -192,7 +203,7 @@ router.use(
                 rateLimiterManager: RateLimiterManager.getInstance(),
                 apiKeyService: {
                     getApiKey: async (key: string) => {
-                        const record = await apiKeyService.getApiKey(key)
+                        const record = await apikeyService.getApiKey(key)
                         if (record && typeof (record as any).id === 'string') {
                             return { id: (record as any).id as string }
                         }
@@ -419,6 +430,9 @@ router.use(credentialsErrorHandler)
 
 // Variables-specific error handler
 router.use(variablesErrorHandler)
+
+// ApiKey-specific error handler
+router.use(apikeyErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {

@@ -6,6 +6,95 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅ COMPLETE
+
+**Status**: Complete. Build successful (44/44 packages).
+
+**Summary**: Fix two P1 bugs from PR #570 bot review - verify route missing unikId param, and validateKey functions not passing unikId to getAllApiKeys().
+
+**Phase 1: Fix verify/index.ts route**
+- [x] 1.1 Change route from `/apikey/:apikey` to `/unik/:unikId/apikey/:apikey`
+- [x] 1.2 Update WHITELISTED_ENDPOINTS in constants.ts
+
+**Phase 2: Fix validateCanvasApiKey in validateKey.ts**
+- [x] 2.1 Add getApiKeyById method to IApikeyService interface
+- [x] 2.2 Implement getApiKeyById in apikeyService
+- [x] 2.3 Update validateCanvasApiKey to use getApiKeyById
+
+**Phase 3: Fix validateAPIKey in validateKey.ts**
+- [x] 3.1 Extract unikId from req.params (for unik-scoped routes)
+- [x] 3.2 Use getApiKey with optional unikId
+
+**Phase 4: Build & Test**
+- [x] 4.1 Run pnpm build - 44/44 packages successful
+- [x] 4.2 Verify no lint errors
+
+---
+
+### 2025-11-28: ApiKey Package Extraction ✅ COMPLETE
+
+**Status**: All phases complete. Build successful (44/44 packages).
+
+**Summary**: Extracted ApiKey functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-apikey-srv` and `@universo/flowise-apikey-frt`. Following DI factory pattern from Tools/Credentials/Variables.
+
+**Phase 1: Backend Package (flowise-apikey-srv)** ✅ COMPLETE
+- [x] 1.1 Create package structure (package.json, tsconfig.json, index.ts)
+- [x] 1.2 Create ApiKey entity with Unik relation
+- [x] 1.3 Create migration `1720230151480-AddApiKey.ts` with hasTable checks
+- [x] 1.4 Create apiKeyUtils (generateAPIKey, generateSecretHash, compareKeys)
+- [x] 1.5 Create jsonStorage (full JSON storage support for dual mode)
+- [x] 1.6 Create apikeyService with DI pattern and Zod validation (dual storage mode)
+- [x] 1.7 Create apikeyRoutes with validation middleware
+- [x] 1.8 Export ApiKey, apikeyMigrations, createApikeyService, createApikeyRouter
+
+**Phase 2: Update flowise-server** ✅ COMPLETE
+- [x] 2.1 Add @universo/flowise-apikey-srv to dependencies
+- [x] 2.2 Import apikeyMigrations in migrations index (removed old AddApiKey import)
+- [x] 2.3 Update entities/index.ts - import ApiKey from new package
+- [x] 2.4 Update routes/index.ts - create apikeyService with DI, register router, add errorHandler
+- [x] 2.5 Update validateKey.ts - use new service via lazy initialization
+- [x] 2.6 Update routes/verify/index.ts - use new service
+- [x] 2.7 Update index.ts - use getAPIKeysFromJson with getDefaultAPIKeyPath
+
+**Phase 3: Frontend Package (flowise-apikey-frt)** ✅ COMPLETE
+- [x] 3.1 Create package structure (package.json, index.ts)
+- [x] 3.2 Copy APIKey, APIKeyDialog, UploadJSONFileDialog pages from flowise-ui
+- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
+- [x] 3.4 Export all pages and i18n resources
+
+**Phase 4: API Client** ✅ COMPLETE
+- [x] 4.1 Implement ApiKeyApi class in universo-api-client
+- [x] 4.2 Export types and methods
+
+**Phase 5: Update templates and routing** ✅ COMPLETE
+- [x] 5.1 Add @universo/flowise-apikey-frt dependency to universo-template-mui
+- [x] 5.2 Update MainRoutesMUI.tsx - import from new package
+- [x] 5.3 Register i18n namespace via side-effect import
+
+**Phase 6: Cleanup old files** ✅ COMPLETE
+- [x] 6.1 Delete flowise-server routes/apikey, controllers/apikey, services/apikey
+- [x] 6.2 Delete flowise-server utils/apiKey.ts
+- [x] 6.3 Delete flowise-server database/entities/ApiKey.ts
+- [x] 6.4 Delete flowise-server migration 1720230151480-AddApiKey.ts
+- [x] 6.5 Delete flowise-ui views/apikey directory
+- [x] 6.6 Delete api-keys.json from universo-i18n and spaces-frt
+- [x] 6.7 Update universo-i18n/instance.ts - remove apiKeys imports
+
+**Phase 7: Build & Testing** ✅ COMPLETE
+- [x] 7.1 Run `pnpm build` - all 44 packages successful
+- [ ] 7.2 Test migrations (USER - database)
+- [ ] 7.3 Functional testing (USER - browser)
+
+**Phase 8: QA Fixes** ✅ COMPLETE (2025-11-28)
+- [x] 8.1 Run prettier fix on all backend files
+- [x] 8.2 Fix critical useApi pattern bug in APIKey.jsx (wrap in arrow function)
+- [x] 8.3 Unify ID format to UUID (Entity, Service, jsonStorage)
+- [x] 8.4 Add replaceAll handling in importKeysToJson()
+- [x] 8.5 Fix API response handling - check `createResp` directly, not `.data` (APIKeyDialog, APIKey, UploadJSONFileDialog)
+- [x] 8.6 Run full project rebuild - 44/44 packages successful
+
+---
+
 ### 2025-11-28: Variables Package Extraction ✅ COMPLETE (Pending Tests)
 
 **Status**: Implementation complete, build successful (43/43 packages), user testing pending

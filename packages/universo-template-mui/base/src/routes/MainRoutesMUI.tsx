@@ -18,6 +18,8 @@ import '@universo/flowise-tools-frt/i18n'
 import '@universo/flowise-credentials-frt/i18n'
 // Register variables translations before lazy loading Variables component
 import '@universo/flowise-variables-frt/i18n'
+// Register apiKeys translations before lazy loading ApiKeys component
+import '@universo/flowise-apikey-frt/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -45,8 +47,9 @@ const Credentials = Loadable(lazy(() => import('@universo/flowise-credentials-fr
 // Variables page - moved to @universo/flowise-variables-frt
 // @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
 const Variables = Loadable(lazy(() => import('@universo/flowise-variables-frt/pages/Variables')))
-// @ts-expect-error - Legacy JSX component from old UI
-const ApiKeys = Loadable(lazy(() => import('@/views/apikey')))
+// ApiKeys page - moved to @universo/flowise-apikey-frt
+// @ts-expect-error - Source-only JSX imports resolved at runtime by bundler
+const ApiKeys = Loadable(lazy(() => import('@universo/flowise-apikey-frt/pages/APIKey')))
 // @ts-expect-error - Legacy JSX component from old UI
 const DocumentStores = Loadable(lazy(() => import('@/views/docstore')))
 // @ts-expect-error - Legacy JSX component from old UI

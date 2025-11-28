@@ -1,7 +1,25 @@
 import { Request } from 'express'
-import { compareKeys } from './apiKey'
-import apikeyService from '../services/apikey'
+import { compareKeys, createApikeyService, type IApikeyService, type ApikeyStorageConfig } from '@universo/flowise-apikey-srv'
+import { getDataSource } from '../DataSource'
+import { appConfig } from '../AppConfig'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
+
+/**
+ * Lazy-initialized ApiKey service singleton for validation utilities
+ */
+let _apikeyService: IApikeyService | null = null
+
+function getApikeyService(): IApikeyService {
+    if (!_apikeyService) {
+        _apikeyService = createApikeyService({
+            getDataSource,
+            storageConfig: {
+                type: appConfig.apiKeys.storageType as 'json' | 'db'
+            }
+        })
+    }
+    return _apikeyService
+}
 
 /**
  * Validate Canvas API Key
@@ -20,10 +38,11 @@ export const validateCanvasApiKey = async (req: Request, canvas: CanvasFlowResul
 
     const suppliedKey = authorizationHeader.split(`Bearer `).pop()
     if (suppliedKey) {
-        const keys = await apikeyService.getAllApiKeys()
-        const apiSecret = keys.find((key: any) => key.id === canvasApiKeyId)?.apiSecret
-        if (!apiSecret) return false
-        if (!compareKeys(apiSecret, suppliedKey)) return false
+        const apikeyService = getApikeyService()
+        // Use getApiKeyById to find key by canvas.apikeyid - works without unikId
+        const apiKey = await apikeyService.getApiKeyById(canvasApiKeyId)
+        if (!apiKey?.apiSecret) return false
+        if (!compareKeys(apiKey.apiSecret, suppliedKey)) return false
         return true
     }
     return false
@@ -35,6 +54,7 @@ export const validateChatflowAPIKey = validateCanvasApiKey
 /**
  * Validate API Key
  * If req.user already has a user (i.e. JWT passed), return true.
+ * Used as fallback authentication when JWT is missing or invalid.
  * @param {Request} req
  */
 export const validateAPIKey = async (req: Request): Promise<boolean> => {
@@ -45,10 +65,14 @@ export const validateAPIKey = async (req: Request): Promise<boolean> => {
 
     const suppliedKey = authorizationHeader.split(`Bearer `).pop()
     if (suppliedKey) {
-        const keys = await apikeyService.getAllApiKeys()
-        const apiSecret = keys.find((key: any) => key.apiKey === suppliedKey)?.apiSecret
-        if (!apiSecret) return false
-        if (!compareKeys(apiSecret, suppliedKey)) return false
+        const apikeyService = getApikeyService()
+        // Try to extract unikId from request params for unik-scoped routes
+        const unikId = (req.params?.unikId || req.params?.id) as string | undefined
+        // Find API key by the supplied key value
+        const apiKey = await apikeyService.getApiKey(suppliedKey, unikId)
+        if (!apiKey) return false
+        // Verify the supplied key matches the stored secret
+        if (!compareKeys(apiKey.apiSecret, suppliedKey)) return false
         return true
     }
     return false

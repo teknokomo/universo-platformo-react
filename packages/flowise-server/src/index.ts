@@ -21,7 +21,7 @@ import type { CanvasFlowResult } from '@universo/spaces-srv'
 import { CachePool } from './CachePool'
 import { AbortControllerPool } from './AbortControllerPool'
 import { RateLimiterManager } from './utils/rateLimit'
-import { getAPIKeys } from './utils/apiKey'
+import { getAPIKeysFromJson, getDefaultAPIKeyPath } from '@universo/flowise-apikey-srv'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
 import { Telemetry } from './utils/telemetry'
 import flowiseApiV1Router from './routes'
@@ -103,8 +103,8 @@ export class App {
             // Initialize abort controllers pool
             this.abortControllerPool = new AbortControllerPool()
 
-            // Initialize API keys
-            await getAPIKeys()
+            // Initialize API keys (JSON file mode only)
+            await getAPIKeysFromJson(getDefaultAPIKeyPath())
 
             // Initialize encryption key
             await getEncryptionKey()

@@ -25,6 +25,73 @@
 
 ## November 2025
 
+### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅
+
+**Summary**: Fixed two P1 bugs from PR #570 bot review related to unikId handling in API key validation.
+
+**Bug 1: verify/index.ts route missing unikId parameter**
+- Changed route from `/apikey/:apikey` to `/unik/:unikId/apikey/:apikey`
+- Handler now correctly receives unikId from route params
+- Updated WHITELIST_URLS in constants.ts to match new route pattern
+
+**Bug 2: validateKey functions calling getAllApiKeys() without unikId**
+- Added `getApiKeyById(id)` method to IApikeyService interface and implementation
+- Updated `validateCanvasApiKey` to use `getApiKeyById(canvasApiKeyId)` instead of getAllApiKeys
+- Updated `validateAPIKey` to extract unikId from req.params and pass to getApiKey
+
+**Technical Changes**:
+- `packages/flowise-apikey-srv/base/src/services/apikeyService.ts`: Added getApiKeyById method (works in both JSON and DB modes)
+- `packages/flowise-server/src/routes/verify/index.ts`: Changed route to include unikId
+- `packages/flowise-server/src/utils/constants.ts`: Updated WHITELIST_URLS
+- `packages/flowise-server/src/utils/validateKey.ts`: Fixed both validation functions
+
+**Build**: 44/44 packages successful
+
+---
+
+### 2025-11-28: ApiKey Package Extraction ✅
+
+**Summary**: Extracted ApiKey functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-apikey-srv` and `@universo/flowise-apikey-frt`. Following DI factory pattern from Tools/Credentials/Variables.
+
+**New Packages Created**:
+- `packages/flowise-apikey-srv/base/` - Backend service with ApiKey entity, migration, service with dual storage mode (JSON + DB), routes
+- `packages/flowise-apikey-frt/base/` - Frontend pages (APIKey, APIKeyDialog, UploadJSONFileDialog) with i18n
+
+**Key Architectural Decisions**:
+- **Dual Storage Mode**: Service supports both JSON file storage and PostgreSQL via `ApikeyStorageConfig.type` ('json' | 'db')
+- **DI Pattern**: createApikeyService/createApikeyRouter factory functions with config injection
+- **Lazy Service Initialization**: validateKey.ts and verify routes use getApikeyService() for lazy loading
+- **Zod Validation**: Routes use Zod for request validation with validateUnikId/validateApiKeyId middleware
+- **i18n**: Namespace 'apiKeys' registration via registerNamespace from @universo/i18n/registry
+- **UUID for IDs**: All ID generation uses uuid v4 for consistency with PostgreSQL migration
+
+**QA Fixes Applied (2025-11-28)**:
+- Fixed critical useApi pattern bug: `useApi(() => api.apiKeys.getAllAPIKeys(unikId))` (arrow function required for lazy evaluation)
+- Unified ID format to UUID across Entity (`@PrimaryGeneratedColumn('uuid')`), Service (uuidv4()), and jsonStorage (uuidv4())
+- Added replaceAll mode handling in importKeysToJson()
+- Applied Prettier formatting to all 12 backend TypeScript files
+
+**API Client**:
+- Implemented ApiKeyApi class in universo-api-client with getAllAPIKeys, createNewAPI, updateAPI, deleteAPI, importAPI methods
+- Types: ApiKey, CreateApiKeyPayload, UpdateApiKeyPayload, ImportApiKeysPayload
+
+**Files Deleted**:
+- `flowise-server/src/routes/apikey/`
+- `flowise-server/src/controllers/apikey/`
+- `flowise-server/src/services/apikey/`
+- `flowise-server/src/utils/apiKey.ts`
+- `flowise-server/src/database/entities/ApiKey.ts`
+- `flowise-server/src/database/migrations/postgres/1720230151480-AddApiKey.ts`
+- `flowise-ui/src/views/apikey/`
+- `universo-i18n/base/src/locales/en/views/api-keys.json`
+- `universo-i18n/base/src/locales/ru/views/api-keys.json`
+- `spaces-frt/base/src/i18n/locales/en/views/api-keys.json`
+- `spaces-frt/base/src/i18n/locales/ru/views/api-keys.json`
+
+**Build**: 44/44 packages successful ✅
+
+---
+
 ### 2025-11-28: Variables Package Extraction ✅
 
 **Summary**: Extracted variables functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-variables-srv` and `@universo/flowise-variables-frt`.
