@@ -11,7 +11,7 @@ import { AddUsedToolsToChatMessage1699481607341 } from './1699481607341-AddUsedT
 import { AddCategoryToChatFlow1699900910291 } from './1699900910291-AddCategoryToChatFlow'
 import { AddFileAnnotationsToChatMessage1700271021237 } from './1700271021237-AddFileAnnotationsToChatMessage'
 import { AddFileUploadsToChatMessage1701788586491 } from './1701788586491-AddFileUploadsToChatMessage'
-import { AddVariableEntity1699325775451 } from './1702200925471-AddVariableEntity'
+// AddVariableEntity removed - consolidated into @universo/flowise-variables-srv
 import { AddSpeechToText1706364937060 } from './1706364937060-AddSpeechToText'
 import { AddFeedback1707213601923 } from './1707213601923-AddFeedback'
 import { AddUpsertHistoryEntity1709814301358 } from './1709814301358-AddUpsertHistoryEntity'
@@ -31,6 +31,7 @@ import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssist
 import { uniksMigrations } from '@universo/uniks-srv'
 import { toolsMigrations } from '@universo/flowise-tools-srv'
 import { credentialsMigrations } from '@universo/flowise-credentials-srv'
+import { variablesMigrations } from '@universo/flowise-variables-srv'
 import { profileMigrations } from '@universo/profile-srv'
 import { metaversesMigrations } from '@universo/metaverses-srv'
 import { clustersMigrations } from '@universo/clusters-srv'
@@ -54,7 +55,7 @@ export const postgresMigrations = [
     AddUsedToolsToChatMessage1699481607341,
     AddCategoryToChatFlow1699900910291,
     AddFileAnnotationsToChatMessage1700271021237,
-    AddVariableEntity1699325775451,
+    ...variablesMigrations, // Creates variable table
     AddFileUploadsToChatMessage1701788586491,
     AddSpeechToText1706364937060,
     AddUpsertHistoryEntity1709814301358,

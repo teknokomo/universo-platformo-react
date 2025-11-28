@@ -6,6 +6,54 @@
 
 ## 🔥 ACTIVE TASKS
 
+### 2025-11-28: Variables Package Extraction ✅ COMPLETE (Pending Tests)
+
+**Status**: Implementation complete, build successful (43/43 packages), user testing pending
+
+**Summary**: Extract variables functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-variables-srv` and `@universo/flowise-variables-frt`. Following QA-approved plan from plan mode.
+
+**Phase 1: Backend Package (flowise-variables-srv)** ✅ COMPLETE
+- [x] 1.1 Create package structure (package.json, tsconfig.json, index.ts)
+- [x] 1.2 Create Variable entity with Unik relation (copied from flowise-server)
+- [x] 1.3 Create migration `1702200925471-AddVariables.ts` with hasTable checks
+- [x] 1.4 Create variablesService with DI pattern and Zod validation
+- [x] 1.5 Create variablesRoutes with validation middleware
+- [x] 1.6 Export Variable, variablesMigrations, createVariablesService, createVariablesRouter
+
+**Phase 2: Update flowise-server** ✅ COMPLETE
+- [x] 2.1 Add @universo/flowise-variables-srv to dependencies
+- [x] 2.2 Import variablesMigrations in migrations index (removed old AddVariableEntity)
+- [x] 2.3 Update entities/index.ts - import Variable from new package
+- [x] 2.4 Update all utils files - buildCanvasFlow, buildAgentGraph, upsertVector, openai-realtime
+- [x] 2.5 Update export-import service - use direct repository query (like Tools pattern)
+- [x] 2.6 Update routes/index.ts - create variablesService with DI, register router
+
+**Phase 3: Frontend Package (flowise-variables-frt)** ✅ COMPLETE
+- [x] 3.1 Create package structure (package.json, tsconfig.json, index.ts)
+- [x] 3.2 Copy Variables page from flowise-ui (Variables.jsx, AddEditVariableDialog.jsx, HowToUseVariablesDialog.jsx)
+- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
+- [x] 3.4 Export all pages and i18n resources
+
+**Phase 4: Update templates and routing** ✅ COMPLETE
+- [x] 4.1 Add @universo/flowise-variables-frt dependency to universo-template-mui
+- [x] 4.2 Update MainRoutesMUI.tsx - import from new package instead of @/views/variables
+- [x] 4.3 Register i18n namespace via side-effect import
+
+**Phase 5: Cleanup old files** ✅ COMPLETE
+- [x] 5.1 Delete flowise-server routes/variables, controllers/variables, services/variables
+- [x] 5.2 Delete flowise-server database/entities/Variable.ts
+- [x] 5.3 Delete flowise-server migration 1702200925471-AddVariableEntity.ts
+- [x] 5.4 Delete flowise-ui views/variables directory
+- [x] 5.5 Delete duplicate variables.json from spaces-frt i18n
+- [x] 5.6 Delete variables.json from universo-i18n and update instance.ts, i18next.d.ts
+
+**Phase 6: Build & Testing** ✅ BUILD COMPLETE
+- [x] 6.1 Run `pnpm build` - 43/43 packages successful
+- [ ] 6.2 Test migrations (USER - database)
+- [ ] 6.3 Functional testing (USER - browser)
+
+---
+
 ### 2025-11-28: QA Fixes - PR #566 Bot Review Comments ✅ COMPLETE
 
 **Status**: All code fixes complete, build successful (42/42 packages)

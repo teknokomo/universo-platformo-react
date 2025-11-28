@@ -31,7 +31,7 @@ import { StyledButton } from '@flowise/template-mui'
 import { ConfirmDialog } from '@flowise/template-mui'
 
 // API
-import { api } from '@universo/api-client' // Replaced import variablesApi from '@/api/variables'
+import { api } from '@universo/api-client'
 
 // Hooks
 import useApi from '@flowise/template-mui/hooks/useApi'

@@ -41,6 +41,7 @@
         "@flowise/template-mui": "workspace:*",
         "@universo/flowise-credentials-frt": "workspace:*",
         "@universo/flowise-tools-frt": "workspace:*",
+        "@universo/flowise-variables-frt": "workspace:*",
         "@mui/material": "catalog:",
         "@mui/icons-material": "catalog:",
         "@mui/x-charts": "^7.22.2",

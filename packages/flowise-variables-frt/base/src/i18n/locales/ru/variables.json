@@ -1,0 +1,46 @@
+{
+    "title": "Переменные",
+    "searchPlaceholder": "Поиск переменных",
+    "howToUse": "Как использовать",
+    "addVariable": "Добавить переменную",
+    "editVariable": "Редактировать переменную",
+    "variableName": "Имя переменной",
+    "type": "Тип",
+    "value": "Значение",
+    "chooseOption": "выберите опцию",
+    "noVariablesYet": "Пока нет переменных",
+    "deleteConfirm": "Удалить переменную {name}?",
+    "deleteSuccess": "Переменная удалена",
+    "deleteError": "Не удалось удалить переменную: {error}",
+    "typeDescriptions": {
+        "static": "Значение переменной будет считано из поля ниже",
+        "runtime": "Значение переменной будет считано из файла .env"
+    },
+    "messages": {
+        "newVariableAdded": "Новая переменная добавлена",
+        "addError": "Не удалось добавить новую переменную: {{error}}",
+        "variableSaved": "Переменная сохранена",
+        "saveError": "Не удалось сохранить переменную: {{error}}"
+    },
+    "usage": {
+        "customComponents": "Переменные могут использоваться в Custom Tool, Custom Function, Custom Loader, If Else Function с префиксом $.",
+        "textField": "Переменные также могут использоваться в параметре Text Field любого узла. Например, в System Message агента:",
+        "typeExplanation": "Если тип переменной Static, значение будет получено как есть. Если тип переменной Runtime, значение будет получено из файла .env.",
+        "overrideConfig": "Вы также можете переопределить значения переменных в API overrideConfig, используя",
+        "readMore": "Подробнее читайте"
+    },
+    "grid": {
+        "name": "Имя",
+        "value": "Значение",
+        "type": "Тип",
+        "lastUpdated": "Последнее обновление",
+        "created": "Создано"
+    },
+    "common": {
+        "save": "Сохранить",
+        "cancel": "Отмена",
+        "delete": "Удалить",
+        "edit": "Редактировать",
+        "add": "Добавить"
+    }
+}

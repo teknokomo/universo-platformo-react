@@ -8,7 +8,7 @@ import { CustomTemplate } from '../../database/entities/CustomTemplate'
 import { DocumentStore } from '../../database/entities/DocumentStore'
 import { DocumentStoreFileChunk } from '../../database/entities/DocumentStoreFileChunk'
 import { Tool } from '@universo/flowise-tools-srv'
-import { Variable } from '../../database/entities/Variable'
+import { Variable } from '@universo/flowise-variables-srv'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
@@ -17,7 +17,7 @@ import canvasMessagesService from '../canvas-messages'
 import canvasService from '../spacesCanvas'
 import documenStoreService from '../documentstore'
 import marketplacesService from '../marketplaces'
-import variableService from '../variables'
+// variableService removed - now using direct repository query like tools
 import { Canvas, CanvasFlowResult } from '@universo/spaces-srv'
 
 type ExportInput = {
@@ -125,7 +125,7 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
 
         let tools: Tool[] = exportInput.tool === true ? await getRunningExpressApp().AppDataSource.getRepository(Tool).find({ where: { unik: { id: unikId } } }) : []
 
-        let Variable: Variable[] = exportInput.variable === true ? await variableService.getAllVariables(unikId) : []
+        let variables: Variable[] = exportInput.variable === true ? await getRunningExpressApp().AppDataSource.getRepository(Variable).find({ where: { unik: { id: unikId } } }) : []
 
         return {
             FileDefaultName,
@@ -141,7 +141,7 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
             DocumentStore,
             DocumentStoreFileChunk,
             Tool: tools,
-            Variable
+            Variable: variables
         }
     } catch (error) {
         throw new InternalFlowiseError(

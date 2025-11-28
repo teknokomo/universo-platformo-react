@@ -23,6 +23,38 @@
 
 ---
 
+## November 2025
+
+### 2025-11-28: Variables Package Extraction ✅
+
+**Summary**: Extracted variables functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-variables-srv` and `@universo/flowise-variables-frt`.
+
+**New Packages Created**:
+- `packages/flowise-variables-srv/base/` - Backend service with Variable entity, migration, service with DI, routes
+- `packages/flowise-variables-frt/base/` - Frontend pages (Variables, AddEditVariableDialog, HowToUseVariablesDialog) with i18n
+
+**Key Architectural Decisions**:
+- **DI Pattern**: variablesService requires dataSource injection, consistent with tools/credentials pattern
+- **Zod Validation**: variablesRoutes uses Zod for request validation with middleware
+- **i18n**: Namespace registration via side-effect import in MainRoutesMUI.tsx
+- **Export-import**: Uses direct repository query (like Tools) instead of service dependency
+
+**Files Deleted**:
+- `flowise-server/src/routes/variables/`
+- `flowise-server/src/controllers/variables/`
+- `flowise-server/src/services/variables/`
+- `flowise-server/src/database/entities/Variable.ts`
+- `flowise-server/src/database/migrations/postgres/1702200925471-AddVariableEntity.ts`
+- `flowise-ui/src/views/variables/`
+- `universo-i18n/base/src/locales/en/views/variables.json`
+- `universo-i18n/base/src/locales/ru/views/variables.json`
+- `spaces-frt/base/src/i18n/locales/en/views/variables.json` (duplicate)
+- `spaces-frt/base/src/i18n/locales/ru/views/variables.json` (duplicate)
+
+**Build**: 43/43 packages successful ✅
+
+---
+
 ## January 2026
 
 ### 2026-01-28: Credentials API Migration Fix ✅
