@@ -1,7 +1,7 @@
 {
-    "name": "@universo/flowise-credentials-srv",
+    "name": "@universo/flowise-variables-srv",
     "version": "0.1.0",
-    "description": "Backend for Credentials domain in Universo Platformo (extracted from flowise-server)",
+    "description": "Backend for Variables domain in Universo Platformo (extracted from flowise-server)",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
@@ -13,7 +13,7 @@
     "keywords": [
         "universo",
         "platformo",
-        "credentials",
+        "variables",
         "backend",
         "typescript"
     ],
@@ -26,13 +26,13 @@
     "dependencies": {
         "express": "^4.18.2",
         "http-status-codes": "^2.3.0",
-        "lodash": "^4.17.21",
+        "uuid": "^9.0.0",
         "zod": "catalog:"
     },
     "devDependencies": {
         "@types/express": "^4.17.21",
-        "@types/lodash": "^4.14.202",
         "@types/node": "catalog:",
+        "@types/uuid": "^9.0.8",
         "@universo/uniks-srv": "workspace:*",
         "eslint": "catalog:",
         "rimraf": "^5.0.5",

@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@flowise/template-mui'
 import { IconX, IconVariable } from '@tabler/icons-react'
 
 // API
-import { api } from '@universo/api-client' // Replaced import variablesApi from '@/api/variables'
+import { api } from '@universo/api-client'
 
 // Hooks
 
@@ -115,7 +115,7 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
             if (setError) setError(err)
             enqueueSnackbar({
                 message: t('variables:messages.addError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: typeof err.response?.data === 'object' ? err.response.data.message : err.response?.data
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),
@@ -157,10 +157,10 @@ const AddEditVariableDialog = ({ show, dialogProps, onCancel, onConfirm, setErro
                 onConfirm(saveResp.data.id)
             }
         } catch (error) {
-            if (setError) setError(err)
+            if (setError) setError(error)
             enqueueSnackbar({
                 message: t('variables:messages.saveError', {
-                    error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
+                    error: typeof error.response?.data === 'object' ? error.response.data.message : error.response?.data
                 }),
                 options: {
                     key: new Date().getTime() + Math.random(),

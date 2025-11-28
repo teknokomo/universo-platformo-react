@@ -29,7 +29,7 @@ import { StatusCodes } from 'http-status-codes'
 import { getErrorMessage } from '../errors/utils'
 import { v4 as uuidv4 } from 'uuid'
 import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../Interface.Metrics'
-import { Variable } from '../database/entities/Variable'
+import { Variable } from '@universo/flowise-variables-srv'
 import { OMIT_QUEUE_JOB_DATA } from './constants'
 import canvasService from '../services/spacesCanvas'
 

@@ -23,7 +23,6 @@ import type menu from './locales/en/views/menu.json'
 import type profileMenu from './locales/en/views/profile-menu.json'
 import type templates from './locales/en/views/templates.json'
 import type tools from './locales/en/views/tools.json'
-import type variables from './locales/en/views/variables.json'
 import type vectorStore from './locales/en/views/vector-store.json'
 
 /**
@@ -67,7 +66,6 @@ declare module 'i18next' {
             'profile-menu': typeof profileMenu.profileMenu
             templates: typeof templates.templates
             tools: typeof tools.tools
-            variables: typeof variables.variables
             'vector-store': typeof vectorStore.vectorStore
         }
 

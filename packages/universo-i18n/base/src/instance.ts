@@ -58,9 +58,6 @@ import chatbotRu from './locales/ru/views/chatbot.json'
 import templatesEn from './locales/en/views/templates.json'
 import templatesRu from './locales/ru/views/templates.json'
 
-import variablesEn from './locales/en/views/variables.json'
-import variablesRu from './locales/ru/views/variables.json'
-
 import vectorStoreEn from './locales/en/views/vector-store.json'
 import vectorStoreRu from './locales/ru/views/vector-store.json'
 
@@ -175,7 +172,6 @@ export function getInstance(): typeof i18n {
                         menu: menuEn.menu,
                         'profile-menu': profileMenuEn.profileMenu,
                         templates: templatesEn.templates,
-                        variables: variablesEn.variables,
                         'vector-store': vectorStoreEn.vectorStore,
                         // Dialogs
                         about: aboutEn.about,
@@ -225,7 +221,6 @@ export function getInstance(): typeof i18n {
                         menu: menuRu.menu,
                         'profile-menu': profileMenuRu.profileMenu,
                         templates: templatesRu.templates,
-                        variables: variablesRu.variables,
                         'vector-store': vectorStoreRu.vectorStore,
                         // Dialogs
                         about: aboutRu.about,

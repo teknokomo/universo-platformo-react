@@ -38,7 +38,7 @@ import {
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { databaseEntities } from '.'
 import { ChatMessage } from '../database/entities/ChatMessage'
-import { Variable } from '../database/entities/Variable'
+import { Variable } from '@universo/flowise-variables-srv'
 import { getRunningExpressApp } from './getRunningExpressApp'
 import {
     isFlowValidForStream,

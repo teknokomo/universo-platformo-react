@@ -1,55 +1,64 @@
 # Active Context
 
-> **Last Updated**: 2026-01-27
+> **Last Updated**: 2025-01-28
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: QA Fixes - useApi Shim & i18n ✅ (2026-01-27)
+## Current Focus: Variables Package Extraction ✅ (2025-01-28)
 
 **Status**: Implementation complete, user testing pending 🧪
 
-**Summary**: Fixed critical bugs discovered during browser testing of newly extracted Tools and Credentials packages.
+**Summary**: Extracted Variables functionality from `flowise-server` and `flowise-ui` into separate packages following the established pattern from Tools and Credentials extractions.
 
-**Problems Found & Fixed**:
+**Packages Created**:
 
-1. **useApi returning null data** ✅
-   - Root cause: `hooks/useApi.js` was a build-time stub returning `{ data: null, loading: false }`
-   - Real implementation in nested `hooks/hooks/useApi.jsx`
-   - Fix: Updated exports in `hooks/index.ts`, `index.ts`, `package.json`
-   - Fixed 12 component files with relative imports
+1. **@universo/flowise-variables-srv** (Backend)
+   - DI factory pattern (`createVariablesService`, `createVariablesRouter`)
+   - Zod validation for input schemas
+   - UUID validation middleware
+   - TypeORM entity with `!` assertions for strict mode
+   - Migration: `1702200925471-AddVariables.ts` with hasTable checks
 
-2. **CredentialListDialog showing i18n keys** ✅
-   - Root cause: Double namespace - `useTranslation('credentials')` + `t('credentials.key')`
-   - Fix: Removed duplicate prefix from t() calls
+2. **@universo/flowise-variables-frt** (Frontend)
+   - Source-only package (no dist build)
+   - Variables.jsx, AddEditVariableDialog.jsx, HowToUseVariablesDialog.jsx
+   - i18n with registerNamespace pattern
+   - EN/RU translations included
 
-3. **AdminPanel dead code** ✅
-   - Calls `/api/v1/users` which doesn't exist in backend
-   - Fix: Deleted AdminPanel.jsx and removed route
-
-**Files Modified** (flowise-template-mui/base/src):
-- `hooks/index.ts` - export from `./hooks/` subfolder
-- `index.ts` - export from `./hooks/hooks/`
-- `package.json` - explicit hook exports
-- 12 component files with relative imports fixed
+**Integration Points**:
+- flowise-server: Variable entity import, variablesService DI, variablesRouter
+- universo-template-mui: MainRoutesMUI.tsx updated with new imports
+- API Client: Using existing `VariablesApi` from `@universo/api-client`
 
 **Files Deleted**:
-- `hooks/useApi.js` (stub)
-- `hooks/useConfirm.js` (stub)
-- `flowise-ui/src/views/up-admin/AdminPanel.jsx`
+- Old routes, controllers, services from flowise-server
+- Old views from flowise-ui
+- Duplicate i18n from universo-i18n and spaces-frt
 
-**Build**: ✅ 42/42 packages
+**Build**: ✅ 43/43 packages
 
 ---
 
-## Previous: Credentials Package Extraction ✅ (2025-11-27)
+## Previous: QA Fixes - useApi Shim & i18n ✅ (2026-01-27)
 
-**Next**: User testing - database migrations, browser CRUD operations
+Moved to progress.md
 
 ---
 
 ## Recent Completions (Last 7 Days)
+
+### 2025-01-28: Variables Package Extraction ✅
+- Extracted to @universo/flowise-variables-srv and @universo/flowise-variables-frt
+- DI pattern with Zod validation
+- Migration: 1702200925471-AddVariables.ts
+- User testing pending
+- Details: progress.md#2025-01-28
+
+### 2025-11-27: Credentials Package Extraction ✅
+- Extracted to @universo/flowise-credentials-srv and @universo/flowise-credentials-frt
+- User testing pending
 
 ### 2025-11-27: Tools Package Extraction ✅
 - Extracted to @universo/flowise-tools-srv and @universo/flowise-tools-frt

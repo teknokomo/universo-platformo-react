@@ -26,7 +26,7 @@ import { replaceInputsWithConfig, resolveVariables } from '.'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { getErrorMessage } from '../errors/utils'
 import logger from './logger'
-import { Variable } from '../database/entities/Variable'
+import { Variable } from '@universo/flowise-variables-srv'
 import { DataSource } from 'typeorm'
 import { CachePool } from '../CachePool'
 

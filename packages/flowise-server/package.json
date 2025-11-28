@@ -79,6 +79,7 @@
         "@universo/clusters-srv": "workspace:*",
         "@universo/flowise-credentials-srv": "workspace:*",
         "@universo/flowise-tools-srv": "workspace:*",
+        "@universo/flowise-variables-srv": "workspace:*",
         "@universo/metaverses-srv": "workspace:*",
         "@universo/multiplayer-colyseus-srv": "workspace:*",
         "@universo/organizations-srv": "workspace:*",

@@ -1,32 +1,36 @@
-/* eslint-disable */
 import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
-import { IVariable } from '../../Interface'
 import { Unik } from '@universo/uniks-srv'
 
+/**
+ * Variable entity for storing configurable variables in Universo Platformo
+ * Variables can be used in Custom Tool, Custom Function, Custom Loader, If Else Function
+ * and in Text Field parameter of any node.
+ * 
+ * Migrated from packages/flowise-server/src/database/entities/Variable.ts
+ */
 @Entity('variable')
-export class Variable implements IVariable {
+export class Variable {
     @PrimaryGeneratedColumn('uuid')
-    id: string
+    id!: string
 
     @Column()
-    name: string
+    name!: string
 
     @Column({ nullable: true, type: 'text' })
-    value: string
+    value!: string
 
-    @Column({ default: 'string', type: 'text' })
-    type: string
+    @Column({ default: 'static', type: 'text' })
+    type!: string
 
     @Column({ type: 'timestamp' })
     @CreateDateColumn()
-    createdDate: Date
+    createdDate!: Date
 
     @Column({ type: 'timestamp' })
     @UpdateDateColumn()
-    updatedDate: Date
+    updatedDate!: Date
 
-    // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
-    unik: Unik
+    unik!: Unik
 }

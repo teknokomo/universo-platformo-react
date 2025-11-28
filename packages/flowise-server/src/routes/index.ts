@@ -32,7 +32,7 @@ import predictionRouter from './predictions'
 import promptListsRouter from './prompts-lists'
 import statsRouter from './stats'
 import upsertHistoryRouter from './upsert-history'
-import variablesRouter from './variables'
+// variablesRouter removed - now created via @universo/flowise-variables-srv
 import vectorRouter from './vectors'
 import verifyRouter from './verify'
 import versionRouter from './versions'
@@ -46,6 +46,7 @@ import { createOrganizationsServiceRoutes } from '@universo/organizations-srv'
 import { createStoragesServiceRoutes } from '@universo/storages-srv'
 import { createToolsService, createToolsRouter, toolsErrorHandler } from '@universo/flowise-tools-srv'
 import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@universo/flowise-credentials-srv'
+import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@universo/flowise-variables-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -101,6 +102,12 @@ const credentialsService = createCredentialsService({
     }
 })
 const credentialsRouter = createCredentialsRouter(credentialsService)
+
+// Create variables service and router using new package with DI
+const variablesService = createVariablesService({
+    getDataSource
+})
+const variablesRouter = createVariablesRouter(variablesService)
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -409,6 +416,9 @@ router.use(toolsErrorHandler)
 
 // Credentials-specific error handler
 router.use(credentialsErrorHandler)
+
+// Variables-specific error handler
+router.use(variablesErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
