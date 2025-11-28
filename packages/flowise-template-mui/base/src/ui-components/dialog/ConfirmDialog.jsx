@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
-import useConfirm from '../../hooks/useConfirm.js'
+import useConfirm from '../../hooks/hooks/useConfirm'
 import { StyledButton } from '../button/StyledButton'
 import { useTranslation } from '@universo/i18n'
 

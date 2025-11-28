@@ -65,8 +65,8 @@ import {
 // TODO: use api.canvasMessages
 // TODO: use api.feedback
 import { api } from '@universo/api-client'
-import useApi from '../../hooks/useApi.js'
-import useConfirm from '../../hooks/useConfirm.js'
+import useApi from '../../hooks/hooks/useApi'
+import useConfirm from '../../hooks/hooks/useConfirm'
 
 // Utils
 import { getOS, isValidURL, removeDuplicateURL } from '@universo/utils/ui-utils/genericHelper'

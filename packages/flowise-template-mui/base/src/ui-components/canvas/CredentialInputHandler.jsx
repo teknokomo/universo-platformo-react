@@ -41,13 +41,13 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
     const addAsyncOption = async () => {
         try {
             const names = inputParam.credentialNames.length > 1 ? inputParam.credentialNames.join('&') : inputParam.credentialNames[0]
-            const response = await api.credentials.getSpecificComponentCredential(names)
-            if (!response?.data) return
+            const response = await api.credentials.getComponentSchema(names)
+            if (!response) return
 
-            if (Array.isArray(response.data)) {
+            if (Array.isArray(response)) {
                 setCredentialListDialogProps({
                     title: t('credentials.addNew'),
-                    componentsCredentials: response.data
+                    componentsCredentials: response
                 })
                 setShowCredentialListDialog(true)
             } else {
@@ -55,7 +55,7 @@ const CredentialInputHandler = ({ inputParam, data, onSelect, disabled = false }
                     type: 'ADD',
                     cancelButtonName: t('common:cancel'),
                     confirmButtonName: t('common:add'),
-                    credentialComponent: response.data,
+                    credentialComponent: response,
                     unikId
                 })
                 setShowSpecificCredentialDialog(true)

@@ -1,10 +1,12 @@
-/* eslint-disable */
-import { Entity, Column, PrimaryGeneratedColumn, Index, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm'
-import { ICredential } from '../../Interface'
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm'
 import { Unik } from '@universo/uniks-srv'
 
+/**
+ * Credential entity for external service authentication in Universo Platformo
+ * Migrated from packages/flowise-server/src/database/entities/Credential.ts
+ */
 @Entity('credential')
-export class Credential implements ICredential {
+export class Credential {
     @PrimaryGeneratedColumn('uuid')
     id: string
 
@@ -25,7 +27,6 @@ export class Credential implements ICredential {
     @UpdateDateColumn()
     updatedDate: Date
 
-    // New foreign key to link with Unik
     @ManyToOne(() => Unik, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'unik_id' })
     unik: Unik

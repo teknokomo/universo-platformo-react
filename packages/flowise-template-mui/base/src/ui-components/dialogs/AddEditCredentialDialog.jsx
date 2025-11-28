@@ -21,7 +21,7 @@ import { IconX } from '@tabler/icons-react'
 import { api } from '@universo/api-client' // Replaced import credentialsApi from '@/api/credentials'
 
 // Hooks
-import useApi from '../../hooks/useApi'
+import useApi from '../../hooks/hooks/useApi'
 
 // utils
 import { useNotifier } from '../../hooks'
@@ -43,8 +43,8 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
     const enqueueSnackbar = (...args) => dispatch(enqueueSnackbarAction(...args))
     const closeSnackbar = (...args) => dispatch(closeSnackbarAction(...args))
 
-    const getSpecificCredentialApi = useApi(api.credentials.getSpecificCredential)
-    const getSpecificComponentCredentialApi = useApi(api.credentials.getSpecificComponentCredential)
+    const getSpecificCredentialApi = useApi((unikId, id) => api.credentials.getById(unikId, id))
+    const getSpecificComponentCredentialApi = useApi((name) => api.credentials.getComponentSchema(name))
 
     const [credential, setCredential] = useState({})
     const [name, setName] = useState('')
@@ -118,26 +118,24 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
                 credentialName: componentCredential.name,
                 plainDataObj: credentialData
             }
-            const createResp = await api.credentials.createCredential(dialogProps.unikId, obj)
-            if (createResp.data) {
-                enqueueSnackbar({
-                    message: t('credentials.messages.newCredentialAdded'),
-                    options: {
-                        key: new Date().getTime() + Math.random(),
-                        variant: 'success',
-                        action: (key) => (
-                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                                <IconX />
-                            </Button>
-                        )
-                    }
-                })
-                onConfirm(createResp.data.id)
-            }
+            const createResp = await api.credentials.create(dialogProps.unikId, obj)
+            enqueueSnackbar({
+                message: t('messages.newCredentialAdded'),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'success',
+                    action: (key) => (
+                        <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                            <IconX />
+                        </Button>
+                    )
+                }
+            })
+            onConfirm(createResp.id)
         } catch (error) {
             if (setError) setError(error)
             enqueueSnackbar({
-                message: t('credentials.messages.addError', {
+                message: t('messages.addError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -170,26 +168,24 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
             }
             if (Object.keys(plainDataObj).length) saveObj.plainDataObj = plainDataObj
 
-            const saveResp = await api.credentials.updateCredential(dialogProps.unikId, credential.id, saveObj)
-            if (saveResp.data) {
-                enqueueSnackbar({
-                    message: t('credentials.messages.credentialSaved'),
-                    options: {
-                        key: new Date().getTime() + Math.random(),
-                        variant: 'success',
-                        action: (key) => (
-                            <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
-                                <IconX />
-                            </Button>
-                        )
-                    }
-                })
-                onConfirm(saveResp.data.id)
-            }
+            const saveResp = await api.credentials.update(dialogProps.unikId, credential.id, saveObj)
+            enqueueSnackbar({
+                message: t('messages.credentialSaved'),
+                options: {
+                    key: new Date().getTime() + Math.random(),
+                    variant: 'success',
+                    action: (key) => (
+                        <Button style={{ color: 'white' }} onClick={() => closeSnackbar(key)}>
+                            <IconX />
+                        </Button>
+                    )
+                }
+            })
+            onConfirm(saveResp.id)
         } catch (error) {
             if (setError) setError(error)
             enqueueSnackbar({
-                message: t('credentials.messages.saveError', {
+                message: t('messages.saveError', {
                     error: typeof error.response.data === 'object' ? error.response.data.message : error.response.data
                 }),
                 options: {
@@ -266,7 +262,7 @@ const AddEditCredentialDialog = ({ show, dialogProps, onCancel, onConfirm, setEr
                     <Box sx={{ p: 2 }}>
                         <Stack sx={{ position: 'relative' }} direction='row'>
                             <Typography variant='overline'>
-                                {t('credentials.credentialName')}
+                                {t('credentialName')}
                                 <span style={{ color: 'red' }}>&nbsp;*</span>
                             </Typography>
                         </Stack>

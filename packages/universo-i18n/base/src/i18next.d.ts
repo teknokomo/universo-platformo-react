@@ -17,7 +17,6 @@ import type canvas from './locales/en/views/canvas.json'
 import type canvases from './locales/en/views/canvases.json'
 import type chatbot from './locales/en/views/chatbot.json'
 import type chatmessage from './locales/en/views/chatmessage.json'
-import type credentials from './locales/en/views/credentials.json'
 import type documentStore from './locales/en/views/document-store.json'
 import type flowList from './locales/en/views/flowList.json'
 import type menu from './locales/en/views/menu.json'
@@ -62,7 +61,6 @@ declare module 'i18next' {
             auth: typeof auth.auth
             chatbot: typeof chatbot.chatbot
             chatmessage: typeof chatmessage.chatmessage
-            credentials: typeof credentials.credentials
             'document-store': typeof documentStore.documentStore
             flowList: typeof flowList.flowList
             menu: typeof menu.menu

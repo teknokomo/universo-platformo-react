@@ -14,7 +14,7 @@ import { HIDE_CANVAS_DIALOG, SHOW_CANVAS_DIALOG, baseURL } from '@flowise/store'
 
 // API
 import { api } from '@universo/api-client'
-import useApi from '../../hooks/useApi.js'
+import useApi from '../../hooks/hooks/useApi'
 
 const NodeInfoDialog = ({ show, dialogProps, onCancel }) => {
     const portalElement = document.getElementById('portal')

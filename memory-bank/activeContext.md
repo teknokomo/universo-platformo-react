@@ -1,57 +1,72 @@
 # Active Context
 
-> **Last Updated**: 2025-11-27
+> **Last Updated**: 2026-01-27
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Tools Package Extraction ✅ (2025-11-27)
+## Current Focus: QA Fixes - useApi Shim & i18n ✅ (2026-01-27)
 
-**Status**: Implementation complete, PR #564 bot comments fixed, user testing pending 🧪
+**Status**: Implementation complete, user testing pending 🧪
 
-**Summary**: Extracted tools functionality from flowise-ui/flowise-server into separate packages.
+**Summary**: Fixed critical bugs discovered during browser testing of newly extracted Tools and Credentials packages.
 
-**New Packages**:
-- `@universo/flowise-tools-srv` - Backend (entity, migrations, service, routes)
-- `@universo/flowise-tools-frt` - Frontend (Tools page, source-only)
+**Problems Found & Fixed**:
 
-**Key Changes**:
-- Consolidated migration `1748400000000-AddTools.ts` (after uniks)
-- DI factory pattern: `createToolsService()`, `createToolsRouter()`
-- API client: `CustomTool` type with CRUD methods
-- Routes updated in MainRoutesMUI.tsx and MainRoutes.jsx
+1. **useApi returning null data** ✅
+   - Root cause: `hooks/useApi.js` was a build-time stub returning `{ data: null, loading: false }`
+   - Real implementation in nested `hooks/hooks/useApi.jsx`
+   - Fix: Updated exports in `hooks/index.ts`, `index.ts`, `package.json`
+   - Fixed 12 component files with relative imports
 
-**Bot Review Fixes Applied**:
-- ✅ Registered `toolsErrorHandler` in routes/index.ts
-- ✅ Removed duplicate `zod` from devDependencies
-- ✅ Removed 3 redundant `typeof req.params === 'undefined'` checks
-- ✅ Kept `dbResponse.affected ?? undefined` (TypeORM null handling)
+2. **CredentialListDialog showing i18n keys** ✅
+   - Root cause: Double namespace - `useTranslation('credentials')` + `t('credentials.key')`
+   - Fix: Removed duplicate prefix from t() calls
 
-**Build**: ✅ 41/41 packages
+3. **AdminPanel dead code** ✅
+   - Calls `/api/v1/users` which doesn't exist in backend
+   - Fix: Deleted AdminPanel.jsx and removed route
 
-**Next**: User testing - database migrations, browser functional testing
+**Files Modified** (flowise-template-mui/base/src):
+- `hooks/index.ts` - export from `./hooks/` subfolder
+- `index.ts` - export from `./hooks/hooks/`
+- `package.json` - explicit hook exports
+- 12 component files with relative imports fixed
+
+**Files Deleted**:
+- `hooks/useApi.js` (stub)
+- `hooks/useConfirm.js` (stub)
+- `flowise-ui/src/views/up-admin/AdminPanel.jsx`
+
+**Build**: ✅ 42/42 packages
+
+---
+
+## Previous: Credentials Package Extraction ✅ (2025-11-27)
+
+**Next**: User testing - database migrations, browser CRUD operations
 
 ---
 
 ## Recent Completions (Last 7 Days)
 
+### 2025-11-27: Tools Package Extraction ✅
+- Extracted to @universo/flowise-tools-srv and @universo/flowise-tools-frt
+- Migration: 1693891895164-AddTools.ts
+- Bot review fixes applied (PR #564)
+- User testing pending
+- Details: progress.md#2025-11-27
+
 ### 2025-11-25: AR.js Node Connections Mode Fix ✅
 - Fixed `quizState is not defined` error
-- File: template-quiz/base/src/arjs/handlers/DataHandler/index.ts
 - Browser testing pending
 - Details: progress.md#2025-11-25
 
 ### 2025-11-25: QA Fixes & Documentation ✅
 - Fixed unused `t` in ClusterMembers.tsx
-- Fixed campaigns-frt/clusters-frt README files (19+ replacements)
+- Fixed campaigns-frt/clusters-frt README files
 - Details: progress.md#2025-11-25
-
-### 2025-11-23: Documentation Major Refactoring ✅
-- Configuration docs: Full EN/RU sync, 7 files translated
-- Integrations docs: Full sync (249 files), 10 README files translated
-- Applications docs: 7/9 phases complete, 11 files modified
-- Details: progress.md#2025-11-23
 
 ---
 
@@ -69,7 +84,7 @@
 ### Core Patterns
 - i18n Architecture: systemPatterns.md#i18n-architecture
 - Universal List: systemPatterns.md#universal-list-pattern
-- React StrictMode: systemPatterns.md#react-strictmode
+- DI Service Factory: Tools/Credentials extraction pattern
 - TypeORM Repository: systemPatterns.md#typeorm-repository-pattern
 
 ### Key Commands

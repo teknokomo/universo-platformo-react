@@ -69,13 +69,13 @@ export const AsyncDropdown = ({
                 names = credentialNames[0]
             }
 
-            const resp = await api.credentials.getCredentialsByName(unikId || '', names)
-            if (resp.data) {
+            const resp = await api.credentials.getByName(unikId || '', names)
+            if (resp) {
                 const returnList = []
-                for (let i = 0; i < resp.data.length; i += 1) {
+                for (let i = 0; i < resp.length; i += 1) {
                     const data = {
-                        label: resp.data[i].name,
-                        name: resp.data[i].id
+                        label: resp[i].name,
+                        name: resp[i].id
                     }
                     returnList.push(data)
                 }

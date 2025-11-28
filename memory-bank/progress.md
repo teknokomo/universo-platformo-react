@@ -25,6 +25,81 @@
 
 ## January 2026
 
+### 2026-01-28: Credentials API Migration Fix ✅
+
+**Summary**: Fixed Credentials page and related components to use correct @universo/api-client method names.
+
+**Root Cause**: Components were migrated from flowise-ui but still using old API method names (`getAllCredentials`, `createCredential`, etc.), while @universo/api-client uses different names (`getAll`, `create`, etc.).
+
+**API Method Mapping**:
+| Old (flowise-ui) | New (@universo/api-client) |
+|------------------|----------------------------|
+| `getAllCredentials` | `getAll` |
+| `getAllComponentsCredentials` | `getAllComponents` |
+| `getSpecificCredential` | `getById` |
+| `getSpecificComponentCredential` | `getComponentSchema` |
+| `createCredential` | `create` |
+| `updateCredential` | `update` |
+| `deleteCredential` | `delete` |
+| `getCredentialsByName` | `getByName` |
+
+**Files Fixed (4)**:
+- `flowise-credentials-frt/pages/Credentials.jsx`
+- `flowise-template-mui/CredentialInputHandler.jsx`
+- `flowise-template-mui/AddEditCredentialDialog.jsx`
+- `flowise-template-mui/AsyncDropdown.jsx`
+
+**Additional Fixes**:
+- Removed `.data` wrapper access (new API returns data directly from axios response)
+- Fixed useApi hook calls to use arrow functions for methods that need parameters
+
+**Build**: 42/42 packages ✅
+
+---
+
+### 2026-01-27: QA Fixes - useApi Shim & i18n ✅
+
+**Summary**: Fixed critical bugs discovered during browser testing of Tools and Credentials packages.
+
+**Root Cause Analysis**:
+1. **useApi hook returning null data**: `flowise-template-mui/hooks/useApi.js` was a **build-time stub** returning `{ data: null, loading: false }`. Real implementation was in nested `hooks/hooks/useApi.jsx`.
+2. **CredentialListDialog showing i18n keys**: Double namespace - `useTranslation('credentials')` + `t('credentials.key')`.
+3. **AdminPanel dead code**: Calls `/api/v1/users` which doesn't exist in backend.
+
+**Fixes Applied**:
+
+| Task | Files Changed | Status |
+|------|---------------|--------|
+| Fix hooks/index.ts exports | hooks/index.ts | ✅ |
+| Fix index.ts exports | src/index.ts | ✅ |  
+| Fix package.json exports | package.json | ✅ |
+| Delete stub files | useApi.js, useConfirm.js | ✅ |
+| Fix 12 relative imports | ProfileSection, ToolDialog, etc. | ✅ |
+| Fix i18n double namespace | CredentialListDialog.jsx | ✅ |
+| Delete AdminPanel | up-admin/AdminPanel.jsx | ✅ |
+| Remove AdminPanel route | MainRoutes.jsx | ✅ |
+
+**Files Modified (flowise-template-mui/base/src)**:
+- `hooks/index.ts` - export from `./hooks/` subfolder
+- `index.ts` - export from `./hooks/hooks/`
+- `package.json` - explicit `./hooks/useApi`, `./hooks/useConfirm` exports
+
+**Files with Fixed Relative Imports (12)**:
+- ProfileSection/index.jsx, ToolDialog.jsx, ViewLeadsDialog.jsx
+- NodeInfoDialog.jsx, ExpandTextDialog.jsx, AddEditCredentialDialog.jsx
+- ViewMessagesDialog.jsx, ExportAsTemplateDialog.jsx, PromptLangsmithHubDialog.jsx
+- FlowListMenu.jsx, OverrideConfig.jsx, ConfirmDialog.jsx
+
+**Files Deleted**:
+- `flowise-template-mui/base/src/hooks/useApi.js` (stub)
+- `flowise-template-mui/base/src/hooks/useConfirm.js` (stub)
+- `flowise-ui/src/views/up-admin/AdminPanel.jsx`
+- `flowise-ui/src/views/up-admin/` folder
+
+**Build**: Full project (42/42 packages) ✅
+
+---
+
 ### 2026-01-26: useApi → useMutation QA Fixes ✅
 
 **Summary**: QA analysis identified and fixed remaining issues after main useApi → useMutation refactoring.
@@ -62,6 +137,47 @@
 ---
 
 ## November 2025
+
+### 2025-11-27: Credentials Package Extraction ✅
+
+**Summary**: Extracted credentials functionality from flowise-ui/flowise-server into separate packages `@universo/flowise-credentials-srv` (backend) and `@universo/flowise-credentials-frt` (frontend), following the same pattern as Tools extraction.
+
+**Backend Package (@universo/flowise-credentials-srv)**:
+- TypeORM entity `Credential` with ManyToOne relation to Unik (CASCADE delete)
+- Migration `1693891895165-AddCredentials.ts` (right after Init, before Tools)
+- DI-based `createCredentialsService()` factory with encryption callbacks in config
+- Express router factory `createCredentialsRouter()` with embedded controller logic
+- Encryption utils stay in flowise-server, passed via DI to avoid circular dependencies:
+  ```typescript
+  const credentialsService = createCredentialsService({
+      getDataSource,
+      encryptCredentialData: async (data) => await encryptCredentialData(data),
+      decryptCredentialData: async (encrypted, componentName?) => 
+          await decryptCredentialData(encrypted, componentName, appServer.nodesPool.componentCredentials)
+  })
+  ```
+
+**Frontend Package (@universo/flowise-credentials-frt)**:
+- Source-only package with peerDependencies (react, @mui, @universo/*)
+- Moved Credentials page from flowise-ui/src/views/credentials
+- i18n with registerNamespace pattern (en/ru translations)
+- TypeScript module declarations added to universo-template-mui
+
+**Key Architecture Decisions**:
+- **DI for Encryption**: Avoids circular deps (credentials-srv ← flowise-server → credentials-srv)
+- **Migration Order**: Init (163) → Tools (164) → Credentials (165) → other migrations
+- **No Legacy Code**: Deleted all old files (entity, service, controller, routes, flowise-ui views, i18n JSONs)
+
+**Files Changed**:
+- Created: 16 new files in 2 packages
+- Modified: ~10 files in flowise-server, universo-template-mui, universo-i18n
+- Deleted: ~12 files (old credentials from flowise-server, flowise-ui, universo-i18n)
+
+**Build**: 42/42 packages successful ✅
+
+**Pending**: User testing (migrations, browser CRUD operations)
+
+---
 
 ### 2025-11-27: Tools Package Extraction ✅
 

@@ -1,5 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
+/**
+ * Universal API hook that supports both:
+ * - Legacy axios responses (with .data property)
+ * - Modern @universo/api-client responses (data returned directly)
+ */
 export default (apiFunc) => {
     const [data, setData] = useState(null)
     const [error, setError] = useState(null)
@@ -19,11 +24,12 @@ export default (apiFunc) => {
         setLoading(true)
         try {
             const result = await apiRef.current(...args)
+            // Support both axios responses (.data) and direct data from @universo/api-client
+            const payload = result && typeof result === 'object' && 'data' in result ? result.data : result
             if (isMounted.current) {
-                setData(result.data)
+                setData(payload)
             }
-            // Return payload for callers relying on the immediate value
-            return result.data
+            return payload
         } catch (err) {
             if (isMounted.current) {
                 setError(err || 'Unexpected Error!')

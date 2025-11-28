@@ -50,7 +50,7 @@ import './index.css'
 import { api } from '@universo/api-client'
 
 // Hooks
-import useApi from '../../../../hooks/useApi'
+import useApi from '../../../../hooks/hooks/useApi'
 import { getErrorMessage } from '@universo/utils/ui-utils/errorHandler'
 import { useNavigate } from 'react-router-dom'
 
