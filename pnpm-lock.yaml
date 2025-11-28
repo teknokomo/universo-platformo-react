@@ -1406,7 +1406,7 @@ importers:
         specifier: workspace:*
         version: link:../../uniks-srv/base
       eslint:
-        specifier: ^8.56.0
+        specifier: 'catalog:'
         version: 8.57.1
       rimraf:
         specifier: ^5.0.5
@@ -1901,7 +1901,7 @@ importers:
         specifier: workspace:*
         version: link:../../uniks-srv/base
       eslint:
-        specifier: ^8.56.0
+        specifier: 'catalog:'
         version: 8.57.1
       rimraf:
         specifier: ^5.0.5
@@ -2221,7 +2221,7 @@ importers:
         specifier: ^2.3.0
         version: 2.3.0
       uuid:
-        specifier: ^9.0.1
+        specifier: ^9.0.0
         version: 9.0.1
       zod:
         specifier: 3.25.76
@@ -2240,7 +2240,7 @@ importers:
         specifier: workspace:*
         version: link:../../uniks-srv/base
       eslint:
-        specifier: ^8.56.0
+        specifier: 'catalog:'
         version: 8.57.1
       rimraf:
         specifier: ^5.0.5

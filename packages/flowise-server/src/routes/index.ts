@@ -417,6 +417,9 @@ router.use(toolsErrorHandler)
 // Credentials-specific error handler
 router.use(credentialsErrorHandler)
 
+// Variables-specific error handler
+router.use(variablesErrorHandler)
+
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error('[API Error Handler]', {
