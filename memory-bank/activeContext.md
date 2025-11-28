@@ -6,9 +6,31 @@
 
 ---
 
-## Current Focus: ApiKey Package Extraction ✅ (2025-11-28)
+## Current Focus: P1 Bug Fixes Complete, Awaiting User Testing 🧪 (2025-11-28)
 
-**Status**: Implementation complete, user testing pending 🧪
+**Status**: All implementation complete. PR #570 updated with P1 bug fixes.
+
+**Recent Completion**:
+- Fixed P1 bugs from PR bot review (unikId handling in validation)
+- Added `getApiKeyById` method to apikeyService for direct key lookup
+- Updated verify route to `/unik/:unikId/apikey/:apikey`
+- Fixed validateCanvasApiKey and validateAPIKey functions
+
+**Git Status**:
+- Branch: `feature/apikey-package-extraction`
+- Latest commit: `a96117a3` - fix(apikey): add getApiKeyById method and fix unikId handling
+- PR #570: Updated with all fixes
+
+**Awaiting User Actions**:
+1. Database migration testing
+2. Browser functional testing
+3. PR review and merge
+
+---
+
+## ApiKey Package Extraction ✅ (2025-11-28)
+
+**Status**: Implementation complete, user testing pending
 
 **Summary**: Extracted ApiKey functionality from `flowise-server` and `flowise-ui` into separate packages following the established DI pattern from Tools, Credentials, and Variables extractions.
 
@@ -21,6 +43,7 @@
    - TypeORM entity with Unik ManyToOne relation
    - Migration: `1720230151480-AddApiKey.ts` with hasTable checks
    - Utils: `generateAPIKey`, `generateSecretHash`, `compareKeys`, `getDefaultAPIKeyPath`
+   - **New**: `getApiKeyById(id)` method for direct key lookup
 
 2. **@universo/flowise-apikey-frt** (Frontend)
    - Source-only package (no dist build)
@@ -32,18 +55,6 @@
 - New `ApiKeyApi` class in `@universo/api-client`
 - Methods: getAllAPIKeys, createNewAPI, updateAPI, deleteAPI, importAPI
 - Types: ApiKey, CreateApiKeyPayload, UpdateApiKeyPayload, ImportApiKeysPayload
-
-**Integration Points**:
-- flowise-server: ApiKey entity import, apikeyService DI with storageConfig, apikeyRouter
-- flowise-server: validateKey.ts and verify routes updated with lazy service initialization
-- universo-template-mui: MainRoutesMUI.tsx updated with new imports
-- universo-i18n: Removed apiKeys imports (now in flowise-apikey-frt)
-
-**Files Deleted**:
-- Old routes, controllers, services from flowise-server
-- Old utils/apiKey.ts, entities/ApiKey.ts, migration
-- Old views from flowise-ui
-- api-keys.json from universo-i18n and spaces-frt
 
 **Build**: ✅ 44/44 packages
 

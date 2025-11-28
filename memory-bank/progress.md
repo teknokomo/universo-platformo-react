@@ -25,6 +25,30 @@
 
 ## November 2025
 
+### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅
+
+**Summary**: Fixed two P1 bugs from PR #570 bot review related to unikId handling in API key validation.
+
+**Bug 1: verify/index.ts route missing unikId parameter**
+- Changed route from `/apikey/:apikey` to `/unik/:unikId/apikey/:apikey`
+- Handler now correctly receives unikId from route params
+- Updated WHITELIST_URLS in constants.ts to match new route pattern
+
+**Bug 2: validateKey functions calling getAllApiKeys() without unikId**
+- Added `getApiKeyById(id)` method to IApikeyService interface and implementation
+- Updated `validateCanvasApiKey` to use `getApiKeyById(canvasApiKeyId)` instead of getAllApiKeys
+- Updated `validateAPIKey` to extract unikId from req.params and pass to getApiKey
+
+**Technical Changes**:
+- `packages/flowise-apikey-srv/base/src/services/apikeyService.ts`: Added getApiKeyById method (works in both JSON and DB modes)
+- `packages/flowise-server/src/routes/verify/index.ts`: Changed route to include unikId
+- `packages/flowise-server/src/utils/constants.ts`: Updated WHITELIST_URLS
+- `packages/flowise-server/src/utils/validateKey.ts`: Fixed both validation functions
+
+**Build**: 44/44 packages successful
+
+---
+
 ### 2025-11-28: ApiKey Package Extraction ✅
 
 **Summary**: Extracted ApiKey functionality from flowise-server/flowise-ui into separate packages `@universo/flowise-apikey-srv` and `@universo/flowise-apikey-frt`. Following DI factory pattern from Tools/Credentials/Variables.
