@@ -21,15 +21,7 @@ export function createLeadsRouter(leadsService: ILeadsService): Router {
 
     const createLead = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            if (!req.body) {
-                throw new LeadsControllerError(StatusCodes.PRECONDITION_FAILED, 'Error: leadsController.createLead - body not provided!')
-            }
-            if (!req.body.canvasId) {
-                throw new LeadsControllerError(
-                    StatusCodes.PRECONDITION_FAILED,
-                    'Error: leadsController.createLead - canvasId not provided!'
-                )
-            }
+            // Validation is handled by Zod schema in the service layer
             const apiResponse = await leadsService.createLead(req.body)
             res.json(apiResponse)
         } catch (error) {
@@ -40,8 +32,8 @@ export function createLeadsRouter(leadsService: ILeadsService): Router {
     const getAllLeads = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
             const canvasId = req.params.id
-            if (!canvasId) {
-                throw new LeadsControllerError(StatusCodes.PRECONDITION_FAILED, 'Error: leadsController.getAllLeads - id not provided!')
+            if (!canvasId || canvasId.trim() === '') {
+                throw new LeadsControllerError(StatusCodes.BAD_REQUEST, 'Canvas ID is required')
             }
             const apiResponse = await leadsService.getAllLeads(canvasId)
             res.json(apiResponse)
@@ -52,7 +44,7 @@ export function createLeadsRouter(leadsService: ILeadsService): Router {
 
     // Routes
     router.post('/', createLead)
-    router.get(['/', '/:id'], getAllLeads)
+    router.get('/:id', getAllLeads)
 
     return router
 }
