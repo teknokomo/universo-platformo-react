@@ -168,8 +168,8 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
                     iconSrc: requestBody.iconSrc,
                     type: requestBody.type
                 })
-                // Set relationship with Unik
-                newAssistant.unik = { id: unikId } as any
+                // Set unik_id directly instead of using relation object with 'as any'
+                newAssistant.unik_id = unikId
 
                 const repo = dataSource.getRepository(Assistant)
                 const assistant = repo.create(newAssistant)
@@ -276,9 +276,10 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
                     details: JSON.stringify(newAssistantDetails),
                     credential: requestBody.credential,
                     iconSrc: requestBody.iconSrc,
-                    type: requestBody.type,
-                    unik: { id: unikId } as any
+                    type: requestBody.type
                 })
+                // Set unik_id directly instead of using relation object with 'as any'
+                newAssistant.unik_id = unikId
 
                 const repo = dataSource.getRepository(Assistant)
                 const assistant = repo.create(newAssistant)

@@ -1,5 +1,4 @@
 import express, { Router, Request, Response, NextFunction, ErrorRequestHandler } from 'express'
-import { StatusCodes } from 'http-status-codes'
 import type { IAssistantsController } from '../controllers'
 import { AssistantsServiceError } from '../services'
 import { AssistantsControllerError } from '../controllers'

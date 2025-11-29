@@ -142,13 +142,19 @@ const assistantsService = createAssistantsService({
         return databaseEntities
     },
     getLogger: () => logger,
-    getPromptGenerator: () => `### Context:
-{context}
+    getPromptGenerator: () => `You are a helpful assistant that generates high-quality instructions for AI assistants.
 
-### Question:
-{question}
+Based on the following task description, generate clear, detailed, and actionable instructions for an AI assistant:
 
-### Answer:
+Task: {{task}}
+
+Generate comprehensive instructions that:
+1. Clearly define the assistant's role and purpose
+2. Specify the expected behavior and tone
+3. Include any constraints or guidelines
+4. Provide examples if helpful
+
+Instructions:
 `,
     getInputParamsType: () => ['string', 'number', 'boolean', 'json', 'file']
 })
