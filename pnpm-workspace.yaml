@@ -11,8 +11,9 @@ catalog:
     # i18next ecosystem - downgraded to stable 23.x due to TypeScript 5.8 incompatibility
     # i18next 24.x uses 'const' type parameters syntax that causes parsing errors in TS 5.8
     # Version 23.16.8 is proven stable and widely used
+    # react-i18next pinned to 15.5.3 (last version compatible with i18next 23.x without requiring 24.x)
     i18next: 23.16.8
-    react-i18next: ^15.5.3
+    react-i18next: 15.5.3
     i18next-http-backend: ^2.7.0
     i18next-browser-languagedetector: ^8.0.2
     

@@ -321,12 +321,16 @@ export class AssistantsApi {
 
     /**
      * Generate assistant instructions using AI
+     * 
+     * @param unikId - User/organization ID
+     * @param payload - Generation parameters with task and selected chat model
+     * @returns Generated instructions content
      */
     async generateInstructions(
         unikId: string,
-        payload: { prompt: string }
-    ): Promise<{ instructions: string }> {
-        const response = await this.client.post<{ instructions: string }>(
+        payload: { task: string; selectedChatModel: { name: string; inputs: Record<string, unknown> } }
+    ): Promise<{ content: string }> {
+        const response = await this.client.post<{ content: string }>(
             `/unik/${unikId}/assistants/generate/instruction`,
             payload
         )

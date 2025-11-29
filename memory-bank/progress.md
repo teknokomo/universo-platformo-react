@@ -25,6 +25,78 @@
 
 ## November 2025
 
+### 2025-11-29: Assistants API Clean Refactoring ✅
+
+**Summary**: Complete refactoring of Assistants frontend components to use modern API methods from `@universo/api-client`. Removed ~120 lines of legacy aliases. Following industry-standard pattern: `unikId` always first argument (like GitHub, Stripe, Firebase APIs).
+
+**Key API Method Mappings Applied**:
+| Legacy | Modern | Arg Change |
+|--------|--------|------------|
+| `getAllAssistants(type, unikId)` | `getAll(unikId, type)` | Swapped |
+| `getSpecificAssistant(id, unikId)` | `getById(unikId, id)` | Swapped |
+| `getAllAvailableAssistants(credId, unikId)` | `listOpenAIAssistants(unikId, credId)` | Swapped |
+| `getAssistantObj(id, credId, unikId)` | `getOpenAIAssistant(unikId, id, credId)` | Swapped |
+| `createNewAssistant(unikId, obj)` | `create(unikId, obj)` | Same |
+| `updateAssistant(unikId, id, obj)` | `update(unikId, id, obj)` | Same |
+| `deleteAssistant(unikId, id, bool)` | `delete(unikId, id, bool)` | Same |
+| `*AssistantVectorStore(...)` | `*VectorStore(unikId, ...)` | Swapped |
+| Response: `resp.data.id` | `resp.id` | Direct access |
+
+**Runtime Fixes Applied**:
+1. **`this` context loss in useApi**: Wrap class methods in arrow functions - `useApi((...args) => api.assistants.getAll(...args))`
+2. **Missing CredentialInputHandler dropdown**: Use `canvas/CredentialInputHandler` (not `dialogs/`) for `type: 'credential'`
+3. **i18n interpolation**: Use double braces `{{variable}}` for i18next format
+4. **Missing theme palette**: Add defensive fallback for `theme.palette.canvasHeader` (same pattern as CanvasHeader.jsx)
+5. **Missing api import in AsyncDropdown**: Added `import { api } from '@universo/api-client'`
+
+**Files Updated**:
+- `universo-api-client/src/api/assistants.ts` - Removed legacy aliases (~120 lines)
+- `CustomAssistantLayout.jsx`, `OpenAIAssistantLayout.jsx` - Updated API calls with arrow wrappers
+- `LoadAssistantDialog.jsx` - Fixed CredentialInputHandler import (canvas/), updated API calls
+- `AddCustomAssistantDialog.jsx`, `AssistantDialog.jsx` - All API calls updated with arrow wrappers
+- `CustomAssistantConfigurePreview.jsx` - Added canvasHeaderPalette fallback, renamed hooks & API calls
+- `AssistantVectorStoreDialog.jsx` - All VectorStore methods updated
+- `PromptGeneratorDialog.jsx` - Added missing `api` import, updated generateInstructions call
+- `AsyncDropdown.jsx` - Added missing `api` import
+- `MainRoutesMUI.tsx` - Added missing route `/unik/:unikId/assistants/custom/:id`
+- `flowise-assistants-frt/package.json` - Added export for CustomAssistantConfigurePreview
+- `i18n/locales/*/assistants.json` - Fixed structure (removed nested object, changed to `{{type}}` format)
+
+**Build**: 45/45 packages successful ✅
+
+---
+
+### 2025-11-28: Assistants Package Extraction ✅
+
+**Summary**: Extracted Assistants functionality from flowise-server and flowise-ui into separate packages `@universo/flowise-assistants-srv` and `@universo/flowise-assistants-frt`. Following DI factory pattern from Tools/Credentials/Variables/ApiKey.
+
+**New Packages Created**:
+- `packages/flowise-assistants-srv/base/` - Backend service with Assistant entity, consolidated migration, DI-based service/controller/router
+- `packages/flowise-assistants-frt/base/` - Frontend pages (Assistants, AssistantDialog, CustomAssistant, OpenAI) with i18n
+
+**Key Architectural Decisions**:
+- **DI Factory Pattern**: `createAssistantsService`, `createAssistantsController`, `createAssistantsRouter` with optional dependencies
+- **Consolidated Migration**: Combined AddAssistantEntity + AddTypeToAssistant into single 1699325775451-AddAssistant.ts
+- **Optional Dependencies**: Config includes nodesService, documentStoreRepository, nodesPool for flexible DI
+- **MVP Approach**: Copied files with minimal changes, kept JSX for frontend compatibility
+- **peerDependency**: flowise-template-mui uses peerDependency to avoid cyclic dependency with assistants-frt
+- **i18n Pattern**: Side-effect imports with registerNamespace for lazy-loaded route components
+- **react-i18next Pinning**: Pinned to 15.5.3 in pnpm catalog for i18next 23.x compatibility
+
+**Consumer Package Updates**:
+- `universo-template-mui`: Added dependency, updated MainRoutesMUI.tsx imports
+- `flowise-template-mui`: Added peerDependency, updated NodeInputHandler.jsx AssistantDialog import
+
+**Files Deleted**:
+- `flowise-server/src/routes/assistants/`, `flowise-server/src/controllers/assistants-api/`, `flowise-server/src/controllers/openai-assistants/`, `flowise-server/src/services/assistants/`
+- `flowise-server/src/database/entities/Assistant.ts`, `flowise-server/src/database/migrations/postgres/1699325775451-*.ts`
+- `flowise-ui/src/views/assistants/`
+- `spaces-frt/base/src/views/assistants/`, `spaces-frt/base/src/i18n/locales/*/views/assistants.json`
+
+**Build**: 45/45 packages successful ✅
+
+---
+
 ### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅
 
 **Summary**: Fixed two P1 bugs from PR #570 bot review related to unikId handling in API key validation.

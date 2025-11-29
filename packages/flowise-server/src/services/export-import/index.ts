@@ -1,7 +1,7 @@
 import { StatusCodes } from 'http-status-codes'
 import { In, QueryRunner } from 'typeorm'
 import { v4 as uuidv4 } from 'uuid'
-import { Assistant } from '../../database/entities/Assistant'
+import { Assistant } from '@universo/flowise-assistants-srv'
 import { ChatMessage } from '../../database/entities/ChatMessage'
 import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback'
 import { CustomTemplate } from '../../database/entities/CustomTemplate'
@@ -12,7 +12,7 @@ import { Variable } from '@universo/flowise-variables-srv'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import assistantService from '../assistants'
+// assistantService removed - now using direct repository query like tools
 import canvasMessagesService from '../canvas-messages'
 import canvasService from '../spacesCanvas'
 import documenStoreService from '../documentstore'
@@ -83,23 +83,34 @@ const convertExportInput = (body: any): ExportInput => {
 const FileDefaultName = 'ExportData.json'
 const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ FileDefaultName: string } & ExportData> => {
     try {
+        const appServer = getRunningExpressApp()
+        const dataSource = appServer.AppDataSource
+        const assistantRepo = dataSource.getRepository(Assistant)
+
         let AgentFlow: CanvasFlowResult[] =
             exportInput.agentflow === true
                 ? await canvasService.getAllCanvases({ unikId, type: 'MULTIAGENT' })
                 : []
 
+        // Get assistants by type directly from repository (like Tools pattern)
         let AssistantCustom: Assistant[] =
-            exportInput.assistantCustom === true ? await assistantService.getAllAssistants('CUSTOM', unikId) : []
+            exportInput.assistantCustom === true
+                ? await assistantRepo.find({ where: { type: 'CUSTOM', unik_id: unikId } })
+                : []
         let AssistantFlow: CanvasFlowResult[] =
             exportInput.assistantCustom === true
                 ? await canvasService.getAllCanvases({ unikId, type: 'ASSISTANT' })
                 : []
 
         let AssistantOpenAI: Assistant[] =
-            exportInput.assistantOpenAI === true ? await assistantService.getAllAssistants('OPENAI', unikId) : []
+            exportInput.assistantOpenAI === true
+                ? await assistantRepo.find({ where: { type: 'OPENAI', unik_id: unikId } })
+                : []
 
         let AssistantAzure: Assistant[] =
-            exportInput.assistantAzure === true ? await assistantService.getAllAssistants('AZURE', unikId) : []
+            exportInput.assistantAzure === true
+                ? await assistantRepo.find({ where: { type: 'AZURE', unik_id: unikId } })
+                : []
 
         const exportCanvasEntities = exportInput.canvas === true
 

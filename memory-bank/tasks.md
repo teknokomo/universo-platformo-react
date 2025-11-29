@@ -4,7 +4,125 @@
 
 ---
 
-## 🔥 ACTIVE TASKS
+## ✅ RECENTLY COMPLETED TASKS
+
+### 2025-11-29: Assistants API Clean Refactoring (Remove Legacy Aliases) ✅ COMPLETE
+
+**Status**: Complete. Build successful (45/45 packages).
+
+**Summary**: Clean refactoring of Assistants components to use modern API methods from `@universo/api-client`. Removed all legacy method aliases. Principle: `unikId` always first argument (industry standard: GitHub, Stripe, Firebase).
+
+**Phase 1: Update API Client** ✅ COMPLETE
+- [x] 1.1 Fix `generateInstructions` signature to match backend
+- [x] 1.2 Remove legacy aliases (~120 lines, lines 337-450 deleted)
+
+**Phase 2: Update Assistants Frontend Components** ✅ COMPLETE
+- [x] 2.1 Update `CustomAssistantLayout.jsx` - `getAllAssistants`→`getAll`, swapped args
+- [x] 2.2 Update `OpenAIAssistantLayout.jsx` - same changes
+- [x] 2.3 Update `LoadAssistantDialog.jsx` - `getAllAvailableAssistants`→`listOpenAIAssistants`, fix CredentialInputHandler import (use canvas/)
+- [x] 2.4 Update `AddCustomAssistantDialog.jsx` - `createNewAssistant`→`create`, fixed response
+- [x] 2.5 Update `AssistantDialog.jsx` (15+ changes) - all API calls updated
+- [x] 2.6 Update `CustomAssistantConfigurePreview.jsx` - renamed hooks & API calls, added canvasHeaderPalette fallback
+- [x] 2.7 Update `AssistantVectorStoreDialog.jsx` - `*AssistantVectorStore`→`*VectorStore`
+
+**Phase 3: Update External Components** ✅ COMPLETE
+- [x] 3.1 Fix `PromptGeneratorDialog.jsx` - added missing `api` import, `generateAssistantInstruction`→`generateInstructions`
+- [x] 3.2 Fix `AsyncDropdown.jsx` - added missing `api` import
+
+**Phase 4: Fix Route & Export Issues** ✅ COMPLETE
+- [x] 4.1 Add missing route `/unik/:unikId/assistants/custom/:id` in MainRoutesMUI.tsx
+- [x] 4.2 Add export for `CustomAssistantConfigurePreview` in flowise-assistants-frt package.json
+- [x] 4.3 Fix i18n JSON structure - remove nested `assistants` object, change `{type}` to `{{type}}`
+
+**Phase 5: Fix Runtime Palette Issues** ✅ COMPLETE
+- [x] 5.1 Add defensive `canvasHeaderPalette` fallback in CustomAssistantConfigurePreview.jsx (same pattern as CanvasHeader.jsx)
+
+**Phase 6: Build & Verify** ✅ COMPLETE
+- [x] 6.1 Run pnpm build - verified 45/45 packages successful
+- [x] 6.2 Update progress.md
+
+**Key API Method Mappings Applied:**
+| Legacy | Modern | Arg Change |
+|--------|--------|------------|
+| `getAllAssistants(type, unikId)` | `getAll(unikId, type)` | Swapped |
+| `getSpecificAssistant(id, unikId)` | `getById(unikId, id)` | Swapped |
+| `getAllAvailableAssistants(credId, unikId)` | `listOpenAIAssistants(unikId, credId)` | Swapped |
+| `getAssistantObj(id, credId, unikId)` | `getOpenAIAssistant(unikId, id, credId)` | Swapped |
+| `createNewAssistant(unikId, obj)` | `create(unikId, obj)` | Same |
+| `updateAssistant(unikId, id, obj)` | `update(unikId, id, obj)` | Same |
+| `deleteAssistant(unikId, id, bool)` | `delete(unikId, id, bool)` | Same |
+| `*AssistantVectorStore(...)` | `*VectorStore(unikId, ...)` | Swapped |
+| Response: `resp.data.id` | `resp.id` | Direct access |
+
+**Runtime Fixes Applied:**
+1. **`this` context loss in useApi**: Wrap class methods in arrow functions: `useApi((...args) => api.assistants.getAll(...args))`
+2. **Missing CredentialInputHandler dropdown**: Use `canvas/CredentialInputHandler` for type=credential
+3. **i18n interpolation**: Use double braces `{{variable}}` for i18next
+4. **Missing theme palette**: Add defensive fallback for `theme.palette.canvasHeader`
+
+---
+
+### 2025-11-28: Assistants Package Extraction ✅ COMPLETE
+
+**Status**: Complete. Build successful (45/45 packages).
+
+**Summary**: Extract Assistants functionality from flowise-server and flowise-ui into separate packages `@universo/flowise-assistants-srv` and `@universo/flowise-assistants-frt`. Following DI factory pattern from Tools/Credentials/Variables/ApiKey.
+
+**Key Design Decisions:**
+- DI factory pattern: `createAssistantsService`, `createAssistantsController`, `createAssistantsRouter`
+- Consolidated migration (combines AddAssistantEntity + AddTypeToAssistant)
+- Optional dependencies via config (nodesService, documentStoreRepository, nodesPool)
+- MVP approach: copy files with minimal changes, keep JSX for frontend
+- Fixed cyclic dependency by using peerDependency in flowise-template-mui
+
+**Phase 1: Backend Package (flowise-assistants-srv)** ✅ COMPLETE
+- [x] 1.1 Create package structure (package.json, tsconfig.json, README.md)
+- [x] 1.2 Create Interface.ts with IAssistant, AssistantType
+- [x] 1.3 Create Assistant entity with Unik relation
+- [x] 1.4 Create consolidated migration 1699325775451-AddAssistant.ts
+- [x] 1.5 Create assistantsService with DI pattern (~600 lines)
+- [x] 1.6 Create assistantsController with DI pattern
+- [x] 1.7 Create assistantsRouter with error handler
+- [x] 1.8 Create index.ts with all exports
+
+**Phase 2: Update flowise-server** ✅ COMPLETE
+- [x] 2.1 Add @universo/flowise-assistants-srv to package.json dependencies
+- [x] 2.2 Update database/entities/index.ts - import Assistant from new package
+- [x] 2.3 Update database/migrations/postgres/index.ts - import assistantsMigrations
+- [x] 2.4 Update Interface.ts - re-export IAssistant, AssistantType from new package
+- [x] 2.5 Update routes/index.ts - create assistantsService/Controller/Router with DI config
+- [x] 2.6 Update utils/index.ts - import Assistant from new package
+- [x] 2.7 Update export-import service - use direct repository query
+- [x] 2.8 Delete old files (services/assistants, controllers/assistants, routes/assistants, entity, migrations)
+
+**Phase 3: Frontend Package (flowise-assistants-frt)** ✅ COMPLETE
+- [x] 3.1 Create package structure (package.json with exports, index.ts)
+- [x] 3.2 Copy AssistantListDialog pages from flowise-ui (JSX)
+- [x] 3.3 Create i18n (en/ru) with registerNamespace pattern
+- [x] 3.4 Export all pages and i18n resources
+
+**Phase 4: Update universo-template-mui** ✅ COMPLETE
+- [x] 4.1 Add @universo/flowise-assistants-frt dependency
+- [x] 4.2 Add i18n side-effect import
+- [x] 4.3 Update MainRoutesMUI.tsx - import Assistants from new package
+
+**Phase 5: Update flowise-template-mui** ✅ COMPLETE
+- [x] 5.1 Add @universo/flowise-assistants-frt as peerDependency (avoid cycle)
+- [x] 5.2 Update NodeInputHandler.jsx - import AssistantDialog from new package
+
+**Phase 6: Cleanup legacy code** ✅ COMPLETE
+- [x] 6.1 Delete flowise-ui/src/views/assistants/ directory
+- [x] 6.2 Delete spaces-frt/base/src/views/assistants/ directory
+- [x] 6.3 Delete spaces-frt/base/src/i18n/locales/*/views/assistants.json files
+
+**Phase 7: Build & Testing** ✅ COMPLETE
+- [x] 7.1 Fix react-i18next version in catalog (pin to 15.5.3 for i18next 23.x compatibility)
+- [x] 7.2 Run pnpm build - verify all packages (45/45 successful)
+- [x] 7.3 Test migrations (USER - database)
+- [x] 7.4 Functional testing (USER - browser)
+- [x] 7.5 Fix missing routes for /assistants/custom and /assistants/openai
+
+---
 
 ### 2025-11-28: P1 Bug Fixes - unikId Handling in ApiKey Validation ✅ COMPLETE
 

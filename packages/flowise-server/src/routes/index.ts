@@ -1,7 +1,7 @@
 import express from 'express'
 import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
 // apikeyRouter removed - now created via @universo/flowise-apikey-srv
-import assistantsRouter from './assistants'
+// assistantsRouter removed - now created via @universo/flowise-assistants-srv
 import attachmentsRouter from './attachments'
 import canvasMessageRouter from './canvas-messages'
 import componentsCredentialsRouter from './components-credentials'
@@ -48,6 +48,7 @@ import { createToolsService, createToolsRouter, toolsErrorHandler } from '@unive
 import { createCredentialsService, createCredentialsRouter, credentialsErrorHandler, Credential } from '@universo/flowise-credentials-srv'
 import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@universo/flowise-variables-srv'
 import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@universo/flowise-apikey-srv'
+import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@universo/flowise-assistants-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -73,6 +74,7 @@ import { RateLimiterManager } from '../utils/rateLimit'
 // apiKeyService removed - now created via @universo/flowise-apikey-srv
 import { ensureUnikMembershipResponse } from '../services/access-control'
 import { appConfig } from '../AppConfig'
+import { DocumentStore } from '../database/entities/DocumentStore'
 
 const router: ExpressRouter = express.Router()
 
@@ -119,6 +121,39 @@ const apikeyService = createApikeyService({
     }
 })
 const apikeyRouter = createApikeyRouter(apikeyService)
+
+// Create assistants service and router using new package with DI
+const assistantsService = createAssistantsService({
+    getDataSource,
+    decryptCredentialData: async (encrypted: string) => {
+        const components = getRunningExpressApp().nodesPool.componentCredentials
+        return (await decryptCredentialData(encrypted, undefined, components)) as Record<string, unknown>
+    },
+    telemetry: {
+        sendTelemetry: async (event: string, data: Record<string, unknown>) => {
+            await getRunningExpressApp().telemetry.sendTelemetry(event, data)
+        }
+    },
+    getNodesService: () => nodesService,
+    getDocumentStoreRepository: () => getDataSource().getRepository(DocumentStore) as any,
+    getNodesPool: () => getRunningExpressApp().nodesPool,
+    getDatabaseEntities: () => {
+        const { databaseEntities } = require('../utils')
+        return databaseEntities
+    },
+    getLogger: () => logger,
+    getPromptGenerator: () => `### Context:
+{context}
+
+### Question:
+{question}
+
+### Answer:
+`,
+    getInputParamsType: () => ['string', 'number', 'boolean', 'json', 'file']
+})
+const assistantsController = createAssistantsController({ assistantsService })
+const assistantsRouter = createAssistantsRouter({ assistantsController })
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -433,6 +468,9 @@ router.use(variablesErrorHandler)
 
 // ApiKey-specific error handler
 router.use(apikeyErrorHandler)
+
+// Assistants-specific error handler
+router.use(assistantsErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
