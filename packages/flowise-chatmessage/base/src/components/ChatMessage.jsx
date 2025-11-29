@@ -58,6 +58,8 @@ import './ChatMessage.css'
 
 // api
 import { api } from '@universo/api-client' // Replaced import canvasMessagesApi from '@/api/canvasMessages'
+// Destructure leadsApi from api client
+const leadsApi = api.leads
 // import { api } from '@universo/api-client' // Replaced import canvasesApi from '@/api/canvases' // Duplicate removed
 // import { api } from '@universo/api-client' // Replaced import predictionApi from '@/api/prediction' // Duplicate removed
 // import { api } from '@universo/api-client' // Replaced import vectorstoreApi from '@/api/vectorstore' // Duplicate removed

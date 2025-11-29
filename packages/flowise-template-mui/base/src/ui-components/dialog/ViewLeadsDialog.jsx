@@ -61,7 +61,8 @@ const ViewLeadsDialog = ({ show, dialogProps, onCancel }) => {
 
     const [leads, setLeads] = useState([])
     const [search, setSearch] = useState('')
-    const getLeadsApi = useApi(leadsApi.getCanvasLeads)
+    // Wrap in arrow function to preserve 'this' context
+    const getLeadsApi = useApi((...args) => leadsApi.getCanvasLeads(...args))
 
     const onSearchChange = (event) => {
         setSearch(event.target.value)

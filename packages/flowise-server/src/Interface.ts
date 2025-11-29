@@ -99,16 +99,8 @@ export interface IVariable {
     createdDate: Date
 }
 
-export interface ILead {
-    id: string
-    name?: string
-    email?: string
-    phone?: string
-    points?: number
-    canvasId: string
-    chatId: string
-    createdDate: Date
-}
+// ILead re-exported from @universo/flowise-leads-srv for backward compatibility
+export type { ILead, CreateLeadBody } from '@universo/flowise-leads-srv'
 
 export interface IUpsertHistory {
     id: string

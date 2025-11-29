@@ -1,5 +1,13 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
+/**
+ * Migration to create the lead table for storing contact information
+ * captured during chat interactions.
+ *
+ * Note: The leadEmail column for chat_message table is handled separately
+ * in flowise-server (1711538016098-AddLeadToChatMessage.ts) as it modifies
+ * a table owned by another domain.
+ */
 export class AddLead1710832137905 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
@@ -12,12 +20,12 @@ export class AddLead1710832137905 implements MigrationInterface {
                 "phone" text,
                 "points" integer DEFAULT 0 NOT NULL,
                 "createdDate" timestamp NOT NULL DEFAULT now(),
-                CONSTRAINT "PK_98419043dd704f54-9830ab78f0" PRIMARY KEY (id)
+                CONSTRAINT "PK_lead_id" PRIMARY KEY (id)
             );`
         )
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP TABLE lead`)
+        await queryRunner.query(`DROP TABLE IF EXISTS lead;`)
     }
 }

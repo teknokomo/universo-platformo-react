@@ -16,9 +16,10 @@ import { AddSpeechToText1706364937060 } from './1706364937060-AddSpeechToText'
 import { AddFeedback1707213601923 } from './1707213601923-AddFeedback'
 import { AddUpsertHistoryEntity1709814301358 } from './1709814301358-AddUpsertHistoryEntity'
 import { FieldTypes1710497452584 } from './1710497452584-FieldTypes'
-import { AddLead1710832137905 } from './1710832137905-AddLead'
+// AddLead removed - consolidated into @universo/flowise-leads-srv
 import { AddLeadToChatMessage1711538016098 } from './1711538016098-AddLeadToChatMessage'
 import { AddVectorStoreConfigToDocStore1715861032479 } from './1715861032479-AddVectorStoreConfigToDocStore'
+import { leadsMigrations } from '@universo/flowise-leads-srv'
 import { AddDocumentStore1711637331047 } from './1711637331047-AddDocumentStore'
 import { AddAgentReasoningToChatMessage1714679514451 } from './1714679514451-AddAgentReasoningToChatMessage'
 import { AddTypeToChatFlow1716300000000 } from './1716300000000-AddTypeToChatFlow'
@@ -64,8 +65,8 @@ export const postgresMigrations = [
     AddFeedback1707213601923,
     FieldTypes1710497452584,
     AddDocumentStore1711637331047,
-    AddLead1710832137905,
-    AddLeadToChatMessage1711538016098,
+    ...leadsMigrations, // Creates lead table
+    AddLeadToChatMessage1711538016098, // Modifies chat_message table - stays in flowise-server
     AddAgentReasoningToChatMessage1714679514451,
     AddTypeToChatFlow1716300000000,
     AddVectorStoreConfigToDocStore1715861032479,
