@@ -37,7 +37,7 @@ import { Tab } from '../tabs/Tab'
 import { TabPanel } from '../tabs/TabPanel'
 import { TabsList } from '../tabs/TabsList'
 import { TooltipWithParser } from '../tooltip/TooltipWithParser'
-import AssistantDialog from '@universo/spaces-frt/views/assistants/openai/AssistantDialog'
+import { AssistantDialog } from '@universo/flowise-assistants-frt'
 import CredentialInputHandler from '../dialogs/CredentialInputHandler'
 
 // utils

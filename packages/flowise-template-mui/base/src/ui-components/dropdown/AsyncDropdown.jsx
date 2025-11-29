@@ -9,7 +9,7 @@ import { Popper, CircularProgress, TextField, Box, Typography } from '@mui/mater
 import { styled } from '@mui/material/styles'
 
 // API
-// TODO: use api.credentials
+import { api } from '@universo/api-client'
 import { useAuth } from '@universo/auth-frt'
 
 const StyledPopper = styled(Popper)({

@@ -4,7 +4,7 @@ import { useDispatch } from 'react-redux'
 import PropTypes from 'prop-types'
 import { OutlinedInput, DialogActions, Button, Dialog, DialogContent, DialogTitle } from '@mui/material'
 import { StyledButton } from '../button/StyledButton'
-// TODO: use api.assistants
+import { api } from '@universo/api-client'
 import { closeSnackbar as closeSnackbarAction, enqueueSnackbar as enqueueSnackbarAction } from '@flowise/store'
 import { IconX, IconWand, IconArrowLeft, IconNotebook, IconLanguage, IconMail, IconCode, IconReport, IconWorld } from '@tabler/icons-react'
 import useNotifier from '@flowise/template-mui/hooks/useNotifier'
@@ -59,16 +59,14 @@ const AssistantPromptGenerator = ({ show, dialogProps, onCancel, onConfirm }) =>
                 name: dialogProps.data.selectedChatModel.name,
                 inputs: dialogProps.data.selectedChatModel.inputs
             }
-            const resp = await api.assistants.generateAssistantInstruction(dialogProps.data.unikId, {
+            const resp = await api.assistants.generateInstructions(dialogProps.data.unikId, {
                 selectedChatModel: selectedChatModelObj,
                 task: customAssistantInstruction
             })
 
-            if (resp.data) {
-                setLoading(false)
-                if (resp.data.content) {
-                    setGeneratedInstruction(resp.data.content)
-                }
+            setLoading(false)
+            if (resp.content) {
+                setGeneratedInstruction(resp.content)
             }
         } catch (error) {
             setLoading(false)

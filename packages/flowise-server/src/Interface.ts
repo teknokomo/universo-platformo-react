@@ -12,9 +12,10 @@ import { CachePool } from './CachePool'
 import { Telemetry } from './utils/telemetry'
 import type { CanvasFlowResult } from '@universo/spaces-srv'
 
-export type MessageType = 'apiMessage' | 'userMessage'
+// Re-export Assistant types from the extracted package
+export type { IAssistant, AssistantType } from '@universo/flowise-assistants-srv'
 
-export type AssistantType = 'CUSTOM' | 'OPENAI' | 'AZURE'
+export type MessageType = 'apiMessage' | 'userMessage'
 
 export enum MODE {
     QUEUE = 'queue',
@@ -78,14 +79,7 @@ export interface ITool {
     createdDate: Date
 }
 
-export interface IAssistant {
-    id: string
-    details: string
-    credential: string
-    iconSrc?: string
-    updatedDate: Date
-    createdDate: Date
-}
+// IAssistant moved to @universo/flowise-assistants-srv (re-exported above)
 
 export interface ICredential {
     id: string

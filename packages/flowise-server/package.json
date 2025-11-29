@@ -78,6 +78,7 @@
         "@universo/auth-srv": "workspace:*",
         "@universo/clusters-srv": "workspace:*",
         "@universo/flowise-apikey-srv": "workspace:*",
+        "@universo/flowise-assistants-srv": "workspace:*",
         "@universo/flowise-credentials-srv": "workspace:*",
         "@universo/flowise-tools-srv": "workspace:*",
         "@universo/flowise-variables-srv": "workspace:*",

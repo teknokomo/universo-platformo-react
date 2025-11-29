@@ -6,7 +6,7 @@ import { ModifyChatMessage1693996694528 } from './1693996694528-ModifyChatMessag
 import { AddApiConfig1694099183389 } from './1694099183389-AddApiConfig'
 import { AddAnalytic1694432361423 } from './1694432361423-AddAnalytic'
 import { AddChatHistory1694658756136 } from './1694658756136-AddChatHistory'
-import { AddAssistantEntity1699325775451 } from './1699325775451-AddAssistantEntity'
+// AddAssistantEntity removed - consolidated into @universo/flowise-assistants-srv
 import { AddUsedToolsToChatMessage1699481607341 } from './1699481607341-AddUsedToolsToChatMessage'
 import { AddCategoryToChatFlow1699900910291 } from './1699900910291-AddCategoryToChatFlow'
 import { AddFileAnnotationsToChatMessage1700271021237 } from './1700271021237-AddFileAnnotationsToChatMessage'
@@ -27,12 +27,13 @@ import { AddActionToChatMessage1721078251523 } from './1721078251523-AddActionTo
 import { AddCustomTemplate1725629836652 } from './1725629836652-AddCustomTemplate'
 import { AddArtifactsToChatMessage1726156258465 } from './1726156258465-AddArtifactsToChatMessage'
 import { AddFollowUpPrompts1726666309552 } from './1726666309552-AddFollowUpPrompts'
-import { AddTypeToAssistant1733011290987 } from './1733011290987-AddTypeToAssistant'
+// AddTypeToAssistant removed - consolidated into @universo/flowise-assistants-srv
 import { uniksMigrations } from '@universo/uniks-srv'
 import { toolsMigrations } from '@universo/flowise-tools-srv'
 import { credentialsMigrations } from '@universo/flowise-credentials-srv'
 import { variablesMigrations } from '@universo/flowise-variables-srv'
 import { apikeyMigrations } from '@universo/flowise-apikey-srv'
+import { assistantsMigrations } from '@universo/flowise-assistants-srv'
 import { profileMigrations } from '@universo/profile-srv'
 import { metaversesMigrations } from '@universo/metaverses-srv'
 import { clustersMigrations } from '@universo/clusters-srv'
@@ -52,7 +53,7 @@ export const postgresMigrations = [
     AddApiConfig1694099183389,
     AddAnalytic1694432361423,
     AddChatHistory1694658756136,
-    AddAssistantEntity1699325775451,
+    ...assistantsMigrations, // Creates assistant table with type column
     AddUsedToolsToChatMessage1699481607341,
     AddCategoryToChatFlow1699900910291,
     AddFileAnnotationsToChatMessage1700271021237,
@@ -73,7 +74,6 @@ export const postgresMigrations = [
     AddCustomTemplate1725629836652,
     AddArtifactsToChatMessage1726156258465,
     AddFollowUpPrompts1726666309552,
-    AddTypeToAssistant1733011290987,
     ...uniksMigrations, // Adds unik_id to tool and other Flowise tables
     ...profileMigrations,
     ...metaversesMigrations,

@@ -40,6 +40,7 @@
     "dependencies": {
         "@flowise/template-mui": "workspace:*",
         "@universo/flowise-apikey-frt": "workspace:*",
+        "@universo/flowise-assistants-frt": "workspace:*",
         "@universo/flowise-credentials-frt": "workspace:*",
         "@universo/flowise-tools-frt": "workspace:*",
         "@universo/flowise-variables-frt": "workspace:*",

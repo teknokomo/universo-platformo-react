@@ -20,6 +20,8 @@ import '@universo/flowise-credentials-frt/i18n'
 import '@universo/flowise-variables-frt/i18n'
 // Register apiKeys translations before lazy loading ApiKeys component
 import '@universo/flowise-apikey-frt/i18n'
+// Register assistants translations before lazy loading Assistants component
+import '@universo/flowise-assistants-frt/i18n'
 
 import MainLayoutMUI from '../layout/MainLayoutMUI'
 import MinimalLayout from '../layout/MinimalLayout'
@@ -52,8 +54,11 @@ const Variables = Loadable(lazy(() => import('@universo/flowise-variables-frt/pa
 const ApiKeys = Loadable(lazy(() => import('@universo/flowise-apikey-frt/pages/APIKey')))
 // @ts-expect-error - Legacy JSX component from old UI
 const DocumentStores = Loadable(lazy(() => import('@/views/docstore')))
-// @ts-expect-error - Legacy JSX component from old UI
-const Assistants = Loadable(lazy(() => import('@/views/assistants')))
+// Assistants pages - moved to @universo/flowise-assistants-frt
+const Assistants = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/Assistants')))
+const CustomAssistantLayout = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/custom/CustomAssistantLayout')))
+const CustomAssistantConfigurePreview = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/custom/CustomAssistantConfigurePreview')))
+const OpenAIAssistantLayout = Loadable(lazy(() => import('@universo/flowise-assistants-frt/pages/openai/OpenAIAssistantLayout')))
 // @ts-expect-error - Legacy Analytics component - moved to @universo/analytics-frt
 const Analytics = Loadable(lazy(() => import('@universo/analytics-frt/pages/Analytics')))
 
@@ -255,11 +260,41 @@ const MainRoutesMUI = {
         },
         {
             path: 'unik/:unikId/assistants',
-            element: (
-                <AuthGuard>
-                    <Assistants />
-                </AuthGuard>
-            )
+            element: <Outlet />,
+            children: [
+                {
+                    index: true,
+                    element: (
+                        <AuthGuard>
+                            <Assistants />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'custom',
+                    element: (
+                        <AuthGuard>
+                            <CustomAssistantLayout />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'custom/:id',
+                    element: (
+                        <AuthGuard>
+                            <CustomAssistantConfigurePreview />
+                        </AuthGuard>
+                    )
+                },
+                {
+                    path: 'openai',
+                    element: (
+                        <AuthGuard>
+                            <OpenAIAssistantLayout />
+                        </AuthGuard>
+                    )
+                }
+            ]
         },
         {
             path: 'unik/:unikId/analytics',
