@@ -1,0 +1,41 @@
+{
+    "name": "@universo/flowise-leads-frt",
+    "version": "0.1.0",
+    "description": "Frontend module for Leads management in Universo Platformo",
+    "main": "./src/index.ts",
+    "module": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts",
+            "require": "./src/index.ts"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": ["src"],
+    "scripts": {
+        "lint": "eslint --ext .ts,.tsx src/"
+    },
+    "keywords": [
+        "universo",
+        "leads",
+        "frontend"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "peerDependencies": {
+        "react": ">=18",
+        "react-dom": ">=18",
+        "@mui/material": ">=5",
+        "@universo/api-client": "workspace:*",
+        "@universo/i18n": "workspace:*",
+        "@flowise/template-mui": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "eslint": "catalog:",
+        "typescript": "catalog:"
+    }
+}

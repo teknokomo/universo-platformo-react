@@ -1,63 +1,47 @@
 # Active Context
 
-> **Last Updated**: 2025-11-28
+> **Last Updated**: 2025-11-29
 >
 > **Purpose**: Current development focus only. Completed work → progress.md, planned work → tasks.md.
 
 ---
 
-## Current Focus: Assistants Package Extraction Complete ✅ (2025-11-28)
+## Current Focus: Leads Package Extraction Complete ✅ (2025-11-29)
 
-**Status**: All implementation complete. Build 45/45 successful. Awaiting user testing.
+**Status**: All implementation complete. Build 46/46 successful. Awaiting user testing.
 
 **Recent Completion**:
-- Extracted Assistants functionality into `@universo/flowise-assistants-srv` and `@universo/flowise-assistants-frt`
-- DI factory pattern: `createAssistantsService`, `createAssistantsController`, `createAssistantsRouter`
-- Consolidated migration combining AddAssistantEntity + AddTypeToAssistant
-- Fixed cyclic dependency by using peerDependency in flowise-template-mui
-- Pinned react-i18next to 15.5.3 for i18next 23.x compatibility
-- Cleaned up legacy code from flowise-ui and spaces-frt
-
-**Git Status**:
-- Uncommitted changes for Assistants extraction
-- Previous branch: `feature/apikey-package-extraction` (PR #570)
-
-**Awaiting User Actions**:
-1. Database migration testing
-2. Browser functional testing (Assistants page, AssistantDialog in NodeInputHandler)
-3. Commit changes and create PR
-
----
-
-## Assistants Package Extraction ✅ (2025-11-28)
-
-**Status**: Implementation complete, user testing pending
-
-**Summary**: Extracted Assistants functionality from `flowise-server` and `flowise-ui` into separate packages following the established DI pattern.
+- Extracted Leads functionality into `@universo/flowise-leads-srv` and `@universo/flowise-leads-frt`
+- DI factory pattern: `createLeadsService`, `createLeadsRouter`
+- Fixed critical bugs: leadsApi was undefined in ChatMessage.jsx and Analytics.jsx
+- Migration split: AddLead in new package, AddLeadToChatMessage stays in flowise-server
+- Cleaned up legacy flowise-ui/src/api/lead.js
 
 **Packages Created**:
 
-1. **@universo/flowise-assistants-srv** (Backend)
-   - DI factory pattern with optional dependencies (nodesService, documentStoreRepository, nodesPool)
-   - TypeORM entity with Unik ManyToOne relation
-   - Consolidated migration: `1699325775451-AddAssistant.ts`
-   - ~600 lines service covering custom and OpenAI assistants
+1. **@universo/flowise-leads-srv** (Backend)
+   - DI factory pattern: `createLeadsService(config)`, `createLeadsRouter(service)`
+   - TypeORM Lead entity with canvasId (not unikId)
+   - Migration: `1710832137905-AddLead.ts`
+   - Zod validation for CreateLeadBody
 
-2. **@universo/flowise-assistants-frt** (Frontend)
-   - Source-only package (no dist build)
-   - Pages: Assistants, AssistantDialog, CustomAssistant (4 files), OpenAI (5 files)
-   - i18n with registerNamespace pattern (namespace: 'assistants')
-   - EN/RU translations included
+2. **@universo/flowise-leads-frt** (Frontend)
+   - Minimal source-only package (namespace exports only)
+   - Components remain in flowise-template-mui
 
-**Consumer Updates**:
-- `universo-template-mui`: Added dependency, updated MainRoutesMUI.tsx
-- `flowise-template-mui`: Added as peerDependency, updated NodeInputHandler.jsx
+**API Client**:
+- LeadApi class with getCanvasLeads(), addLead() methods
+- leadQueryKeys factory for TanStack Query
 
-**Build**: ✅ 45/45 packages
+**Bug Fixes Applied**:
+1. ChatMessage.jsx: Added `const leadsApi = api.leads`
+2. Analytics.jsx: Replaced `import leadsApi from '@/api/lead'` with `@universo/api-client`
+
+**Build**: ✅ 46/46 packages
 
 ---
 
-## Previous: ApiKey Package Extraction ✅ (2025-11-28)
+## Previous: Assistants Package Extraction ✅ (2025-11-28)
 
 Moved to progress.md
 

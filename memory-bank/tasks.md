@@ -4,6 +4,59 @@
 
 ---
 
+## 🔄 CURRENT TASK: Leads Package Extraction
+
+### 2025-11-29: Extract Leads functionality into separate packages
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Extract Leads functionality from flowise-server into `@universo/flowise-leads-srv` and create minimal `@universo/flowise-leads-frt` package. Fix critical bugs in ChatMessage.jsx and Analytics.jsx.
+
+**Phase 1: Backend Package (flowise-leads-srv)** ✅ COMPLETE
+- [x] 1.1 Create package structure (package.json, tsconfig.json)
+- [x] 1.2 Create Interface.ts with ILead, CreateLeadBody
+- [x] 1.3 Create Lead entity (copy from flowise-server)
+- [x] 1.4 Create migration 1710832137905-AddLead.ts (only lead table, NOT chat_message)
+- [x] 1.5 Create leadsService with DI pattern
+- [x] 1.6 Create leadsRoutes with DI pattern
+- [x] 1.7 Create index.ts with all exports
+- [x] 1.8 Create README.md and README-RU.md
+
+**Phase 2: Frontend Package (flowise-leads-frt) - Minimal** ✅ COMPLETE
+- [x] 2.1 Create minimal package structure (reexports only, no component copying)
+- [x] 2.2 Create README.md and README-RU.md
+
+**Phase 3: API Client** ✅ COMPLETE
+- [x] 3.1 Implement LeadApi with getCanvasLeads, addLead methods
+- [x] 3.2 Define ILead, CreateLeadBody types locally in api/lead.ts
+
+**Phase 4: Update flowise-server** ✅ COMPLETE
+- [x] 4.1 Add @universo/flowise-leads-srv to dependencies
+- [x] 4.2 Update database/entities/index.ts - import Lead from new package
+- [x] 4.3 Update database/migrations/postgres/index.ts - add leadsMigrations
+- [x] 4.4 Update routes/index.ts - create leadsService/Router via DI
+- [x] 4.5 Update utils/index.ts - import Lead from new package
+- [x] 4.6 Delete old files (entity, service, controller, router, migration AddLead)
+- [x] 4.7 KEEP migration AddLeadToChatMessage in flowise-server
+
+**Phase 5: Bug Fixes (CRITICAL)** ✅ COMPLETE
+- [x] 5.1 Fix ChatMessage.jsx - add `const leadsApi = api.leads`
+- [x] 5.2 Fix Analytics.jsx - replace old import with @universo/api-client
+
+**Phase 6: Cleanup** ✅ COMPLETE
+- [x] 6.1 Delete flowise-ui/src/api/lead.js
+
+**Phase 7: Build & Verify** ✅ COMPLETE
+- [x] 7.1 Run pnpm build - 46/46 packages successful
+- [x] 7.2 Update progress.md and activeContext.md
+
+**Phase 8: QA Fixes** ✅ COMPLETE
+- [x] 8.1 Connect leadsErrorHandler in routes/index.ts (was imported but not used)
+- [x] 8.2 Fix prettier errors in leads-srv (lint --fix)
+- [x] 8.3 Eliminate ILead duplication - re-export from leads-srv in flowise-server/Interface.ts and api-client/lead.ts
+
+---
+
 ## ✅ RECENTLY COMPLETED TASKS
 
 ### 2025-11-29: Assistants API Clean Refactoring (Remove Legacy Aliases) ✅ COMPLETE

@@ -25,6 +25,34 @@
 
 ## November 2025
 
+### 2025-11-29: Leads Package Extraction ✅
+
+**Summary**: Extracted Leads functionality from flowise-server into separate packages `@universo/flowise-leads-srv` and `@universo/flowise-leads-frt`. Fixed critical bugs in ChatMessage.jsx and Analytics.jsx where leadsApi was undefined. Build successful: 46/46 packages.
+
+**Packages Created**:
+- `packages/flowise-leads-srv/base/` - Backend package with DI pattern (entity, service, routes, migration)
+- `packages/flowise-leads-frt/base/` - Minimal frontend package (namespace exports only)
+
+**Key Design Decisions**:
+1. **DI Factory Pattern**: `createLeadsService(config)`, `createLeadsRouter(service)` - following Tools/Credentials/Assistants pattern
+2. **Migration Split**: `AddLead` migration moved to new package; `AddLeadToChatMessage` stays in flowise-server (modifies chat_message table)
+3. **API Client Implementation**: LeadApi class in `@universo/api-client` with getCanvasLeads(), addLead() methods
+4. **No Component Copying**: Frontend package only exports types/namespace, components remain in flowise-template-mui
+
+**Bug Fixes**:
+1. **ChatMessage.jsx**: Added `const leadsApi = api.leads` after api import (was undefined, breaking lead capture)
+2. **Analytics.jsx**: Replaced deprecated `import leadsApi from '@/api/lead'` with `@universo/api-client`
+3. **Legacy Cleanup**: Deleted obsolete `flowise-ui/src/api/lead.js`
+
+**Files Deleted from flowise-server**:
+- `src/database/entities/Lead.ts`
+- `src/services/leads/index.ts`
+- `src/controllers/leads/index.ts`
+- `src/routes/leads/index.ts`
+- `src/database/migrations/postgres/1710832137905-AddLead.ts`
+
+---
+
 ### 2025-11-29: Assistants API Clean Refactoring ✅
 
 **Summary**: Complete refactoring of Assistants frontend components to use modern API methods from `@universo/api-client`. Removed ~120 lines of legacy aliases. Following industry-standard pattern: `unikId` always first argument (like GitHub, Stripe, Firebase APIs).

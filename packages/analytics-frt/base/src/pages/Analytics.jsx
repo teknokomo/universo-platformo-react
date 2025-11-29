@@ -37,8 +37,8 @@ import { MainCard } from '@flowise/template-mui'
 import ViewHeader from '@flowise/template-mui/layout/MainLayout/ViewHeader'
 
 // API
-import leadsApi from '@/api/lead'
 import { api } from '@universo/api-client'
+const leadsApi = api.leads
 const spacesApi = api.spaces
 
 // ==============================|| Internal Helpers (extracted for clarity & testability) ||============================== //

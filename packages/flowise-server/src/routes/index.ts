@@ -15,7 +15,7 @@ import getUploadFileRouter from './get-upload-file'
 import getUploadPathRouter from './get-upload-path'
 import internalCanvasMessagesRouter from './internal-canvas-messages'
 import internalPredictionRouter from './internal-predictions'
-import leadsRouter from './leads'
+// leadsRouter removed - now created via @universo/flowise-leads-srv
 import loadPromptRouter from './load-prompts'
 import marketplacesRouter from './marketplaces'
 import nodeConfigRouter from './node-configs'
@@ -49,6 +49,7 @@ import { createCredentialsService, createCredentialsRouter, credentialsErrorHand
 import { createVariablesService, createVariablesRouter, variablesErrorHandler } from '@universo/flowise-variables-srv'
 import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@universo/flowise-apikey-srv'
 import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@universo/flowise-assistants-srv'
+import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@universo/flowise-leads-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
@@ -160,6 +161,12 @@ Instructions:
 })
 const assistantsController = createAssistantsController({ assistantsService })
 const assistantsRouter = createAssistantsRouter({ assistantsController })
+
+// Create leads service and router using new package with DI
+const leadsService = createLeadsService({
+    getDataSource
+})
+const leadsRouter = createLeadsRouter(leadsService)
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -477,6 +484,9 @@ router.use(apikeyErrorHandler)
 
 // Assistants-specific error handler
 router.use(assistantsErrorHandler)
+
+// Leads-specific error handler
+router.use(leadsErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {

@@ -21,6 +21,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@universo/flowise-leads-srv": "workspace:*",
     "@universo/utils": "workspace:*",
     "axios": "catalog:"
   },
