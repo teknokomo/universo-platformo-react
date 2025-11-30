@@ -4,7 +4,115 @@
 
 ---
 
-## 🔄 CURRENT TASK: Leads Package Extraction
+## ✅ COMPLETED: ChatMessage Migration QA Fixes
+
+### 2025-11-30: Fix remaining issues found in QA analysis
+
+**Status**: ✅ COMPLETE
+
+**Summary**: QA analysis found migration gaps - duplicate AddChatHistory migration and FieldTypes placement. All fixed.
+
+- [x] 1. Delete `AddChatHistory1694658756136` from flowise-server (still modifies chat_message but was not removed)
+- [x] 2. Add `1694658756136-AddChatHistory` to consolidation comment in chatmessage-srv
+- [x] 3. Move credential uuid conversion from FieldTypes.ts to AddAssistant.ts in assistants-srv
+- [x] 4. Build and verify (47/47 tasks successful)
+
+---
+
+## ✅ COMPLETED: ChatMessage Full Migration (Delete Legacy Code)
+
+### 2025-11-29: Complete ChatMessage migration - remove all legacy code from flowise-server
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fully migrated all ChatMessage functionality to `@universo/flowise-chatmessage-srv`, deleted all legacy migrations/services/controllers/routes/utils from flowise-server.
+
+**Phase 1: Consolidate Migrations in chatmessage-srv** ✅ COMPLETE
+- [x] 1.1 Verified consolidated migration includes ALL columns
+- [x] 1.2 Added index on chatId for feedback table
+
+**Phase 2: Create Utility Wrappers in chatmessage-srv** ✅ COMPLETE
+- [x] 2.1 Created `utilAddChatMessage` wrapper function for buildCanvasFlow compatibility
+- [x] 2.2 Created `utilGetChatMessage` wrapper function  
+- [x] 2.3 Created `utilAddChatMessageFeedback`, `utilGetChatMessageFeedback`, `utilUpdateChatMessageFeedback`
+- [x] 2.4 All utils exported from package
+
+**Phase 3: Update buildCanvasFlow.ts** ✅ COMPLETE
+- [x] 3.1 Replaced import of utilAddChatMessage from local to chatmessage-srv
+- [x] 3.2 Updated stats service to use chatmessage-srv imports
+
+**Phase 4: Integrate DI Routes in flowise-server** ✅ COMPLETE
+- [x] 4.1 Updated routes/index.ts - created services/controllers/routers via DI
+- [x] 4.2 Created error handlers (chatMessagesErrorHandler, feedbackErrorHandler)
+- [x] 4.3 Mounted new routers at same paths
+
+**Phase 5: Delete Legacy Migrations (10 files)** ✅ COMPLETE
+- [x] 5.1 Deleted 1693996694528-ModifyChatMessage.ts
+- [x] 5.2 Deleted 1699481607341-AddUsedToolsToChatMessage.ts
+- [x] 5.3 Deleted 1700271021237-AddFileAnnotationsToChatMessage.ts
+- [x] 5.4 Deleted 1701788586491-AddFileUploadsToChatMessage.ts
+- [x] 5.5 Deleted 1707213601923-AddFeedback.ts
+- [x] 5.6 Deleted 1711538016098-AddLeadToChatMessage.ts
+- [x] 5.7 Deleted 1714679514451-AddAgentReasoningToChatMessage.ts
+- [x] 5.8 Deleted 1721078251523-AddActionToChatMessage.ts
+- [x] 5.9 Deleted 1726156258465-AddArtifactsToChatMessage.ts
+- [x] 5.10 Deleted 1726666309552-AddFollowUpPrompts.ts
+- [x] 5.11 Updated migrations/postgres/index.ts
+- [x] 5.12 Kept 1710497452584-FieldTypes.ts (only assistant credential change)
+
+**Phase 6: Delete Legacy Services/Controllers/Routes** ✅ COMPLETE
+- [x] 6.1 Deleted src/services/canvas-messages/
+- [x] 6.2 Deleted src/services/feedback/
+- [x] 6.3 Deleted src/controllers/canvas-messages/
+- [x] 6.4 Deleted src/controllers/feedback/
+- [x] 6.5 Deleted src/routes/canvas-messages/
+- [x] 6.6 Deleted src/routes/feedback/
+- [x] 6.7 Deleted src/routes/internal-canvas-messages/
+
+**Phase 7: Delete Legacy Utils** ✅ COMPLETE
+- [x] 7.1 Deleted src/utils/addChatMesage.ts
+- [x] 7.2 Deleted src/utils/getChatMessage.ts
+- [x] 7.3 Deleted src/utils/addChatMessageFeedback.ts
+- [x] 7.4 Deleted src/utils/getChatMessageFeedback.ts
+- [x] 7.5 Deleted src/utils/updateChatMessageFeedback.ts
+- [x] 7.6 Fixed export-import/index.ts (removed canvasMessagesService dependency)
+
+**Phase 8: Build & Verify** ✅ COMPLETE
+- [x] 8.1 pnpm build successful (38/38 tasks)
+- [x] 8.2 Lint --fix applied (remaining warnings are non-critical unused variables)
+
+**Phase 9: Memory Bank Update** ✅ COMPLETE
+- [x] 9.1 Update tasks.md
+- [x] 9.2 Update progress.md (next)
+- [x] 9.3 Update activeContext.md (next)
+
+---
+
+## ✅ RECENTLY COMPLETED: ChatMessage Package QA Fixes
+
+### 2025-11-29: Fix QA issues found in ChatMessage extraction
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Fix duplicate types, consolidate migrations markers, and clean up redundant code after ChatMessage package extraction.
+
+**Phase 1-3**: All complete (see progress.md)
+
+---
+
+## ✅ RECENTLY COMPLETED: ChatMessage Package Extraction
+
+### 2025-11-29: Extract ChatMessage functionality into separate packages
+
+**Status**: ✅ COMPLETE
+
+**Summary**: Extract ChatMessage/Feedback functionality from flowise-server into `@universo/flowise-chatmessage-srv` and rename `@flowise/chatmessage` to `@flowise/chatmessage-frt`. Full DI pattern with all dependencies injected via config.
+
+**Phase 1-13**: All phases complete (see progress.md for details)
+
+---
+
+## ✅ RECENTLY COMPLETED: Leads Package Extraction
 
 ### 2025-11-29: Extract Leads functionality into separate packages
 

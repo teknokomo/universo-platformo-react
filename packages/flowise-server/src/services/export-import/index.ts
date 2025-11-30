@@ -2,8 +2,7 @@ import { StatusCodes } from 'http-status-codes'
 import { In, QueryRunner } from 'typeorm'
 import { v4 as uuidv4 } from 'uuid'
 import { Assistant } from '@universo/flowise-assistants-srv'
-import { ChatMessage } from '../../database/entities/ChatMessage'
-import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback'
+import { ChatMessage, ChatMessageFeedback } from '@universo/flowise-chatmessage-srv'
 import { CustomTemplate } from '../../database/entities/CustomTemplate'
 import { DocumentStore } from '../../database/entities/DocumentStore'
 import { DocumentStoreFileChunk } from '../../database/entities/DocumentStoreFileChunk'
@@ -13,7 +12,7 @@ import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 // assistantService removed - now using direct repository query like tools
-import canvasMessagesService from '../canvas-messages'
+// canvasMessagesService removed - now using direct repository query
 import canvasService from '../spacesCanvas'
 import documenStoreService from '../documentstore'
 import marketplacesService from '../marketplaces'
@@ -119,10 +118,14 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
                 ? await canvasService.getAllCanvases({ unikId, type: 'CHATFLOW' })
                 : []
 
-        let ChatMessage: ChatMessage[] = exportInput.chat_message === true ? await canvasMessagesService.getAllMessages() : []
+        // Get chat messages using direct repository query
+        const chatMessageRepo = dataSource.getRepository(ChatMessage)
+        const chatFeedbackRepo = dataSource.getRepository(ChatMessageFeedback)
 
-        let ChatMessageFeedback: ChatMessageFeedback[] =
-            exportInput.chat_feedback === true ? await canvasMessagesService.getAllMessagesFeedback() : []
+        const chatMessages: ChatMessage[] = exportInput.chat_message === true ? await chatMessageRepo.find() : []
+
+        const chatMessageFeedback: ChatMessageFeedback[] =
+            exportInput.chat_feedback === true ? await chatFeedbackRepo.find() : []
 
         let CustomTemplate: CustomTemplate[] =
             exportInput.custom_template === true ? await marketplacesService.getAllCustomTemplates(unikId) : []
@@ -134,9 +137,9 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
         let DocumentStoreFileChunk: DocumentStoreFileChunk[] =
             exportInput.document_store === true ? await documenStoreService.getAllDocumentFileChunks() : []
 
-        let tools: Tool[] = exportInput.tool === true ? await getRunningExpressApp().AppDataSource.getRepository(Tool).find({ where: { unik: { id: unikId } } }) : []
+        const tools: Tool[] = exportInput.tool === true ? await appServer.AppDataSource.getRepository(Tool).find({ where: { unik: { id: unikId } } }) : []
 
-        let variables: Variable[] = exportInput.variable === true ? await getRunningExpressApp().AppDataSource.getRepository(Variable).find({ where: { unik: { id: unikId } } }) : []
+        const variables: Variable[] = exportInput.variable === true ? await appServer.AppDataSource.getRepository(Variable).find({ where: { unik: { id: unikId } } }) : []
 
         return {
             FileDefaultName,
@@ -146,8 +149,8 @@ const exportData = async (exportInput: ExportInput, unikId: string): Promise<{ F
             AssistantOpenAI,
             AssistantAzure,
             CanvasFlow,
-            ChatMessage,
-            ChatMessageFeedback,
+            ChatMessage: chatMessages,
+            ChatMessageFeedback: chatMessageFeedback,
             CustomTemplate,
             DocumentStore,
             DocumentStoreFileChunk,

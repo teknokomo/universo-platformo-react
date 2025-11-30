@@ -30,10 +30,7 @@ export const updateAssistantSchema = z.object({
  * Error class for Assistants service
  */
 export class AssistantsServiceError extends Error {
-    constructor(
-        public readonly statusCode: number,
-        message: string
-    ) {
+    constructor(public readonly statusCode: number, message: string) {
         super(message)
         this.name = 'AssistantsServiceError'
     }
@@ -132,12 +129,12 @@ function getErrorMessage(error: unknown): string {
  * Factory function to create assistants service with dependency injection
  */
 export function createAssistantsService(config: AssistantsServiceConfig): IAssistantsService {
-    const { 
-        getDataSource, 
-        decryptCredentialData, 
-        telemetry, 
-        metrics, 
-        counterName, 
+    const {
+        getDataSource,
+        decryptCredentialData,
+        telemetry,
+        metrics,
+        counterName,
         counterStatus,
         getNodesService,
         getDocumentStoreRepository,
@@ -342,10 +339,7 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
                 if (isDeleteBoth) await openai.beta.assistants.del(assistantDetails.id)
                 return dbResponse
             } catch (error) {
-                throw new AssistantsServiceError(
-                    StatusCodes.INTERNAL_SERVER_ERROR,
-                    `Error deleting assistant - ${getErrorMessage(error)}`
-                )
+                throw new AssistantsServiceError(StatusCodes.INTERNAL_SERVER_ERROR, `Error deleting assistant - ${getErrorMessage(error)}`)
             }
         } catch (error) {
             if (error instanceof AssistantsServiceError) throw error
@@ -473,10 +467,7 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
                 }
 
                 const retrievedAssistant = await openai.beta.assistants.retrieve(openAIAssistantId)
-                let filteredTools = uniqWith(
-                    [...retrievedAssistant.tools.filter((tool) => tool.type === 'function'), ...tools],
-                    isEqual
-                )
+                let filteredTools = uniqWith([...retrievedAssistant.tools.filter((tool) => tool.type === 'function'), ...tools], isEqual)
                 filteredTools = filteredTools.filter((tool) => !(tool.type === 'function' && !(tool as any).function))
 
                 await openai.beta.assistants.update(openAIAssistantId, {
@@ -500,10 +491,7 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
                 dataSource.getRepository(Assistant).merge(assistant, updateData)
                 return await dataSource.getRepository(Assistant).save(assistant)
             } catch (error) {
-                throw new AssistantsServiceError(
-                    StatusCodes.INTERNAL_SERVER_ERROR,
-                    `Error updating assistant - ${getErrorMessage(error)}`
-                )
+                throw new AssistantsServiceError(StatusCodes.INTERNAL_SERVER_ERROR, `Error updating assistant - ${getErrorMessage(error)}`)
             }
         } catch (error) {
             if (error instanceof AssistantsServiceError) throw error
@@ -523,9 +511,7 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
             }
 
             const dataSource = getDataSource()
-            const repository = queryRunner
-                ? queryRunner.manager.getRepository(Assistant)
-                : dataSource.getRepository(Assistant)
+            const repository = queryRunner ? queryRunner.manager.getRepository(Assistant) : dataSource.getRepository(Assistant)
 
             if (newAssistants.length === 0) return
 
@@ -570,10 +556,7 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
     const getChatModels = async (): Promise<any> => {
         try {
             if (!getNodesService) {
-                throw new AssistantsServiceError(
-                    StatusCodes.INTERNAL_SERVER_ERROR,
-                    'getChatModels requires getNodesService configuration'
-                )
+                throw new AssistantsServiceError(StatusCodes.INTERNAL_SERVER_ERROR, 'getChatModels requires getNodesService configuration')
             }
             const nodesService = getNodesService()
             const dbResponse = await nodesService.getAllNodesForCategory('Chat Models')
@@ -619,10 +602,7 @@ export function createAssistantsService(config: AssistantsServiceConfig): IAssis
     const getTools = async (): Promise<any> => {
         try {
             if (!getNodesService) {
-                throw new AssistantsServiceError(
-                    StatusCodes.INTERNAL_SERVER_ERROR,
-                    'getTools requires getNodesService configuration'
-                )
+                throw new AssistantsServiceError(StatusCodes.INTERNAL_SERVER_ERROR, 'getTools requires getNodesService configuration')
             }
             const inputParamsType = getInputParamsType?.() || []
             const nodesService = getNodesService()

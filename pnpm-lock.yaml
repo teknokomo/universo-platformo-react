@@ -1070,7 +1070,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  packages/flowise-chatmessage/base:
+  packages/flowise-chatmessage-frt/base:
     dependencies:
       '@flowise/store':
         specifier: workspace:*
@@ -1142,6 +1142,43 @@ importers:
       tsdown:
         specifier: 'catalog:'
         version: 0.15.12(typescript@5.8.3)
+
+  packages/flowise-chatmessage-srv/base:
+    dependencies:
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
+      http-status-codes:
+        specifier: ^2.3.0
+        version: 2.3.0
+      uuid:
+        specifier: ^9.0.0
+        version: 9.0.1
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: 20.12.12
+        version: 20.12.12
+      '@types/uuid':
+        specifier: ^9.0.0
+        version: 9.0.8
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      typeorm:
+        specifier: 0.3.6
+        version: 0.3.6(ioredis@5.8.2)(mongodb@6.3.0(socks@2.8.7))(mysql2@3.11.3)(pg@8.11.1)(redis@4.7.1)(sqlite3@5.1.6(encoding@0.1.13))(ts-node@10.9.2(@swc/core@1.14.0(@swc/helpers@0.5.17))(@types/node@20.12.12)(typescript@5.8.3))
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
 
   packages/flowise-components:
     dependencies:
@@ -1765,6 +1802,9 @@ importers:
       '@universo/flowise-assistants-srv':
         specifier: workspace:*
         version: link:../flowise-assistants-srv/base
+      '@universo/flowise-chatmessage-srv':
+        specifier: workspace:*
+        version: link:../flowise-chatmessage-srv/base
       '@universo/flowise-credentials-srv':
         specifier: workspace:*
         version: link:../flowise-credentials-srv/base
@@ -3437,9 +3477,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@18.3.1)
-      '@flowise/chatmessage':
+      '@flowise/chatmessage-frt':
         specifier: workspace:*
-        version: link:../../flowise-chatmessage/base
+        version: link:../../flowise-chatmessage-frt/base
       '@mui/material':
         specifier: 5.15.0
         version: 5.15.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -25310,7 +25350,7 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.28.4
       '@floating-ui/react-dom': 2.1.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@mui/types': 7.4.7(@types/react@18.3.26)
+      '@mui/types': 7.4.8(@types/react@18.3.26)
       '@mui/utils': 5.17.1(@types/react@18.3.26)(react@18.3.1)
       '@popperjs/core': 2.11.8
       clsx: 2.1.1
@@ -25416,7 +25456,7 @@ snapshots:
       '@mui/base': 5.0.0-beta.27(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@mui/core-downloads-tracker': 5.18.0
       '@mui/system': 5.18.0(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1))(@types/react@18.3.26)(react@18.3.1)
-      '@mui/types': 7.4.7(@types/react@18.3.26)
+      '@mui/types': 7.4.8(@types/react@18.3.26)
       '@mui/utils': 5.17.1(@types/react@18.3.26)(react@18.3.1)
       '@types/react-transition-group': 4.4.12(@types/react@18.3.26)
       clsx: 2.1.1

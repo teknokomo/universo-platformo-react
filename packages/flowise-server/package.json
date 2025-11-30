@@ -79,6 +79,7 @@
         "@universo/clusters-srv": "workspace:*",
         "@universo/flowise-apikey-srv": "workspace:*",
         "@universo/flowise-assistants-srv": "workspace:*",
+        "@universo/flowise-chatmessage-srv": "workspace:*",
         "@universo/flowise-credentials-srv": "workspace:*",
         "@universo/flowise-leads-srv": "workspace:*",
         "@universo/flowise-tools-srv": "workspace:*",

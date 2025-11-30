@@ -15,57 +15,37 @@ import type { CanvasFlowResult } from '@universo/spaces-srv'
 // Re-export Assistant types from the extracted package
 export type { IAssistant, AssistantType } from '@universo/flowise-assistants-srv'
 
+// Re-export ChatMessage interfaces from the extracted package
+export type {
+    IChatMessage,
+    IChatMessageFeedback,
+    GetChatMessageParams
+} from '@universo/flowise-chatmessage-srv'
+
+// Message type - compatible with @universo/flowise-chatmessage-srv
 export type MessageType = 'apiMessage' | 'userMessage'
+
+// Chat type enum - compatible with @universo/flowise-chatmessage-srv
+export enum ChatType {
+    INTERNAL = 'INTERNAL',
+    EXTERNAL = 'EXTERNAL'
+}
+
+// Chat message rating type - compatible with @universo/flowise-chatmessage-srv
+export enum ChatMessageRatingType {
+    THUMBS_UP = 'THUMBS_UP',
+    THUMBS_DOWN = 'THUMBS_DOWN'
+}
 
 export enum MODE {
     QUEUE = 'queue',
     MAIN = 'main'
 }
 
-export enum ChatType {
-    INTERNAL = 'INTERNAL',
-    EXTERNAL = 'EXTERNAL'
-}
-
-export enum ChatMessageRatingType {
-    THUMBS_UP = 'THUMBS_UP',
-    THUMBS_DOWN = 'THUMBS_DOWN'
-}
 /**
  * Databases
  */
 export type CanvasId = string
-
-export interface IChatMessage {
-    id: string
-    role: MessageType
-    content: string
-    canvasId: string
-    sourceDocuments?: string
-    usedTools?: string
-    fileAnnotations?: string
-    agentReasoning?: string
-    fileUploads?: string
-    artifacts?: string
-    chatType: string
-    chatId: string
-    memoryType?: string
-    sessionId?: string
-    createdDate: Date
-    leadEmail?: string
-    action?: string | null
-    followUpPrompts?: string
-}
-
-export interface IChatMessageFeedback {
-    id: string
-    content?: string
-    canvasId: string
-    chatId: string
-    messageId: string
-    rating: ChatMessageRatingType
-    createdDate: Date
-}
 
 export interface ITool {
     id: string

@@ -2,18 +2,16 @@ import express from 'express'
 import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
 // apikeyRouter removed - now created via @universo/flowise-apikey-srv
 // assistantsRouter removed - now created via @universo/flowise-assistants-srv
+// canvasMessageRouter, feedbackRouter, internalCanvasMessagesRouter removed - now created via @universo/flowise-chatmessage-srv
 import attachmentsRouter from './attachments'
-import canvasMessageRouter from './canvas-messages'
 import componentsCredentialsRouter from './components-credentials'
 import componentsCredentialsIconRouter from './components-credentials-icon'
 import documentStoreRouter from './documentstore'
 import exportImportRouter from './export-import'
-import feedbackRouter from './feedback'
 import fetchLinksRouter from './fetch-links'
 import flowConfigRouter from './flow-config'
 import getUploadFileRouter from './get-upload-file'
 import getUploadPathRouter from './get-upload-path'
-import internalCanvasMessagesRouter from './internal-canvas-messages'
 import internalPredictionRouter from './internal-predictions'
 // leadsRouter removed - now created via @universo/flowise-leads-srv
 import loadPromptRouter from './load-prompts'
@@ -50,10 +48,24 @@ import { createVariablesService, createVariablesRouter, variablesErrorHandler } 
 import { createApikeyService, createApikeyRouter, apikeyErrorHandler } from '@universo/flowise-apikey-srv'
 import { createAssistantsService, createAssistantsController, createAssistantsRouter, assistantsErrorHandler } from '@universo/flowise-assistants-srv'
 import { createLeadsService, createLeadsRouter, leadsErrorHandler } from '@universo/flowise-leads-srv'
+import {
+    createChatMessagesService,
+    createChatMessagesController,
+    createChatMessagesRouter,
+    createFeedbackService,
+    createFeedbackController,
+    createFeedbackRouter,
+    createInternalCanvasMessagesRouter,
+    chatMessagesErrorHandler,
+    feedbackErrorHandler,
+    utilGetChatMessage
+} from '@universo/flowise-chatmessage-srv'
 // Universo Platformo | Bots
 import botsRouter from './bots'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
+// Universo Platformo | Mode enum for queue check
+import { MODE } from '../Interface'
 // Universo Platformo | Import auth middleware
 import { ensureAuth, createEnsureAuthWithRls } from '@universo/auth-srv'
 // Universo Platformo | AR.js publishing integration
@@ -68,7 +80,7 @@ import { getRunningExpressApp } from '../utils/getRunningExpressApp'
 import { encryptCredentialData, decryptCredentialData } from '../utils'
 import nodesService from '../services/nodes'
 import componentsCredentialsService from '../services/components-credentials'
-import { canvasServiceConfig } from '../services/spacesCanvas'
+import canvasService, { canvasServiceConfig } from '../services/spacesCanvas'
 import { createCanvasPublicRoutes } from '@universo/spaces-srv'
 import canvasStreamingRouter from './canvas-streaming'
 import { RateLimiterManager } from '../utils/rateLimit'
@@ -76,6 +88,7 @@ import { RateLimiterManager } from '../utils/rateLimit'
 import { ensureUnikMembershipResponse } from '../services/access-control'
 import { appConfig } from '../AppConfig'
 import { DocumentStore } from '../database/entities/DocumentStore'
+import { removeFilesFromStorage } from 'flowise-components'
 
 const router: ExpressRouter = express.Router()
 
@@ -168,6 +181,59 @@ const leadsService = createLeadsService({
 })
 const leadsRouter = createLeadsRouter(leadsService)
 
+// Create chat messages service, controller and router using new package with DI
+const chatMessagesService = createChatMessagesService({
+    getDataSource,
+    logger,
+    removeFilesFromStorage: async (canvasId: string, chatId: string) => {
+        await removeFilesFromStorage(canvasId, chatId)
+    },
+    getAbortController: () => {
+        const { abortControllerPool } = getRunningExpressApp()
+        return abortControllerPool
+    },
+    getQueueManager: () => getRunningExpressApp().queueManager,
+    isQueueMode: () => process.env.MODE === MODE.QUEUE
+})
+
+// aMonthAgo helper for chat message queries
+const aMonthAgo = (): Date => {
+    const date = new Date()
+    date.setMonth(date.getMonth() - 1)
+    return date
+}
+
+const chatMessagesController = createChatMessagesController({
+    chatMessagesService,
+    canvasService: {
+        getCanvasById: async (id: string) => {
+            const canvas = await canvasService.getCanvasById(id)
+            return canvas ? { id: canvas.id, flowData: canvas.flowData } : null
+        }
+    },
+    getAppServer: () => getRunningExpressApp(),
+    utilGetChatMessage: async (params) => {
+        return await utilGetChatMessage(params, getDataSource(), aMonthAgo)
+    },
+    aMonthAgo
+})
+const canvasMessagesRouter = createChatMessagesRouter({ chatMessagesController: chatMessagesController })
+const internalCanvasMessagesRouter = createInternalCanvasMessagesRouter({ chatMessagesController: chatMessagesController })
+
+// Create feedback service, controller and router using new package with DI
+const feedbackService = createFeedbackService({
+    getDataSource,
+    canvasService: {
+        getCanvasById: async (id: string) => {
+            const canvas = await canvasService.getCanvasById(id)
+            if (!canvas) return null
+            return { analytic: canvas.analytic }
+        }
+    }
+})
+const feedbackController = createFeedbackController({ feedbackService })
+const feedbackRouter = createFeedbackRouter({ feedbackController })
+
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
 
@@ -177,7 +243,7 @@ router.use('/ping', pingRouter)
 // Global route for assistants has been removed
 // router.use('/assistants', assistantsRouter)
 router.use('/attachments', attachmentsRouter)
-router.use('/canvas-messages', canvasMessageRouter)
+router.use('/canvas-messages', canvasMessagesRouter)
 router.use('/components-credentials', componentsCredentialsRouter)
 router.use('/components-credentials-icon', componentsCredentialsIconRouter)
 // Global route for credentials has been removed
@@ -487,6 +553,12 @@ router.use(assistantsErrorHandler)
 
 // Leads-specific error handler
 router.use(leadsErrorHandler)
+
+// ChatMessages-specific error handler
+router.use(chatMessagesErrorHandler)
+
+// Feedback-specific error handler
+router.use(feedbackErrorHandler)
 
 // Global error handler for debugging middleware issues (should be last)
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {

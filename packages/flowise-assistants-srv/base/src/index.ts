@@ -33,8 +33,4 @@ export {
 } from './controllers'
 
 // Routes
-export {
-    createAssistantsRouter,
-    assistantsErrorHandler,
-    type AssistantsRouterConfig
-} from './routes'
+export { createAssistantsRouter, assistantsErrorHandler, type AssistantsRouterConfig } from './routes'

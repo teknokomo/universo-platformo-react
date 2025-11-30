@@ -13,12 +13,7 @@ export interface AssistantsRouterConfig {
 /**
  * Error handler for assistants routes
  */
-export const assistantsErrorHandler: ErrorRequestHandler = (
-    err: Error,
-    _req: Request,
-    res: Response,
-    next: NextFunction
-) => {
+export const assistantsErrorHandler: ErrorRequestHandler = (err: Error, _req: Request, res: Response, next: NextFunction) => {
     if (err instanceof AssistantsServiceError || err instanceof AssistantsControllerError) {
         return res.status(err.statusCode).json({
             error: err.message
