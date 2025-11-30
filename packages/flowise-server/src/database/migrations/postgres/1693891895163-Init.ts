@@ -4,6 +4,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * Initial migration for Flowise core tables.
  * NOTE: Tool table creation moved to @universo/flowise-tools-srv
  * NOTE: Credential table creation moved to @universo/flowise-credentials-srv
+ * NOTE: ChatMessage table creation moved to @universo/flowise-chatmessage-srv
  */
 export class Init1693891895163 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
@@ -21,23 +22,9 @@ export class Init1693891895163 implements MigrationInterface {
                 CONSTRAINT "PK_3c7cea7d047ac4b91764574cdbf" PRIMARY KEY (id)
             );`
         )
-        await queryRunner.query(
-            `CREATE TABLE IF NOT EXISTS chat_message (
-                id uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "role" varchar NOT NULL,
-                "canvas_id" uuid NOT NULL,
-                "content" text NOT NULL,
-                "sourceDocuments" varchar NULL,
-                "createdDate" timestamp NOT NULL DEFAULT now(),
-                CONSTRAINT "PK_3cc0d85193aade457d3077dd06b" PRIMARY KEY (id)
-            );`
-        )
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_chat_message_canvas_id" ON chat_message USING btree ("canvas_id");`)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_chat_message_canvas_id"`)
         await queryRunner.query(`DROP TABLE chat_flow`)
-        await queryRunner.query(`DROP TABLE chat_message`)
     }
 }

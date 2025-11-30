@@ -1,5 +1,1 @@
-export {
-    createAssistantsRouter,
-    assistantsErrorHandler,
-    type AssistantsRouterConfig
-} from './assistantsRouter'
+export { createAssistantsRouter, assistantsErrorHandler, type AssistantsRouterConfig } from './assistantsRouter'

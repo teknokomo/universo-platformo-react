@@ -25,6 +25,140 @@
 
 ## November 2025
 
+### 2025-11-29: ChatMessage Full Migration Complete ✅
+
+**Summary**: Completed full migration of ChatMessage functionality to `@universo/flowise-chatmessage-srv`. All legacy code deleted from flowise-server. Build successful: 38/38 packages.
+
+**Major Changes**:
+
+1. **Created Utility Wrappers in chatmessage-srv**:
+   - `utilAddChatMessage(chatMessage, dataSource)` - for buildCanvasFlow compatibility
+   - `utilGetChatMessage(params, dataSource, aMonthAgo)` - for stats service
+   - `utilAddChatMessageFeedback`, `utilGetChatMessageFeedback`, `utilUpdateChatMessageFeedback`
+   - Created `src/routes/internalCanvasMessagesRouter.ts` for internal API
+
+2. **Updated flowise-server routes/index.ts**:
+   - DI-based service/controller/router creation
+   - Imports `removeFilesFromStorage` from `flowise-components`
+   - Uses `process.env.MODE === MODE.QUEUE` for queue mode check
+   - Imports `canvasService` (not just config) for getCanvasById
+
+3. **Deleted from flowise-server** (10 migration files):
+   - `1693996694528-ModifyChatMessage.ts`
+   - `1699481607341-AddUsedToolsToChatMessage.ts`
+   - `1700271021237-AddFileAnnotationsToChatMessage.ts`
+   - `1701788586491-AddFileUploadsToChatMessage.ts`
+   - `1707213601923-AddFeedback.ts`
+   - `1711538016098-AddLeadToChatMessage.ts`
+   - `1714679514451-AddAgentReasoningToChatMessage.ts`
+   - `1721078251523-AddActionToChatMessage.ts`
+   - `1726156258465-AddArtifactsToChatMessage.ts`
+   - `1726666309552-AddFollowUpPrompts.ts`
+   - Kept `1710497452584-FieldTypes.ts` (only assistant credential varchar→uuid)
+
+4. **Deleted Legacy Directories** (services/controllers/routes):
+   - `src/services/canvas-messages/`, `src/services/feedback/`
+   - `src/controllers/canvas-messages/`, `src/controllers/feedback/`
+   - `src/routes/canvas-messages/`, `src/routes/feedback/`, `src/routes/internal-canvas-messages/`
+
+5. **Deleted Legacy Utils Files**:
+   - `addChatMessage.ts`, `getChatMessage.ts`
+   - `addChatMessageFeedback.ts`, `getChatMessageFeedback.ts`, `updateChatMessageFeedback.ts`
+
+6. **Fixed export-import/index.ts**:
+   - Removed canvasMessagesService dependency
+   - Uses direct repository queries via dataSource
+
+**Build**: 38/38 packages successful ✅
+
+---
+
+### 2025-11-29: ChatMessage Package QA Fixes ✅
+
+**Summary**: Fixed QA issues found in ChatMessage extraction. Added consolidation comments to 9 legacy migrations. Re-exported interfaces from chatmessage-srv package. Changed MessageType from enum to type alias for compatibility.
+
+**Changes Made**:
+1. **flowise-server/Interface.ts**: Re-export `IChatMessage`, `IChatMessageFeedback`, `GetChatMessageParams` from `@universo/flowise-chatmessage-srv`
+2. **chatmessage-srv/Interface.ts**: Changed `MessageType` from enum to string literal union type for flowise-server compatibility
+3. **9 Legacy Migrations**: Added LEGACY consolidation comments to all chat_message-related migrations in flowise-server
+
+**Legacy Migrations Marked**:
+- `1693996694528-ModifyChatMessage.ts`
+- `1699481607341-AddUsedToolsToChatMessage.ts`
+- `1700271021237-AddFileAnnotationsToChatMessage.ts`
+- `1701788586491-AddFileUploadsToChatMessage.ts`
+- `1707213601923-AddFeedback.ts`
+- `1710497452584-FieldTypes.ts`
+- `1714679514451-AddAgentReasoningToChatMessage.ts`
+- `1721078251523-AddActionToChatMessage.ts`
+- `1726156258465-AddArtifactsToChatMessage.ts`
+- `1726666309552-AddFollowUpPrompts.ts`
+
+**Design Notes**:
+- Enums (ChatType, ChatMessageRatingType) kept locally in flowise-server because TypeScript doesn't allow clean re-export of runtime values with type usage
+- Interfaces successfully re-exported as types
+- flowise-server has extended IReactFlowNode/IReactFlowObject with more fields than chatmessage-srv (position, handleBounds, etc.)
+
+**Build**: 38/38 packages successful ✅
+
+---
+
+### 2025-11-29: ChatMessage Package Extraction ✅
+
+**Summary**: Extracted ChatMessage/Feedback functionality from flowise-server into separate package `@universo/flowise-chatmessage-srv`. Renamed frontend package `@flowise/chatmessage` → `@flowise/chatmessage-frt`. Full DI pattern with factory functions. Build successful: 38/38 packages.
+
+**Packages Created/Modified**:
+- `packages/flowise-chatmessage-srv/base/` - Backend package with full DI pattern
+- `packages/flowise-chatmessage-frt/base/` - Frontend package (renamed)
+
+**Key Design Decisions**:
+1. **DI Factory Pattern**: All components use factory functions:
+   - `createChatMessagesService(config)` - with DataSource, logger, abortController, queueManager
+   - `createFeedbackService(dataSource)` - TypeORM repository pattern
+   - `createChatMessagesController(service)` - Express request handlers
+   - `createFeedbackController(service)` - CRUD handlers
+   - `createChatMessagesRouter(controller)` - Express Router
+   - `createFeedbackRouter(controller)` - Express Router
+2. **Consolidated Migration**: Single `1693891895163-AddChatMessage.ts` with IF NOT EXISTS clauses for both tables
+3. **Full Type Exports**: MessageType, ChatType, ChatMessageRatingType enums; IChatMessage, IChatMessageFeedback, GetChatMessageParams, IReactFlowNode, IReactFlowObject interfaces
+4. **Zod Validation**: createFeedbackSchema, updateFeedbackSchema for feedback endpoints
+
+**Package Structure**:
+```
+flowise-chatmessage-srv/base/
+├── src/
+│   ├── Interface.ts (types & enums)
+│   ├── database/
+│   │   ├── entities/ (ChatMessage, ChatMessageFeedback)
+│   │   └── migrations/postgres/ (AddChatMessage)
+│   ├── services/ (chatMessagesService, feedbackService)
+│   ├── controllers/ (chatMessagesController, feedbackController)
+│   ├── routes/ (chatMessagesRouter, feedbackRouter)
+│   └── index.ts
+├── README.md, README-RU.md
+```
+
+**flowise-server Integration**:
+- package.json: Added @universo/flowise-chatmessage-srv dependency
+- entities/index.ts: Imports entities from new package
+- migrations/index.ts: Added chatMessageMigrations after Init
+- Init.ts: Removed chat_message table creation (moved to package)
+- All service/controller files updated to import types from new package
+
+**Build Fixes Applied**:
+1. Added IReactFlowNode, IReactFlowObject interfaces to Interface.ts
+2. Changed feedbackTypeFilters → feedbackTypes in controller calls
+3. Added chatMessageEntities export to entities/index.ts
+4. Fixed rating type casting in feedbackService.updateFeedback
+
+**Files Deleted from flowise-server**:
+- `src/database/entities/ChatMessage.ts`
+- `src/database/entities/ChatMessageFeedback.ts`
+
+**Build**: 38/38 packages successful ✅
+
+---
+
 ### 2025-11-29: Leads Package Extraction ✅
 
 **Summary**: Extracted Leads functionality from flowise-server into separate packages `@universo/flowise-leads-srv` and `@universo/flowise-leads-frt`. Fixed critical bugs in ChatMessage.jsx and Analytics.jsx where leadsApi was undefined. Build successful: 46/46 packages.

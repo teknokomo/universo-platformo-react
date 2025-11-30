@@ -7,10 +7,7 @@ import type { AssistantType } from '../Interface'
  * Error class for controller errors
  */
 export class AssistantsControllerError extends Error {
-    constructor(
-        public readonly statusCode: number,
-        message: string
-    ) {
+    constructor(public readonly statusCode: number, message: string) {
         super(message)
         this.name = 'AssistantsControllerError'
     }

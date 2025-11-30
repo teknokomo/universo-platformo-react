@@ -37,7 +37,6 @@ import {
 } from '../Interface'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { databaseEntities } from '.'
-import { ChatMessage } from '../database/entities/ChatMessage'
 import { Variable } from '@universo/flowise-variables-srv'
 import { getRunningExpressApp } from './getRunningExpressApp'
 import {
@@ -56,7 +55,7 @@ import {
 } from '.'
 import { validateCanvasApiKey } from './validateKey'
 import logger from './logger'
-import { utilAddChatMessage } from './addChatMesage'
+import { utilAddChatMessage, ChatMessage } from '@universo/flowise-chatmessage-srv'
 import { buildAgentGraph } from './buildAgentGraph'
 import { getErrorMessage } from '../errors/utils'
 import { FLOWISE_METRIC_COUNTERS, FLOWISE_COUNTER_STATUS, IMetricsProvider } from '../Interface.Metrics'

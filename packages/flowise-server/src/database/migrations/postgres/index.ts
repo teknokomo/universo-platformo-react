@@ -1,33 +1,34 @@
 import { Init1693891895163 } from './1693891895163-Init'
 import { ModifyChatFlow1693995626941 } from './1693995626941-ModifyChatFlow'
-import { ModifyChatMessage1693996694528 } from './1693996694528-ModifyChatMessage'
+// ModifyChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
 // ModifyCredential removed - consolidated into @universo/flowise-credentials-srv
 // ModifyTool removed - consolidated into @universo/flowise-tools-srv
 import { AddApiConfig1694099183389 } from './1694099183389-AddApiConfig'
 import { AddAnalytic1694432361423 } from './1694432361423-AddAnalytic'
-import { AddChatHistory1694658756136 } from './1694658756136-AddChatHistory'
+// AddChatHistory removed - consolidated into @universo/flowise-chatmessage-srv
 // AddAssistantEntity removed - consolidated into @universo/flowise-assistants-srv
-import { AddUsedToolsToChatMessage1699481607341 } from './1699481607341-AddUsedToolsToChatMessage'
+// AddUsedToolsToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
 import { AddCategoryToChatFlow1699900910291 } from './1699900910291-AddCategoryToChatFlow'
-import { AddFileAnnotationsToChatMessage1700271021237 } from './1700271021237-AddFileAnnotationsToChatMessage'
-import { AddFileUploadsToChatMessage1701788586491 } from './1701788586491-AddFileUploadsToChatMessage'
+// AddFileAnnotationsToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
+// AddFileUploadsToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
 // AddVariableEntity removed - consolidated into @universo/flowise-variables-srv
 import { AddSpeechToText1706364937060 } from './1706364937060-AddSpeechToText'
-import { AddFeedback1707213601923 } from './1707213601923-AddFeedback'
+// AddFeedback removed - consolidated into @universo/flowise-chatmessage-srv
 import { AddUpsertHistoryEntity1709814301358 } from './1709814301358-AddUpsertHistoryEntity'
-import { FieldTypes1710497452584 } from './1710497452584-FieldTypes'
+// FieldTypes removed - consolidated into @universo/flowise-assistants-srv
 // AddLead removed - consolidated into @universo/flowise-leads-srv
-import { AddLeadToChatMessage1711538016098 } from './1711538016098-AddLeadToChatMessage'
+// AddLeadToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
 import { AddVectorStoreConfigToDocStore1715861032479 } from './1715861032479-AddVectorStoreConfigToDocStore'
 import { leadsMigrations } from '@universo/flowise-leads-srv'
+import { chatMessageMigrations } from '@universo/flowise-chatmessage-srv'
 import { AddDocumentStore1711637331047 } from './1711637331047-AddDocumentStore'
-import { AddAgentReasoningToChatMessage1714679514451 } from './1714679514451-AddAgentReasoningToChatMessage'
+// AddAgentReasoningToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
 import { AddTypeToChatFlow1716300000000 } from './1716300000000-AddTypeToChatFlow'
 // AddApiKey removed - consolidated into @universo/flowise-apikey-srv
-import { AddActionToChatMessage1721078251523 } from './1721078251523-AddActionToChatMessage'
+// AddActionToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
 import { AddCustomTemplate1725629836652 } from './1725629836652-AddCustomTemplate'
-import { AddArtifactsToChatMessage1726156258465 } from './1726156258465-AddArtifactsToChatMessage'
-import { AddFollowUpPrompts1726666309552 } from './1726666309552-AddFollowUpPrompts'
+// AddArtifactsToChatMessage removed - consolidated into @universo/flowise-chatmessage-srv
+// AddFollowUpPrompts removed - consolidated into @universo/flowise-chatmessage-srv
 // AddTypeToAssistant removed - consolidated into @universo/flowise-assistants-srv
 import { uniksMigrations } from '@universo/uniks-srv'
 import { toolsMigrations } from '@universo/flowise-tools-srv'
@@ -47,34 +48,23 @@ import { publishMigrations } from '@universo/publish-srv'
 
 export const postgresMigrations = [
     Init1693891895163,
-    ...toolsMigrations, // Must come right after Init - creates tool table
-    ...credentialsMigrations, // Right after tools - creates credential table
+    ...chatMessageMigrations, // Creates chat_message and chat_message_feedback tables - must come right after Init
+    ...toolsMigrations, // Creates tool table
+    ...credentialsMigrations, // Creates credential table
     ModifyChatFlow1693995626941,
-    ModifyChatMessage1693996694528,
     AddApiConfig1694099183389,
     AddAnalytic1694432361423,
-    AddChatHistory1694658756136,
     ...assistantsMigrations, // Creates assistant table with type column
-    AddUsedToolsToChatMessage1699481607341,
     AddCategoryToChatFlow1699900910291,
-    AddFileAnnotationsToChatMessage1700271021237,
     ...variablesMigrations, // Creates variable table
-    AddFileUploadsToChatMessage1701788586491,
     AddSpeechToText1706364937060,
     AddUpsertHistoryEntity1709814301358,
-    AddFeedback1707213601923,
-    FieldTypes1710497452584,
     AddDocumentStore1711637331047,
     ...leadsMigrations, // Creates lead table
-    AddLeadToChatMessage1711538016098, // Modifies chat_message table - stays in flowise-server
-    AddAgentReasoningToChatMessage1714679514451,
     AddTypeToChatFlow1716300000000,
     AddVectorStoreConfigToDocStore1715861032479,
     ...apikeyMigrations, // Creates apikey table
-    AddActionToChatMessage1721078251523,
     AddCustomTemplate1725629836652,
-    AddArtifactsToChatMessage1726156258465,
-    AddFollowUpPrompts1726666309552,
     ...uniksMigrations, // Adds unik_id to tool and other Flowise tables
     ...profileMigrations,
     ...metaversesMigrations,

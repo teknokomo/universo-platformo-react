@@ -6,42 +6,35 @@
 
 ---
 
-## Current Focus: Leads Package Extraction Complete ✅ (2025-11-29)
+## Current Focus: ChatMessage Full Migration Complete ✅ (2025-11-29)
 
-**Status**: All implementation complete. Build 46/46 successful. Awaiting user testing.
+**Status**: All legacy code deleted. Build 38/38 successful. Database reset required for testing.
 
-**Recent Completion**:
-- Extracted Leads functionality into `@universo/flowise-leads-srv` and `@universo/flowise-leads-frt`
-- DI factory pattern: `createLeadsService`, `createLeadsRouter`
-- Fixed critical bugs: leadsApi was undefined in ChatMessage.jsx and Analytics.jsx
-- Migration split: AddLead in new package, AddLeadToChatMessage stays in flowise-server
-- Cleaned up legacy flowise-ui/src/api/lead.js
+**Migration Complete**:
+- All ChatMessage functionality now in `@universo/flowise-chatmessage-srv`
+- Deleted 10 legacy migration files from flowise-server
+- Deleted all legacy services, controllers, routes, utils
+- Created utility wrappers for backward compatibility
 
-**Packages Created**:
+**Key Changes**:
+- `routes/index.ts` - DI-based service/controller/router creation
+- `buildCanvasFlow.ts` - imports utilAddChatMessage from chatmessage-srv
+- `stats/index.ts` - imports utilGetChatMessage from chatmessage-srv
+- `export-import/index.ts` - direct repository queries (no canvasMessagesService)
 
-1. **@universo/flowise-leads-srv** (Backend)
-   - DI factory pattern: `createLeadsService(config)`, `createLeadsRouter(service)`
-   - TypeORM Lead entity with canvasId (not unikId)
-   - Migration: `1710832137905-AddLead.ts`
-   - Zod validation for CreateLeadBody
+**Kept in flowise-server**:
+- `1710497452584-FieldTypes.ts` - only assistant credential varchar→uuid change
 
-2. **@universo/flowise-leads-frt** (Frontend)
-   - Minimal source-only package (namespace exports only)
-   - Components remain in flowise-template-mui
+**Next Steps for Testing**:
+1. Drop existing database (test project, no production data)
+2. Run fresh migrations
+3. Test chat functionality end-to-end
 
-**API Client**:
-- LeadApi class with getCanvasLeads(), addLead() methods
-- leadQueryKeys factory for TanStack Query
-
-**Bug Fixes Applied**:
-1. ChatMessage.jsx: Added `const leadsApi = api.leads`
-2. Analytics.jsx: Replaced `import leadsApi from '@/api/lead'` with `@universo/api-client`
-
-**Build**: ✅ 46/46 packages
+**Build**: ✅ 38/38 packages
 
 ---
 
-## Previous: Assistants Package Extraction ✅ (2025-11-28)
+## Previous: ChatMessage Package QA Fixes ✅ (2025-11-29)
 
 Moved to progress.md
 

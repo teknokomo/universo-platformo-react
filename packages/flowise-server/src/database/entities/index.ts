@@ -1,5 +1,4 @@
-import { ChatMessage } from './ChatMessage'
-import { ChatMessageFeedback } from './ChatMessageFeedback'
+import { ChatMessage, ChatMessageFeedback } from '@universo/flowise-chatmessage-srv'
 import { Credential } from '@universo/flowise-credentials-srv'
 import { Tool } from '@universo/flowise-tools-srv'
 import { Variable } from '@universo/flowise-variables-srv'

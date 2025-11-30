@@ -1,7 +1,6 @@
 import { removeFolderFromStorage } from 'flowise-components'
 import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../../Interface.Metrics'
-import { ChatMessage } from '../../database/entities/ChatMessage'
-import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback'
+import { ChatMessage, ChatMessageFeedback } from '@universo/flowise-chatmessage-srv'
 import { UpsertHistory } from '../../database/entities/UpsertHistory'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import documentStoreService from '../documentstore'
