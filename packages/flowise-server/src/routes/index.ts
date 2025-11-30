@@ -185,9 +185,7 @@ const leadsRouter = createLeadsRouter(leadsService)
 const chatMessagesService = createChatMessagesService({
     getDataSource,
     logger,
-    removeFilesFromStorage: async (canvasId: string, chatId: string) => {
-        await removeFilesFromStorage(canvasId, chatId)
-    },
+    removeFilesFromStorage,
     getAbortController: () => {
         const { abortControllerPool } = getRunningExpressApp()
         return abortControllerPool
@@ -212,9 +210,7 @@ const chatMessagesController = createChatMessagesController({
         }
     },
     getAppServer: () => getRunningExpressApp(),
-    utilGetChatMessage: async (params) => {
-        return await utilGetChatMessage(params, getDataSource(), aMonthAgo)
-    },
+    utilGetChatMessage: (params) => utilGetChatMessage(params, getDataSource(), aMonthAgo),
     aMonthAgo
 })
 const canvasMessagesRouter = createChatMessagesRouter({ chatMessagesController: chatMessagesController })

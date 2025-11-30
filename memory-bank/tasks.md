@@ -70,7 +70,7 @@
 - [x] 6.7 Deleted src/routes/internal-canvas-messages/
 
 **Phase 7: Delete Legacy Utils** ✅ COMPLETE
-- [x] 7.1 Deleted src/utils/addChatMesage.ts
+- [x] 7.1 Deleted src/utils/addChatMessage.ts
 - [x] 7.2 Deleted src/utils/getChatMessage.ts
 - [x] 7.3 Deleted src/utils/addChatMessageFeedback.ts
 - [x] 7.4 Deleted src/utils/getChatMessageFeedback.ts

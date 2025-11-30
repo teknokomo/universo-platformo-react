@@ -62,7 +62,7 @@
    - `src/routes/canvas-messages/`, `src/routes/feedback/`, `src/routes/internal-canvas-messages/`
 
 5. **Deleted Legacy Utils Files**:
-   - `addChatMesage.ts`, `getChatMessage.ts`
+   - `addChatMessage.ts`, `getChatMessage.ts`
    - `addChatMessageFeedback.ts`, `getChatMessageFeedback.ts`, `updateChatMessageFeedback.ts`
 
 6. **Fixed export-import/index.ts**:
